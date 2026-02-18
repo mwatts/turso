@@ -1,7 +1,7 @@
 use crate::translate::expr::{walk_expr, walk_expr_mut, WalkControl};
 use crate::translate::plan::{ColumnUsedMask, JoinedTable, TableReferences};
 use crate::translate::planner::ROWID_STRS;
-use crate::Result;
+use crate::{LimboError, Result};
 use turso_parser::ast;
 use turso_parser::ast::TableInternalId;
 
@@ -77,5 +77,44 @@ pub fn single_table_column_usage(expr: &ast::Expr) -> Option<(TableInternalId, C
         table_id.map(|id| (id, columns))
     } else {
         None
+    }
+}
+
+/// Resolves the identifiers in an expression in the context of [table],
+/// or an error if any of the columns cannot be resolved.
+pub fn resolve_expr_names(
+    expr: &ast::Expr,
+    database: Option<usize>,
+    table: &JoinedTable,
+) -> Result<ast::Expr> {
+    let mut expr = expr.clone();
+    let mut unknown_col = None;
+
+    let _ = walk_expr_mut(&mut expr, &mut |e: &mut ast::Expr| -> Result<WalkControl> {
+        if let ast::Expr::Id(name) = e {
+            let Some(col_idx) = table.columns().iter().position(|col| {
+                col.name
+                    .as_ref()
+                    .is_some_and(|col_name| col_name == name.as_str())
+            }) else {
+                unknown_col = Some(name.clone());
+                return Ok(WalkControl::SkipChildren);
+            };
+            *e = ast::Expr::Column {
+                table: table.internal_id,
+                database,
+                column: col_idx,
+                is_rowid_alias: false,
+            }
+        }
+        Ok(WalkControl::Continue)
+    });
+
+    if let Some(unknown_col) = unknown_col {
+        Err(LimboError::ParseError(format!(
+            "unknown column `{unknown_col}` in expression index"
+        )))
+    } else {
+        Ok(expr)
     }
 }

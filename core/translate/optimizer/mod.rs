@@ -1,3 +1,4 @@
+use crate::translate::expression_index::{resolve_expr_names, single_table_column_usage};
 use crate::{
     function::Deterministic,
     index_method::IndexMethodCostEstimate,
@@ -585,7 +586,7 @@ fn optimize_update_plan(
         &mut plan.offset,
     )?;
 
-    let table_ref = &mut plan.table_references.joined_tables_mut()[0];
+    let table_ref = &plan.table_references.joined_tables()[0];
 
     // An ephemeral table is required if:
     // 1. The UPDATE modifies any column that is present in the key of the btree used to iterate over the table.
@@ -617,10 +618,7 @@ fn optimize_update_plan(
 
         // REPLACE mode requires ephemeral table because REPLACE deletes conflicting rows,
         // which can corrupt the iteration order when iterating via an index.
-        if matches!(
-            plan.or_conflict,
-            Some(turso_parser::ast::ResolveType::Replace)
-        ) {
+        if matches!(plan.or_conflict, Some(ast::ResolveType::Replace)) {
             break 'requires true;
         }
 
@@ -641,9 +639,30 @@ fn optimize_update_plan(
             break 'requires false;
         };
 
-        plan.set_clauses
-            .iter()
-            .any(|(idx, _)| index.columns.iter().any(|c| c.pos_in_table == *idx))
+        for (set_clause_col_idx, _) in plan.set_clauses.iter() {
+            let updated_cols_mask = {
+                let mut mask = ColumnUsedMask::default();
+                mask.set(*set_clause_col_idx);
+                mask
+            };
+
+            for c in index.columns.iter() {
+                if let Some(ref expr) = c.expr {
+                    let resolved = match resolve_expr_names(expr, None, table_ref) {
+                        Ok(r) => r,
+                        _ => break 'requires false,
+                    };
+                    if let Some((_, expr_idx_cols_mask)) = single_table_column_usage(&resolved) {
+                        if expr_idx_cols_mask.contains_all_set_bits_of(&updated_cols_mask) {
+                            break 'requires true;
+                        }
+                    }
+                } else if c.pos_in_table == *set_clause_col_idx {
+                    break 'requires true;
+                }
+            }
+        }
+        break 'requires false;
     };
 
     if !requires_ephemeral_table {
@@ -1953,8 +1972,8 @@ pub enum AlwaysTrueOrFalse {
 }
 
 /**
-  Helper trait for expressions that can be optimized
-  Implemented for ast::Expr
+Helper trait for expressions that can be optimized
+Implemented for ast::Expr
 */
 pub trait Optimizable {
     // if the expression is a constant expression that, when evaluated as a condition, is always true or false

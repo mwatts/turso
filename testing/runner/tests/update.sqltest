@@ -876,6 +876,24 @@ expect {
     ok
 }
 
+# This tests that the "ephemeral table" plan is correctly applied
+# if the updated column is used in an expression index.
+@skip-if mvcc "Expression indexes are not currently enabled in MVCC"
+test update-row-in-expression-index {
+    CREATE TABLE t(id, j);
+    CREATE INDEX i ON t(json_extract(j, '$.x'));
+    INSERT INTO t VALUES (1, '{"x":1}'), (2, '{"x":1}'), (3, '{"x":1}'), (4, '{"x":2}');
+    UPDATE t SET j = '{"x":99}' WHERE json_extract(j, '$.x') = 1;
+
+    SELECT * FROM T;
+}
+expect {
+    1|{"x":99}
+    2|{"x":99}
+    3|{"x":99}
+    4|{"x":2}
+}
+
 # https://github.com/tursodatabase/turso/issues/5175
 # UPDATE SET with scalar subquery
 test update-set-subquery {
