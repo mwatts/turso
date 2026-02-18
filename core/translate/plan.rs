@@ -859,6 +859,11 @@ impl TableReferences {
         &self.outer_query_refs
     }
 
+    /// Returns a mutable reference to the [OuterQueryReference]s in the query plan.
+    pub fn outer_query_refs_mut(&mut self) -> &mut [OuterQueryReference] {
+        &mut self.outer_query_refs
+    }
+
     /// Returns an immutable reference to the [OuterQueryReference] with the given internal ID.
     pub fn find_outer_query_ref_by_internal_id(
         &self,

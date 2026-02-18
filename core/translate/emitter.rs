@@ -25,7 +25,7 @@ use super::plan::{
     UpdatePlan,
 };
 use super::select::emit_simple_count;
-use super::subquery::emit_from_clause_subqueries;
+use super::subquery::{emit_from_clause_subqueries, emit_from_clause_subquery};
 use crate::error::{
     SQLITE_CONSTRAINT_CHECK, SQLITE_CONSTRAINT_PRIMARYKEY, SQLITE_CONSTRAINT_UNIQUE,
 };
@@ -2254,6 +2254,18 @@ fn emit_program_for_update(
     } else {
         UpdateRowSource::Normal
     });
+
+    // Emit CTE outer query references (e.g. WITH c(v) AS (SELECT 9) UPDATE t SET a = c.v).
+    // CTEs are stored as outer query refs and need their coroutines emitted before the main loop.
+    for outer_ref in plan.table_references.outer_query_refs_mut() {
+        if let Table::FromClauseSubquery(from_clause_subquery) = &mut outer_ref.table {
+            let from_clause_subquery = Arc::make_mut(from_clause_subquery);
+            let result_columns_start =
+                emit_from_clause_subquery(program, from_clause_subquery.plan.as_mut(), &mut t_ctx)?;
+            from_clause_subquery.result_columns_start_reg = Some(result_columns_start);
+            program.set_subquery_result_reg(outer_ref.internal_id, result_columns_start);
+        }
+    }
 
     let join_order = plan
         .table_references
