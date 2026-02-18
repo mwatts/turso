@@ -1062,12 +1062,26 @@ fn query_pragma(
         }
         PragmaName::IntegrityCheck => {
             let max_errors = parse_max_errors_from_value(&value);
-            translate_integrity_check(schema, program, resolver, max_errors)?;
+            translate_integrity_check(
+                schema,
+                program,
+                resolver,
+                &connection,
+                database_id,
+                max_errors,
+            )?;
             Ok(TransactionMode::Read)
         }
         PragmaName::QuickCheck => {
             let max_errors = parse_max_errors_from_value(&value);
-            translate_quick_check(schema, program, resolver, max_errors)?;
+            translate_quick_check(
+                schema,
+                program,
+                resolver,
+                &connection,
+                database_id,
+                max_errors,
+            )?;
             Ok(TransactionMode::Read)
         }
         PragmaName::UnstableCaptureDataChangesConn => {
