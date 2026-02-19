@@ -9,6 +9,7 @@ repository.workspace = true
 
 [features]
 encryption = ["turso_core/encryption"]
+fts = ["turso_core/fts"]
 
 [lib]
 doc = false
