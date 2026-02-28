@@ -289,6 +289,7 @@ pub struct TursoDatabase {
     config: TursoDatabaseConfig,
     open_state: Mutex<TursoDatabaseOpenState>,
     db: Arc<Mutex<Option<Arc<Database>>>>,
+    io: Mutex<Option<Arc<dyn turso_core::IO>>>,
 }
 
 /// Phase tracking for async TursoDatabase opening
@@ -347,7 +348,7 @@ pub enum TursoError {
     DatabaseFull(String),
     NotAdb(String),
     Corrupt(String),
-    IoError(std::io::ErrorKind),
+    IoError(std::io::ErrorKind, &'static str),
 }
 
 impl TursoStatusCode {
@@ -385,7 +386,7 @@ impl TursoError {
             TursoError::DatabaseFull(_) => capi::c::turso_status_code_t::TURSO_DATABASE_FULL,
             TursoError::NotAdb(_) => capi::c::turso_status_code_t::TURSO_NOTADB,
             TursoError::Corrupt(_) => capi::c::turso_status_code_t::TURSO_CORRUPT,
-            TursoError::IoError(_) => capi::c::turso_status_code_t::TURSO_IOERR,
+            TursoError::IoError(..) => capi::c::turso_status_code_t::TURSO_IOERR,
         }
     }
 }
@@ -403,7 +404,7 @@ impl Display for TursoError {
             | TursoError::DatabaseFull(s)
             | TursoError::NotAdb(s)
             | TursoError::Corrupt(s) => f.write_str(s),
-            TursoError::IoError(kind) => write!(f, "I/O error: {kind}"),
+            TursoError::IoError(kind, op) => write!(f, "I/O error ({op}): {kind}"),
         }
     }
 }
@@ -433,8 +434,8 @@ impl From<LimboError> for TursoError {
             LimboError::BusySnapshot => TursoError::BusySnapshot(
                 "database snapshot is stale, rollback and retry the transaction".to_string(),
             ),
-            LimboError::CompletionError(turso_core::CompletionError::IOError(kind)) => {
-                TursoError::IoError(kind)
+            LimboError::CompletionError(turso_core::CompletionError::IOError(kind, op)) => {
+                TursoError::IoError(kind, op)
             }
             _ => TursoError::Error(value.to_string()),
         }
@@ -535,6 +536,16 @@ impl TursoDatabase {
             None => Err(TursoError::Misuse("database must be opened".to_string())),
         }
     }
+
+    /// method to get [turso_core::IO] instance which can be useful for code which integrates with sdk-kit
+    pub fn io(&self) -> Result<Arc<dyn turso_core::IO>, TursoError> {
+        let io = self.io.lock().unwrap();
+        match &*io {
+            Some(io) => Ok(io.clone()),
+            None => Err(TursoError::Misuse("io must be opened".to_string())),
+        }
+    }
+
     /// create database holder struct but do not initialize it yet
     /// this can be useful for some environments, where IO operations must be executed in certain fashion (and open do IO under the hood)
     pub fn new(config: TursoDatabaseConfig) -> Arc<Self> {
@@ -542,8 +553,71 @@ impl TursoDatabase {
             config,
             db: Arc::new(Mutex::new(None)),
             open_state: Mutex::new(TursoDatabaseOpenState::new()),
+            io: Mutex::new(None),
         })
     }
+
+    /// Get the config IO or open a new vfs IO from the config
+    fn open_vfs_io(&self) -> Result<Arc<dyn turso_core::IO>, TursoError> {
+        let io: Arc<dyn turso_core::IO + 'static> = if let Some(io) = &self.config.io {
+            io.clone()
+        } else {
+            match self.config.vfs.as_deref() {
+                Some("memory") => Arc::new(turso_core::MemoryIO::new()),
+                Some("syscall") => {
+                    #[cfg(all(target_family = "unix", not(miri)))]
+                    {
+                        Arc::new(turso_core::UnixIO::new().map_err(|e| {
+                            TursoError::Error(format!(
+                                "unable to create generic syscall backend: {e}"
+                            ))
+                        })?)
+                    }
+                    #[cfg(any(not(target_family = "unix"), miri))]
+                    {
+                        Arc::new(turso_core::PlatformIO::new().map_err(|e| {
+                            TursoError::Error(format!(
+                                "unable to create generic syscall backend: {e}"
+                            ))
+                        })?)
+                    }
+                }
+                #[cfg(all(target_os = "linux", not(miri)))]
+                Some("io_uring") => Arc::new(turso_core::UringIO::new().map_err(|e| {
+                    TursoError::Error(format!("unable to create io_uring backend: {e}"))
+                })?),
+                #[cfg(all(target_os = "windows", not(miri)))]
+                Some("experimental_win_iocp") => {
+                    Arc::new(turso_core::WindowsIOCP::new().map_err(|e| {
+                        TursoError::Error(format!("unable to create win_iocp backend: {e}"))
+                    })?)
+                }
+                #[cfg(any(not(target_os = "linux"), miri))]
+                Some("io_uring") => {
+                    return Err(TursoError::Error(
+                        "io_uring is only available on Linux targets".to_string(),
+                    ));
+                }
+                #[cfg(any(not(target_os = "windows"), miri))]
+                Some("experimental_win_iocp") => {
+                    return Err(TursoError::Error(
+                        "win_iocp is only available on Windows targets".to_string(),
+                    ));
+                }
+                Some(vfs) => {
+                    return Err(TursoError::Error(format!(
+                        "unsupported VFS backend: '{vfs}'"
+                    )))
+                }
+                None => match self.config.path.as_str() {
+                    ":memory:" => Arc::new(turso_core::MemoryIO::new()),
+                    _ => Arc::new(turso_core::PlatformIO::new()?),
+                },
+            }
+        };
+        Ok(io)
+    }
+
     /// Async version of database opening that returns IOResult.
     /// Caller must drive the IO loop and pass state between calls.
     /// This is useful for environments where IO operations must be executed in a specific fashion.
@@ -560,54 +634,10 @@ impl TursoDatabase {
                     }
                     // keep lock for the whole method since open_async must be called only once and never will be called concurrently
 
-                    let io: Arc<dyn turso_core::IO> = if let Some(io) = &self.config.io {
-                        io.clone()
-                    } else {
-                        match self.config.vfs.as_deref() {
-                            Some("memory") => Arc::new(turso_core::MemoryIO::new()),
-                            Some("syscall") => {
-                                #[cfg(all(target_family = "unix", not(miri)))]
-                                {
-                                    Arc::new(turso_core::UnixIO::new().map_err(|e| {
-                                        TursoError::Error(format!(
-                                            "unable to create generic syscall backend: {e}"
-                                        ))
-                                    })?)
-                                }
-                                #[cfg(any(not(target_family = "unix"), miri))]
-                                {
-                                    Arc::new(turso_core::PlatformIO::new().map_err(|e| {
-                                        TursoError::Error(format!(
-                                            "unable to create generic syscall backend: {e}"
-                                        ))
-                                    })?)
-                                }
-                            }
-                            #[cfg(all(target_os = "linux", not(miri)))]
-                            Some("io_uring") => {
-                                Arc::new(turso_core::UringIO::new().map_err(|e| {
-                                    TursoError::Error(format!(
-                                        "unable to create io_uring backend: {e}"
-                                    ))
-                                })?)
-                            }
-                            #[cfg(any(not(target_os = "linux"), miri))]
-                            Some("io_uring") => {
-                                return Err(TursoError::Error(
-                                    "io_uring is only available on Linux targets".to_string(),
-                                ));
-                            }
-                            Some(vfs) => {
-                                return Err(TursoError::Error(format!(
-                                    "unsupported VFS backend: '{vfs}'"
-                                )))
-                            }
-                            None => match self.config.path.as_str() {
-                                ":memory:" => Arc::new(turso_core::MemoryIO::new()),
-                                _ => Arc::new(turso_core::PlatformIO::new()?),
-                            },
-                        }
-                    };
+                    let io: Arc<dyn turso_core::IO> = self.open_vfs_io()?;
+
+                    // Store the IO so that it can be retrieved with `io()` call even if the database is still opening
+                    *self.io.lock().unwrap() = Some(io.clone());
 
                     let open_flags = OpenFlags::default();
                     let db_file = if let Some(db_file) = &self.config.db_file {
@@ -623,7 +653,8 @@ impl TursoDatabase {
                             opts = match features {
                                 "views" => opts.with_views(true),
                                 "index_method" => opts.with_index_method(true),
-                                "strict" => opts.with_strict(true),
+                                "strict" => opts, // strict is always enabled, kept for backwards compatibility
+                                "custom_types" => opts.with_custom_types(true),
                                 "autovacuum" => opts.with_autovacuum(true),
                                 "triggers" => opts.with_triggers(true),
                                 "encryption" => opts.with_encryption(true),
@@ -801,7 +832,7 @@ impl TursoConnection {
                     self.connection.clone(),
                 );
                 let statement =
-                    Statement::new(program, self.connection.get_pager(), cached.query_mode);
+                    Statement::new(program, self.connection.get_pager(), cached.query_mode, 0);
                 return Ok(Box::new(TursoStatement {
                     concurrent_guard: self.concurrent_guard.clone(),
                     async_io: self.async_io,
@@ -1075,7 +1106,7 @@ impl TursoStatement {
     }
     /// reset internal statement state and bindings
     pub fn reset(&mut self) -> Result<(), TursoError> {
-        self.statement.reset();
+        self.statement.reset()?;
         self.statement.clear_bindings();
         Ok(())
     }

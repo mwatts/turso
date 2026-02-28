@@ -1394,6 +1394,90 @@ fn test_meta_recovery_case_2_no_wal_replay_above_metadata_boundary() {
     assert_eq!(rows[2][1].to_string(), "c");
 }
 
+/// What this test checks: Header-only commits are durably replayed from the logical log and
+/// then persisted into the database header by checkpoint.
+/// Why this matters: PRAGMA header mutations (for example user_version) must survive restart
+/// both before and after log truncation, including implicit autocommit statement transactions.
+#[test]
+fn test_header_only_mutation_is_replayed_and_checkpointed() {
+    let mut db = MvccTestDbNoConn::new_with_random_db();
+
+    {
+        let conn = db.connect();
+        conn.execute("PRAGMA user_version = 42").unwrap();
+        let rows = get_rows(&conn, "PRAGMA user_version");
+        assert_eq!(rows.len(), 1);
+        assert_eq!(rows[0][0].as_int().unwrap(), 42);
+    }
+
+    db.restart();
+    {
+        let conn = db.connect();
+        let rows = get_rows(&conn, "PRAGMA user_version");
+        assert_eq!(rows.len(), 1);
+        assert_eq!(
+            rows[0][0].as_int().unwrap(),
+            42,
+            "header mutation should recover from logical log before checkpoint",
+        );
+        conn.execute("PRAGMA wal_checkpoint(TRUNCATE)").unwrap();
+    }
+
+    db.restart();
+    {
+        let conn = db.connect();
+        let rows = get_rows(&conn, "PRAGMA user_version");
+        assert_eq!(rows.len(), 1);
+        assert_eq!(
+            rows[0][0].as_int().unwrap(),
+            42,
+            "header mutation should persist in DB header after checkpoint truncates logical log",
+        );
+    }
+}
+
+/// What this test checks: Header PRAGMAs in MVCC require an exclusive transaction and reject
+/// BEGIN CONCURRENT writes.
+/// Why this matters: Header updates have no row-level conflict keys, so they must not run under
+/// optimistic concurrent write mode.
+#[test]
+fn test_mvcc_header_updates_require_exclusive_transaction() {
+    let db = MvccTestDbNoConn::new_with_random_db();
+    let conn = db.connect();
+
+    conn.execute("BEGIN CONCURRENT").unwrap();
+    let err = conn.execute("PRAGMA user_version = 42").unwrap_err();
+    assert!(
+        err.to_string().contains("exclusive transaction"),
+        "expected exclusive-transaction error, got: {err:?}"
+    );
+    conn.execute("ROLLBACK").unwrap();
+
+    conn.execute("BEGIN").unwrap();
+    conn.execute("PRAGMA user_version = 7").unwrap();
+    conn.execute("COMMIT").unwrap();
+
+    let rows = get_rows(&conn, "PRAGMA user_version");
+    assert_eq!(rows.len(), 1);
+    assert_eq!(rows[0][0].as_int().unwrap(), 7);
+}
+
+/// What this test checks: Header PRAGMAs in MVCC succeed in autocommit mode, where the VM
+/// opens an implicit single-statement write transaction.
+/// Why this matters: The exclusive-transaction gate must block BEGIN CONCURRENT, but not reject
+/// valid autocommit writes that are internally upgraded to exclusive write mode.
+#[test]
+fn test_mvcc_header_updates_allow_autocommit_statement_tx() {
+    let db = MvccTestDbNoConn::new_with_random_db();
+    let conn = db.connect();
+
+    conn.execute("PRAGMA user_version = 19").unwrap();
+
+    let rows = get_rows(&conn, "PRAGMA user_version");
+    assert_eq!(rows.len(), 1);
+    assert_eq!(rows[0][0].as_int().unwrap(), 19);
+}
+
 /// What this test checks: Missing/corrupt metadata with logical-log frames and no WAL causes fail-closed startup.
 /// Why this matters: Without metadata boundary recovery cannot choose replay/discard safely.
 #[test]
@@ -1817,7 +1901,7 @@ fn test_insert_read() {
         .mvcc_store
         .read(
             tx1,
-            RowID {
+            &RowID {
                 table_id: (-2).into(),
                 row_id: RowKey::Int(1),
             },
@@ -1835,7 +1919,7 @@ fn test_insert_read() {
         .mvcc_store
         .read(
             tx2,
-            RowID {
+            &RowID {
                 table_id: (-2).into(),
                 row_id: RowKey::Int(1),
             },
@@ -1856,7 +1940,7 @@ fn test_read_nonexistent() {
         .unwrap();
     let row = db.mvcc_store.read(
         tx,
-        RowID {
+        &RowID {
             table_id: (-2).into(),
             row_id: RowKey::Int(1),
         },
@@ -1880,7 +1964,7 @@ fn test_delete() {
         .mvcc_store
         .read(
             tx1,
-            RowID {
+            &RowID {
                 table_id: (-2).into(),
                 row_id: RowKey::Int(1),
             },
@@ -1901,7 +1985,7 @@ fn test_delete() {
         .mvcc_store
         .read(
             tx1,
-            RowID {
+            &RowID {
                 table_id: (-2).into(),
                 row_id: RowKey::Int(1),
             },
@@ -1918,7 +2002,7 @@ fn test_delete() {
         .mvcc_store
         .read(
             tx2,
-            RowID {
+            &RowID {
                 table_id: (-2).into(),
                 row_id: RowKey::Int(1),
             },
@@ -1963,7 +2047,7 @@ fn test_commit() {
         .mvcc_store
         .read(
             tx1,
-            RowID {
+            &RowID {
                 table_id: (-2).into(),
                 row_id: RowKey::Int(1),
             },
@@ -1977,7 +2061,7 @@ fn test_commit() {
         .mvcc_store
         .read(
             tx1,
-            RowID {
+            &RowID {
                 table_id: (-2).into(),
                 row_id: RowKey::Int(1),
             },
@@ -1995,7 +2079,7 @@ fn test_commit() {
         .mvcc_store
         .read(
             tx2,
-            RowID {
+            &RowID {
                 table_id: (-2).into(),
                 row_id: RowKey::Int(1),
             },
@@ -2022,7 +2106,7 @@ fn test_rollback() {
         .mvcc_store
         .read(
             tx1,
-            RowID {
+            &RowID {
                 table_id: (-2).into(),
                 row_id: RowKey::Int(1),
             },
@@ -2036,7 +2120,7 @@ fn test_rollback() {
         .mvcc_store
         .read(
             tx1,
-            RowID {
+            &RowID {
                 table_id: (-2).into(),
                 row_id: RowKey::Int(1),
             },
@@ -2044,8 +2128,12 @@ fn test_rollback() {
         .unwrap()
         .unwrap();
     assert_eq!(row3, row4);
-    db.mvcc_store
-        .rollback_tx(tx1, db.conn.pager.load().clone(), &db.conn);
+    db.mvcc_store.rollback_tx(
+        tx1,
+        db.conn.pager.load().clone(),
+        &db.conn,
+        crate::MAIN_DB_ID,
+    );
     let tx2 = db
         .mvcc_store
         .begin_tx(db.conn.pager.load().clone())
@@ -2054,7 +2142,7 @@ fn test_rollback() {
         .mvcc_store
         .read(
             tx2,
-            RowID {
+            &RowID {
                 table_id: (-2).into(),
                 row_id: RowKey::Int(1),
             },
@@ -2080,7 +2168,7 @@ fn test_dirty_write() {
         .mvcc_store
         .read(
             tx1,
-            RowID {
+            &RowID {
                 table_id: (-2).into(),
                 row_id: RowKey::Int(1),
             },
@@ -2099,7 +2187,7 @@ fn test_dirty_write() {
         .mvcc_store
         .read(
             tx1,
-            RowID {
+            &RowID {
                 table_id: (-2).into(),
                 row_id: RowKey::Int(1),
             },
@@ -2130,7 +2218,7 @@ fn test_dirty_read() {
         .mvcc_store
         .read(
             tx2,
-            RowID {
+            &RowID {
                 table_id: (-2).into(),
                 row_id: RowKey::Int(1),
             },
@@ -2175,7 +2263,7 @@ fn test_dirty_read_deleted() {
         .mvcc_store
         .read(
             tx3,
-            RowID {
+            &RowID {
                 table_id: (-2).into(),
                 row_id: RowKey::Int(1),
             },
@@ -2202,7 +2290,7 @@ fn test_fuzzy_read() {
         .mvcc_store
         .read(
             tx1,
-            RowID {
+            &RowID {
                 table_id: (-2).into(),
                 row_id: RowKey::Int(1),
             },
@@ -2219,7 +2307,7 @@ fn test_fuzzy_read() {
         .mvcc_store
         .read(
             tx2,
-            RowID {
+            &RowID {
                 table_id: (-2).into(),
                 row_id: RowKey::Int(1),
             },
@@ -2240,7 +2328,7 @@ fn test_fuzzy_read() {
         .mvcc_store
         .read(
             tx2,
-            RowID {
+            &RowID {
                 table_id: (-2).into(),
                 row_id: RowKey::Int(1),
             },
@@ -2273,7 +2361,7 @@ fn test_lost_update() {
         .mvcc_store
         .read(
             tx1,
-            RowID {
+            &RowID {
                 table_id: (-2).into(),
                 row_id: RowKey::Int(1),
             },
@@ -2299,7 +2387,7 @@ fn test_lost_update() {
     ));
     // hack: in the actual tursodb database we rollback the mvcc tx ourselves, so manually roll it back here
     db.mvcc_store
-        .rollback_tx(tx3, conn3.pager.load().clone(), &conn3);
+        .rollback_tx(tx3, conn3.pager.load().clone(), &conn3, crate::MAIN_DB_ID);
 
     commit_tx(db.mvcc_store.clone(), &conn2, tx2).unwrap();
     assert!(matches!(
@@ -2313,7 +2401,7 @@ fn test_lost_update() {
         .mvcc_store
         .read(
             tx4,
-            RowID {
+            &RowID {
                 table_id: (-2).into(),
                 row_id: RowKey::Int(1),
             },
@@ -2347,7 +2435,7 @@ fn test_committed_visibility() {
         .mvcc_store
         .read(
             tx2,
-            RowID {
+            &RowID {
                 table_id: (-2).into(),
                 row_id: RowKey::Int(1),
             },
@@ -2363,7 +2451,7 @@ fn test_committed_visibility() {
         .mvcc_store
         .read(
             tx3,
-            RowID {
+            &RowID {
                 table_id: (-2).into(),
                 row_id: RowKey::Int(1),
             },
@@ -2393,7 +2481,7 @@ fn test_future_row() {
         .mvcc_store
         .read(
             tx1,
-            RowID {
+            &RowID {
                 table_id: (-2).into(),
                 row_id: RowKey::Int(1),
             },
@@ -2407,7 +2495,7 @@ fn test_future_row() {
         .mvcc_store
         .read(
             tx1,
-            RowID {
+            &RowID {
                 table_id: (-2).into(),
                 row_id: RowKey::Int(1),
             },
@@ -2856,8 +2944,12 @@ fn new_tx(tx_id: TxID, begin_ts: u64, state: TransactionState) -> Transaction {
         write_set: SkipSet::new(),
         read_set: SkipSet::new(),
         header: RwLock::new(DatabaseHeader::default()),
+        header_dirty: AtomicBool::new(false),
         savepoint_stack: RwLock::new(Vec::new()),
         pager_commit_lock_held: AtomicBool::new(false),
+        commit_dep_counter: AtomicU64::new(0),
+        abort_now: AtomicBool::new(false),
+        commit_dep_set: Mutex::new(HashSet::default()),
     }
 }
 
@@ -2872,7 +2964,10 @@ fn test_snapshot_isolation_tx_visible1() {
         (5, new_tx(5, 5, TransactionState::Preparing(8))),
         (6, new_tx(6, 6, TransactionState::Committed(10))),
         (7, new_tx(7, 7, TransactionState::Active)),
+        // tx 8 with Preparing(3): current_tx (begin_ts=4) can speculatively read
+        (8, new_tx(8, 1, TransactionState::Preparing(3))),
     ]);
+    let finalized_tx_states: SkipMap<TxID, TransactionState> = SkipMap::new();
 
     let current_tx = new_tx(4, 4, TransactionState::Preparing(7));
 
@@ -2885,7 +2980,7 @@ fn test_snapshot_isolation_tx_visible1() {
             btree_resident: false,
         };
         tracing::debug!("Testing visibility of {row_version:?}");
-        row_version.is_visible_to(&current_tx, &txs)
+        row_version.is_visible_to(&current_tx, &txs, &finalized_tx_states)
     };
 
     // begin visible:   transaction committed with ts < current_tx.begin_ts
@@ -2919,8 +3014,19 @@ fn test_snapshot_isolation_tx_visible1() {
         Some(TxTimestampOrID::TxID(3))
     ));
 
-    // begin invisible: transaction preparing
+    // begin invisible: transaction preparing with end_ts(8) > begin_ts(4)
+    // Speculative read condition (begin_ts >= end_ts) is false: 4 >= 8 is false
     assert!(!rv_visible(Some(TxTimestampOrID::TxID(5)), None));
+
+    // begin VISIBLE via speculative read: tx 8 is Preparing(3), begin_ts(4) >= end_ts(3)
+    // Hekaton Table 1: speculatively read and register commit dependency
+    assert!(rv_visible(Some(TxTimestampOrID::TxID(8)), None));
+    // Verify dependency was registered via register-and-report protocol
+    assert_eq!(
+        current_tx.commit_dep_counter.load(Ordering::Acquire),
+        1,
+        "speculative read should register a commit dependency"
+    );
 
     // begin invisible: transaction committed with ts > current_tx.begin_ts
     assert!(!rv_visible(Some(TxTimestampOrID::TxID(6)), None));
@@ -2957,6 +3063,923 @@ fn test_snapshot_isolation_tx_visible1() {
     ));
 
     assert!(!rv_visible(None, None));
+}
+
+#[test]
+fn test_visibility_uses_finalized_state_for_removed_committed_tx() {
+    let txs: SkipMap<TxID, Transaction> = SkipMap::new();
+    let finalized_tx_states: SkipMap<TxID, TransactionState> =
+        SkipMap::from_iter([(42, TransactionState::Committed(5))]);
+    let reader = new_tx(7, 10, TransactionState::Active);
+
+    let inserted_row = RowVersion {
+        id: 1,
+        begin: Some(TxTimestampOrID::TxID(42)),
+        end: None,
+        row: generate_simple_string_row((-2).into(), 1, "x"),
+        btree_resident: false,
+    };
+    assert!(
+        inserted_row.is_visible_to(&reader, &txs, &finalized_tx_states),
+        "stale begin=TxID should resolve via finalized committed state"
+    );
+
+    let deleted_row = RowVersion {
+        id: 2,
+        begin: Some(TxTimestampOrID::Timestamp(1)),
+        end: Some(TxTimestampOrID::TxID(42)),
+        row: generate_simple_string_row((-2).into(), 2, "y"),
+        btree_resident: false,
+    };
+    assert!(
+        !deleted_row.is_visible_to(&reader, &txs, &finalized_tx_states),
+        "stale end=TxID should resolve via finalized committed state"
+    );
+}
+
+#[test]
+fn test_read_only_commit_does_not_cache_finalized_state() {
+    let db = MvccTestDbNoConn::new_with_random_db();
+    let conn = db.connect();
+    let mvcc_store = db.get_mvcc_store();
+    conn.execute("CREATE TABLE t(id INTEGER PRIMARY KEY, v INTEGER)")
+        .unwrap();
+
+    // Establish a clean baseline after schema/setup writes.
+    mvcc_store.drop_unused_row_versions();
+    let baseline = mvcc_store.finalized_tx_states.len();
+
+    conn.execute("BEGIN CONCURRENT").unwrap();
+    let _ = get_rows(&conn, "SELECT 1");
+    conn.execute("COMMIT").unwrap();
+
+    assert_eq!(
+        mvcc_store.finalized_tx_states.len(),
+        baseline,
+        "read-only commit should not add finalized tx cache entries"
+    );
+}
+
+#[test]
+fn test_drop_unused_row_versions_prunes_unreferenced_finalized_tx_states() {
+    let db = MvccTestDbNoConn::new_with_random_db();
+    let conn = db.connect();
+    let mvcc_store = db.get_mvcc_store();
+    conn.execute("CREATE TABLE t(id INTEGER PRIMARY KEY, v INTEGER)")
+        .unwrap();
+
+    // Establish a clean baseline after schema/setup writes.
+    mvcc_store.drop_unused_row_versions();
+    let baseline = mvcc_store.finalized_tx_states.len();
+
+    conn.execute("INSERT INTO t VALUES (1, 1)").unwrap();
+    let after_write = mvcc_store.finalized_tx_states.len();
+    assert!(
+        after_write > baseline,
+        "write commit should add at least one finalized tx cache entry"
+    );
+
+    mvcc_store.drop_unused_row_versions();
+
+    assert_eq!(
+        mvcc_store.finalized_tx_states.len(),
+        baseline,
+        "GC scan should prune finalized tx cache entries with no remaining TxID references"
+    );
+}
+
+/// Test Hekaton register-and-report: speculative read increments CommitDepCounter
+/// and adds to CommitDepSet.
+#[test]
+fn test_commit_dependency_speculative_read() {
+    let txs: SkipMap<TxID, Transaction> =
+        SkipMap::from_iter([(1, new_tx(1, 1, TransactionState::Preparing(5)))]);
+    let finalized_tx_states: SkipMap<TxID, TransactionState> = SkipMap::new();
+
+    // Reader with begin_ts=10 > end_ts=5 → speculative read → dependency
+    let reader = new_tx(2, 10, TransactionState::Active);
+
+    let rv = RowVersion {
+        id: 0,
+        begin: Some(TxTimestampOrID::TxID(1)),
+        end: None,
+        row: generate_simple_string_row((-2).into(), 1, "test"),
+        btree_resident: false,
+    };
+
+    assert_eq!(reader.commit_dep_counter.load(Ordering::Acquire), 0);
+
+    // Speculative read: begin_ts(10) >= end_ts(5) → visible, dependency registered
+    assert!(rv.is_visible_to(&reader, &txs, &finalized_tx_states));
+    assert_eq!(reader.commit_dep_counter.load(Ordering::Acquire), 1);
+
+    // Verify tx 1's CommitDepSet contains reader's tx_id
+    let dep_set = txs.get(&1).unwrap();
+    assert_eq!(
+        *dep_set.value().commit_dep_set.lock(),
+        HashSet::from_iter([2])
+    );
+}
+
+/// Test cascade abort: when depended-on tx aborts, it sets AbortNow on dependents
+/// and decrements their CommitDepCounter.
+#[test]
+fn test_commit_dependency_cascade_abort() {
+    let txs: SkipMap<TxID, Transaction> =
+        SkipMap::from_iter([(1, new_tx(1, 1, TransactionState::Preparing(5)))]);
+    let finalized_tx_states: SkipMap<TxID, TransactionState> = SkipMap::new();
+
+    let reader = new_tx(2, 10, TransactionState::Active);
+
+    let rv = RowVersion {
+        id: 0,
+        begin: Some(TxTimestampOrID::TxID(1)),
+        end: None,
+        row: generate_simple_string_row((-2).into(), 1, "test"),
+        btree_resident: false,
+    };
+
+    // Speculative read registers dependency
+    assert!(rv.is_visible_to(&reader, &txs, &finalized_tx_states));
+    assert_eq!(reader.commit_dep_counter.load(Ordering::Acquire), 1);
+    assert!(!reader.abort_now.load(Ordering::Acquire));
+
+    // Simulate tx 1 aborting and cascading to dependents
+    let tx1 = txs.get(&1).unwrap();
+    let tx1 = tx1.value();
+    tx1.state.store(TransactionState::Aborted);
+
+    // Add reader to txs so cascade can find it
+    txs.insert(2, reader);
+
+    for dep_tx_id in tx1.commit_dep_set.lock().drain() {
+        if let Some(dep_tx_entry) = txs.get(&dep_tx_id) {
+            let dep_tx = dep_tx_entry.value();
+            dep_tx.abort_now.store(true, Ordering::Release);
+            dep_tx.commit_dep_counter.fetch_sub(1, Ordering::AcqRel);
+        }
+    }
+
+    let reader = txs.get(&2).unwrap();
+    let reader = reader.value();
+    assert!(reader.abort_now.load(Ordering::Acquire));
+    assert_eq!(reader.commit_dep_counter.load(Ordering::Acquire), 0);
+}
+
+/// Test that registering a dependency on an already-committed tx is a no-op.
+#[test]
+fn test_commit_dependency_already_committed() {
+    let txs: SkipMap<TxID, Transaction> =
+        SkipMap::from_iter([(1, new_tx(1, 1, TransactionState::Committed(5)))]);
+
+    let reader = new_tx(2, 10, TransactionState::Active);
+
+    register_commit_dependency(&txs, &reader, 1);
+
+    assert_eq!(reader.commit_dep_counter.load(Ordering::Acquire), 0);
+    assert!(!reader.abort_now.load(Ordering::Acquire));
+}
+
+/// Test that registering a dependency on an already-aborted tx sets AbortNow.
+#[test]
+fn test_commit_dependency_already_aborted() {
+    let txs: SkipMap<TxID, Transaction> =
+        SkipMap::from_iter([(1, new_tx(1, 1, TransactionState::Aborted))]);
+
+    let reader = new_tx(2, 10, TransactionState::Active);
+
+    register_commit_dependency(&txs, &reader, 1);
+
+    assert_eq!(reader.commit_dep_counter.load(Ordering::Acquire), 0);
+    assert!(reader.abort_now.load(Ordering::Acquire));
+}
+
+/// Test speculative ignore in is_end_visible registers dependency.
+#[test]
+fn test_commit_dependency_speculative_ignore() {
+    let txs: SkipMap<TxID, Transaction> = SkipMap::from_iter([
+        (1, new_tx(1, 1, TransactionState::Committed(2))),
+        (3, new_tx(3, 3, TransactionState::Preparing(5))),
+    ]);
+    let finalized_tx_states: SkipMap<TxID, TransactionState> = SkipMap::new();
+
+    // Reader with begin_ts=10 > end_ts=5: will speculatively ignore (treat as deleted)
+    let reader = new_tx(4, 10, TransactionState::Active);
+
+    let rv = RowVersion {
+        id: 0,
+        begin: Some(TxTimestampOrID::Timestamp(2)),
+        end: Some(TxTimestampOrID::TxID(3)),
+        row: generate_simple_string_row((-2).into(), 1, "test"),
+        btree_resident: false,
+    };
+
+    // is_end_visible: Preparing(5), begin_ts(10) < 5 = false → deletion visible
+    // is_begin_visible: Timestamp(2), 10 >= 2 = true
+    // Combined: true && false = false (row not visible because it was deleted)
+    assert!(!rv.is_visible_to(&reader, &txs, &finalized_tx_states));
+    assert_eq!(
+        reader.commit_dep_counter.load(Ordering::Acquire),
+        1,
+        "speculative ignore should register a commit dependency"
+    );
+}
+
+/// Test that multiple speculative reads from the same preparing tx only
+/// register one commit dependency (dedup).
+#[test]
+fn test_commit_dependency_multiple_reads_dedup() {
+    let txs: SkipMap<TxID, Transaction> =
+        SkipMap::from_iter([(1, new_tx(1, 1, TransactionState::Preparing(5)))]);
+    let finalized_tx_states: SkipMap<TxID, TransactionState> = SkipMap::new();
+
+    let reader = new_tx(2, 10, TransactionState::Active);
+
+    let make_rv = |row_id: i64| RowVersion {
+        id: row_id as u64,
+        begin: Some(TxTimestampOrID::TxID(1)),
+        end: None,
+        row: generate_simple_string_row((-2).into(), row_id, "test"),
+        btree_resident: false,
+    };
+
+    // Read 3 rows from the same preparing tx — dependency is deduplicated
+    assert!(make_rv(1).is_visible_to(&reader, &txs, &finalized_tx_states));
+    assert!(make_rv(2).is_visible_to(&reader, &txs, &finalized_tx_states));
+    assert!(make_rv(3).is_visible_to(&reader, &txs, &finalized_tx_states));
+
+    assert_eq!(reader.commit_dep_counter.load(Ordering::Acquire), 1);
+
+    // tx 1's CommitDepSet has 1 entry for reader (deduplicated)
+    let dep_set = txs.get(&1).unwrap();
+    assert_eq!(dep_set.value().commit_dep_set.lock().len(), 1);
+}
+
+/// Hekaton §2.7 cascade abort with real connections and threads.
+///
+/// A Preparing writer is speculatively read by a reader on another thread.
+/// When the writer aborts, the reader's COMMIT must fail with
+/// CommitDependencyAborted (cascade abort via AbortNow).
+///
+/// Sequence:
+///   1. Writer: BEGIN CONCURRENT → UPDATE (real SQL)
+///   2. Writer state manually set to Preparing(end_ts)
+///   3. Reader thread: BEGIN → SELECT (speculative read → dependency) → INSERT
+///   4. Main thread: rollback writer → cascade abort via AbortNow
+///   5. Reader COMMIT → CommitDependencyAborted
+#[test]
+fn test_commit_dep_threaded_abort_cascades() {
+    let db = MvccTestDbNoConn::new_with_random_db();
+    {
+        let conn = db.connect();
+        conn.execute("CREATE TABLE t (id INTEGER PRIMARY KEY, value TEXT)")
+            .unwrap();
+        conn.execute("INSERT INTO t VALUES (1, 'initial')").unwrap();
+        conn.close().unwrap();
+    }
+
+    let mvcc_store = db.get_mvcc_store();
+
+    // Writer: real SQL operations
+    let writer_conn = db.connect();
+    writer_conn.execute("BEGIN CONCURRENT").unwrap();
+    writer_conn
+        .execute("UPDATE t SET value = 'modified' WHERE id = 1")
+        .unwrap();
+    let writer_tx_id = writer_conn.get_mv_tx_id().unwrap();
+
+    // Simulate mid-commit: transition writer to Preparing.
+    // end_ts comes from the global clock so the reader's begin_ts will be >=
+    // end_ts, satisfying the speculative read condition (Hekaton Table 1).
+    let end_ts = mvcc_store.clock.get_timestamp();
+    mvcc_store
+        .txs
+        .get(&writer_tx_id)
+        .unwrap()
+        .value()
+        .state
+        .store(TransactionState::Preparing(end_ts));
+
+    // Reader signals after speculative read so main thread can abort writer.
+    let (signal_tx, signal_rx) = std::sync::mpsc::channel();
+
+    let db_arc = db.get_db();
+    let reader_handle = std::thread::spawn(move || {
+        let reader_conn = db_arc.connect().unwrap();
+        reader_conn.execute("BEGIN CONCURRENT").unwrap();
+
+        // SELECT triggers speculative read: reader.begin_ts >= writer.end_ts
+        // → Hekaton Table 1: visible, register commit dependency
+        let mut stmt = reader_conn
+            .prepare("SELECT value FROM t WHERE id = 1")
+            .unwrap();
+        let rows = stmt.run_collect_rows().unwrap();
+
+        // Write so COMMIT exercises the full commit state machine path.
+        reader_conn
+            .execute("INSERT INTO t VALUES (2, 'reader_data')")
+            .unwrap();
+
+        // Signal: speculative read done, dependency registered
+        signal_tx.send(()).unwrap();
+
+        // COMMIT blocks in WaitForDependencies until the writer resolves.
+        // Writer will abort → AbortNow set → CommitDependencyAborted.
+        let commit_result = reader_conn.execute("COMMIT");
+        let _ = reader_conn.close(); // cleanup (rolls back if still active)
+        (rows, commit_result)
+    });
+
+    // Wait for reader to complete speculative read
+    signal_rx.recv().unwrap();
+
+    // Abort writer → cascade: sets AbortNow on reader, decrements counter
+    mvcc_store.rollback_tx(
+        writer_tx_id,
+        writer_conn.pager.load().clone(),
+        &writer_conn,
+        crate::MAIN_DB_ID,
+    );
+
+    let (rows, commit_result) = reader_handle.join().unwrap();
+
+    // Reader saw the writer's modified value via speculative read
+    assert_eq!(rows.len(), 1);
+    assert_eq!(
+        rows[0][0].to_text().unwrap(),
+        "modified",
+        "reader should have speculatively read the Preparing writer's value"
+    );
+
+    // Reader's COMMIT must fail: depended-on writer aborted
+    assert!(
+        matches!(commit_result, Err(LimboError::CommitDependencyAborted)),
+        "expected CommitDependencyAborted, got: {commit_result:?}",
+    );
+
+    // Verify database consistency
+    {
+        let conn = db.connect();
+
+        // Only the initial value should remain
+        let mut stmt = conn.prepare("SELECT value FROM t WHERE id = 1").unwrap();
+        let rows = stmt.run_collect_rows().unwrap();
+        assert_eq!(rows.len(), 1);
+        assert_eq!(rows[0][0].to_text().unwrap(), "initial");
+
+        // Reader's INSERT must not be visible (cascade-aborted)
+        let mut stmt = conn.prepare("SELECT * FROM t WHERE id = 2").unwrap();
+        let rows = stmt.run_collect_rows().unwrap();
+        assert!(
+            rows.is_empty(),
+            "reader's write should not be visible after cascade abort"
+        );
+    }
+}
+
+/// Hekaton §2.7: multiple readers depending on the same Preparing writer
+/// all cascade-abort when the writer aborts.
+#[test]
+fn test_commit_dep_threaded_multiple_dependents_abort() {
+    let db = MvccTestDbNoConn::new_with_random_db();
+    {
+        let conn = db.connect();
+        conn.execute("CREATE TABLE t (id INTEGER PRIMARY KEY, value TEXT)")
+            .unwrap();
+        conn.execute("INSERT INTO t VALUES (1, 'initial')").unwrap();
+        conn.close().unwrap();
+    }
+
+    let mvcc_store = db.get_mvcc_store();
+
+    // Writer
+    let writer_conn = db.connect();
+    writer_conn.execute("BEGIN CONCURRENT").unwrap();
+    writer_conn
+        .execute("UPDATE t SET value = 'modified' WHERE id = 1")
+        .unwrap();
+    let writer_tx_id = writer_conn.get_mv_tx_id().unwrap();
+
+    let end_ts = mvcc_store.clock.get_timestamp();
+    mvcc_store
+        .txs
+        .get(&writer_tx_id)
+        .unwrap()
+        .value()
+        .state
+        .store(TransactionState::Preparing(end_ts));
+
+    let num_readers = 4;
+    // Barrier: all readers + main thread synchronize after speculative reads
+    let barrier = std::sync::Arc::new(std::sync::Barrier::new(num_readers + 1));
+
+    let mut handles = Vec::new();
+    for i in 0..num_readers {
+        let db_arc = db.get_db();
+        let barrier_clone = barrier.clone();
+        handles.push(std::thread::spawn(move || {
+            let conn = db_arc.connect().unwrap();
+            conn.execute("BEGIN CONCURRENT").unwrap();
+
+            // Speculative read from Preparing writer
+            let mut stmt = conn.prepare("SELECT value FROM t WHERE id = 1").unwrap();
+            let rows = stmt.run_collect_rows().unwrap();
+
+            // Each reader writes to a unique row (no conflicts)
+            conn.execute(format!("INSERT INTO t VALUES ({}, 'reader_{i}')", i + 10,))
+                .unwrap();
+
+            // Signal: all readers done with speculative reads
+            barrier_clone.wait();
+
+            let commit_result = conn.execute("COMMIT");
+            let _ = conn.close();
+            (rows, commit_result)
+        }));
+    }
+
+    // Wait for all readers to complete speculative reads
+    barrier.wait();
+
+    // Abort writer → cascade to ALL readers
+    mvcc_store.rollback_tx(
+        writer_tx_id,
+        writer_conn.pager.load().clone(),
+        &writer_conn,
+        crate::MAIN_DB_ID,
+    );
+
+    for handle in handles {
+        let (rows, commit_result) = handle.join().unwrap();
+        assert_eq!(rows.len(), 1);
+        assert_eq!(rows[0][0].to_text().unwrap(), "modified");
+        assert!(
+            matches!(commit_result, Err(LimboError::CommitDependencyAborted)),
+            "expected CommitDependencyAborted, got: {commit_result:?}",
+        );
+    }
+
+    // All reader writes should be invisible — only the initial row remains
+    {
+        let conn = db.connect();
+        let mut stmt = conn.prepare("SELECT count(*) FROM t").unwrap();
+        let rows = stmt.run_collect_rows().unwrap();
+        assert_eq!(rows[0][0].as_int().unwrap(), 1);
+    }
+}
+
+/// Hekaton §2.7 happy path: when a Preparing writer commits, the dependent
+/// reader's CommitDepCounter is decremented and the reader can proceed.
+#[test]
+fn test_commit_dep_threaded_commit_resolves() {
+    let db = MvccTestDbNoConn::new_with_random_db();
+    {
+        let conn = db.connect();
+        conn.execute("CREATE TABLE t (id INTEGER PRIMARY KEY, value TEXT)")
+            .unwrap();
+        conn.execute("INSERT INTO t VALUES (1, 'initial')").unwrap();
+        conn.close().unwrap();
+    }
+
+    let mvcc_store = db.get_mvcc_store();
+
+    // Writer: UPDATE via real connection, then set to Preparing
+    let writer_conn = db.connect();
+    writer_conn.execute("BEGIN CONCURRENT").unwrap();
+    writer_conn
+        .execute("UPDATE t SET value = 'committed' WHERE id = 1")
+        .unwrap();
+    let writer_tx_id = writer_conn.get_mv_tx_id().unwrap();
+
+    let end_ts = mvcc_store.clock.get_timestamp();
+    mvcc_store
+        .txs
+        .get(&writer_tx_id)
+        .unwrap()
+        .value()
+        .state
+        .store(TransactionState::Preparing(end_ts));
+
+    let (signal_tx, signal_rx) = std::sync::mpsc::channel();
+
+    let db_arc = db.get_db();
+    let reader_handle = std::thread::spawn(move || {
+        let reader_conn = db_arc.connect().unwrap();
+        reader_conn.execute("BEGIN CONCURRENT").unwrap();
+
+        let mut stmt = reader_conn
+            .prepare("SELECT value FROM t WHERE id = 1")
+            .unwrap();
+        let rows = stmt.run_collect_rows().unwrap();
+
+        reader_conn
+            .execute("INSERT INTO t VALUES (2, 'reader_data')")
+            .unwrap();
+
+        signal_tx.send(()).unwrap();
+
+        // COMMIT blocks in WaitForDependencies. Writer will commit →
+        // counter decremented → reader proceeds.
+        let commit_result = reader_conn.execute("COMMIT");
+        let _ = reader_conn.close();
+        (rows, commit_result)
+    });
+
+    signal_rx.recv().unwrap();
+
+    // Complete the writer's commit manually (postprocessing):
+    // 1. Convert TxID → Timestamp in row versions
+    // 2. Set state to Committed
+    // 3. Drain CommitDepSet, decrement dependents' counters
+    {
+        let writer_tx = mvcc_store.txs.get(&writer_tx_id).unwrap();
+        let writer_tx = writer_tx.value();
+
+        // Convert TxID→Timestamp in row versions (Hekaton §3.3 postprocessing)
+        for entry in mvcc_store.rows.iter() {
+            let mut rvs = entry.value().write();
+            for rv in rvs.iter_mut() {
+                if rv.begin == Some(TxTimestampOrID::TxID(writer_tx_id)) {
+                    rv.begin = Some(TxTimestampOrID::Timestamp(end_ts));
+                }
+                if rv.end == Some(TxTimestampOrID::TxID(writer_tx_id)) {
+                    rv.end = Some(TxTimestampOrID::Timestamp(end_ts));
+                }
+            }
+        }
+
+        // Committed state + notify dependents
+        writer_tx.state.store(TransactionState::Committed(end_ts));
+        for dep_tx_id in writer_tx.commit_dep_set.lock().drain() {
+            if let Some(dep_tx_entry) = mvcc_store.txs.get(&dep_tx_id) {
+                dep_tx_entry
+                    .value()
+                    .commit_dep_counter
+                    .fetch_sub(1, Ordering::AcqRel);
+            }
+        }
+    }
+
+    let (rows, commit_result) = reader_handle.join().unwrap();
+
+    // Reader speculatively read the writer's value
+    assert_eq!(rows.len(), 1);
+    assert_eq!(rows[0][0].to_text().unwrap(), "committed");
+
+    // Reader's COMMIT succeeds: dependency resolved by writer's commit
+    assert!(
+        commit_result.is_ok(),
+        "expected reader COMMIT to succeed, got: {commit_result:?}",
+    );
+
+    // Both writes are visible
+    {
+        let conn = db.connect();
+        let mut stmt = conn.prepare("SELECT value FROM t ORDER BY id").unwrap();
+        let rows = stmt.run_collect_rows().unwrap();
+        assert_eq!(rows.len(), 2);
+        assert_eq!(rows[0][0].to_text().unwrap(), "committed");
+        assert_eq!(rows[1][0].to_text().unwrap(), "reader_data");
+    }
+}
+
+/// Regression: the write_set.is_empty() fast path used to commit read-only
+/// transactions without checking commit dependencies. A read-only tx that
+/// speculatively read from a Preparing writer must still honour AbortNow.
+#[test]
+fn test_commit_dep_threaded_readonly_abort_cascades() {
+    let db = MvccTestDbNoConn::new_with_random_db();
+    {
+        let conn = db.connect();
+        conn.execute("CREATE TABLE t (id INTEGER PRIMARY KEY, value TEXT)")
+            .unwrap();
+        conn.execute("INSERT INTO t VALUES (1, 'initial')").unwrap();
+        conn.close().unwrap();
+    }
+
+    let mvcc_store = db.get_mvcc_store();
+
+    // Writer
+    let writer_conn = db.connect();
+    writer_conn.execute("BEGIN CONCURRENT").unwrap();
+    writer_conn
+        .execute("UPDATE t SET value = 'modified' WHERE id = 1")
+        .unwrap();
+    let writer_tx_id = writer_conn.get_mv_tx_id().unwrap();
+
+    let end_ts = mvcc_store.clock.get_timestamp();
+    mvcc_store
+        .txs
+        .get(&writer_tx_id)
+        .unwrap()
+        .value()
+        .state
+        .store(TransactionState::Preparing(end_ts));
+
+    let (signal_tx, signal_rx) = std::sync::mpsc::channel();
+
+    let db_arc = db.get_db();
+    let reader_handle = std::thread::spawn(move || {
+        let reader_conn = db_arc.connect().unwrap();
+        reader_conn.execute("BEGIN CONCURRENT").unwrap();
+
+        // Read-only: no writes, only SELECT → triggers speculative read
+        let mut stmt = reader_conn
+            .prepare("SELECT value FROM t WHERE id = 1")
+            .unwrap();
+        let rows = stmt.run_collect_rows().unwrap();
+
+        signal_tx.send(()).unwrap();
+
+        // COMMIT on a read-only tx hits the write_set.is_empty() fast path.
+        // It must still check commit dependencies.
+        let commit_result = reader_conn.execute("COMMIT");
+        let _ = reader_conn.close();
+        (rows, commit_result)
+    });
+
+    signal_rx.recv().unwrap();
+
+    // Abort writer → cascade to read-only reader
+    mvcc_store.rollback_tx(
+        writer_tx_id,
+        writer_conn.pager.load().clone(),
+        &writer_conn,
+        crate::MAIN_DB_ID,
+    );
+
+    let (rows, commit_result) = reader_handle.join().unwrap();
+
+    assert_eq!(rows.len(), 1);
+    assert_eq!(rows[0][0].to_text().unwrap(), "modified");
+
+    // Read-only tx must still fail when its dependency aborts
+    assert!(
+        matches!(commit_result, Err(LimboError::CommitDependencyAborted)),
+        "read-only tx should fail with CommitDependencyAborted, got: {commit_result:?}",
+    );
+}
+
+/// Test that register_commit_dependency increments counter before pushing to
+/// dep_set, preventing underflow. If counter is incremented after push+unlock,
+/// a concurrent drain could fetch_sub(1) on a zero counter, wrapping to MAX.
+#[test]
+fn test_commit_dependency_counter_no_underflow() {
+    let txs: SkipMap<TxID, Transaction> =
+        SkipMap::from_iter([(1, new_tx(1, 1, TransactionState::Preparing(5)))]);
+    let reader = new_tx(2, 10, TransactionState::Active);
+
+    // Register dependency: counter should go 0 → 1
+    register_commit_dependency(&txs, &reader, 1);
+    assert_eq!(reader.commit_dep_counter.load(Ordering::Acquire), 1);
+
+    // Simulate drain (as in CommitEnd): fetch_sub should go 1 → 0, not wrap
+    reader.commit_dep_counter.fetch_sub(1, Ordering::AcqRel);
+    assert_eq!(
+        reader.commit_dep_counter.load(Ordering::Acquire),
+        0,
+        "counter should be exactly 0, not u64::MAX (underflow)"
+    );
+}
+
+/// Test that registering a dependency on a Terminated (aborted+removed from map)
+/// transaction correctly sets AbortNow. Before the fix, rollback_tx removed the
+/// tx from txs, so register_commit_dependency saw None and assumed "committed."
+#[test]
+fn test_commit_dependency_terminated_tx_sets_abort() {
+    let txs: SkipMap<TxID, Transaction> =
+        SkipMap::from_iter([(1, new_tx(1, 1, TransactionState::Terminated))]);
+
+    let reader = new_tx(2, 10, TransactionState::Active);
+    register_commit_dependency(&txs, &reader, 1);
+
+    // Terminated means the tx aborted — must set abort_now
+    assert!(
+        reader.abort_now.load(Ordering::Acquire),
+        "dependency on Terminated tx should set abort_now"
+    );
+    assert_eq!(
+        reader.commit_dep_counter.load(Ordering::Acquire),
+        0,
+        "no counter increment for aborted/terminated dependency"
+    );
+}
+
+/// Test that when tx is NOT in the map (removed), register_commit_dependency
+/// treats it as committed (no abort_now, no counter increment). This is correct
+/// only for committed transactions. Aborted transactions should NOT be removed
+/// from the map (Issue #3 fix ensures this).
+#[test]
+fn test_commit_dependency_missing_tx_assumes_committed() {
+    let txs: SkipMap<TxID, Transaction> = SkipMap::new();
+
+    let reader = new_tx(2, 10, TransactionState::Active);
+    register_commit_dependency(&txs, &reader, 99);
+
+    assert!(
+        !reader.abort_now.load(Ordering::Acquire),
+        "missing tx (committed+removed) should not set abort_now"
+    );
+    assert_eq!(reader.commit_dep_counter.load(Ordering::Acquire), 0);
+}
+
+/// Test that read-only transactions with resolved dependencies do NOT advance
+/// last_committed_tx_ts. A read-only tx going through WaitForDependencies →
+/// CommitEnd would update last_committed_tx_ts, causing spurious Busy errors
+/// from acquire_exclusive_tx.
+#[test]
+fn test_commit_dep_readonly_does_not_advance_timestamp() {
+    let db = MvccTestDbNoConn::new_with_random_db();
+    {
+        let conn = db.connect();
+        conn.execute("CREATE TABLE t (id INTEGER PRIMARY KEY, value TEXT)")
+            .unwrap();
+        conn.execute("INSERT INTO t VALUES (1, 'initial')").unwrap();
+        conn.close().unwrap();
+    }
+
+    let mvcc_store = db.get_mvcc_store();
+    let ts_before = mvcc_store.last_committed_tx_ts.load(Ordering::Acquire);
+
+    // Writer: UPDATE then set to Preparing
+    let writer_conn = db.connect();
+    writer_conn.execute("BEGIN CONCURRENT").unwrap();
+    writer_conn
+        .execute("UPDATE t SET value = 'modified' WHERE id = 1")
+        .unwrap();
+    let writer_tx_id = writer_conn.get_mv_tx_id().unwrap();
+
+    let end_ts = mvcc_store.clock.get_timestamp();
+    mvcc_store
+        .txs
+        .get(&writer_tx_id)
+        .unwrap()
+        .value()
+        .state
+        .store(TransactionState::Preparing(end_ts));
+
+    let (signal_tx, signal_rx) = std::sync::mpsc::channel();
+
+    let db_arc = db.get_db();
+    let mvcc_clone = mvcc_store.clone();
+    let reader_handle = std::thread::spawn(move || {
+        let reader_conn = db_arc.connect().unwrap();
+        reader_conn.execute("BEGIN CONCURRENT").unwrap();
+
+        // Read-only: SELECT only → speculative read registers dependency
+        let mut stmt = reader_conn
+            .prepare("SELECT value FROM t WHERE id = 1")
+            .unwrap();
+        let _rows = stmt.run_collect_rows().unwrap();
+
+        signal_tx.send(()).unwrap();
+
+        // COMMIT: read-only with dependency → WaitForDependencies
+        let commit_result = reader_conn.execute("COMMIT");
+        let _ = reader_conn.close();
+        commit_result
+    });
+
+    signal_rx.recv().unwrap();
+
+    // Complete writer's commit manually (resolve dependency)
+    {
+        let writer_tx = mvcc_store.txs.get(&writer_tx_id).unwrap();
+        let writer_tx = writer_tx.value();
+        for entry in mvcc_store.rows.iter() {
+            let mut rvs = entry.value().write();
+            for rv in rvs.iter_mut() {
+                if rv.begin == Some(TxTimestampOrID::TxID(writer_tx_id)) {
+                    rv.begin = Some(TxTimestampOrID::Timestamp(end_ts));
+                }
+                if rv.end == Some(TxTimestampOrID::TxID(writer_tx_id)) {
+                    rv.end = Some(TxTimestampOrID::Timestamp(end_ts));
+                }
+            }
+        }
+        writer_tx.state.store(TransactionState::Committed(end_ts));
+        for dep_tx_id in writer_tx.commit_dep_set.lock().drain() {
+            if let Some(dep_tx_entry) = mvcc_store.txs.get(&dep_tx_id) {
+                dep_tx_entry
+                    .value()
+                    .commit_dep_counter
+                    .fetch_sub(1, Ordering::AcqRel);
+            }
+        }
+    }
+
+    let commit_result = reader_handle.join().unwrap();
+    assert!(
+        commit_result.is_ok(),
+        "read-only tx with resolved dependency should commit: {commit_result:?}",
+    );
+
+    let ts_after = mvcc_clone.last_committed_tx_ts.load(Ordering::Acquire);
+    assert_eq!(
+        ts_before, ts_after,
+        "read-only tx should NOT advance last_committed_tx_ts (was {ts_before}, now {ts_after})"
+    );
+}
+
+/// Test that a new transaction can still acquire the exclusive lock after a
+/// read-only dependent tx commits. Before the fix, the read-only tx would
+/// advance last_committed_tx_ts via CommitEnd, making acquire_exclusive_tx
+/// return Busy for transactions that started before the read.
+#[test]
+fn test_commit_dep_readonly_does_not_cause_spurious_busy() {
+    let db = MvccTestDbNoConn::new_with_random_db();
+    {
+        let conn = db.connect();
+        conn.execute("CREATE TABLE t (id INTEGER PRIMARY KEY, value TEXT)")
+            .unwrap();
+        conn.execute("INSERT INTO t VALUES (1, 'initial')").unwrap();
+        conn.close().unwrap();
+    }
+
+    let mvcc_store = db.get_mvcc_store();
+
+    // Writer: UPDATE then set to Preparing
+    let writer_conn = db.connect();
+    writer_conn.execute("BEGIN CONCURRENT").unwrap();
+    writer_conn
+        .execute("UPDATE t SET value = 'modified' WHERE id = 1")
+        .unwrap();
+    let writer_tx_id = writer_conn.get_mv_tx_id().unwrap();
+
+    let end_ts = mvcc_store.clock.get_timestamp();
+    mvcc_store
+        .txs
+        .get(&writer_tx_id)
+        .unwrap()
+        .value()
+        .state
+        .store(TransactionState::Preparing(end_ts));
+
+    // Start a non-CONCURRENT tx that will try to get exclusive lock later.
+    // Its begin_ts is assigned now, before the read-only tx commits.
+    let exclusive_conn = db.connect();
+    exclusive_conn.execute("BEGIN CONCURRENT").unwrap();
+    let exclusive_tx_id = exclusive_conn.get_mv_tx_id().unwrap();
+
+    let (signal_tx, signal_rx) = std::sync::mpsc::channel();
+
+    let db_arc = db.get_db();
+    let reader_handle = std::thread::spawn(move || {
+        let reader_conn = db_arc.connect().unwrap();
+        reader_conn.execute("BEGIN CONCURRENT").unwrap();
+
+        let mut stmt = reader_conn
+            .prepare("SELECT value FROM t WHERE id = 1")
+            .unwrap();
+        let _rows = stmt.run_collect_rows().unwrap();
+
+        signal_tx.send(()).unwrap();
+
+        let commit_result = reader_conn.execute("COMMIT");
+        let _ = reader_conn.close();
+        commit_result
+    });
+
+    signal_rx.recv().unwrap();
+
+    // Resolve the writer's commit (unblocks reader's WaitForDependencies)
+    {
+        let writer_tx = mvcc_store.txs.get(&writer_tx_id).unwrap();
+        let writer_tx = writer_tx.value();
+        for entry in mvcc_store.rows.iter() {
+            let mut rvs = entry.value().write();
+            for rv in rvs.iter_mut() {
+                if rv.begin == Some(TxTimestampOrID::TxID(writer_tx_id)) {
+                    rv.begin = Some(TxTimestampOrID::Timestamp(end_ts));
+                }
+                if rv.end == Some(TxTimestampOrID::TxID(writer_tx_id)) {
+                    rv.end = Some(TxTimestampOrID::Timestamp(end_ts));
+                }
+            }
+        }
+        writer_tx.state.store(TransactionState::Committed(end_ts));
+        for dep_tx_id in writer_tx.commit_dep_set.lock().drain() {
+            if let Some(dep_tx_entry) = mvcc_store.txs.get(&dep_tx_id) {
+                dep_tx_entry
+                    .value()
+                    .commit_dep_counter
+                    .fetch_sub(1, Ordering::AcqRel);
+            }
+        }
+    }
+
+    let commit_result = reader_handle.join().unwrap();
+    assert!(commit_result.is_ok());
+
+    // Now try to acquire exclusive lock for the tx that started before the
+    // read-only dependent committed. Should succeed because the read-only tx
+    // did not advance last_committed_tx_ts.
+    let acquire_result = mvcc_store.acquire_exclusive_tx(&exclusive_tx_id);
+    assert!(
+        acquire_result.is_ok(),
+        "acquire_exclusive_tx should not return Busy after a read-only dependent committed: {acquire_result:?}",
+    );
+    mvcc_store.release_exclusive_tx(&exclusive_tx_id);
 }
 
 /// What this test checks: Startup recovery reconciles WAL/log artifacts into one consistent MVCC state and replay boundary.
@@ -3031,7 +4054,7 @@ fn test_restart() {
 
         let tx_id = mvcc_store.begin_tx(conn.pager.load().clone()).unwrap();
         let row = mvcc_store
-            .read(tx_id, RowID::new(synthetic_table_id, RowKey::Int(2)))
+            .read(tx_id, &RowID::new(synthetic_table_id, RowKey::Int(2)))
             .unwrap()
             .unwrap();
         let record = get_record_value(&row);
@@ -3314,8 +4337,12 @@ fn transaction_display() {
         write_set,
         read_set,
         header: RwLock::new(DatabaseHeader::default()),
+        header_dirty: AtomicBool::new(false),
         savepoint_stack: RwLock::new(Vec::new()),
         pager_commit_lock_held: AtomicBool::new(false),
+        commit_dep_counter: AtomicU64::new(0),
+        abort_now: AtomicBool::new(false),
+        commit_dep_set: Mutex::new(HashSet::default()),
     };
 
     let expected = "{ state: Preparing(20250915), id: 42, begin_ts: 20250914, write_set: [RowID { table_id: MVTableId(-2), row_id: Int(11) }, RowID { table_id: MVTableId(-2), row_id: Int(13) }], read_set: [RowID { table_id: MVTableId(-2), row_id: Int(17) }, RowID { table_id: MVTableId(-2), row_id: Int(19) }] }";
@@ -3331,6 +4358,30 @@ fn test_should_checkpoint() {
     let mv_store = db.get_mvcc_store();
     assert!(!mv_store.storage.should_checkpoint());
     mv_store.set_checkpoint_threshold(0);
+    assert!(mv_store.storage.should_checkpoint());
+}
+
+/// What this test checks: After restart recovery, checkpoint-threshold checks use the recovered log offset.
+/// Why this matters: Shadow-offset drift can suppress auto-checkpoint despite a large recovered log tail.
+#[test]
+fn test_should_checkpoint_after_recovery_uses_recovered_offset() {
+    let mut db = MvccTestDbNoConn::new_with_random_db();
+    {
+        let conn = db.connect();
+        conn.execute("CREATE TABLE t(x)").unwrap();
+        conn.execute("INSERT INTO t VALUES (1)").unwrap();
+    }
+
+    db.restart();
+    let _conn = db.connect();
+    let mv_store = db.get_mvcc_store();
+    let recovered_offset = mv_store.storage.logical_log.write().offset;
+
+    mv_store.set_checkpoint_threshold(1);
+    assert!(
+        recovered_offset > 1,
+        "expected recovered log offset > 1 byte"
+    );
     assert!(mv_store.storage.should_checkpoint());
 }
 
@@ -3382,8 +4433,12 @@ fn test_auto_checkpoint_busy_is_ignored() {
     commit_tx(db.mvcc_store.clone(), &db.conn, tx1).unwrap();
 
     // Cleanup: release the read lock held by tx2.
-    db.mvcc_store
-        .rollback_tx(tx2, db.conn.pager.load().clone(), &db.conn);
+    db.mvcc_store.rollback_tx(
+        tx2,
+        db.conn.pager.load().clone(),
+        &db.conn,
+        crate::MAIN_DB_ID,
+    );
 }
 
 /// What this test checks: Core MVCC read/write semantics hold for this operation sequence.
@@ -4414,8 +5469,12 @@ fn test_gc_integration_rollback_creates_aborted_garbage() {
         .unwrap();
     let row = generate_simple_string_row((-2).into(), 1, "will_rollback");
     db.mvcc_store.insert(tx1, row).unwrap();
-    db.mvcc_store
-        .rollback_tx(tx1, db.conn.pager.load().clone(), &db.conn);
+    db.mvcc_store.rollback_tx(
+        tx1,
+        db.conn.pager.load().clone(),
+        &db.conn,
+        crate::MAIN_DB_ID,
+    );
 
     // Rollback should leave aborted garbage (begin=None, end=None).
     let entry = db
@@ -4497,7 +5556,7 @@ fn test_gc_active_reader_pins_lwm() {
     }
 
     // T2 still sees the old version.
-    let read_row = db.mvcc_store.read(tx2, row_id.clone()).unwrap().unwrap();
+    let read_row = db.mvcc_store.read(tx2, &row_id).unwrap().unwrap();
     assert_eq!(
         read_row, row_v1,
         "active reader should still see the old version"
@@ -5805,4 +6864,263 @@ fn test_close_persists_drop_index() {
     let rows = get_rows(&conn, "PRAGMA integrity_check");
     assert_eq!(rows.len(), 1);
     assert_eq!(&rows[0][0].to_string(), "ok");
+}
+
+#[test]
+fn test_partial_commit_visibility_bug() {
+    use crate::sync::atomic::{AtomicBool, AtomicU64, Ordering};
+    use crate::sync::Arc;
+    use std::collections::HashMap;
+    use std::thread;
+    use std::time::Duration;
+    for _ in 0..10 {
+        // Setup: Create a table with batch_id and row_num columns
+        let db = Arc::new(MvccTestDbNoConn::new_with_random_db());
+        {
+            let conn = db.connect();
+            conn.execute("CREATE TABLE consistency_test (batch_id INTEGER, row_num INTEGER)")
+                .unwrap();
+        }
+
+        const ROWS_PER_BATCH: i64 = 50; // Large enough to increase race window
+        const NUM_BATCHES: u64 = 100;
+        const NUM_READER_THREADS: usize = 4;
+
+        let writer_done = Arc::new(AtomicBool::new(false));
+        let violation_detected = Arc::new(AtomicBool::new(false));
+        let current_batch = Arc::new(AtomicU64::new(0));
+
+        // Writer thread: Insert batches of rows
+        let writer_handle = {
+            let db = db.clone();
+            let writer_done = writer_done.clone();
+            let current_batch = current_batch.clone();
+            thread::spawn(move || {
+                let conn = db.connect();
+
+                for batch_id in 0..NUM_BATCHES {
+                    // Start a transaction
+                    conn.execute("BEGIN CONCURRENT").unwrap();
+
+                    // Insert ROWS_PER_BATCH rows with the same batch_id
+                    // This simulates a multi-row operation like a bank transfer
+                    for row_num in 0..ROWS_PER_BATCH {
+                        conn.execute(format!(
+                            "INSERT INTO consistency_test VALUES ({batch_id}, {row_num})",
+                        ))
+                        .unwrap();
+                    }
+
+                    // Update current batch before committing to allow readers to check
+                    current_batch.store(batch_id, Ordering::Release);
+
+                    // Commit the transaction
+                    // BUG LOCATION: During commit, the loop at mod.rs:912-984 updates
+                    // row timestamps one-by-one while state remains Preparing.
+                    // Concurrent readers can see partial updates.
+                    conn.execute("COMMIT").unwrap();
+
+                    // Small delay to allow readers to observe the race window
+                    thread::sleep(Duration::from_micros(100));
+                }
+
+                writer_done.store(true, Ordering::Release);
+            })
+        };
+
+        // Reader threads: Continuously read and verify batch consistency
+        let mut reader_handles = Vec::new();
+        for reader_id in 0..NUM_READER_THREADS {
+            let db = db.clone();
+            let writer_done = writer_done.clone();
+            let violation_detected = violation_detected.clone();
+            let current_batch = current_batch.clone();
+
+            let handle = thread::spawn(move || {
+                let conn = db.connect();
+                let mut iteration = 0u64;
+
+                loop {
+                    iteration += 1;
+
+                    // Start a new transaction to get a fresh snapshot
+                    // Snapshot isolation: This snapshot should see a consistent state
+                    conn.execute("BEGIN CONCURRENT").unwrap();
+
+                    // Read all rows grouped by batch_id
+                    let rows = get_rows(
+                        &conn,
+                        "SELECT batch_id, row_num FROM consistency_test ORDER BY batch_id, row_num",
+                    );
+
+                    // Group rows by batch_id
+                    let mut batches: HashMap<i64, Vec<i64>> = HashMap::new();
+                    for row in rows {
+                        let batch_id = row[0].as_int().unwrap();
+                        let row_num = row[1].as_int().unwrap();
+                        batches.entry(batch_id).or_default().push(row_num);
+                    }
+
+                    // Check consistency: Each batch must have EITHER all rows OR no rows
+                    for (batch_id, row_nums) in &batches {
+                        let count = row_nums.len() as i64;
+
+                        // CRITICAL ASSERTION: Snapshot isolation guarantees atomic visibility
+                        // A batch is either fully committed (all 50 rows) or not yet committed (0 rows)
+                        //
+                        // If we see a partial batch (e.g., 23 rows), it means:
+                        // 1. The commit loop updated timestamps for rows 0-22 (visible)
+                        // 2. Transaction still in Preparing state
+                        // 3. Rows 23-49 still have TxID (invisible to us)
+                        // 4. We started our snapshot DURING the commit loop
+                        //
+                        // This is a SNAPSHOT ISOLATION VIOLATION.
+                        if count != 0 && count != ROWS_PER_BATCH {
+                            eprintln!(
+                                "[Reader {reader_id}] VIOLATION DETECTED at iteration {iteration}!",
+                            );
+                            eprintln!(
+                                "  Batch {batch_id} has {count} rows (expected {ROWS_PER_BATCH} or 0)",
+                            );
+                            eprintln!("  Visible row_nums: {row_nums:?}");
+                            eprintln!();
+                            eprintln!("  EXPLANATION:");
+                            eprintln!(
+                                "  - This reader started a snapshot during batch {batch_id}'s commit",
+                            );
+                            eprintln!(
+                                "  - The commit loop (mod.rs:912-984) was updating timestamps"
+                            );
+                            eprintln!("  - Transaction state was still Preparing(ts)");
+                            eprintln!("  - Rows with updated Timestamps became visible");
+                            eprintln!("  - Rows with TxID timestamps remained invisible");
+                            eprintln!("  - Result: Partial batch visibility (atomicity violation)");
+                            eprintln!();
+                            eprintln!("  RACE TIMELINE:");
+                            eprintln!("  1. Writer: state = Preparing(end_ts)");
+                            eprintln!("  2. Writer: Update row 0's timestamp");
+                            eprintln!("  3. Writer: Update row 1's timestamp");
+                            eprintln!("  ...");
+                            eprintln!("  N. Reader: BEGIN (snapshot)");
+                            eprintln!(
+                                "  N+1. Reader: Read rows 0-{} (visible via Timestamp)",
+                                count - 1
+                            );
+                            eprintln!(
+                                "  N+2. Reader: Read rows {}-{} (invisible, still TxID)",
+                                count,
+                                ROWS_PER_BATCH - 1
+                            );
+                            eprintln!("  N+3. Writer: Continue updating remaining timestamps...");
+
+                            violation_detected.store(true, Ordering::Release);
+
+                            // Continue to accumulate more evidence
+                        }
+                    }
+
+                    conn.execute("COMMIT").unwrap();
+
+                    // Exit if writer is done and we've checked a few more times
+                    if writer_done.load(Ordering::Acquire) {
+                        let final_batch = current_batch.load(Ordering::Acquire);
+                        if iteration > final_batch + 10 {
+                            break;
+                        }
+                    }
+
+                    // Small delay to vary timing
+                    thread::sleep(Duration::from_micros(50));
+                }
+
+                eprintln!("[Reader {reader_id}] Completed {iteration} iterations");
+            });
+
+            reader_handles.push(handle);
+        }
+
+        // Wait for writer to complete
+        writer_handle.join().unwrap();
+
+        // Wait for readers to complete
+        for handle in reader_handles {
+            handle.join().unwrap();
+        }
+
+        // ASSERTION: No violations should be detected
+        // With the current bug, this will FAIL because readers observe partial commits
+        assert!(
+            !violation_detected.load(Ordering::Acquire),
+            "Partial commit visibility detected! Transaction atomicity violated.\n\
+         \n\
+         ROOT CAUSE: Commit loop (mod.rs:912-984) updates row timestamps non-atomically\n\
+         while transaction state remains Preparing. Concurrent readers see inconsistent\n\
+         snapshots with partial transaction visibility.\n\
+         \n\
+         FIX REQUIRED: Make timestamp updates atomic, or change visibility logic to\n\
+         always dereference transaction state instead of reading row timestamps directly."
+        );
+    }
+}
+
+/// Two concurrent transactions delete the same B-tree-resident row that has a
+/// UNIQUE index. Both DELETEs succeed at execute time because tombstones
+/// (begin: None) are invisible to is_visible_to(), so both transactions
+/// create independent tombstones. However, commit-time validation in
+/// check_version_conflicts detects the other transaction's tombstone as a
+/// write lock (via its end: TxID field) and rejects the second committer
+/// with WriteWriteConflict.
+#[test]
+fn test_double_delete_btree_resident_row_with_unique_index() {
+    let db = MvccTestDbNoConn::new_with_random_db();
+    let conn = db.connect();
+
+    conn.execute("CREATE TABLE t(id INTEGER PRIMARY KEY, val INTEGER, uniq TEXT UNIQUE)")
+        .unwrap();
+    conn.execute("INSERT INTO t VALUES(1, 10, 'a')").unwrap();
+    conn.execute("INSERT INTO t VALUES(2, 20, 'b')").unwrap();
+
+    // Checkpoint so rows are only in B-tree, not in MVCC store
+    conn.execute("PRAGMA wal_checkpoint(TRUNCATE)").unwrap();
+    drop(conn);
+
+    // Two transactions both try to delete the same B-tree-resident row
+    let conn1 = db.connect();
+    let conn2 = db.connect();
+
+    conn1.execute("BEGIN CONCURRENT").unwrap();
+    conn2.execute("BEGIN CONCURRENT").unwrap();
+
+    // T1 deletes row 1 — creates tombstone (begin: None, end: TxID(T1))
+    conn1.execute("DELETE FROM t WHERE id = 1").unwrap();
+
+    // T2 deletes the same row — creates a second tombstone at execute time
+    // (is_visible_to still returns false for tombstones, so operation-time
+    // conflict detection is bypassed — that's a separate issue)
+    conn2.execute("DELETE FROM t WHERE id = 1").unwrap();
+
+    // T1 commits first — stamps its tombstones with Timestamp
+    conn1.execute("COMMIT").unwrap();
+
+    // T2's commit should fail: check_version_conflicts now detects T1's
+    // committed tombstone (end: Timestamp >= T2.begin_ts)
+    assert!(
+        conn2.execute("COMMIT").is_err(),
+        "T2's COMMIT should fail with WriteWriteConflict when T1 already \
+         committed a tombstone for the same row"
+    );
+    drop(conn1);
+    drop(conn2);
+
+    // Checkpoint: only T1's delete should have gone through
+    let conn = db.connect();
+    conn.execute("PRAGMA wal_checkpoint(TRUNCATE)").unwrap();
+
+    let rows = get_rows(&conn, "PRAGMA integrity_check");
+    assert_eq!(rows.len(), 1);
+    assert_eq!(
+        &rows[0][0].to_string(),
+        "ok",
+        "Index corruption after concurrent double-delete of B-tree-resident row"
+    );
 }

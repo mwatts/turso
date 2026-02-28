@@ -1,4 +1,3 @@
-use crate::sync::RwLock;
 use rustc_hash::FxHashSet as HashSet;
 use turso_parser::ast::{self, Expr, Literal, Name, QualifiedName, RefAct};
 
@@ -12,7 +11,7 @@ use crate::{
         insn::{CmpInsFlags, Insn},
         BranchOffset,
     },
-    Connection, LimboError, Result, Statement, Value,
+    Connection, LimboError, Result, Value,
 };
 use std::{num::NonZero, num::NonZeroUsize, sync::Arc};
 
@@ -216,7 +215,11 @@ where
 pub fn build_index_affinity_string(idx: &Index, table: &BTreeTable) -> String {
     idx.columns
         .iter()
-        .map(|ic| table.columns[ic.pos_in_table].affinity().aff_mask())
+        .map(|ic| {
+            table.columns[ic.pos_in_table]
+                .affinity_with_strict(table.is_strict)
+                .aff_mask()
+        })
         .collect()
 }
 
@@ -236,6 +239,7 @@ pub fn emit_fk_restrict_halt(program: &mut ProgramBuilder) -> Result<()> {
     program.emit_insn(Insn::Halt {
         err_code: SQLITE_CONSTRAINT_FOREIGNKEY,
         description: "FOREIGN KEY constraint failed".to_string(),
+        on_error: None,
     });
     Ok(())
 }
@@ -1169,6 +1173,30 @@ impl FkSubprogramContext {
     }
 }
 
+/// Decode FK key registers in-place for custom type columns.
+/// FK action subprograms are compiled as normal SQL (via translate_inner), which
+/// means column reads in the WHERE clause apply decode automatically. Therefore,
+/// the parameter values passed to subprograms must also be in decoded (user-facing)
+/// form for the comparison to match.
+fn decode_fk_key_registers(
+    program: &mut ProgramBuilder,
+    resolver: &Resolver,
+    parent_bt: &BTreeTable,
+    parent_cols: &[String],
+    key_start: usize,
+) -> Result<()> {
+    for (i, pcol) in parent_cols.iter().enumerate() {
+        if let Some((_, col)) = parent_bt.get_column(pcol) {
+            let reg = key_start + i;
+            super::expr::emit_user_facing_column_value(
+                program, reg, reg, col, true, // custom types require STRICT tables
+                resolver,
+            )?;
+        }
+    }
+    Ok(())
+}
+
 /// Get the parent column names for an FK reference.
 /// Uses primary key columns if parent_columns is empty.
 #[inline]
@@ -1298,15 +1326,15 @@ fn emit_fk_action_subprogram(
         );
     }
 
-    let turso_stmt = Statement::new(
-        built_subprogram,
-        connection.pager.load().clone(),
-        QueryMode::Normal,
-    );
+    // FK action subprograms can't contain RAISE(IGNORE), so ignore_jump_target
+    // is a no-op that resolves to the next instruction (just falls through).
+    let ignore_jump_target = program.allocate_label();
     program.emit_insn(Insn::Program {
         params,
-        program: Arc::new(RwLock::new(turso_stmt)),
+        program: built_subprogram.prepared().clone(),
+        ignore_jump_target,
     });
+    program.preassign_label_to_next_insn(ignore_jump_target);
 
     Ok(())
 }
@@ -1481,7 +1509,7 @@ fn fire_fk_cascade_delete(
     ctx: &FkActionContext,
     database_id: usize,
 ) -> Result<()> {
-    let db_name = if database_id > 0 {
+    let db_name = if database_id != crate::MAIN_DB_ID {
         resolver.get_database_name_by_index(database_id)
     } else {
         None
@@ -1514,7 +1542,7 @@ fn fire_fk_set_null(
     ctx: &FkActionContext,
     database_id: usize,
 ) -> Result<()> {
-    let db_name = if database_id > 0 {
+    let db_name = if database_id != crate::MAIN_DB_ID {
         resolver.get_database_name_by_index(database_id)
     } else {
         None
@@ -1540,7 +1568,7 @@ fn fire_fk_set_default(
     ctx: &FkActionContext,
     database_id: usize,
 ) -> Result<()> {
-    let db_name = if database_id > 0 {
+    let db_name = if database_id != crate::MAIN_DB_ID {
         resolver.get_database_name_by_index(database_id)
     } else {
         None
@@ -1566,7 +1594,7 @@ fn fire_fk_cascade_update(
     ctx: &FkActionContext,
     database_id: usize,
 ) -> Result<()> {
-    let db_name = if database_id > 0 {
+    let db_name = if database_id != crate::MAIN_DB_ID {
         resolver.get_database_name_by_index(database_id)
     } else {
         None
@@ -1592,64 +1620,140 @@ fn fire_fk_cascade_update(
 
 /// Fire FK actions for DELETE on parent table using Program opcode.
 /// This is called after the DELETE is performed but before AFTER triggers.
-pub fn fire_fk_delete_actions(
-    program: &mut ProgramBuilder,
-    resolver: &mut Resolver,
-    parent_table_name: &str,
-    parent_cursor_id: usize,
-    parent_rowid_reg: usize,
-    connection: &Arc<Connection>,
-    database_id: usize,
-) -> Result<()> {
-    let parent_bt = resolver
-        .with_schema(database_id, |s| s.get_btree_table(parent_table_name))
-        .ok_or_else(|| LimboError::InternalError("parent not btree".into()))?;
+/// Holds a prepared FK cascade/set-null/set-default action whose parent key
+/// values have already been read into registers.
+pub struct PreparedFkDeleteAction {
+    fk_ref: ResolvedFkRef,
+    ctx: FkActionContext,
+}
 
-    for fk_ref in resolver.with_schema(database_id, |s| {
-        s.resolved_fks_referencing(parent_table_name)
-    })? {
-        let parent_cols = get_fk_parent_cols(&fk_ref, &parent_bt);
-        let ncols = parent_cols.len();
-        let key_regs_start = program.alloc_registers(ncols);
+pub struct ForeignKeyActions<T>(Vec<T>);
 
-        build_parent_key(
-            program,
-            &parent_bt,
-            &parent_cols,
-            parent_cursor_id,
-            parent_rowid_reg,
-            key_regs_start,
-        )?;
+impl<T> Default for ForeignKeyActions<T> {
+    fn default() -> Self {
+        Self(Vec::new())
+    }
+}
 
-        let old_key_registers: Vec<usize> = (key_regs_start..key_regs_start + ncols).collect();
-        let ctx = FkActionContext::new_for_delete(old_key_registers);
+impl ForeignKeyActions<PreparedFkDeleteAction> {
+    /// Phase 1 of FK delete actions: build parent keys into registers and handle
+    /// NoAction/Restrict checks. Returns prepared actions for CASCADE/SetNull/
+    /// SetDefault that must be fired AFTER the parent row is deleted (step 4 per
+    /// SQLite docs: delete parent row first, then perform FK cascade actions).
+    pub fn prepare_fk_delete_actions(
+        program: &mut ProgramBuilder,
+        resolver: &mut Resolver,
+        parent_table_name: &str,
+        parent_cursor_id: usize,
+        parent_rowid_reg: usize,
+        database_id: usize,
+    ) -> Result<ForeignKeyActions<PreparedFkDeleteAction>> {
+        let parent_bt = resolver
+            .with_schema(database_id, |s| s.get_btree_table(parent_table_name))
+            .ok_or_else(|| LimboError::InternalError("parent not btree".into()))?;
 
-        match fk_ref.fk.on_delete {
-            RefAct::NoAction | RefAct::Restrict => {
-                emit_fk_delete_parent_existence_check_single(
-                    program,
-                    &fk_ref,
-                    &parent_bt,
-                    parent_table_name,
-                    parent_cursor_id,
-                    parent_rowid_reg,
-                    database_id,
-                    resolver,
-                )?;
-            }
-            RefAct::Cascade => {
-                fire_fk_cascade_delete(program, resolver, &fk_ref, connection, &ctx, database_id)?;
-            }
-            RefAct::SetNull => {
-                fire_fk_set_null(program, resolver, &fk_ref, connection, &ctx, database_id)?;
-            }
-            RefAct::SetDefault => {
-                fire_fk_set_default(program, resolver, &fk_ref, connection, &ctx, database_id)?;
+        let mut prepared = Vec::new();
+
+        for fk_ref in resolver.with_schema(database_id, |s| {
+            s.resolved_fks_referencing(parent_table_name)
+        })? {
+            let parent_cols = get_fk_parent_cols(&fk_ref, &parent_bt);
+            let ncols = parent_cols.len();
+            let key_regs_start = program.alloc_registers(ncols);
+
+            build_parent_key(
+                program,
+                &parent_bt,
+                &parent_cols,
+                parent_cursor_id,
+                parent_rowid_reg,
+                key_regs_start,
+            )?;
+
+            match fk_ref.fk.on_delete {
+                RefAct::NoAction | RefAct::Restrict => {
+                    emit_fk_delete_parent_existence_check_single(
+                        program,
+                        &fk_ref,
+                        &parent_bt,
+                        parent_table_name,
+                        parent_cursor_id,
+                        parent_rowid_reg,
+                        database_id,
+                        resolver,
+                    )?;
+                }
+                RefAct::Cascade | RefAct::SetNull | RefAct::SetDefault => {
+                    // Decode encoded values so they match the subprogram's decoded column reads
+                    decode_fk_key_registers(
+                        program,
+                        resolver,
+                        &parent_bt,
+                        &parent_cols,
+                        key_regs_start,
+                    )?;
+                    let old_key_registers: Vec<usize> =
+                        (key_regs_start..key_regs_start + ncols).collect();
+                    let ctx = FkActionContext::new_for_delete(old_key_registers);
+                    prepared.push(PreparedFkDeleteAction { fk_ref, ctx });
+                }
             }
         }
+
+        Ok(ForeignKeyActions(prepared))
     }
 
-    Ok(())
+    /// Phase 2 of FK delete actions: fire CASCADE/SetNull/SetDefault sub-programs.
+    /// Must be called AFTER the parent row is deleted from the B-tree.
+    pub fn fire_prepared_fk_delete_actions(
+        self,
+        program: &mut ProgramBuilder,
+        resolver: &mut Resolver,
+        connection: &Arc<Connection>,
+        database_id: usize,
+    ) -> Result<()> {
+        let prepared = self.0;
+        if prepared.is_empty() {
+            return Ok(());
+        }
+        for action in prepared {
+            match action.fk_ref.fk.on_delete {
+                RefAct::Cascade => {
+                    fire_fk_cascade_delete(
+                        program,
+                        resolver,
+                        &action.fk_ref,
+                        connection,
+                        &action.ctx,
+                        database_id,
+                    )?;
+                }
+                RefAct::SetNull => {
+                    fire_fk_set_null(
+                        program,
+                        resolver,
+                        &action.fk_ref,
+                        connection,
+                        &action.ctx,
+                        database_id,
+                    )?;
+                }
+                RefAct::SetDefault => {
+                    fire_fk_set_default(
+                        program,
+                        resolver,
+                        &action.fk_ref,
+                        connection,
+                        &action.ctx,
+                        database_id,
+                    )?;
+                }
+                _ => unreachable!(),
+            }
+        }
+
+        Ok(())
+    }
 }
 
 /// Fire FK actions for UPDATE on parent table using Program opcode.
@@ -1697,6 +1801,10 @@ pub fn fire_fk_update_actions(
             new_rowid_reg,
             new_key_start,
         )?;
+
+        // Decode encoded values so they match the subprogram's decoded column reads
+        decode_fk_key_registers(program, resolver, &parent_bt, &parent_cols, old_key_start)?;
+        decode_fk_key_registers(program, resolver, &parent_bt, &parent_cols, new_key_start)?;
 
         let old_key_registers: Vec<usize> = (old_key_start..old_key_start + ncols).collect();
         let new_key_registers: Vec<usize> = (new_key_start..new_key_start + ncols).collect();
@@ -1868,6 +1976,9 @@ pub fn emit_fk_drop_table_check(
             current_rowid_reg,
             key_regs_start,
         )?;
+
+        // Decode encoded values so they match the subprogram's decoded column reads
+        decode_fk_key_registers(program, resolver, &parent_tbl, &parent_cols, key_regs_start)?;
 
         let old_key_registers: Vec<usize> = (key_regs_start..key_regs_start + ncols).collect();
         let ctx = FkActionContext::new_for_delete(old_key_registers);

@@ -7,6 +7,7 @@ expect {
     1
 }
 
+@cross-check-integrity
 test limit-negative-no-limit {
     CREATE TABLE t(x);
     INSERT INTO t VALUES (1), (2), (3);
@@ -36,4 +37,13 @@ test limit-in-subquery {
 }
 expect {
     1
+}
+
+test limit-non-integer-datatype-mismatch {
+    CREATE TABLE t(x);
+    INSERT INTO t VALUES (1), (2);
+    SELECT x FROM t LIMIT (SELECT 'abc');
+}
+expect error {
+    datatype mismatch
 }

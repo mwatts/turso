@@ -1,8 +1,8 @@
 @database :memory:
-@skip-file-if mvcc "partial indexes not fully supported in MVCC mode"
 
 # https://github.com/tursodatabase/turso/issues/5432
 
+@cross-check-integrity
 test rename-column-updates-partial-index-where-clause-sql {
     CREATE TABLE t (a, b);
     CREATE INDEX idx ON t (b) WHERE a = 1;
@@ -13,6 +13,7 @@ expect {
     CREATE INDEX idx ON t (b) WHERE a2 = 1
 }
 
+@cross-check-integrity
 test rename-column-partial-index-delete-no-panic {
     CREATE TABLE t (a, b);
     CREATE INDEX idx ON t (b) WHERE a = 1;
@@ -24,6 +25,7 @@ expect {
     0
 }
 
+@cross-check-integrity
 test rename-column-partial-index-delete-with-data {
     CREATE TABLE t (a, b);
     INSERT INTO t VALUES (1, 'x'), (2, 'y');
@@ -36,6 +38,7 @@ expect {
     2|y
 }
 
+@cross-check-integrity
 test rename-column-partial-index-update-integrity {
     CREATE TABLE t (a, b);
     INSERT INTO t VALUES (1, 'x'), (2, 'y');
@@ -48,6 +51,7 @@ expect {
     ok
 }
 
+@cross-check-integrity
 test rename-column-partial-index-complex-where {
     CREATE TABLE t (a, b, c);
     CREATE INDEX idx ON t (b) WHERE a > 0 AND c < 10;
@@ -58,6 +62,7 @@ expect {
     CREATE INDEX idx ON t (b) WHERE a2 > 0 AND c < 10
 }
 
+@cross-check-integrity
 test rename-column-partial-index-rename-where-col-only {
     CREATE TABLE t (a, b, c);
     CREATE INDEX idx ON t (b) WHERE c = 1;
@@ -68,6 +73,7 @@ expect {
     CREATE INDEX idx ON t (b) WHERE c = 1
 }
 
+@cross-check-integrity
 test rename-column-partial-index-insert-after-rename {
     CREATE TABLE t (a, b);
     CREATE INDEX idx ON t (b) WHERE a = 1;

@@ -35,7 +35,7 @@ enum CursorPosition {
     End,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy)]
 enum ExistsState {
     ExistsBtree,
 }
@@ -49,27 +49,27 @@ enum AdvanceBtreeState {
     NextCheckBtreeKey,   // Check if next key found is valid, if it isn't go back to NextBtree
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy)]
 /// Rewind state is used to track the state of the rewind **AND** last operation. Since both seem to do similiar
 /// operations we can use the same enum for both.
 enum RewindState {
     Advance,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy)]
 enum NextState {
     AdvanceUnitialized,
     CheckNeedsAdvance,
     Advance,
 }
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy)]
 enum PrevState {
     AdvanceUnitialized,
     CheckNeedsAdvance,
     Advance,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy)]
 enum SeekBtreeState {
     /// Seeking in btree (MVCC seek already done)
     SeekBtree,
@@ -79,7 +79,7 @@ enum SeekBtreeState {
     CheckRow,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy)]
 enum SeekState {
     /// Seeking in btree (MVCC seek already done)
     SeekBtree(SeekBtreeState),
@@ -87,7 +87,7 @@ enum SeekState {
     PickWinner,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy)]
 enum CountState {
     Rewind,
     NextBtree { count: usize },
@@ -251,7 +251,7 @@ macro_rules! static_iterator_hack {
 
 pub(crate) use static_iterator_hack;
 
-pub struct MvccLazyCursor<Clock: LogicalClock> {
+pub struct MvccLazyCursor<Clock: LogicalClock + 'static> {
     pub db: Arc<MvStore<Clock>>,
     current_pos: CursorPosition,
     /// Stateful MVCC table iterator if this is a table cursor.
@@ -359,7 +359,7 @@ impl<Clock: LogicalClock + 'static> MvccLazyCursor<Clock> {
     }
 
     pub fn read_mvcc_current_row(&self) -> Result<Option<Row>> {
-        let row_id = match self.current_pos.clone() {
+        let row_id = match &self.current_pos {
             CursorPosition::Loaded { row_id, in_btree } if !in_btree => row_id,
             _ => panic!("invalid position to read current mvcc row"),
         };
@@ -377,6 +377,7 @@ impl<Clock: LogicalClock + 'static> MvccLazyCursor<Clock> {
 
     pub fn start_new_rowid(&mut self) -> Result<IOResult<NextRowidResult>> {
         tracing::trace!("start_new_rowid");
+
         let allocator = self.db.get_rowid_allocator(&self.table_id);
         let locked = allocator.lock();
         if !locked {
@@ -399,7 +400,6 @@ impl<Clock: LogicalClock + 'static> MvccLazyCursor<Clock> {
     }
 
     pub fn initialize_max_rowid(&mut self, max_rowid: Option<i64>) -> Result<()> {
-        tracing::trace!("start_new_rowid");
         let allocator = self.db.get_rowid_allocator(&self.table_id);
         turso_assert!(
             self.creating_new_rowid,
@@ -407,6 +407,13 @@ impl<Clock: LogicalClock + 'static> MvccLazyCursor<Clock> {
         );
         allocator.initialize(max_rowid);
         Ok(())
+    }
+
+    /// Allocate the next rowid from the (already initialized) allocator.
+    /// Must be called while holding the allocator lock.
+    pub fn allocate_next_rowid(&self) -> Option<(i64, Option<i64>)> {
+        let allocator = self.db.get_rowid_allocator(&self.table_id);
+        allocator.get_next_rowid()
     }
 
     pub fn end_new_rowid(&mut self) {
@@ -791,6 +798,9 @@ impl<Clock: LogicalClock + 'static> MvccLazyCursor<Clock> {
 
 impl<Clock: LogicalClock + 'static> CursorTrait for MvccLazyCursor<Clock> {
     fn last(&mut self) -> Result<IOResult<()>> {
+        // A cursor may be NullRow'd during outer-join unmatched emission.
+        // Repositioning to a real row must clear that synthetic NULL state.
+        self.set_null_flag(false);
         let state = self.state.clone();
         if state.is_none() {
             let _ = self.table_iterator.take();
@@ -1278,7 +1288,7 @@ impl<Clock: LogicalClock + 'static> CursorTrait for MvccLazyCursor<Clock> {
         // FIXME: set btree to somewhere close to this rowid?
         if self
             .db
-            .read_from_table_or_index(self.tx_id, row.id.clone(), maybe_index_id)?
+            .read_from_table_or_index(self.tx_id, &row.id, maybe_index_id)?
             .is_some()
         {
             self.db
@@ -1324,7 +1334,9 @@ impl<Clock: LogicalClock + 'static> CursorTrait for MvccLazyCursor<Clock> {
             // The btree cursor must be correctly positioned and cannot cause IO to happen
             // because in order to get here, we must have read it already in the VDBE.
             let IOResult::Done(Some(record)) = self.record()? else {
-                crate::bail_corrupt_error!("Btree cursor should have a record when deleting a row that only exists in the btree");
+                crate::bail_corrupt_error!(
+                    "Btree cursor should have a record when deleting a row that only exists in the btree"
+                );
             };
             // All operations below clone values so we can clone it here to circumvent the borrow checker
             let record = record.clone();
@@ -1474,7 +1486,7 @@ impl<Clock: LogicalClock + 'static> CursorTrait for MvccLazyCursor<Clock> {
 
     fn count(&mut self) -> Result<IOResult<usize>> {
         loop {
-            let state = self.count_state.clone();
+            let state = self.count_state;
             match state {
                 None => {
                     self.count_state.replace(CountState::Rewind);
@@ -1523,6 +1535,9 @@ impl<Clock: LogicalClock + 'static> CursorTrait for MvccLazyCursor<Clock> {
     }
 
     fn rewind(&mut self) -> Result<IOResult<()>> {
+        // A cursor may be NullRow'd during outer-join unmatched emission.
+        // Repositioning to a real row must clear that synthetic NULL state.
+        self.set_null_flag(false);
         let state = self.state.clone();
         if state.is_none() {
             let _ = self.table_iterator.take();
@@ -1636,7 +1651,7 @@ impl<Clock: LogicalClock + 'static> CursorTrait for MvccLazyCursor<Clock> {
     }
 
     fn get_pager(&self) -> Arc<Pager> {
-        todo!()
+        self.btree_cursor.get_pager()
     }
 
     fn get_skip_advance(&self) -> bool {

@@ -57,7 +57,7 @@ use alter::translate_alter_table;
 use analyze::translate_analyze;
 use index::{translate_create_index, translate_drop_index, translate_optimize};
 use insert::translate_insert;
-use rollback::translate_rollback;
+use rollback::{translate_release, translate_rollback, translate_savepoint};
 use schema::{translate_create_table, translate_create_virtual_table, translate_drop_table};
 use select::translate_select;
 use tracing::{instrument, Level};
@@ -144,9 +144,11 @@ pub fn translate_inner(
             | ast::Stmt::CreateView { .. }
             | ast::Stmt::CreateMaterializedView { .. }
             | ast::Stmt::CreateVirtualTable(..)
+            | ast::Stmt::CreateType { .. }
             | ast::Stmt::Delete { .. }
             | ast::Stmt::DropIndex { .. }
             | ast::Stmt::DropTable { .. }
+            | ast::Stmt::DropType { .. }
             | ast::Stmt::DropView { .. }
             | ast::Stmt::Reindex { .. }
             | ast::Stmt::Optimize { .. }
@@ -231,9 +233,7 @@ pub fn translate_inner(
             select,
             columns,
             ..
-        } => view::translate_create_view(
-            &view_name, resolver, &select, &columns, program, connection,
-        )?,
+        } => view::translate_create_view(&view_name, resolver, &select, &columns, program)?,
         ast::Stmt::CreateMaterializedView {
             view_name, select, ..
         } => view::translate_create_materialized_view(
@@ -297,6 +297,25 @@ pub fn translate_inner(
             if_exists,
             view_name,
         } => view::translate_drop_view(resolver, &view_name, if_exists, program)?,
+        ast::Stmt::CreateType {
+            if_not_exists,
+            type_name,
+            body,
+        } => {
+            if !connection.experimental_custom_types_enabled() {
+                bail_parse_error!("Custom types require --experimental-custom-types flag");
+            }
+            schema::translate_create_type(&type_name, &body, if_not_exists, resolver, program)?
+        }
+        ast::Stmt::DropType {
+            if_exists,
+            type_name,
+        } => {
+            if !connection.experimental_custom_types_enabled() {
+                bail_parse_error!("Custom types require --experimental-custom-types flag");
+            }
+            schema::translate_drop_type(&type_name, if_exists, resolver, program)?
+        }
         ast::Stmt::Pragma { .. } => {
             bail_parse_error!("PRAGMA statement cannot be evaluated in a nested context")
         }
@@ -304,12 +323,12 @@ pub fn translate_inner(
         ast::Stmt::Optimize { idx_name } => {
             translate_optimize(idx_name, resolver, program, connection)?
         }
-        ast::Stmt::Release { .. } => bail_parse_error!("RELEASE not supported yet"),
+        ast::Stmt::Release { name } => translate_release(program, name)?,
         ast::Stmt::Rollback {
             tx_name,
             savepoint_name,
         } => translate_rollback(program, tx_name, savepoint_name)?,
-        ast::Stmt::Savepoint { .. } => bail_parse_error!("SAVEPOINT not supported yet"),
+        ast::Stmt::Savepoint { name } => translate_savepoint(program, name)?,
         ast::Stmt::Select(select) => {
             translate_select(
                 select,

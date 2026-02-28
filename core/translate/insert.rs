@@ -5,17 +5,18 @@ use crate::{
     translate::{
         emitter::{
             emit_cdc_autocommit_commit, emit_cdc_full_record, emit_cdc_insns,
-            emit_cdc_patch_record, emit_check_constraints, prepare_cdc_if_necessary, OperationMode,
-            Resolver,
+            emit_cdc_patch_record, emit_check_constraints, emit_fk_child_decrement_on_delete,
+            prepare_cdc_if_necessary, OperationMode, Resolver,
         },
         expr::{
-            bind_and_rewrite_expr, emit_returning_results, process_returning_clause,
-            rewrite_between_expr, translate_expr, translate_expr_no_constant_opt, walk_expr_mut,
-            BindingBehavior, NoConstantOptReason, WalkControl,
+            bind_and_rewrite_expr, emit_returning_results, emit_returning_scan_back,
+            process_returning_clause, rewrite_between_expr, translate_expr,
+            translate_expr_no_constant_opt, walk_expr_mut, BindingBehavior, NoConstantOptReason,
+            ReturningBufferCtx, WalkControl,
         },
         fkeys::{
-            build_index_affinity_string, emit_fk_violation, emit_guarded_fk_decrement,
-            fire_fk_delete_actions, index_probe, open_read_index, open_read_table,
+            build_index_affinity_string, emit_fk_violation, emit_guarded_fk_decrement, index_probe,
+            open_read_index, open_read_table, ForeignKeyActions,
         },
         plan::{
             ColumnUsedMask, EvalAt, JoinedTable, Operation, QueryDestination, ResultSetColumn,
@@ -36,15 +37,9 @@ use crate::{
     util::normalize_ident,
     vdbe::{
         affinity::Affinity,
-        builder::{CursorKey, ProgramBuilderOpts},
-        insn::{
-            to_u16, {CmpInsFlags, IdxInsertFlags, InsertFlags, RegisterOrLiteral},
-        },
+        builder::{CursorKey, CursorType, ProgramBuilder, ProgramBuilderOpts},
+        insn::{to_u16, CmpInsFlags, IdxInsertFlags, InsertFlags, Insn, RegisterOrLiteral},
         BranchOffset,
-    },
-    vdbe::{
-        builder::{CursorType, ProgramBuilder},
-        insn::Insn,
     },
     CaptureDataChangesExt, Connection, LimboError, Result, VirtualTable,
 };
@@ -157,6 +152,10 @@ pub struct InsertEmitCtx<'a> {
     pub autoincrement_meta: Option<AutoincMeta>,
     /// The database index (0 = main, 1 = temp, 2+ = attached)
     pub database_id: usize,
+    /// Ephemeral table for buffering RETURNING results.
+    /// When present, RETURNING rows are buffered into an ephemeral table during the DML loop,
+    /// then scanned back and yielded to the caller after all DML is complete.
+    pub returning_buffer: Option<ReturningBufferCtx>,
 }
 
 impl<'a> InsertEmitCtx<'a> {
@@ -209,6 +208,7 @@ impl<'a> InsertEmitCtx<'a> {
             num_values,
             autoincrement_meta: None,
             database_id,
+            returning_buffer: None,
         })
     }
 }
@@ -279,6 +279,7 @@ pub fn translate_insert(
             body,
             on_conflict,
             resolver,
+            connection,
         )?;
         return Ok(());
     }
@@ -297,6 +298,7 @@ pub fn translate_insert(
         &table,
         &mut body,
         on_conflict.unwrap_or(ResolveType::Abort),
+        database_id,
     )?;
 
     if inserting_multiple_rows && btree_table.has_autoincrement {
@@ -305,7 +307,7 @@ pub fn translate_insert(
 
     let cdc_table = prepare_cdc_if_necessary(program, resolver.schema(), table.get_name())?;
 
-    if database_id >= 2 {
+    if crate::is_attached_db(database_id) {
         let schema_cookie = resolver.with_schema(database_id, |s| s.schema_version);
         program.begin_write_on_database(database_id, schema_cookie);
     }
@@ -370,6 +372,20 @@ pub fn translate_insert(
         database_id,
         connection,
     )?;
+
+    // Open an ephemeral table for buffering RETURNING results.
+    // All DML completes before any RETURNING rows are yielded to the caller.
+    if !result_columns.is_empty() {
+        let ret_cursor_id = program.alloc_cursor_id(CursorType::BTreeTable(btree_table.clone()));
+        program.emit_insn(Insn::OpenEphemeral {
+            cursor_id: ret_cursor_id,
+            is_table: true,
+        });
+        ctx.returning_buffer = Some(ReturningBufferCtx {
+            cursor_id: ret_cursor_id,
+            num_columns: result_columns.len(),
+        });
+    }
 
     init_source_emission(
         program,
@@ -488,6 +504,7 @@ pub fn translate_insert(
                 &trigger_ctx,
                 connection,
                 database_id,
+                ctx.loop_labels.row_done,
             )?;
         }
     }
@@ -521,11 +538,31 @@ pub fn translate_insert(
     program.preassign_label_to_next_insn(ctx.key_labels.key_ready_for_check);
 
     if ctx.table.is_strict {
+        // Pre-encode TypeCheck: validate input types match the custom type's
+        // declared value type BEFORE encoding. This catches type mismatches
+        // (e.g. TEXT into an INTEGER-based custom type) that would otherwise
+        // be silently converted by the encode expression.
         program.emit_insn(Insn::TypeCheck {
             start_reg: insertion.first_col_register(),
             count: insertion.col_mappings.len(),
             check_generated: true,
-            table_reference: Arc::clone(ctx.table),
+            table_reference: BTreeTable::input_type_check_table_ref(
+                ctx.table,
+                resolver.schema(),
+                None,
+            ),
+        });
+
+        // Encode values for columns with custom types.
+        emit_custom_type_encode(program, resolver, &insertion)?;
+
+        // Post-encode TypeCheck: validate that encode produced the correct
+        // storage type (BASE).
+        program.emit_insn(Insn::TypeCheck {
+            start_reg: insertion.first_col_register(),
+            count: insertion.col_mappings.len(),
+            check_generated: true,
+            table_reference: BTreeTable::type_check_table_ref(ctx.table, resolver.schema()),
         });
     } else {
         // For non-STRICT tables, apply column affinity to the values.
@@ -646,7 +683,12 @@ pub fn translate_insert(
     let affinity_str = insertion
         .col_mappings
         .iter()
-        .map(|col_mapping| col_mapping.column.affinity().aff_mask())
+        .map(|col_mapping| {
+            col_mapping
+                .column
+                .affinity_with_strict(ctx.table.is_strict)
+                .aff_mask()
+        })
         .collect::<String>();
 
     program.emit_insn(Insn::MakeRecord {
@@ -662,7 +704,7 @@ pub fn translate_insert(
     // IGNORE/ROLLBACK). REPLACE inserts eagerly in the preflight phase because it needs
     // to delete-then-insert per index.
     if has_upsert || !on_replace {
-        emit_commit_phase(program, resolver, &insertion, &ctx, connection)?;
+        emit_commit_phase(program, resolver, &insertion, &ctx)?;
     }
 
     if has_fks {
@@ -705,37 +747,43 @@ pub fn translate_insert(
         .collect()
     });
     if !relevant_after_triggers.is_empty() {
-        // Build NEW registers: for rowid alias columns, use the rowid register; otherwise use column register
+        // Build raw NEW registers for AFTER triggers. Values are encoded at this point;
+        // fire_trigger will decode them via decode_trigger_registers.
+        let key_reg = insertion.key_register();
         let new_registers_after: Vec<usize> = insertion
             .col_mappings
             .iter()
-            .map(|col_mapping| {
-                if col_mapping.column.is_rowid_alias() {
-                    insertion.key_register()
+            .map(|cm| {
+                if cm.column.is_rowid_alias() {
+                    key_reg
                 } else {
-                    col_mapping.register
+                    cm.register
                 }
             })
-            .chain(std::iter::once(insertion.key_register()))
+            .chain(std::iter::once(key_reg))
             .collect();
         // Determine the conflict resolution to propagate to AFTER triggers (same logic as BEFORE)
         let trigger_ctx_after = if let Some(override_conflict) = program.trigger_conflict_override {
-            TriggerContext::new_with_override_conflict(
+            TriggerContext::new_after_with_override_conflict(
                 btree_table.clone(),
                 Some(new_registers_after),
                 None,
                 override_conflict,
             )
         } else if matches!(ctx.on_conflict, ResolveType::Ignore) {
-            TriggerContext::new_with_override_conflict(
+            TriggerContext::new_after_with_override_conflict(
                 btree_table.clone(),
                 Some(new_registers_after),
                 None,
                 ResolveType::Ignore,
             )
         } else {
-            TriggerContext::new(btree_table.clone(), Some(new_registers_after), None)
+            TriggerContext::new_after(btree_table.clone(), Some(new_registers_after), None)
         };
+        // RAISE(IGNORE) in an AFTER trigger should only abort the trigger body,
+        // not skip post-row work (FK counters, autoincrement, CDC, RETURNING).
+        // Use a label that falls through to the next instruction after the trigger loop.
+        let after_trigger_done = program.allocate_label();
         for trigger in relevant_after_triggers {
             fire_trigger(
                 program,
@@ -744,8 +792,10 @@ pub fn translate_insert(
                 &trigger_ctx_after,
                 connection,
                 database_id,
+                after_trigger_done,
             )?;
         }
+        program.preassign_label_to_next_insn(after_trigger_done);
     }
 
     if has_fks {
@@ -759,7 +809,6 @@ pub fn translate_insert(
             on_replace,
             resolver,
             database_id,
-            connection,
         )?;
     }
 
@@ -831,6 +880,7 @@ pub fn translate_insert(
             insertion.first_col_register(),
             insertion.key_register(),
             resolver,
+            ctx.returning_buffer.as_ref(),
         )?;
     }
     program.emit_insn(Insn::Goto {
@@ -904,6 +954,14 @@ fn emit_epilogue(
     if let Some((cdc_cursor_id, _)) = &ctx.cdc_table {
         emit_cdc_autocommit_commit(program, resolver, *cdc_cursor_id)?;
     }
+    // Emit scan-back loop for buffered RETURNING results.
+    // All DML is complete at this point; now yield the buffered rows to the caller.
+    // FkCheck must come before the scan-back so that FK violations prevent
+    // RETURNING rows from being emitted (matching SQLite behavior).
+    if let Some(ref buf) = ctx.returning_buffer {
+        program.emit_insn(Insn::FkCheck { deferred: false });
+        emit_returning_scan_back(program, buf);
+    }
     program.resolve_label(ctx.halt_label, program.offset());
     Ok(())
 }
@@ -950,7 +1008,6 @@ fn emit_commit_phase(
     resolver: &Resolver,
     insertion: &Insertion,
     ctx: &InsertEmitCtx,
-    _connection: &Arc<Connection>,
 ) -> Result<()> {
     let indices: Vec<_> = resolver.with_schema(ctx.database_id, |s| {
         s.get_indices(ctx.table.name.as_str()).cloned().collect()
@@ -975,6 +1032,7 @@ fn emit_commit_phase(
                 program,
                 resolver,
                 insertion,
+                ctx.table,
                 idx_col,
                 idx_start_reg + i,
             )?;
@@ -1026,6 +1084,7 @@ fn translate_rows_and_open_tables(
             select_result_start_reg,
             resolver,
             &ctx.temp_table_ctx,
+            ctx.table.is_strict,
         )?;
     } else {
         // Single row - populate registers directly
@@ -1035,7 +1094,7 @@ fn translate_rows_and_open_tables(
             db: ctx.database_id,
         });
 
-        translate_rows_single(program, values, insertion, resolver)?;
+        translate_rows_single(program, values, insertion, resolver, ctx.table.is_strict)?;
     }
 
     // Open all the index btrees for writing
@@ -1100,6 +1159,7 @@ fn emit_rowid_generation(
         program.emit_insn(Insn::Halt {
             err_code: crate::error::SQLITE_FULL,
             description: "database or disk is full".to_string(),
+            on_error: None,
         });
 
         program.preassign_label_to_next_insn(no_overflow_label);
@@ -1292,15 +1352,41 @@ fn emit_notnulls(
             // OR REPLACE but no DEFAULT, fall through to ABORT behavior
         }
 
+        // Determine which register to check: for custom type columns with
+        // a DECODE expression, decode the encoded value into a temp register
+        // and check the *decoded* value. This prevents "ghost NULLs" where
+        // ENCODE produces a non-NULL value but DECODE returns NULL.
+        let check_reg = if let Some(type_def) = resolver
+            .schema()
+            .get_type_def(&column_mapping.column.ty_str, ctx.table.is_strict)
+        {
+            if type_def.decode.is_some() {
+                let decoded_reg = program.alloc_register();
+                crate::translate::expr::emit_user_facing_column_value(
+                    program,
+                    column_mapping.register,
+                    decoded_reg,
+                    column_mapping.column,
+                    ctx.table.is_strict,
+                    resolver,
+                )?;
+                decoded_reg
+            } else {
+                column_mapping.register
+            }
+        } else {
+            column_mapping.register
+        };
+
         // For INSERT OR IGNORE, skip to the next row if NULL
         if on_ignore {
             program.emit_insn(Insn::IsNull {
-                reg: column_mapping.register,
+                reg: check_reg,
                 target_pc: ctx.loop_labels.row_done,
             });
         } else {
             program.emit_insn(Insn::HaltIfNull {
-                target_reg: column_mapping.register,
+                target_reg: check_reg,
                 err_code: SQLITE_CONSTRAINT_NOTNULL,
                 description: {
                     let mut description = String::with_capacity(
@@ -1362,6 +1448,7 @@ fn bind_insert(
     table: &Table,
     body: &mut InsertBody,
     on_conflict: ResolveType,
+    database_id: usize,
 ) -> Result<BoundInsertResult> {
     let mut values: Vec<Box<Expr>> = vec![];
     let mut upsert: Option<Box<Upsert>> = None;
@@ -1369,15 +1456,23 @@ fn bind_insert(
     let mut inserting_multiple_rows = false;
     match body {
         InsertBody::DefaultValues => {
-            // Generate default values for the table
+            // Generate default values for the table.
+            // Check column-level default first, then type-level default.
+            let is_strict = table.is_strict();
             values = table
                 .columns()
                 .iter()
                 .filter(|c| !c.hidden())
                 .map(|c| {
-                    c.default
-                        .clone()
-                        .unwrap_or_else(|| Box::new(ast::Expr::Literal(ast::Literal::Null)))
+                    c.default.clone().unwrap_or_else(|| {
+                        if let Some(type_def) = resolver.schema().get_type_def(&c.ty_str, is_strict)
+                        {
+                            if let Some(ref default_expr) = type_def.default {
+                                return default_expr.clone();
+                            }
+                        }
+                        Box::new(ast::Expr::Literal(ast::Literal::Null))
+                    })
                 })
                 .collect();
         }
@@ -1475,7 +1570,9 @@ fn bind_insert(
         let next = upsert_opt.next.take();
         upsert_actions.push((
             // resolve the constrained target for UPSERT in the chain
-            resolve_upsert_target(resolver.schema(), table, &upsert_opt)?,
+            resolver.with_schema(database_id, |s| {
+                resolve_upsert_target(s, table, &upsert_opt)
+            })?,
             program.allocate_label(),
             upsert_opt,
         ));
@@ -1621,7 +1718,7 @@ fn init_source_emission<'a>(
                             .columns
                             .iter()
                             .filter(|col| !col.hidden())
-                            .map(|col| col.affinity().aff_mask())
+                            .map(|col| col.affinity_with_strict(ctx.table.is_strict).aff_mask())
                             .collect::<String>()
                     } else {
                         columns
@@ -1636,7 +1733,9 @@ fn init_source_emission<'a>(
                                 }
                                 table
                                     .get_column_by_name(&column_name)
-                                    .map(|(_, col)| col.affinity().aff_mask())
+                                    .map(|(_, col)| {
+                                        col.affinity_with_strict(ctx.table.is_strict).aff_mask()
+                                    })
                                     .ok_or_else(|| {
                                         crate::error::LimboError::ParseError(format!(
                                             "table {} has no column named {}",
@@ -1705,10 +1804,16 @@ fn init_source_emission<'a>(
         }
         InsertBody::DefaultValues => {
             let num_values = table.columns().len();
+            let is_strict = table.is_strict();
             values.extend(table.columns().iter().map(|c| {
-                c.default
-                    .clone()
-                    .unwrap_or_else(|| Box::new(ast::Expr::Literal(ast::Literal::Null)))
+                c.default.clone().unwrap_or_else(|| {
+                    if let Some(type_def) = resolver.schema().get_type_def(&c.ty_str, is_strict) {
+                        if let Some(ref default_expr) = type_def.default {
+                            return default_expr.clone();
+                        }
+                    }
+                    Box::new(ast::Expr::Literal(ast::Literal::Null))
+                })
             }));
             (
                 num_values,
@@ -1731,21 +1836,23 @@ pub struct AutoincMeta {
     table_name_reg: usize,
 }
 
-pub const ROWID_COLUMN: Column = Column::new(
-    None,          // name
-    String::new(), // type string
-    None,          // default
-    None,          // generated
-    schema::Type::Integer,
-    None,
-    ColDef {
-        primary_key: true,
-        rowid_alias: true,
-        notnull: true,
-        hidden: false,
-        unique: false,
-    },
-);
+pub static ROWID_COLUMN: std::sync::LazyLock<Column> = std::sync::LazyLock::new(|| {
+    Column::new(
+        None,          // name
+        String::new(), // type string
+        None,          // default
+        None,          // generated
+        schema::Type::Integer,
+        None,
+        ColDef {
+            primary_key: true,
+            rowid_alias: true,
+            notnull: true,
+            hidden: false,
+            unique: false,
+        },
+    )
+});
 
 /// Represents how a table should be populated during an INSERT.
 #[derive(Debug)]
@@ -1970,6 +2077,7 @@ fn translate_rows_multiple<'short, 'long: 'short>(
     yield_reg: usize,
     resolver: &Resolver,
     temp_table_ctx: &Option<TempTableCtx>,
+    is_strict: bool,
 ) -> Result<()> {
     if let Some(ref temp_table_ctx) = temp_table_ctx {
         // Rewind loop to read from ephemeral table
@@ -1997,7 +2105,7 @@ fn translate_rows_multiple<'short, 'long: 'short>(
             }
             Ok(())
         };
-    translate_rows_base(program, insertion, translate_value_fn, resolver)
+    translate_rows_base(program, insertion, translate_value_fn, resolver, is_strict)
 }
 /// Populates the column registers with values for a single row
 fn translate_rows_single(
@@ -2005,6 +2113,7 @@ fn translate_rows_single(
     value: &[Box<Expr>],
     insertion: &Insertion,
     resolver: &Resolver,
+    is_strict: bool,
 ) -> Result<()> {
     let translate_value_fn =
         |prg: &mut ProgramBuilder, value_index: usize, column_register: usize| -> Result<()> {
@@ -2020,7 +2129,7 @@ fn translate_rows_single(
             )?;
             Ok(())
         };
-    translate_rows_base(program, insertion, translate_value_fn, resolver)
+    translate_rows_base(program, insertion, translate_value_fn, resolver, is_strict)
 }
 
 /// Translate the key and the columns of the insertion.
@@ -2033,8 +2142,15 @@ fn translate_rows_base<'short, 'long: 'short>(
     insertion: &'short Insertion<'long>,
     mut translate_value_fn: impl FnMut(&mut ProgramBuilder, usize, usize) -> Result<()>,
     resolver: &Resolver,
+    is_strict: bool,
 ) -> Result<()> {
-    translate_key(program, insertion, &mut translate_value_fn, resolver)?;
+    translate_key(
+        program,
+        insertion,
+        &mut translate_value_fn,
+        resolver,
+        is_strict,
+    )?;
     for col in insertion.col_mappings.iter() {
         translate_column(
             program,
@@ -2043,6 +2159,7 @@ fn translate_rows_base<'short, 'long: 'short>(
             col.value_index,
             &mut translate_value_fn,
             resolver,
+            is_strict,
         )?;
     }
 
@@ -2055,6 +2172,7 @@ fn translate_key(
     insertion: &Insertion,
     mut translate_value_fn: impl FnMut(&mut ProgramBuilder, usize, usize) -> Result<()>,
     resolver: &Resolver,
+    is_strict: bool,
 ) -> Result<()> {
     match &insertion.key {
         InsertionKey::RowidAlias(rowid_alias_column) => translate_column(
@@ -2064,6 +2182,7 @@ fn translate_key(
             rowid_alias_column.value_index,
             &mut translate_value_fn,
             resolver,
+            is_strict,
         ),
         InsertionKey::LiteralRowid {
             value_index,
@@ -2075,6 +2194,7 @@ fn translate_key(
             *value_index,
             &mut translate_value_fn,
             resolver,
+            is_strict,
         ),
         InsertionKey::Autogenerated { .. } => Ok(()), // will be populated later
     }
@@ -2087,6 +2207,7 @@ fn translate_column(
     value_index: Option<usize>,
     translate_value_fn: &mut impl FnMut(&mut ProgramBuilder, usize, usize) -> Result<()>,
     resolver: &Resolver,
+    is_strict: bool,
 ) -> Result<()> {
     if let Some(value_index) = value_index {
         translate_value_fn(program, value_index, column_register)?;
@@ -2104,6 +2225,15 @@ fn translate_column(
         });
     } else if let Some(default_expr) = column.default.as_ref() {
         translate_expr(program, None, default_expr, column_register, resolver)?;
+    } else if let Some(type_def) = resolver.schema().get_type_def(&column.ty_str, is_strict) {
+        if let Some(ref default_expr) = type_def.default {
+            translate_expr(program, None, default_expr, column_register, resolver)?;
+        } else {
+            program.emit_insn(Insn::Null {
+                dest: column_register,
+                dest_end: None,
+            });
+        }
     } else {
         let nullable = !column.notnull() && !column.primary_key();
         if !nullable {
@@ -2185,6 +2315,7 @@ fn emit_pk_uniqueness_check(
         program.emit_insn(Insn::Halt {
             err_code: SQLITE_CONSTRAINT_PRIMARYKEY,
             description,
+            on_error: None,
         });
     }
     program.preassign_label_to_next_insn(make_record_label);
@@ -2226,6 +2357,7 @@ fn emit_index_uniqueness_check(
             program,
             resolver,
             insertion,
+            ctx.table,
             idx_col,
             idx_start_reg + i,
         )?;
@@ -2300,7 +2432,9 @@ fn emit_unique_index_check(
             if ic.expr.is_some() {
                 Affinity::Blob.aff_mask()
             } else {
-                ctx.table.columns[ic.pos_in_table].affinity().aff_mask()
+                ctx.table.columns[ic.pos_in_table]
+                    .affinity_with_strict(ctx.table.is_strict)
+                    .aff_mask()
             }
         })
         .collect::<String>();
@@ -2344,6 +2478,7 @@ fn emit_unique_index_check(
         program.emit_insn(Insn::Halt {
             err_code: SQLITE_CONSTRAINT_UNIQUE,
             description: format_unique_violation_desc(ctx.table.name.as_str(), index),
+            on_error: None,
         });
 
         // continue preflight with next constraint
@@ -2376,6 +2511,7 @@ fn emit_unique_index_check(
             program.emit_insn(Insn::Halt {
                 err_code: SQLITE_CONSTRAINT_UNIQUE,
                 description: format_unique_violation_desc(ctx.table.name.as_str(), index),
+                on_error: None,
             });
         }
         program.preassign_label_to_next_insn(ok);
@@ -2460,8 +2596,22 @@ fn translate_virtual_table_insert(
     mut body: InsertBody,
     on_conflict: Option<ResolveType>,
     resolver: &Resolver,
+    connection: &Arc<crate::Connection>,
 ) -> Result<()> {
-    if virtual_table.readonly() {
+    #[cfg(not(feature = "cli_only"))]
+    let _ = connection;
+    let allow_dbpage_write = {
+        #[cfg(feature = "cli_only")]
+        {
+            virtual_table.name == crate::dbpage::DBPAGE_TABLE_NAME
+                && connection.db.opts.unsafe_testing
+        }
+        #[cfg(not(feature = "cli_only"))]
+        {
+            false
+        }
+    };
+    if virtual_table.readonly() && !allow_dbpage_write {
         crate::bail_constraint_error!("Table is read-only: {}", virtual_table.name);
     }
     let (num_values, value) = match &mut body {
@@ -2475,7 +2625,9 @@ fn translate_virtual_table_insert(
     let table = Table::Virtual(virtual_table.clone());
     let cursor_id = program.alloc_cursor_id(CursorType::VirtualTable(virtual_table));
     program.emit_insn(Insn::VOpen { cursor_id });
-    program.emit_insn(Insn::VBegin { cursor_id });
+    if !allow_dbpage_write {
+        program.emit_insn(Insn::VBegin { cursor_id });
+    }
     /* *
      * Inserts for virtual tables are done in a single step.
      * argv[0] = (NULL for insert)
@@ -2491,7 +2643,7 @@ fn translate_virtual_table_insert(
      * */
     let insertion = build_insertion(program, &table, &columns, num_values)?;
 
-    translate_rows_single(program, &value, &insertion, resolver)?;
+    translate_rows_single(program, &value, &insertion, resolver, false)?;
     let conflict_action = on_conflict.as_ref().map(|c| c.bit_value()).unwrap_or(0) as u16;
 
     program.emit_insn(Insn::VUpdate {
@@ -2746,12 +2898,25 @@ fn emit_index_column_value_for_insert(
     program: &mut ProgramBuilder,
     resolver: &Resolver,
     insertion: &Insertion,
+    table: &BTreeTable,
     idx_col: &IndexColumn,
     dest_reg: usize,
 ) -> Result<()> {
     if let Some(expr) = &idx_col.expr {
         let mut expr = expr.as_ref().clone();
         rewrite_index_expr_for_insertion(&mut expr, insertion)?;
+        // After rewrite, Expr::Register nodes reference encoded column registers.
+        // Decode custom type registers so the expression evaluates on user-facing
+        // values, matching what SELECT / CREATE INDEX see.
+        crate::translate::expr::decode_custom_type_registers_in_expr(
+            program,
+            resolver,
+            &mut expr,
+            &table.columns,
+            insertion.first_col_register(),
+            Some(insertion.key_register()),
+            table.is_strict,
+        )?;
         translate_expr_no_constant_opt(
             program,
             Some(&TableReferences::new_empty()),
@@ -2934,20 +3099,32 @@ fn emit_replace_delete_conflicting_row(
         target_pc: ctx.halt_label,
     });
 
-    // OR REPLACE + foreign keys:
-    // Fire FK actions (CASCADE, SET NULL, SET DEFAULT) for the row being deleted.
-    // This handles all FK action types including NO ACTION/RESTRICT.
-    if connection.foreign_keys_enabled() {
-        fire_fk_delete_actions(
+    // Phase 1: Before Delete - build parent key registers and handle NoAction/Restrict.
+    // CASCADE/SetNull/SetDefault actions are prepared but deferred until after Delete.
+    let prepared_fk_actions = if connection.foreign_keys_enabled() {
+        let prepared = ForeignKeyActions::prepare_fk_delete_actions(
             program,
             resolver,
             ctx.table.name.as_str(),
             ctx.cursor_id,
             ctx.conflict_rowid_reg,
-            connection,
             ctx.database_id,
         )?;
-    }
+        if resolver.schema().has_child_fks(ctx.table.name.as_str()) {
+            emit_fk_child_decrement_on_delete(
+                program,
+                ctx.table.as_ref(),
+                ctx.table.name.as_str(),
+                ctx.cursor_id,
+                ctx.conflict_rowid_reg,
+                ctx.database_id,
+                resolver,
+            )?;
+        }
+        prepared
+    } else {
+        ForeignKeyActions::default()
+    };
 
     let table = &ctx.table;
     let table_name = table.name.as_str();
@@ -3037,6 +3214,7 @@ fn emit_replace_delete_conflicting_row(
                 &table.columns,
                 main_cursor_id,
                 ctx.conflict_rowid_reg,
+                table.is_strict,
             ))
         } else {
             None
@@ -3058,6 +3236,15 @@ fn emit_replace_delete_conflicting_row(
         table_name: table_name.to_string(),
         is_part_of_update: true,
     });
+
+    // Phase 2: After Delete - fire CASCADE/SetNull/SetDefault FK actions.
+    prepared_fk_actions.fire_prepared_fk_delete_actions(
+        program,
+        resolver,
+        connection,
+        ctx.database_id,
+    )?;
+
     Ok(())
 }
 
@@ -3300,7 +3487,9 @@ fn build_parent_key_image_for_insert(
                 let (_, col) = parent_table.get_column(name).ok_or_else(|| {
                     crate::LimboError::InternalError(format!("parent col {name} missing"))
                 })?;
-                Ok::<_, crate::LimboError>(col.affinity().aff_mask())
+                Ok::<_, crate::LimboError>(
+                    col.affinity_with_strict(parent_table.is_strict).aff_mask(),
+                )
             })
             .collect::<Result<String, _>>()?
     };
@@ -3327,7 +3516,6 @@ pub fn emit_parent_side_fk_decrement_on_insert(
     force_immediate: bool,
     resolver: &Resolver,
     database_id: usize,
-    _connection: &Arc<Connection>,
 ) -> crate::Result<()> {
     for pref in resolver.with_schema(database_id, |s| {
         s.resolved_fks_referencing(&parent_table.name)
@@ -3448,4 +3636,26 @@ pub fn emit_parent_side_fk_decrement_on_insert(
         }
     }
     Ok(())
+}
+
+/// Emit encode expressions for columns with custom types.
+/// For each column that has a custom type with an encode expression,
+/// evaluates the expression with `value` bound to the column register.
+fn emit_custom_type_encode(
+    program: &mut ProgramBuilder,
+    resolver: &Resolver,
+    insertion: &Insertion,
+) -> Result<()> {
+    let columns: Vec<_> = insertion
+        .col_mappings
+        .iter()
+        .map(|m| m.column.clone())
+        .collect();
+    crate::translate::expr::emit_custom_type_encode_columns(
+        program,
+        resolver,
+        &columns,
+        insertion.first_col_register(),
+        None, // INSERT: encode all columns
+    )
 }

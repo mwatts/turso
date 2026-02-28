@@ -1,8 +1,8 @@
-use turso_parser::ast::SortOrder;
-
 use crate::vdbe::{builder::CursorType, insn::RegisterOrLiteral};
+use crate::HashSet;
+use turso_parser::ast::{ResolveType, SortOrder};
 
-use super::{Insn, InsnReference, Program, Value};
+use super::{Insn, InsnReference, PreparedProgram, Value};
 use crate::function::{Func, ScalarFunc};
 
 pub const EXPLAIN_COLUMNS: [&str; 8] = ["addr", "opcode", "p1", "p2", "p3", "p4", "p5", "comment"];
@@ -13,12 +13,29 @@ pub const EXPLAIN_QUERY_PLAN_COLUMNS: [&str; 4] = ["id", "parent", "notused", "d
 pub const EXPLAIN_QUERY_PLAN_COLUMNS_TYPE: [&str; 4] = ["INTEGER", "INTEGER", "INTEGER", "TEXT"];
 
 pub fn insn_to_row(
-    program: &Program,
+    program: &PreparedProgram,
     insn: &Insn,
 ) -> (&'static str, i64, i64, i64, Value, i64, String) {
-    let get_table_or_index_name = |cursor_id: usize| {
+    let mut ephemeral_cursors = HashSet::default();
+    for (insn, _) in &program.insns {
+        match insn {
+            Insn::OpenEphemeral { cursor_id, .. } => {
+                ephemeral_cursors.insert(*cursor_id);
+            }
+            Insn::OpenAutoindex { cursor_id } => {
+                ephemeral_cursors.insert(*cursor_id);
+            }
+            Insn::OpenDup { new_cursor_id, .. } => {
+                // Note: relies on invariant that OpenDup is only for ephemeral cursors
+                ephemeral_cursors.insert(*new_cursor_id);
+            }
+            _ => {}
+        }
+    }
+
+    let get_table_or_index_name = |cursor_id: usize| -> String {
         let cursor_type = &program.cursor_ref[cursor_id].1;
-        match cursor_type {
+        let name = match cursor_type {
             CursorType::BTreeTable(table) => table.name.as_str(),
             CursorType::BTreeIndex(index) => index.name.as_str(),
             CursorType::IndexMethod(descriptor) => descriptor.definition().index_name,
@@ -26,6 +43,11 @@ pub fn insn_to_row(
             CursorType::VirtualTable(virtual_table) => virtual_table.name.as_str(),
             CursorType::MaterializedView(table, _) => table.name.as_str(),
             CursorType::Sorter => "sorter",
+        };
+        if ephemeral_cursors.contains(&cursor_id) {
+            format!("ephemeral({name})")
+        } else {
+            name.to_string()
         }
     };
     match insn {
@@ -655,15 +677,26 @@ pub fn insn_to_row(
             Insn::Halt {
                 err_code,
                 description,
-            } => (
-                "Halt",
-                *err_code as i64,
-                0,
-                0,
-                Value::build_text(description.clone()),
-                0,
-                "".to_string(),
-            ),
+                on_error,
+            } => {
+                let p2 = match on_error {
+                    Some(ResolveType::Rollback) => 1,
+                    Some(ResolveType::Abort) => 2,
+                    Some(ResolveType::Fail) => 3,
+                    Some(ResolveType::Ignore) => 4,
+                    Some(ResolveType::Replace) => 5,
+                    None => 0,
+                };
+                (
+                    "Halt",
+                    *err_code as i64,
+                    p2,
+                    0,
+                    Value::build_text(description.clone()),
+                    0,
+                    "".to_string(),
+                )
+            }
             Insn::HaltIfNull {
                 err_code,
                 target_reg,
@@ -730,17 +763,19 @@ pub fn insn_to_row(
             ),
             Insn::Program {
                 params,
+                ignore_jump_target,
                 ..
             } => (
                 "Program",
-                // First register that contains a param
+                // P1: first register that contains a param
                 params.first().map(|v| match v {
                     crate::types::Value::Numeric(crate::numeric::Numeric::Integer(i)) if *i < 0 => -i - 1,
                     _ => 0,
                 }).unwrap_or(0),
-                // Number of registers that contain params
+                // P2: ignore jump target (for RAISE(IGNORE))
+                ignore_jump_target.as_debug_int() as i64,
+                // P3: number of registers that contain params
                 params.len() as i64,
-                0,
                 Value::build_text(program.sql.clone()),
                 0,
                 format!("subprogram={}", program.sql),
@@ -976,6 +1011,7 @@ pub fn insn_to_row(
                 acc_reg,
                 delimiter: _,
                 col,
+                comparator_func_name: _,
             } => (
                 "AggStep",
                 0,
@@ -1007,6 +1043,7 @@ pub fn insn_to_row(
                 cursor_id,
                 columns,
                 order_and_collations,
+                ..
             } => {
                 let to_print: Vec<String> = order_and_collations
                     .iter()
@@ -1441,6 +1478,24 @@ pub fn insn_to_row(
                 0,
                 format!("DROP TRIGGER {trigger_name}"),
             ),
+            Insn::DropType { db, type_name } => (
+                "DropType",
+                *db as i64,
+                0,
+                0,
+                Value::build_text(type_name.clone()),
+                0,
+                format!("DROP TYPE {type_name}"),
+            ),
+            Insn::AddType { db, sql } => (
+                "AddType",
+                *db as i64,
+                0,
+                0,
+                Value::build_text(sql.clone()),
+                0,
+                "ADD TYPE".to_string(),
+            ),
             Insn::DropView { db, view_name } => (
                 "DropView",
                 *db as i64,
@@ -1674,6 +1729,15 @@ pub fn insn_to_row(
                 0,
                 format!("auto_commit={auto_commit}, rollback={rollback}"),
             ),
+            Insn::Savepoint { op, name } => (
+                "Savepoint",
+                0,
+                0,
+                0,
+                Value::build_text(name.clone()),
+                0,
+                format!("op={op:?}, name={name}"),
+            ),
             Insn::OpenEphemeral {
                 cursor_id,
                 is_table,
@@ -1812,6 +1876,7 @@ pub fn insn_to_row(
                 format!("r[{}]={}", *out_reg, *value),
             ),
             Insn::IntegrityCk {
+                db,
                 max_errors,
                 roots,
                 message_register,
@@ -1822,7 +1887,7 @@ pub fn insn_to_row(
                 0,
                 Value::build_text(""),
                 0,
-                format!("roots={roots:?} message_register={message_register}"),
+                format!("db={db} roots={roots:?} message_register={message_register}"),
             ),
             Insn::RowData { cursor_id, dest } => (
                 "RowData",
@@ -1969,6 +2034,15 @@ pub fn insn_to_row(
             0,
             String::new(),
         ),
+        Insn::FkCheck{ deferred } => (
+        "FkCheck",
+            *deferred as i64,
+            0,
+            0,
+            Value::build_text(""),
+            0,
+            String::new(),
+        ),
         Insn::HashBuild { data } => {
             let payload_info = if let Some(p_reg) = data.payload_start_reg {
                 format!(" payload=r[{}]..r[{}]", p_reg, p_reg + data.num_payload - 1)
@@ -2053,6 +2127,47 @@ pub fn insn_to_row(
             0,
             String::new(),
         ),
+        Insn::HashMarkMatched { hash_table_id } => (
+            "HashMarkMatched",
+            *hash_table_id as i64,
+            0,
+            0,
+            Value::build_text(""),
+            0,
+            String::new(),
+        ),
+        Insn::HashScanUnmatched { hash_table_id, dest_reg, target_pc, payload_dest_reg, num_payload } => {
+            let payload_info = if let Some(p_reg) = payload_dest_reg {
+                format!(" payload=r[{}]..r[{}]", p_reg, p_reg + num_payload - 1)
+            } else {
+                String::new()
+            };
+            (
+                "HashScanUnmatched",
+                *hash_table_id as i64,
+                *dest_reg as i64,
+                target_pc.as_debug_int() as i64,
+                Value::build_text(""),
+                0,
+                format!("hash_table_id={hash_table_id}{payload_info}"),
+            )
+        },
+        Insn::HashNextUnmatched { hash_table_id, dest_reg, target_pc, payload_dest_reg, num_payload } => {
+            let payload_info = if let Some(p_reg) = payload_dest_reg {
+                format!(" payload=r[{}]..r[{}]", p_reg, p_reg + num_payload - 1)
+            } else {
+                String::new()
+            };
+            (
+                "HashNextUnmatched",
+                *hash_table_id as i64,
+                *dest_reg as i64,
+                target_pc.as_debug_int() as i64,
+                Value::build_text(""),
+                0,
+                format!("hash_table_id={hash_table_id}{payload_info}"),
+            )
+        },
         Insn::VacuumInto { dest_path } => (
             "VacuumInto",
             0,
@@ -2075,7 +2190,7 @@ pub fn insn_to_row(
 }
 
 pub fn insn_to_row_with_comment(
-    program: &Program,
+    program: &PreparedProgram,
     insn: &Insn,
     manual_comment: Option<&str>,
 ) -> (&'static str, i64, i64, i64, Value, i64, String) {
@@ -2092,7 +2207,7 @@ pub fn insn_to_row_with_comment(
 }
 
 pub fn insn_to_str(
-    program: &Program,
+    program: &PreparedProgram,
     addr: InsnReference,
     insn: &Insn,
     indent: String,

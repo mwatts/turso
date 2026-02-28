@@ -47,7 +47,8 @@ fn bench(c: &mut Criterion) {
         b.to_async(FuturesExecutor).iter(|| async {
             let conn = db.conn.clone();
             let tx_id = db.mvcc_store.begin_tx(conn.get_pager()).unwrap();
-            db.mvcc_store.rollback_tx(tx_id, conn.get_pager(), &conn);
+            db.mvcc_store
+                .rollback_tx(tx_id, conn.get_pager(), &conn, turso_core::MAIN_DB_ID);
         })
     });
 
@@ -77,7 +78,7 @@ fn bench(c: &mut Criterion) {
             db.mvcc_store
                 .read(
                     tx_id,
-                    RowID {
+                    &RowID {
                         table_id: (-2).into(),
                         row_id: RowKey::Int(1),
                     },
@@ -143,7 +144,7 @@ fn bench(c: &mut Criterion) {
             db.mvcc_store
                 .read(
                     tx_id,
-                    RowID {
+                    &RowID {
                         table_id: (-2).into(),
                         row_id: RowKey::Int(1),
                     },

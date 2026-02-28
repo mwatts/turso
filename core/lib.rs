@@ -102,11 +102,18 @@ use util::parse_schema_rows;
 
 pub use connection::{resolve_ext_path, Connection, Row, StepResult, SymbolTable};
 pub(crate) use connection::{AtomicTransactionState, TransactionState};
-pub use error::{CompletionError, LimboError};
+pub use error::{io_error, CompletionError, LimboError};
 #[cfg(all(feature = "fs", target_family = "unix", not(miri)))]
 pub use io::UnixIO;
 #[cfg(all(feature = "fs", target_os = "linux", feature = "io_uring", not(miri)))]
 pub use io::UringIO;
+#[cfg(all(
+    feature = "fs",
+    target_os = "windows",
+    feature = "experimental_win_iocp",
+    not(miri)
+))]
+pub use io::WindowsIOCP;
 pub use io::{
     clock::{Clock, MonotonicInstant, WallClockInstant},
     Buffer, Completion, CompletionType, File, GroupCompletion, MemoryIO, OpenFlags, PlatformIO,
@@ -136,16 +143,36 @@ pub use vdbe::{
     FromValueRow, PrepareContext, PreparedProgram, Program, Register,
 };
 
+/// Database index for the main database (always 0 in SQLite).
+pub const MAIN_DB_ID: usize = 0;
+
+mod turso_types_vtab;
+
+/// Database index for the temp database (always 1 in SQLite).
+pub const TEMP_DB_ID: usize = 1;
+
+/// First database index used for ATTACH-ed databases.
+/// SQLite reserves 0 for "main" and 1 for "temp", so attached databases
+/// start at index 2.
+pub const FIRST_ATTACHED_DB_ID: usize = 2;
+
+/// Returns true if the database index refers to an attached database
+/// (i.e. not "main" and not "temp").
+pub const fn is_attached_db(database_id: usize) -> bool {
+    database_id >= FIRST_ATTACHED_DB_ID
+}
+
 /// Configuration for database features
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub struct DatabaseOpts {
     pub enable_views: bool,
-    pub enable_strict: bool,
+    pub enable_custom_types: bool,
     pub enable_encryption: bool,
     pub enable_index_method: bool,
     pub enable_autovacuum: bool,
     pub enable_triggers: bool,
     pub enable_attach: bool,
+    pub unsafe_testing: bool,
     enable_load_extension: bool,
 }
 
@@ -165,8 +192,8 @@ impl DatabaseOpts {
         self
     }
 
-    pub fn with_strict(mut self, enable: bool) -> Self {
-        self.enable_strict = enable;
+    pub fn with_custom_types(mut self, enable: bool) -> Self {
+        self.enable_custom_types = enable;
         self
     }
 
@@ -192,6 +219,11 @@ impl DatabaseOpts {
 
     pub fn with_attach(mut self, enable: bool) -> Self {
         self.enable_attach = enable;
+        self
+    }
+
+    pub fn with_unsafe_testing(mut self, enable: bool) -> Self {
+        self.unsafe_testing = enable;
         self
     }
 }
@@ -451,7 +483,9 @@ impl Database {
             mv_store,
             path: path.into(),
             wal_path: wal_path.into(),
-            schema: Arc::new(Mutex::new(Arc::new(Schema::new()))),
+            schema: Arc::new(Mutex::new(Arc::new(Schema::with_options(
+                opts.enable_custom_types,
+            )))),
             _shared_page_cache: shared_page_cache,
             shared_wal,
             db_file,
@@ -480,6 +514,42 @@ impl Database {
         Self::open_file_with_flags(io, path, OpenFlags::default(), DatabaseOpts::new(), None)
     }
 
+    /// Look up a database in the process-wide registry by path.
+    /// Returns the cached Database if found, with encryption validation.
+    /// This avoids opening a file (and acquiring a file lock) when the
+    /// database is already open in this process.
+    fn lookup_in_registry(
+        path: &str,
+        encryption_opts: &Option<EncryptionOpts>,
+    ) -> Result<Option<Arc<Database>>> {
+        if path.starts_with(":memory:") {
+            return Ok(None);
+        }
+        let canonical = match std::fs::canonicalize(path)
+            .ok()
+            .and_then(|p| p.to_str().map(|s| s.to_string()))
+        {
+            Some(c) => c,
+            None => return Ok(None),
+        };
+        let registry = DATABASE_MANAGER.lock_arc();
+        let db = match registry.get(&canonical).and_then(Weak::upgrade) {
+            Some(db) => db,
+            None => return Ok(None),
+        };
+
+        // Validate encryption compatibility (key is not stored for security,
+        // so we can only check cipher mode)
+        let db_is_encrypted = !matches!(db.encryption_cipher_mode.get(), CipherMode::None);
+        if db_is_encrypted && encryption_opts.is_none() {
+            return Err(LimboError::InvalidArgument(
+                "Database is encrypted but no encryption options provided".to_string(),
+            ));
+        }
+
+        Ok(Some(db))
+    }
+
     #[cfg(feature = "fs")]
     pub fn open_file_with_flags(
         io: Arc<dyn IO>,
@@ -488,6 +558,11 @@ impl Database {
         opts: DatabaseOpts,
         encryption_opts: Option<EncryptionOpts>,
     ) -> Result<Arc<Database>> {
+        // Check the registry before opening the file to avoid acquiring a file
+        // lock that would conflict with an already-open Database in this process.
+        if let Some(db) = Self::lookup_in_registry(path, &encryption_opts)? {
+            return Ok(db);
+        }
         let file = io.open_file(path, flags, true)?;
         let db_file = Arc::new(DatabaseFile::new(file));
         Self::open_with_flags(io, path, db_file, flags, opts, encryption_opts)
@@ -841,6 +916,38 @@ impl Database {
                         Err(e) => return Err(e),
                     }
 
+                    // Load custom types from __turso_internal_types if the table
+                    // exists and custom types are enabled. The schema loaded by
+                    // make_from_btree includes the table definition but not its
+                    // contents. We need to read the stored type definitions so
+                    // that DECODE/ENCODE and affinity metadata are available to
+                    // all subsequent connections.
+                    if opts.enable_custom_types {
+                        let conn = state
+                            .conn
+                            .as_ref()
+                            .expect("conn must be initialized in Init phase");
+                        // Sync the connection's schema from the database so it
+                        // can query __turso_internal_types.
+                        conn.maybe_update_schema();
+                        let load_result: Result<()> = (|| {
+                            let type_sqls = conn.query_stored_type_definitions()?;
+                            if !type_sqls.is_empty() {
+                                let db = state
+                                    .db
+                                    .as_ref()
+                                    .expect("db must be initialized in Init phase");
+                                db.with_schema_mut(|schema| {
+                                    schema.load_type_definitions(&type_sqls)
+                                })?;
+                            }
+                            Ok(())
+                        })();
+                        if let Err(e) = load_result {
+                            tracing::warn!("Failed to load custom types during open: {}", e);
+                        }
+                    }
+
                     state.phase = OpenDbAsyncPhase::BootstrapMvStore;
                 }
 
@@ -878,7 +985,7 @@ impl Database {
 
     /// Necessary Pager initialization, so that we are prepared to read from Page 1.
     /// For encrypted databases, the encryption key must be provided to properly decrypt page 1.
-    fn _init(&self, encryption_key: Option<&EncryptionKey>) -> Result<Pager> {
+    pub(crate) fn _init(&self, encryption_key: Option<&EncryptionKey>) -> Result<Pager> {
         let pager = self.init_pager(None)?;
         pager.enable_encryption(self.opts.enable_encryption);
 
@@ -1172,6 +1279,7 @@ impl Database {
             attached_databases: RwLock::new(DatabaseCatalog::new()),
             query_only: AtomicBool::new(false),
             mv_tx: RwLock::new(None),
+            attached_mv_txs: RwLock::new(HashMap::default()),
             view_transaction_states: AllViewsTxState::new(),
             metrics: RwLock::new(ConnectionMetrics::new()),
             nestedness: AtomicI32::new(0),
@@ -1366,6 +1474,9 @@ impl Database {
                 "syscall" => Arc::new(SyscallIO::new()?),
                 #[cfg(all(target_os = "linux", feature = "io_uring", not(miri)))]
                 "io_uring" => Arc::new(UringIO::new()?),
+                #[cfg(all(target_os = "windows", feature = "experimental_win_iocp", not(miri)))]
+                "experimental_win_iocp" => Arc::new(WindowsIOCP::new()?),
+
                 other => {
                     return Err(LimboError::InvalidArgument(format!("no such VFS: {other}")));
                 }
@@ -1446,8 +1557,8 @@ impl Database {
         self.opts.enable_index_method
     }
 
-    pub fn experimental_strict_enabled(&self) -> bool {
-        self.opts.enable_strict
+    pub fn experimental_custom_types_enabled(&self) -> bool {
+        self.opts.enable_custom_types
     }
 
     pub fn experimental_triggers_enabled(&self) -> bool {

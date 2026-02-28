@@ -49,6 +49,10 @@ pub enum LimboError {
     /// We need to specify for ROLLBACK|FAIL resolve types when to roll the tx back
     /// so instead of matching on the string, we introduce a specific ForeignKeyConstraint error
     ForeignKeyConstraint(String),
+    #[error("Runtime error: {1}")]
+    Raise(turso_parser::ast::ResolveType, String),
+    #[error("RaiseIgnore")]
+    RaiseIgnore,
     #[error("Extension error: {0}")]
     ExtensionError(String),
     #[error("Runtime error: integer overflow")]
@@ -79,6 +83,8 @@ pub enum LimboError {
     TxTerminated,
     #[error("Write-write conflict")]
     WriteWriteConflict,
+    #[error("Commit dependency aborted")]
+    CommitDependencyAborted,
     #[error("No such transaction ID: {0}")]
     NoSuchTransactionID(String),
     #[error("Null value")]
@@ -91,13 +97,6 @@ pub enum LimboError {
     PlanningError(String),
     #[error("Checkpoint failed: {0}")]
     CheckpointFailed(String),
-}
-
-// We only propagate the error kind so we can avoid string allocation in hot path and copying/cloning enums is cheaper
-impl From<std::io::Error> for LimboError {
-    fn from(value: std::io::Error) -> Self {
-        Self::CompletionError(CompletionError::IOError(value.kind()))
-    }
 }
 
 #[cfg(target_family = "unix")]
@@ -114,17 +113,10 @@ impl From<&'static str> for LimboError {
     }
 }
 
-// We only propagate the error kind
-impl From<std::io::Error> for CompletionError {
-    fn from(value: std::io::Error) -> Self {
-        CompletionError::IOError(value.kind())
-    }
-}
-
 #[derive(Debug, Copy, Clone, PartialEq, Error)]
 pub enum CompletionError {
-    #[error("I/O error: {0}")]
-    IOError(std::io::ErrorKind),
+    #[error("I/O error ({1}): {0}")]
+    IOError(std::io::ErrorKind, &'static str),
     #[cfg(target_family = "unix")]
     #[error("I/O error: {0}")]
     RustixIOError(#[from] rustix::io::Errno),
@@ -160,6 +152,11 @@ pub enum CompletionError {
     ChecksumNotEnabled,
 }
 
+/// Convert a `std::io::Error` into a `LimboError` with an operation label.
+pub fn io_error(e: std::io::Error, op: &'static str) -> LimboError {
+    LimboError::CompletionError(CompletionError::IOError(e.kind(), op))
+}
+
 #[cold]
 // makes all branches that return errors marked as unlikely
 pub(crate) const fn cold_return<T>(v: T) -> T {
@@ -180,6 +177,35 @@ macro_rules! bail_corrupt_error {
     };
 }
 
+/// Bounds-checked buffer slicing that returns `LimboError::Corrupt` on out-of-bounds.
+///
+/// Accepts any range expression: `buf, pos..`, `buf, start..end`, etc.
+#[macro_export]
+macro_rules! slice_in_bounds_or_corrupt {
+    ($buf:expr, $range:expr) => {
+        $buf.get($range).ok_or_else(|| {
+            $crate::error::cold_return($crate::error::LimboError::Corrupt(format!(
+                "range {:?} out of bounds for buffer size {}",
+                $range,
+                $buf.len()
+            )))
+        })?
+    };
+}
+
+/// Asserts a condition or bails with `LimboError::Corrupt`.
+///
+/// Usage:
+///   `assert_or_bail_corrupt!(condition, "message {}", arg)`
+#[macro_export]
+macro_rules! assert_or_bail_corrupt {
+    ($cond:expr, $($arg:tt)*) => {
+        if !($cond) {
+            $crate::bail_corrupt_error!($($arg)*);
+        }
+    };
+}
+
 #[macro_export]
 macro_rules! bail_constraint_error {
     ($($arg:tt)*) => {
@@ -193,11 +219,13 @@ impl From<turso_ext::ResultCode> for LimboError {
     }
 }
 
+pub const SQLITE_ERROR: usize = 1;
 pub const SQLITE_CONSTRAINT: usize = 19;
 pub const SQLITE_CONSTRAINT_CHECK: usize = SQLITE_CONSTRAINT | (1 << 8);
 pub const SQLITE_CONSTRAINT_PRIMARYKEY: usize = SQLITE_CONSTRAINT | (6 << 8);
 #[allow(dead_code)]
-pub const SQLITE_CONSTRAINT_FOREIGNKEY: usize = SQLITE_CONSTRAINT | (7 << 8);
+pub const SQLITE_CONSTRAINT_FOREIGNKEY: usize = SQLITE_CONSTRAINT | (3 << 8);
 pub const SQLITE_CONSTRAINT_NOTNULL: usize = SQLITE_CONSTRAINT | (5 << 8);
+pub const SQLITE_CONSTRAINT_TRIGGER: usize = SQLITE_CONSTRAINT | (7 << 8);
 pub const SQLITE_FULL: usize = 13; // we want this in autoincrement - incase if user inserts max allowed int
 pub const SQLITE_CONSTRAINT_UNIQUE: usize = 2067;

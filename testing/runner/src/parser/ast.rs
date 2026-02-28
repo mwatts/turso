@@ -54,6 +54,8 @@ pub enum Capability {
     Strict,
     /// Support for MATERIALIZED VIEW (experimental)
     MaterializedViews,
+    /// Support for custom types (CREATE TYPE / DROP TYPE)
+    CustomTypes,
 }
 
 impl Capability {
@@ -62,6 +64,7 @@ impl Capability {
         Capability::Trigger,
         Capability::Strict,
         Capability::MaterializedViews,
+        Capability::CustomTypes,
     ];
 
     /// Get all capabilities as a HashSet (convenience for backends that support everything)
@@ -76,6 +79,7 @@ impl Display for Capability {
             Capability::Trigger => write!(f, "trigger"),
             Capability::Strict => write!(f, "strict"),
             Capability::MaterializedViews => write!(f, "materialized_views"),
+            Capability::CustomTypes => write!(f, "custom_types"),
         }
     }
 }
@@ -88,8 +92,9 @@ impl FromStr for Capability {
             "trigger" => Ok(Capability::Trigger),
             "strict" => Ok(Capability::Strict),
             "materialized_views" => Ok(Capability::MaterializedViews),
+            "custom_types" => Ok(Capability::CustomTypes),
             _ => Err(format!(
-                "unknown capability '{s}', valid capabilities are: trigger, strict, materialized_views"
+                "unknown capability '{s}', valid capabilities are: trigger, strict, materialized_views, custom_types"
             )),
         }
     }
@@ -141,6 +146,9 @@ pub struct CaseModifiers {
     pub backend: Option<Backend>,
     /// Required capabilities for this case
     pub requires: Vec<Requirement>,
+    /// If true, cross-check the resulting database file with another binary's
+    /// `PRAGMA integrity_check` after the test passes.
+    pub cross_check_integrity: bool,
 }
 
 /// A snapshot test case (for EXPLAIN output)
@@ -152,6 +160,9 @@ pub struct SnapshotCase {
     pub name_span: Range<usize>,
     /// SQL to execute (EXPLAIN will be prepended)
     pub sql: String,
+    /// If true, only run EXPLAIN QUERY PLAN (no bytecode).
+    /// Set by the `snapshot-eqp` directive.
+    pub eqp_only: bool,
     /// Common modifiers (setups, skip, backend, requires)
     pub modifiers: CaseModifiers,
 }

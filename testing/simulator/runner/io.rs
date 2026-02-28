@@ -36,6 +36,8 @@ impl SimulatorIO {
             IoBackend::Default => Box::new(PlatformIO::new()?),
             #[cfg(target_os = "linux")]
             IoBackend::IoUring => Box::new(turso_core::UringIO::new()?),
+            #[cfg(target_os = "windows")]
+            IoBackend::WindowsIOCP => Box::new(turso_core::WindowsIOCP::new()?),
             IoBackend::Memory => {
                 panic!("Memory IO has its own impl, is not supported in SimulatorIO");
             }
@@ -63,6 +65,17 @@ impl SimIO for SimulatorIO {
         self.fault.replace(fault);
         for file in self.files.borrow().iter() {
             file.inject_fault(fault);
+        }
+    }
+
+    fn inject_fault_selective(&self, faults: &[(&str, bool)]) {
+        for file in self.files.borrow().iter() {
+            for (stem, fault) in faults {
+                if file.path.contains(stem) {
+                    file.inject_fault(*fault);
+                    break;
+                }
+            }
         }
     }
 

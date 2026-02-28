@@ -64,13 +64,8 @@ pub fn translate_create_index(
         )
     }
 
-    if connection.mvcc_enabled() {
-        if where_clause.is_some() {
-            bail_parse_error!("Partial indexes are not supported in MVCC mode");
-        }
-        if using.is_some() {
-            bail_parse_error!("Custom index modules are not supported in MVCC mode");
-        }
+    if connection.mvcc_enabled() && using.is_some() {
+        bail_parse_error!("Custom index modules are not supported in MVCC mode");
     }
 
     let original_idx_name = idx_name;
@@ -98,7 +93,7 @@ pub fn translate_create_index(
     };
     program.extend(&opts);
 
-    if database_id >= 2 {
+    if crate::is_attached_db(database_id) {
         let schema_cookie = resolver.with_schema(database_id, |s| s.schema_version);
         program.begin_write_on_database(database_id, schema_cookie);
     }
@@ -121,9 +116,30 @@ pub fn translate_create_index(
         crate::bail_parse_error!("Error: table '{tbl_name}' is not a b-tree table.");
     };
     let columns = resolve_sorted_columns(&tbl, &columns)?;
-    if connection.mvcc_enabled() && columns.iter().any(|c| c.expr.is_some()) {
-        bail_parse_error!("Expression indexes are not supported in MVCC mode");
+
+    // Block CREATE INDEX on non-orderable custom type columns
+    for col in &columns {
+        if col.expr.is_none() {
+            // Simple column reference (not expression index)
+            if let Some(column) = tbl.columns.get(col.pos_in_table) {
+                if let Some(type_def) = resolver
+                    .schema()
+                    .get_type_def(&column.ty_str, tbl.is_strict)
+                {
+                    if type_def.decode.is_some()
+                        && !type_def.operators.iter().any(|op| op.op == "<")
+                    {
+                        bail_parse_error!(
+                            "cannot create index on column '{}' of type '{}': type does not declare OPERATOR '<'",
+                            col.name,
+                            type_def.name
+                        );
+                    }
+                }
+            }
+        }
     }
+
     if !with_clause.is_empty() && using.is_none() {
         crate::bail_parse_error!(
             "Error: additional parameters are allowed only for custom module indices: '{idx_name}' is not custom module index"
@@ -350,6 +366,7 @@ pub fn translate_create_index(
             cursor_id: sorter_cursor_id,
             columns: columns.len(),
             order_and_collations,
+            comparator_func_names: vec![],
         });
         let content_reg = program.alloc_register();
         program.emit_insn(Insn::OpenPseudo {
@@ -474,6 +491,7 @@ pub fn translate_create_index(
             program.emit_insn(Insn::Halt {
                 err_code: SQLITE_CONSTRAINT_UNIQUE,
                 description: format_unique_violation_desc(tbl_name.as_str(), &idx),
+                on_error: None,
             });
             program.preassign_label_to_next_insn(label_after_sorter_compare);
         } else {
@@ -778,7 +796,7 @@ pub fn translate_drop_index(
     };
     program.extend(&opts);
 
-    if database_id >= 2 {
+    if crate::is_attached_db(database_id) {
         let schema_cookie = resolver.with_schema(database_id, |s| s.schema_version);
         program.begin_write_on_database(database_id, schema_cookie);
     }
@@ -899,6 +917,7 @@ pub fn translate_drop_index(
                 &sqlite_table.columns,
                 sqlite_schema_cursor_id,
                 row_id_reg,
+                sqlite_table.is_strict,
             ))
         } else {
             None
@@ -1041,7 +1060,10 @@ pub fn translate_optimize(
     // Emit optimize instructions for each index method index
     for idx in &indexes_to_optimize {
         let cursor_id = program.alloc_cursor_index(None, idx)?;
-        program.emit_insn(Insn::IndexMethodOptimize { db: 0, cursor_id });
+        program.emit_insn(Insn::IndexMethodOptimize {
+            db: crate::MAIN_DB_ID,
+            cursor_id,
+        });
     }
 
     Ok(())

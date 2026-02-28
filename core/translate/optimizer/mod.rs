@@ -13,9 +13,9 @@ use crate::{
             order::{ColumnTarget, OrderTarget},
         },
         plan::{
-            ColumnUsedMask, EphemeralRowidMode, HashJoinOp, IndexMethodQuery,
+            ColumnUsedMask, DmlSafetyReason, EphemeralRowidMode, HashJoinOp, IndexMethodQuery,
             NonFromClauseSubquery, OuterQueryReference, QueryDestination, ResultSetColumn, Scan,
-            SeekKeyComponent,
+            SeekKeyComponent, SubqueryState,
         },
         trigger_exec::has_relevant_triggers_type_only,
     },
@@ -47,9 +47,9 @@ use turso_parser::ast::{self, Expr, SortOrder, TriggerEvent};
 use super::{
     emitter::Resolver,
     plan::{
-        DeletePlan, GroupBy, IterationDirection, JoinOrderMember, JoinedTable, MultiIndexBranch,
-        MultiIndexScanOp, Operation, Plan, Search, SeekDef, SeekKey, SelectPlan, TableReferences,
-        UpdatePlan, WhereTerm,
+        DeletePlan, GroupBy, IterationDirection, JoinOrderMember, JoinType, JoinedTable,
+        MultiIndexBranch, MultiIndexScanOp, Operation, Plan, Search, SeekDef, SeekKey, SelectPlan,
+        TableReferences, UpdatePlan, WhereTerm,
     },
     planner::TableMask,
 };
@@ -61,6 +61,7 @@ mod cost_params;
 pub(crate) mod join;
 pub(crate) mod lift_common_subexpressions;
 pub(crate) mod order;
+pub(crate) mod unnest;
 
 /// A candidate index method that could be used for table access in a join query.
 /// This struct captures all information needed to construct an IndexMethodQuery
@@ -496,6 +497,21 @@ pub fn optimize_select_plan(plan: &mut SelectPlan, schema: &Schema) -> Result<()
     #[cfg(all(feature = "fts", not(target_family = "wasm")))]
     transform_match_to_fts_match(&mut plan.where_clause);
 
+    unnest::unnest_exists_subqueries(plan)?;
+    // EXISTS only needs 1 row. Add LIMIT 1 to surviving (non-unnested) EXISTS
+    // subqueries. This is done here rather than in the subquery planner so that
+    // unnesting sees the plan without an artificial LIMIT.
+    for sub in &mut plan.non_from_clause_subqueries {
+        if matches!(sub.query_type, ast::SubqueryType::Exists { .. }) {
+            if let SubqueryState::Unevaluated { plan: Some(inner) } = &mut sub.state {
+                if inner.limit.is_none() {
+                    inner.limit = Some(Box::new(Expr::Literal(ast::Literal::Numeric(
+                        "1".to_string(),
+                    ))));
+                }
+            }
+        }
+    }
     optimize_subqueries(plan, schema)?;
     lift_common_subexpressions_from_binary_or_terms(&mut plan.where_clause)?;
     if let ConstantConditionEliminationResult::ImpossibleCondition =
@@ -518,8 +534,31 @@ pub fn optimize_select_plan(plan: &mut SelectPlan, schema: &Schema) -> Result<()
         &mut plan.offset,
     )?;
 
-    if let Some(best_join_order) = best_join_order {
+    if let Some((best_join_order, output_rows)) = best_join_order {
         plan.join_order = best_join_order;
+        let mut est = output_rows as f64;
+        // Clamp to LIMIT when it's a literal non-negative number.
+        // Negative LIMIT means "no limit" in SQLite, so we skip those.
+        if let Some(limit_expr) = &plan.limit {
+            if let Ok(val) = crate::util::parse_signed_number(limit_expr) {
+                let limit_f64 = match val {
+                    crate::types::Value::Numeric(Numeric::Integer(i)) if i >= 0 => Some(i as f64),
+                    crate::types::Value::Numeric(Numeric::Float(f)) => {
+                        let f: f64 = f.into();
+                        if f >= 0.0 {
+                            Some(f)
+                        } else {
+                            None
+                        }
+                    }
+                    _ => None,
+                };
+                if let Some(limit_val) = limit_f64 {
+                    est = est.min(limit_val);
+                }
+            }
+        }
+        plan.estimated_output_rows = Some(est);
     }
 
     Ok(())
@@ -585,21 +624,46 @@ fn optimize_update_plan(
         &mut plan.offset,
     )?;
 
-    let table_ref = &mut plan.table_references.joined_tables_mut()[0];
+    if let Some(reason) = first_update_safety_reason(plan, resolver)? {
+        plan.safety.require(reason);
+    }
 
-    // An ephemeral table is required if:
-    // 1. The UPDATE modifies any column that is present in the key of the btree used to iterate over the table.
-    //    For regular table scans or seeks, this is just the rowid or the rowid alias column (INTEGER PRIMARY KEY)
-    //    For index scans and seeks, this is any column in the index used.
-    // 2. There are UPDATE triggers on the table. This is done in SQLite for all UPDATE triggers on
-    //    the affected table even if the trigger would not have an impact on the target table --
-    //    presumably due to lack of static analysis capabilities to determine whether it's safe
-    //    to skip the rowset materialization.
-    let requires_ephemeral_table = 'requires: {
+    if !plan.safety.requires_stable_write_set() {
+        return Ok(());
+    }
+
+    add_ephemeral_table_to_update_plan(program, plan)
+}
+
+fn first_update_safety_reason(
+    plan: &UpdatePlan,
+    resolver: &Resolver,
+) -> Result<Option<DmlSafetyReason>> {
+    let table_ref = &plan.table_references.joined_tables()[0];
+    let reason = 'requires: {
         let Some(btree_table_arc) = table_ref.table.btree() else {
-            break 'requires false;
+            break 'requires None;
         };
         let btree_table = btree_table_arc.as_ref();
+
+        // Multi-index scans gather rowids from multiple index branches.
+        // For UPDATE, we always use the prebuilt ephemeral-table path so writes run against
+        // that fixed rowid list (no surprises from branch/index overlap).
+        if matches!(table_ref.op, Operation::MultiIndexScan(_)) {
+            break 'requires Some(DmlSafetyReason::MultiIndexScan);
+        }
+
+        // Index method cursors that stream lazily need rowids collected first.
+        if let Operation::IndexMethodQuery(query) = &table_ref.op {
+            let attachment = query
+                .index
+                .index_method
+                .as_ref()
+                .expect("IndexMethodQuery always has an index_method attachment");
+            if !attachment.definition().results_materialized {
+                break 'requires Some(DmlSafetyReason::IndexMethodNotMaterialized);
+            }
+        }
 
         // Check if there are UPDATE triggers
         let updated_cols: HashSet<usize> = plan.set_clauses.iter().map(|(i, _)| *i).collect();
@@ -612,7 +676,7 @@ fn optimize_update_plan(
                 btree_table,
             )
         }) {
-            break 'requires true;
+            break 'requires Some(DmlSafetyReason::Trigger);
         }
 
         // REPLACE mode requires ephemeral table because REPLACE deletes conflicting rows,
@@ -621,7 +685,7 @@ fn optimize_update_plan(
             plan.or_conflict,
             Some(turso_parser::ast::ResolveType::Replace)
         ) {
-            break 'requires true;
+            break 'requires Some(DmlSafetyReason::ReplaceMode);
         }
 
         let Some(index) = table_ref.op.index() else {
@@ -629,16 +693,16 @@ fn optimize_update_plan(
                 accum || (*idx != ROWID_SENTINEL && btree_table.columns[*idx].is_rowid_alias())
             });
             if rowid_alias_used {
-                break 'requires true;
+                break 'requires Some(DmlSafetyReason::KeyMutation);
             }
             let direct_rowid_update = plan
                 .set_clauses
                 .iter()
                 .any(|(idx, _)| *idx == ROWID_SENTINEL);
             if direct_rowid_update {
-                break 'requires true;
+                break 'requires Some(DmlSafetyReason::KeyMutation);
             }
-            break 'requires false;
+            break 'requires None;
         };
 
         for (set_clause_col_idx, _) in plan.set_clauses.iter() {
@@ -647,21 +711,44 @@ fn optimize_update_plan(
                     let expr_idx_cols_mask =
                         expression_index_column_usage(expr.as_ref(), table_ref, resolver)?;
                     if expr_idx_cols_mask.get(*set_clause_col_idx) {
-                        break 'requires true;
+                        break 'requires Some(DmlSafetyReason::KeyMutation);
                     }
                 } else if c.pos_in_table == *set_clause_col_idx {
-                    break 'requires true;
+                    break 'requires Some(DmlSafetyReason::KeyMutation);
                 }
             }
         }
-        break 'requires false;
+        break 'requires None;
     };
 
-    if !requires_ephemeral_table {
-        return Ok(());
-    }
+    Ok(reason)
+}
 
-    add_ephemeral_table_to_update_plan(program, plan)
+/// Collect SubqueryResult IDs referenced in SET clause and RETURNING expressions.
+/// These subqueries must stay in the main update plan (evaluated during the update phase),
+/// not be moved to the ephemeral plan (which only collects rowids).
+fn collect_update_phase_subquery_ids(
+    plan: &UpdatePlan,
+) -> HashSet<turso_parser::ast::TableInternalId> {
+    use crate::translate::expr::walk_expr;
+    use crate::translate::expr::WalkControl;
+
+    let mut ids = HashSet::default();
+    let mut collector = |e: &ast::Expr| -> Result<WalkControl> {
+        if let ast::Expr::SubqueryResult { subquery_id, .. } = e {
+            ids.insert(*subquery_id);
+        }
+        Ok(WalkControl::Continue)
+    };
+    for (_, expr) in plan.set_clauses.iter() {
+        let _ = walk_expr(expr, &mut collector);
+    }
+    if let Some(returning) = &plan.returning {
+        for rc in returning {
+            let _ = walk_expr(&rc.expr, &mut collector);
+        }
+    }
+    ids
 }
 
 /// An ephemeral table is required if:
@@ -688,7 +775,7 @@ fn add_ephemeral_table_to_update_plan(
         has_rowid: true,
         has_autoincrement: false,
         primary_key_columns: vec![],
-        columns: vec![ROWID_COLUMN],
+        columns: vec![(*ROWID_COLUMN).clone()],
         is_strict: false,
         unique_sets: vec![],
         foreign_keys: vec![],
@@ -756,7 +843,7 @@ fn add_ephemeral_table_to_update_plan(
             is_outer: t
                 .join_info
                 .as_ref()
-                .is_some_and(|join_info| join_info.outer),
+                .is_some_and(|join_info| join_info.is_outer()),
         })
         .collect();
     let rowid_internal_id = table_references_ephemeral_select
@@ -791,8 +878,26 @@ fn add_ephemeral_table_to_update_plan(
         distinctness: super::plan::Distinctness::NonDistinct,
         values: vec![],
         window: None,
-        // Move subqueries from the main plan to the ephemeral plan since the WHERE clause was moved
-        non_from_clause_subqueries: plan.non_from_clause_subqueries.drain(..).collect(),
+        estimated_output_rows: None,
+        // Only move WHERE clause subqueries to the ephemeral plan.
+        // SET clause and RETURNING clause subqueries must remain in the main update plan
+        // because they compute new column values during the update phase (second pass),
+        // not during row collection (first pass). Moving them here would cause correlated
+        // subqueries in SET to evaluate with wrong cursor positions.
+        non_from_clause_subqueries: {
+            let update_phase_ids = collect_update_phase_subquery_ids(plan);
+            let mut ephemeral_subs = Vec::new();
+            let mut remaining = Vec::new();
+            for sq in plan.non_from_clause_subqueries.drain(..) {
+                if update_phase_ids.contains(&sq.internal_id) {
+                    remaining.push(sq);
+                } else {
+                    ephemeral_subs.push(sq);
+                }
+            }
+            plan.non_from_clause_subqueries = remaining;
+            ephemeral_subs
+        },
     };
 
     plan.ephemeral_plan = Some(ephemeral_plan);
@@ -1000,6 +1105,45 @@ fn base_row_estimate(
             }
             RowCountEstimate::hardcoded_fallback(params)
         }
+        Table::FromClauseSubquery(subquery) => match subquery.plan.as_ref() {
+            Plan::Select(plan) => {
+                if let Some(rows) = plan.estimated_output_rows {
+                    return RowCountEstimate::AnalyzeStats(rows.max(1.0));
+                }
+                RowCountEstimate::hardcoded_fallback(params)
+            }
+            Plan::CompoundSelect {
+                left, right_most, ..
+            } => {
+                // Combine estimates from all branches according to set operation semantics.
+                // left = [(A, op1), (B, op2)], right_most = C
+                // represents: (A op1 B) op2 C
+                // We fold left-to-right: seed with A, then apply op_i with plan_{i+1}.
+                let fallback = *RowCountEstimate::hardcoded_fallback(params);
+                let est = |p: &SelectPlan| p.estimated_output_rows.unwrap_or(fallback);
+                let mut combined = left.first().map_or(
+                    right_most.estimated_output_rows.unwrap_or(fallback),
+                    |(p, _)| est(p),
+                );
+                // The estimates to the right of each operator: left[1..].est, then right_most.est
+                let rhs_estimates = left
+                    .iter()
+                    .skip(1)
+                    .map(|(p, _)| est(p))
+                    .chain(std::iter::once(est(right_most)));
+                for ((_, op), rhs) in left.iter().zip(rhs_estimates) {
+                    combined = match op {
+                        ast::CompoundOperator::UnionAll | ast::CompoundOperator::Union => {
+                            combined + rhs
+                        }
+                        ast::CompoundOperator::Intersect => combined.min(rhs),
+                        ast::CompoundOperator::Except => combined,
+                    };
+                }
+                RowCountEstimate::AnalyzeStats(combined.max(1.0))
+            }
+            _ => RowCountEstimate::hardcoded_fallback(params),
+        },
         _ => RowCountEstimate::hardcoded_fallback(params),
     }
 }
@@ -1025,35 +1169,92 @@ fn where_term_is_null_rejecting_for_table(
     !expr_has_null_masking_for_table(expr, table_id)
 }
 
-/// Returns true if an expression uses a NULL-masking function over columns from `table_id`.
+/// Returns true if an expression references a column from `table_id`.
+fn expr_references_table(expr: &ast::Expr, table_id: ast::TableInternalId) -> bool {
+    use crate::translate::expr::{walk_expr, WalkControl};
+    let mut found = false;
+    let _ = walk_expr(expr, &mut |inner: &ast::Expr| -> Result<WalkControl> {
+        match inner {
+            ast::Expr::Column { table, .. } | ast::Expr::RowId { table, .. }
+                if *table == table_id =>
+            {
+                found = true;
+                return Ok(WalkControl::SkipChildren);
+            }
+            _ => {}
+        }
+        Ok(WalkControl::Continue)
+    });
+    found
+}
+
+/// Returns true if an expression is a NULL check on a column from `table_id`.
+/// Matches patterns like `col IS NULL`, `col IS NOT NULL`, `IsNull(col)`, `NotNull(col)`.
+fn is_null_check_on_table(expr: &ast::Expr, table_id: ast::TableInternalId) -> bool {
+    match expr {
+        ast::Expr::IsNull(inner) | ast::Expr::NotNull(inner) => {
+            expr_references_table(inner, table_id)
+        }
+        ast::Expr::Binary(lhs, ast::Operator::Is | ast::Operator::IsNot, rhs) => {
+            (matches!(rhs.as_ref(), ast::Expr::Literal(ast::Literal::Null))
+                && expr_references_table(lhs, table_id))
+                || (matches!(lhs.as_ref(), ast::Expr::Literal(ast::Literal::Null))
+                    && expr_references_table(rhs, table_id))
+        }
+        _ => false,
+    }
+}
+
+/// Returns true if an expression uses a NULL-masking construct over columns from `table_id`.
+/// This includes NULL-masking functions (COALESCE, IFNULL) and CASE/IIF expressions
+/// that explicitly handle the NULL case for columns from the target table.
 fn expr_has_null_masking_for_table(expr: &ast::Expr, table_id: ast::TableInternalId) -> bool {
     use crate::translate::expr::{walk_expr, WalkControl};
     let mut found = false;
     let _ = walk_expr(expr, &mut |e: &ast::Expr| -> Result<WalkControl> {
-        if let ast::Expr::FunctionCall { name, args, .. } = e {
-            if let Ok(func) = crate::function::Func::resolve_function(name.as_str(), args.len()) {
-                if !func.can_mask_nulls() {
-                    return Ok(WalkControl::Continue);
-                }
-                for arg in args {
-                    let mut refs_table = false;
-                    let _ = walk_expr(arg, &mut |inner: &ast::Expr| -> Result<WalkControl> {
-                        match inner {
-                            ast::Expr::Column { table, .. } | ast::Expr::RowId { table, .. }
-                                if *table == table_id =>
-                            {
-                                refs_table = true;
+        match e {
+            ast::Expr::FunctionCall { name, args, .. } => {
+                if let Ok(func) = crate::function::Func::resolve_function(name.as_str(), args.len())
+                {
+                    // IIF(cond, then, else) is like CASE WHEN cond THEN then ELSE else END.
+                    // If the condition is a null check on the target table, IIF masks nulls.
+                    if matches!(
+                        func,
+                        crate::function::Func::Scalar(crate::function::ScalarFunc::Iif)
+                    ) {
+                        if let Some(cond) = args.first() {
+                            if is_null_check_on_table(cond, table_id) {
+                                found = true;
+                                return Ok(WalkControl::SkipChildren);
                             }
-                            _ => {}
                         }
-                        Ok(WalkControl::Continue)
-                    });
-                    if refs_table {
+                        return Ok(WalkControl::Continue);
+                    }
+                    if !func.can_mask_nulls() {
+                        return Ok(WalkControl::Continue);
+                    }
+                    for arg in args {
+                        if expr_references_table(arg, table_id) {
+                            found = true;
+                            return Ok(WalkControl::SkipChildren);
+                        }
+                    }
+                }
+            }
+            // CASE WHEN <null-check-on-table> THEN ... ELSE ... END
+            // If any WHEN condition checks for NULL on a column from the target table,
+            // the CASE explicitly handles NULLs and can produce non-NULL results.
+            ast::Expr::Case {
+                when_then_pairs, ..
+            } => {
+                for (when_expr, _) in when_then_pairs {
+                    if is_null_check_on_table(when_expr, table_id) {
                         found = true;
                         return Ok(WalkControl::SkipChildren);
                     }
                 }
             }
+            _ => {}
         }
         Ok(WalkControl::Continue)
     });
@@ -1083,7 +1284,7 @@ fn optimize_table_access(
     subqueries: &[NonFromClauseSubquery],
     limit: &mut Option<Box<Expr>>,
     offset: &mut Option<Box<Expr>>,
-) -> Result<Option<Vec<JoinOrderMember>>> {
+) -> Result<Option<(Vec<JoinOrderMember>, usize)>> {
     // When optimizer_params feature is enabled, use lazily-loaded params (cached process-wide).
     // Otherwise, use the compile-time static for zero overhead.
     #[cfg(feature = "optimizer_params")]
@@ -1197,7 +1398,10 @@ fn optimize_table_access(
             .filter(|(_, t)| {
                 t.join_info
                     .as_ref()
-                    .is_some_and(|join_info| join_info.outer)
+                    // Skip FULL OUTER JOIN tables: removing `outer` would suppress
+                    // unmatched-probe-row emission and prevent LeftJoinMetadata
+                    // allocation needed by the hash join.
+                    .is_some_and(|join_info| join_info.is_outer() && !join_info.is_full_outer())
             })
         {
             // Check if there's a constraint that would filter out NULL rows,
@@ -1216,7 +1420,7 @@ fn optimize_table_access(
                 );
                 is_from_where && is_null_rejecting
             }) {
-                t.join_info.as_mut().unwrap().outer = false;
+                t.join_info.as_mut().unwrap().join_type = JoinType::Inner;
                 for term in where_clause.iter_mut() {
                     if let Some(from_outer_join) = term.from_outer_join {
                         if from_outer_join == t.internal_id {
@@ -1281,6 +1485,8 @@ fn optimize_table_access(
         best_plan
     };
 
+    let final_output_cardinality = best_plan.output_cardinality;
+
     let mut sort_eliminated = false;
 
     // Eliminate sorting if possible.
@@ -1290,6 +1496,7 @@ fn optimize_table_access(
             &access_methods_arena,
             table_references.joined_tables_mut(),
             order_target,
+            schema,
         );
         if satisfies_order_target {
             match order_target.1 {
@@ -1398,7 +1605,7 @@ fn optimize_table_access(
             is_outer: table_references.joined_tables_mut()[table_number]
                 .join_info
                 .as_ref()
-                .is_some_and(|join_info| join_info.outer),
+                .is_some_and(|join_info| join_info.is_outer()),
         })
         .collect();
 
@@ -1530,6 +1737,17 @@ fn optimize_table_access(
                         &usable_constraint_refs,
                     );
 
+                    mark_seek_constraints_consumed(
+                        &table_constraints.constraints,
+                        &usable_constraint_refs,
+                        where_clause,
+                        table_references.joined_tables()[table_idx]
+                            .join_info
+                            .as_ref()
+                            .is_some_and(|ji| ji.is_outer()),
+                        hash_join_build_only_tables.contains(&table_idx),
+                    );
+
                     let ephemeral_index = Arc::new(ephemeral_index);
                     table_references.joined_tables_mut()[table_idx].op =
                         Operation::Search(Search::Seek {
@@ -1546,40 +1764,16 @@ fn optimize_table_access(
                     let is_outer_join = table_references.joined_tables_mut()[table_idx]
                         .join_info
                         .as_ref()
-                        .is_some_and(|join_info| join_info.outer);
-                    // Build-only hash-join tables do not have a main-loop cursor,
-                    // so leave cross-table constraints for probe-side evaluation.
+                        .is_some_and(|join_info| join_info.is_outer());
                     let defer_cross_table_constraints =
                         hash_join_build_only_tables.contains(&table_idx);
-                    for cref in constraint_refs.iter() {
-                        for constraint_vec_pos in &[cref.eq, cref.lower_bound, cref.upper_bound] {
-                            let Some(constraint_vec_pos) = constraint_vec_pos else {
-                                continue;
-                            };
-                            let constraint =
-                                &constraints_per_table[table_idx].constraints[*constraint_vec_pos];
-                            let where_term = &mut where_clause[constraint.where_clause_pos.0];
-                            turso_assert!(
-                                !where_term.consumed,
-                                "trying to consume a where clause term twice",
-                                {"where_term": format!("{where_term:?}")}
-                            );
-                            if is_outer_join && where_term.from_outer_join.is_none() {
-                                // Don't consume WHERE terms from outer joins if the where term is not part of the outer join condition. Consider:
-                                // - SELECT * FROM t1 LEFT JOIN t2 ON false WHERE t2.id = 5
-                                // - there is no row in t2 where t2.id = 5
-                                // This should never produce any rows with null columns for t2 (because NULL != 5), but if we consume 't2.id = 5' to use it as a seek key,
-                                // this will cause a null row to be emitted for EVERY row of t1.
-                                // Note: in most cases like this, the LEFT JOIN could just be converted into an INNER JOIN (because e.g. t2.id=5 statically excludes any null rows),
-                                // but that optimization should not be done here - it should be done before the join order optimization happens.
-                                continue;
-                            }
-                            if defer_cross_table_constraints && !constraint.lhs_mask.is_empty() {
-                                continue;
-                            }
-                            where_term.consumed = true;
-                        }
-                    }
+                    mark_seek_constraints_consumed(
+                        &constraints_per_table[table_idx].constraints,
+                        constraint_refs,
+                        where_clause,
+                        is_outer_join,
+                        defer_cross_table_constraints,
+                    );
                     if let Some(index) = &index {
                         table_references.joined_tables_mut()[table_idx].op =
                             Operation::Search(Search::Seek {
@@ -1681,6 +1875,7 @@ fn optimize_table_access(
                 mem_budget,
                 materialize_build_input,
                 use_bloom_filter,
+                join_type,
             } => {
                 // Mark WHERE clause terms as consumed since we're using hash join
                 for join_key in join_keys.iter() {
@@ -1695,6 +1890,7 @@ fn optimize_table_access(
                         mem_budget: *mem_budget,
                         materialize_build_input: *materialize_build_input,
                         use_bloom_filter: *use_bloom_filter,
+                        join_type: *join_type,
                     });
             }
             AccessMethodParams::IndexMethod {
@@ -1714,6 +1910,7 @@ fn optimize_table_access(
                 where_term_idx,
                 set_op,
                 additional_consumed_terms,
+                estimated_rows_per_outer_row: _,
             } => {
                 // Mark the primary WHERE clause term as consumed
                 where_clause[*where_term_idx].consumed = true;
@@ -1811,7 +2008,7 @@ fn optimize_table_access(
         }
     }
 
-    Ok(Some(best_join_order))
+    Ok(Some((best_join_order, final_output_cardinality)))
 }
 
 fn build_vtab_scan_op(
@@ -1884,6 +2081,41 @@ fn build_vtab_scan_op(
         idx_str: idx_str.clone(),
         constraints,
     }))
+}
+
+/// Mark WHERE clause terms as consumed when they are covered by a seek
+/// (index seek, ephemeral auto-index seek, or rowid seek).
+///
+/// `is_outer_join`: skip consuming non-ON WHERE terms for outer joins, because
+/// the cursor may land on a NULL-extended row that the WHERE filter must still
+/// reject (e.g. `SELECT * FROM t1 LEFT JOIN t2 ON false WHERE t2.id = 5`).
+///
+/// `defer_cross_table`: skip cross-table constraints for hash-join build-only
+/// tables that lack a main-loop cursor — the probe side will evaluate them.
+fn mark_seek_constraints_consumed(
+    constraints: &[Constraint],
+    constraint_refs: &[RangeConstraintRef],
+    where_clause: &mut [WhereTerm],
+    is_outer_join: bool,
+    defer_cross_table: bool,
+) {
+    for cref in constraint_refs.iter() {
+        for pos in &[cref.eq, cref.lower_bound, cref.upper_bound] {
+            let Some(pos) = pos else { continue };
+            let constraint = &constraints[*pos];
+            let where_term = &mut where_clause[constraint.where_clause_pos.0];
+            if where_term.consumed {
+                continue;
+            }
+            if is_outer_join && where_term.from_outer_join.is_none() {
+                continue;
+            }
+            if defer_cross_table && !constraint.lhs_mask.is_empty() {
+                continue;
+            }
+            where_term.consumed = true;
+        }
+    }
 }
 
 #[derive(Debug, PartialEq, Clone)]
@@ -3010,6 +3242,113 @@ mod tests {
         assert!(!where_term_is_null_rejecting_for_table(
             &expr,
             ast::Operator::IsNot.into(),
+            table
+        ));
+    }
+
+    #[test]
+    fn null_rejection_detection_case_with_is_null_check_not_rejecting() {
+        let table = TableInternalId::from(15);
+        // CASE WHEN t.col IS NULL THEN 1 ELSE t.col END > 0
+        let expr = Expr::Binary(
+            Box::new(Expr::Case {
+                base: None,
+                when_then_pairs: vec![(
+                    Box::new(Expr::IsNull(Box::new(Expr::Column {
+                        database: None,
+                        table,
+                        column: 0,
+                        is_rowid_alias: false,
+                    }))),
+                    Box::new(Expr::Literal(ast::Literal::Numeric("1".into()))),
+                )],
+                else_expr: Some(Box::new(Expr::Column {
+                    database: None,
+                    table,
+                    column: 0,
+                    is_rowid_alias: false,
+                })),
+            }),
+            ast::Operator::Greater,
+            Box::new(Expr::Literal(ast::Literal::Numeric("0".into()))),
+        );
+
+        assert!(!where_term_is_null_rejecting_for_table(
+            &expr,
+            ast::Operator::Greater.into(),
+            table
+        ));
+    }
+
+    #[test]
+    fn null_rejection_detection_case_without_null_check_is_rejecting() {
+        let table = TableInternalId::from(16);
+        // CASE WHEN t.col > 5 THEN t.col ELSE 0 END > 0
+        let expr = Expr::Binary(
+            Box::new(Expr::Case {
+                base: None,
+                when_then_pairs: vec![(
+                    Box::new(Expr::Binary(
+                        Box::new(Expr::Column {
+                            database: None,
+                            table,
+                            column: 0,
+                            is_rowid_alias: false,
+                        }),
+                        ast::Operator::Greater,
+                        Box::new(Expr::Literal(ast::Literal::Numeric("5".into()))),
+                    )),
+                    Box::new(Expr::Column {
+                        database: None,
+                        table,
+                        column: 0,
+                        is_rowid_alias: false,
+                    }),
+                )],
+                else_expr: Some(Box::new(Expr::Literal(ast::Literal::Numeric("0".into())))),
+            }),
+            ast::Operator::Greater,
+            Box::new(Expr::Literal(ast::Literal::Numeric("0".into()))),
+        );
+
+        // CASE without IS NULL check doesn't mask nulls, so it IS null-rejecting
+        assert!(where_term_is_null_rejecting_for_table(
+            &expr,
+            ast::Operator::Greater.into(),
+            table
+        ));
+    }
+
+    #[test]
+    fn null_rejection_detection_iif_with_is_null_check_not_rejecting() {
+        let table = TableInternalId::from(17);
+        // IIF(t.col IS NULL, 1, t.col) > 0
+        let expr = Expr::Binary(
+            Box::new(fn_call(
+                "iif",
+                vec![
+                    Expr::IsNull(Box::new(Expr::Column {
+                        database: None,
+                        table,
+                        column: 0,
+                        is_rowid_alias: false,
+                    })),
+                    Expr::Literal(ast::Literal::Numeric("1".into())),
+                    Expr::Column {
+                        database: None,
+                        table,
+                        column: 0,
+                        is_rowid_alias: false,
+                    },
+                ],
+            )),
+            ast::Operator::Greater,
+            Box::new(Expr::Literal(ast::Literal::Numeric("0".into()))),
+        );
+
+        assert!(!where_term_is_null_rejecting_for_table(
+            &expr,
+            ast::Operator::Greater.into(),
             table
         ));
     }

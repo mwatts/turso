@@ -18,7 +18,7 @@ use crate::{
     vdbe::{
         affinity::Affinity,
         builder::{CursorType, ProgramBuilder},
-        insn::{to_u16, Cookie, Insn, RegisterOrLiteral},
+        insn::{to_u16, CmpInsFlags, Cookie, Insn, RegisterOrLiteral},
     },
     vtab::VirtualTable,
     LimboError, Numeric, Result, Value,
@@ -94,6 +94,97 @@ fn default_requires_empty_table(expr: &ast::Expr) -> bool {
     }
 }
 
+fn emit_rename_sqlite_sequence_entry(
+    program: &mut ProgramBuilder,
+    resolver: &Resolver,
+    connection: &Arc<crate::Connection>,
+    database_id: usize,
+    old_table_name_norm: &str,
+    new_table_name_norm: &str,
+) {
+    let Some(sqlite_sequence) = resolver.with_schema(database_id, |s| {
+        s.get_btree_table(crate::schema::SQLITE_SEQUENCE_TABLE_NAME)
+    }) else {
+        return;
+    };
+
+    let seq_cursor_id = program.alloc_cursor_id(CursorType::BTreeTable(sqlite_sequence.clone()));
+    let sequence_name_reg = program.alloc_register();
+    let sequence_value_reg = program.alloc_register();
+    let row_name_to_replace_reg = program.emit_string8_new_reg(old_table_name_norm.to_string());
+    program.mark_last_insn_constant();
+    let replacement_row_name_reg = program.emit_string8_new_reg(new_table_name_norm.to_string());
+    program.mark_last_insn_constant();
+
+    let affinity_str = sqlite_sequence
+        .columns
+        .iter()
+        .map(|col| col.affinity().aff_mask())
+        .collect::<String>();
+
+    program.emit_insn(Insn::OpenWrite {
+        cursor_id: seq_cursor_id,
+        root_page: RegisterOrLiteral::Literal(sqlite_sequence.root_page),
+        db: database_id,
+    });
+
+    program.cursor_loop(seq_cursor_id, |program, rowid| {
+        program.emit_column_or_rowid(seq_cursor_id, 0, sequence_name_reg);
+
+        let continue_loop_label = program.allocate_label();
+        program.emit_insn(Insn::Ne {
+            lhs: sequence_name_reg,
+            rhs: row_name_to_replace_reg,
+            target_pc: continue_loop_label,
+            flags: CmpInsFlags::default(),
+            collation: None,
+        });
+
+        program.emit_column_or_rowid(seq_cursor_id, 1, sequence_value_reg);
+
+        let record_start_reg = program.alloc_registers(2);
+        let record_reg = program.alloc_register();
+
+        program.emit_insn(Insn::Copy {
+            src_reg: replacement_row_name_reg,
+            dst_reg: record_start_reg,
+            extra_amount: 0,
+        });
+        program.emit_insn(Insn::Copy {
+            src_reg: sequence_value_reg,
+            dst_reg: record_start_reg + 1,
+            extra_amount: 0,
+        });
+        program.emit_insn(Insn::MakeRecord {
+            start_reg: to_u16(record_start_reg),
+            count: to_u16(2),
+            dest_reg: to_u16(record_reg),
+            index_name: None,
+            affinity_str: Some(affinity_str.clone()),
+        });
+
+        // In MVCC mode, we need to delete before insert to properly
+        // end the old version (Hekaton-style UPDATE = DELETE + INSERT)
+        if connection.mvcc_enabled() {
+            program.emit_insn(Insn::Delete {
+                cursor_id: seq_cursor_id,
+                table_name: crate::schema::SQLITE_SEQUENCE_TABLE_NAME.to_string(),
+                is_part_of_update: true,
+            });
+        }
+
+        program.emit_insn(Insn::Insert {
+            cursor: seq_cursor_id,
+            key_reg: rowid,
+            record_reg,
+            flag: crate::vdbe::insn::InsertFlags(0),
+            table_name: crate::schema::SQLITE_SEQUENCE_TABLE_NAME.to_string(),
+        });
+
+        program.resolve_label(continue_loop_label, program.offset());
+    });
+}
+
 fn literal_default_value(literal: &ast::Literal) -> Result<Value> {
     match literal {
         ast::Literal::Numeric(val) => parse_numeric_literal(val),
@@ -119,7 +210,7 @@ fn literal_default_value(literal: &ast::Literal) -> Result<Value> {
     }
 }
 
-fn eval_constant_default_value(expr: &ast::Expr) -> Result<Value> {
+pub(crate) fn eval_constant_default_value(expr: &ast::Expr) -> Result<Value> {
     match expr {
         ast::Expr::Literal(literal) => literal_default_value(literal),
         ast::Expr::Id(name) => Ok(Value::from_text(name.as_str().to_string())),
@@ -209,7 +300,7 @@ fn emit_add_column_default_type_validation(
     program.emit_insn(Insn::OpenRead {
         cursor_id: check_cursor_id,
         root_page: original_btree.root_page,
-        db: 0,
+        db: crate::MAIN_DB_ID,
     });
 
     let skip_check_label = program.allocate_label();
@@ -221,6 +312,7 @@ fn emit_add_column_default_type_validation(
     program.emit_insn(Insn::Halt {
         err_code: 1,
         description: "type mismatch on DEFAULT".to_string(),
+        on_error: None,
     });
 
     program.resolve_label(skip_check_label, program.offset());
@@ -337,6 +429,7 @@ fn emit_add_column_check_validation(
         program.emit_insn(Insn::Halt {
             err_code: SQLITE_CONSTRAINT_CHECK,
             description: name,
+            on_error: None,
         });
 
         program.preassign_label_to_next_insn(check_passed_label);
@@ -358,12 +451,18 @@ pub fn translate_alter_table(
         body: alter_table,
     } = alter;
     let database_id = resolver.resolve_database_id(&qualified_name)?;
-    if database_id >= 2 {
+    if crate::is_attached_db(database_id) {
         let schema_cookie = resolver.with_schema(database_id, |s| s.schema_version);
         program.begin_write_on_database(database_id, schema_cookie);
     }
     program.begin_write_operation();
     let table_name = qualified_name.name.as_str();
+    // For attached databases, qualify sqlite_schema with the database name
+    // so that the UPDATE targets the correct database's schema table.
+    let qualified_schema_table = match &qualified_name.db_name {
+        Some(db_name) => format!("{}.{}", db_name.as_str(), SQLITE_TABLEID),
+        None => SQLITE_TABLEID.to_string(),
+    };
     let schema_version = resolver.with_schema(database_id, |s| s.schema_version);
     validate(&alter_table, table_name)?;
 
@@ -428,6 +527,7 @@ pub fn translate_alter_table(
             // The column is a PRIMARY KEY or part of one.
             // The column has a UNIQUE constraint.
             // The column is indexed.
+            // The column is referenced in an expression index.
             // The column is named in the WHERE clause of a partial index.
             // The column is named in a table or column CHECK constraint not associated with the column being dropped.
             // The column is used in a foreign key constraint.
@@ -452,6 +552,7 @@ pub fn translate_alter_table(
                 )));
             }
 
+            let col_normalized = normalize_ident(column_name);
             for index in table_indexes.iter() {
                 // Referenced in regular index
                 let maybe_indexed_col = index
@@ -464,6 +565,17 @@ pub fn translate_alter_table(
                         "cannot drop column \"{column_name}\": it is referenced in the index {}; position in index is {pos_in_index}, position in table is {}",
                         index.name, indexed_col.pos_in_table
                     )));
+                }
+                // Referenced in expression index
+                for idx_col in &index.columns {
+                    if let Some(expr) = &idx_col.expr {
+                        if check_expr_references_column(expr, &col_normalized) {
+                            return Err(LimboError::ParseError(format!(
+                                "error in index {} after drop column: no such column: {column_name}",
+                                index.name
+                            )));
+                        }
+                    }
                 }
                 // Referenced in partial index
                 if index.where_clause.is_some() {
@@ -519,7 +631,6 @@ pub fn translate_alter_table(
             // Handle CHECK constraints:
             // - Column-level CHECK constraints for the dropped column are silently removed
             // - Table-level CHECK constraints referencing the dropped column cause an error
-            let col_normalized = normalize_ident(column_name);
             for check in &btree.check_constraints {
                 if check.column.is_some() {
                     // Column-level constraint: will be removed below
@@ -573,7 +684,7 @@ pub fn translate_alter_table(
 
             let stmt = format!(
                 r#"
-                    UPDATE {SQLITE_TABLEID}
+                    UPDATE {qualified_schema_table}
                     SET sql = '{sql}'
                     WHERE name = '{table_name}' COLLATE NOCASE AND type = 'table'
                 "#,
@@ -628,7 +739,7 @@ pub fn translate_alter_table(
                         let affinity_str = btree
                             .columns
                             .iter()
-                            .map(|col| col.affinity().aff_mask())
+                            .map(|col| col.affinity_with_strict(btree.is_strict).aff_mask())
                             .collect::<String>();
 
                         program.emit_insn(Insn::MakeRecord {
@@ -684,7 +795,7 @@ pub fn translate_alter_table(
                 ));
             }
             let constraints = col_def.constraints.clone();
-            let column = Column::try_from(&col_def)?;
+            let mut column = Column::try_from(&col_def)?;
 
             // SQLite is very strict about what constitutes a "constant" default for
             // ALTER TABLE ADD COLUMN. It only allows literals and signed literals,
@@ -710,27 +821,50 @@ pub fn translate_alter_table(
                 ));
             }
 
-            let mut default_type_mismatch = false;
-            if btree.is_strict {
+            let default_type_mismatch;
+            {
                 let ty = column.ty_str.as_str();
-                if ty.is_empty() {
+                if btree.is_strict && ty.is_empty() {
                     return Err(LimboError::ParseError(format!(
                         "missing datatype for {table_name}.{new_column_name}"
                     )));
                 }
-                if !ty.eq_ignore_ascii_case("INT")
-                    && !ty.eq_ignore_ascii_case("INTEGER")
-                    && !ty.eq_ignore_ascii_case("REAL")
-                    && !ty.eq_ignore_ascii_case("TEXT")
-                    && !ty.eq_ignore_ascii_case("BLOB")
-                    && !ty.eq_ignore_ascii_case("ANY")
-                {
-                    return Err(LimboError::ParseError(format!(
-                        "unknown datatype for {table_name}.{new_column_name}: \"{ty}\""
-                    )));
+                let is_builtin = ty.is_empty()
+                    || ty.eq_ignore_ascii_case("INT")
+                    || ty.eq_ignore_ascii_case("INTEGER")
+                    || ty.eq_ignore_ascii_case("REAL")
+                    || ty.eq_ignore_ascii_case("TEXT")
+                    || ty.eq_ignore_ascii_case("BLOB")
+                    || ty.eq_ignore_ascii_case("ANY");
+                if !is_builtin && btree.is_strict {
+                    // On non-STRICT tables any type name is allowed and is
+                    // treated as a plain affinity hint (no encode/decode).
+                    // Custom type validation only applies to STRICT tables.
+                    let type_def = resolver
+                        .schema()
+                        .get_type_def_unchecked(&normalize_ident(ty));
+                    if type_def.is_none() {
+                        return Err(LimboError::ParseError(format!(
+                            "unknown datatype for {table_name}.{new_column_name}: \"{ty}\""
+                        )));
+                    }
                 }
 
                 default_type_mismatch = strict_default_type_mismatch(&column)?;
+            }
+
+            // If a column has no explicit DEFAULT but its custom type defines
+            // one, propagate the type-level DEFAULT to the column so that
+            // existing rows get the type default instead of NULL.
+            if column.default.is_none() {
+                if let Some(type_def) = resolver
+                    .schema()
+                    .get_type_def(&column.ty_str, btree.is_strict)
+                {
+                    if let Some(ref type_default) = type_def.default {
+                        column.default = Some(type_default.clone());
+                    }
+                }
             }
 
             // TODO: All quoted ids will be quoted with `[]`, we should store some info from the parsed AST
@@ -823,7 +957,7 @@ pub fn translate_alter_table(
 
             let stmt = format!(
                 r#"
-                    UPDATE {SQLITE_TABLEID}
+                    UPDATE {qualified_schema_table}
                     SET sql = '{escaped}'
                     WHERE name = '{table_name}' COLLATE NOCASE AND type = 'table'
                 "#,
@@ -847,11 +981,15 @@ pub fn translate_alter_table(
             //    all existing rows via pragma_quick_check. We take a stricter approach and
             //    reject the ALTER if the table has any rows, since we don't yet support
             //    scanning existing data for constraint validation.
+            // Check if the column has an effective default (column-level or type-level).
+            let effective_default = column.default.as_ref().or_else(|| {
+                resolver
+                    .schema()
+                    .get_type_def(&column.ty_str, btree.is_strict)
+                    .and_then(|td| td.default.as_ref())
+            });
             let needs_notnull_check = column.notnull()
-                && column
-                    .default
-                    .as_ref()
-                    .is_none_or(|default| crate::util::expr_contains_null(default));
+                && effective_default.is_none_or(|default| crate::util::expr_contains_null(default));
 
             let needs_nondeterministic_check = column
                 .default
@@ -890,6 +1028,7 @@ pub fn translate_alter_table(
                 program.emit_insn(Insn::Halt {
                     err_code: 1,
                     description: error_message.to_string(),
+                    on_error: None,
                 });
 
                 program.resolve_label(skip_error_label, program.offset());
@@ -940,6 +1079,8 @@ pub fn translate_alter_table(
         }
         ast::AlterTableBody::RenameTo(new_name) => {
             let new_name = new_name.as_str();
+            let normalized_old_name = normalize_ident(table_name);
+            let normalized_new_name = normalize_ident(new_name);
 
             if resolver.with_schema(database_id, |s| {
                 s.get_table(new_name).is_some()
@@ -954,8 +1095,7 @@ pub fn translate_alter_table(
             };
 
             let sqlite_schema = resolver
-                .schema()
-                .get_btree_table(SQLITE_TABLEID)
+                .with_schema(database_id, |s| s.get_btree_table(SQLITE_TABLEID))
                 .ok_or_else(|| {
                     LimboError::ParseError("sqlite_schema table not found in schema".to_string())
                 })?;
@@ -1024,6 +1164,15 @@ pub fn translate_alter_table(
                     table_name: table_name.to_string(),
                 });
             });
+
+            emit_rename_sqlite_sequence_entry(
+                program,
+                resolver,
+                connection,
+                database_id,
+                &normalized_old_name,
+                &normalized_new_name,
+            );
 
             program.emit_insn(Insn::SetCookie {
                 db: database_id,
@@ -1232,8 +1381,7 @@ pub fn translate_alter_table(
             }
 
             let sqlite_schema = resolver
-                .schema()
-                .get_btree_table(SQLITE_TABLEID)
+                .with_schema(database_id, |s| s.get_btree_table(SQLITE_TABLEID))
                 .ok_or_else(|| {
                     LimboError::ParseError("sqlite_schema table not found in schema".to_string())
                 })?;
@@ -1315,7 +1463,7 @@ pub fn translate_alter_table(
                 let escaped_sql = new_sql.replace('\'', "''");
                 let update_stmt = format!(
                     r#"
-                        UPDATE {SQLITE_TABLEID}
+                        UPDATE {qualified_schema_table}
                         SET sql = '{escaped_sql}'
                         WHERE name = '{trigger_name}' COLLATE NOCASE AND type = 'trigger'
                     "#,

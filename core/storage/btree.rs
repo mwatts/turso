@@ -50,7 +50,7 @@ use crate::{
 };
 use crate::{
     turso_assert_eq, turso_assert_greater_than, turso_assert_greater_than_or_equal,
-    turso_assert_less_than, turso_assert_less_than_or_equal, turso_assert_ne,
+    turso_assert_less_than, turso_assert_less_than_or_equal,
 };
 use std::{
     any::Any,
@@ -616,6 +616,10 @@ pub trait CursorTrait: Any + Send + Sync {
     fn has_rowid(&self) -> bool;
     fn get_pager(&self) -> Arc<Pager>;
     fn get_skip_advance(&self) -> bool;
+    /// Invalidate cached navigation state. Must be called on cursors that
+    /// share a btree (e.g. OpenDup cursors) when the btree structure is
+    /// modified by another cursor (e.g. clear_btree via ResetSorter).
+    fn invalidate_btree_cache(&mut self) {}
     // --- end: BTreeCursor specific functions ----
 }
 
@@ -2328,7 +2332,7 @@ impl BTreeCursor {
 
                     if overflows {
                         *write_state = WriteState::Balancing;
-                        turso_assert!(matches!(self.balance_state.sub_state, BalanceSubState::Start), "no balancing operation should be in progress during insert", { "state": format!("{:?}", self.state), "sub_state": format!("{:?}", self.balance_state.sub_state) });
+                        turso_assert!(matches!(self.balance_state.sub_state, BalanceSubState::Start), "no balancing operation should be in progress during insert", { "state": self.state, "sub_state": self.balance_state.sub_state });
                         // If we balance, we must save the cursor position and seek to it later.
                         self.save_context(CursorContext::seek_eq_only(bkey));
                     } else {
@@ -2371,7 +2375,7 @@ impl BTreeCursor {
                     };
                     if overflows || underflows {
                         *write_state = WriteState::Balancing;
-                        turso_assert!(matches!(self.balance_state.sub_state, BalanceSubState::Start), "no balancing operation should be in progress during overwrite", { "state": format!("{:?}", self.state), "sub_state": format!("{:?}", self.balance_state.sub_state) });
+                        turso_assert!(matches!(self.balance_state.sub_state, BalanceSubState::Start), "no balancing operation should be in progress during overwrite", { "state": self.state, "sub_state": self.balance_state.sub_state });
                         // If we balance, we must save the cursor position and seek to it later.
                         self.save_context(CursorContext::seek_eq_only(bkey));
                     } else {
@@ -2953,7 +2957,7 @@ impl BTreeCursor {
                                     parent_max_local,
                                     parent_min_local,
                                     parent_page_type,
-                                );
+                                )?;
                             let buf = parent_contents.as_ptr();
                             &buf[cell_start..cell_start + cell_len]
                         };
@@ -3042,7 +3046,7 @@ impl BTreeCursor {
                                     max_local,
                                     min_local,
                                     page_type,
-                                );
+                                )?;
                             let buf = old_page_contents.as_ptr();
                             let cell_buf = &mut buf[cell_start..cell_start + cell_len];
                             // TODO(pere): make this reference and not copy
@@ -3126,7 +3130,7 @@ impl BTreeCursor {
                         for cell in &cell_array.cell_payloads {
                             cells_debug.push(cell.to_vec());
                             if is_leaf {
-                                turso_assert_ne!(cell[0], 0);
+                                crate::turso_assert_ne!(cell[0], 0);
                             }
                         }
                     }
@@ -4953,6 +4957,7 @@ impl CursorTrait for BTreeCursor {
 
     #[cfg_attr(debug_assertions, instrument(skip_all, level = Level::DEBUG))]
     fn last(&mut self) -> Result<IOResult<()>> {
+        self.set_null_flag(false);
         let always_seek = false;
         let cursor_has_record = return_if_io!(self.move_to_rightmost(always_seek));
         self.set_has_record(cursor_has_record);
@@ -5415,7 +5420,7 @@ impl CursorTrait for BTreeCursor {
                             }
                         }
                         let balance_both = leaf_underflows && interior_overflows_or_underflows;
-                        turso_assert!(matches!(self.balance_state.sub_state, BalanceSubState::Start), "no balancing operation should be in progress during delete", { "sub_state": format!("{:?}", self.balance_state.sub_state) });
+                        turso_assert!(matches!(self.balance_state.sub_state, BalanceSubState::Start), "no balancing operation should be in progress during delete", { "sub_state": self.balance_state.sub_state });
                         let post_balancing_seek_key = post_balancing_seek_key
                             .take()
                             .expect("post_balancing_seek_key should be Some");
@@ -5639,6 +5644,7 @@ impl CursorTrait for BTreeCursor {
 
     #[cfg_attr(debug_assertions, instrument(skip_all, level = Level::DEBUG))]
     fn rewind(&mut self) -> Result<IOResult<()>> {
+        self.set_null_flag(false);
         if self.valid_state == CursorValidState::Invalid {
             return Ok(IOResult::Done(()));
         }
@@ -5686,6 +5692,10 @@ impl CursorTrait for BTreeCursor {
     #[inline]
     fn get_skip_advance(&self) -> bool {
         self.skip_advance
+    }
+
+    fn invalidate_btree_cache(&mut self) {
+        self.move_to_right_state.1 = None;
     }
 
     #[inline]
@@ -7683,7 +7693,7 @@ fn defragment_page(page: &PageContent, usable_space: usize, max_frag_bytes: isiz
             max_local,
             min_local,
             page_type,
-        );
+        )?;
 
         if pc > last_offset {
             is_physically_sorted = false;

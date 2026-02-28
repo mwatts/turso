@@ -10,7 +10,9 @@ use crate::{
         collate::get_collseq_from_expr,
         compound_select::emit_program_for_compound_select,
         emitter::emit_program_for_select,
-        expr::{compare_affinity, get_expr_affinity, unwrap_parens, walk_expr_mut, WalkControl},
+        expr::{
+            compare_affinity, get_expr_affinity_info, unwrap_parens, walk_expr_mut, WalkControl,
+        },
         optimizer::optimize_select_plan,
         plan::{
             ColumnUsedMask, JoinOrderMember, NonFromClauseSubquery, OuterQueryReference, Plan,
@@ -242,6 +244,8 @@ pub fn plan_subqueries_from_returning(
         ast::ResultColumn::Star | ast::ResultColumn::TableStar(_) => None,
     });
 
+    let count_before = non_from_clause_subqueries.len();
+
     plan_subqueries_with_outer_query_access(
         program,
         non_from_clause_subqueries,
@@ -251,6 +255,12 @@ pub fn plan_subqueries_from_returning(
         connection,
         SubqueryPosition::ResultColumn,
     )?;
+
+    // Mark newly added subqueries as RETURNING so the UPDATE emitter can
+    // defer their evaluation until after the Insert instruction.
+    for subquery in &mut non_from_clause_subqueries[count_before..] {
+        subquery.is_returning = true;
+    }
 
     update_column_used_masks(table_references, non_from_clause_subqueries);
     Ok(())
@@ -378,10 +388,6 @@ fn get_subquery_parser<'a>(
                     );
                 };
                 optimize_select_plan(&mut plan, resolver.schema())?;
-                // EXISTS subqueries are satisfied after at most 1 row has been returned.
-                plan.limit = Some(Box::new(ast::Expr::Literal(ast::Literal::Numeric(
-                    "1".to_string(),
-                ))));
                 let correlated = plan.is_correlated();
                 handle_unsupported_correlation(correlated, position)?;
                 out_subqueries.push(NonFromClauseSubquery {
@@ -391,6 +397,7 @@ fn get_subquery_parser<'a>(
                         plan: Some(Box::new(plan)),
                     },
                     correlated,
+                    is_returning: false,
                 });
                 Ok(WalkControl::Continue)
             }
@@ -468,6 +475,7 @@ fn get_subquery_parser<'a>(
                         plan: Some(Box::new(plan)),
                     },
                     correlated,
+                    is_returning: false,
                 });
                 Ok(WalkControl::Continue)
             }
@@ -514,7 +522,7 @@ fn get_subquery_parser<'a>(
                         .enumerate()
                         .map(|(i, lhs_expr)| {
                             let lhs_affinity =
-                                get_expr_affinity(lhs_expr, Some(referenced_tables), None);
+                                get_expr_affinity_info(lhs_expr, Some(referenced_tables), None);
                             compare_affinity(
                                 &plan.result_columns[i].expr,
                                 lhs_affinity,
@@ -592,6 +600,7 @@ fn get_subquery_parser<'a>(
                         plan: Some(Box::new(plan)),
                     },
                     correlated,
+                    is_returning: false,
                 });
                 Ok(WalkControl::Continue)
             }
@@ -657,6 +666,17 @@ fn update_column_used_masks(
             if let Some(joined_table) =
                 table_refs.find_joined_table_by_internal_id_mut(child_outer_query_ref.internal_id)
             {
+                // Propagate column_use_counts so that expression index coverage
+                // checks see the additional references from correlated subqueries.
+                // Without this, apply_expression_index_coverage() may conclude that
+                // all uses of a column are satisfied by an expression index when in
+                // fact the correlated subquery needs the column directly.
+                for col_idx in child_outer_query_ref.col_used_mask.iter() {
+                    if col_idx >= joined_table.column_use_counts.len() {
+                        joined_table.column_use_counts.resize(col_idx + 1, 0);
+                    }
+                    joined_table.column_use_counts[col_idx] += 1;
+                }
                 joined_table.col_used_mask |= &child_outer_query_ref.col_used_mask;
             }
             if let Some(outer_query_ref) = table_refs
@@ -852,21 +872,24 @@ pub fn emit_from_clause_subqueries(
         }
     }
 
-    // Include hash-join build tables so EXPLAIN reflects all tables that feed the loop.
-    let mut required_tables: HashSet<usize> = join_order
+    // Build the iteration order: join_order first (execution order), then any
+    // hash-join build tables that aren't already in the join order.
+    let mut visit_order: Vec<usize> = join_order
         .iter()
         .map(|member| member.original_idx)
         .collect();
+    let visit_set: HashSet<usize> = visit_order.iter().copied().collect();
     for table in tables.joined_tables().iter() {
         if let Operation::HashJoin(hash_join_op) = &table.op {
-            required_tables.insert(hash_join_op.build_table_idx);
+            let build_idx = hash_join_op.build_table_idx;
+            if !visit_set.contains(&build_idx) {
+                visit_order.push(build_idx);
+            }
         }
     }
 
-    for (table_index, table_reference) in tables.joined_tables_mut().iter_mut().enumerate() {
-        if !required_tables.contains(&table_index) {
-            continue;
-        }
+    for table_index in visit_order {
+        let table_reference = &mut tables.joined_tables_mut()[table_index];
         emit_explain!(
             program,
             true,
@@ -1200,6 +1223,9 @@ pub fn emit_from_clause_subquery(
                 meta_left_joins: (0..select_plan.joined_tables().len())
                     .map(|_| None)
                     .collect(),
+                meta_semi_anti_joins: (0..select_plan.joined_tables().len())
+                    .map(|_| None)
+                    .collect(),
                 meta_sort: None,
                 reg_agg_start: None,
                 reg_nonagg_emit_once_flag: None,
@@ -1213,6 +1239,7 @@ pub fn emit_from_clause_subquery(
                 meta_window: None,
                 materialized_build_inputs: HashMap::default(),
                 hash_table_contexts: HashMap::default(),
+                unsafe_testing: t_ctx.unsafe_testing,
             };
             emit_query(program, select_plan, &mut metadata)?
         }
@@ -1297,6 +1324,9 @@ fn emit_materialized_cte(
                 meta_left_joins: (0..select_plan.joined_tables().len())
                     .map(|_| None)
                     .collect(),
+                meta_semi_anti_joins: (0..select_plan.joined_tables().len())
+                    .map(|_| None)
+                    .collect(),
                 meta_sort: None,
                 reg_agg_start: None,
                 reg_nonagg_emit_once_flag: None,
@@ -1310,6 +1340,7 @@ fn emit_materialized_cte(
                 meta_window: None,
                 materialized_build_inputs: HashMap::default(),
                 hash_table_contexts: HashMap::default(),
+                unsafe_testing: t_ctx.unsafe_testing,
             };
             emit_query(program, select_plan, &mut metadata)?;
         }
@@ -1384,6 +1415,9 @@ fn emit_indexed_materialized_subquery(
                 meta_left_joins: (0..select_plan.joined_tables().len())
                     .map(|_| None)
                     .collect(),
+                meta_semi_anti_joins: (0..select_plan.joined_tables().len())
+                    .map(|_| None)
+                    .collect(),
                 meta_sort: None,
                 reg_agg_start: None,
                 reg_nonagg_emit_once_flag: None,
@@ -1397,6 +1431,7 @@ fn emit_indexed_materialized_subquery(
                 meta_window: None,
                 materialized_build_inputs: HashMap::default(),
                 hash_table_contexts: HashMap::default(),
+                unsafe_testing: t_ctx.unsafe_testing,
             };
             emit_query(program, select_plan, &mut metadata)?;
         }
@@ -1530,6 +1565,29 @@ pub fn emit_non_from_clause_subquery(
     is_correlated: bool,
 ) -> Result<()> {
     program.nested(|program| {
+        let subquery_id = program.next_subquery_eqp_id();
+        let correlated_prefix = if is_correlated { "CORRELATED " } else { "" };
+        match query_type {
+            SubqueryType::Exists { .. } => {
+                // EXISTS subqueries don't get a separate EQP annotation in SQLite;
+                // instead the SEARCH/SCAN line gets an "EXISTS" suffix handled elsewhere.
+            }
+            SubqueryType::In { .. } => {
+                emit_explain!(
+                    program,
+                    true,
+                    format!("{correlated_prefix}LIST SUBQUERY {subquery_id}")
+                );
+            }
+            SubqueryType::RowValue { .. } => {
+                emit_explain!(
+                    program,
+                    true,
+                    format!("{correlated_prefix}SCALAR SUBQUERY {subquery_id}")
+                );
+            }
+        }
+
         let label_skip_after_first_run = if !is_correlated {
             let label = program.allocate_label();
             program.emit_insn(Insn::Once {
@@ -1585,6 +1643,10 @@ pub fn emit_non_from_clause_subquery(
                     can_fallthrough: true,
                 });
             }
+        }
+        // Pop the parent explain for LIST/SCALAR SUBQUERY annotations.
+        if !matches!(query_type, SubqueryType::Exists { .. }) {
+            program.pop_current_parent_explain();
         }
         if let Some(label) = label_skip_after_first_run {
             program.preassign_label_to_next_insn(label);

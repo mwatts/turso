@@ -20,7 +20,7 @@ use super::emitter::emit_program;
 use super::expr::process_returning_clause;
 use super::optimizer::optimize_plan;
 use super::plan::{
-    ColumnUsedMask, IterationDirection, JoinedTable, Plan, TableReferences, UpdatePlan,
+    ColumnUsedMask, DmlSafety, IterationDirection, JoinedTable, Plan, TableReferences, UpdatePlan,
 };
 use super::planner::{parse_where, plan_ctes_as_outer_refs};
 use super::subquery::{
@@ -222,7 +222,7 @@ pub fn prepare_update_plan(
             body.tbl_name.name.as_str()
         );
     }
-    if database_id >= 2 {
+    if crate::is_attached_db(database_id) {
         let schema_cookie = resolver.with_schema(database_id, |s| s.schema_version);
         program.begin_write_on_database(database_id, schema_cookie);
     }
@@ -471,6 +471,7 @@ pub fn prepare_update_plan(
         ephemeral_plan: None,
         cdc_update_alter_statement: None,
         non_from_clause_subqueries,
+        safety: DmlSafety::default(),
     }))
 }
 

@@ -1,9 +1,9 @@
-use turso_parser::ast::{Expr, SortOrder};
+use turso_parser::ast::{Expr, SortOrder, TableInternalId};
 
 use super::{
     aggregation::{translate_aggregation_step, AggArgumentSource},
     emitter::{
-        MaterializedBuildInputMode, MaterializedColumnRef, OperationMode, TranslateCtx,
+        MaterializedBuildInputMode, MaterializedColumnRef, OperationMode, Resolver, TranslateCtx,
         UpdateRowSource,
     },
     expr::{
@@ -14,13 +14,14 @@ use super::{
     optimizer::{constraints::BinaryExprSide, Optimizable},
     order_by::{order_by_sorter_insert, sorter_insert},
     plan::{
-        Aggregate, DistinctCtx, Distinctness, EvalAt, HashJoinOp, IterationDirection,
+        Aggregate, DistinctCtx, Distinctness, EvalAt, HashJoinOp, HashJoinType, IterationDirection,
         JoinOrderMember, JoinedTable, MultiIndexScanOp, NonFromClauseSubquery, Operation,
         QueryDestination, Scan, Search, SeekDef, SeekKey, SeekKeyComponent, SelectPlan,
         SetOperation, TableReferences, WhereTerm,
     },
 };
 use crate::{
+    emit_explain,
     schema::{Index, Table},
     translate::{
         collate::{get_collseq_from_expr, resolve_comparison_collseq, CollationSeq},
@@ -33,11 +34,12 @@ use crate::{
     },
     turso_assert, turso_assert_eq,
     types::SeekOp,
+    util::expr_tables_subset_of,
     vdbe::{
         affinity::{self, Affinity},
         builder::{
             CursorKey, CursorType, HashBuildSignature, MaterializedBuildInputModeTag,
-            ProgramBuilder,
+            ProgramBuilder, QueryMode,
         },
         insn::{to_u16, CmpInsFlags, HashBuildData, IdxInsertFlags, Insn},
         BranchOffset, CursorID,
@@ -56,6 +58,19 @@ pub struct LeftJoinMetadata {
     pub label_match_flag_set_true: BranchOffset,
     // label for the instruction that checks if the match flag is true
     pub label_match_flag_check_value: BranchOffset,
+}
+
+/// Metadata for handling SEMI/ANTI JOIN operations (EXISTS/NOT EXISTS unnesting)
+#[derive(Debug)]
+pub struct SemiAntiJoinMetadata {
+    /// Label pointing to the body (for anti-join: jump back to body when inner exhausts).
+    /// Also used by anti-join to resolve the body start address.
+    pub label_body: BranchOffset,
+    /// Label of the outer loop's Next instruction (to skip outer row or skip inner loop).
+    pub label_next_outer: BranchOffset,
+    /// The original table index of the outer (non-semi/anti) table whose Next
+    /// instruction `label_next_outer` should resolve to.
+    pub outer_table_idx: usize,
 }
 
 /// Jump labels for each loop in the query's main execution loop
@@ -77,6 +92,32 @@ impl LoopLabels {
             loop_end: program.allocate_label(),
         }
     }
+}
+
+/// Walk backwards through the join order from `join_idx` to find the nearest
+/// ancestor that is not a semi/anti-join table. Returns its `original_idx`.
+/// When multiple semi/anti-joins chain (e.g. NOT EXISTS t2 AND NOT EXISTS t3),
+/// this finds the non-semi/anti table whose Next instruction is the correct
+/// "skip outer row" target.
+fn find_non_semi_anti_ancestor(
+    join_order: &[JoinOrderMember],
+    tables: &[JoinedTable],
+    join_idx: usize,
+) -> usize {
+    assert!(join_idx > 0, "semi/anti-join cannot be the first table");
+    let mut idx = join_idx - 1;
+    while idx > 0 {
+        let prev = &tables[join_order[idx].original_idx];
+        if !prev
+            .join_info
+            .as_ref()
+            .is_some_and(|ji| ji.is_semi_or_anti())
+        {
+            break;
+        }
+        idx -= 1;
+    }
+    join_order[idx].original_idx
 }
 
 pub fn init_distinct(program: &mut ProgramBuilder, plan: &SelectPlan) -> Result<DistinctCtx> {
@@ -147,6 +188,11 @@ pub fn init_loop(
                 label_on_conflict: program.allocate_label(),
             }),
         };
+        emit_explain!(
+            program,
+            false,
+            format!("USE HASH TABLE FOR {}(DISTINCT)", agg.func)
+        );
     }
     // Include hash-join build tables so their cursors are opened for hash build.
     let mut required_tables: HashSet<usize> = join_order
@@ -163,15 +209,41 @@ pub fn init_loop(
         if !required_tables.contains(&table_index) {
             continue;
         }
+        // Ensure attached databases have a Transaction instruction for read access
+        if crate::is_attached_db(table.database_id) {
+            let schema_cookie = t_ctx
+                .resolver
+                .with_schema(table.database_id, |s| s.schema_version);
+            program.begin_read_on_database(table.database_id, schema_cookie);
+        }
         // Initialize bookkeeping for OUTER JOIN
         if let Some(join_info) = table.join_info.as_ref() {
-            if join_info.outer {
+            if join_info.is_outer() {
                 let lj_metadata = LeftJoinMetadata {
                     reg_match_flag: program.alloc_register(),
                     label_match_flag_set_true: program.allocate_label(),
                     label_match_flag_check_value: program.allocate_label(),
                 };
                 t_ctx.meta_left_joins[table_index] = Some(lj_metadata);
+            }
+            if join_info.is_semi_or_anti() {
+                let join_idx = join_order
+                    .iter()
+                    .position(|m| m.original_idx == table_index)
+                    .expect("table must be in join_order");
+                let outer_table_idx =
+                    find_non_semi_anti_ancestor(join_order, tables.joined_tables(), join_idx);
+                // For hash join probe tables, loop_labels.next points to the probe
+                // cursor's Next (which advances to the next outer row), but we need
+                // to jump to the HashNext (which advances to the next hash match
+                // for the current outer row). We allocate a fresh label here and
+                // resolve it in close_loop at the right point.
+                let sa_metadata = SemiAntiJoinMetadata {
+                    label_body: program.allocate_label(),
+                    label_next_outer: program.allocate_label(),
+                    outer_table_idx,
+                };
+                t_ctx.meta_semi_anti_joins[table_index] = Some(sa_metadata);
             }
         }
         let (table_cursor_id, index_cursor_id) =
@@ -251,15 +323,21 @@ pub fn init_loop(
                             program.emit_insn(Insn::OpenWrite {
                                 cursor_id: target_table_cursor_id,
                                 root_page: target_table.btree().unwrap().root_page.into(),
-                                db: table.database_id,
+                                db: target_table.database_id,
                             });
                         }
                     }
+                    let write_db_id = match &update_mode {
+                        UpdateRowSource::PrebuiltEphemeralTable { target_table, .. } => {
+                            target_table.database_id
+                        }
+                        _ => table.database_id,
+                    };
                     if let Some(index_cursor_id) = index_cursor_id {
                         program.emit_insn(Insn::OpenWrite {
                             cursor_id: index_cursor_id,
                             root_page: index.as_ref().unwrap().root_page.into(),
-                            db: table.database_id,
+                            db: write_db_id,
                         });
                     }
                 }
@@ -273,12 +351,22 @@ pub fn init_loop(
                             | OperationMode::UPDATE { .. }
                             | OperationMode::DELETE
                     );
-                    if is_write && tbl.readonly() {
+                    let allow_dbpage_write = {
+                        #[cfg(feature = "cli_only")]
+                        {
+                            t_ctx.unsafe_testing && tbl.name == crate::dbpage::DBPAGE_TABLE_NAME
+                        }
+                        #[cfg(not(feature = "cli_only"))]
+                        {
+                            false
+                        }
+                    };
+                    if is_write && tbl.readonly() && !allow_dbpage_write {
                         return Err(crate::LimboError::ReadOnly);
                     }
                     if let Some(cursor_id) = table_cursor_id {
                         program.emit_insn(Insn::VOpen { cursor_id });
-                        if is_write {
+                        if is_write && !allow_dbpage_write {
                             program.emit_insn(Insn::VBegin { cursor_id });
                         }
                     }
@@ -390,7 +478,59 @@ pub fn init_loop(
                         db: table.database_id,
                     });
                 }
-                _ => panic!("only SELECT is supported for index method"),
+                OperationMode::DELETE => {
+                    if let Some(table_cursor_id) = table_cursor_id {
+                        program.emit_insn(Insn::OpenWrite {
+                            cursor_id: table_cursor_id,
+                            root_page: table.table.get_root_page()?.into(),
+                            db: table.database_id,
+                        });
+                    }
+                    let index_cursor_id = index_cursor_id.expect("index cursor is always opened in OperationMode::DELETE for IndexMethodQuery");
+                    program.emit_insn(Insn::OpenWrite {
+                        cursor_id: index_cursor_id,
+                        root_page: table.op.index().expect("index to exist").root_page.into(),
+                        db: table.database_id,
+                    });
+                    let indices: Vec<_> = t_ctx.resolver.with_schema(table.database_id, |s| {
+                        s.get_indices(table.table.get_name()).cloned().collect()
+                    });
+                    for index in &indices {
+                        if table
+                            .op
+                            .index()
+                            .is_some_and(|table_index| table_index.name == index.name)
+                        {
+                            continue;
+                        }
+                        let cursor_id = program.alloc_cursor_index(
+                            Some(CursorKey::index(table.internal_id, index.clone())),
+                            index,
+                        )?;
+                        program.emit_insn(Insn::OpenWrite {
+                            cursor_id,
+                            root_page: index.root_page.into(),
+                            db: table.database_id,
+                        });
+                    }
+                }
+                OperationMode::UPDATE { .. } => {
+                    let table_cursor_id = table_cursor_id.expect(
+                        "table cursor is always opened in OperationMode::UPDATE for IndexMethodQuery",
+                    );
+                    program.emit_insn(Insn::OpenWrite {
+                        cursor_id: table_cursor_id,
+                        root_page: table.table.get_root_page()?.into(),
+                        db: table.database_id,
+                    });
+                    let index_cursor_id = index_cursor_id.unwrap();
+                    program.emit_insn(Insn::OpenWrite {
+                        cursor_id: index_cursor_id,
+                        root_page: table.op.index().expect("index to exist").root_page.into(),
+                        db: table.database_id,
+                    });
+                }
+                _ => panic!("Unsupported operation mode for index method"),
             },
             Operation::HashJoin(_) => {
                 match mode {
@@ -481,6 +621,28 @@ pub struct HashBuildPayloadInfo {
     /// Whether it's safe to SeekRowid into the build table when payload is missing.
     /// This is false when keys/payload are sourced from a materialized input.
     pub allow_seek: bool,
+}
+
+/// Check whether an expression references any outer query table.
+/// Returns true if any `Column` or `RowId` node in the expression tree refers
+/// to a table that lives in an outer query scope.
+fn expr_references_outer_query(expr: &Expr, table_references: &TableReferences) -> bool {
+    let mut has_outer_ref = false;
+    let _ = walk_expr(expr, &mut |e: &Expr| -> Result<WalkControl> {
+        match e {
+            Expr::Column { table, .. } | Expr::RowId { table, .. } => {
+                if table_references
+                    .find_outer_query_ref_by_internal_id(*table)
+                    .is_some()
+                {
+                    has_outer_ref = true;
+                }
+            }
+            _ => {}
+        }
+        Ok(WalkControl::Continue)
+    });
+    has_outer_ref
 }
 
 /// Emit the hash table build phase for a hash join operation.
@@ -710,6 +872,13 @@ fn emit_hash_build_phase(
             {
                 continue;
             }
+            // Skip correlated predicates that reference outer query tables.
+            // The hash build is guarded by Once and only executes on the first
+            // outer-loop iteration. Predicates that depend on outer cursor values
+            // would produce a stale filter for subsequent iterations.
+            if expr_references_outer_query(&cond.expr, table_references) {
+                continue;
+            }
             let jump_target_when_true = program.allocate_label();
             let condition_metadata = ConditionMetadata {
                 jump_if_condition_is_true: false,
@@ -800,6 +969,10 @@ fn emit_hash_build_phase(
             collations,
             payload_start_reg,
             num_payload,
+            track_matched: matches!(
+                hash_join_op.join_type,
+                HashJoinType::LeftOuter | HashJoinType::FullOuter
+            ),
         }),
     });
     if use_bloom_filter {
@@ -1061,7 +1234,7 @@ fn emit_multi_index_scan_loop(
     t_ctx
         .resolver
         .expr_to_reg_cache
-        .push((Cow::Owned(rowid_expr), rowid_reg));
+        .push((Cow::Owned(rowid_expr), rowid_reg, false));
 
     program.preassign_label_to_next_insn(skip_label);
 
@@ -1095,11 +1268,28 @@ pub fn open_loop(
             .get(joined_table_index)
             .expect("table has no loop labels");
 
+        // For chained anti-joins (e.g. NOT EXISTS t2 AND NOT EXISTS t3),
+        // when anti-join N exhausts without a match, execution should continue
+        // to anti-join N+1's open_loop (not jump to the body). Resolve the
+        // previous anti-join's label_body to the current program offset.
+        if join_index > 0 {
+            let prev_table_idx = join_order[join_index - 1].original_idx;
+            let prev_is_anti = table_references.joined_tables()[prev_table_idx]
+                .join_info
+                .as_ref()
+                .is_some_and(|ji| ji.is_anti());
+            if prev_is_anti {
+                if let Some(prev_sa_meta) = t_ctx.meta_semi_anti_joins[prev_table_idx].as_ref() {
+                    program.resolve_label(prev_sa_meta.label_body, program.offset());
+                }
+            }
+        }
+
         // Each OUTER JOIN has a "match flag" that is initially set to false,
         // and is set to true when a match is found for the OUTER JOIN.
         // This is used to determine whether to emit actual columns or NULLs for the columns of the right table.
         if let Some(join_info) = table.join_info.as_ref() {
-            if join_info.outer {
+            if join_info.is_outer() {
                 let lj_meta = t_ctx.meta_left_joins[joined_table_index].as_ref().unwrap();
                 program.emit_insn(Insn::Integer {
                     value: 0,
@@ -1394,7 +1584,7 @@ pub fn open_loop(
                     )?;
                 }
                 program.emit_insn(Insn::IndexMethodQuery {
-                    db: 0,
+                    db: crate::MAIN_DB_ID,
                     cursor_id: index_cursor_id.expect("IndexMethod requires a index cursor"),
                     start_reg,
                     count_reg: query.arguments.len() + 1,
@@ -1411,7 +1601,8 @@ pub fn open_loop(
                 }
             }
             Operation::HashJoin(hash_join_op) => {
-                // Get build table info for cursor resolution and hash table reference
+                // Build=LHS (hash table), probe=RHS (scanned).
+                // Outer joins track matched build entries; unmatched ones emit NULLs.
                 let build_table = &table_references.joined_tables()[hash_join_op.build_table_idx];
                 let (build_cursor_id, _) = build_table.resolve_cursors(program, mode.clone())?;
                 let build_cursor_id = if let Some(cursor_id) = build_cursor_id {
@@ -1487,7 +1678,11 @@ pub fn open_loop(
                     });
                 }
 
-                if payload_info.use_bloom_filter {
+                // Bloom filter can skip non-matching probe rows, but FULL OUTER
+                // needs to emit those rows with NULLs, so skip the filter then.
+                if payload_info.use_bloom_filter
+                    && hash_join_op.join_type != HashJoinType::FullOuter
+                {
                     program.emit_insn(Insn::Filter {
                         cursor_id: payload_info.bloom_filter_cursor_id,
                         target_pc: next,
@@ -1504,6 +1699,25 @@ pub fn open_loop(
                     None
                 };
 
+                // FULL OUTER: reset match flag before each probe row so unmatched
+                // rows reach the check_outer block. LEFT OUTER doesn't need this.
+                if matches!(hash_join_op.join_type, HashJoinType::FullOuter) {
+                    let probe_table_idx = hash_join_op.probe_table_idx;
+                    if let Some(lj_meta) = t_ctx.meta_left_joins[probe_table_idx].as_ref() {
+                        program.emit_insn(Insn::Integer {
+                            value: 0,
+                            dest: lj_meta.reg_match_flag,
+                        });
+                    }
+                }
+
+                // On probe miss: FULL OUTER -> check_outer, otherwise -> next.
+                let hash_probe_miss_label = if hash_join_op.join_type == HashJoinType::FullOuter {
+                    program.allocate_label()
+                } else {
+                    next
+                };
+
                 // Probe hash table with keys, store matched rowid and payload in registers
                 let match_reg = program.alloc_register();
                 program.emit_insn(Insn::HashProbe {
@@ -1511,7 +1725,7 @@ pub fn open_loop(
                     key_start_reg: to_u16(probe_key_start_reg),
                     num_keys: to_u16(num_keys),
                     dest_reg: to_u16(match_reg),
-                    target_pc: next,
+                    target_pc: hash_probe_miss_label,
                     payload_dest_reg: payload_dest_reg.map(to_u16),
                     num_payload: to_u16(num_payload),
                 });
@@ -1521,7 +1735,6 @@ pub fn open_loop(
                 program.preassign_label_to_next_insn(match_found_label);
                 let hash_next_label = program.allocate_label();
 
-                // Store hash context for later use
                 let payload_columns = payload_info.payload_columns.clone();
                 t_ctx.hash_table_contexts.insert(
                     hash_join_op.build_table_idx,
@@ -1532,6 +1745,20 @@ pub fn open_loop(
                         hash_next_label,
                         payload_start_reg: payload_dest_reg,
                         payload_columns: payload_info.payload_columns,
+                        check_outer_label: if hash_join_op.join_type == HashJoinType::FullOuter {
+                            Some(hash_probe_miss_label)
+                        } else {
+                            None
+                        },
+                        build_cursor_id: if payload_info.allow_seek {
+                            Some(build_cursor_id)
+                        } else {
+                            None
+                        },
+                        join_type: hash_join_op.join_type,
+                        inner_loop_gosub_reg: None,
+                        inner_loop_gosub_label: None,
+                        inner_loop_skip_label: None,
                     },
                 );
 
@@ -1550,14 +1777,15 @@ pub fn open_loop(
                 });
                 let build_table_is_live = live_table_ids.contains(&build_table.internal_id);
                 if payload_info.allow_seek && !payload_has_build_rowid && !build_table_is_live {
-                    t_ctx
-                        .resolver
-                        .expr_to_reg_cache
-                        .push((Cow::Owned(rowid_expr), match_reg));
+                    t_ctx.resolver.expr_to_reg_cache.push((
+                        Cow::Owned(rowid_expr),
+                        match_reg,
+                        false,
+                    ));
                 }
                 if let Some(payload_reg) = payload_dest_reg {
                     for (i, payload) in payload_columns.iter().enumerate() {
-                        let (payload_table_id, expr) = match payload {
+                        let (payload_table_id, expr, is_column) = match payload {
                             MaterializedColumnRef::Column {
                                 table_id,
                                 column_idx,
@@ -1570,6 +1798,7 @@ pub fn open_loop(
                                     column: *column_idx,
                                     is_rowid_alias: *is_rowid_alias,
                                 },
+                                true,
                             ),
                             MaterializedColumnRef::RowId { table_id } => (
                                 *table_id,
@@ -1577,15 +1806,19 @@ pub fn open_loop(
                                     database: None,
                                     table: *table_id,
                                 },
+                                false,
                             ),
                         };
                         if live_table_ids.contains(&payload_table_id) {
                             continue;
                         }
-                        t_ctx
-                            .resolver
-                            .expr_to_reg_cache
-                            .push((Cow::Owned(expr), payload_reg + i));
+                        // Payload columns contain raw encoded values; mark them
+                        // for decode so custom type DECODE is applied when read.
+                        t_ctx.resolver.expr_to_reg_cache.push((
+                            Cow::Owned(expr),
+                            payload_reg + i,
+                            is_column,
+                        ));
                     }
                 } else if payload_info.allow_seek && !build_table_is_live {
                     // When payload doesn't contain all needed columns, SeekRowid to the build table.
@@ -1619,9 +1852,13 @@ pub fn open_loop(
         } else {
             next
         };
+        let is_outer_hj_probe = matches!(table.op, Operation::HashJoin(ref hj) if matches!(
+            hj.join_type,
+            HashJoinType::LeftOuter | HashJoinType::FullOuter
+        ));
 
-        // First emit outer join conditions, if any.
-        emit_conditions(
+        // Emit OUTER JOIN conditions (must run before setting match flags).
+        emit_conditions_with_subqueries(
             program,
             &t_ctx,
             table_references,
@@ -1631,15 +1868,12 @@ pub fn open_loop(
             condition_fail_target,
             true,
             subqueries,
-            SubqueryRefFilter::All,
         )?;
 
-        // Set the match flag to true if this is a LEFT JOIN.
-        // At this point of execution we are going to emit columns for the left table,
-        // and either emit columns or NULLs for the right table, depending on whether the null_flag is set
-        // for the right table's cursor.
+        // Set the LEFT JOIN match flag. Skip outer hash join probes - they use
+        // HashMarkMatched / check_outer instead.
         if let Some(join_info) = table.join_info.as_ref() {
-            if join_info.outer {
+            if join_info.is_outer() && !is_outer_hj_probe {
                 let lj_meta = t_ctx.meta_left_joins[joined_table_index].as_ref().unwrap();
                 program.resolve_label(lj_meta.label_match_flag_set_true, program.offset());
                 program.emit_insn(Insn::Integer {
@@ -1649,42 +1883,32 @@ pub fn open_loop(
             }
         }
 
-        // emit conditions that do not reference subquery results
-        emit_conditions(
-            program,
-            &t_ctx,
-            table_references,
-            join_order,
-            predicates,
-            join_index,
-            condition_fail_target,
-            false,
-            subqueries,
-            SubqueryRefFilter::WithoutSubqueryRefs,
-        )?;
+        // Outer hash joins: mark the build entry as matched.
+        if let Operation::HashJoin(ref hj) = table.op {
+            if matches!(
+                hj.join_type,
+                HashJoinType::LeftOuter | HashJoinType::FullOuter
+            ) {
+                let build_table = &table_references.joined_tables()[hj.build_table_idx];
+                let hash_table_id: usize = build_table.internal_id.into();
+                program.emit_insn(Insn::HashMarkMatched { hash_table_id });
 
-        for subquery in subqueries.iter_mut().filter(|s| !s.has_been_evaluated()) {
-            turso_assert!(subquery.correlated, "subquery must be correlated");
-            let eval_at = subquery.get_eval_at(join_order, Some(table_references))?;
-
-            if eval_at != EvalAt::Loop(join_index) {
-                continue;
+                // FULL OUTER: also set the probe-side match flag.
+                if matches!(hj.join_type, HashJoinType::FullOuter) {
+                    let probe_idx = hj.probe_table_idx;
+                    if let Some(lj_meta) = t_ctx.meta_left_joins[probe_idx].as_ref() {
+                        program.resolve_label(lj_meta.label_match_flag_set_true, program.offset());
+                        program.emit_insn(Insn::Integer {
+                            value: 1,
+                            dest: lj_meta.reg_match_flag,
+                        });
+                    }
+                }
             }
-
-            let plan = subquery.consume_plan(eval_at);
-
-            emit_non_from_clause_subquery(
-                program,
-                &t_ctx.resolver,
-                *plan,
-                &subquery.query_type,
-                subquery.correlated,
-            )?;
         }
 
-        // FINALLY emit conditions that DO reference subquery results.
-        // These depend on the subquery evaluation that just happened above.
-        emit_conditions(
+        // Emit non-OUTER JOIN conditions.
+        emit_conditions_with_subqueries(
             program,
             &t_ctx,
             table_references,
@@ -1694,8 +1918,51 @@ pub fn open_loop(
             condition_fail_target,
             false,
             subqueries,
-            SubqueryRefFilter::WithSubqueryRefs,
         )?;
+
+        // ANTI-JOIN: all conditions passed means a match was found.
+        // Skip the outer row by jumping to the outer loop's Next.
+        // label_body is resolved later in emit_loop, right before the body is emitted.
+        if let Some(join_info) = table.join_info.as_ref() {
+            if join_info.is_anti() {
+                let sa_meta = t_ctx.meta_semi_anti_joins[joined_table_index]
+                    .as_ref()
+                    .expect("anti-join must have SemiAntiJoinMetadata");
+                program.add_comment(program.offset(), "anti-join: match found, skip outer row");
+                program.emit_insn(Insn::Goto {
+                    target_pc: sa_meta.label_next_outer,
+                });
+            }
+        }
+
+        // Outer hash joins wrap inner loops in a Gosub subroutine so that
+        // unmatched-row emission paths can re-enter them (cursors get Rewind'd).
+        if let Operation::HashJoin(ref hj) = table.op {
+            if matches!(
+                hj.join_type,
+                HashJoinType::LeftOuter | HashJoinType::FullOuter
+            ) {
+                let return_reg = program.alloc_register();
+                let gosub_label = program.allocate_label();
+                let skip_label = program.allocate_label();
+
+                program.emit_insn(Insn::Gosub {
+                    target_pc: gosub_label,
+                    return_reg,
+                });
+                program.emit_insn(Insn::Goto {
+                    target_pc: skip_label,
+                });
+                // Subroutine body starts here (inner loops follow)
+                program.preassign_label_to_next_insn(gosub_label);
+
+                if let Some(hash_ctx) = t_ctx.hash_table_contexts.get_mut(&hj.build_table_idx) {
+                    hash_ctx.inner_loop_gosub_reg = Some(return_reg);
+                    hash_ctx.inner_loop_gosub_label = Some(gosub_label);
+                    hash_ctx.inner_loop_skip_label = Some(skip_label);
+                }
+            }
+        }
     }
 
     if subqueries.iter().any(|s| !s.has_been_evaluated()) {
@@ -1711,12 +1978,15 @@ pub fn open_loop(
     Ok(())
 }
 
-// this is used to determine the order in which WHERE conditions should be emitted
-fn condition_references_subquery(expr: &Expr, subqueries: &[NonFromClauseSubquery]) -> bool {
+/// Check if an expression references a specific subquery by ID.
+fn expr_references_subquery_id(expr: &Expr, subquery_id: TableInternalId) -> bool {
     let mut found = false;
     let _ = walk_expr(expr, &mut |e: &Expr| -> Result<WalkControl> {
-        if let Expr::SubqueryResult { subquery_id, .. } = e {
-            if subqueries.iter().any(|s| s.internal_id == *subquery_id) {
+        if let Expr::SubqueryResult {
+            subquery_id: sid, ..
+        } = e
+        {
+            if *sid == subquery_id {
                 found = true;
                 return Ok(WalkControl::SkipChildren);
             }
@@ -1726,14 +1996,118 @@ fn condition_references_subquery(expr: &Expr, subqueries: &[NonFromClauseSubquer
     found
 }
 
+/// Check if an expression references any of the given subqueries.
+fn condition_references_subquery(expr: &Expr, subqueries: &[NonFromClauseSubquery]) -> bool {
+    subqueries
+        .iter()
+        .any(|s| expr_references_subquery_id(expr, s.internal_id))
+}
+
+fn subquery_referenced_in_predicates(
+    predicates: &[WhereTerm],
+    from_outer_join: bool,
+    subquery_id: TableInternalId,
+) -> bool {
+    predicates
+        .iter()
+        .filter(|cond| cond.from_outer_join.is_some() == from_outer_join)
+        .any(|cond| expr_references_subquery_id(&cond.expr, subquery_id))
+}
+
+#[allow(clippy::too_many_arguments)]
+fn emit_correlated_subqueries(
+    program: &mut ProgramBuilder,
+    resolver: &Resolver<'_>,
+    table_references: &TableReferences,
+    join_order: &[JoinOrderMember],
+    join_index: usize,
+    predicates: &[WhereTerm],
+    subqueries: &mut [NonFromClauseSubquery],
+    on_only: bool,
+) -> Result<()> {
+    for subquery in subqueries.iter_mut().filter(|s| !s.has_been_evaluated()) {
+        if !subquery.correlated {
+            continue;
+        }
+        if on_only && !subquery_referenced_in_predicates(predicates, true, subquery.internal_id) {
+            continue;
+        }
+        let eval_at = subquery.get_eval_at(join_order, Some(table_references))?;
+        if eval_at != EvalAt::Loop(join_index) {
+            continue;
+        }
+
+        let plan = subquery.consume_plan(eval_at);
+        emit_non_from_clause_subquery(
+            program,
+            resolver,
+            *plan,
+            &subquery.query_type,
+            subquery.correlated,
+        )?;
+    }
+    Ok(())
+}
+
 #[derive(Clone, Copy, PartialEq, Eq)]
 enum SubqueryRefFilter {
-    /// Emit all conditions regardless of subquery references
-    All,
     /// Only emit conditions that do NOT reference subqueries (for early evaluation)
     WithoutSubqueryRefs,
     /// Only emit conditions that DO reference subqueries (for late evaluation)
     WithSubqueryRefs,
+}
+
+/// Emits conditions and correlated subqueries in the correct order:
+/// 1. Conditions that do NOT reference subquery results (early evaluation)
+/// 2. Correlated subqueries (to produce their results)
+/// 3. Conditions that DO reference subquery results (late evaluation)
+#[allow(clippy::too_many_arguments)]
+fn emit_conditions_with_subqueries(
+    program: &mut ProgramBuilder,
+    t_ctx: &&mut TranslateCtx,
+    table_references: &TableReferences,
+    join_order: &[JoinOrderMember],
+    predicates: &[WhereTerm],
+    join_index: usize,
+    condition_fail_target: BranchOffset,
+    from_outer_join: bool,
+    subqueries: &mut [NonFromClauseSubquery],
+) -> Result<()> {
+    emit_conditions(
+        program,
+        t_ctx,
+        table_references,
+        join_order,
+        predicates,
+        join_index,
+        condition_fail_target,
+        from_outer_join,
+        subqueries,
+        SubqueryRefFilter::WithoutSubqueryRefs,
+    )?;
+    emit_correlated_subqueries(
+        program,
+        &t_ctx.resolver,
+        table_references,
+        join_order,
+        join_index,
+        predicates,
+        subqueries,
+        from_outer_join,
+    )?;
+    emit_conditions(
+        program,
+        t_ctx,
+        table_references,
+        join_order,
+        predicates,
+        join_index,
+        condition_fail_target,
+        from_outer_join,
+        subqueries,
+        SubqueryRefFilter::WithSubqueryRefs,
+    )?;
+    Ok(())
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -1757,7 +2131,6 @@ fn emit_conditions(
             cond.should_eval_at_loop(join_index, join_order, subqueries, Some(table_references))
         })
         .filter(|cond| match subquery_ref_filter {
-            SubqueryRefFilter::All => true,
             SubqueryRefFilter::WithoutSubqueryRefs => {
                 !condition_references_subquery(&cond.expr, subqueries)
             }
@@ -1809,6 +2182,28 @@ pub fn emit_loop<'a>(
     t_ctx: &mut TranslateCtx<'a>,
     plan: &'a SelectPlan,
 ) -> Result<()> {
+    // Resolve the innermost anti-join's label_body to the body start.
+    // Non-innermost anti-joins have their label_body resolved in open_loop
+    // (pointing to the next anti-join's open_loop code, not the body).
+    // We use preassign_label_to_next_insn rather than resolve_label because
+    // the first body instruction may be a constant (e.g. Integer for count(1))
+    // that gets relocated to the init section by emit_constant_insns().
+    // preassign_label_to_next_insn anchors to the last emitted non-constant
+    // instruction, so after reordering the label correctly resolves to the
+    // first non-constant body instruction.
+    if let Some(last_join) = plan.join_order.last() {
+        let last_idx = last_join.original_idx;
+        let is_anti = plan.table_references.joined_tables()[last_idx]
+            .join_info
+            .as_ref()
+            .is_some_and(|ji| ji.is_anti());
+        if is_anti {
+            if let Some(sa_meta) = t_ctx.meta_semi_anti_joins[last_idx].as_ref() {
+                program.preassign_label_to_next_insn(sa_meta.label_body);
+            }
+        }
+    }
+
     // if we have a group by, we emit a record into the group by sorter,
     // or if the rows are already sorted, we do the group by aggregation phase directly.
     let has_group_by_exprs = plan
@@ -1987,12 +2382,16 @@ fn emit_loop_source<'a>(
             for (i, rc) in non_agg_columns {
                 let reg = col_start + i;
 
-                translate_expr(
+                // Must use no_constant_opt to prevent constant hoisting: in compound
+                // selects (UNION ALL), all branches share the same result registers,
+                // so hoisted constants from the last branch overwrite earlier branches.
+                translate_expr_no_constant_opt(
                     program,
                     Some(&plan.table_references),
                     &rc.expr,
                     reg,
                     &t_ctx.resolver,
+                    NoConstantOptReason::RegisterReuse,
                 )?;
             }
 
@@ -2018,10 +2417,11 @@ fn emit_loop_source<'a>(
                                 reg,
                                 &t_ctx.resolver,
                             )?;
-                            t_ctx
-                                .resolver
-                                .expr_to_reg_cache
-                                .push((Cow::Borrowed(expr), reg));
+                            t_ctx.resolver.expr_to_reg_cache.push((
+                                Cow::Borrowed(expr),
+                                reg,
+                                false,
+                            ));
                             Ok(WalkControl::SkipChildren)
                         }
                         _ => {
@@ -2079,15 +2479,73 @@ fn emit_loop_source<'a>(
     }
 }
 
+/// Emit WHERE conditions and inner-loop entry for an unmatched outer hash join row.
+///
+/// Filters applicable WHERE terms (non-ON, non-consumed), optionally restricted to
+/// `build_table_idx` / `probe_table_idx` when a Gosub wraps inner tables. Then either
+/// enters the inner-loop subroutine via Gosub or calls `emit_loop` directly.
+fn emit_unmatched_row_conditions_and_loop<'a>(
+    program: &mut ProgramBuilder,
+    t_ctx: &mut TranslateCtx<'a>,
+    plan: &'a SelectPlan,
+    build_table_idx: usize,
+    probe_table_idx: usize,
+    skip_label: BranchOffset,
+    gosub: Option<(usize, BranchOffset)>,
+) -> Result<()> {
+    let has_gosub = gosub.is_some();
+    let allowed_tables = {
+        let mut m = TableMask::new();
+        m.add_table(build_table_idx);
+        m.add_table(probe_table_idx);
+        m
+    };
+    for cond in plan
+        .where_clause
+        .iter()
+        .filter(|c| !c.consumed && c.from_outer_join.is_none())
+        .filter(|c| {
+            !has_gosub || expr_tables_subset_of(&c.expr, &plan.table_references, &allowed_tables)
+        })
+    {
+        let jump_target_when_true = program.allocate_label();
+        let condition_metadata = ConditionMetadata {
+            jump_if_condition_is_true: false,
+            jump_target_when_true,
+            jump_target_when_false: skip_label,
+            jump_target_when_null: skip_label,
+        };
+        translate_condition_expr(
+            program,
+            &plan.table_references,
+            &cond.expr,
+            condition_metadata,
+            &t_ctx.resolver,
+        )?;
+        program.preassign_label_to_next_insn(jump_target_when_true);
+    }
+
+    if let Some((reg, label)) = gosub {
+        program.emit_insn(Insn::Gosub {
+            target_pc: label,
+            return_reg: reg,
+        });
+    } else {
+        emit_loop(program, t_ctx, plan)?;
+    }
+    Ok(())
+}
+
 /// Closes the loop for a given source operator.
 /// For example in the case of a nested table scan, this means emitting the Next instruction
 /// for all tables involved, innermost first.
-pub fn close_loop(
+pub fn close_loop<'a>(
     program: &mut ProgramBuilder,
-    t_ctx: &mut TranslateCtx,
+    t_ctx: &mut TranslateCtx<'a>,
     tables: &TableReferences,
     join_order: &[JoinOrderMember],
     mode: OperationMode,
+    select_plan: Option<&'a SelectPlan>,
 ) -> Result<()> {
     // We close the loops for all tables in reverse order, i.e. innermost first.
     // OPEN t1
@@ -2105,10 +2563,42 @@ pub fn close_loop(
             .get(table_index)
             .expect("source has no loop labels");
 
+        // SEMI/ANTI-JOIN: emit Goto -> outer_next right after the body.
+        // For semi-join: after body runs (one match found), skip inner's Next.
+        // For anti-join: after body runs (inner exhausted), move to next outer row.
+        let is_semi_or_anti = table
+            .join_info
+            .as_ref()
+            .is_some_and(|ji| ji.is_semi_or_anti());
+        if is_semi_or_anti {
+            let sa_meta = t_ctx.meta_semi_anti_joins[table_index]
+                .as_ref()
+                .expect("semi/anti-join must have SemiAntiJoinMetadata");
+            let comment = if table.join_info.as_ref().unwrap().is_semi() {
+                "semi-join: early out after first match"
+            } else {
+                "anti-join: exit body, next outer row"
+            };
+            program.add_comment(program.offset(), comment);
+            program.emit_insn(Insn::Goto {
+                target_pc: sa_meta.label_next_outer,
+            });
+        }
+
         let (table_cursor_id, index_cursor_id) = table.resolve_cursors(program, mode.clone())?;
+        // Track the "next iteration" offset for semi/anti-join label resolution.
+        // For most operations this equals the loop_labels.next resolution offset;
+        // HashJoin overrides it to point at the Gosub Return or HashNext instead.
+        let mut semi_anti_next_pc = None;
+        // Helper: resolve loop_labels.next and record its offset for semi/anti-join.
+        let mut resolve_next = |program: &mut ProgramBuilder| {
+            let pc = program.offset();
+            program.resolve_label(loop_labels.next, pc);
+            semi_anti_next_pc = Some(pc);
+        };
         match &table.op {
             Operation::Scan(scan) => {
-                program.resolve_label(loop_labels.next, program.offset());
+                resolve_next(program);
                 match scan {
                     Scan::BTreeTable { iter_dir, .. } => {
                         let iteration_cursor_id = if let OperationMode::UPDATE(
@@ -2185,7 +2675,7 @@ pub fn close_loop(
                     },
                     "Subqueries do not support index seeks unless materialized"
                 );
-                program.resolve_label(loop_labels.next, program.offset());
+                resolve_next(program);
                 let iteration_cursor_id =
                     if let OperationMode::UPDATE(UpdateRowSource::PrebuiltEphemeralTable {
                         ephemeral_table_cursor_id,
@@ -2224,7 +2714,7 @@ pub fn close_loop(
                 program.preassign_label_to_next_insn(loop_labels.loop_end);
             }
             Operation::IndexMethodQuery(_) => {
-                program.resolve_label(loop_labels.next, program.offset());
+                resolve_next(program);
                 program.emit_insn(Insn::Next {
                     cursor_id: index_cursor_id.unwrap(),
                     pc_if_next: loop_labels.loop_start,
@@ -2241,33 +2731,115 @@ pub fn close_loop(
                     let hash_next_label = hash_ctx.hash_next_label;
                     let payload_dest_reg = hash_ctx.payload_start_reg;
                     let num_payload = hash_ctx.payload_columns.len();
-
+                    let check_outer_label = hash_ctx.check_outer_label;
+                    let build_cursor_id = hash_ctx.build_cursor_id;
+                    let join_type = hash_ctx.join_type;
+                    let inner_loop_gosub_reg = hash_ctx.inner_loop_gosub_reg;
+                    let inner_loop_gosub_label = hash_ctx.inner_loop_gosub_label;
+                    let inner_loop_skip_label = hash_ctx.inner_loop_skip_label;
                     let label_next_probe_row = program.allocate_label();
 
-                    // Resolve hash_next_label here, this is where conditions jump when they fail
-                    // to try the next hash match before moving to the next probe row.
+                    // End the inner-loop subroutine.
+                    if let Some(gosub_reg) = inner_loop_gosub_reg {
+                        // For semi/anti-joins inside a Gosub subroutine (LEFT/FULL
+                        // OUTER hash join), the "next outer" jump must land on Return
+                        // so the Gosub register routes us back to the correct caller
+                        // (HashNext in the matched phase, HashNextUnmatched in the
+                        // unmatched phase). If we jumped to HashNext directly, we'd
+                        // escape the subroutine and loop forever.
+                        semi_anti_next_pc = Some(program.offset());
+                        program.emit_insn(Insn::Return {
+                            return_reg: gosub_reg,
+                            can_fallthrough: false,
+                        });
+                        if let Some(skip_label) = inner_loop_skip_label {
+                            program.preassign_label_to_next_insn(skip_label);
+                        }
+                    }
+
+                    // FULL OUTER exhaustion -> check_outer; otherwise -> next_probe_row.
+                    let hash_next_target = if join_type == HashJoinType::FullOuter {
+                        check_outer_label.unwrap_or(label_next_probe_row)
+                    } else {
+                        label_next_probe_row
+                    };
+
+                    if semi_anti_next_pc.is_none() {
+                        semi_anti_next_pc = Some(program.offset());
+                    }
                     program.resolve_label(hash_next_label, program.offset());
 
-                    // Check for additional matches with same probe keys
-                    // If found: store in match_reg (and payload if available) and continue
-                    // If not found: jump to next probe row
+                    // Try next hash match; exhaustion jumps to hash_next_target.
                     program.emit_insn(Insn::HashNext {
                         hash_table_id: hash_table_reg,
                         dest_reg: match_reg,
-                        target_pc: label_next_probe_row,
+                        target_pc: hash_next_target,
                         payload_dest_reg,
                         num_payload,
                     });
 
-                    // Jump to match processing, skips HashProbe to preserve iteration state.
+                    // Back to match processing (skip HashProbe to preserve iteration state).
                     program.emit_insn(Insn::Goto {
                         target_pc: match_found_label,
                     });
 
+                    // FULL OUTER check_outer: emit unmatched probe rows with NULLs
+                    // for the build side (reached on probe miss or hash exhaustion).
+                    if matches!(join_type, HashJoinType::FullOuter) {
+                        // Probe table (RHS) has LeftJoinMetadata via join_info.is_outer()=true.
+                        let probe_table_idx = hash_join_op.probe_table_idx;
+                        let lj_meta = t_ctx.meta_left_joins[probe_table_idx]
+                            .as_ref()
+                            .expect("FULL OUTER probe table must have left join metadata");
+                        let reg_match_flag = lj_meta.reg_match_flag;
+
+                        // Both HashProbe miss and HashNext exhaustion land here.
+                        if let Some(col) = check_outer_label {
+                            program.resolve_label(col, program.offset());
+                        }
+                        // Resolve here instead of the generic outer-join block (skipped for hash probes).
+                        program
+                            .resolve_label(lj_meta.label_match_flag_check_value, program.offset());
+
+                        // If a previous match already set the flag, skip NullRow emission.
+                        program.emit_insn(Insn::IfPos {
+                            reg: reg_match_flag,
+                            target_pc: label_next_probe_row,
+                            decrement_by: 0,
+                        });
+
+                        // NullRow the build cursor so Column reads return NULL.
+                        if let Some(cursor_id) = build_cursor_id {
+                            program.emit_insn(Insn::NullRow { cursor_id });
+                        }
+
+                        // Null out cached payload registers too.
+                        if let Some(payload_reg) = payload_dest_reg {
+                            if num_payload > 0 {
+                                program.emit_insn(Insn::Null {
+                                    dest: payload_reg,
+                                    dest_end: Some(payload_reg + num_payload - 1),
+                                });
+                            }
+                        }
+
+                        if let Some(plan) = select_plan {
+                            emit_unmatched_row_conditions_and_loop(
+                                program,
+                                t_ctx,
+                                plan,
+                                hash_join_op.build_table_idx,
+                                table_index,
+                                label_next_probe_row,
+                                inner_loop_gosub_reg.zip(inner_loop_gosub_label),
+                            )?;
+                        }
+                    }
+
                     program.preassign_label_to_next_insn(label_next_probe_row);
                 }
 
-                // Advance to next probe row (HashProbe jumps here if no match found)
+                // Advance probe cursor.
                 program.resolve_label(loop_labels.next, program.offset());
                 let probe_cursor_id = table_cursor_id.expect("Probe table must have a cursor");
                 program.emit_insn(Insn::Next {
@@ -2275,11 +2847,80 @@ pub fn close_loop(
                     pc_if_next: loop_labels.loop_start,
                 });
                 program.preassign_label_to_next_insn(loop_labels.loop_end);
+
+                // Outer joins: emit unmatched build rows with NULLs for the probe side.
+                if matches!(
+                    hash_join_op.join_type,
+                    HashJoinType::LeftOuter | HashJoinType::FullOuter
+                ) {
+                    if let (Some(hash_ctx), Some(plan)) = (
+                        t_ctx.hash_table_contexts.get(&hash_join_op.build_table_idx),
+                        select_plan,
+                    ) {
+                        let hash_table_reg = hash_ctx.hash_table_reg;
+                        let match_reg = hash_ctx.match_reg;
+                        let payload_dest_reg = hash_ctx.payload_start_reg;
+                        let num_payload = hash_ctx.payload_columns.len();
+                        let build_cursor_id = hash_ctx.build_cursor_id;
+
+                        let done_unmatched = program.allocate_label();
+
+                        program.emit_insn(Insn::NullRow {
+                            cursor_id: probe_cursor_id,
+                        });
+
+                        program.emit_insn(Insn::HashScanUnmatched {
+                            hash_table_id: hash_table_reg,
+                            dest_reg: match_reg,
+                            target_pc: done_unmatched,
+                            payload_dest_reg,
+                            num_payload,
+                        });
+
+                        let unmatched_loop = program.allocate_label();
+                        let label_next_unmatched = program.allocate_label();
+                        program.preassign_label_to_next_insn(unmatched_loop);
+
+                        if let Some(cursor_id) = build_cursor_id {
+                            program.emit_insn(Insn::SeekRowid {
+                                cursor_id,
+                                src_reg: match_reg,
+                                target_pc: done_unmatched,
+                            });
+                        }
+
+                        emit_unmatched_row_conditions_and_loop(
+                            program,
+                            t_ctx,
+                            plan,
+                            hash_join_op.build_table_idx,
+                            table_index,
+                            label_next_unmatched,
+                            hash_ctx
+                                .inner_loop_gosub_reg
+                                .zip(hash_ctx.inner_loop_gosub_label),
+                        )?;
+
+                        program.resolve_label(label_next_unmatched, program.offset());
+                        program.emit_insn(Insn::HashNextUnmatched {
+                            hash_table_id: hash_table_reg,
+                            dest_reg: match_reg,
+                            target_pc: done_unmatched,
+                            payload_dest_reg,
+                            num_payload,
+                        });
+                        program.emit_insn(Insn::Goto {
+                            target_pc: unmatched_loop,
+                        });
+
+                        program.preassign_label_to_next_insn(done_unmatched);
+                    }
+                }
             }
             Operation::MultiIndexScan(_) => {
                 // MultiIndexScan uses RowSetRead for iteration - the next is handled
                 // at the end of the RowSet read loop in emit_multi_index_scan_loop
-                program.resolve_label(loop_labels.next, program.offset());
+                resolve_next(program);
                 program.emit_insn(Insn::Goto {
                     target_pc: loop_labels.loop_start,
                 });
@@ -2287,10 +2928,48 @@ pub fn close_loop(
             }
         }
 
-        // Handle OUTER JOIN logic. The reason this comes after the "loop end" mark is that we may need to still jump back
-        // and emit a row with NULLs for the right table, and then jump back to the next row of the left table.
+        // Resolve any semi/anti-join "outer next" labels targeting this table.
+        if let Some(pc) = semi_anti_next_pc {
+            for meta in t_ctx.meta_semi_anti_joins.iter().flatten() {
+                if meta.outer_table_idx == table_index {
+                    program.resolve_label(meta.label_next_outer, pc);
+                }
+            }
+        }
+
+        // SEMI/ANTI-JOIN: after loop_end (inner loop exhausted).
+        // Semi-join: no match found -> skip outer row (Goto -> next_outer).
+        // Anti-join: no match found -> run body (Goto -> label_body, jumps backward).
+        if is_semi_or_anti {
+            let sa_meta = t_ctx.meta_semi_anti_joins[table_index]
+                .as_ref()
+                .expect("semi/anti-join must have SemiAntiJoinMetadata");
+            let join_info = table.join_info.as_ref().unwrap();
+            if join_info.is_semi() {
+                program.add_comment(program.offset(), "semi-join: no match, skip outer row");
+                program.emit_insn(Insn::Goto {
+                    target_pc: sa_meta.label_next_outer,
+                });
+            } else {
+                // Anti-join: inner exhausted without match -> run body
+                program.add_comment(program.offset(), "anti-join: no match, emit outer row");
+                program.emit_insn(Insn::Goto {
+                    target_pc: sa_meta.label_body,
+                });
+            }
+        }
+
+        // OUTER JOIN: may still need to emit NULLs for the right table.
+        // Outer hash join probes are handled above via check_outer / unmatched scan.
+        let is_outer_hash_join_probe = matches!(
+            table.op,
+            Operation::HashJoin(ref hj) if matches!(
+                hj.join_type,
+                HashJoinType::LeftOuter | HashJoinType::FullOuter
+            )
+        );
         if let Some(join_info) = table.join_info.as_ref() {
-            if join_info.outer {
+            if join_info.is_outer() && !is_outer_hash_join_probe {
                 let lj_meta = t_ctx.meta_left_joins[table_index].as_ref().unwrap();
                 // The left join match flag is set to 1 when there is any match on the right table
                 // (e.g. SELECT * FROM t1 LEFT JOIN t2 ON t1.a = t2.a).
@@ -2331,12 +3010,8 @@ pub fn close_loop(
                         }
                     }
                 }
-                // Then we jump to setting the left join match flag to 1 again,
-                // but this time the right table cursor will set everything to null.
-                // This leads to emitting a row with cols from the left + nulls from the right,
-                // and we will end up back in the IfPos instruction above, which will then
-                // check the match flag again, and since it is now 1, we will jump to the
-                // next row in the left table.
+                // Re-enter the loop body at match-flag set so
+                // post-join predicates are re-evaluated with right-table NULLs.
                 program.emit_insn(Insn::Goto {
                     target_pc: lj_meta.label_match_flag_set_true,
                 });
@@ -2416,6 +3091,74 @@ fn index_seek_affinities(
             }
         })
         .collect()
+}
+
+/// Encodes seek key registers for custom type index columns.
+/// Index entries store encoded values, so seek keys must be encoded to match.
+/// `idx_col_offset` is the starting index column position (0 for start keys,
+/// `prefix.len()` for end key's last component).
+fn encode_seek_keys_for_custom_types(
+    program: &mut ProgramBuilder,
+    tables: &TableReferences,
+    seek_index: &Arc<Index>,
+    start_reg: usize,
+    num_keys: usize,
+    idx_col_offset: usize,
+    resolver: &super::emitter::Resolver,
+) -> crate::Result<()> {
+    // First try by identifier (alias), then fall back to the underlying table
+    // name.  Ephemeral auto-indexes store the base table name (e.g. "t1") in
+    // `table_name`, but the table reference may use an alias (e.g. "a" in
+    // `FROM t1 a`).  Without the fallback, self-joins and aliased tables would
+    // fail to find the table, skipping the encode step entirely and causing a
+    // seek-key / index-key mismatch.
+    let table = tables
+        .find_table_by_identifier(&seek_index.table_name)
+        .or_else(|| tables.find_table_by_table_name(&seek_index.table_name));
+    let table = match table {
+        Some(t) => t,
+        None => return Ok(()),
+    };
+    let columns = table.columns();
+    for i in 0..num_keys {
+        let idx_col_pos = idx_col_offset + i;
+        if idx_col_pos >= seek_index.columns.len() {
+            break;
+        }
+        let idx_col = &seek_index.columns[idx_col_pos];
+        let table_col = match columns.get(idx_col.pos_in_table) {
+            Some(c) => c,
+            None => continue,
+        };
+        let type_def = match resolver
+            .schema()
+            .get_type_def(&table_col.ty_str, table.is_strict())
+        {
+            Some(td) => td,
+            None => continue,
+        };
+        let encode_expr = match &type_def.encode {
+            Some(e) => e,
+            None => continue,
+        };
+        let reg = start_reg + i;
+        let skip_label = program.allocate_label();
+        program.emit_insn(crate::vdbe::insn::Insn::IsNull {
+            reg,
+            target_pc: skip_label,
+        });
+        super::expr::emit_type_expr(
+            program,
+            encode_expr,
+            reg,
+            reg,
+            table_col,
+            type_def,
+            resolver,
+        )?;
+        program.resolve_label(skip_label, program.offset());
+    }
+    Ok(())
 }
 
 /// Emits instructions for an index seek. See e.g. [crate::translate::plan::SeekDef]
@@ -2519,6 +3262,20 @@ fn emit_seek(
         }
     }
     let num_regs = seek_def.size(&seek_def.start);
+
+    // Encode seek keys for custom type columns so they match the encoded
+    // values stored in the index.
+    if let Some(idx) = seek_index {
+        encode_seek_keys_for_custom_types(
+            program,
+            tables,
+            idx,
+            start_reg,
+            num_regs,
+            0,
+            &t_ctx.resolver,
+        )?;
+    }
 
     if let Some(idx) = seek_index {
         let affinities = index_seek_affinities(idx, tables, seek_def, &seek_def.start);
@@ -2647,6 +3404,19 @@ fn emit_seek_termination(
                 &t_ctx.resolver,
                 NoConstantOptReason::RegisterReuse,
             )?;
+            // Encode the end key for custom type columns (prefix keys were
+            // already encoded in emit_seek, only the last component is new).
+            if let Some(idx) = seek_index {
+                encode_seek_keys_for_custom_types(
+                    program,
+                    tables,
+                    idx,
+                    last_reg,
+                    1,
+                    seek_def.prefix.len(),
+                    &t_ctx.resolver,
+                )?;
+            }
             // Apply affinity to the end key (same as we do for start key).
             // Without this, e.g. BETWEEN '15' AND '35' on a numeric column would
             // compare '35' as a string against numeric values, causing incorrect results.

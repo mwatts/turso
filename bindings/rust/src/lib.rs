@@ -46,6 +46,7 @@ pub mod value;
 pub mod sync;
 
 pub use connection::Connection;
+use turso_sdk_kit::rsapi::TursoError;
 pub use value::Value;
 
 pub use params::params_from_iter;
@@ -105,8 +106,8 @@ pub enum Error {
     NotAdb(String),
     #[error("{0}")]
     Corrupt(String),
-    #[error("I/O error: {0}")]
-    IoError(std::io::ErrorKind),
+    #[error("I/O error ({1}): {0}")]
+    IoError(std::io::ErrorKind, &'static str),
 }
 
 impl From<turso_sdk_kit::rsapi::TursoError> for Error {
@@ -122,7 +123,7 @@ impl From<turso_sdk_kit::rsapi::TursoError> for Error {
             turso_sdk_kit::rsapi::TursoError::DatabaseFull(err) => Error::DatabaseFull(err),
             turso_sdk_kit::rsapi::TursoError::NotAdb(err) => Error::NotAdb(err),
             turso_sdk_kit::rsapi::TursoError::Corrupt(err) => Error::Corrupt(err),
-            turso_sdk_kit::rsapi::TursoError::IoError(kind) => Error::IoError(kind),
+            turso_sdk_kit::rsapi::TursoError::IoError(kind, op) => Error::IoError(kind, op),
         }
     }
 }
@@ -138,7 +139,7 @@ pub struct Builder {
     enable_encryption: bool,
     enable_triggers: bool,
     enable_attach: bool,
-    enable_strict: bool,
+    enable_custom_types: bool,
     enable_index_method: bool,
     enable_materialized_views: bool,
     vfs: Option<String>,
@@ -153,7 +154,7 @@ impl Builder {
             enable_encryption: false,
             enable_triggers: false,
             enable_attach: false,
-            enable_strict: false,
+            enable_custom_types: false,
             enable_index_method: false,
             enable_materialized_views: false,
             vfs: None,
@@ -181,8 +182,13 @@ impl Builder {
         self
     }
 
-    pub fn experimental_strict(mut self, strict_enabled: bool) -> Self {
-        self.enable_strict = strict_enabled;
+    /// Kept for backwards compatibility. Strict tables are now always enabled.
+    pub fn experimental_strict(self, _strict_enabled: bool) -> Self {
+        self
+    }
+
+    pub fn experimental_custom_types(mut self, custom_types_enabled: bool) -> Self {
+        self.enable_custom_types = custom_types_enabled;
         self
     }
 
@@ -211,8 +217,8 @@ impl Builder {
         if self.enable_attach {
             features.push("attach");
         }
-        if self.enable_strict {
-            features.push("strict");
+        if self.enable_custom_types {
+            features.push("custom_types");
         }
         if self.enable_index_method {
             features.push("index_method");
@@ -234,15 +240,21 @@ impl Builder {
             turso_sdk_kit::rsapi::TursoDatabase::new(turso_sdk_kit::rsapi::TursoDatabaseConfig {
                 path: self.path,
                 experimental_features: features,
-                async_io: false,
+                async_io: true,
                 encryption: self.encryption_opts,
                 vfs: self.vfs,
                 io: None,
                 db_file: None,
             });
-        let result = db.open()?;
-        // async_io is false - so db.open() will return result immediately
-        assert!(!result.is_io());
+        while let Some(io_c) = db.open()?.io() {
+            // At this point IO must already be created
+            let io = db
+                .io()
+                .expect("IO must have been set on the first call to db open");
+            io_c.wait_async(io.as_ref())
+                .await
+                .map_err(TursoError::from)?;
+        }
         Ok(Database { inner: db })
     }
 }
@@ -381,6 +393,56 @@ impl Statement {
 
         let execute = Execute { stmt: self.clone() };
         execute.await
+    }
+
+    /// Returns the number of columns in the result set.
+    pub fn column_count(&self) -> usize {
+        self.inner.lock().unwrap().column_count()
+    }
+
+    /// Returns the name of the column at the given index.
+    pub fn column_name(&self, idx: usize) -> Result<String> {
+        let stmt = self.inner.lock().unwrap();
+        if idx >= stmt.column_count() {
+            return Err(Error::Misuse(format!(
+                "column index {idx} out of bounds (statement has {} columns)",
+                stmt.column_count()
+            )));
+        }
+        Ok(stmt
+            .column_name(idx)
+            .expect("column index must be within valid range")
+            .into_owned())
+    }
+
+    /// Returns the names of all columns in the result set.
+    pub fn column_names(&self) -> Vec<String> {
+        let stmt = self.inner.lock().unwrap();
+        let n = stmt.column_count();
+        (0..n)
+            .map(|i| {
+                stmt.column_name(i)
+                    .expect("column index must be within valid range")
+                    .into_owned()
+            })
+            .collect()
+    }
+
+    /// Returns the index of the column with the given name.
+    pub fn column_index(&self, name: &str) -> Result<usize> {
+        let stmt = self.inner.lock().unwrap();
+        let n = stmt.column_count();
+        for i in 0..n {
+            let col_name = stmt
+                .column_name(i)
+                .expect("column index must be within valid range");
+            if col_name.eq_ignore_ascii_case(name) {
+                return Ok(i);
+            }
+        }
+        Err(Error::Misuse(format!(
+            "column '{name}' not found in result set"
+        )))
     }
 
     /// Returns columns of the result of this prepared statement.
@@ -591,6 +653,50 @@ mod tests {
                 "Expected SqlExecutionFailure for 'no such table', but got a different error: {e:?}"
             ),
         }
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_rows_column_names() -> Result<()> {
+        let db = Builder::new_local(":memory:").build().await?;
+        let conn = db.connect()?;
+        conn.execute(
+            "CREATE TABLE users (id INTEGER PRIMARY KEY, name TEXT, email TEXT);",
+            (),
+        )
+        .await?;
+        conn.execute(
+            "INSERT INTO users (name, email) VALUES ('Alice', 'alice@example.org');",
+            (),
+        )
+        .await?;
+
+        let rows = conn.query("SELECT id, name, email FROM users;", ()).await?;
+
+        // columns()
+        let columns = rows.columns();
+        let names: Vec<&str> = columns.iter().map(|c| c.name()).collect();
+        assert_eq!(names, vec!["id", "name", "email"]);
+
+        // column_count()
+        assert_eq!(rows.column_count(), 3);
+
+        // column_name()
+        assert_eq!(rows.column_name(0)?, "id");
+        assert_eq!(rows.column_name(1)?, "name");
+        assert_eq!(rows.column_name(2)?, "email");
+        assert!(rows.column_name(3).is_err());
+
+        // column_names()
+        assert_eq!(rows.column_names(), vec!["id", "name", "email"]);
+
+        // column_index()
+        assert_eq!(rows.column_index("id")?, 0);
+        assert_eq!(rows.column_index("name")?, 1);
+        assert_eq!(rows.column_index("email")?, 2);
+        assert_eq!(rows.column_index("EMAIL")?, 2); // case-insensitive
+        assert!(rows.column_index("nonexistent").is_err());
 
         Ok(())
     }

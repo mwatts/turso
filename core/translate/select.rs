@@ -312,7 +312,7 @@ fn prepare_one_select_plan(
                     .map(|(i, t)| JoinOrderMember {
                         table_id: t.internal_id,
                         original_idx: i,
-                        is_outer: t.join_info.as_ref().is_some_and(|j| j.outer),
+                        is_outer: t.join_info.as_ref().is_some_and(|j| j.is_outer()),
                     })
                     .collect(),
                 table_references,
@@ -329,6 +329,7 @@ fn prepare_one_select_plan(
                 values: vec![],
                 window: None,
                 non_from_clause_subqueries: vec![],
+                estimated_output_rows: None,
             };
 
             let mut windows = Vec::with_capacity(window_clause.len());
@@ -365,6 +366,7 @@ fn prepare_one_select_plan(
                         select_star(
                             plan.table_references.joined_tables(),
                             &mut plan.result_columns,
+                            plan.table_references.right_join_swapped(),
                         );
                         for table in plan.table_references.joined_tables_mut() {
                             for idx in 0..table.columns().len() {
@@ -678,6 +680,7 @@ fn prepare_one_select_plan(
                     .collect(),
                 window: None,
                 non_from_clause_subqueries,
+                estimated_output_rows: None,
             };
 
             validate_expr_correct_column_counts(&plan)?;
@@ -792,7 +795,7 @@ fn add_vtab_predicates_to_where_clause(
                 .and_then(|t| {
                     t.join_info
                         .as_ref()
-                        .and_then(|ji| ji.outer.then_some(table_id))
+                        .and_then(|ji| ji.is_outer().then_some(table_id))
                 })
         });
         plan.where_clause.push(WhereTerm {
@@ -1228,6 +1231,15 @@ fn process_having_clause(
     let mut predicates = vec![];
     break_predicate_at_and_boundaries(&having, &mut predicates);
 
+    // Before alias resolution replaces identifiers with their underlying expressions,
+    // check for aliased aggregate misuse. SQLite does this during name resolution by
+    // checking the NC_AllowAgg flag on the NameContext (see resolve.c). When an identifier
+    // inside an aggregate function's arguments resolves to an alias whose original expression
+    // has EP_Agg, SQLite reports "misuse of aliased aggregate X".
+    for expr in predicates.iter() {
+        check_aliased_aggregate_misuse(expr, result_columns)?;
+    }
+
     for expr in predicates.iter_mut() {
         bind_and_rewrite_expr(
             expr,
@@ -1240,4 +1252,62 @@ fn process_having_clause(
     }
 
     Ok(predicates)
+}
+
+/// Walk a HAVING expression looking for aggregate function calls whose arguments
+/// reference aliases of aggregate result columns (SQLite ticket #2526).
+fn check_aliased_aggregate_misuse(
+    expr: &ast::Expr,
+    result_columns: &[ResultSetColumn],
+) -> Result<()> {
+    use crate::translate::expr::{walk_expr, WalkControl};
+
+    walk_expr(expr, &mut |e| {
+        match e {
+            Expr::FunctionCall { name, args, .. } => {
+                let is_agg = matches!(
+                    crate::function::Func::resolve_function(name.as_str(), args.len()),
+                    Ok(crate::function::Func::Agg(_))
+                );
+                if is_agg {
+                    for arg in args.iter() {
+                        find_aliased_aggregate_ref(arg, result_columns)?;
+                    }
+                    return Ok(WalkControl::SkipChildren);
+                }
+            }
+            Expr::FunctionCallStar { name, .. } => {
+                if matches!(
+                    crate::function::Func::resolve_function(name.as_str(), 0),
+                    Ok(crate::function::Func::Agg(_))
+                ) {
+                    return Ok(WalkControl::SkipChildren);
+                }
+            }
+            _ => {}
+        }
+        Ok(WalkControl::Continue)
+    })?;
+    Ok(())
+}
+
+/// Check if an expression (inside an aggregate's arguments) contains an identifier
+/// that matches an alias of an aggregate result column.
+fn find_aliased_aggregate_ref(expr: &ast::Expr, result_columns: &[ResultSetColumn]) -> Result<()> {
+    use crate::translate::expr::{walk_expr, WalkControl};
+
+    walk_expr(expr, &mut |e| {
+        if let Expr::Id(id) = e {
+            let normalized = normalize_ident(id.as_str());
+            for rc in result_columns.iter() {
+                if let Some(alias) = &rc.alias {
+                    if alias.eq_ignore_ascii_case(&normalized) && rc.contains_aggregates {
+                        crate::bail_parse_error!("misuse of aliased aggregate {}", normalized);
+                    }
+                }
+            }
+        }
+        Ok(WalkControl::Continue)
+    })?;
+    Ok(())
 }

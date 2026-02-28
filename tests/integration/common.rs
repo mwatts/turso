@@ -152,7 +152,7 @@ impl TempDatabaseBuilder {
         self
     }
 
-    #[allow(dead_code)]
+    #[cfg(target_os = "linux")]
     pub fn with_io_uring(mut self, enable: bool) -> Self {
         self.io_uring = enable;
         self
@@ -966,6 +966,9 @@ mod tests {
                     found_tables.push(table_name);
                 }
                 StepResult::Done => break,
+                StepResult::IO => {
+                    stmt.get_pager().io.step()?;
+                }
                 _ => {}
             }
         }

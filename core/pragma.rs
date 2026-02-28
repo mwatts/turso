@@ -146,7 +146,7 @@ pub fn pragma_for(pragma: &PragmaName) -> Pragma {
             PragmaFlags::NeedSchema | PragmaFlags::ReadOnly | PragmaFlags::Result0,
             &["message"],
         ),
-        UnstableCaptureDataChangesConn => Pragma::new(
+        CaptureDataChangesConn | UnstableCaptureDataChangesConn => Pragma::new(
             PragmaFlags::NeedSchema | PragmaFlags::Result0 | PragmaFlags::SchemaReq,
             &["mode", "table", "version"],
         ),
@@ -187,6 +187,10 @@ pub fn pragma_for(pragma: &PragmaName) -> Pragma {
         IgnoreCheckConstraints => Pragma::new(
             PragmaFlags::NoColumns1 | PragmaFlags::Result0,
             &["ignore_check_constraints"],
+        ),
+        ListTypes => Pragma::new(
+            PragmaFlags::Result0,
+            &["type", "parent", "encode", "decode", "default", "operators"],
         ),
     }
 }

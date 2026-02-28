@@ -26,6 +26,28 @@ use crate::runner::memory::io::MemorySimIO;
 const DEFAULT_CACHE_SIZE: usize = 2000;
 use super::cli::SimulatorCLI;
 
+/// Pre-create attached DB files with MVCC journal mode so that journal modes
+/// are compatible when ATTACH happens later during simulation.
+fn enable_mvcc_on_attached_dbs(io: &Arc<dyn SimIO>, aux_paths: impl Iterator<Item = PathBuf>) {
+    for aux_path in aux_paths {
+        let aux_db = Database::open_file_with_flags(
+            io.clone(),
+            aux_path.to_str().unwrap(),
+            turso_core::OpenFlags::default(),
+            turso_core::DatabaseOpts::new().with_attach(true),
+            None,
+        )
+        .unwrap_or_else(|e| panic!("Failed to open aux DB {aux_path:?}: {e}"));
+        let aux_conn = aux_db
+            .connect()
+            .expect("Failed to connect to aux DB for MVCC setup");
+        aux_conn
+            .execute("PRAGMA journal_mode = 'experimental_mvcc'")
+            .expect("Failed to enable MVCC on aux DB");
+        aux_conn.close().expect("Failed to close aux DB connection");
+    }
+}
+
 #[derive(Debug, Copy, Clone)]
 pub(crate) enum SimulationType {
     Default,
@@ -735,6 +757,8 @@ pub(crate) struct SimulatorEnv {
     connection_last_query: Bitmap<64>,
     // Table data that is committed into the database or wal
     pub committed_tables: Vec<Table>,
+    /// Names of attached databases (e.g. ["aux0", "aux1", "aux2"])
+    pub(crate) attached_dbs: Vec<String>,
 }
 
 impl UnwindSafe for SimulatorEnv {}
@@ -759,6 +783,7 @@ impl SimulatorEnv {
             connection_tables: self.connection_tables.clone(),
             connection_last_query: self.connection_last_query,
             committed_tables: self.committed_tables.clone(),
+            attached_dbs: self.attached_dbs.clone(),
         }
     }
 
@@ -800,13 +825,38 @@ impl SimulatorEnv {
         if wal_path.exists() {
             std::fs::remove_file(&wal_path).unwrap();
         }
+
+        // Remove MVCC logical log file
+        let log_path = db_path.with_extension("db-log");
+        if log_path.exists() {
+            std::fs::remove_file(&log_path).unwrap();
+        }
+
+        // Remove attached database files
+        for name in &self.attached_dbs {
+            let aux_path = self.paths.aux_db(&self.type_, &self.phase, name);
+            if aux_path.exists() {
+                std::fs::remove_file(&aux_path).unwrap();
+            }
+            let aux_wal = aux_path.with_extension("db-wal");
+            if aux_wal.exists() {
+                std::fs::remove_file(&aux_wal).unwrap();
+            }
+            let aux_log = aux_path.with_extension("db-log");
+            if aux_log.exists() {
+                std::fs::remove_file(&aux_log).unwrap();
+            }
+        }
+
         self.db = None;
 
         let db = match Database::open_file_with_flags(
             io.clone(),
             db_path.to_str().unwrap(),
             turso_core::OpenFlags::default(),
-            turso_core::DatabaseOpts::new().with_autovacuum(true),
+            turso_core::DatabaseOpts::new()
+                .with_autovacuum(true)
+                .with_attach(true),
             None,
         ) {
             Ok(db) => db,
@@ -815,12 +865,33 @@ impl SimulatorEnv {
                 panic!("error opening simulator test file {db_path:?}: {e:?}");
             }
         };
+
+        // Re-enable MVCC mode if the profile says to use MVCC
+        if self.profile.experimental_mvcc {
+            let conn = db
+                .connect()
+                .expect("Failed to create connection for MVCC setup");
+            conn.execute("PRAGMA journal_mode = 'experimental_mvcc'")
+                .expect("Failed to enable MVCC mode");
+
+            enable_mvcc_on_attached_dbs(
+                &io,
+                self.attached_dbs
+                    .iter()
+                    .map(|name| self.get_aux_db_path(name)),
+            );
+        }
+
         self.io = io;
         self.db = Some(db);
     }
 
     pub(crate) fn get_db_path(&self) -> PathBuf {
         self.paths.db(&self.type_, &self.phase)
+    }
+
+    pub(crate) fn get_aux_db_path(&self, name: &str) -> PathBuf {
+        self.paths.aux_db(&self.type_, &self.phase, name)
     }
 
     pub(crate) fn get_plan_path(&self) -> PathBuf {
@@ -864,6 +935,9 @@ impl SimulatorEnv {
     ) -> Self {
         let mut rng = ChaCha8Rng::seed_from_u64(seed);
 
+        let num_attached = rng.random_range(1..=3usize);
+        let attached_dbs: Vec<String> = (0..num_attached).map(|i| format!("aux{i}")).collect();
+
         let mut opts = SimulatorOpts {
             seed,
             ticks: usize::MAX,
@@ -896,6 +970,28 @@ impl SimulatorEnv {
         let wal_path = db_path.with_extension("db-wal");
         if wal_path.exists() {
             std::fs::remove_file(&wal_path).unwrap();
+        }
+
+        // Remove MVCC logical log file
+        let log_path = db_path.with_extension("db-log");
+        if log_path.exists() {
+            std::fs::remove_file(&log_path).unwrap();
+        }
+
+        // Remove attached database files if they exist
+        for name in &attached_dbs {
+            let aux_path = paths.aux_db(&simulation_type, &SimulationPhase::Test, name);
+            if aux_path.exists() {
+                std::fs::remove_file(&aux_path).unwrap();
+            }
+            let aux_wal = aux_path.with_extension("db-wal");
+            if aux_wal.exists() {
+                std::fs::remove_file(&aux_wal).unwrap();
+            }
+            let aux_log = aux_path.with_extension("db-log");
+            if aux_log.exists() {
+                std::fs::remove_file(&aux_log).unwrap();
+            }
         }
 
         let mut profile = profile.clone();
@@ -952,7 +1048,9 @@ impl SimulatorEnv {
             io.clone(),
             db_path.to_str().unwrap(),
             turso_core::OpenFlags::default(),
-            turso_core::DatabaseOpts::new().with_autovacuum(true),
+            turso_core::DatabaseOpts::new()
+                .with_autovacuum(true)
+                .with_attach(true),
             None,
         ) {
             Ok(db) => db,
@@ -968,6 +1066,13 @@ impl SimulatorEnv {
                 .expect("Failed to create connection for MVCC setup");
             conn.execute("PRAGMA journal_mode = 'experimental_mvcc'")
                 .expect("Failed to enable MVCC mode");
+
+            enable_mvcc_on_attached_dbs(
+                &io,
+                attached_dbs
+                    .iter()
+                    .map(|name| paths.aux_db(&simulation_type, &SimulationPhase::Test, name)),
+            );
         }
 
         let connections = (0..profile.max_connections)
@@ -989,6 +1094,7 @@ impl SimulatorEnv {
             committed_tables: Vec::new(),
             connection_tables: vec![None; profile.max_connections],
             connection_last_query: Bitmap::new(),
+            attached_dbs,
         }
     }
 
@@ -1023,6 +1129,25 @@ impl SimulatorEnv {
                 );
             }
         };
+
+        self.attach_databases(connection_index);
+    }
+
+    fn attach_databases(&self, connection_index: usize) {
+        for name in &self.attached_dbs {
+            let aux_path = self.get_aux_db_path(name);
+            match &self.connections[connection_index] {
+                SimConnection::LimboConnection(conn) => {
+                    conn.execute(format!("ATTACH '{}' AS {name}", aux_path.display()))
+                        .unwrap_or_else(|e| panic!("Failed to ATTACH {name}: {e}"));
+                }
+                SimConnection::SQLiteConnection(conn) => {
+                    conn.execute(&format!("ATTACH '{}' AS {name}", aux_path.display()), [])
+                        .unwrap_or_else(|e| panic!("Failed to ATTACH {name} on SQLite: {e}"));
+                }
+                SimConnection::Disconnected => {}
+            }
+        }
     }
 
     /// Clears the commited tables and the connection tables
@@ -1206,6 +1331,17 @@ impl Paths {
     pub(crate) fn db(&self, type_: &SimulationType, phase: &SimulationPhase) -> PathBuf {
         self.path_(type_, phase).with_extension("db")
     }
+
+    pub(crate) fn aux_db(
+        &self,
+        type_: &SimulationType,
+        phase: &SimulationPhase,
+        name: &str,
+    ) -> PathBuf {
+        self.path_(type_, phase)
+            .with_extension(format!("{name}.db"))
+    }
+
     pub(crate) fn plan(&self, type_: &SimulationType, phase: &SimulationPhase) -> PathBuf {
         self.path_(type_, phase).with_extension("sql")
     }

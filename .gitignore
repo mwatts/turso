@@ -6,6 +6,7 @@
 **/target
 
 *.so
+*.dylib
 *.ipynb
 *.o
 *.sqlite
@@ -28,7 +29,8 @@ dist/
 **/*.db-shm
 **/*-wal
 # perf
-/Mobibench
+**/*/Mobibench
+perf/mobibench/plot/results.csv
 # OS
 .DS_Store
 
@@ -67,3 +69,7 @@ test.sql
 # for elle edn transaction history
 *.edn
 elle-history-results/
+
+CLAUDE.md
+bindings/python/dev.py
+bindings/python/implementation-test/

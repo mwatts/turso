@@ -1,11 +1,12 @@
 use crate::turso_assert_eq;
 use core::fmt::{self, Debug};
 use std::{
+    future::Future,
     sync::{
         atomic::{AtomicUsize, Ordering},
         Arc, OnceLock,
     },
-    task::Waker,
+    task::{Poll, Waker},
 };
 
 use crate::sync::Mutex;
@@ -25,6 +26,22 @@ pub type TruncateComplete = dyn Fn(Result<i32, CompletionError>) + Send + Sync;
 pub struct Completion {
     /// Optional completion state. If None, it means we are Yield in order to not allocate anything
     pub(super) inner: Option<Arc<CompletionInner>>,
+}
+
+impl Future for Completion {
+    type Output = Result<(), crate::LimboError>;
+
+    fn poll(self: std::pin::Pin<&mut Self>, cx: &mut std::task::Context<'_>) -> Poll<Self::Output> {
+        self.set_waker(cx.waker());
+        if self.finished() {
+            self.wake();
+            let res = self
+                .get_error()
+                .map_or(Ok(()), |err| Err(crate::LimboError::CompletionError(err)));
+            return Poll::Ready(res);
+        }
+        Poll::Pending
+    }
 }
 
 #[derive(Debug, Default)]
@@ -92,6 +109,9 @@ pub(super) struct CompletionInner {
     context: Context,
     /// Optional parent group this completion belongs to
     parent: OnceLock<Arc<GroupCompletionInner>>,
+    /// Keeps the write buffer alive for async I/O backends (io_uring, VFS)
+    /// where pwrite returns before the kernel has consumed the buffer.
+    write_buffer: OnceLock<Arc<Buffer>>,
 }
 
 impl fmt::Debug for CompletionInner {
@@ -257,6 +277,7 @@ impl CompletionInner {
             result: OnceLock::new(),
             context: Context::new(),
             parent: OnceLock::new(),
+            write_buffer: OnceLock::new(),
         }
     }
 }
@@ -272,6 +293,16 @@ impl Completion {
         self.inner
             .as_ref()
             .expect("completion inner should be initialized")
+    }
+
+    /// Stores a write buffer reference in the completion to keep it alive
+    /// until the I/O completes. Required for async backends (io_uring, VFS)
+    /// where pwrite returns before the kernel has consumed the buffer.
+    pub fn keep_write_buffer_alive(&self, buf: Arc<Buffer>) {
+        self.get_inner()
+            .write_buffer
+            .set(buf)
+            .expect("write buffer should only be set once");
     }
 
     pub fn new_write<F>(complete: F) -> Self

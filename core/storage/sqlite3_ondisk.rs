@@ -44,6 +44,7 @@
 #![allow(clippy::arc_with_non_send_sync)]
 
 use crate::{turso_assert, turso_assert_eq, turso_assert_greater_than};
+use branches::unlikely;
 use bytemuck::{Pod, Zeroable};
 use pack1::{I32BE, U16BE, U32BE};
 use tracing::{instrument, Level};
@@ -805,18 +806,31 @@ pub fn read_btree_cell(
     match page_type {
         PageType::IndexInterior => {
             let mut pos = pos;
+            crate::assert_or_bail_corrupt!(
+                pos + 4 <= page.len(),
+                "cell offset {} out of bounds for page size {}",
+                pos,
+                page.len()
+            );
             let left_child_page =
                 u32::from_be_bytes([page[pos], page[pos + 1], page[pos + 2], page[pos + 3]]);
             pos += 4;
-            let (payload_size, nr) = read_varint(&page[pos..])?;
+            let (payload_size, nr) = read_varint(crate::slice_in_bounds_or_corrupt!(page, pos..))?;
             pos += nr;
 
             let (overflows, to_read) =
                 payload_overflows(payload_size as usize, max_local, min_local, usable_size);
             let to_read = if overflows { to_read } else { page.len() - pos };
 
+            crate::assert_or_bail_corrupt!(
+                pos + to_read <= page.len(),
+                "payload range {}..{} out of bounds for page size {}",
+                pos,
+                pos + to_read,
+                page.len()
+            );
             let (payload, first_overflow_page) =
-                read_payload(&page[pos..pos + to_read], payload_size as usize);
+                read_payload(&page[pos..pos + to_read], payload_size as usize)?;
             Ok(BTreeCell::IndexInteriorCell(IndexInteriorCell {
                 left_child_page,
                 payload,
@@ -826,10 +840,16 @@ pub fn read_btree_cell(
         }
         PageType::TableInterior => {
             let mut pos = pos;
+            crate::assert_or_bail_corrupt!(
+                pos + 4 <= page.len(),
+                "cell offset {} out of bounds for page size {}",
+                pos,
+                page.len()
+            );
             let left_child_page =
                 u32::from_be_bytes([page[pos], page[pos + 1], page[pos + 2], page[pos + 3]]);
             pos += 4;
-            let (rowid, _) = read_varint(&page[pos..])?;
+            let (rowid, _) = read_varint(crate::slice_in_bounds_or_corrupt!(page, pos..))?;
             Ok(BTreeCell::TableInteriorCell(TableInteriorCell {
                 left_child_page,
                 rowid: rowid as i64,
@@ -837,15 +857,22 @@ pub fn read_btree_cell(
         }
         PageType::IndexLeaf => {
             let mut pos = pos;
-            let (payload_size, nr) = read_varint(&page[pos..])?;
+            let (payload_size, nr) = read_varint(crate::slice_in_bounds_or_corrupt!(page, pos..))?;
             pos += nr;
 
             let (overflows, to_read) =
                 payload_overflows(payload_size as usize, max_local, min_local, usable_size);
             let to_read = if overflows { to_read } else { page.len() - pos };
 
+            crate::assert_or_bail_corrupt!(
+                pos + to_read <= page.len(),
+                "payload range {}..{} out of bounds for page size {}",
+                pos,
+                pos + to_read,
+                page.len()
+            );
             let (payload, first_overflow_page) =
-                read_payload(&page[pos..pos + to_read], payload_size as usize);
+                read_payload(&page[pos..pos + to_read], payload_size as usize)?;
             Ok(BTreeCell::IndexLeafCell(IndexLeafCell {
                 payload,
                 first_overflow_page,
@@ -854,17 +881,24 @@ pub fn read_btree_cell(
         }
         PageType::TableLeaf => {
             let mut pos = pos;
-            let (payload_size, nr) = read_varint(&page[pos..])?;
+            let (payload_size, nr) = read_varint(crate::slice_in_bounds_or_corrupt!(page, pos..))?;
             pos += nr;
-            let (rowid, nr) = read_varint(&page[pos..])?;
+            let (rowid, nr) = read_varint(crate::slice_in_bounds_or_corrupt!(page, pos..))?;
             pos += nr;
 
             let (overflows, to_read) =
                 payload_overflows(payload_size as usize, max_local, min_local, usable_size);
             let to_read = if overflows { to_read } else { page.len() - pos };
 
+            crate::assert_or_bail_corrupt!(
+                pos + to_read <= page.len(),
+                "payload range {}..{} out of bounds for page size {}",
+                pos,
+                pos + to_read,
+                page.len()
+            );
             let (payload, first_overflow_page) =
-                read_payload(&page[pos..pos + to_read], payload_size as usize);
+                read_payload(&page[pos..pos + to_read], payload_size as usize)?;
             Ok(BTreeCell::TableLeafCell(TableLeafCell {
                 rowid: rowid as i64,
                 payload,
@@ -878,21 +912,30 @@ pub fn read_btree_cell(
 /// read_payload takes in the unread bytearray with the payload size
 /// and returns the payload on the page, and optionally the first overflow page number.
 #[allow(clippy::readonly_write_lock)]
-fn read_payload(unread: &'static [u8], payload_size: usize) -> (&'static [u8], Option<u32>) {
+fn read_payload(
+    unread: &'static [u8],
+    payload_size: usize,
+) -> Result<(&'static [u8], Option<u32>)> {
     let cell_len = unread.len();
     // We will let overflow be constructed back if needed or requested.
     if payload_size <= cell_len {
         // fit within 1 page
-        (&unread[..payload_size], None)
+        Ok((&unread[..payload_size], None))
     } else {
         // overflow
+        if cell_len < 4 {
+            bail_corrupt_error!(
+                "overflow cell too small: {} bytes, need at least 4",
+                cell_len
+            );
+        }
         let first_overflow_page = u32::from_be_bytes([
             unread[cell_len - 4],
             unread[cell_len - 3],
             unread[cell_len - 2],
             unread[cell_len - 1],
         ]);
-        (&unread[..cell_len - 4], Some(first_overflow_page))
+        Ok((&unread[..cell_len - 4], Some(first_overflow_page)))
     }
 }
 
@@ -1222,7 +1265,7 @@ pub fn read_varint(buf: &[u8]) -> Result<(u64, usize)> {
             // Since the final value is `(v<<8) + c`, the top 8 bits (v >> 48) must not be 0.
             // If those are zero, this should be treated as corrupt.
             // Perf? the comparison + branching happens only in parsing 9-byte varint which is rare.
-            if (v >> 48) == 0 {
+            if unlikely((v >> 48) == 0) {
                 bail_corrupt_error!("Invalid varint");
             }
             v = (v << 8) + c as u64;
@@ -1232,6 +1275,29 @@ pub fn read_varint(buf: &[u8]) -> Result<(u64, usize)> {
             bail_corrupt_error!("Invalid varint");
         }
     }
+}
+
+#[inline(always)]
+/// Reads a varint from the buffer, returning None if more data is needed.
+pub fn read_varint_partial(buf: &[u8]) -> Result<Option<(u64, usize)>> {
+    let mut v: u64 = 0;
+    for i in 0..8 {
+        let Some(&c) = buf.get(i) else {
+            return Ok(None);
+        };
+        v = (v << 7) + (c & 0x7f) as u64;
+        if (c & 0x80) == 0 {
+            return Ok(Some((v, i + 1)));
+        }
+    }
+    let Some(&c) = buf.get(8) else {
+        return Ok(None);
+    };
+    if unlikely((v >> 48) == 0) {
+        bail_corrupt_error!("Invalid varint");
+    }
+    v = (v << 8) + c as u64;
+    Ok(Some((v, 9)))
 }
 
 /// Compute the length of a varint encoding for a given u64 value.
@@ -1822,13 +1888,10 @@ pub fn begin_write_wal_header<F: File + ?Sized>(io: &F, header: &WalHeader) -> R
         Arc::new(buffer)
     };
 
-    let cloned = buffer.clone();
     let write_complete = move |res: Result<i32, CompletionError>| {
         let Ok(bytes_written) = res else {
             return;
         };
-        // make sure to reference buffer so it's alive for async IO
-        let _buf = cloned.clone();
         turso_assert!(
             bytes_written == WAL_HEADER_SIZE as i32,
             "wal header wrote({bytes_written}) != expected({WAL_HEADER_SIZE})"

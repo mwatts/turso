@@ -154,7 +154,6 @@ The SQL shell supports the following command line options:
 | `-V`, `--version` | Print version |
 | `--mcp` | Start a MCP server instead of the interactive shell |
 | `--experimental-encryption` | Enable experimental encryption at rest feature. **Note:** the feature is not production ready so do not use it for critical data right now. |
-| `--experimental-strict` | Enable experimental strict schema feature. **Note**: the feature is not production ready so do not use it for critical data right now. |
 | `--experimental-views` | Enable experimental views feature. **Note**: the feature is not production ready so do not use it for critical data right now. |
 
 ## Transactions
@@ -1053,7 +1052,7 @@ Turso supports [Change Data Capture](https://en.wikipedia.org/wiki/Change_data_c
 ### Enabling CDC
 
 ```sql
-PRAGMA unstable_capture_data_changes_conn('<mode>[,custom_cdc_table]');
+PRAGMA capture_data_changes_conn('<mode>[,custom_cdc_table]');
 ```
 
 ### Parameters
@@ -1121,7 +1120,7 @@ When **Change Data Capture (CDC)** is enabled for a connection, Turso automatica
 
 ```zsh
 Example:
-turso> PRAGMA unstable_capture_data_changes_conn('full');
+turso> PRAGMA capture_data_changes_conn('full');
 turso> .tables
 turso_cdc
 turso> CREATE TABLE users (

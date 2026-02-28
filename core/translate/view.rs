@@ -23,19 +23,14 @@ pub fn translate_create_materialized_view(
                 .to_string(),
         ));
     }
-    if connection.mvcc_enabled() {
-        return Err(crate::LimboError::ParseError(
-            "Materialized views are not supported in MVCC mode".to_string(),
-        ));
-    }
 
     let database_id = resolver.resolve_database_id(view_name)?;
     // The DBSP incremental maintenance runtime (populate_from_table, etc.) assumes
     // the main database pager/schema. Block attached databases until that is fixed.
-    if database_id != 0 {
+    if database_id != crate::MAIN_DB_ID {
         crate::bail_parse_error!("materialized views are not supported on attached databases");
     }
-    if database_id >= 2 {
+    if crate::is_attached_db(database_id) {
         let schema_cookie = resolver.with_schema(database_id, |s| s.schema_version);
         program.begin_write_on_database(database_id, schema_cookie);
     }
@@ -254,17 +249,11 @@ pub fn translate_create_view(
     view_name: &ast::QualifiedName,
     resolver: &Resolver,
     select_stmt: &ast::Select,
-    _columns: &[ast::IndexedColumn],
+    columns: &[ast::IndexedColumn],
     program: &mut ProgramBuilder,
-    connection: &Arc<Connection>,
 ) -> Result<()> {
-    if connection.mvcc_enabled() {
-        return Err(crate::LimboError::ParseError(
-            "Views are not supported in MVCC mode".to_string(),
-        ));
-    }
     let database_id = resolver.resolve_database_id(view_name)?;
-    if database_id >= 2 {
+    if crate::is_attached_db(database_id) {
         let schema_cookie = resolver.with_schema(database_id, |s| s.schema_version);
         program.begin_write_on_database(database_id, schema_cookie);
     }
@@ -285,9 +274,12 @@ pub fn translate_create_view(
     }
 
     // Also check materialized views (not in get_object_type since they're stored differently)
-    if resolver.with_schema(database_id, |s| {
-        s.get_materialized_view(&normalized_view_name).is_some()
-    }) {
+    if resolver
+        .with_schema(database_id, |s| {
+            s.get_materialized_view(&normalized_view_name)
+        })
+        .is_some()
+    {
         return Err(crate::LimboError::ParseError(format!(
             "view {normalized_view_name} already exists"
         )));
@@ -296,7 +288,7 @@ pub fn translate_create_view(
     crate::util::validate_select_for_unsupported_features(select_stmt)?;
 
     // Reconstruct the SQL string
-    let sql = create_view_to_str(&view_name.name.as_ident(), select_stmt);
+    let sql = create_view_to_str(&view_name.name.as_ident(), columns, select_stmt);
 
     // Open cursor to sqlite_schema table
     let table = resolver.schema().get_btree_table(SQLITE_TABLEID).unwrap();
@@ -337,7 +329,19 @@ pub fn translate_create_view(
     Ok(())
 }
 
-fn create_view_to_str(view_name: &str, select_stmt: &ast::Select) -> String {
+fn create_view_to_str(
+    view_name: &str,
+    columns: &[ast::IndexedColumn],
+    select_stmt: &ast::Select,
+) -> String {
+    let columns_str = columns
+        .iter()
+        .map(|col| col.col_name.as_str())
+        .collect::<Vec<&str>>()
+        .join(", ");
+    if !columns_str.is_empty() {
+        return format!("CREATE VIEW {view_name} ({columns_str}) AS {select_stmt}");
+    }
     format!("CREATE VIEW {view_name} AS {select_stmt}")
 }
 
@@ -348,7 +352,7 @@ pub fn translate_drop_view(
     program: &mut ProgramBuilder,
 ) -> Result<()> {
     let database_id = resolver.resolve_database_id(view_name)?;
-    if database_id >= 2 {
+    if crate::is_attached_db(database_id) {
         let schema_cookie = resolver.with_schema(database_id, |s| s.schema_version);
         program.begin_write_on_database(database_id, schema_cookie);
     }

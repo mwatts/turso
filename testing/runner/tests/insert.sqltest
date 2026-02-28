@@ -4,6 +4,7 @@ setup dqs_dml {
     .dbconfig dqs_dml on
 }
 
+@cross-check-integrity
 test basic-insert {
     create table temp (t1 integer, primary key (t1));
     insert into temp values (1);
@@ -13,6 +14,7 @@ expect {
     1
 }
 
+@cross-check-integrity
 test must-be-int-insert {
     create table temp (t1 integer, primary key (t1));
     insert into temp values (1),(2.0),('3'),('4.0');
@@ -25,7 +27,7 @@ expect {
     4
 }
 
-@requires strict "uses STRICT tables"
+@cross-check-integrity
 test strict-basic-creation {
     CREATE TABLE test1 (id INTEGER, name TEXT, price REAL) STRICT;
     INSERT INTO test1 VALUES(1, 'item1', 10.5);
@@ -35,6 +37,7 @@ expect {
     1|item1|10.5
 }
 
+@cross-check-integrity
 test self-insert-sum-pk {
     CREATE TABLE t(a INTEGER PRIMARY KEY, b INTEGER);
     INSERT INTO t(b) VALUES(1),(2);
@@ -48,7 +51,7 @@ expect {
 }
 
 # Reproducer for https://github.com/tursodatabase/turso/issues/2822
-@requires strict "uses STRICT tables"
+@cross-check-integrity
 test strict-type-case-insensitivity {
     CREATE TABLE test1 (id integer, name text, price real) STRICT;
     INSERT INTO test1 VALUES(1, 'item1', 10.5);
@@ -58,21 +61,21 @@ expect {
     1|item1|10.5
 }
 
-@requires strict "uses STRICT tables"
+@cross-check-integrity
 test strict-require-datatype {
     CREATE TABLE test2 (id INTEGER, name) STRICT;
 }
 expect error {
 }
 
-@requires strict "uses STRICT tables"
+@cross-check-integrity
 test strict-valid-datatypes {
     CREATE TABLE test2 (id INTEGER, value DATETIME) STRICT;
 }
 expect error {
 }
 
-@requires strict "uses STRICT tables"
+@cross-check-integrity
 test strict-type-enforcement {
     CREATE TABLE test3 (id INTEGER, name TEXT, price REAL) STRICT;
     INSERT INTO test3 VALUES(1, 'item1', 'not-a-number');
@@ -80,7 +83,7 @@ test strict-type-enforcement {
 expect error {
 }
 
-@requires strict "uses STRICT tables"
+@cross-check-integrity
 test strict-type-coercion {
     CREATE TABLE test4 (id INTEGER, name TEXT, price REAL) STRICT;
     INSERT INTO test4 VALUES(1, 'item1', '10.5');
@@ -90,7 +93,7 @@ expect {
     real|10.5
 }
 
-@requires strict "uses STRICT tables"
+@cross-check-integrity
 test strict-any-flexibility {
     CREATE TABLE test5 (id INTEGER, data ANY) STRICT;
     INSERT INTO test5 VALUES(1, 100);
@@ -104,7 +107,7 @@ expect {
     3|real
 }
 
-@requires strict "uses STRICT tables"
+@cross-check-integrity
 test strict-any-preservation {
     CREATE TABLE test6 (id INTEGER, code ANY) STRICT;
     INSERT INTO test6 VALUES(1, '000123');
@@ -114,7 +117,7 @@ expect {
     text|000123
 }
 
-@requires strict "uses STRICT tables"
+@cross-check-integrity
 test strict-int-vs-integer-pk {
     CREATE TABLE test8 (id INT PRIMARY KEY, name TEXT) STRICT
     INSERT INTO test8 VALUES(NULL, 'test');
@@ -122,7 +125,7 @@ test strict-int-vs-integer-pk {
 expect error {
 }
 
-@requires strict "uses STRICT tables"
+@cross-check-integrity
 test strict-integer-pk-behavior {
     CREATE TABLE test9 (id INTEGER PRIMARY KEY, name TEXT) STRICT;
     INSERT INTO test9 VALUES(NULL, 'test');
@@ -132,7 +135,7 @@ expect {
     1|test
 }
 
-@requires strict "uses STRICT tables"
+@cross-check-integrity
 test strict-mixed-inserts {
     CREATE TABLE test11 (
     id INTEGER PRIMARY KEY,
@@ -150,7 +153,7 @@ expect {
     2|item2|20.75|10|integer
 }
 
-@requires strict "uses STRICT tables"
+@cross-check-integrity
 test strict-update-basic {
     CREATE TABLE test1 (id INTEGER, name TEXT, price REAL) STRICT;
     INSERT INTO test1 VALUES(1, 'item1', 10.5);
@@ -161,7 +164,7 @@ expect {
     1|item1|15.75
 }
 
-@requires strict "uses STRICT tables"
+@cross-check-integrity
 test strict-update-type-enforcement {
     CREATE TABLE test2 (id INTEGER, name TEXT, price REAL) STRICT;
     INSERT INTO test2 VALUES(1, 'item1', 10.5);
@@ -170,7 +173,7 @@ test strict-update-type-enforcement {
 expect error {
 }
 
-@requires strict "uses STRICT tables"
+@cross-check-integrity
 test strict-update-type-coercion {
     CREATE TABLE test3 (id INTEGER, name TEXT, price REAL) STRICT;
     INSERT INTO test3 VALUES(1, 'item1', 10.5);
@@ -181,7 +184,7 @@ expect {
     1|real|15.75
 }
 
-@requires strict "uses STRICT tables"
+@cross-check-integrity
 test strict-update-any-flexibility {
     CREATE TABLE test4 (id INTEGER, data ANY) STRICT;
     INSERT INTO test4 VALUES(1, 100);
@@ -195,7 +198,7 @@ expect {
     2|real|3.14
 }
 
-@requires strict "uses STRICT tables"
+@cross-check-integrity
 test strict-update-any-preservation {
     CREATE TABLE test5 (id INTEGER, code ANY) STRICT;
     INSERT INTO test5 VALUES(1, 'text');
@@ -206,7 +209,7 @@ expect {
     text|000123
 }
 
-@requires strict "uses STRICT tables"
+@cross-check-integrity
 test strict-update-not-null-constraint {
     CREATE TABLE test7 (id INTEGER, name TEXT NOT NULL) STRICT;
     INSERT INTO test7 VALUES(1, 'name');
@@ -216,7 +219,7 @@ expect error {
 }
 
 # Uncomment following test case when unique constraint is added
-@requires strict "uses STRICT tables"
+@cross-check-integrity
 test strict-update-pk-constraint {
     CREATE TABLE test8 (id INTEGER PRIMARY KEY, name TEXT) STRICT;
     INSERT INTO test8 VALUES(1, 'name1');
@@ -226,7 +229,7 @@ test strict-update-pk-constraint {
 expect error {
 }
 
-@requires strict "uses STRICT tables"
+@cross-check-integrity
 test strict-update-multiple-columns {
     CREATE TABLE test9 (id INTEGER, name TEXT, price REAL, quantity INT) STRICT;
     INSERT INTO test9 VALUES(1, 'item1', 10.5, 5);
@@ -237,7 +240,7 @@ expect {
     1|updated|20.75|10
 }
 
-@requires strict "uses STRICT tables"
+@cross-check-integrity
 test strict-update-where-clause {
     CREATE TABLE test10 (id INTEGER, category TEXT, price REAL) STRICT;
     INSERT INTO test10 VALUES(1, 'A', 10);
@@ -251,8 +254,13 @@ expect {
     2|40.0
     3|30.0
 }
+expect @js {
+    1|20
+    2|40
+    3|30
+}
 
-@requires strict "uses STRICT tables"
+@cross-check-integrity
 test strict-update-expression {
     CREATE TABLE test11 (id INTEGER, name TEXT, price REAL, discount REAL) STRICT;
     INSERT INTO test11 VALUES(1, 'item1', 100, 0.1);
@@ -262,8 +270,11 @@ test strict-update-expression {
 expect {
     1|90.0
 }
+expect @js {
+    1|90
+}
 
-@requires strict "uses STRICT tables"
+@cross-check-integrity
 test strict-text-float-to-integer-basic {
     CREATE TABLE t(a INTEGER) STRICT;
     INSERT INTO t VALUES('42.0');
@@ -273,7 +284,7 @@ expect {
     42|integer
 }
 
-@requires strict "uses STRICT tables"
+@cross-check-integrity
 test strict-text-float-to-integer-zero {
     CREATE TABLE t(a INTEGER) STRICT;
     INSERT INTO t VALUES('0.0');
@@ -283,7 +294,7 @@ expect {
     0|integer
 }
 
-@requires strict "uses STRICT tables"
+@cross-check-integrity
 test strict-text-float-to-integer-negative {
     CREATE TABLE t(a INTEGER) STRICT;
     INSERT INTO t VALUES('-5.0');
@@ -293,7 +304,7 @@ expect {
     -5|integer
 }
 
-@requires strict "uses STRICT tables"
+@cross-check-integrity
 test strict-text-float-to-integer-scientific {
     CREATE TABLE t(a INTEGER) STRICT;
     INSERT INTO t VALUES('1e2');
@@ -303,7 +314,7 @@ expect {
     100|integer
 }
 
-@requires strict "uses STRICT tables"
+@cross-check-integrity
 test strict-text-float-to-integer-fractional-error {
     CREATE TABLE t(a INTEGER) STRICT;
     INSERT INTO t VALUES('1.5');
@@ -311,7 +322,7 @@ test strict-text-float-to-integer-fractional-error {
 expect error {
 }
 
-@requires strict "uses STRICT tables"
+@cross-check-integrity
 test strict-text-integer-to-real-basic {
     CREATE TABLE t(a REAL) STRICT;
     INSERT INTO t VALUES('42');
@@ -320,8 +331,11 @@ test strict-text-integer-to-real-basic {
 expect {
     42.0|real
 }
+expect @js {
+    42|real
+}
 
-@requires strict "uses STRICT tables"
+@cross-check-integrity
 test strict-text-integer-to-real-negative {
     CREATE TABLE t(a REAL) STRICT;
     INSERT INTO t VALUES('-7');
@@ -330,8 +344,11 @@ test strict-text-integer-to-real-negative {
 expect {
     -7.0|real
 }
+expect @js {
+    -7|real
+}
 
-@requires strict "uses STRICT tables"
+@cross-check-integrity
 test strict-text-integer-to-real-zero {
     CREATE TABLE t(a REAL) STRICT;
     INSERT INTO t VALUES('0');
@@ -340,8 +357,11 @@ test strict-text-integer-to-real-zero {
 expect {
     0.0|real
 }
+expect @js {
+    0|real
+}
 
-@requires strict "uses STRICT tables"
+@cross-check-integrity
 test strict-text-float-to-real {
     CREATE TABLE t(a REAL) STRICT;
     INSERT INTO t VALUES('3.14');
@@ -351,7 +371,7 @@ expect {
     3.14|real
 }
 
-@requires strict "uses STRICT tables"
+@cross-check-integrity
 test strict-text-string-to-real-error {
     CREATE TABLE t(a REAL) STRICT;
     INSERT INTO t VALUES('hello');
@@ -359,6 +379,7 @@ test strict-text-string-to-real-error {
 expect error {
 }
 
+@cross-check-integrity
 test duplicate-set {
     CREATE TABLE t (x, y);
     INSERT INTO t VALUES(1, 'A');
@@ -369,6 +390,7 @@ expect {
     1|D
 }
 
+@cross-check-integrity
 test named-insert-1 {
     CREATE TABLE test (id INTEGER PRIMARY KEY AUTOINCREMENT, col_a TEXT, col_b TEXT, col_c TEXT, col_d TEXT);
     INSERT INTO test (col_b, col_d, col_a, col_c) VALUES ('1', '2', '3', '4');
@@ -378,6 +400,7 @@ expect {
     1|3|1|4|2
 }
 
+@cross-check-integrity
 test named-insert-2 {
     CREATE TABLE test (id INTEGER PRIMARY KEY AUTOINCREMENT, col_a TEXT DEFAULT 'Empty', col_b TEXT, col_c TEXT, col_d TEXT);
     INSERT INTO test (col_b, col_d, col_c) VALUES ('1', '2', '4');
@@ -387,6 +410,7 @@ expect {
     1|Empty|1|4|2
 }
 
+@cross-check-integrity
 test multi-rows {
     CREATE TABLE test (id INTEGER PRIMARY KEY AUTOINCREMENT, col);
     INSERT INTO test (col) VALUES (1),(1);
@@ -397,6 +421,7 @@ expect {
     2|1
 }
 
+@cross-check-integrity
 test unique_insert_no_pkey {
     CREATE TABLE t2 (x INTEGER, y INTEGER UNIQUE);
     INSERT INTO t2 (y) VALUES (1);
@@ -408,6 +433,7 @@ expect {
     |6
 }
 
+@cross-check-integrity
 test unique_insert_with_pkey {
     CREATE TABLE t2 (x INTEGER PRIMARY KEY, y INTEGER UNIQUE);
     INSERT INTO t2 (y) VALUES (1);
@@ -419,6 +445,7 @@ expect {
     2|6
 }
 
+@cross-check-integrity
 test not_null_insert {
     CREATE TABLE t2 (y INTEGER NOT NULL);
     INSERT INTO t2 (y) VALUES (1);
@@ -430,6 +457,7 @@ expect {
     6
 }
 
+@cross-check-integrity
 test not_null_primary_key {
     CREATE TABLE t2 (y INT PRIMARY KEY NOT NULL);
     INSERT INTO t2 (y) VALUES (1);
@@ -438,6 +466,7 @@ test not_null_primary_key {
 expect error {
 }
 
+@cross-check-integrity
 test not_null_insert_select {
     CREATE TABLE t2 (y INT PRIMARY KEY NOT NULL);
     CREATE TABLE d (y INT);
@@ -448,6 +477,7 @@ test not_null_insert_select {
 expect error {
 }
 
+@cross-check-integrity
 test not_null_insert_multiple_values {
     CREATE TABLE t2 (y INT PRIMARY KEY NOT NULL);
     INSERT INTO t2 (y) VALUES (1), (NULL);
@@ -455,6 +485,7 @@ test not_null_insert_multiple_values {
 expect error {
 }
 
+@cross-check-integrity
 test insert_from_select_1 {
     CREATE TABLE t (a);
     CREATE TABLE t2 (b, c);
@@ -473,6 +504,7 @@ expect {
     20
 }
 
+@cross-check-integrity
 test insert_from_select_where {
     CREATE TABLE t (a);
     CREATE TABLE t2 (b, c);
@@ -488,6 +520,7 @@ expect {
     20
 }
 
+@cross-check-integrity
 test insert_from_select_union_all {
     CREATE TABLE t1 (x INTEGER);
     CREATE TABLE t2 (x INTEGER);
@@ -510,6 +543,7 @@ expect {
     9
 }
 
+@cross-check-integrity
 test insert_from_select_union_all_where {
     CREATE TABLE t1 (x INTEGER);
     CREATE TABLE t2 (x INTEGER);
@@ -529,6 +563,7 @@ expect {
     8
 }
 
+@cross-check-integrity
 test insert_from_select_union_all_values {
     CREATE TABLE t(a, b);
     INSERT INTO t(a, b) SELECT * FROM (VALUES(3, 3)) UNION ALL VALUES(4, 4);
@@ -539,6 +574,7 @@ expect {
     4|4
 }
 
+@cross-check-integrity
 test values-union-all {
     CREATE TABLE test (a INTEGER NOT NULL, b INTEGER NOT NULL);
     INSERT INTO test(a, b) VALUES(3, 3) UNION ALL VALUES(4, 4);
@@ -549,6 +585,7 @@ expect {
     4|4
 }
 
+@cross-check-integrity
 test insert_from_select_same_table {
     CREATE TABLE t (a INTEGER PRIMARY KEY, b);
     INSERT INTO t(b) VALUES (1),(2),(3);
@@ -568,6 +605,7 @@ expect {
     6|3
 }
 
+@cross-check-integrity
 test insert_from_select_same_table_2 {
     CREATE TABLE t (a INTEGER PRIMARY KEY, b, c);
     INSERT INTO t(b, c) VALUES (1, 100),(2, 200),(3, 300);
@@ -587,6 +625,7 @@ expect {
     6|3|300
 }
 
+@cross-check-integrity
 test insert_from_select_union {
     CREATE TABLE t (a, b);
     CREATE TABLE t2 (b, c);
@@ -599,6 +638,7 @@ expect {
     2|200
 }
 
+@cross-check-integrity
 test insert_from_select_union-2 {
     CREATE TABLE t (a, b);
     CREATE TABLE t2 (b, c);
@@ -610,6 +650,7 @@ expect {
     2|200
 }
 
+@cross-check-integrity
 test insert_from_select_intersect {
     CREATE TABLE t (a, b);
     CREATE TABLE t1 (a, b);
@@ -623,6 +664,7 @@ expect {
     2|200
 }
 
+@cross-check-integrity
 test insert_from_select_intersect-2 {
     CREATE TABLE t (a, b);
     CREATE TABLE t1 (a, b);
@@ -638,6 +680,7 @@ expect {
     2|200
 }
 
+@cross-check-integrity
 test insert_from_select_except {
     CREATE TABLE t (a, b);
     CREATE TABLE t1 (a, b);
@@ -651,6 +694,7 @@ expect {
     1|100
 }
 
+@cross-check-integrity
 test negative-primary-integer-key {
     CREATE TABLE t (a INTEGER PRIMARY KEY);
     insert into t values (-2),(13);
@@ -661,6 +705,7 @@ expect {
     13
 }
 
+@cross-check-integrity
 test not-null-rowid-alias {
     CREATE TABLE t (a INTEGER PRIMARY KEY NOT NULL, b);
     insert into t values (1, 2);
@@ -670,6 +715,7 @@ expect {
     1|2
 }
 
+@cross-check-integrity
 test rowid-overflow-random-generation {
     CREATE TABLE q (x INTEGER PRIMARY KEY, y);
     INSERT INTO q VALUES (9223372036854775807, 1);
@@ -682,6 +728,7 @@ expect {
 }
 
 # regression test for incorrect processing of record header in the case of large text columns
+@cross-check-integrity
 test large-text-index-seek {
     CREATE TABLE t (x TEXT, y);
     CREATE INDEX t_idx ON t(x);
@@ -701,6 +748,7 @@ expect {
 
 @backend cli
 @setup dqs_dml
+@cross-check-integrity
 test double-quote-string-literals {
     CREATE TABLE test (id INTEGER, name TEXT);
     INSERT INTO test (id, name) VALUES (1, "Dave");
@@ -714,6 +762,7 @@ expect {
 
 @backend cli
 @setup dqs_dml
+@cross-check-integrity
 test mixed-quote-types {
     CREATE TABLE mixed (a TEXT, b TEXT, c TEXT);
     INSERT INTO mixed (a,b,c) VALUES ("double", 'single', "another");
@@ -725,6 +774,7 @@ expect {
 
 @backend cli
 @setup dqs_dml
+@cross-check-integrity
 test double-quote-regression-original-case {
     CREATE TABLE users (
         id INTEGER,
@@ -740,6 +790,7 @@ expect {
 
 @backend cli
 @setup dqs_dml
+@cross-check-integrity
 test double-quote-multiple-rows {
     CREATE TABLE items (id INTEGER, description TEXT, category TEXT);
     INSERT INTO items (id, description, category) VALUES
@@ -756,6 +807,7 @@ expect {
 
 @backend cli
 @setup dqs_dml
+@cross-check-integrity
 test double-quote-inner-quotes-preservation {
     CREATE TABLE inner_quotes_test (id INTEGER, content TEXT);
     INSERT INTO inner_quotes_test VALUES (1, '"foo"');
@@ -768,6 +820,7 @@ expect {
 }
 
 # regression test for incorrect order of column in insert
+@cross-check-integrity
 test insert-tricky-column-order-values {
     create table t (x, y, z);
     insert into t(z, x) values (1, 2), (3, 4);
@@ -781,6 +834,7 @@ expect {
     |7|8
 }
 
+@cross-check-integrity
 test insert-tricky-column-order-table {
     create table t (x, y, z);
     create table q (x, y, z);
@@ -796,6 +850,7 @@ expect {
     |6|5
 }
 
+@cross-check-integrity
 test insert-explicit-rowid {
     create table t (x, y, z);
     insert into t(z, x, y, rowid) values (1, 2, 3, 4), (5, 6, 7, 8);
@@ -808,6 +863,7 @@ expect {
     12|10|11|9
 }
 
+@cross-check-integrity
 test insert-explicit-rowid-with-rowidalias {
     create table t (x, y INTEGER PRIMARY KEY, z);
     insert into t(z, x, y, rowid) values (1, 2, 3, 4), (5, 6, 7, 8);
@@ -825,6 +881,7 @@ expect {
     12|10|12|9
 }
 
+@cross-check-integrity
 test null-value-insert-null-type-column {
     CREATE TABLE test (id INTEGER,name NULL);
     INSERT INTO test (id, name) VALUES (1, NULL);
@@ -835,6 +892,7 @@ expect {
 }
 
 # https://github.com/tursodatabase/turso/issues/1710
+@cross-check-integrity
 test uniq_constraint {
     CREATE TABLE test (id INTEGER unique);
     insert into test values (1);
@@ -844,6 +902,7 @@ expect error {
     UNIQUE constraint failed: test.id \(19\)
 }
 
+@cross-check-integrity
 test insert-explicit-rowid-conflict {
     create table t (x);
     insert into t(rowid, x) values (1, 1);
@@ -854,6 +913,7 @@ expect error {
 }
 
 # RETURNING clause tests
+@cross-check-integrity
 test returning-basic-column {
     CREATE TABLE test (id INTEGER, name TEXT, value REAL);
     INSERT INTO test (id, name, value) VALUES (1, 'test', 10.5) RETURNING id;
@@ -862,6 +922,7 @@ expect {
     1
 }
 
+@cross-check-integrity
 test returning-multiple-columns {
     CREATE TABLE test (id INTEGER, name TEXT, value REAL);
     INSERT INTO test (id, name, value) VALUES (1, 'test', 10.5) RETURNING id, name;
@@ -870,6 +931,7 @@ expect {
     1|test
 }
 
+@cross-check-integrity
 test returning-all-columns {
     CREATE TABLE test (id INTEGER, name TEXT, value REAL);
     INSERT INTO test (id, name, value) VALUES (1, 'test', 10.5) RETURNING *;
@@ -878,6 +940,7 @@ expect {
     1|test|10.5
 }
 
+@cross-check-integrity
 test returning-literal {
     CREATE TABLE test (id INTEGER);
     INSERT INTO test (id) VALUES (1) RETURNING 42;
@@ -886,6 +949,7 @@ expect {
     42
 }
 
+@cross-check-integrity
 test returning-arithmetic {
     CREATE TABLE test (id INTEGER, value INTEGER);
     INSERT INTO test (id, value) VALUES (1, 10) RETURNING 2 * value;
@@ -894,6 +958,7 @@ expect {
     20
 }
 
+@cross-check-integrity
 test returning-complex-expression {
     CREATE TABLE test (id INTEGER, x INTEGER, y INTEGER);
     INSERT INTO test (id, x, y) VALUES (1, 5, 3) RETURNING x + y * 2;
@@ -902,6 +967,7 @@ expect {
     11
 }
 
+@cross-check-integrity
 test returning-function-call {
     CREATE TABLE test (id INTEGER, name TEXT);
     INSERT INTO test (id, name) VALUES (1, 'hello') RETURNING upper(name);
@@ -910,6 +976,7 @@ expect {
     HELLO
 }
 
+@cross-check-integrity
 test returning-mixed-expressions {
     CREATE TABLE test (id INTEGER, name TEXT, value INTEGER);
     INSERT INTO test (id, name, value) VALUES (1, 'test', 10) RETURNING id, upper(name), value * 3;
@@ -918,6 +985,7 @@ expect {
     1|TEST|30
 }
 
+@cross-check-integrity
 test returning-multiple-rows {
     CREATE TABLE test (id INTEGER, name TEXT);
     INSERT INTO test (id, name) VALUES (1, 'first'), (2, 'second') RETURNING id, name;
@@ -927,6 +995,7 @@ expect {
     2|second
 }
 
+@cross-check-integrity
 test returning-with-autoincrement {
     CREATE TABLE test (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT);
     INSERT INTO test (name) VALUES ('test') RETURNING id, name;
@@ -935,6 +1004,7 @@ expect {
     1|test
 }
 
+@cross-check-integrity
 test returning-rowid {
     CREATE TABLE test (name TEXT);
     INSERT INTO test (name) VALUES ('test') RETURNING rowid, name;
@@ -943,6 +1013,7 @@ expect {
     1|test
 }
 
+@cross-check-integrity
 test returning-null-values {
     CREATE TABLE test (id INTEGER, name TEXT, value INTEGER);
     INSERT INTO test (id, name, value) VALUES (1, NULL, NULL) RETURNING id, name, value;
@@ -951,6 +1022,7 @@ expect {
     1||
 }
 
+@cross-check-integrity
 test null-insert-in-nulltype-column-notnull-constraint {
     CREATE TABLE test (id INTEGER,name NULL NOT NULL);
     INSERT INTO test (id, name) VALUES (1, NULL);
@@ -959,6 +1031,7 @@ expect error {
     NOT NULL constraint failed
 }
 
+@cross-check-integrity
 test returning-true-literal {
     CREATE TABLE test (id INTEGER, value TEXT);
     INSERT INTO test (id, value) VALUES (1, true) RETURNING id, value;
@@ -967,6 +1040,7 @@ expect {
     1|1
 }
 
+@cross-check-integrity
 test returning-false-literal {
     CREATE TABLE test (id INTEGER, value TEXT);
     INSERT INTO test (id, value) VALUES (1, false) RETURNING id, value;
@@ -975,6 +1049,7 @@ expect {
     1|0
 }
 
+@cross-check-integrity
 test boolean-literal-edgecase {
     CREATE TABLE true (id INTEGER, value TEXT);
     INSERT INTO true (id, value) VALUES (1, true) RETURNING id, value;
@@ -983,6 +1058,7 @@ expect {
     1|1
 }
 
+@cross-check-integrity
 test boolean-literal-edgecase-false {
     CREATE TABLE false (id INTEGER, true TEXT);
     INSERT INTO false (id, true) VALUES (1, false) RETURNING id, false;
@@ -991,6 +1067,7 @@ expect {
     1|0
 }
 
+@cross-check-integrity
 test default-values-population {
     CREATE TABLE t (x INTEGER PRIMARY KEY, y DEFAULT 666, z);
     INSERT INTO t DEFAULT VALUES;
@@ -1002,6 +1079,7 @@ expect {
     2|666|
 }
 
+@cross-check-integrity
 test set-explicit-null-default-value {
     CREATE TABLE t (id INTEGER PRIMARY KEY, x DEFAULT 1);
     INSERT INTO t(id, x) VALUES (1, 2);
@@ -1014,6 +1092,7 @@ expect {
     1|
 }
 
+@cross-check-integrity
 test insert-select-nested-subquery {
     CREATE TABLE t (x);
     INSERT INTO T VALUES (1);
@@ -1026,6 +1105,7 @@ expect {
 }
 
 # Regression test for: https://github.com/tursodatabase/turso/issues/3567 (used to panic, now returns unique constraint error)
+@cross-check-integrity
 test insert-rowid-select-rowid {
     CREATE TABLE t(a);
     INSERT INTO t VALUES (1);
@@ -1034,6 +1114,7 @@ test insert-rowid-select-rowid {
 expect error {
 }
 
+@cross-check-integrity
 test insert-rowidalias-select-rowid {
     CREATE TABLE t(a INTEGER PRIMARY KEY);
     INSERT INTO t VALUES (1);
@@ -1042,6 +1123,7 @@ test insert-rowidalias-select-rowid {
 expect error {
 }
 
+@cross-check-integrity
 test insert-rowid-select-rowid-success {
     CREATE TABLE t(a);
     INSERT INTO t VALUES (2);
@@ -1056,6 +1138,7 @@ expect {
 # Due to a bug in SQLite, this check is needed to maintain backwards compatibility with rowid alias
 # SQLite docs: https://sqlite.org/lang_createtable.html#rowids_and_the_integer_primary_key
 # Issue: https://github.com/tursodatabase/turso/issues/3665
+@cross-check-integrity
 test insert-rowid-backwards-compability {
     CREATE TABLE t(a INTEGER PRIMARY KEY DESC);
     INSERT INTO t(a) VALUES (123);
@@ -1065,6 +1148,7 @@ expect {
     1|123
 }
 
+@cross-check-integrity
 test insert-rowid-backwards-compability-2 {
     CREATE TABLE t(a INTEGER, PRIMARY KEY (a DESC));
     INSERT INTO t(a) VALUES (123);
@@ -1074,6 +1158,7 @@ expect {
     123|123
 }
 
+@cross-check-integrity
 test ignore-pk-conflict {
     CREATE TABLE t(a INTEGER PRIMARY KEY);
     INSERT INTO t VALUES (1),(2),(3);
@@ -1086,6 +1171,7 @@ expect {
     3
 }
 
+@cross-check-integrity
 test ignore-unique-conflict {
     CREATE TABLE t(a INTEGER, b TEXT UNIQUE);
     INSERT INTO t VALUES (1,'x'),(2,'y');
@@ -1097,6 +1183,7 @@ expect {
     2|y
 }
 
+@cross-check-integrity
 test ignore-multi-unique-conflict {
     CREATE TABLE t(a UNIQUE, b UNIQUE, c);
     INSERT INTO t VALUES (1,10,100),(2,20,200);
@@ -1110,6 +1197,7 @@ expect {
     2|20|200
 }
 
+@cross-check-integrity
 test ignore-some-conflicts-multirow {
     CREATE TABLE t(a INTEGER UNIQUE);
     INSERT INTO t VALUES (2),(4);
@@ -1124,6 +1212,7 @@ expect {
     5
 }
 
+@cross-check-integrity
 test ignore-from-select {
     CREATE TABLE src(x);
     INSERT INTO src VALUES (1),(2),(2),(3);
@@ -1138,6 +1227,7 @@ expect {
     3
 }
 
+@cross-check-integrity
 test ignore-null-in-unique {
     CREATE TABLE t(a INTEGER UNIQUE);
     INSERT INTO t VALUES (1),(NULL),(NULL);
@@ -1148,6 +1238,7 @@ expect {
     3
 }
 
+@cross-check-integrity
 test ignore-preserves-rowid {
     CREATE TABLE t(data TEXT UNIQUE);
     INSERT INTO t VALUES ('x'),('y'),('z');
@@ -1160,6 +1251,7 @@ expect {
     2|y
 }
 
+@cross-check-integrity
 test ignore-intra-statement-dups {
     CREATE TABLE t(a INTEGER PRIMARY KEY, b TEXT);
     INSERT OR IGNORE INTO t VALUES (5,'first'),(6,'x'),(5,'second'),(5,'third');
@@ -1171,6 +1263,7 @@ expect {
 }
 
 # Tests for incorrect provided column count
+@cross-check-integrity
 test wrong-column-count-values-too-few {
     CREATE TABLE t(a, b, c);
     INSERT INTO t VALUES (1, 2);
@@ -1178,6 +1271,7 @@ test wrong-column-count-values-too-few {
 expect error {
 }
 
+@cross-check-integrity
 test wrong-column-count-values-too-many {
     CREATE TABLE t(a, b);
     INSERT INTO t VALUES (1, 2, 3);
@@ -1185,6 +1279,7 @@ test wrong-column-count-values-too-many {
 expect error {
 }
 
+@cross-check-integrity
 test wrong-column-count-values-specified-columns-too-few {
     CREATE TABLE t(a, b, c);
     INSERT INTO t(a, b, c) VALUES (1, 2);
@@ -1192,6 +1287,7 @@ test wrong-column-count-values-specified-columns-too-few {
 expect error {
 }
 
+@cross-check-integrity
 test wrong-column-count-values-specified-columns-too-many {
     CREATE TABLE t(a, b);
     INSERT INTO t(a, b) VALUES (1, 2, 3);
@@ -1199,6 +1295,7 @@ test wrong-column-count-values-specified-columns-too-many {
 expect error {
 }
 
+@cross-check-integrity
 test wrong-column-count-select-named-too-few {
     CREATE TABLE src(x, y);
     INSERT INTO src VALUES (1, 2);
@@ -1208,6 +1305,7 @@ test wrong-column-count-select-named-too-few {
 expect error {
 }
 
+@cross-check-integrity
 test wrong-column-count-select-named-too-many {
     CREATE TABLE src(x, y, z);
     INSERT INTO src VALUES (1, 2, 3);
@@ -1217,6 +1315,7 @@ test wrong-column-count-select-named-too-many {
 expect error {
 }
 
+@cross-check-integrity
 test wrong-column-count-select-star-too-few {
     CREATE TABLE src(x, y);
     INSERT INTO src VALUES (1, 2);
@@ -1226,6 +1325,7 @@ test wrong-column-count-select-star-too-few {
 expect error {
 }
 
+@cross-check-integrity
 test wrong-column-count-select-star-too-many {
     CREATE TABLE src(x, y, z);
     INSERT INTO src VALUES (1, 2, 3);
@@ -1235,6 +1335,7 @@ test wrong-column-count-select-star-too-many {
 expect error {
 }
 
+@cross-check-integrity
 test wrong-column-count-specified-columns-select-mismatch {
     CREATE TABLE src(x, y, z);
     INSERT INTO src VALUES (1, 2, 3);
@@ -1244,6 +1345,7 @@ test wrong-column-count-specified-columns-select-mismatch {
 expect error {
 }
 
+@cross-check-integrity
 test wrong-column-count-partial-columns-values-too-few {
     CREATE TABLE t(a, b, c);
     INSERT INTO t(b, c) VALUES (2);
@@ -1251,6 +1353,7 @@ test wrong-column-count-partial-columns-values-too-few {
 expect error {
 }
 
+@cross-check-integrity
 test wrong-column-count-partial-columns-values-too-many {
     CREATE TABLE t(a, b, c);
     INSERT INTO t(a) VALUES (1, 2);
@@ -1259,6 +1362,7 @@ expect error {
 }
 
 # https://github.com/tursodatabase/turso/issues/3951
+@cross-check-integrity
 test insert-999999999 {
     create table t(a);
     insert into t(a, a) values (2, 3);
@@ -1268,6 +1372,7 @@ expect {
     2
 }
 
+@cross-check-integrity
 test insert-on-conflict-do-nothing-single-row {
     CREATE TABLE t(a unique, b text);
     INSERT INTO t VALUES (2, 'foo'),(3, 'bar');
@@ -1279,6 +1384,7 @@ expect {
     3|bar
 }
 
+@cross-check-integrity
 test insert-on-conflict-replace-single-row {
     CREATE TABLE t(a unique, b text);
     INSERT INTO t VALUES (2, 'foo'),(3, 'bar');
@@ -1290,6 +1396,7 @@ expect {
     3|bar
 }
 
+@cross-check-integrity
 test insert-on-conflict-do-nothing-multiple-rows {
     CREATE TABLE t(a unique);
     INSERT INTO t VALUES (2),(3);
@@ -1302,6 +1409,7 @@ expect {
     3
 }
 
+@cross-check-integrity
 test onconflict-ignore-existing {
     CREATE TABLE t(a INTEGER UNIQUE, b TEXT);
     INSERT INTO t VALUES (1,'x'),(2,'y');
@@ -1314,6 +1422,7 @@ expect {
     3|z
 }
 
+@cross-check-integrity
 test onconflict-ignore-selfdup-values {
     CREATE TABLE t(a INTEGER UNIQUE, b TEXT);
     INSERT OR IGNORE INTO t VALUES (1,'one'),(1,'two'),(1,'three');
@@ -1323,6 +1432,7 @@ expect {
     1|one
 }
 
+@cross-check-integrity
 test onconflict-ignore-selfdup-values-targeted {
     CREATE TABLE t(a INTEGER PRIMARY KEY, b INTEGER UNIQUE);
     INSERT INTO t(a,b) VALUES (100,1);
@@ -1333,6 +1443,7 @@ expect {
     100|1
 }
 
+@cross-check-integrity
 test onconflict-ignore-selfdup-multirow-targeted {
     CREATE TABLE t(a INTEGER PRIMARY KEY, b INTEGER UNIQUE);
     INSERT INTO t(a,b) VALUES (1,10),(2,20);
@@ -1345,6 +1456,7 @@ expect {
     3|30
 }
 
+@cross-check-integrity
 test onconflict-replace-existing {
     CREATE TABLE t(a INTEGER UNIQUE, b TEXT);
     INSERT INTO t VALUES (1,'x'),(2,'y');
@@ -1357,6 +1469,7 @@ expect {
     3|z
 }
 
+@cross-check-integrity
 test onconflict-replace-selfdup-values-lastwins {
     CREATE TABLE t(a INTEGER UNIQUE, b TEXT);
     INSERT OR REPLACE INTO t VALUES (5,'one'),(5,'two'),(5,'three');
@@ -1366,6 +1479,7 @@ expect {
     5|three
 }
 
+@cross-check-integrity
 test onconflict-replace-existing-then-selfdup-lastwins {
     CREATE TABLE t(a INTEGER UNIQUE, b TEXT);
     INSERT INTO t VALUES (5,'orig');
@@ -1376,6 +1490,7 @@ expect {
     5|second
 }
 
+@cross-check-integrity
 test onconflict-replace-pk-rowid-alias {
     CREATE TABLE t(a INTEGER PRIMARY KEY, b TEXT);
     INSERT OR REPLACE INTO t(a,b) VALUES (1,'foo'),(1,'bar');
@@ -1385,6 +1500,7 @@ expect {
     1|bar
 }
 
+@cross-check-integrity
 test onconflict-replace-from-select-selfdup {
     CREATE TABLE src(x);
     INSERT INTO src VALUES (1),(1),(2);
@@ -1397,6 +1513,7 @@ expect {
     2
 }
 
+@cross-check-integrity
 test onconflict-replace-notnull-default-existing-null {
     CREATE TABLE t(
     a INTEGER PRIMARY KEY,
@@ -1410,6 +1527,7 @@ expect {
     1|d
 }
 
+@cross-check-integrity
 test onconflict-replace-notnull-default-existing-omit {
     CREATE TABLE t(
     a INTEGER PRIMARY KEY,
@@ -1431,6 +1549,7 @@ setup table_t {
 }
 
 @setup table_t
+@cross-check-integrity
 test test-1_1 {
     INSERT OR REPLACE INTO t(a,b) VALUES (1,NULL);
 }
@@ -1445,6 +1564,7 @@ expect {
     1|x
 }
 
+@cross-check-integrity
 test onconflict-replace-composite-unique-existing {
     CREATE TABLE t(
     a INTEGER,
@@ -1461,6 +1581,7 @@ expect {
     1|2|yy
 }
 
+@cross-check-integrity
 test onconflict-replace-composite-unique-selfdup-lastwins {
     CREATE TABLE t(
     a INTEGER,
@@ -1478,6 +1599,7 @@ expect {
     1|1|three
 }
 
+@cross-check-integrity
 test onconflict-replace-unique-index-existing {
     CREATE TABLE t(a INTEGER, b TEXT);
     CREATE UNIQUE INDEX t_a_u ON t(a);
@@ -1491,6 +1613,7 @@ expect {
     3|z
 }
 
+@cross-check-integrity
 test onconflict-replace-unique-index-selfdup-lastwins {
     CREATE TABLE t(a INTEGER, b TEXT);
     CREATE UNIQUE INDEX t_a_u ON t(a);
@@ -1502,6 +1625,7 @@ expect {
 }
 
 @skip-if mvcc "not supported in MVCC mode"
+@cross-check-integrity
 test partial-expr-index-upsert-conflict {
     CREATE TABLE t(
         id INTEGER PRIMARY KEY,
@@ -1519,6 +1643,7 @@ expect error {
 }
 
 @skip-if mvcc "not supported in MVCC mode"
+@cross-check-integrity
 test partial-expr-index-update-removes-entry {
     CREATE TABLE t(
         id INTEGER PRIMARY KEY,
@@ -1538,6 +1663,7 @@ expect {
 }
 
 @skip-if mvcc "not supported in MVCC mode"
+@cross-check-integrity
 test partial-expr-index-delete-clears-entry {
     CREATE TABLE t(
         id INTEGER PRIMARY KEY,
@@ -1555,6 +1681,7 @@ expect {
     FOO|4|3
 }
 
+@cross-check-integrity
 test collate-unique-index-upsert {
     CREATE TABLE co (name TEXT, v);
     CREATE UNIQUE INDEX co_name_nocase ON co(name COLLATE NOCASE);
@@ -1568,6 +1695,7 @@ expect {
 }
 
 @requires trigger "uses trigger"
+@cross-check-integrity
 test upsert-fires-after-update-trigger {
     CREATE TABLE t(id INTEGER PRIMARY KEY, val INT);
     CREATE TABLE log(msg TEXT);
@@ -1581,6 +1709,7 @@ expect {
 }
 
 @requires trigger "uses trigger"
+@cross-check-integrity
 test upsert-fires-before-update-trigger {
     CREATE TABLE t(id INTEGER PRIMARY KEY, val INT);
     CREATE TABLE log(msg TEXT);
@@ -1594,6 +1723,7 @@ expect {
 }
 
 @requires trigger "uses trigger"
+@cross-check-integrity
 test upsert-fires-after-update-trigger-2 {
     CREATE TABLE t(id INTEGER PRIMARY KEY, val INT);
     CREATE TABLE log(msg TEXT);
@@ -1607,6 +1737,7 @@ expect {
 }
 
 @requires trigger "uses trigger"
+@cross-check-integrity
 test upsert-fires-before-and-after-triggers {
     CREATE TABLE t(id INTEGER PRIMARY KEY, val INT);
     CREATE TABLE log(seq INTEGER PRIMARY KEY, msg TEXT);
@@ -1623,6 +1754,7 @@ expect {
 
 @requires trigger "uses trigger"
 @skip-if mvcc "not supported in MVCC mode"
+@cross-check-integrity
 test upsert-trigger-causes-fk-violation {
     PRAGMA foreign_keys=ON;
     CREATE TABLE parent(id PRIMARY KEY);
@@ -1638,6 +1770,7 @@ expect error {
 }
 
 # INSERT OR IGNORE with NOT NULL constraint violation tests
+@cross-check-integrity
 test ignore-notnull-single-row {
     CREATE TABLE t(a INTEGER, b INT NOT NULL, c INTEGER);
     INSERT OR IGNORE INTO t VALUES (1, NULL, 3);
@@ -1646,6 +1779,7 @@ test ignore-notnull-single-row {
 expect {
 }
 
+@cross-check-integrity
 test ignore-notnull-multi-row {
     CREATE TABLE t(a INTEGER, b INT NOT NULL, c INTEGER);
     INSERT OR IGNORE INTO t VALUES (1, 2, 3), (4, NULL, 6), (7, 8, 9);
@@ -1656,6 +1790,7 @@ expect {
     7|8|9
 }
 
+@cross-check-integrity
 test ignore-notnull-all-null {
     CREATE TABLE t(a INTEGER, b INT NOT NULL);
     INSERT OR IGNORE INTO t VALUES (1, NULL), (2, NULL), (3, NULL);
@@ -1664,6 +1799,7 @@ test ignore-notnull-all-null {
 expect {
 }
 
+@cross-check-integrity
 test ignore-notnull-multiple-notnull-cols {
     CREATE TABLE t(a INT NOT NULL, b INT NOT NULL, c INTEGER);
     INSERT OR IGNORE INTO t VALUES (1, 2, 3), (NULL, 5, 6), (7, NULL, 9), (10, 11, 12);
@@ -1674,6 +1810,7 @@ expect {
     10|11|12
 }
 
+@cross-check-integrity
 test ignore-notnull-from-select {
     CREATE TABLE src(x, y, z);
     INSERT INTO src VALUES (1, 2, 3), (4, NULL, 6), (7, 8, 9);
@@ -1686,6 +1823,7 @@ expect {
     7|8|9
 }
 
+@cross-check-integrity
 test ignore-notnull-with-unique {
     CREATE TABLE t(a INTEGER UNIQUE, b INT NOT NULL);
     INSERT INTO t VALUES (1, 10);
@@ -1699,6 +1837,7 @@ expect {
 
 # INSERT INTO ... SELECT ... UNION ... tests (GitHub issue #3946)
 # Ensures all rows from all branches of a compound select are inserted
+@cross-check-integrity
 test insert-select-union-all-branches {
     CREATE TABLE t1 (id INTEGER PRIMARY KEY, name TEXT);
     CREATE TABLE t2 (id INTEGER PRIMARY KEY, name TEXT);
@@ -1712,6 +1851,7 @@ expect {
     3|c
 }
 
+@cross-check-integrity
 test insert-select-union-all-all-branches {
     CREATE TABLE t (id INTEGER PRIMARY KEY);
     INSERT INTO t VALUES (1), (2);
@@ -1725,6 +1865,7 @@ expect {
     4
 }
 
+@cross-check-integrity
 test insert-select-union-three-branches {
     CREATE TABLE t1 (id INTEGER PRIMARY KEY, val TEXT);
     CREATE TABLE t2 (id INTEGER PRIMARY KEY, val TEXT);
@@ -1738,6 +1879,7 @@ expect {
     3|c
 }
 
+@cross-check-integrity
 test insert-select-union-with-table-reference {
     CREATE TABLE t(a PRIMARY KEY, b);
     INSERT INTO t VALUES (1, 'x');
@@ -1754,6 +1896,7 @@ expect {
 # SQLite requires values to be STRICTLY between i64::MIN and i64::MAX
 
 # i64::MIN as float literal should fail (boundary value excluded)
+@cross-check-integrity
 test insert-integer-pk-i64-min-float-error {
     CREATE TABLE t (a INTEGER PRIMARY KEY);
     INSERT INTO t VALUES (-9223372036854775808.0);
@@ -1762,6 +1905,7 @@ expect error {
 }
 
 # i64::MAX as float literal should fail (boundary value excluded)
+@cross-check-integrity
 test insert-integer-pk-i64-max-float-error {
     CREATE TABLE t (a INTEGER PRIMARY KEY);
     INSERT INTO t VALUES (9223372036854775807.0);
@@ -1770,6 +1914,7 @@ expect error {
 }
 
 # Values strictly inside i64 range should work
+@cross-check-integrity
 test insert-integer-pk-large-float-ok {
     CREATE TABLE t (a INTEGER PRIMARY KEY);
     INSERT INTO t VALUES (426601719749026560.0);
@@ -1780,6 +1925,7 @@ expect {
 }
 
 # Negative large float inside range should work
+@cross-check-integrity
 test insert-integer-pk-large-negative-float-ok {
     CREATE TABLE t (a INTEGER PRIMARY KEY);
     INSERT INTO t VALUES (-426601719749026560.0);
@@ -1790,6 +1936,7 @@ expect {
 }
 
 # Float near i64::MIN boundary (but inside) should work
+@cross-check-integrity
 test insert-integer-pk-near-min-float-ok {
     CREATE TABLE t (a INTEGER PRIMARY KEY);
     INSERT INTO t VALUES (-9223372036854774784.0);
@@ -1800,6 +1947,7 @@ expect {
 }
 
 # Computed overflow that produces valid float should work
+@cross-check-integrity
 test insert-integer-pk-computed-overflow-ok {
     CREATE TABLE t (a INTEGER PRIMARY KEY);
     INSERT INTO t VALUES (5949738080128696532 * 2434505998659733097 % -586451354473716618);
@@ -1813,6 +1961,7 @@ expect {
 # neighboring index entries. The IdxInsert after conflict resolution must
 # re-seek the cursor (USE_SEEK must be disabled when the conflict path
 # includes IdxDelete, which repositions the cursor). See issue #5131.
+@cross-check-integrity
 test insert-or-replace-unique-index-no-corruption {
     CREATE TABLE t(id INTEGER PRIMARY KEY, a TEXT UNIQUE);
     INSERT INTO t SELECT value, 'a'||value FROM generate_series(1, 134);
@@ -1823,6 +1972,7 @@ expect {
     ok
 }
 
+@cross-check-integrity
 test insert-or-replace-unique-index-no-corruption-2 {
     CREATE TABLE t(a, b, c);
     CREATE UNIQUE INDEX idx ON t(a, b);
@@ -1834,6 +1984,7 @@ expect {
     1
 }
 
+@cross-check-integrity
 test insert-or-replace-data-correctness {
     CREATE TABLE t(id INTEGER PRIMARY KEY, a TEXT UNIQUE);
     INSERT INTO t SELECT value, 'a'||value FROM generate_series(1, 134);
@@ -1843,8 +1994,8 @@ test insert-or-replace-data-correctness {
 expect {
     133|a133
 }
-
 # https://github.com/tursodatabase/turso/issues/5226
+@cross-check-integrity
 test insert-select-nonexistent-column {
     CREATE TABLE t(a);
     INSERT INTO t(x) SELECT a FROM t;
@@ -1853,6 +2004,7 @@ expect error {
 }
 
 # https://github.com/tursodatabase/turso/issues/5278
+@cross-check-integrity
 test insert-select-correlated-subquery-not-in {
     CREATE TABLE products(id INTEGER PRIMARY KEY, price INTEGER, category TEXT);
     CREATE TABLE expensive(id INTEGER PRIMARY KEY, price INTEGER, category TEXT);
@@ -1870,6 +2022,7 @@ expect {
 }
 
 # https://github.com/tursodatabase/turso/issues/3974
+@cross-check-integrity
 test insert-select-multiple-correlated-subqueries {
     CREATE TABLE products(id INTEGER PRIMARY KEY, name TEXT, price REAL);
     CREATE TABLE sales(id INTEGER PRIMARY KEY, product_id INTEGER, quantity INTEGER);
@@ -1897,6 +2050,7 @@ expect @js {
 }
 
 # https://github.com/tursodatabase/turso/issues/3974
+@cross-check-integrity
 test insert-select-two-correlated-subqueries {
     CREATE TABLE p(id INT PRIMARY KEY, x INT);
     CREATE TABLE q(pid INT, val INT);
@@ -1917,6 +2071,7 @@ expect {
     3|300|30
 }
 
+@cross-check-integrity
 test insert-autoincrement-ipk-index-sync {
     CREATE TABLE v0 (c1 INTEGER PRIMARY KEY AUTOINCREMENT, c2 TEXT);
     CREATE INDEX i3 ON v0 (c1);
@@ -1928,6 +2083,7 @@ expect {
     ok
 }
 
+@cross-check-integrity
 test insert-ipk-index-no-autoincrement {
     CREATE TABLE t_ipk (c1 INTEGER PRIMARY KEY, c2 TEXT);
     CREATE INDEX idx_ipk ON t_ipk (c1);
@@ -1939,6 +2095,7 @@ expect {
     ok
 }
 
+@cross-check-integrity
 test insert-ipk-index-explicit-value {
     CREATE TABLE t_ipk2 (c1 INTEGER PRIMARY KEY, c2 TEXT);
     CREATE INDEX idx_ipk2 ON t_ipk2 (c1);

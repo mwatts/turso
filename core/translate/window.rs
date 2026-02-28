@@ -215,6 +215,7 @@ fn prepare_window_subquery(
         values: vec![],
         window: None,
         non_from_clause_subqueries: vec![],
+        estimated_output_rows: None,
     };
 
     prepare_window_subquery(
@@ -253,8 +254,18 @@ fn append_order_by(
     sort_order: &SortOrder,
     ctx: &mut WindowSubqueryContext,
 ) -> crate::Result<()> {
-    ctx.subquery_order_by
-        .push((Box::new(expr.clone()), *sort_order));
+    // Deduplicate: if an equivalent expression already exists in the subquery ORDER BY,
+    // skip adding it again. This can happen when the same column appears in both
+    // PARTITION BY and ORDER BY (e.g. OVER (PARTITION BY a ORDER BY a)), and prevents
+    // the optimizer assertion group_by.exprs.len() >= order_by.len() from being violated.
+    let already_exists = ctx
+        .subquery_order_by
+        .iter()
+        .any(|(existing, _)| exprs_are_equivalent(existing, expr));
+    if !already_exists {
+        ctx.subquery_order_by
+            .push((Box::new(expr.clone()), *sort_order));
+    }
 
     let contains_aggregates =
         resolve_window_and_aggregate_functions(expr, ctx.resolver, &mut plan.aggregates, None)?;
@@ -540,6 +551,7 @@ pub fn init_window<'a>(
         t_ctx.resolver.expr_to_reg_cache.push((
             std::borrow::Cow::Borrowed(&func.original_expr),
             reg_acc_result_start + i,
+            false,
         ));
     }
 
@@ -551,10 +563,11 @@ pub fn init_window<'a>(
         collect_expressions_referencing_subquery(result_columns, order_by, &src_table.internal_id)?;
     let reg_col_start = program.alloc_registers(expressions_referencing_subquery.len());
     for (i, (expr, _)) in expressions_referencing_subquery.iter().enumerate() {
-        t_ctx
-            .resolver
-            .expr_to_reg_cache
-            .push((std::borrow::Cow::Borrowed(expr), reg_col_start + i));
+        t_ctx.resolver.expr_to_reg_cache.push((
+            std::borrow::Cow::Borrowed(expr),
+            reg_col_start + i,
+            false,
+        ));
     }
 
     t_ctx.meta_window = Some(WindowMetadata {

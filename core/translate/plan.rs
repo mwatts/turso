@@ -1,4 +1,5 @@
 use rustc_hash::FxHashMap as HashMap;
+use smallvec::SmallVec;
 use std::{cmp::Ordering, marker::PhantomData, sync::Arc};
 use turso_parser::ast::{
     self, FrameBound, FrameClause, FrameExclude, FrameMode, ResolveType, SortOrder, SubqueryType,
@@ -81,13 +82,13 @@ impl ResultSetColumn {
                         .as_deref()
                 } else {
                     // Column references an outer query table (correlated subquery).
-                    let (_, table_ref) = tables.find_table_by_internal_id(*table).unwrap();
-                    table_ref.get_column_at(*column).unwrap().name.as_deref()
+                    let (_, table_ref) = tables.find_table_by_internal_id(*table)?;
+                    table_ref.get_column_at(*column)?.name.as_deref()
                 }
             }
             ast::Expr::RowId { table, .. } => {
                 // If there is a rowid alias column, use its name
-                let (_, table_ref) = tables.find_table_by_internal_id(*table).unwrap();
+                let (_, table_ref) = tables.find_table_by_internal_id(*table)?;
                 if let Table::BTree(table) = &table_ref {
                     if let Some(rowid_alias_column) = table.get_rowid_alias_column() {
                         if let Some(name) = &rowid_alias_column.1.name {
@@ -490,6 +491,9 @@ pub struct SelectPlan {
     pub window: Option<Window>,
     /// Subqueries that appear in any part of the query apart from the FROM clause
     pub non_from_clause_subqueries: Vec<NonFromClauseSubquery>,
+    /// Estimated output rows from the optimizer's join order computation.
+    /// Used to propagate cardinality estimates for CTE/subquery tables.
+    pub estimated_output_rows: Option<f64>,
 }
 
 impl SelectPlan {
@@ -524,14 +528,13 @@ impl SelectPlan {
     pub fn is_simple_count(&self) -> bool {
         if !self.where_clause.is_empty()
             || self.aggregates.len() != 1
-            || matches!(
-                self.query_destination,
-                QueryDestination::CoroutineYield { .. }
-            )
+            || !matches!(self.query_destination, QueryDestination::ResultRows)
             || self.table_references.joined_tables().len() != 1
             || !self.table_references.outer_query_refs().is_empty()
             || self.result_columns.len() != 1
             || self.group_by.is_some()
+            || self.limit.is_some()
+            || self.offset.is_some()
             || self.contains_constant_false_condition
         // TODO: (pedrocarlo) maybe can optimize to use the count optmization with more columns
         {
@@ -571,6 +574,43 @@ impl SelectPlan {
     }
 }
 
+/// Why an UPDATE/DELETE must gather target rowids first, then apply writes.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum DmlSafetyReason {
+    /// Triggers exist, so we lock in target rows before writing.
+    Trigger,
+    /// WHERE has a subquery, so we lock in target rows before writing.
+    SubqueryInWhere,
+    /// The plan reads rowids from multiple index branches (multi-index scan).
+    MultiIndexScan,
+    /// REPLACE may delete conflicting rows while we are scanning.
+    ReplaceMode,
+    /// The statement updates key columns used by the scan itself.
+    KeyMutation,
+    /// The index method cursor does not materialize results up front,
+    /// so writes could invalidate the live iterator.
+    IndexMethodNotMaterialized,
+}
+
+/// Safety decisions made while planning UPDATE/DELETE.
+#[derive(Debug, Clone, Default)]
+pub struct DmlSafety {
+    /// Why the safer "collect first, write later" mode was enabled.
+    pub reasons: SmallVec<[DmlSafetyReason; 2]>,
+}
+
+impl DmlSafety {
+    pub fn requires_stable_write_set(&self) -> bool {
+        !self.reasons.is_empty()
+    }
+
+    pub fn require(&mut self, reason: DmlSafetyReason) {
+        if !self.reasons.contains(&reason) {
+            self.reasons.push(reason);
+        }
+    }
+}
+
 #[allow(dead_code)]
 #[derive(Debug, Clone)]
 pub struct DeletePlan {
@@ -589,13 +629,14 @@ pub struct DeletePlan {
     pub contains_constant_false_condition: bool,
     /// Indexes that must be updated by the delete operation.
     pub indexes: Vec<Arc<Index>>,
-    /// If there are DELETE triggers, materialize rowids into a RowSet first.
-    /// This ensures triggers see a stable set of rows to delete.
+    /// When DELETE cannot safely write while scanning, we first collect rowids into a RowSet.
     pub rowset_plan: Option<SelectPlan>,
     /// Register ID for the RowSet (if rowset_plan is Some)
     pub rowset_reg: Option<usize>,
     /// Subqueries that appear in the WHERE clause (for non-rowset path)
     pub non_from_clause_subqueries: Vec<NonFromClauseSubquery>,
+    /// Whether this DELETE plan uses the safer pre-materialization path, and why.
+    pub safety: DmlSafety,
 }
 
 #[derive(Debug, Clone)]
@@ -624,6 +665,8 @@ pub struct UpdatePlan {
     pub cdc_update_alter_statement: Option<String>,
     /// Subqueries that appear in the WHERE clause (for non-ephemeral path)
     pub non_from_clause_subqueries: Vec<NonFromClauseSubquery>,
+    /// Whether this UPDATE plan uses the safer pre-materialization path, and why.
+    pub safety: DmlSafety,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -632,8 +675,27 @@ pub enum IterationDirection {
     Backwards,
 }
 
-pub fn select_star(tables: &[JoinedTable], out_columns: &mut Vec<ResultSetColumn>) {
-    for table in tables.iter() {
+pub fn select_star(
+    tables: &[JoinedTable],
+    out_columns: &mut Vec<ResultSetColumn>,
+    right_join_swapped: bool,
+) {
+    // RIGHT JOIN swapped tables; iterate in reverse to restore original column order.
+    let table_iter: Vec<&JoinedTable> = if right_join_swapped {
+        tables.iter().rev().collect()
+    } else {
+        tables.iter().collect()
+    };
+    for table in table_iter {
+        // Semi/anti-join tables are internal (from EXISTS/NOT EXISTS unnesting)
+        // and should not contribute columns to SELECT *.
+        if table
+            .join_info
+            .as_ref()
+            .is_some_and(|ji| ji.is_semi_or_anti())
+        {
+            continue;
+        }
         out_columns.extend(
             table
                 .columns()
@@ -667,13 +729,52 @@ pub fn select_star(tables: &[JoinedTable], out_columns: &mut Vec<ResultSetColumn
     }
 }
 
+/// The type of join between two tables.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum JoinType {
+    Inner,
+    LeftOuter,
+    FullOuter,
+    /// Semi-join: keep outer row if inner match found (EXISTS).
+    Semi,
+    /// Anti-join: keep outer row if NO inner match found (NOT EXISTS).
+    Anti,
+}
+
 /// Join information for a table reference.
 #[derive(Debug, Clone)]
 pub struct JoinInfo {
-    /// Whether this is an OUTER JOIN.
-    pub outer: bool,
+    /// The type of join.
+    pub join_type: JoinType,
     /// The USING clause for the join, if any. NATURAL JOIN is transformed into USING (col1, col2, ...).
     pub using: Vec<ast::Name>,
+}
+
+impl JoinInfo {
+    /// Whether this is an OUTER JOIN (LEFT OUTER or FULL OUTER).
+    pub fn is_outer(&self) -> bool {
+        matches!(self.join_type, JoinType::LeftOuter | JoinType::FullOuter)
+    }
+
+    /// Whether this is a FULL OUTER JOIN.
+    pub fn is_full_outer(&self) -> bool {
+        self.join_type == JoinType::FullOuter
+    }
+
+    /// Whether this is a semi-join (EXISTS).
+    pub fn is_semi(&self) -> bool {
+        self.join_type == JoinType::Semi
+    }
+
+    /// Whether this is an anti-join (NOT EXISTS).
+    pub fn is_anti(&self) -> bool {
+        self.join_type == JoinType::Anti
+    }
+
+    /// Whether this is a semi-join or anti-join (EXISTS/NOT EXISTS).
+    pub fn is_semi_or_anti(&self) -> bool {
+        matches!(self.join_type, JoinType::Semi | JoinType::Anti)
+    }
 }
 
 /// A joined table in the query plan.
@@ -685,7 +786,7 @@ pub struct JoinInfo {
 /// - all have [Operation::Scan]
 /// - identifiers are `t`, `p`, `sub`
 /// - `t` and `p` are [Table::BTree] while `sub` is [Table::FromClauseSubquery]
-/// - join_info is None for the first table reference, and Some(JoinInfo { outer: false, using: None }) for the second and third table references
+/// - join_info is None for the first table reference, and Some(JoinInfo { join_type: JoinType::Inner, using: vec![] }) for the second and third table references
 #[derive(Debug, Clone)]
 pub struct JoinedTable {
     /// The operation that this table reference performs.
@@ -791,6 +892,9 @@ pub struct TableReferences {
     joined_tables: Vec<JoinedTable>,
     /// Tables from outer scopes that are referenced in this query scope.
     outer_query_refs: Vec<OuterQueryReference>,
+    /// Set when a RIGHT JOIN is rewritten as LEFT JOIN by swapping the two tables,
+    /// so `select_star` emits columns in the original user-visible order.
+    right_join_swapped: bool,
 }
 
 impl TableReferences {
@@ -806,17 +910,29 @@ impl TableReferences {
         Self {
             joined_tables,
             outer_query_refs,
+            right_join_swapped: false,
         }
     }
     pub fn new_empty() -> Self {
         Self {
             joined_tables: Vec::new(),
             outer_query_refs: Vec::new(),
+            right_join_swapped: false,
         }
     }
 
     pub fn is_empty(&self) -> bool {
         self.joined_tables.is_empty() && self.outer_query_refs.is_empty()
+    }
+
+    /// Mark that tables were swapped for a RIGHT-to-LEFT JOIN rewrite.
+    pub fn set_right_join_swapped(&mut self) {
+        self.right_join_swapped = true;
+    }
+
+    /// Whether tables were swapped for a RIGHT JOIN rewrite.
+    pub fn right_join_swapped(&self) -> bool {
+        self.right_join_swapped
     }
 
     /// Add a new [JoinedTable] to the query plan.
@@ -927,6 +1043,25 @@ impl TableReferences {
                 self.outer_query_refs
                     .iter()
                     .find(|t| t.identifier == identifier)
+                    .map(|t| &t.table)
+            })
+    }
+
+    /// Returns an immutable reference to the first [Table] whose underlying
+    /// table name matches `name`. Unlike [find_table_by_identifier], this
+    /// searches by the base table name (e.g. "t1") rather than the alias
+    /// (e.g. "a"). This is needed when looking up column metadata for
+    /// ephemeral auto-indexes, whose `table_name` field stores the base name
+    /// while the table reference may be aliased.
+    pub fn find_table_by_table_name(&self, name: &str) -> Option<&Table> {
+        self.joined_tables
+            .iter()
+            .find(|t| t.table.get_name() == name)
+            .map(|t| &t.table)
+            .or_else(|| {
+                self.outer_query_refs
+                    .iter()
+                    .find(|t| t.table.get_name() == name)
                     .map(|t| &t.table)
             })
     }
@@ -1236,6 +1371,17 @@ impl HashJoinKey {
     }
 }
 
+/// Hash join semantics. Build = LHS (populates hash table), Probe = RHS (scanned).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum HashJoinType {
+    /// Only matching rows emitted.
+    Inner,
+    /// All build rows appear; unmatched build rows get NULLs for the probe side.
+    LeftOuter,
+    /// Like LeftOuter, plus unmatched probe rows get NULLs for the build side.
+    FullOuter,
+}
+
 /// Hash join operation metadata
 #[derive(Debug, Clone)]
 pub struct HashJoinOp {
@@ -1252,6 +1398,8 @@ pub struct HashJoinOp {
     pub materialize_build_input: bool,
     /// Whether to use a bloom filter on the probe side.
     pub use_bloom_filter: bool,
+    /// Join semantics (inner, left outer, or full outer).
+    pub join_type: HashJoinType,
 }
 
 /// Distinguishes union (OR) from intersection (AND) operations for multi-index scans.
@@ -1453,17 +1601,10 @@ impl JoinedTable {
             }
         };
 
-        // Validate explicit column count if provided
-        if let Some(cols) = explicit_columns {
-            if cols.len() != result_columns.len() {
-                crate::bail_parse_error!(
-                    "table {} has {} columns but {} column names were provided",
-                    identifier,
-                    result_columns.len(),
-                    cols.len()
-                );
-            }
-        }
+        // Note: column count validation (explicit_columns.len() vs result_columns.len())
+        // is intentionally NOT done here. SQLite defers this check until the CTE is
+        // actually referenced. Callers that represent actual CTE references should
+        // validate the count before calling this method.
 
         let mut columns = result_columns
             .iter()
@@ -2156,6 +2297,10 @@ pub struct NonFromClauseSubquery {
     pub query_type: SubqueryType,
     pub state: SubqueryState,
     pub correlated: bool,
+    /// Whether this subquery originates from a RETURNING clause.
+    /// RETURNING subqueries must be evaluated after the Insert instruction
+    /// so that correlated column references read post-UPDATE values.
+    pub is_returning: bool,
 }
 
 impl NonFromClauseSubquery {

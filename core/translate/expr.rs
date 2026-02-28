@@ -1,8 +1,9 @@
+use crate::error::{SQLITE_CONSTRAINT_TRIGGER, SQLITE_ERROR};
 use crate::translate::optimizer::constraints::ConstraintOperator;
 use crate::turso_assert;
 
 use tracing::{instrument, Level};
-use turso_parser::ast::{self, Expr, SubqueryType, UnaryOperator};
+use turso_parser::ast::{self, Expr, ResolveType, SubqueryType, UnaryOperator};
 
 use super::emitter::Resolver;
 use super::optimizer::Optimizable;
@@ -25,7 +26,7 @@ use crate::vdbe::affinity::Affinity;
 use crate::vdbe::builder::CursorKey;
 use crate::vdbe::{
     builder::ProgramBuilder,
-    insn::{CmpInsFlags, Insn},
+    insn::{CmpInsFlags, InsertFlags, Insn},
     BranchOffset,
 };
 use crate::{Numeric, Result, Value};
@@ -281,11 +282,8 @@ fn translate_in_list(
     // dest if null should be in ConditionMetadata
     resolver: &Resolver,
 ) -> Result<()> {
-    let lhs_reg = if let Expr::Parenthesized(v) = lhs {
-        program.alloc_registers(v.len())
-    } else {
-        program.alloc_register()
-    };
+    let lhs_arity = expr_vector_size(lhs)?;
+    let lhs_reg = program.alloc_registers(lhs_arity);
     let _ = translate_expr(program, referenced_tables, lhs, lhs_reg, resolver)?;
     let mut check_null_reg = 0;
     let label_ok = program.allocate_label();
@@ -306,7 +304,7 @@ fn translate_in_list(
 
     for (i, expr) in rhs.iter().enumerate() {
         let last_condition = i == rhs.len() - 1;
-        let rhs_reg = program.alloc_register();
+        let rhs_reg = program.alloc_registers(lhs_arity);
         let _ = translate_expr(program, referenced_tables, expr, rhs_reg, resolver)?;
 
         if check_null_reg != 0 && expr.can_be_null() {
@@ -317,36 +315,96 @@ fn translate_in_list(
             });
         }
 
-        if !last_condition
-            || condition_metadata.jump_target_when_false != condition_metadata.jump_target_when_null
-        {
-            if lhs_reg != rhs_reg {
-                program.emit_insn(Insn::Eq {
+        if lhs_arity == 1 {
+            // Scalar comparison path
+            if !last_condition
+                || condition_metadata.jump_target_when_false
+                    != condition_metadata.jump_target_when_null
+            {
+                if lhs_reg != rhs_reg {
+                    program.emit_insn(Insn::Eq {
+                        lhs: lhs_reg,
+                        rhs: rhs_reg,
+                        target_pc: label_ok,
+                        flags: cmp_flags,
+                        collation: program.curr_collation(),
+                    });
+                } else {
+                    program.emit_insn(Insn::NotNull {
+                        reg: lhs_reg,
+                        target_pc: label_ok,
+                    });
+                }
+            } else if lhs_reg != rhs_reg {
+                program.emit_insn(Insn::Ne {
                     lhs: lhs_reg,
                     rhs: rhs_reg,
-                    target_pc: label_ok,
-                    flags: cmp_flags,
+                    target_pc: condition_metadata.jump_target_when_false,
+                    flags: cmp_flags.jump_if_null(),
                     collation: program.curr_collation(),
                 });
             } else {
-                program.emit_insn(Insn::NotNull {
+                program.emit_insn(Insn::IsNull {
                     reg: lhs_reg,
-                    target_pc: label_ok,
+                    target_pc: condition_metadata.jump_target_when_false,
                 });
             }
-        } else if lhs_reg != rhs_reg {
-            program.emit_insn(Insn::Ne {
-                lhs: lhs_reg,
-                rhs: rhs_reg,
-                target_pc: condition_metadata.jump_target_when_false,
-                flags: cmp_flags.jump_if_null(),
-                collation: program.curr_collation(),
-            });
         } else {
-            program.emit_insn(Insn::IsNull {
-                reg: lhs_reg,
-                target_pc: condition_metadata.jump_target_when_false,
-            });
+            // Row-valued comparison path: compare each component
+            if !last_condition
+                || condition_metadata.jump_target_when_false
+                    != condition_metadata.jump_target_when_null
+            {
+                // If all components match, jump to label_ok; otherwise skip to next RHS item
+                let skip_label = program.allocate_label();
+                for j in 0..lhs_arity {
+                    let (aff, collation) = row_component_affinity_collation(
+                        lhs,
+                        expr,
+                        j,
+                        referenced_tables,
+                        Some(resolver),
+                    )?;
+                    let flags = CmpInsFlags::default().with_affinity(aff);
+                    if j < lhs_arity - 1 {
+                        program.emit_insn(Insn::Ne {
+                            lhs: lhs_reg + j,
+                            rhs: rhs_reg + j,
+                            target_pc: skip_label,
+                            flags,
+                            collation,
+                        });
+                    } else {
+                        program.emit_insn(Insn::Eq {
+                            lhs: lhs_reg + j,
+                            rhs: rhs_reg + j,
+                            target_pc: label_ok,
+                            flags,
+                            collation,
+                        });
+                    }
+                }
+                program.preassign_label_to_next_insn(skip_label);
+            } else {
+                // Last condition, simple case: jump to false if any component doesn't match
+                for j in 0..lhs_arity {
+                    let (aff, collation) = row_component_affinity_collation(
+                        lhs,
+                        expr,
+                        j,
+                        referenced_tables,
+                        Some(resolver),
+                    )?;
+                    let flags = CmpInsFlags::default().with_affinity(aff).jump_if_null();
+                    program.emit_insn(Insn::Ne {
+                        lhs: lhs_reg + j,
+                        rhs: rhs_reg + j,
+                        target_pc: condition_metadata.jump_target_when_false,
+                        flags,
+                        collation,
+                    });
+                }
+            }
         }
     }
 
@@ -550,17 +608,32 @@ pub fn translate_condition_expr(
             }
         }
         ast::Expr::Binary(e1, op, e2) => {
-            let result_reg = program.alloc_register();
-            binary_expr_shared(
-                program,
-                Some(referenced_tables),
-                e1,
-                e2,
-                op,
-                result_reg,
-                resolver,
-                BinaryEmitMode::Condition(condition_metadata),
-            )?;
+            // Check if either operand has a custom type with a matching operator
+            if let Some(resolved) =
+                find_custom_type_operator(e1, e2, op, Some(referenced_tables), resolver)
+            {
+                let result_reg = emit_custom_type_operator(
+                    program,
+                    Some(referenced_tables),
+                    e1,
+                    e2,
+                    &resolved,
+                    resolver,
+                )?;
+                emit_cond_jump(program, condition_metadata, result_reg);
+            } else {
+                let result_reg = program.alloc_register();
+                binary_expr_shared(
+                    program,
+                    Some(referenced_tables),
+                    e1,
+                    e2,
+                    op,
+                    result_reg,
+                    resolver,
+                    BinaryEmitMode::Condition(condition_metadata),
+                )?;
+            }
         }
         ast::Expr::Literal(_)
         | ast::Expr::Cast { .. }
@@ -707,6 +780,25 @@ pub enum NoConstantOptReason {
     /// so hoisting those register assignments is not safe.
     /// e.g. SELECT COALESCE(1, t.x, NULL) would overwrite 1 with NULL, which is invalid.
     RegisterReuse,
+    /// The column has a custom type encode function that will be applied
+    /// in-place after this expression is evaluated. We must not hoist the
+    /// expression because:
+    ///
+    /// 1. The encode function may be non-deterministic (e.g. it could use
+    ///    datetime('now')), so hoisting would produce incorrect results.
+    ///
+    /// 2. Even if the encode function were deterministic, the encode is
+    ///    applied in-place to the target register inside the update loop.
+    ///    If the original value were hoisted (evaluated once before the
+    ///    loop), the second iteration would read the already-encoded value
+    ///    from the register and encode it again, causing progressive
+    ///    double-encoding (e.g. 99 → 9900 → 990000 → ...).
+    ///
+    /// The correct fix for deterministic encode functions would be to hoist
+    /// the *encoded* result (i.e. `encode_fn(99)` not `99`), but that
+    /// requires tracking the encode through the hoisting machinery. For now
+    /// we simply disable hoisting for these columns.
+    CustomTypeEncode,
 }
 
 /// Controls how binary expressions are emitted.
@@ -761,12 +853,53 @@ pub fn translate_expr(
         None
     };
 
-    if let Some(reg) = resolver.resolve_cached_expr_reg(expr) {
+    if let Some((reg, needs_decode)) = resolver.resolve_cached_expr_reg(expr) {
         program.emit_insn(Insn::Copy {
             src_reg: reg,
             dst_reg: target_register,
             extra_amount: 0,
         });
+        // Hash join payloads store raw encoded values; apply DECODE for custom
+        // type columns so the result set contains human-readable text.
+        if needs_decode && !program.suppress_custom_type_decode {
+            if let ast::Expr::Column {
+                table: table_ref_id,
+                column,
+                ..
+            } = expr
+            {
+                if let Some(referenced_tables) = referenced_tables {
+                    if let Some((_, table)) =
+                        referenced_tables.find_table_by_internal_id(*table_ref_id)
+                    {
+                        if let Some(col) = table.get_column_at(*column) {
+                            if let Some(type_def) = resolver
+                                .schema()
+                                .get_type_def(&col.ty_str, table.is_strict())
+                            {
+                                if let Some(ref decode_expr) = type_def.decode {
+                                    let skip_label = program.allocate_label();
+                                    program.emit_insn(Insn::IsNull {
+                                        reg: target_register,
+                                        target_pc: skip_label,
+                                    });
+                                    emit_type_expr(
+                                        program,
+                                        decode_expr,
+                                        target_register,
+                                        target_register,
+                                        col,
+                                        type_def,
+                                        resolver,
+                                    )?;
+                                    program.preassign_label_to_next_insn(skip_label);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
         if let Some(span) = constant_span {
             program.constant_span_end(span);
         }
@@ -839,16 +972,18 @@ pub fn translate_expr(
                             lhs_column_regs_start + i,
                             resolver,
                         )?;
-                        if !referenced_tables.is_some_and(|tables| lhs_column.is_nonnull(tables)) {
-                            // If LHS is NULL, we need to check if ephemeral is empty first.
-                            // - If empty: IN returns FALSE, NOT IN returns TRUE
-                            // - If not empty: result is NULL (unknown)
-                            // Jump to label_null_rewind which does Rewind and handles empty case.
-                            program.emit_insn(Insn::IsNull {
-                                reg: lhs_column_regs_start + i,
-                                target_pc: label_null_rewind,
-                            });
-                        }
+                        // If LHS is NULL, we need to check if ephemeral is empty first.
+                        // - If empty: IN returns FALSE, NOT IN returns TRUE
+                        // - If not empty: result is NULL (unknown)
+                        // Jump to label_null_rewind which does Rewind and handles empty case.
+                        //
+                        // Always emit this check even for NOT NULL columns because NullRow
+                        // (used in ungrouped aggregates when no rows match) overrides all
+                        // column values to NULL regardless of the NOT NULL constraint.
+                        program.emit_insn(Insn::IsNull {
+                            reg: lhs_column_regs_start + i,
+                            target_pc: label_null_rewind,
+                        });
                     }
 
                     // Only emit Affinity instruction if there's meaningful affinity to apply
@@ -1014,6 +1149,28 @@ pub fn translate_expr(
                 return Ok(target_register);
             }
 
+            // Check if either operand has a custom type with a matching operator
+            if let Some(resolved) =
+                find_custom_type_operator(e1, e2, op, referenced_tables, resolver)
+            {
+                let result_reg = emit_custom_type_operator(
+                    program,
+                    referenced_tables,
+                    e1,
+                    e2,
+                    &resolved,
+                    resolver,
+                )?;
+                if result_reg != target_register {
+                    program.emit_insn(Insn::Copy {
+                        src_reg: result_reg,
+                        dst_reg: target_register,
+                        extra_amount: 0,
+                    });
+                }
+                return Ok(target_register);
+            }
+
             binary_expr_shared(
                 program,
                 referenced_tables,
@@ -1121,6 +1278,55 @@ pub fn translate_expr(
         }
         ast::Expr::Cast { expr, type_name } => {
             translate_expr(program, referenced_tables, expr, target_register, resolver)?;
+
+            // Check if casting to a custom type
+            if let Some(ref tn) = type_name {
+                if let Some(type_def) = resolver.schema().get_type_def_unchecked(&tn.name) {
+                    // Build ty_params from AST TypeSize so parametric types
+                    // (e.g. numeric(10,2)) get their parameters passed through.
+                    let ty_params: Vec<Box<ast::Expr>> = match &tn.size {
+                        Some(ast::TypeSize::MaxSize(e)) => vec![e.clone()],
+                        Some(ast::TypeSize::TypeSize(e1, e2)) => {
+                            vec![e1.clone(), e2.clone()]
+                        }
+                        None => Vec::new(),
+                    };
+
+                    // If the custom type requires parameters but the CAST
+                    // doesn't provide them (e.g. CAST(x AS NUMERIC) vs
+                    // CAST(x AS numeric(10,2))), fall through to regular CAST.
+                    let user_param_count = type_def.user_params().count();
+                    if user_param_count == 0 || ty_params.len() == user_param_count {
+                        let mut cast_col = crate::schema::Column::new(
+                            None,
+                            tn.name.clone(),
+                            None,
+                            None,
+                            crate::schema::Type::Null,
+                            None,
+                            crate::schema::ColDef::default(),
+                        );
+                        cast_col.ty_params = ty_params;
+
+                        // CAST to custom type applies only the encode function,
+                        // producing the stored representation.
+                        // e.g. CAST(42 AS cents) → 4200
+                        if let Some(ref encode_expr) = type_def.encode {
+                            emit_type_expr(
+                                program,
+                                encode_expr,
+                                target_register,
+                                target_register,
+                                &cast_col,
+                                type_def,
+                                resolver,
+                            )?;
+                        }
+                        return Ok(target_register);
+                    }
+                }
+            }
+
             // SQLite allows CAST(x AS) without a type name, treating it as NUMERIC affinity
             let type_affinity = type_name
                 .as_ref()
@@ -2254,6 +2460,33 @@ pub fn translate_expr(
                         ScalarFunc::ConnTxnId | ScalarFunc::IsAutocommit => {
                             crate::bail_parse_error!("{} is an internal function used by CDC", srf);
                         }
+                        ScalarFunc::TestUintEncode
+                        | ScalarFunc::TestUintDecode
+                        | ScalarFunc::TestUintAdd
+                        | ScalarFunc::TestUintSub
+                        | ScalarFunc::TestUintMul
+                        | ScalarFunc::TestUintDiv
+                        | ScalarFunc::TestUintLt
+                        | ScalarFunc::TestUintEq
+                        | ScalarFunc::StringReverse
+                        | ScalarFunc::BooleanToInt
+                        | ScalarFunc::IntToBoolean
+                        | ScalarFunc::ValidateIpAddr
+                        | ScalarFunc::NumericEncode
+                        | ScalarFunc::NumericDecode
+                        | ScalarFunc::NumericAdd
+                        | ScalarFunc::NumericSub
+                        | ScalarFunc::NumericMul
+                        | ScalarFunc::NumericDiv
+                        | ScalarFunc::NumericLt
+                        | ScalarFunc::NumericEq => translate_function(
+                            program,
+                            args,
+                            referenced_tables,
+                            resolver,
+                            target_register,
+                            func_ctx,
+                        ),
                     }
                 }
                 Func::Math(math_func) => match math_func.arity() {
@@ -2459,6 +2692,15 @@ pub fn translate_expr(
             }
         }
         ast::Expr::Id(id) => {
+            // Check for custom type expression overrides (e.g. `value` placeholder)
+            if let Some(&reg) = program.id_register_overrides.get(id.as_str()) {
+                program.emit_insn(Insn::Copy {
+                    src_reg: reg,
+                    dst_reg: target_register,
+                    extra_amount: 0,
+                });
+                return Ok(target_register);
+            }
             // Treat double-quoted identifiers as string literals (SQLite compatibility)
             program.emit_insn(Insn::String8 {
                 value: id.as_str().to_string(),
@@ -2648,12 +2890,88 @@ pub fn translate_expr(
                                 *column
                             };
 
+                            // For custom type columns with a default, suppress the
+                            // default in the Column instruction so we can encode it
+                            // ourselves. Without this, pre-existing rows (from before
+                            // ALTER TABLE ADD COLUMN) would get the raw un-encoded
+                            // default, causing decode to fail.
+                            let col_ref = table.get_column_at(column);
+                            if let Some(col) = col_ref {
+                                if col.default.is_some()
+                                    && resolver
+                                        .schema()
+                                        .get_type_def(&col.ty_str, table.is_strict())
+                                        .is_some()
+                                {
+                                    program.suppress_column_default = true;
+                                }
+                            }
                             program.emit_column_or_rowid(read_cursor, column, target_register);
                         }
                         let Some(column) = table.get_column_at(*column) else {
                             crate::bail_parse_error!("column index out of bounds");
                         };
-                        maybe_apply_affinity(column.ty(), target_register, program);
+                        // Skip affinity for custom types — the stored value is
+                        // already in BASE type format; the custom type name may
+                        // produce wrong affinity (e.g. "doubled" → REAL due to "DOUB").
+                        if resolver
+                            .schema()
+                            .get_type_def(&column.ty_str, table.is_strict())
+                            .is_none()
+                        {
+                            maybe_apply_affinity(column.ty(), target_register, program);
+                        }
+
+                        // Decode custom type columns (skipped when building ORDER BY sort keys
+                        // for types without a `<` operator, so the sorter sorts on encoded values)
+                        if !program.suppress_custom_type_decode {
+                            // For custom type columns with a default, the Column
+                            // instruction returns NULL for pre-existing rows
+                            // (since we suppressed the default). Load the default
+                            // and encode it so decode produces the correct value.
+                            if let Some(type_def) = resolver
+                                .schema()
+                                .get_type_def(&column.ty_str, table.is_strict())
+                            {
+                                if let Some(ref default_expr) = column.default {
+                                    if type_def.encode.is_some() {
+                                        let skip_default_label = program.allocate_label();
+                                        program.emit_insn(Insn::NotNull {
+                                            reg: target_register,
+                                            target_pc: skip_default_label,
+                                        });
+                                        translate_expr_no_constant_opt(
+                                            program,
+                                            referenced_tables,
+                                            default_expr,
+                                            target_register,
+                                            resolver,
+                                            NoConstantOptReason::RegisterReuse,
+                                        )?;
+                                        if let Some(ref encode_expr) = type_def.encode {
+                                            emit_type_expr(
+                                                program,
+                                                encode_expr,
+                                                target_register,
+                                                target_register,
+                                                column,
+                                                type_def,
+                                                resolver,
+                                            )?;
+                                        }
+                                        program.preassign_label_to_next_insn(skip_default_label);
+                                    }
+                                }
+                            }
+                            emit_user_facing_column_value(
+                                program,
+                                target_register,
+                                target_register,
+                                column,
+                                table.is_strict(),
+                                resolver,
+                            )?;
+                        }
                     }
                     Ok(target_register)
                 }
@@ -2676,6 +2994,9 @@ pub fn translate_expr(
                                 dest: target_register,
                                 default: None,
                             });
+                            if let Some(col) = from_clause_subquery.columns.get(*column) {
+                                maybe_apply_affinity(col.ty(), target_register, program);
+                            }
                             return Ok(target_register);
                         }
                     }
@@ -2712,6 +3033,9 @@ pub fn translate_expr(
                                         dest: target_register,
                                         default: None,
                                     });
+                                    if let Some(col) = from_clause_subquery.columns.get(*column) {
+                                        maybe_apply_affinity(col.ty(), target_register, program);
+                                    }
                                     return Ok(target_register);
                                 }
                             }
@@ -2752,13 +3076,24 @@ pub fn translate_expr(
             database: _,
             table: table_ref_id,
         } => {
+            let referenced_tables =
+                referenced_tables.expect("table_references needed translating Expr::RowId");
+            let (_, table) = referenced_tables
+                .find_table_by_internal_id(*table_ref_id)
+                .expect("table reference should be found");
+            let Table::BTree(btree) = table else {
+                crate::bail_parse_error!("no such column: rowid");
+            };
+            if !btree.has_rowid {
+                crate::bail_parse_error!("no such column: rowid");
+            }
+
             // When a cursor override is active, always read rowid from the override cursor.
             let has_cursor_override = program.has_cursor_override(*table_ref_id);
             let (index, use_covering_index) = if has_cursor_override {
                 (None, false)
-            } else if let Some(table_reference) = referenced_tables
-                .unwrap()
-                .find_joined_table_by_internal_id(*table_ref_id)
+            } else if let Some(table_reference) =
+                referenced_tables.find_joined_table_by_internal_id(*table_ref_id)
             {
                 (
                     table_reference.op.index(),
@@ -2929,7 +3264,58 @@ pub fn translate_expr(
         ast::Expr::Qualified(_, _) => {
             unreachable!("Qualified should be resolved to a Column before translation")
         }
-        ast::Expr::Raise(_, _) => crate::bail_parse_error!("RAISE is not supported"),
+        ast::Expr::Raise(resolve_type, msg_expr) => {
+            let in_trigger = program.trigger.is_some();
+            match resolve_type {
+                ResolveType::Ignore => {
+                    if !in_trigger {
+                        crate::bail_parse_error!(
+                            "RAISE() may only be used within a trigger-program"
+                        );
+                    }
+                    // RAISE(IGNORE): halt the trigger subprogram and skip the triggering row
+                    program.emit_insn(Insn::Halt {
+                        err_code: 0,
+                        description: String::new(),
+                        on_error: Some(ResolveType::Ignore),
+                    });
+                }
+                ResolveType::Fail | ResolveType::Abort | ResolveType::Rollback => {
+                    if !in_trigger && *resolve_type != ResolveType::Abort {
+                        crate::bail_parse_error!(
+                            "RAISE() may only be used within a trigger-program"
+                        );
+                    }
+                    let msg = match msg_expr {
+                        Some(e) => match e.as_ref() {
+                            ast::Expr::Literal(ast::Literal::String(s)) => sanitize_string(s),
+                            _ => {
+                                crate::bail_parse_error!(
+                                    "RAISE error message must be a string literal"
+                                );
+                            }
+                        },
+                        None => {
+                            crate::bail_parse_error!("RAISE requires an error message");
+                        }
+                    };
+                    let err_code = if in_trigger {
+                        SQLITE_CONSTRAINT_TRIGGER
+                    } else {
+                        SQLITE_ERROR
+                    };
+                    program.emit_insn(Insn::Halt {
+                        err_code,
+                        description: msg,
+                        on_error: Some(*resolve_type),
+                    });
+                }
+                ResolveType::Replace => {
+                    crate::bail_parse_error!("REPLACE is not valid for RAISE");
+                }
+            }
+            Ok(target_register)
+        }
         ast::Expr::Subquery(_) => {
             crate::bail_parse_error!("Subquery is not supported in this position")
         }
@@ -3817,13 +4203,17 @@ fn emit_binary_condition_insn(
         opposite_op
     };
 
-    // Similarly, we "jump if NULL" only when we intend to jump if the condition is false.
-    let flags = if condition_metadata.jump_if_condition_is_true {
-        CmpInsFlags::default().with_affinity(affinity)
-    } else {
-        CmpInsFlags::default()
-            .with_affinity(affinity)
-            .jump_if_null()
+    // Set the "jump if NULL" flag when the NULL target matches the jump target.
+    // When jump_if_condition_is_true: we jump on true, so set jump_if_null when NULL should also jump (e.g. CHECK constraints in integrity_check).
+    // When !jump_if_condition_is_true: we jump on false, so set jump_if_null when NULL should also jump (standard SQL 3-valued logic).
+    let mut flags = CmpInsFlags::default().with_affinity(affinity);
+    if condition_metadata.jump_if_condition_is_true {
+        if condition_metadata.jump_target_when_null == condition_metadata.jump_target_when_true {
+            flags = flags.jump_if_null()
+        }
+    } else if condition_metadata.jump_target_when_null == condition_metadata.jump_target_when_false
+    {
+        flags = flags.jump_if_null()
     };
 
     let target_pc = if condition_metadata.jump_if_condition_is_true {
@@ -4612,17 +5002,17 @@ pub fn bind_and_rewrite_expr<'a>(
                                 ));
                             }
                         // only if we haven't found a match, check for explicit rowid reference
-                        } else {
-                            let is_btree_table = matches!(joined_table.table, Table::BTree(_));
-                            if is_btree_table {
-                                if let Some(row_id_expr) = parse_row_id(
-                                    &normalized_id,
-                                    referenced_tables.joined_tables()[0].internal_id,
-                                    || referenced_tables.joined_tables().len() != 1,
-                                )? {
-                                    *expr = row_id_expr;
-                                    return Ok(WalkControl::Continue);
+                        } else if let Table::BTree(btree) = &joined_table.table {
+                            if let Some(row_id_expr) = parse_row_id(
+                                &normalized_id,
+                                referenced_tables.joined_tables()[0].internal_id,
+                                || referenced_tables.joined_tables().len() != 1,
+                            )? {
+                                if !btree.has_rowid {
+                                    crate::bail_parse_error!("no such column: {}", id.as_str());
                                 }
+                                *expr = row_id_expr;
+                                return Ok(WalkControl::Continue);
                             }
                         }
                     }
@@ -4729,11 +5119,13 @@ pub fn bind_and_rewrite_expr<'a>(
                     // Note: Only BTree tables have rowid; derived tables (FromClauseSubquery)
                     // don't have a rowid.
                     let Some(col_idx) = col_idx else {
-                        let is_btree_table = matches!(tbl, Table::BTree(_));
-                        if is_btree_table {
+                        if let Table::BTree(btree) = tbl {
                             if let Some(row_id_expr) =
                                 parse_row_id(&normalized_id, tbl_id, || false)?
                             {
+                                if !btree.has_rowid {
+                                    crate::bail_parse_error!("no such column: {}", normalized_id);
+                                }
                                 *expr = row_id_expr;
                                 // Mark the table's rowid as referenced so correlated
                                 // subquery detection works correctly when a rowid
@@ -5118,49 +5510,84 @@ where
     Ok(WalkControl::Continue)
 }
 
-pub fn get_expr_affinity(
+#[derive(Debug, Clone, Copy)]
+pub(crate) struct ExprAffinityInfo {
+    affinity: Affinity,
+    has_affinity: bool,
+}
+
+impl ExprAffinityInfo {
+    const fn with_affinity(affinity: Affinity) -> Self {
+        Self {
+            affinity,
+            has_affinity: true,
+        }
+    }
+
+    const fn no_affinity() -> Self {
+        Self {
+            affinity: Affinity::Blob,
+            has_affinity: false,
+        }
+    }
+}
+
+pub(crate) fn get_expr_affinity_info(
     expr: &ast::Expr,
     referenced_tables: Option<&TableReferences>,
     resolver: Option<&Resolver>,
-) -> Affinity {
+) -> ExprAffinityInfo {
     match expr {
         ast::Expr::Column { table, column, .. } => {
             if let Some(tables) = referenced_tables {
                 if let Some((_, table_ref)) = tables.find_table_by_internal_id(*table) {
                     if let Some(col) = table_ref.get_column_at(*column) {
-                        return col.affinity();
+                        if let Some(btree) = table_ref.btree() {
+                            return ExprAffinityInfo::with_affinity(
+                                col.affinity_with_strict(btree.is_strict),
+                            );
+                        }
+                        return ExprAffinityInfo::with_affinity(col.affinity());
                     }
                 }
             }
-            Affinity::Blob
+            ExprAffinityInfo::no_affinity()
         }
-        ast::Expr::RowId { .. } => Affinity::Integer,
+        ast::Expr::RowId { .. } => ExprAffinityInfo::with_affinity(Affinity::Integer),
         ast::Expr::Cast { type_name, .. } => {
             if let Some(type_name) = type_name {
-                Affinity::affinity(&type_name.name)
+                ExprAffinityInfo::with_affinity(Affinity::affinity(&type_name.name))
             } else {
-                Affinity::Blob
+                ExprAffinityInfo::no_affinity()
             }
         }
         ast::Expr::Parenthesized(exprs) if exprs.len() == 1 => {
-            get_expr_affinity(exprs.first().unwrap(), referenced_tables, resolver)
+            get_expr_affinity_info(exprs.first().unwrap(), referenced_tables, resolver)
         }
-        ast::Expr::Collate(expr, _) => get_expr_affinity(expr, referenced_tables, resolver),
-        // Literals have NO affinity in SQLite!
-        ast::Expr::Literal(_) => Affinity::Blob, // No affinity!
+        ast::Expr::Collate(expr, _) => get_expr_affinity_info(expr, referenced_tables, resolver),
+        // Literals have NO affinity in SQLite.
+        ast::Expr::Literal(_) => ExprAffinityInfo::no_affinity(),
         ast::Expr::Register(reg) => {
             // During UPDATE expression index evaluation, column references are
             // rewritten to Expr::Register. Look up the original column affinity
             // from the resolver's register_affinities map.
             if let Some(resolver) = resolver {
                 if let Some(aff) = resolver.register_affinities.get(reg) {
-                    return *aff;
+                    return ExprAffinityInfo::with_affinity(*aff);
                 }
             }
-            Affinity::Blob
+            ExprAffinityInfo::no_affinity()
         }
-        _ => Affinity::Blob, // This may need to change. For now this works.
+        _ => ExprAffinityInfo::no_affinity(),
     }
+}
+
+pub fn get_expr_affinity(
+    expr: &ast::Expr,
+    referenced_tables: Option<&TableReferences>,
+    resolver: Option<&Resolver>,
+) -> Affinity {
+    get_expr_affinity_info(expr, referenced_tables, resolver).affinity
 }
 
 pub fn comparison_affinity(
@@ -5169,43 +5596,41 @@ pub fn comparison_affinity(
     referenced_tables: Option<&TableReferences>,
     resolver: Option<&Resolver>,
 ) -> Affinity {
-    let mut aff = get_expr_affinity(lhs_expr, referenced_tables, resolver);
-
-    aff = compare_affinity(rhs_expr, aff, referenced_tables, resolver);
-
-    // If no affinity determined (both operands are literals), default to BLOB
-    if !aff.has_affinity() {
-        Affinity::Blob
-    } else {
-        aff
-    }
+    compare_affinity(
+        rhs_expr,
+        get_expr_affinity_info(lhs_expr, referenced_tables, resolver),
+        referenced_tables,
+        resolver,
+    )
 }
 
-pub fn compare_affinity(
-    expr: &ast::Expr,
-    other_affinity: Affinity,
-    referenced_tables: Option<&TableReferences>,
-    resolver: Option<&Resolver>,
-) -> Affinity {
-    let expr_affinity = get_expr_affinity(expr, referenced_tables, resolver);
-
-    if expr_affinity.has_affinity() && other_affinity.has_affinity() {
+fn comparison_affinity_from_info(lhs: ExprAffinityInfo, rhs: ExprAffinityInfo) -> Affinity {
+    if lhs.has_affinity && rhs.has_affinity {
         // Both sides have affinity - use numeric if either is numeric
-        if expr_affinity.is_numeric() || other_affinity.is_numeric() {
+        if lhs.affinity.is_numeric() || rhs.affinity.is_numeric() {
             Affinity::Numeric
         } else {
             Affinity::Blob
         }
+    } else if lhs.has_affinity {
+        lhs.affinity
+    } else if rhs.has_affinity {
+        rhs.affinity
     } else {
-        // One or both sides have no affinity - use the one that does, or Blob if neither
-        if expr_affinity.has_affinity() {
-            expr_affinity
-        } else if other_affinity.has_affinity() {
-            other_affinity
-        } else {
-            Affinity::Blob
-        }
+        Affinity::Blob
     }
+}
+
+pub(crate) fn compare_affinity(
+    expr: &ast::Expr,
+    other: ExprAffinityInfo,
+    referenced_tables: Option<&TableReferences>,
+    resolver: Option<&Resolver>,
+) -> Affinity {
+    comparison_affinity_from_info(
+        other,
+        get_expr_affinity_info(expr, referenced_tables, resolver),
+    )
 }
 
 /// Emit literal values - shared between regular and RETURNING expression evaluation
@@ -5410,10 +5835,57 @@ pub fn process_returning_clause(
     Ok(result_columns)
 }
 
+/// Context for buffering RETURNING results into an ephemeral table
+/// instead of yielding them immediately via ResultRow.
+/// When used, the DML loop buffers each result row into the ephemeral table,
+/// and a scan-back loop after the DML loop yields them to the caller.
+pub struct ReturningBufferCtx {
+    /// Cursor ID of the ephemeral table to buffer results into
+    pub cursor_id: usize,
+    /// Number of RETURNING columns (used for scan-back)
+    pub num_columns: usize,
+}
+
+/// Emit the scan-back loop that reads all buffered RETURNING rows from the
+/// ephemeral table and yields them via ResultRow. Called after all DML is complete.
+pub(crate) fn emit_returning_scan_back(program: &mut ProgramBuilder, buf: &ReturningBufferCtx) {
+    let end_label = program.allocate_label();
+    let scan_start = program.allocate_label();
+
+    program.emit_insn(Insn::Rewind {
+        cursor_id: buf.cursor_id,
+        pc_if_empty: end_label,
+    });
+    program.preassign_label_to_next_insn(scan_start);
+
+    let result_start_reg = program.alloc_registers(buf.num_columns);
+    for i in 0..buf.num_columns {
+        program.emit_insn(Insn::Column {
+            cursor_id: buf.cursor_id,
+            column: i,
+            dest: result_start_reg + i,
+            default: None,
+        });
+    }
+    program.emit_insn(Insn::ResultRow {
+        start_reg: result_start_reg,
+        count: buf.num_columns,
+    });
+    program.emit_insn(Insn::Next {
+        cursor_id: buf.cursor_id,
+        pc_if_next: scan_start,
+    });
+    program.preassign_label_to_next_insn(end_label);
+}
+
 /// Emit bytecode to evaluate RETURNING expressions and produce result rows.
 /// RETURNING result expressions are otherwise evaluated as normal, but the columns of the target table
 /// are added to [Resolver::expr_to_reg_cache], meaning a reference to e.g tbl.col will effectively
 /// refer to a register where the OLD/NEW value of tbl.col is stored after an INSERT/UPDATE/DELETE.
+///
+/// When `returning_buffer` is `Some`, the results are buffered into an ephemeral table
+/// instead of being yielded immediately. A subsequent call to `emit_returning_scan_back`
+/// will drain the buffer and yield the rows to the caller.
 pub(crate) fn emit_returning_results<'a>(
     program: &mut ProgramBuilder,
     table_references: &TableReferences,
@@ -5421,6 +5893,7 @@ pub(crate) fn emit_returning_results<'a>(
     reg_columns_start: usize,
     rowid_reg: usize,
     resolver: &mut Resolver<'a>,
+    returning_buffer: Option<&ReturningBufferCtx>,
 ) -> Result<()> {
     if result_columns.is_empty() {
         return Ok(());
@@ -5440,13 +5913,25 @@ pub(crate) fn emit_returning_results<'a>(
     let cache_len = resolver.expr_to_reg_cache.len();
     resolver
         .expr_to_reg_cache
-        .push((std::borrow::Cow::Owned(expr), rowid_reg));
+        .push((std::borrow::Cow::Owned(expr), rowid_reg, false));
     for (i, column) in table.columns().iter().enumerate() {
-        let reg = if column.is_rowid_alias() {
+        let raw_reg = if column.is_rowid_alias() {
             rowid_reg
         } else {
             reg_columns_start + i
         };
+        // The write registers hold stored (encoded) values. Produce the
+        // user-facing value in a fresh register so RETURNING shows decoded
+        // results — this is a no-op for regular columns.
+        let decoded_reg = program.alloc_register();
+        emit_user_facing_column_value(
+            program,
+            raw_reg,
+            decoded_reg,
+            column,
+            table.table.is_strict(),
+            resolver,
+        )?;
         let expr = Expr::Column {
             database: None,
             table: table.internal_id,
@@ -5455,7 +5940,7 @@ pub(crate) fn emit_returning_results<'a>(
         };
         resolver
             .expr_to_reg_cache
-            .push((std::borrow::Cow::Owned(expr), reg));
+            .push((std::borrow::Cow::Owned(expr), decoded_reg, false));
     }
 
     let result_start_reg = program.alloc_registers(result_columns.len());
@@ -5479,10 +5964,36 @@ pub(crate) fn emit_returning_results<'a>(
     // must be distinct for each call.
     resolver.expr_to_reg_cache.truncate(cache_len);
 
-    program.emit_insn(Insn::ResultRow {
-        start_reg: result_start_reg,
-        count: result_columns.len(),
-    });
+    if let Some(buf) = returning_buffer {
+        // Buffer into ephemeral table instead of yielding directly.
+        // All DML completes before any RETURNING rows are yielded to the caller.
+        let record_reg = program.alloc_register();
+        let eph_rowid_reg = program.alloc_register();
+        program.emit_insn(Insn::MakeRecord {
+            start_reg: crate::vdbe::insn::to_u16(result_start_reg),
+            count: crate::vdbe::insn::to_u16(result_columns.len()),
+            dest_reg: crate::vdbe::insn::to_u16(record_reg),
+            index_name: None,
+            affinity_str: None,
+        });
+        program.emit_insn(Insn::NewRowid {
+            cursor: buf.cursor_id,
+            rowid_reg: eph_rowid_reg,
+            prev_largest_reg: 0,
+        });
+        program.emit_insn(Insn::Insert {
+            cursor: buf.cursor_id,
+            key_reg: eph_rowid_reg,
+            record_reg,
+            flag: InsertFlags::new().is_ephemeral_table_insert(),
+            table_name: String::new(),
+        });
+    } else {
+        program.emit_insn(Insn::ResultRow {
+            start_reg: result_start_reg,
+            count: result_columns.len(),
+        });
+    }
 
     Ok(())
 }
@@ -5644,7 +6155,7 @@ pub fn expr_vector_size(expr: &Expr) -> Result<usize> {
         }
         Expr::Parenthesized(exprs) => exprs.len(),
         Expr::Qualified(..) => 1,
-        Expr::Raise(..) => crate::bail_parse_error!("RAISE is not supported"),
+        Expr::Raise(..) => 1,
         Expr::Subquery(_) => {
             crate::bail_parse_error!("Scalar subquery is not supported in this context")
         }
@@ -5664,4 +6175,622 @@ pub fn expr_vector_size(expr: &Expr) -> Result<usize> {
             SubqueryType::RowValue { num_regs, .. } => *num_regs,
         },
     })
+}
+
+/// Map an AST operator to the string representation used in custom type operator definitions.
+fn operator_to_str(op: &ast::Operator) -> Option<&'static str> {
+    match op {
+        ast::Operator::Add => Some("+"),
+        ast::Operator::Subtract => Some("-"),
+        ast::Operator::Multiply => Some("*"),
+        ast::Operator::Divide => Some("/"),
+        ast::Operator::Modulus => Some("%"),
+        ast::Operator::Less => Some("<"),
+        ast::Operator::LessEquals => Some("<="),
+        ast::Operator::Greater => Some(">"),
+        ast::Operator::GreaterEquals => Some(">="),
+        ast::Operator::Equals => Some("="),
+        ast::Operator::NotEquals => Some("!="),
+        _ => None,
+    }
+}
+
+/// Emit bytecode for a resolved custom type operator call.
+/// Handles argument swapping, literal encoding, and result negation.
+fn emit_custom_type_operator(
+    program: &mut ProgramBuilder,
+    referenced_tables: Option<&TableReferences>,
+    e1: &ast::Expr,
+    e2: &ast::Expr,
+    resolved: &ResolvedOperator,
+    resolver: &Resolver,
+) -> Result<usize> {
+    let func = resolver
+        .resolve_function(&resolved.func_name, 2)
+        .ok_or_else(|| {
+            crate::LimboError::InternalError(format!("function not found: {}", resolved.func_name))
+        })?;
+    let (first, second) = if resolved.swap_args {
+        (e2, e1)
+    } else {
+        (e1, e2)
+    };
+
+    // When encoding a literal operand, we must use separate registers for the
+    // function call arguments. translate_expr may place literals in preamble
+    // registers (constant optimization), and encoding in-place would clobber
+    // that register — breaking subsequent loop iterations.
+    let func_start = if let Some(ref encode_info) = resolved.encode_info {
+        if let Some(ref encode_expr) = encode_info.type_def.encode {
+            // Translate operands into temporary registers first.
+            let tmp1 = program.alloc_register();
+            let tmp2 = program.alloc_register();
+            translate_expr(program, referenced_tables, first, tmp1, resolver)?;
+            translate_expr(program, referenced_tables, second, tmp2, resolver)?;
+
+            // Determine which tmp holds the literal and which holds the column.
+            let (lit_tmp, col_tmp) = match encode_info.which {
+                EncodeArg::First if resolved.swap_args => (tmp2, tmp1),
+                EncodeArg::First => (tmp1, tmp2),
+                EncodeArg::Second if resolved.swap_args => (tmp1, tmp2),
+                EncodeArg::Second => (tmp2, tmp1),
+            };
+
+            // Allocate fresh contiguous registers for the function call.
+            let func_args = program.alloc_registers(2);
+            // The literal goes in the same position it occupied in arg layout.
+            let (lit_dst, col_dst) = match encode_info.which {
+                EncodeArg::First if resolved.swap_args => (func_args + 1, func_args),
+                EncodeArg::First => (func_args, func_args + 1),
+                EncodeArg::Second if resolved.swap_args => (func_args, func_args + 1),
+                EncodeArg::Second => (func_args + 1, func_args),
+            };
+
+            // Copy column value as-is.
+            program.emit_insn(Insn::Copy {
+                src_reg: col_tmp,
+                dst_reg: col_dst,
+                extra_amount: 0,
+            });
+            // Encode the literal into the fresh function arg slot.
+            emit_type_expr(
+                program,
+                encode_expr,
+                lit_tmp,
+                lit_dst,
+                &encode_info.column,
+                &encode_info.type_def,
+                resolver,
+            )?;
+            func_args
+        } else {
+            // Type has no encode expression; translate directly into arg slots.
+            let arg_reg = program.alloc_registers(2);
+            translate_expr(program, referenced_tables, first, arg_reg, resolver)?;
+            translate_expr(program, referenced_tables, second, arg_reg + 1, resolver)?;
+            arg_reg
+        }
+    } else {
+        // No encoding needed; translate directly into arg slots.
+        let arg_reg = program.alloc_registers(2);
+        translate_expr(program, referenced_tables, first, arg_reg, resolver)?;
+        translate_expr(program, referenced_tables, second, arg_reg + 1, resolver)?;
+        arg_reg
+    };
+
+    let result_reg = program.alloc_register();
+    program.emit_insn(Insn::Function {
+        constant_mask: 0,
+        start_reg: func_start,
+        dest: result_reg,
+        func: crate::function::FuncCtx { func, arg_count: 2 },
+    });
+    if resolved.negate {
+        program.emit_insn(Insn::Not {
+            reg: result_reg,
+            dest: result_reg,
+        });
+    }
+    Ok(result_reg)
+}
+
+/// Info about a column with a custom type, extracted from an expression.
+struct ExprCustomTypeInfo {
+    type_name: String,
+    column: crate::schema::Column,
+    type_def: crate::sync::Arc<crate::schema::TypeDef>,
+}
+
+/// If the expression is a column reference to a custom type, return the type info.
+fn expr_custom_type_info(
+    expr: &ast::Expr,
+    referenced_tables: Option<&TableReferences>,
+    resolver: &Resolver,
+) -> Option<ExprCustomTypeInfo> {
+    if let ast::Expr::Column {
+        table: table_ref_id,
+        column,
+        ..
+    } = expr
+    {
+        let tables = referenced_tables?;
+        let (_, table) = tables.find_table_by_internal_id(*table_ref_id)?;
+        let col = table.get_column_at(*column)?;
+        let type_name = &col.ty_str;
+        let type_def = resolver
+            .schema()
+            .get_type_def(type_name, table.is_strict())?;
+        return Some(ExprCustomTypeInfo {
+            type_name: type_name.to_lowercase(),
+            column: col.clone(),
+            type_def: crate::sync::Arc::clone(type_def),
+        });
+    }
+    None
+}
+
+/// Get the effective type name of a literal expression.
+fn literal_type_name(expr: &ast::Expr) -> Option<&'static str> {
+    match expr {
+        ast::Expr::Literal(lit) => match lit {
+            ast::Literal::Numeric(s) => {
+                if s.contains('.') || s.contains('e') || s.contains('E') {
+                    Some("real")
+                } else {
+                    Some("integer")
+                }
+            }
+            ast::Literal::String(_) => Some("text"),
+            ast::Literal::Blob(_) => Some("blob"),
+            ast::Literal::True | ast::Literal::False => Some("integer"),
+            _ => None,
+        },
+        _ => None,
+    }
+}
+
+/// Check if a literal type is compatible with a custom type's value input type.
+/// "any" matches everything; otherwise exact match (case-insensitive).
+fn literal_compatible_with_value_type(literal_type: &str, value_input_type: &str) -> bool {
+    value_input_type.eq_ignore_ascii_case("any")
+        || literal_type.eq_ignore_ascii_case(value_input_type)
+}
+
+/// Which operand of a binary expression needs encoding before the operator call.
+enum EncodeArg {
+    /// Encode the first argument (e1 is a literal, e2 is the custom type column)
+    First,
+    /// Encode the second argument (e1 is the custom type column, e2 is a literal)
+    Second,
+}
+
+/// Info needed to encode a literal argument for an operator call.
+struct OperatorEncodeInfo {
+    column: crate::schema::Column,
+    type_def: crate::sync::Arc<crate::schema::TypeDef>,
+    which: EncodeArg,
+}
+
+/// Result of resolving a custom type operator. May be a direct match or derived
+/// from `<` and `=` operators (e.g. `>` is derived as swap_args + `<`).
+struct ResolvedOperator {
+    func_name: String,
+    swap_args: bool,
+    negate: bool,
+    /// If a literal operand needs encoding before the operator call.
+    encode_info: Option<OperatorEncodeInfo>,
+}
+
+/// Find a custom type operator function for a binary expression.
+///
+/// Operators fire when:
+/// 1. Both operands are columns of the same custom type, OR
+/// 2. One operand is a custom type column and the other is a literal whose type
+///    is compatible with the custom type's `value` input type.
+///
+/// When case 2 applies, the literal is encoded before being passed to the operator
+/// function so both arguments are in the same (encoded) representation.
+fn find_custom_type_operator(
+    e1: &ast::Expr,
+    e2: &ast::Expr,
+    op: &ast::Operator,
+    referenced_tables: Option<&TableReferences>,
+    resolver: &Resolver,
+) -> Option<ResolvedOperator> {
+    let op_str = operator_to_str(op)?;
+    let lhs_info = expr_custom_type_info(e1, referenced_tables, resolver);
+    let rhs_info = expr_custom_type_info(e2, referenced_tables, resolver);
+
+    // Try to find a direct or derived operator match on a type definition.
+    let find_in_type_def = |type_def: &crate::schema::TypeDef| -> Option<(String, bool, bool)> {
+        // Direct match: just check op symbol (no right_type constraint)
+        for op_def in &type_def.operators {
+            if op_def.op == op_str {
+                // Naked operator (func_name = None): fall through to standard comparison
+                let func_name = op_def.func_name.as_ref()?;
+                return Some((func_name.clone(), false, false));
+            }
+        }
+
+        // Derive missing operators from < and =
+        let find_op = |sym: &str| -> Option<String> {
+            type_def
+                .operators
+                .iter()
+                .find(|o| o.op == sym)
+                .and_then(|o| o.func_name.clone())
+        };
+
+        match *op {
+            // a > b  →  lt(b, a)
+            ast::Operator::Greater => find_op("<").map(|f| (f, true, false)),
+            // a >= b  →  NOT lt(a, b)
+            ast::Operator::GreaterEquals => find_op("<").map(|f| (f, false, true)),
+            // a <= b  →  NOT lt(b, a)
+            ast::Operator::LessEquals => find_op("<").map(|f| (f, true, true)),
+            // a != b  →  NOT eq(a, b)
+            ast::Operator::NotEquals => find_op("=").map(|f| (f, false, true)),
+            _ => None,
+        }
+    };
+
+    // Case 1: Both operands are custom type columns of the SAME type.
+    if let (Some(ref lhs), Some(ref rhs)) = (&lhs_info, &rhs_info) {
+        if lhs.type_name == rhs.type_name {
+            if let Some((func_name, swap_args, negate)) = find_in_type_def(&lhs.type_def) {
+                return Some(ResolvedOperator {
+                    func_name,
+                    swap_args,
+                    negate,
+                    encode_info: None,
+                });
+            }
+        }
+        // Different custom types: fall through to standard operator.
+        return None;
+    }
+
+    // Case 2: LHS is custom type, RHS is a compatible literal.
+    if let Some(ref lhs) = lhs_info {
+        if let Some(lit_type) = literal_type_name(e2) {
+            if literal_compatible_with_value_type(lit_type, lhs.type_def.value_input_type()) {
+                if let Some((func_name, swap_args, negate)) = find_in_type_def(&lhs.type_def) {
+                    return Some(ResolvedOperator {
+                        func_name,
+                        swap_args,
+                        negate,
+                        encode_info: Some(OperatorEncodeInfo {
+                            column: lhs.column.clone(),
+                            type_def: lhs.type_def.clone(),
+                            which: EncodeArg::Second,
+                        }),
+                    });
+                }
+            }
+        }
+    }
+
+    // Case 3: RHS is custom type, LHS is a compatible literal (reversed).
+    if let Some(ref rhs) = rhs_info {
+        if let Some(lit_type) = literal_type_name(e1) {
+            if literal_compatible_with_value_type(lit_type, rhs.type_def.value_input_type()) {
+                if let Some((func_name, swap_args, negate)) = find_in_type_def(&rhs.type_def) {
+                    return Some(ResolvedOperator {
+                        func_name,
+                        swap_args,
+                        negate,
+                        encode_info: Some(OperatorEncodeInfo {
+                            column: rhs.column.clone(),
+                            type_def: rhs.type_def.clone(),
+                            which: EncodeArg::First,
+                        }),
+                    });
+                }
+            }
+        }
+    }
+
+    None
+}
+
+/// Emit bytecode that transforms a stored column value into its user-facing
+/// representation.
+///
+/// For regular columns this is a simple copy (or no-op when source == dest).
+/// For custom type columns with a DECODE function the decode expression is
+/// applied, converting the internal storage form back to the value the user
+/// expects to see.
+///
+/// Every code path that surfaces a stored column value to the user — SELECT,
+/// RETURNING, trigger OLD/NEW — should go through this function so decode
+/// logic lives in one place.
+pub(crate) fn emit_user_facing_column_value(
+    program: &mut ProgramBuilder,
+    source_reg: usize,
+    dest_reg: usize,
+    column: &crate::schema::Column,
+    is_strict: bool,
+    resolver: &Resolver,
+) -> Result<()> {
+    if source_reg != dest_reg {
+        program.emit_insn(Insn::Copy {
+            src_reg: source_reg,
+            dst_reg: dest_reg,
+            extra_amount: 0,
+        });
+    }
+    if let Some(type_def) = resolver.schema().get_type_def(&column.ty_str, is_strict) {
+        if let Some(ref decode_expr) = type_def.decode {
+            let skip_label = program.allocate_label();
+            program.emit_insn(Insn::IsNull {
+                reg: dest_reg,
+                target_pc: skip_label,
+            });
+            emit_type_expr(
+                program,
+                decode_expr,
+                dest_reg,
+                dest_reg,
+                column,
+                type_def,
+                resolver,
+            )?;
+            program.preassign_label_to_next_insn(skip_label);
+        }
+    }
+    Ok(())
+}
+
+/// Walk an expression tree that has been rewritten to use `Expr::Register` for column
+/// references (e.g. by `rewrite_index_expr_for_insertion`). For each register that maps
+/// to a custom type column, emit decode bytecode into a fresh temporary register and
+/// rewrite the expression node to reference the decoded register.
+///
+/// This ensures expression indexes on custom type columns evaluate the expression on
+/// **decoded** (user-facing) values, matching what SELECT / CREATE INDEX see.
+pub(crate) fn decode_custom_type_registers_in_expr(
+    program: &mut ProgramBuilder,
+    resolver: &Resolver,
+    expr: &mut turso_parser::ast::Expr,
+    columns: &[crate::schema::Column],
+    start_reg: usize,
+    key_reg: Option<usize>,
+    is_strict: bool,
+) -> Result<()> {
+    walk_expr_mut(expr, &mut |e| {
+        if let turso_parser::ast::Expr::Register(reg) = e {
+            let reg_val = *reg;
+            // Skip the rowid register — it's not a custom type column.
+            if key_reg == Some(reg_val) {
+                return Ok(WalkControl::Continue);
+            }
+            // Map register back to column index.
+            if reg_val >= start_reg {
+                let col_idx = reg_val - start_reg;
+                if let Some(column) = columns.get(col_idx) {
+                    if let Some(type_def) =
+                        resolver.schema().get_type_def(&column.ty_str, is_strict)
+                    {
+                        if type_def.decode.is_some() {
+                            let decoded_reg = program.alloc_register();
+                            emit_user_facing_column_value(
+                                program,
+                                reg_val,
+                                decoded_reg,
+                                column,
+                                is_strict,
+                                resolver,
+                            )?;
+                            *e = turso_parser::ast::Expr::Register(decoded_reg);
+                        }
+                    }
+                }
+            }
+        }
+        Ok(WalkControl::Continue)
+    })?;
+    Ok(())
+}
+
+/// Emit bytecode for a custom type encode/decode expression.
+/// Sets up `value` to reference `value_reg`, and type parameter overrides
+/// from `column.ty_params` matched against `type_def.params`.
+/// The expression result is written to `dest_reg`.
+pub(crate) fn emit_type_expr(
+    program: &mut ProgramBuilder,
+    expr: &turso_parser::ast::Expr,
+    value_reg: usize,
+    dest_reg: usize,
+    column: &crate::schema::Column,
+    type_def: &crate::schema::TypeDef,
+    resolver: &Resolver,
+) -> Result<usize> {
+    // Set up value override
+    program
+        .id_register_overrides
+        .insert("value".to_string(), value_reg);
+
+    // Set up type parameter overrides. Capture the result so we can
+    // clean up overrides even if param translation fails.
+    let param_result: Result<()> = (|| {
+        // Skip `value` param (already handled above); match remaining params
+        // against the user-provided ty_params by position.
+        let user_params: Vec<_> = type_def.user_params().collect();
+        for (i, param) in user_params.iter().enumerate() {
+            if let Some(param_expr) = column.ty_params.get(i) {
+                let reg = program.alloc_register();
+                translate_expr(program, None, param_expr, reg, resolver)?;
+                program
+                    .id_register_overrides
+                    .insert(param.name.clone(), reg);
+            }
+        }
+        Ok(())
+    })();
+
+    // Translate body expression only if param setup succeeded
+    let result = param_result.and_then(|()| {
+        // Rewrite BETWEEN expressions before translation (the optimizer
+        // normally does this, but type expressions bypass the optimizer).
+        let mut rewritten = expr.clone();
+        rewrite_between_expr(&mut rewritten);
+
+        // Translate the expression, disabling constant optimization since
+        // the `value` placeholder refers to a register that changes per row.
+        translate_expr_no_constant_opt(
+            program,
+            None,
+            &rewritten,
+            dest_reg,
+            resolver,
+            NoConstantOptReason::RegisterReuse,
+        )
+    });
+
+    // Always clean up overrides, even on error
+    program.id_register_overrides.clear();
+
+    result
+}
+
+/// Decode custom type columns for AFTER trigger NEW registers.
+///
+/// For each column with a custom type decode expression, copies the encoded register
+/// to a new register and emits the decode expression. NULL values are skipped.
+/// Returns a Vec of registers: one per column (decoded or original) plus the rowid at the end.
+pub(crate) fn emit_trigger_decode_registers(
+    program: &mut ProgramBuilder,
+    resolver: &Resolver,
+    columns: &[crate::schema::Column],
+    source_regs: &dyn Fn(usize) -> usize,
+    rowid_reg: usize,
+    is_strict: bool,
+) -> Result<Vec<usize>> {
+    columns
+        .iter()
+        .enumerate()
+        .map(|(i, col)| -> Result<usize> {
+            let type_def = resolver.schema().get_type_def(&col.ty_str, is_strict);
+            if let Some(type_def) = type_def {
+                if let Some(ref decode_expr) = type_def.decode {
+                    let src = source_regs(i);
+                    let decoded_reg = program.alloc_register();
+                    program.emit_insn(Insn::Copy {
+                        src_reg: src,
+                        dst_reg: decoded_reg,
+                        extra_amount: 0,
+                    });
+                    let skip_label = program.allocate_label();
+                    program.emit_insn(Insn::IsNull {
+                        reg: decoded_reg,
+                        target_pc: skip_label,
+                    });
+                    emit_type_expr(
+                        program,
+                        decode_expr,
+                        decoded_reg,
+                        decoded_reg,
+                        col,
+                        type_def,
+                        resolver,
+                    )?;
+                    program.preassign_label_to_next_insn(skip_label);
+                    return Ok(decoded_reg);
+                }
+            }
+            Ok(source_regs(i))
+        })
+        .chain(std::iter::once(Ok(rowid_reg)))
+        .collect::<Result<Vec<usize>>>()
+}
+
+/// Emit encode expressions for columns with custom types in a contiguous register range.
+/// Used by INSERT, UPDATE, and UPSERT paths to encode values before TypeCheck.
+///
+/// If `only_columns` is `Some`, only encode columns whose index is in the set.
+/// This is needed for UPDATE/UPSERT where non-SET columns are already encoded
+/// (read from disk), and re-encoding them would corrupt data.
+pub(crate) fn emit_custom_type_encode_columns(
+    program: &mut ProgramBuilder,
+    resolver: &Resolver,
+    columns: &[crate::schema::Column],
+    start_reg: usize,
+    only_columns: Option<&std::collections::HashSet<usize>>,
+) -> Result<()> {
+    for (i, col) in columns.iter().enumerate() {
+        if let Some(filter) = only_columns {
+            if !filter.contains(&i) {
+                continue;
+            }
+        }
+        let type_name = &col.ty_str;
+        if type_name.is_empty() {
+            continue;
+        }
+        let Some(type_def) = resolver.schema().get_type_def_unchecked(type_name) else {
+            continue;
+        };
+        let Some(ref encode_expr) = type_def.encode else {
+            continue;
+        };
+
+        let reg = start_reg + i;
+
+        // Skip NULL values: jump over encode if NULL
+        let skip_label = program.allocate_label();
+        program.emit_insn(crate::vdbe::insn::Insn::IsNull {
+            reg,
+            target_pc: skip_label,
+        });
+
+        emit_type_expr(program, encode_expr, reg, reg, col, type_def, resolver)?;
+
+        program.preassign_label_to_next_insn(skip_label);
+    }
+    Ok(())
+}
+
+/// Emit decode expressions for columns with custom types in a contiguous register range.
+/// Used by the UPSERT path to decode values that were read from disk (encoded) so that
+/// WHERE/SET expressions in DO UPDATE see user-facing values.
+///
+/// If `only_columns` is `Some`, only decode columns whose index is in the set.
+pub(crate) fn emit_custom_type_decode_columns(
+    program: &mut ProgramBuilder,
+    resolver: &Resolver,
+    columns: &[crate::schema::Column],
+    start_reg: usize,
+    only_columns: Option<&std::collections::HashSet<usize>>,
+) -> Result<()> {
+    for (i, col) in columns.iter().enumerate() {
+        if let Some(filter) = only_columns {
+            if !filter.contains(&i) {
+                continue;
+            }
+        }
+        let type_name = &col.ty_str;
+        if type_name.is_empty() {
+            continue;
+        }
+        let Some(type_def) = resolver.schema().get_type_def_unchecked(type_name) else {
+            continue;
+        };
+        let Some(ref decode_expr) = type_def.decode else {
+            continue;
+        };
+
+        let reg = start_reg + i;
+
+        // Skip NULL values: jump over decode if NULL
+        let skip_label = program.allocate_label();
+        program.emit_insn(crate::vdbe::insn::Insn::IsNull {
+            reg,
+            target_pc: skip_label,
+        });
+
+        emit_type_expr(program, decode_expr, reg, reg, col, type_def, resolver)?;
+
+        program.preassign_label_to_next_insn(skip_label);
+    }
+    Ok(())
 }

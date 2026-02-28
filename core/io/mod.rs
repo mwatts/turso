@@ -27,6 +27,12 @@ cfg_block! {
         pub use PlatformIO as SyscallIO;
     }
 
+    #[cfg(all(target_os = "windows", feature = "experimental_win_iocp", not(miri)))] {
+        mod win_iocp;
+        #[cfg(feature = "fs")]
+        pub use win_iocp::WindowsIOCP;
+    }
+
     #[cfg(any(not(any(target_family = "unix", target_os = "android", target_os = "ios")), miri))] {
         mod generic;
         pub use generic::GenericIO as PlatformIO;
@@ -83,11 +89,8 @@ pub trait File: Send + Sync {
                 let c_main = c.clone();
                 let outstanding = outstanding.clone();
                 let total_written = total_written.clone();
-                let _cloned = buf.clone();
                 Completion::new_write(move |n| {
                     if let Ok(n) = n {
-                        // reference buffer in callback to ensure alive for async io
-                        let _buf = _cloned.clone();
                         // accumulate bytes actually reported by the backend
                         total_written.fetch_add(n as usize, Ordering::SeqCst);
                         if outstanding.fetch_sub(1, Ordering::AcqRel) == 1 {
@@ -136,7 +139,7 @@ impl TempFile {
     pub fn new(io: &Arc<dyn IO>) -> Result<Self> {
         #[cfg(not(target_family = "wasm"))]
         {
-            let temp_dir = tempfile::tempdir()?;
+            let temp_dir = tempfile::tempdir().map_err(|e| crate::error::io_error(e, "tempdir"))?;
             let chunk_file_path = temp_dir.as_ref().join("tursodb_temp_file");
             let chunk_file_path_str = chunk_file_path.to_str().ok_or_else(|| {
                 crate::LimboError::InternalError("temp file path is not valid UTF-8".to_string())
@@ -271,13 +274,13 @@ pub trait IO: Clock + Send + Sync {
     /// Yield the current thread to the scheduler.
     /// Used for backoff in contended lock acquisition.
     fn yield_now(&self) {
-        std::thread::yield_now();
+        crate::thread::yield_now();
     }
 
     /// Sleep for the specified duration.
     /// Used for progressive backoff in contended lock acquisition.
     fn sleep(&self, duration: std::time::Duration) {
-        std::thread::sleep(duration);
+        crate::thread::sleep(duration);
     }
 }
 
@@ -602,6 +605,45 @@ mod shuttle_tests {
         }
     }
 
+    #[cfg(all(
+        target_os = "windows",
+        feature = "experimental_win_iocp",
+        feature = "fs",
+        not(miri)
+    ))]
+    struct WinIOCPFactory {
+        temp_dir: tempfile::TempDir,
+    }
+
+    #[cfg(all(
+        target_os = "windows",
+        feature = "experimental_win_iocp",
+        feature = "fs",
+        not(miri)
+    ))]
+    impl WinIOCPFactory {
+        fn new() -> Self {
+            Self {
+                temp_dir: tempfile::tempdir().unwrap(),
+            }
+        }
+    }
+
+    #[cfg(all(
+        target_os = "windows",
+        feature = "experimental_win_iocp",
+        feature = "fs",
+        not(miri)
+    ))]
+    impl IOFactory for WinIOCPFactory {
+        fn create(&self) -> Arc<dyn IO> {
+            Arc::new(WindowsIOCP::new().unwrap())
+        }
+        fn temp_dir(&self) -> PathBuf {
+            self.temp_dir.path().to_path_buf()
+        }
+    }
+
     /// Macro to generate shuttle tests for all IO implementations.
     /// Creates a test for MemoryIO, and conditionally for PlatformIO and UringIO.
     macro_rules! shuttle_io_test {
@@ -623,6 +665,13 @@ mod shuttle_tests {
                 fn [<shuttle_ $test_name _uring>]() {
                     shuttle::check_random(|| $test_impl(UringIOFactory::new()), 1000);
                 }
+
+                #[cfg(all(target_os = "windows", feature = "experimental_win_iocp", feature = "fs", not(miri)))]
+                #[test]
+                fn [<shuttle_ $test_name _win_iocp>]() {
+                    shuttle::check_random(|| $test_impl(WinIOCPFactory::new()), 1000);
+                }
+
             }
         };
     }

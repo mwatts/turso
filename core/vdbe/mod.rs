@@ -17,7 +17,7 @@
 //!
 //! https://www.sqlite.org/opcode.html
 
-use crate::{turso_assert, turso_assert_ne, turso_debug_assert};
+use crate::{turso_assert, turso_assert_ne, turso_debug_assert, HashSet};
 pub mod affinity;
 pub mod bloom_filter;
 pub mod builder;
@@ -212,8 +212,16 @@ pub enum StepResult {
 enum CommitState {
     Ready,
     Committing,
-    CommitingMvcc {
+    /// Committing attached database pagers after main pager commit is done.
+    CommittingAttached,
+    CommittingMvcc {
         state_machine: StateMachine<CommitStateMachine<LocalClock>>,
+    },
+    /// Committing MVCC transactions on attached databases after main MVCC commit is done.
+    CommittingAttachedMvcc {
+        state_machine: StateMachine<CommitStateMachine<LocalClock>>,
+        db_id: usize,
+        mv_store: Arc<MvStore>,
     },
 }
 
@@ -389,6 +397,8 @@ pub struct ProgramState {
     distinct_key_values: Vec<Value>,
     hash_tables: HashMap<usize, HashTable>,
     uses_subjournal: bool,
+    /// Attached pagers that have open savepoints for statement rollback.
+    attached_savepoint_pagers: Vec<Arc<Pager>>,
     pub n_change: AtomicI64,
     pub explain_state: RwLock<ExplainState>,
     /// Pending error to return after FAIL mode commit completes.
@@ -475,6 +485,7 @@ impl ProgramState {
             bloom_filters: HashMap::default(),
             hash_tables: HashMap::default(),
             uses_subjournal: false,
+            attached_savepoint_pagers: Vec::new(),
             n_change: AtomicI64::new(0),
             explain_state: RwLock::new(ExplainState::default()),
             pending_fail_error: None,
@@ -515,6 +526,7 @@ impl ProgramState {
     }
 
     pub fn reset(&mut self, max_registers: Option<usize>, max_cursors: Option<usize>) {
+        self.io_completions = None;
         self.pc = 0;
 
         if let Some(max_cursors) = max_cursors {
@@ -566,6 +578,12 @@ impl ProgramState {
         self.current_collation = None;
         self.op_column_state = OpColumnState::Start;
         self.op_row_id_state = OpRowIdState::Start;
+        self.commit_state = CommitState::Ready;
+        self.op_destroy_state = OpDestroyState::CreateCursor;
+        self.op_program_state = OpProgramState::Start;
+        self.op_transaction_state = OpTransactionState::Start;
+        self.op_journal_mode_state = OpJournalModeState::default();
+        self.op_vacuum_into_state = OpVacuumIntoState::default();
         self.view_delta_state = ViewDeltaCommitState::NotStarted;
         self.auto_txn_cleanup = TxnCleanup::None;
         self.fk_immediate_violations_during_stmt
@@ -577,9 +595,13 @@ impl ProgramState {
         self.hash_tables.clear();
         self.op_hash_build_state = None;
         self.op_hash_probe_state = None;
+        self.uses_subjournal = false;
         self.distinct_key_values.clear();
+        self.attached_savepoint_pagers.clear();
         self.n_change.store(0, Ordering::SeqCst);
         *self.explain_state.write() = ExplainState::default();
+        self.pending_fail_error = None;
+        self.pending_cdc_info = None;
     }
 
     pub fn get_cursor(&mut self, cursor_id: CursorID) -> &mut Cursor {
@@ -591,6 +613,10 @@ impl ProgramState {
     }
 
     /// Begin a statement subtransaction.
+    ///
+    /// Creates a savepoint on the main DB's MvStore (or pager for WAL mode).
+    /// Attached DB savepoints are opened per-DB in `op_transaction_inner`
+    /// when each DB's Transaction opcode is executed.
     pub fn begin_statement(
         &mut self,
         connection: &Connection,
@@ -626,7 +652,7 @@ impl ProgramState {
         );
         // Reset the immediate foreign key violations counter to 0. If this is nonzero when the statement completes, the statement subtransaction will roll back.
         self.fk_immediate_violations_during_stmt
-            .store(0, Ordering::SeqCst);
+            .store(0, Ordering::Release);
         Ok(IOResult::Done(()))
     }
 
@@ -637,6 +663,8 @@ impl ProgramState {
         pager: &Arc<Pager>,
         end_statement: EndStatement,
     ) -> Result<()> {
+        // Drain attached pagers upfront so we can clean them up regardless of path.
+        let attached_pagers: Vec<Arc<Pager>> = self.attached_savepoint_pagers.drain(..).collect();
         let result = 'outer: {
             match end_statement {
                 EndStatement::ReleaseSavepoint => {
@@ -644,9 +672,19 @@ impl ProgramState {
                         if let Some(tx_id) = connection.get_mv_tx_id() {
                             mv_store.release_savepoint(tx_id);
                         }
+                        // Release savepoints on attached MVCC databases.
+                        connection.for_each_attached_mv_tx(|db_id, tx_id| {
+                            if let Some(attached_mv) = connection.mv_store_for_db(db_id) {
+                                attached_mv.release_savepoint(tx_id);
+                            }
+                        });
                         Ok(()) // MVCC mode: no pager savepoint to release
                     } else {
-                        pager.release_savepoint()
+                        pager.release_savepoint()?;
+                        for p in &attached_pagers {
+                            p.release_savepoint()?;
+                        }
+                        Ok(())
                     }
                 }
                 EndStatement::RollbackSavepoint => {
@@ -657,6 +695,18 @@ impl ProgramState {
                                 break 'outer Ok(());
                             }
                         }
+                        // Rollback savepoints on attached MVCC databases.
+                        let mut attached_err = None;
+                        connection.for_each_attached_mv_tx(|db_id, tx_id| {
+                            if let Some(attached_mv) = connection.mv_store_for_db(db_id) {
+                                if let Err(e) = attached_mv.rollback_first_savepoint(tx_id) {
+                                    attached_err = Some(e);
+                                }
+                            }
+                        });
+                        if let Some(e) = attached_err {
+                            break 'outer Err(e);
+                        }
                     } else {
                         match pager.rollback_to_newest_savepoint() {
                             // We sometimes call end_statement() on errors without explicitly knowing whether a stmt transaction
@@ -664,6 +714,9 @@ impl ProgramState {
                             Ok(false) => break 'outer Ok(()),
                             Err(err) => break 'outer Err(err),
                             _ => {}
+                        }
+                        for p in &attached_pagers {
+                            p.rollback_to_newest_savepoint()?;
                         }
                     }
                     // Reset the deferred foreign key violations counter to the value it had at the start of the statement.
@@ -680,6 +733,9 @@ impl ProgramState {
         if self.uses_subjournal {
             pager.stop_use_subjournal();
             self.uses_subjournal = false;
+        }
+        for p in &attached_pagers {
+            p.stop_use_subjournal();
         }
         result
     }
@@ -719,6 +775,16 @@ impl ProgramState {
     /// Checks if a bloom filter exists for the given cursor ID.
     pub fn has_bloom_filter(&self, cursor_id: usize) -> bool {
         self.bloom_filters.contains_key(&cursor_id)
+    }
+
+    pub fn get_fk_immediate_violations_during_stmt(&self) -> isize {
+        self.fk_immediate_violations_during_stmt
+            .load(Ordering::Acquire)
+    }
+
+    pub fn increment_fk_immediate_violations_during_stmt(&self, v: isize) {
+        self.fk_immediate_violations_during_stmt
+            .fetch_add(v, Ordering::AcqRel);
     }
 }
 
@@ -779,15 +845,13 @@ macro_rules! get_cursor {
 /// Tracks the state of explain mode execution, including which subprograms need to be processed.
 #[derive(Default)]
 pub struct ExplainState {
-    /// Program counter positions in the parent program where `Insn::Program` instructions occur.
-    parent_program_pcs: Vec<usize>,
-    /// Index of the subprogram currently being processed, if any.
-    current_subprogram_index: Option<usize>,
-    /// PC value when we started processing the current subprogram, to detect if we need to reset.
-    subprogram_start_pc: Option<usize>,
+    /// Subprograms queued for explain output, processed after the parent program finishes.
+    pending: std::collections::VecDeque<Arc<PreparedProgram>>,
+    /// The subprogram currently being explained, if any.
+    current: Option<Arc<PreparedProgram>>,
 }
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct PreparedProgram {
     pub max_registers: usize,
     // we store original indices because we don't want to create new vec from
@@ -813,7 +877,9 @@ pub struct PreparedProgram {
     pub resolve_type: ResolveType,
     pub prepare_context: PrepareContext,
     /// Set of attached database indices that need write transactions.
-    pub write_databases: std::collections::HashSet<usize>,
+    pub write_databases: HashSet<usize>,
+    /// Set of attached database indices that need read transactions.
+    pub read_databases: HashSet<usize>,
 }
 
 #[derive(Clone)]
@@ -951,9 +1017,8 @@ impl Program {
     fn explain_step(&self, state: &mut ProgramState, pager: Arc<Pager>) -> Result<StepResult> {
         turso_debug_assert!(state.column_count() == EXPLAIN_COLUMNS.len());
         if self.connection.is_closed() {
-            // Connection is closed for whatever reason, rollback the transaction.
-            let state = self.connection.get_tx_state();
-            if let TransactionState::Write { .. } = state {
+            let tx_state = self.connection.get_tx_state();
+            if let TransactionState::Write { .. } = tx_state {
                 pager.rollback_tx(&self.connection);
             }
             return Err(LimboError::InternalError("Connection closed".to_string()));
@@ -963,120 +1028,70 @@ impl Program {
             return Ok(StepResult::Interrupt);
         }
 
-        // FIXME: do we need this?
         state.metrics.vm_steps = state.metrics.vm_steps.saturating_add(1);
 
         let mut explain_state = state.explain_state.write();
 
-        // Check if we're processing a subprogram
-        if let Some(sub_idx) = explain_state.current_subprogram_index {
-            if sub_idx >= explain_state.parent_program_pcs.len() {
-                // All subprograms processed
-                *explain_state = ExplainState::default();
-                return Ok(StepResult::Done);
-            }
-
-            let parent_pc = explain_state.parent_program_pcs[sub_idx];
-            let Insn::Program { program: p, .. } = &self.insns[parent_pc].0 else {
-                panic!("Expected program insn at pc {parent_pc}");
-            };
-            let p = &mut p.write().program;
-
-            let subprogram_insn_count = p.insns.len();
-
-            // Check if the subprogram has already finished (PC is out of bounds)
-            // This can happen if the subprogram finished in a previous call but we're being called again
-            if state.pc as usize >= subprogram_insn_count {
-                // Subprogram is done, move to next one
-                explain_state.subprogram_start_pc = None;
-                if sub_idx + 1 < explain_state.parent_program_pcs.len() {
-                    explain_state.current_subprogram_index = Some(sub_idx + 1);
-                    state.pc = 0;
-                    drop(explain_state);
-                    return self.explain_step(state, pager);
-                } else {
-                    *explain_state = ExplainState::default();
-                    return Ok(StepResult::Done);
+        // Advance to the next subprogram if the current one is finished
+        loop {
+            if let Some(ref current) = explain_state.current {
+                if (state.pc as usize) < current.insns.len() {
+                    break;
                 }
+            } else if (state.pc as usize) < self.insns.len() {
+                break;
             }
-
-            // Reset PC to 0 only when starting a new subprogram (when subprogram_start_pc is None)
-            // Once we've started, let the subprogram manage its own PC through its explain_step
-            if explain_state.subprogram_start_pc.is_none() {
+            // Current program is done, pop next subprogram from queue
+            if let Some(next) = explain_state.pending.pop_front() {
+                explain_state.current = Some(next);
                 state.pc = 0;
-                explain_state.subprogram_start_pc = Some(0);
-            }
-
-            // Process the subprogram - it will handle its own explain_step internally
-            // The subprogram's explain_step will process all its instructions (including any nested subprograms)
-            // and return StepResult::Row for each instruction, then StepResult::Done when finished
-            drop(explain_state);
-            let result = p.step(state, pager.clone(), QueryMode::Explain, None)?;
-            let mut explain_state = state.explain_state.write();
-
-            match result {
-                StepResult::Done => {
-                    // This subprogram is done, move to next one
-                    explain_state.subprogram_start_pc = None; // Clear the start PC marker
-                    if sub_idx + 1 < explain_state.parent_program_pcs.len() {
-                        // Move to next subprogram
-                        explain_state.current_subprogram_index = Some(sub_idx + 1);
-                        // Reset PC to 0 for the next subprogram
-                        state.pc = 0;
-                        // Recursively call to process the next subprogram
-                        drop(explain_state);
-                        return self.explain_step(state, pager);
-                    } else {
-                        // All subprograms done
-                        *explain_state = ExplainState::default();
-                        return Ok(StepResult::Done);
-                    }
-                }
-                StepResult::Row => {
-                    // Output a row from the subprogram
-                    // The subprogram's step already set up the registers with PC starting at 0
-                    // Don't reset subprogram_start_pc - we're still processing this subprogram
-                    drop(explain_state);
-                    return Ok(StepResult::Row);
-                }
-                other => {
-                    drop(explain_state);
-                    return Ok(other);
-                }
-            }
-        }
-
-        // We're processing the parent program
-        if state.pc as usize >= self.insns.len() {
-            // Parent program is done, start processing subprograms
-            if explain_state.parent_program_pcs.is_empty() {
-                // No subprograms to process
-                *explain_state = ExplainState::default();
+            } else {
+                explain_state.current = None;
                 return Ok(StepResult::Done);
             }
-
-            // Start processing the first subprogram
-            explain_state.current_subprogram_index = Some(0);
-            explain_state.subprogram_start_pc = None; // Will be set when we actually start processing
-            state.pc = 0; // Reset PC to 0 for the first subprogram
-            drop(explain_state);
-            return self.explain_step(state, pager);
         }
 
-        let (current_insn, _) = &self.insns[state.pc as usize];
+        let pc = state.pc as usize;
 
-        if matches!(current_insn, Insn::Program { .. }) {
-            explain_state.parent_program_pcs.push(state.pc as usize);
-        }
-        let (opcode, p1, p2, p3, p4, p5, comment) = insn_to_row_with_comment(
-            self,
-            current_insn,
-            self.comments
+        // Explain the current instruction from the active program.
+        // We collect subprograms separately to avoid borrow conflicts with explain_state.
+        let (row, subprogram) = if let Some(ref current) = explain_state.current {
+            let (insn, _) = &current.insns[pc];
+            let sub = if let Insn::Program {
+                program: prepared, ..
+            } = insn
+            {
+                Some(prepared.clone())
+            } else {
+                None
+            };
+            let comment = current
+                .comments
                 .iter()
                 .find(|(offset, _)| *offset == state.pc)
-                .map(|(_, comment)| comment)
-                .copied(),
-        );
+                .map(|(_, c)| *c);
+            (insn_to_row_with_comment(current, insn, comment), sub)
+        } else {
+            let (insn, _) = &self.insns[pc];
+            let sub = if let Insn::Program {
+                program: prepared, ..
+            } = insn
+            {
+                Some(prepared.clone())
+            } else {
+                None
+            };
+            let comment = self
+                .comments
+                .iter()
+                .find(|(offset, _)| *offset == state.pc)
+                .map(|(_, c)| *c);
+            (insn_to_row_with_comment(self, insn, comment), sub)
+        };
+        if let Some(sub) = subprogram {
+            explain_state.pending.push_back(sub);
+        }
+        let (opcode, p1, p2, p3, p4, p5, comment) = row;
 
         state.registers[0] = Register::Value(Value::from_i64(state.pc as i64));
         state.registers[1] = Register::Value(Value::from_text(opcode));
@@ -1378,8 +1393,14 @@ impl Program {
 
         // Reset state for next use
         program_state.view_delta_state = ViewDeltaCommitState::NotStarted;
-        if self.connection.get_tx_state() == TransactionState::None {
-            // No need to do any work here if not in tx
+        let tx_state = self.connection.get_tx_state();
+        if tx_state == TransactionState::None
+            && matches!(program_state.commit_state, CommitState::Ready)
+        {
+            // No active transaction and no in-progress commit — nothing to do.
+            // Attached MVCC transactions are only started after the main DB's
+            // Transaction opcode runs, so tx_state==None implies no attached
+            // MVCC txs either.
             return Ok(IOResult::Done(()));
         }
         if self.connection.is_nested_stmt() {
@@ -1418,6 +1439,19 @@ impl Program {
                 unreachable!("invalid state for write commit step")
             };
             self.step_end_write_txn(&pager, &connection, program_state, rollback)
+        } else if matches!(program_state.commit_state, CommitState::CommittingAttached) {
+            // Re-entry after IO yield from attached pager commit.
+            match self.end_attached_write_txns(&connection, rollback)? {
+                IOResult::Done(_) => {
+                    program_state.commit_state = CommitState::Ready;
+                    if pager.holds_read_lock() {
+                        pager.end_read_tx();
+                    }
+                    self.end_attached_read_txns(&connection);
+                    Ok(IOResult::Done(()))
+                }
+                IOResult::IO(io) => Ok(IOResult::IO(io)),
+            }
         } else if auto_commit {
             match tx_state {
                 TransactionState::Write { .. } => {
@@ -1425,6 +1459,17 @@ impl Program {
                 }
                 TransactionState::Read => {
                     connection.set_tx_state(TransactionState::None);
+                    // Commit any attached write transactions that were opened
+                    // independently of the main connection's transaction state.
+                    // (e.g., UPDATE aux0.t SET ... only needs Read on main DB
+                    // but holds a write lock on the attached pager.)
+                    match self.end_attached_write_txns(&connection, rollback)? {
+                        IOResult::Done(_) => {}
+                        IOResult::IO(io) => {
+                            program_state.commit_state = CommitState::CommittingAttached;
+                            return Ok(IOResult::IO(io));
+                        }
+                    }
                     pager.end_read_tx();
                     self.end_attached_read_txns(&connection);
                     Ok(IOResult::Done(()))
@@ -1439,27 +1484,49 @@ impl Program {
         }
     }
 
+    /// Commit MVCC transactions across all databases in a multi-phase protocol:
+    ///
+    /// 1. **Main DB MVCC** — commit the main database's MvStore transaction.
+    /// 2. **Attached MVCC** — commit each attached database's MvStore transaction.
+    /// 3. **Attached WAL** — flush dirty pages on attached databases that use WAL
+    ///    (e.g. :memory: attached while main is MVCC).
+    ///
+    /// **IMPORTANT**: This multi-phase commit is NOT atomic across databases.
+    /// A crash between phases can leave the main and attached databases in
+    /// inconsistent states (main committed, some attached DBs not committed).
+    /// This matches SQLite's WAL mode behavior — cross-file atomicity only
+    /// exists in legacy rollback journal mode, which we do not support.
     fn commit_txn_mvcc(
         &self,
         pager: Arc<Pager>,
         program_state: &mut ProgramState,
         mv_store: &Arc<MvStore>,
-        _rollback: bool,
+        rollback: bool,
     ) -> Result<IOResult<()>> {
         let conn = self.connection.clone();
         let auto_commit = conn.auto_commit.load(Ordering::SeqCst);
-        if auto_commit {
-            // FIXME: we don't want to commit stuff from other programs.
-            if matches!(program_state.commit_state, CommitState::Ready) {
-                let Some(tx_id) = conn.get_mv_tx_id() else {
-                    return Ok(IOResult::Done(()));
-                };
+        if !auto_commit {
+            return Ok(IOResult::Done(()));
+        }
+
+        // Phase 1: Commit main DB MVCC transaction
+        if matches!(program_state.commit_state, CommitState::Ready) {
+            if let Some(tx_id) = conn.get_mv_tx_id() {
                 let state_machine = mv_store.commit_tx(tx_id, &conn)?;
-                program_state.commit_state = CommitState::CommitingMvcc { state_machine };
+                program_state.commit_state = CommitState::CommittingMvcc { state_machine };
             }
-            let CommitState::CommitingMvcc { state_machine } = &mut program_state.commit_state
+            // If no main MVCC tx, commit_state stays Ready and we fall
+            // through directly to phase 2 (the CommittingMvcc and
+            // CommittingAttachedMvcc checks will both miss).
+        }
+
+        if matches!(
+            program_state.commit_state,
+            CommitState::CommittingMvcc { .. }
+        ) {
+            let CommitState::CommittingMvcc { state_machine } = &mut program_state.commit_state
             else {
-                panic!("invalid state for mvcc commit step")
+                unreachable!()
             };
             match self.step_end_mvcc_txn(state_machine, mv_store)? {
                 IOResult::Done(_) => {
@@ -1468,11 +1535,108 @@ impl Program {
                     conn.set_tx_state(TransactionState::None);
                     pager.end_read_tx();
                     program_state.commit_state = CommitState::Ready;
+                    // Fall through to attached phase
+                }
+                IOResult::IO(io) => return Ok(IOResult::IO(io)),
+            }
+        }
+
+        // Phase 2: Commit MVCC transactions on attached databases
+        // Resume an in-progress attached MVCC commit
+        if matches!(
+            program_state.commit_state,
+            CommitState::CommittingAttachedMvcc { .. }
+        ) {
+            let (step_result, db_id) = {
+                let CommitState::CommittingAttachedMvcc {
+                    state_machine,
+                    db_id,
+                    mv_store: ref attached_mv,
+                } = &mut program_state.commit_state
+                else {
+                    unreachable!()
+                };
+                (state_machine.step(attached_mv)?, *db_id)
+            };
+            match step_result {
+                IOResult::Done(_) => {
+                    let attached_pager = conn.get_pager_from_database_index(&db_id);
+                    conn.publish_attached_schema(db_id);
+                    conn.set_mv_tx_for_db(db_id, None);
+                    attached_pager.end_read_tx();
+                    // Fall through to look for more
+                }
+                IOResult::IO(io) => return Ok(IOResult::IO(io)),
+            }
+        }
+
+        // Start/continue committing remaining attached MVCC transactions
+        loop {
+            let Some((db_id, tx_id, _mode)) = conn.next_attached_mv_tx() else {
+                break;
+            };
+            let Some(attached_mv_store) = conn.mv_store_for_db(db_id) else {
+                conn.set_mv_tx_for_db(db_id, None);
+                continue;
+            };
+            let mut state_machine = match attached_mv_store.commit_tx(tx_id, &conn) {
+                Ok(sm) => sm,
+                Err(e) => {
+                    tracing::error!(
+                        db_id,
+                        "attached DB commit failed after main DB already committed; \
+                         cross-database state is inconsistent: {e}"
+                    );
+                    // Rollback remaining uncommitted attached MVCC transactions
+                    // so they don't block checkpointing until connection close.
+                    conn.rollback_attached_mvcc_txs(true);
+                    return Err(e);
+                }
+            };
+            match state_machine.step(&attached_mv_store)? {
+                IOResult::Done(_) => {
+                    let attached_pager = conn.get_pager_from_database_index(&db_id);
+                    conn.publish_attached_schema(db_id);
+                    conn.set_mv_tx_for_db(db_id, None);
+                    attached_pager.end_read_tx();
+                    continue;
+                }
+                IOResult::IO(io) => {
+                    program_state.commit_state = CommitState::CommittingAttachedMvcc {
+                        state_machine,
+                        db_id,
+                        mv_store: attached_mv_store,
+                    };
+                    return Ok(IOResult::IO(io));
+                }
+            }
+        }
+
+        // Phase 3: Commit WAL transactions on attached databases that don't use MVCC.
+        // When the main DB uses MVCC, we route through commit_txn_mvcc, but attached
+        // DBs may use WAL mode and need their dirty pages committed via the WAL path.
+        if matches!(program_state.commit_state, CommitState::CommittingAttached) {
+            // Re-entry after IO yield from attached WAL pager commit.
+            match self.end_attached_write_txns(&conn, rollback)? {
+                IOResult::Done(_) => {
+                    program_state.commit_state = CommitState::Ready;
+                    self.end_attached_read_txns(&conn);
                     return Ok(IOResult::Done(()));
                 }
                 IOResult::IO(io) => return Ok(IOResult::IO(io)),
             }
         }
+
+        match self.end_attached_write_txns(&conn, rollback)? {
+            IOResult::Done(_) => {}
+            IOResult::IO(io) => {
+                program_state.commit_state = CommitState::CommittingAttached;
+                return Ok(IOResult::IO(io));
+            }
+        }
+        self.end_attached_read_txns(&conn);
+
+        program_state.commit_state = CommitState::Ready;
         Ok(IOResult::Done(()))
     }
 
@@ -1485,6 +1649,21 @@ impl Program {
         rollback: bool,
     ) -> Result<IOResult<()>> {
         let commit_state = &mut program_state.commit_state;
+        if matches!(commit_state, CommitState::CommittingAttached) {
+            // Resume committing attached pagers after IO yield.
+            match self.end_attached_write_txns(connection, rollback)? {
+                IOResult::Done(_) => {
+                    *commit_state = CommitState::Ready;
+                }
+                IOResult::IO(io) => {
+                    return Ok(IOResult::IO(io));
+                }
+            }
+            // Release read locks on attached pagers that only had read transactions
+            // (end_attached_write_txns only handles pagers with write locks).
+            self.end_attached_read_txns(connection);
+            return Ok(IOResult::Done(()));
+        }
         let txn_finish_result = if !rollback {
             pager.commit_tx(connection, true)
         } else {
@@ -1494,9 +1673,16 @@ impl Program {
         tracing::debug!("txn_finish_result: {:?}", txn_finish_result);
         match txn_finish_result? {
             IOResult::Done(_) => {
-                *commit_state = CommitState::Ready;
-                // Also commit/rollback attached database pagers
-                self.end_attached_write_txns(connection, rollback)?;
+                // Main pager commit done, now commit attached database pagers
+                match self.end_attached_write_txns(connection, rollback)? {
+                    IOResult::Done(_) => {
+                        *commit_state = CommitState::Ready;
+                    }
+                    IOResult::IO(io) => {
+                        *commit_state = CommitState::CommittingAttached;
+                        return Ok(IOResult::IO(io));
+                    }
+                }
             }
             IOResult::IO(io) => {
                 tracing::trace!("Cacheflush IO");
@@ -1504,47 +1690,66 @@ impl Program {
                 return Ok(IOResult::IO(io));
             }
         }
+        // Release read locks on attached pagers that only had read transactions
+        // (end_attached_write_txns only handles pagers with write locks).
+        self.end_attached_read_txns(connection);
         Ok(IOResult::Done(()))
     }
 
-    /// End write transactions on all attached databases that were written to.
-    fn end_attached_write_txns(&self, connection: &Connection, rollback: bool) -> Result<()> {
-        for &db_id in &self.prepared.write_databases {
-            if db_id < 2 {
+    /// End write transactions on all attached databases that hold write locks.
+    /// Iterates ALL attached pagers (not just the current program's write_databases)
+    /// because in explicit transactions, the COMMIT statement's program may differ
+    /// from the statement that acquired the attached write lock.
+    /// On IO yield, already-committed pagers are skipped on re-entry via holds_write_lock().
+    fn end_attached_write_txns(
+        &self,
+        connection: &Connection,
+        rollback: bool,
+    ) -> Result<IOResult<()>> {
+        let pagers = connection.get_all_attached_pagers_with_index();
+        for (db_id, attached_pager) in pagers {
+            // MVCC-enabled attached DBs are committed in commit_txn_mvcc phase 2
+            if connection.mv_store_for_db(db_id).is_some() {
                 continue;
             }
-            let attached_pager = connection.get_pager_from_database_index(&db_id);
+            if !attached_pager.holds_write_lock() {
+                continue;
+            }
             if !rollback {
                 // Commit dirty pages to WAL, then end write+read transactions.
                 // We disable auto-checkpoint and avoid pager.commit_tx() since
                 // the checkpoint logic can leave read locks held.
                 match attached_pager.commit_dirty_pages(true, SyncMode::Normal, false) {
                     Ok(IOResult::Done(_)) => {}
-                    Ok(IOResult::IO(_)) => {
-                        tracing::warn!("attached pager commit_dirty_pages returned IO");
+                    Ok(IOResult::IO(io)) => {
+                        // IO pending — return so the caller can yield and re-enter.
+                        // commit_dirty_pages tracks its own internal state, so calling
+                        // it again on re-entry will resume correctly.
+                        return Ok(IOResult::IO(io));
                     }
-                    Err(e) => {
-                        tracing::warn!("attached pager commit_dirty_pages error: {e}");
-                    }
+                    Err(e) => return Err(e),
                 }
+                // WAL commit succeeded — publish the connection-local schema
+                // changes to the shared Database so other connections can see them.
+                connection.publish_attached_schema(db_id);
                 attached_pager.end_write_tx();
                 attached_pager.end_read_tx();
                 attached_pager.commit_dirty_pages_end();
             } else {
+                // Discard any local schema changes on rollback
+                connection.database_schemas().write().remove(&db_id);
                 attached_pager.rollback_attached();
             }
         }
-        Ok(())
+        Ok(IOResult::Done(()))
     }
 
     /// End read transactions on all attached databases that had transactions started.
     fn end_attached_read_txns(&self, connection: &Connection) {
-        for &db_id in &self.prepared.write_databases {
-            if db_id < 2 {
-                continue;
+        for attached_pager in connection.get_all_attached_pagers() {
+            if attached_pager.holds_read_lock() {
+                attached_pager.end_read_tx();
             }
-            let attached_pager = connection.get_pager_from_database_index(&db_id);
-            attached_pager.end_read_tx();
         }
     }
 
@@ -1566,23 +1771,43 @@ impl Program {
         err: Option<&LimboError>,
         state: &mut ProgramState,
     ) -> Result<()> {
+        fn capture_abort_error(
+            abort_error: &mut Option<LimboError>,
+            err: LimboError,
+            context: &str,
+        ) {
+            tracing::error!("{context}: {err}");
+            if abort_error.is_none() {
+                *abort_error = Some(err);
+            }
+        }
+
+        let mut abort_error: Option<LimboError> = None;
+
         if self.is_trigger_subprogram() {
             self.connection.end_trigger_execution();
         }
         // Errors from nested statements are handled by the parent statement.
         if !self.connection.is_nested_stmt() && !self.is_trigger_subprogram() {
             if err.is_some() && !pager.is_checkpointing() {
-                // For FAIL resolve type with non-FK constraint errors, do NOT rollback the statement
-                // savepoint - changes made by the statement prior to the error should persist.
+                // For ON CONFLICT FAIL, do NOT rollback the statement savepoint —
+                // changes made before the error should persist.
                 // For all other resolve types (ABORT, ROLLBACK, etc.), rollback the statement.
-                let should_rollback_stmt = !(self.resolve_type == ResolveType::Fail
-                    && matches!(err, Some(LimboError::Constraint(_))));
-                if should_rollback_stmt {
-                    state.end_statement(
+                let is_fail_constraint = (matches!(err, Some(LimboError::Constraint(_)))
+                    && self.resolve_type == ResolveType::Fail)
+                    || matches!(err, Some(LimboError::Raise(ResolveType::Fail, _)));
+                if !is_fail_constraint {
+                    if let Err(end_stmt_err) = state.end_statement(
                         &self.connection,
                         pager,
                         EndStatement::RollbackSavepoint,
-                    )?;
+                    ) {
+                        capture_abort_error(
+                            &mut abort_error,
+                            end_stmt_err,
+                            "Failed to rollback statement savepoint during abort",
+                        );
+                    }
                 }
             }
             match err {
@@ -1608,36 +1833,98 @@ impl Program {
                         self.rollback_current_txn(pager);
                     }
                 }
-                // Non-FK constraint errors: behavior depends on resolve_type
+                // Constraint and RAISE errors: behavior depends on the effective resolve type.
+                // For normal constraints, the resolve type comes from the statement (ON CONFLICT).
+                // For RAISE errors, the resolve type is embedded in the error variant itself.
                 // - ROLLBACK: rollback the entire transaction regardless of autocommit mode
                 // - FAIL: don't rollback anything - changes persist, transaction stays active
-                Some(LimboError::Constraint(_)) => {
-                    match self.resolve_type {
+                // - ABORT (default): rollback statement, rollback txn if autocommit
+                Some(LimboError::Constraint(_)) | Some(LimboError::Raise(_, _)) => {
+                    let effective_resolve = match err {
+                        Some(LimboError::Raise(rt, _)) => *rt,
+                        _ => self.resolve_type,
+                    };
+                    match effective_resolve {
                         ResolveType::Rollback => {
-                            // ROLLBACK always rolls back the entire transaction
                             self.rollback_current_txn(pager);
                         }
                         ResolveType::Fail => {
-                            // FAIL: Don't rollback the transaction. Changes made before the error persist.
-                            // For autocommit mode, the commit was already handled in halt() before
-                            // the error was returned, so nothing more to do here.
-                            // For non-autocommit mode, release the savepoint so changes become part
-                            // of the outer transaction.
-                            if !self.connection.get_auto_commit() {
-                                state.end_statement(
-                                    &self.connection,
-                                    pager,
-                                    EndStatement::ReleaseSavepoint,
-                                )?;
+                            // FAIL: Don't rollback the transaction.
+                            // Changes made before the error persist.
+                            if let Err(end_stmt_err) = state.end_statement(
+                                &self.connection,
+                                pager,
+                                EndStatement::ReleaseSavepoint,
+                            ) {
+                                capture_abort_error(
+                                    &mut abort_error,
+                                    end_stmt_err,
+                                    "Failed to release statement savepoint during abort",
+                                );
+                            }
+                            if self.connection.get_auto_commit() {
+                                // Autocommit FAIL: commit partial changes.
+                                // This matches halt()'s FAIL+autocommit path.
+                                let mv_store = self.connection.mv_store();
+                                if let Err(e) = execute::vtab_commit_all(&self.connection) {
+                                    capture_abort_error(
+                                        &mut abort_error,
+                                        e,
+                                        "vtab_commit_all failed during FAIL abort",
+                                    );
+                                }
+                                if let Err(e) = execute::index_method_pre_commit_all(state, pager) {
+                                    capture_abort_error(
+                                        &mut abort_error,
+                                        e,
+                                        "index_method_pre_commit_all failed during FAIL abort",
+                                    );
+                                }
+                                loop {
+                                    match self.commit_txn(
+                                        pager.clone(),
+                                        state,
+                                        mv_store.as_ref(),
+                                        false,
+                                    ) {
+                                        Ok(IOResult::Done(_)) => break,
+                                        Ok(IOResult::IO(io)) => {
+                                            if let Err(e) = io.wait(pager.io.as_ref()) {
+                                                capture_abort_error(
+                                                    &mut abort_error,
+                                                    e,
+                                                    "IO error during FAIL commit in abort",
+                                                );
+                                                break;
+                                            }
+                                        }
+                                        Err(e) => {
+                                            capture_abort_error(
+                                                &mut abort_error,
+                                                e,
+                                                "commit_txn failed during FAIL abort",
+                                            );
+                                            break;
+                                        }
+                                    }
+                                }
                             }
                         }
                         _ => {
                             if self.connection.get_auto_commit() {
-                                // ABORT in autocommit: rollback the implicit transaction
                                 self.rollback_current_txn(pager);
                             }
                         }
                     }
+                }
+                Some(LimboError::RaiseIgnore) => {
+                    tracing::error!(
+                        "BUG: RaiseIgnore reached abort() - should be caught by op_program"
+                    );
+                    debug_assert!(
+                        false,
+                        "RaiseIgnore should be caught by op_program, not reach abort"
+                    );
                 }
                 _ => {
                     if state.auto_txn_cleanup != TxnCleanup::None || err.is_some() {
@@ -1646,7 +1933,14 @@ impl Program {
                 }
             }
         }
+        if state.uses_subjournal {
+            pager.stop_use_subjournal();
+            state.uses_subjournal = false;
+        }
         state.auto_txn_cleanup = TxnCleanup::None;
+        if let Some(err) = abort_error {
+            return Err(err);
+        }
         Ok(())
     }
 
@@ -1654,17 +1948,15 @@ impl Program {
         if let Some(mv_store) = self.connection.mv_store().as_ref() {
             if let Some(tx_id) = self.connection.get_mv_tx_id() {
                 self.connection.auto_commit.store(true, Ordering::SeqCst);
-                mv_store.rollback_tx(tx_id, pager.clone(), &self.connection);
+                mv_store.rollback_tx(tx_id, pager.clone(), &self.connection, crate::MAIN_DB_ID);
             }
             pager.end_read_tx();
+            self.connection.rollback_attached_mvcc_txs(true);
         } else {
             pager.rollback_tx(&self.connection);
             self.connection.auto_commit.store(true, Ordering::SeqCst);
         }
-        // Also rollback all attached database pagers that hold write locks
-        for attached_pager in self.connection.get_all_attached_pagers() {
-            attached_pager.rollback_attached();
-        }
+        self.connection.rollback_attached_wal_txns();
         self.connection.set_tx_state(TransactionState::None);
     }
 

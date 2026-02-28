@@ -6,14 +6,14 @@ use super::{
     expr::walk_expr,
     plan::{
         Aggregate, ColumnUsedMask, Distinctness, EvalAt, IterationDirection, JoinInfo,
-        JoinOrderMember, JoinedTable, Operation, OuterQueryReference, Plan, QueryDestination,
-        ResultSetColumn, Scan, TableReferences, WhereTerm,
+        JoinOrderMember, JoinType as PlanJoinType, JoinedTable, Operation, OuterQueryReference,
+        Plan, QueryDestination, ResultSetColumn, Scan, TableReferences, WhereTerm,
     },
     select::prepare_select_plan,
 };
 use crate::translate::{
     emitter::Resolver,
-    expr::{BindingBehavior, WalkControl},
+    expr::{unwrap_parens, BindingBehavior, WalkControl},
     plan::{NonFromClauseSubquery, SubqueryState},
 };
 use crate::{
@@ -515,6 +515,23 @@ fn plan_cte(
     // Only count actual references (FROM/JOIN usage), not pre-planning or recursive deps.
     if count_reference {
         program.increment_cte_reference(cte_def.cte_id);
+
+        // Validate explicit column count only on actual references (matching SQLite behavior,
+        // which defers this check until the CTE is used).
+        if let Some(cols) = explicit_cols {
+            let result_col_count = cte_plan
+                .select_result_columns()
+                .expect("should be a select plan")
+                .len();
+            if cols.len() != result_col_count {
+                crate::bail_parse_error!(
+                    "table {} has {} columns but {} column names were provided",
+                    cte_def.name,
+                    result_col_count,
+                    cols.len()
+                );
+            }
+        }
     }
 
     match cte_plan {
@@ -862,6 +879,22 @@ fn parse_table(
             } else {
                 Some(cte_explicit_columns.as_slice())
             };
+            // Validate explicit column count on actual CTE reference (matching SQLite
+            // behavior, which defers this check until the CTE is used).
+            if let Some(cols) = explicit_cols {
+                let result_col_count = cte_plan
+                    .select_result_columns()
+                    .expect("should be a select plan")
+                    .len();
+                if cols.len() != result_col_count {
+                    crate::bail_parse_error!(
+                        "table {} has {} columns but {} column names were provided",
+                        normalized_qualified_name,
+                        result_col_count,
+                        cols.len()
+                    );
+                }
+            }
             // Use the CTE name for the subquery name so query plans show
             // "SCAN cte_name AS alias" instead of just "SCAN alias".
             let mut jt = JoinedTable::new_subquery_from_plan(
@@ -935,7 +968,19 @@ fn parse_table(
     if let Some(view) = regular_view {
         // Views are essentially query aliases, so just Expand the view as a subquery
         view.process()?;
-        let view_select = view.select_stmt.clone();
+        let mut view_select = view.select_stmt.clone();
+        if let ast::OneSelect::Select {
+            ref mut columns, ..
+        } = view_select.body.select
+        {
+            for (col, result_col) in view.columns.iter().zip(columns.iter_mut()) {
+                if let (Some(name_str), ast::ResultColumn::Expr(_, ref mut alias)) =
+                    (&col.name, result_col)
+                {
+                    *alias = Some(ast::As::As(ast::Name::exact(name_str.clone())));
+                }
+            }
+        }
         let subselect = Box::new(view_select);
 
         // Use the view name as alias if no explicit alias was provided
@@ -1645,19 +1690,40 @@ fn parse_join(
         connection,
     )?;
 
-    let (outer, natural) = match join_operator {
+    let (outer, natural, full_outer) = match join_operator {
         ast::JoinOperator::TypedJoin(Some(join_type)) => {
-            if join_type.contains(JoinType::RIGHT) {
-                crate::bail_parse_error!("RIGHT JOIN is not supported");
-            }
             if join_type.contains(JoinType::CROSS) {
                 crate::bail_parse_error!("CROSS JOIN is not supported");
             }
+            let is_right = join_type.contains(JoinType::RIGHT);
+            let is_left = join_type.contains(JoinType::LEFT);
             let is_outer = join_type.contains(JoinType::OUTER);
             let is_natural = join_type.contains(JoinType::NATURAL);
-            (is_outer, is_natural)
+            // FULL OUTER: LEFT+RIGHT or bare OUTER
+            let is_full = (is_left && is_right) || (is_outer && !is_left && !is_right);
+
+            if is_right && !is_left && !is_full {
+                // RIGHT JOIN: swap the last two tables, then treat as LEFT JOIN.
+                let len = table_references.joined_tables().len();
+                // Only valid for a two-table FROM clause; with prior joins the swap
+                // would break ON clause column references.
+                if len > 2 {
+                    crate::bail_parse_error!(
+                        "RIGHT JOIN following another join is not yet supported. \
+                         Try rewriting as LEFT JOIN or using a subquery."
+                    );
+                }
+                table_references.joined_tables_mut().swap(len - 2, len - 1);
+                table_references.set_right_join_swapped();
+                // outer flag goes on the originally-left table (now rightmost after swap).
+                (true, is_natural, false)
+            } else if is_full {
+                (true, is_natural, true)
+            } else {
+                (is_outer || is_left, is_natural, false)
+            }
         }
-        _ => (false, false),
+        _ => (false, false, false),
     };
 
     if natural && constraint.is_some() {
@@ -1834,7 +1900,17 @@ fn parse_join(
         .joined_tables_mut()
         .get_mut(last_idx)
         .unwrap();
-    rightmost_table.join_info = Some(JoinInfo { outer, using });
+    let plan_join_type = if full_outer {
+        PlanJoinType::FullOuter
+    } else if outer {
+        PlanJoinType::LeftOuter
+    } else {
+        PlanJoinType::Inner
+    };
+    rightmost_table.join_info = Some(JoinInfo {
+        join_type: plan_join_type,
+        using,
+    });
 
     Ok(())
 }
@@ -1843,6 +1919,11 @@ pub fn break_predicate_at_and_boundaries<T: From<Expr>>(
     predicate: &Expr,
     out_predicates: &mut Vec<T>,
 ) {
+    // Unwrap single-element parenthesized expressions recursively: ((expr)) -> expr.
+    // This is semantically equivalent since single-element Parenthesized is purely
+    // syntactic grouping. Multi-element Parenthesized (row values like (x, y)) are
+    // left as-is by unwrap_parens.
+    let predicate = unwrap_parens(predicate).unwrap_or(predicate);
     match predicate {
         Expr::Binary(left, ast::Operator::And, right) => {
             break_predicate_at_and_boundaries(left, out_predicates);

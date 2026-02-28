@@ -5,6 +5,7 @@ use crate::io::clock::{Clock, DefaultClock, MonotonicInstant, WallClockInstant};
 use crate::storage::wal::CKPT_BATCH_PAGES;
 use crate::sync::Mutex;
 use crate::turso_assert;
+use crate::error::io_error;
 use crate::{CompletionError, LimboError, Result};
 use rustix::fs::{self, FlockOperation, OFlags};
 use std::ptr::NonNull;
@@ -15,7 +16,7 @@ use std::{
     os::{fd::AsFd, unix::io::AsRawFd},
     sync::Arc,
 };
-use tracing::{debug, trace};
+use tracing::{debug, trace, warn};
 
 /// Size of the io_uring submission and completion queues
 const ENTRIES: u32 = 512;
@@ -47,8 +48,15 @@ const ARENA_COUNT: usize = 2;
 /// user_data tag for cancellation operations
 const CANCEL_TAG: u64 = 1;
 
+/// Probed io_uring opcode support. Opcodes that are not supported by the
+/// running kernel fall back to synchronous POSIX syscalls.
+struct UringCapabilities {
+    ftruncate: bool,
+}
+
 pub struct UringIO {
     inner: Arc<Mutex<InnerUringIO>>,
+    caps: Arc<UringCapabilities>,
 }
 
 unsafe impl Send for UringIO {}
@@ -109,15 +117,27 @@ impl UringIO {
             .build(ENTRIES)
         {
             Ok(ring) => ring,
-            Err(_) => io_uring::IoUring::new(ENTRIES)?,
+            Err(_) => io_uring::IoUring::new(ENTRIES).map_err(|e| io_error(e, "io_uring_setup"))?,
         };
         // we only ever have 2 files open at a time for the moment
-        ring.submitter().register_files_sparse(FILES)?;
+        ring.submitter().register_files_sparse(FILES).map_err(|e| io_error(e, "register_files"))?;
         // RL_MEMLOCK cap is typically 8MB, the current design is to have one large arena
         // registered at startup and therefore we can simply use the zero index, falling back
         // to similar logic as the existing buffer pool for cases where it is over capacity.
         ring.submitter()
-            .register_buffers_sparse(ARENA_COUNT as u32)?;
+            .register_buffers_sparse(ARENA_COUNT as u32).map_err(|e| io_error(e, "register_buffers"))?;
+        // Probe supported opcodes so we can fall back to POSIX for unsupported ones.
+        let mut probe = io_uring::register::Probe::new();
+        let caps = if ring.submitter().register_probe(&mut probe).is_ok() {
+            UringCapabilities {
+                ftruncate: probe.is_supported(io_uring::opcode::Ftruncate::CODE),
+            }
+        } else {
+            UringCapabilities { ftruncate: false }
+        };
+        if !caps.ftruncate {
+            warn!("io_uring: IORING_OP_FTRUNCATE not supported by kernel, using POSIX fallback");
+        }
         let inner = InnerUringIO {
             ring: WrappedIOUring {
                 ring,
@@ -132,6 +152,7 @@ impl UringIO {
         debug!("Using IO backend 'io-uring'");
         Ok(Self {
             inner: Arc::new(Mutex::new(inner)),
+            caps: Arc::new(caps),
         })
     }
 }
@@ -260,7 +281,7 @@ impl InnerUringIO {
             self.ring
                 .ring
                 .submitter()
-                .register_files_update(slot, &[fd.as_raw_fd()])?;
+                .register_files_update(slot, &[fd.as_raw_fd()]).map_err(|e| io_error(e, "register_files_update"))?;
             return Ok(slot);
         }
         Err(crate::error::CompletionError::UringIOError(
@@ -272,7 +293,7 @@ impl InnerUringIO {
         self.ring
             .ring
             .submitter()
-            .register_files_update(id, &[-1])?;
+            .register_files_update(id, &[-1]).map_err(|e| io_error(e, "register_files_update"))?;
         self.free_files.push_back(id);
         Ok(())
     }
@@ -317,7 +338,7 @@ impl WrappedIOUring {
         }
         // place cancel op at the front, if overflowed
         self.overflow.push_front(entry.clone());
-        self.ring.submit()?;
+        self.ring.submit().map_err(|e| io_error(e, "io_uring_submit"))?;
         Ok(())
     }
 
@@ -353,7 +374,7 @@ impl WrappedIOUring {
         }
         let wants = std::cmp::min(self.pending_ops, MAX_WAIT);
         tracing::trace!("submit_and_wait for {wants} pending operations to complete");
-        self.ring.submit_and_wait(wants)?;
+        self.ring.submit_and_wait(wants).map_err(|e| io_error(e, "io_uring_submit_and_wait"))?;
         Ok(())
     }
 
@@ -425,7 +446,7 @@ impl WrappedIOUring {
             let err = std::io::Error::from_raw_os_error(-result);
             tracing::error!("writev failed (user_data: {}): {}", user_data, err);
             state.free_last_iov(&mut self.iov_pool);
-            completion_from_key(user_data).error(err.into());
+            completion_from_key(user_data).error(CompletionError::IOError(err.kind(), "pwritev"));
             return;
         }
 
@@ -473,7 +494,7 @@ impl IO for UringIO {
             file.create(flags.contains(OpenFlags::Create));
         }
 
-        let file = file.open(path)?;
+        let file = file.open(path).map_err(|e| io_error(e, "open"))?;
         // Let's attempt to enable direct I/O. Not all filesystems support it
         // so ignore any errors.
         let fd = file.as_fd();
@@ -486,6 +507,7 @@ impl IO for UringIO {
         let id = self.inner.lock().register_file(file.as_raw_fd()).ok();
         let uring_file = Arc::new(UringFile {
             io: self.inner.clone(),
+            caps: self.caps.clone(),
             file,
             id,
         });
@@ -498,7 +520,7 @@ impl IO for UringIO {
     }
 
     fn remove_file(&self, path: &str) -> Result<()> {
-        std::fs::remove_file(path)?;
+        std::fs::remove_file(path).map_err(|e| io_error(e, "remove_file"))?;
         Ok(())
     }
 
@@ -539,7 +561,7 @@ impl IO for UringIO {
                 if result < 0 {
                     let errno = -result;
                     let err = std::io::Error::from_raw_os_error(errno);
-                    completion_from_key(user_data).error(err.into());
+                    completion_from_key(user_data).error(CompletionError::IOError(err.kind(), "io_uring_cqe"));
                 } else {
                     completion_from_key(user_data).complete(result)
                 }
@@ -593,7 +615,7 @@ impl IO for UringIO {
             if result < 0 {
                 let errno = -result;
                 let err = std::io::Error::from_raw_os_error(errno);
-                completion_from_key(user_data).error(err.into());
+                completion_from_key(user_data).error(CompletionError::IOError(err.kind(), "io_uring_cqe"));
             } else {
                 completion_from_key(user_data).complete(result)
             }
@@ -618,7 +640,7 @@ impl IO for UringIO {
                     iov_len: len,
                 }],
                 None,
-            )?
+            ).map_err(|e| io_error(e, "register_buffers_update"))?
         };
         inner.free_arenas[slot] = Some((ptr, len));
         Ok(slot as u32)
@@ -653,6 +675,7 @@ fn completion_from_key(key: u64) -> Completion {
 
 pub struct UringFile {
     io: Arc<Mutex<InnerUringIO>>,
+    caps: Arc<UringCapabilities>,
     file: std::fs::File,
     id: Option<u32>,
 }
@@ -778,6 +801,10 @@ impl File for UringFile {
             })
         };
 
+        // Keep the buffer alive until the completion is processed. For non-fixed
+        // buffers the SQE holds a raw pointer; without this the Arc would drop
+        // here and the kernel could read freed memory.
+        c.keep_write_buffer_alive(buffer);
         io.ring.submit_entry(&write);
         Ok(c)
     }
@@ -808,18 +835,29 @@ impl File for UringFile {
     }
 
     fn size(&self) -> Result<u64> {
-        Ok(self.file.metadata()?.len())
+        Ok(self.file.metadata().map_err(|e| io_error(e, "metadata"))?.len())
     }
 
     fn truncate(&self, len: u64, c: Completion) -> Result<Completion> {
-        let truncate = with_fd!(self, |fd| {
-            io_uring::opcode::Ftruncate::new(fd, len)
-                .build()
-                .user_data(get_key(c.clone()))
-        });
-        let mut io = self.io.lock();
-        io.ring.submit_entry(&truncate);
-        Ok(c)
+        if self.caps.ftruncate {
+            let truncate = with_fd!(self, |fd| {
+                io_uring::opcode::Ftruncate::new(fd, len)
+                    .build()
+                    .user_data(get_key(c.clone()))
+            });
+            self.io.lock().ring.submit_entry(&truncate);
+            Ok(c)
+        } else {
+            let result = self.file.set_len(len);
+            match result {
+                Ok(()) => {
+                    trace!("file truncated to len=({})", len);
+                    c.complete(0);
+                    Ok(c)
+                }
+                Err(e) => Err(io_error(e, "truncate")),
+            }
+        }
     }
 }
 

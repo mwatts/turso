@@ -76,8 +76,10 @@ impl Parser {
                     | Token::AtSkipIf
                     | Token::AtRequires
                     | Token::AtBackend
+                    | Token::AtCrossCheckIntegrity
                     | Token::Test
-                    | Token::Snapshot,
+                    | Token::Snapshot
+                    | Token::SnapshotEqp,
                 ) => {
                     // Could be test or snapshot with decorators, peek ahead
                     let item = self.parse_test_or_snapshot()?;
@@ -202,6 +204,7 @@ impl Parser {
         let mut skip = vec![];
         let mut backend = None;
         let mut requires = Vec::new();
+        let mut cross_check_integrity = false;
 
         // Parse decorators
         loop {
@@ -252,14 +255,20 @@ impl Parser {
                     );
                     self.skip_newlines_and_comments();
                 }
+                Some(Token::AtCrossCheckIntegrity) => {
+                    self.advance();
+                    cross_check_integrity = true;
+                    self.skip_newlines_and_comments();
+                }
                 _ => break,
             }
         }
 
         // Now check if it's a test or snapshot
         match self.peek() {
-            Some(Token::Snapshot) => {
-                self.expect_token(Token::Snapshot)?;
+            Some(Token::Snapshot | Token::SnapshotEqp) => {
+                let eqp_only = matches!(self.peek(), Some(Token::SnapshotEqp));
+                self.advance();
                 let (name, name_span) = self.expect_identifier_with_span()?;
                 let sql = self.expect_block_content()?.trim().to_string();
 
@@ -269,11 +278,13 @@ impl Parser {
                     name,
                     name_span,
                     sql,
+                    eqp_only,
                     modifiers: CaseModifiers {
                         setups: test_setups,
                         skip,
                         backend,
                         requires,
+                        cross_check_integrity,
                     },
                 }))
             }
@@ -344,6 +355,7 @@ impl Parser {
                         skip,
                         backend,
                         requires,
+                        cross_check_integrity,
                     },
                 }))
             }
@@ -437,8 +449,12 @@ impl Parser {
                 self.advance();
                 Ok(ast::Capability::MaterializedViews)
             }
+            Some(Token::CustomTypes) => {
+                self.advance();
+                Ok(ast::Capability::CustomTypes)
+            }
             Some(token) => Err(self.error(format!(
-                "expected capability (trigger, strict, materialized_views), got {token}"
+                "expected capability (trigger, strict, materialized_views, custom_types), got {token}"
             ))),
             None => Err(self.error("expected capability, got EOF".to_string())),
         }

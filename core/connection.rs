@@ -1,5 +1,5 @@
-#[cfg(target_family = "windows")]
-use crate::error::CompletionError;
+use crate::error::io_error;
+use crate::storage::journal_mode;
 use crate::sync::{
     atomic::{AtomicBool, AtomicI32, AtomicI64, AtomicIsize, AtomicU16, AtomicU64, Ordering},
     Arc, RwLock,
@@ -11,9 +11,10 @@ use crate::types::{WalFrameInfo, WalState};
 use crate::util::{OpenMode, OpenOptions};
 #[cfg(all(feature = "fs", feature = "conn_raw_api"))]
 use crate::Page;
+use crate::MAIN_DB_ID;
 use crate::{
     ast, function,
-    io::{MemoryIO, PlatformIO, IO},
+    io::{MemoryIO, IO},
     parse_schema_rows, refresh_analyze_stats, translate,
     util::IOExt,
     vdbe, AllViewsTxState, AtomicCipherMode, AtomicSyncMode, AtomicTempStore, BusyHandler,
@@ -25,6 +26,7 @@ use crate::{
 };
 use arc_swap::ArcSwap;
 use rustc_hash::{FxHashMap as HashMap, FxHashSet as HashSet};
+use smallvec::SmallVec;
 use std::fmt::Display;
 use std::ops::Deref;
 use tracing::{instrument, Level};
@@ -103,6 +105,10 @@ pub struct Connection {
     pub(super) attached_databases: RwLock<DatabaseCatalog>,
     pub(super) query_only: AtomicBool,
     pub(crate) mv_tx: RwLock<Option<(crate::mvcc::database::TxID, TransactionMode)>>,
+    /// Per-attached-database MVCC transactions.
+    /// Main DB uses `mv_tx` above for zero-cost hot path access.
+    pub(crate) attached_mv_txs:
+        RwLock<HashMap<usize, (crate::mvcc::database::TxID, TransactionMode)>>,
 
     /// Per-connection view transaction states for uncommitted changes. This represents
     /// one entry per view that was touched in the transaction.
@@ -154,6 +160,23 @@ crate::assert::assert_send_sync!(Connection);
 impl Drop for Connection {
     fn drop(&mut self) {
         if !self.is_closed() {
+            // Roll back any active MVCC transactions so that MvStore entries
+            // don't leak and block future checkpoints.  The tx may have
+            // already been committed/aborted externally (e.g. by tests that
+            // manipulate MvStore directly), so only rollback if still active.
+            if let Some(mv_store) = self.db.get_mv_store().as_ref() {
+                if let Some(tx_id) = self.get_mv_tx_id() {
+                    let pager = self.pager.load();
+                    if mv_store.is_tx_rollbackable(tx_id) {
+                        mv_store.rollback_tx(tx_id, pager.clone(), self, MAIN_DB_ID);
+                    } else {
+                        self.set_mv_tx(None);
+                    }
+                    pager.end_read_tx();
+                }
+            }
+            self.rollback_attached_mvcc_txs(false);
+
             // Release any WAL locks the connection might be holding.
             // This prevents deadlocks if a connection is dropped (e.g., due to a panic)
             // while holding a read or write lock.
@@ -164,6 +187,18 @@ impl Drop for Connection {
                 }
                 if wal.holds_read_lock() {
                     wal.end_read_tx();
+                }
+            }
+
+            // Also release WAL locks on all attached database pagers
+            for attached_pager in self.get_all_attached_pagers() {
+                if let Some(wal) = &attached_pager.wal {
+                    if wal.holds_write_lock() {
+                        wal.end_write_tx();
+                    }
+                    if wal.holds_read_lock() {
+                        wal.end_read_tx();
+                    }
                 }
             }
 
@@ -283,7 +318,7 @@ impl Connection {
             mode,
             input,
         )?;
-        Ok(Statement::new(program, pager, mode))
+        Ok(Statement::new(program, pager, mode, byte_offset_end))
     }
 
     /// Prepare a statement from an AST node directly, skipping SQL parsing.
@@ -306,7 +341,7 @@ impl Connection {
             mode,
             "<ast>", // No SQL input string available
         )?;
-        Ok(Statement::new(program, pager, mode))
+        Ok(Statement::new(program, pager, mode, 0))
     }
 
     /// Whether this is an internal connection used for MVCC bootstrap
@@ -407,7 +442,7 @@ impl Connection {
             .get();
 
         // create fresh schema as some objects can be deleted
-        let mut fresh = Schema::new();
+        let mut fresh = Schema::with_options(self.experimental_custom_types_enabled());
         fresh.schema_version = cookie;
 
         // Preserve existing views to avoid expensive repopulation.
@@ -440,6 +475,29 @@ impl Connection {
             existing_views,
             self.experimental_triggers_enabled(),
         )?;
+
+        // Load custom types from __turso_internal_types if the table exists
+        // and custom types are enabled. Type loading errors are non-fatal: we log
+        // warnings and continue with whatever types loaded successfully.
+        if self.experimental_custom_types_enabled()
+            && fresh
+                .tables
+                .contains_key(crate::schema::TURSO_TYPES_TABLE_NAME)
+        {
+            // Temporarily install the schema so we can prepare a query against it
+            self.with_schema_mut(|schema| {
+                *schema = fresh.clone();
+            });
+            let load_result: Result<()> = (|| {
+                let type_sqls = self.query_stored_type_definitions()?;
+                fresh.load_type_definitions(&type_sqls)?;
+                Ok(())
+            })();
+            if let Err(e) = load_result {
+                tracing::warn!("Failed to load custom types: {}", e);
+            }
+        }
+
         // Best-effort load stats if sqlite_stat1 is present and DB is initialized.
         refresh_analyze_stats(self);
 
@@ -487,7 +545,7 @@ impl Connection {
                 mode,
                 input,
             )?;
-            Statement::new(program, pager.clone(), mode).run_ignore_rows()?;
+            Statement::new(program, pager.clone(), mode, 0).run_ignore_rows()?;
         }
         Ok(())
     }
@@ -535,7 +593,7 @@ impl Connection {
             mode,
             input,
         )?;
-        let stmt = Statement::new(program, pager, mode);
+        let stmt = Statement::new(program, pager, mode, 0);
         Ok(Some(stmt))
     }
 
@@ -572,7 +630,7 @@ impl Connection {
                 mode,
                 input,
             )?;
-            Statement::new(program, pager.clone(), mode).run_ignore_rows()?;
+            Statement::new(program, pager.clone(), mode, 0).run_ignore_rows()?;
         }
         Ok(())
     }
@@ -604,7 +662,7 @@ impl Connection {
             mode,
             input,
         )?;
-        let stmt = Statement::new(program, pager, mode);
+        let stmt = Statement::new(program, pager, mode, 0);
         Ok(Some((stmt, parser.offset())))
     }
 
@@ -641,8 +699,9 @@ impl Connection {
             encryption_opts,
         )?;
         if let Some(modeof) = opts.modeof {
-            let perms = std::fs::metadata(modeof)?;
-            std::fs::set_permissions(&opts.path, perms.permissions())?;
+            let perms = std::fs::metadata(modeof).map_err(|e| io_error(e, "metadata"))?;
+            std::fs::set_permissions(&opts.path, perms.permissions())
+                .map_err(|e| io_error(e, "set_permissions"))?;
         }
         let conn = db.connect()?;
         if let Some(cipher) = opts.cipher {
@@ -657,22 +716,46 @@ impl Connection {
     #[cfg(feature = "fs")]
     fn from_uri_attached(
         uri: &str,
-        db_opts: DatabaseOpts,
+        mut db_opts: DatabaseOpts,
         main_db_flags: OpenFlags,
         io: Arc<dyn IO>,
-    ) -> Result<Arc<Database>> {
+    ) -> Result<(Arc<Database>, Option<EncryptionOpts>)> {
         let opts = OpenOptions::parse(uri)?;
         let mut flags = opts.get_flags()?;
         if main_db_flags.contains(OpenFlags::ReadOnly) {
             flags |= OpenFlags::ReadOnly;
         }
-        let io = opts.vfs.map(Database::io_for_vfs).unwrap_or(Ok(io))?;
-        let db = Database::open_file_with_flags(io.clone(), &opts.path, flags, db_opts, None)?;
-        if let Some(modeof) = opts.modeof {
-            let perms = std::fs::metadata(modeof)?;
-            std::fs::set_permissions(&opts.path, perms.permissions())?;
+        let encryption_opts = match (opts.cipher.clone(), opts.hexkey.clone()) {
+            (Some(cipher), Some(hexkey)) => Some(EncryptionOpts { cipher, hexkey }),
+            (Some(_), None) => {
+                return Err(LimboError::InvalidArgument(
+                    "hexkey is required when cipher is provided".to_string(),
+                ))
+            }
+            (None, Some(_)) => {
+                return Err(LimboError::InvalidArgument(
+                    "cipher is required when hexkey is provided".to_string(),
+                ))
+            }
+            (None, None) => None,
+        };
+        if encryption_opts.is_some() {
+            db_opts = db_opts.with_encryption(true);
         }
-        Ok(db)
+        let io = opts.vfs.map(Database::io_for_vfs).unwrap_or(Ok(io))?;
+        let db = Database::open_file_with_flags(
+            io.clone(),
+            &opts.path,
+            flags,
+            db_opts,
+            encryption_opts.clone(),
+        )?;
+        if let Some(modeof) = opts.modeof {
+            let perms = std::fs::metadata(modeof).map_err(|e| io_error(e, "metadata"))?;
+            std::fs::set_permissions(&opts.path, perms.permissions())
+                .map_err(|e| io_error(e, "set_permissions"))?;
+        }
+        Ok((db, encryption_opts))
     }
 
     pub fn set_foreign_keys_enabled(&self, enable: bool) {
@@ -698,6 +781,34 @@ impl Connection {
 
     pub(crate) fn get_deferred_foreign_key_violations(&self) -> isize {
         self.fk_deferred_violations.load(Ordering::Acquire)
+    }
+
+    pub(crate) fn increment_deferred_foreign_key_violations(&self, v: isize) {
+        self.fk_deferred_violations.fetch_add(v, Ordering::AcqRel);
+    }
+
+    /// Query the CREATE TYPE SQL definitions stored in __turso_internal_types.
+    /// The connection's schema must already contain the table definitions so
+    /// that `prepare` can resolve the table name. Returns an empty Vec if the
+    /// types table does not exist.
+    pub(crate) fn query_stored_type_definitions(self: &Arc<Connection>) -> Result<Vec<String>> {
+        let has_types_table = {
+            let s = self.schema.read();
+            s.tables.contains_key(crate::schema::TURSO_TYPES_TABLE_NAME)
+        };
+        if !has_types_table {
+            return Ok(Vec::new());
+        }
+        let mut type_stmt = self.prepare(format!(
+            "SELECT name, sql FROM {}",
+            crate::schema::TURSO_TYPES_TABLE_NAME
+        ))?;
+        let mut type_rows = Vec::new();
+        type_stmt.run_with_row_callback(|row| {
+            type_rows.push(row.get::<&str>(1)?.to_string());
+            Ok(())
+        })?;
+        Ok(type_rows)
     }
 
     pub fn maybe_update_schema(&self) {
@@ -763,7 +874,18 @@ impl Connection {
         else {
             return Ok(false);
         };
-        self.get_pager().io.wait_for_completion(c)?;
+        match self.get_pager().io.wait_for_completion(c) {
+            #[cfg(all(target_os = "windows", feature = "experimental_win_iocp"))]
+            Err(LimboError::CompletionError(crate::error::CompletionError::IOError(
+                std::io::ErrorKind::UnexpectedEof,
+                _,
+            ))) => {
+                return Ok(false);
+            }
+            Err(e) => return Err(e),
+            _ => {}
+        }
+
         self.try_wal_watermark_read_page_end(page, page_ref)
     }
 
@@ -778,8 +900,9 @@ impl Connection {
             Ok(result) => result,
             // on windows, zero read will trigger UnexpectedEof
             #[cfg(target_os = "windows")]
-            Err(LimboError::CompletionError(CompletionError::IOError(
+            Err(LimboError::CompletionError(crate::error::CompletionError::IOError(
                 std::io::ErrorKind::UnexpectedEof,
+                _,
             ))) => return Ok(None),
             Err(err) => return Err(err),
         };
@@ -894,7 +1017,7 @@ impl Connection {
                 // remove all non-commited changes in case if WAL session left some suffix without commit frame
                 if let Some(mv_store) = self.mv_store().as_ref() {
                     if let Some(tx_id) = self.get_mv_tx_id() {
-                        mv_store.rollback_tx(tx_id, pager.clone(), self);
+                        mv_store.rollback_tx(tx_id, pager.clone(), self, MAIN_DB_ID);
                     }
                 }
                 pager.rollback(false, self, true);
@@ -920,21 +1043,33 @@ impl Connection {
 
     pub fn checkpoint(self: &Arc<Self>, mode: CheckpointMode) -> Result<CheckpointResult> {
         use crate::mvcc::database::CheckpointStateMachine;
-        use crate::state_machine::StateMachine;
+        use crate::state_machine::{StateTransition, TransitionResult};
         if self.is_closed() {
             return Err(LimboError::InternalError("Connection closed".to_string()));
         }
         if let Some(mv_store) = self.mv_store().as_ref() {
             let pager = self.pager.load().clone();
             let io = pager.io.clone();
-            let mut ckpt_sm = StateMachine::new(CheckpointStateMachine::new(
+            let mut ckpt_sm = CheckpointStateMachine::new(
                 pager,
                 mv_store.clone(),
                 self.clone(),
                 true,
                 self.get_sync_mode(),
-            ));
-            io.as_ref().block(|| ckpt_sm.step(&()))
+            );
+            loop {
+                match ckpt_sm.step(&()) {
+                    Ok(TransitionResult::Continue) => {}
+                    Ok(TransitionResult::Done(result)) => return Ok(result),
+                    Ok(TransitionResult::Io(iocompletions)) => {
+                        if let Err(err) = iocompletions.wait(io.as_ref()) {
+                            ckpt_sm.cleanup_after_external_io_error();
+                            return Err(err);
+                        }
+                    }
+                    Err(err) => return Err(err),
+                }
+            }
         } else {
             self.pager
                 .load()
@@ -958,13 +1093,18 @@ impl Connection {
                 if self.mvcc_enabled() {
                     if let Some(mv_store) = self.mv_store().as_ref() {
                         if let Some(tx_id) = self.get_mv_tx_id() {
-                            mv_store.rollback_tx(tx_id, pager.clone(), self);
+                            mv_store.rollback_tx(tx_id, pager.clone(), self, MAIN_DB_ID);
                         }
                     }
                     pager.end_read_tx();
                 } else {
                     pager.rollback_tx(self);
                 }
+                // Roll back all attached DB transactions regardless of main
+                // DB mode — a :memory: attached DB may use WAL even when the
+                // main DB uses MVCC.
+                self.rollback_attached_mvcc_txs(false);
+                self.rollback_attached_wal_txns();
                 self.set_tx_state(TransactionState::None);
             }
         }
@@ -1104,6 +1244,10 @@ impl Connection {
             {
                 all_vfs.push("io_uring".to_string());
             }
+            #[cfg(all(target_os = "windows", feature = "experimental_win_iocp"))]
+            {
+                all_vfs.push("experimental_win_iocp".to_string());
+            }
             all_vfs.extend(crate::ext::list_vfs_modules());
         }
         all_vfs
@@ -1163,7 +1307,6 @@ impl Connection {
                     &mut dbsp_state_roots,
                     &mut dbsp_state_index_roots,
                     &mut materialized_view_info,
-                    None,
                     enable_triggers,
                 ) {
                     Ok(()) => {}
@@ -1230,8 +1373,8 @@ impl Connection {
         self.db.experimental_index_method_enabled()
     }
 
-    pub fn experimental_strict_enabled(&self) -> bool {
-        self.db.experimental_strict_enabled()
+    pub fn experimental_custom_types_enabled(&self) -> bool {
+        self.db.experimental_custom_types_enabled()
     }
 
     pub fn experimental_triggers_enabled(&self) -> bool {
@@ -1311,25 +1454,26 @@ impl Connection {
         database_id: usize,
         f: impl FnOnce(&mut Schema) -> T,
     ) -> T {
-        if database_id < 2 {
+        if !crate::is_attached_db(database_id) {
             self.with_schema_mut(f)
         } else {
-            let db = {
+            // For attached databases, update a connection-local copy of the schema.
+            // We don't update the shared db.schema until after the WAL commit, so
+            // other connections won't see uncommitted schema changes (which would
+            // cause SchemaUpdated mismatches).
+            let mut schemas = self.database_schemas.write();
+            let schema_arc = schemas.entry(database_id).or_insert_with(|| {
+                // Lazily copy from the shared Database schema
                 let attached_dbs = self.attached_databases.read();
                 let (db, _pager) = attached_dbs
                     .index_to_data
                     .get(&database_id)
                     .expect("Database ID should be valid");
-                db.clone()
-            };
-            let result = {
-                let mut schema_guard = db.schema.lock();
-                let schema = Arc::make_mut(&mut *schema_guard);
-                f(schema)
-            };
-            // Invalidate the cache so with_schema() picks up the new version
-            self.database_schemas.write().remove(&database_id);
-            result
+                let schema = db.schema.lock().clone();
+                schema
+            });
+            let schema = Arc::make_mut(schema_arc);
+            f(schema)
         }
     }
 
@@ -1392,19 +1536,67 @@ impl Connection {
         }
 
         let use_views = self.db.experimental_views_enabled();
-        let use_strict = self.db.experimental_strict_enabled();
+        let use_custom_types = self.db.experimental_custom_types_enabled();
 
         let db_opts = DatabaseOpts::new()
             .with_views(use_views)
-            .with_strict(use_strict);
-        let io: Arc<dyn IO> = if path.contains(":memory:") {
+            .with_custom_types(use_custom_types);
+        // Select the IO layer for the attached database:
+        // - :memory: databases always get a fresh MemoryIO
+        // - File-based databases reuse the parent's IO when the parent is also
+        //   file-based (important for simulator fault injection and WAL coordination)
+        // - If the parent is :memory: (MemoryIO) but the attached DB is file-based,
+        //   we need a file-capable IO layer since MemoryIO can't read real files
+        let is_memory_db =
+            path == ":memory:" || path.starts_with("file::memory:") || path.is_empty();
+        let io: Arc<dyn IO> = if is_memory_db {
             Arc::new(MemoryIO::new())
+        } else if self.db.path.starts_with(":memory:") {
+            Database::io_for_path(path)?
         } else {
-            Arc::new(PlatformIO::new()?)
+            self.db.io.clone()
         };
         let main_db_flags = self.db.open_flags;
-        let db = Self::from_uri_attached(path, db_opts, main_db_flags, io)?;
-        let pager = Arc::new(db.init_pager(None)?);
+        let (db, encryption_opts) = Self::from_uri_attached(path, db_opts, main_db_flags, io)?;
+        // Build encryption key from URI opts to pass to _init for decrypting page 1.
+        let encryption_key = if let Some(ref enc) = encryption_opts {
+            Some(EncryptionKey::from_hex_string(&enc.hexkey)?)
+        } else {
+            None
+        };
+        let pager = Arc::new(db._init(encryption_key.as_ref())?);
+        // In-memory attached databases inherit the main database's journal mode.
+        // A fresh :memory: DB defaults to WAL, so when main is MVCC we need to
+        // create an MvStore for the attached DB so it runs in the same mode.
+        if is_memory_db && self.mvcc_enabled() && !db.mvcc_enabled() {
+            let mv_store = journal_mode::open_mv_store(db.io.clone(), &db.path, db.open_flags)?;
+            db.mv_store.store(Some(mv_store.clone()));
+            let bootstrap_conn = db._connect(true, Some(pager.clone()), encryption_key)?;
+            mv_store.bootstrap(bootstrap_conn)?;
+        }
+        // Reject incompatible journal modes for file-based databases: we cannot
+        // silently convert the header (the user may have attached read-only).
+        if self.mvcc_enabled() != db.mvcc_enabled() {
+            let main_mode = if self.mvcc_enabled() { "MVCC" } else { "WAL" };
+            let attached_mode = if db.mvcc_enabled() { "MVCC" } else { "WAL" };
+            return Err(LimboError::InvalidArgument(format!(
+                "cannot attach database '{alias}': main database uses {main_mode} journal mode \
+                 but attached database uses {attached_mode}. Both must use the same journal mode."
+            )));
+        }
+        // Reject mismatched page sizes: ephemeral tables and cross-database
+        // operations assume a uniform page size across all attached databases.
+        let main_pager = self.pager.load();
+        if let (Some(main_ps), Some(attached_ps)) =
+            (main_pager.get_page_size(), pager.get_page_size())
+        {
+            if main_ps != attached_ps {
+                return Err(LimboError::InvalidArgument(format!(
+                    "cannot attach database '{alias}': page size mismatch \
+                     (main={main_ps:?}, attached={attached_ps:?})"
+                )));
+            }
+        }
         self.attached_databases.write().insert(alias, (db, pager));
 
         Ok(())
@@ -1422,16 +1614,44 @@ impl Connection {
             )));
         }
 
-        // Remove from attached databases
-        let mut attached_dbs = self.attached_databases.write();
-        let database_id = match attached_dbs.remove(alias) {
-            Some(id) => id,
-            None => {
-                return Err(LimboError::InvalidArgument(format!(
-                    "no such database: {alias}"
-                )));
+        // Look up the database index first, then rollback any MVCC transaction
+        // *before* removing the database from the catalog.  mv_store_for_db
+        // and get_pager_from_database_index read `attached_databases`, so we
+        // must not hold the write lock during the rollback.
+        let database_id = {
+            let attached_dbs = self.attached_databases.read();
+            match attached_dbs.name_to_index.get(alias).copied() {
+                Some(id) => id,
+                None => {
+                    return Err(LimboError::InvalidArgument(format!(
+                        "no such database: {alias}"
+                    )));
+                }
             }
         };
+
+        // Rollback any active transaction on this database before detaching.
+        // After the Database is removed from the catalog, the MvStore / Pager
+        // become unreachable and the transaction would leak forever.
+        let pager = self.get_pager_from_database_index(&database_id);
+        if let Some((tx_id, _mode)) = self.get_mv_tx_for_db(database_id) {
+            if let Some(mv_store) = self.mv_store_for_db(database_id) {
+                mv_store.rollback_tx(tx_id, pager.clone(), self, database_id);
+                pager.end_read_tx();
+            }
+            self.set_mv_tx_for_db(database_id, None);
+        } else {
+            // Non-MVCC attached DB (e.g. :memory:) — rollback WAL state.
+            pager.rollback_attached();
+        }
+
+        // Remove from catalog. The write lock must be released before
+        // acquiring database_schemas.write() to maintain consistent lock
+        // ordering (attached_databases before database_schemas).
+        {
+            let mut attached_dbs = self.attached_databases.write();
+            attached_dbs.remove(alias);
+        }
 
         // Invalidate the cached schema for this database index so that a future
         // ATTACH reusing the same index won't see stale schema entries.
@@ -1460,8 +1680,31 @@ impl Connection {
             .collect()
     }
 
+    /// Get all attached database (index, pager) pairs (excludes main/temp databases)
+    pub(crate) fn get_all_attached_pagers_with_index(&self) -> Vec<(usize, Arc<Pager>)> {
+        let catalog = self.attached_databases.read();
+        catalog
+            .index_to_data
+            .iter()
+            .map(|(&idx, (_db, pager))| (idx, pager.clone()))
+            .collect()
+    }
+
     pub(crate) fn database_schemas(&self) -> &RwLock<HashMap<usize, Arc<Schema>>> {
         &self.database_schemas
+    }
+
+    /// Publish a connection-local attached DB schema to the shared Database instance.
+    /// Called after the attached pager's WAL commit succeeds, so other connections
+    /// can now see the schema changes.
+    pub(crate) fn publish_attached_schema(&self, database_id: usize) {
+        let mut schemas = self.database_schemas.write();
+        if let Some(local_schema) = schemas.remove(&database_id) {
+            let attached_dbs = self.attached_databases.read();
+            if let Some((db, _pager)) = attached_dbs.index_to_data.get(&database_id) {
+                *db.schema.lock() = local_schema;
+            }
+        }
     }
 
     pub(crate) fn attached_databases(&self) -> &RwLock<DatabaseCatalog> {
@@ -1470,35 +1713,33 @@ impl Connection {
 
     /// Access schema for a database using a closure pattern to avoid cloning
     pub(crate) fn with_schema<T>(&self, database_id: usize, f: impl FnOnce(&Schema) -> T) -> T {
-        if database_id == 0 {
-            // Main database - use connection's schema which should be kept in sync
-            let schema = self.schema.read();
-            f(&schema)
-        } else if database_id == 1 {
-            // Temp database - uses same schema as main for now, but this will change later.
-            let schema = self.schema.read();
-            f(&schema)
-        } else {
-            // Attached database - check cache first, then load from database
-            let mut schemas = self.database_schemas.write();
-
-            if let Some(cached_schema) = schemas.get(&database_id) {
-                return f(cached_schema);
+        match database_id {
+            crate::MAIN_DB_ID | crate::TEMP_DB_ID => {
+                // Main database - use connection's schema which should be kept in sync
+                // NOTE: for Temp databases, for now they can use the connection-local schema
+                // but this will change in the future
+                let schema = self.schema.read();
+                f(&schema)
             }
+            _ => {
+                // Attached database: prefer the connection-local copy (which may contain
+                // uncommitted schema changes from this connection's transaction), falling
+                // back to the shared Database schema (last committed state).
+                let schemas = self.database_schemas.read();
+                if let Some(local_schema) = schemas.get(&database_id) {
+                    return f(local_schema);
+                }
+                drop(schemas);
 
-            // Schema not cached, load it lazily from the attached database
-            let attached_dbs = self.attached_databases.read();
-            let (db, _pager) = attached_dbs
-                .index_to_data
-                .get(&database_id)
-                .expect("Database ID should be valid after resolve_database_id");
+                let attached_dbs = self.attached_databases.read();
+                let (db, _pager) = attached_dbs
+                    .index_to_data
+                    .get(&database_id)
+                    .expect("Database ID should be valid after resolve_database_id");
 
-            let schema = db.schema.lock().clone();
-
-            // Cache the schema for future use
-            schemas.insert(database_id, schema.clone());
-
-            f(&schema)
+                let schema = db.schema.lock().clone();
+                f(&schema)
+            }
         }
     }
 
@@ -1780,6 +2021,129 @@ impl Connection {
     pub(crate) fn set_mv_tx(&self, tx_id_and_mode: Option<(u64, TransactionMode)>) {
         tracing::debug!("set_mv_tx: {:?}", tx_id_and_mode);
         *self.mv_tx.write() = tx_id_and_mode;
+    }
+
+    /// Get MVCC transaction ID for a specific database.
+    /// Uses fast path for main DB, O(1) HashMap lookup for attached DBs.
+    pub(crate) fn get_mv_tx_id_for_db(&self, db: usize) -> Option<u64> {
+        if !crate::is_attached_db(db) {
+            self.get_mv_tx_id()
+        } else {
+            self.attached_mv_txs
+                .read()
+                .get(&db)
+                .map(|(tx_id, _)| *tx_id)
+        }
+    }
+
+    /// Get MVCC transaction ID and mode for a specific database.
+    pub(crate) fn get_mv_tx_for_db(&self, db: usize) -> Option<(u64, TransactionMode)> {
+        if !crate::is_attached_db(db) {
+            self.get_mv_tx()
+        } else {
+            self.attached_mv_txs.read().get(&db).copied()
+        }
+    }
+
+    /// Set MVCC transaction for a specific database.
+    pub(crate) fn set_mv_tx_for_db(&self, db: usize, val: Option<(u64, TransactionMode)>) {
+        if !crate::is_attached_db(db) {
+            self.set_mv_tx(val);
+        } else {
+            let mut txs = self.attached_mv_txs.write();
+            match val {
+                Some(v) => {
+                    txs.insert(db, v);
+                }
+                None => {
+                    txs.remove(&db);
+                }
+            }
+        }
+    }
+
+    /// Rollback MVCC transactions on all attached databases and clear the
+    /// attached transaction list.  When `clear_schemas` is true the
+    /// connection-local schema cache for each attached DB is also removed so
+    /// that post-rollback queries see the committed schema.
+    ///
+    /// This is the single source of truth for attached-MVCC rollback logic —
+    /// callers in `close()`, `rollback_current_txn()`, and `op_auto_commit`
+    /// should all delegate here.
+    pub(crate) fn rollback_attached_mvcc_txs(&self, clear_schemas: bool) {
+        let txs: HashMap<usize, _> = self.attached_mv_txs.read().clone();
+        for (&db_id, &(tx_id, _mode)) in &txs {
+            if let Some(attached_mv_store) = self.mv_store_for_db(db_id) {
+                let attached_pager = self.get_pager_from_database_index(&db_id);
+                if attached_mv_store.is_tx_rollbackable(tx_id) {
+                    attached_mv_store.rollback_tx(tx_id, attached_pager.clone(), self, db_id);
+                } else {
+                    self.set_mv_tx_for_db(db_id, None);
+                }
+                if clear_schemas {
+                    self.database_schemas().write().remove(&db_id);
+                }
+                attached_pager.end_read_tx();
+            }
+        }
+        self.attached_mv_txs.write().clear();
+    }
+
+    /// Rollback WAL-mode transactions on all attached databases and discard
+    /// their connection-local schema caches.  MVCC-enabled attached databases
+    /// are skipped — those are handled by `rollback_attached_mvcc_txs`.
+    pub(crate) fn rollback_attached_wal_txns(&self) {
+        let attached_pagers = self.get_all_attached_pagers_with_index();
+        // Collect WAL-mode db_ids first, then batch the schema removal under
+        // a single write lock to avoid per-iteration lock contention.
+        let wal_pagers: SmallVec<[(usize, Arc<Pager>); 4]> = attached_pagers
+            .into_iter()
+            .filter(|(db_id, _)| self.mv_store_for_db(*db_id).is_none())
+            .collect();
+        if !wal_pagers.is_empty() {
+            let mut schemas = self.database_schemas().write();
+            for (db_id, _) in &wal_pagers {
+                schemas.remove(db_id);
+            }
+        }
+        for (_, attached_pager) in &wal_pagers {
+            attached_pager.rollback_attached();
+        }
+    }
+
+    /// Iterate over all attached MVCC transactions, calling `f(db_id, tx_id)` for each.
+    pub(crate) fn for_each_attached_mv_tx(&self, mut f: impl FnMut(usize, u64)) {
+        let txs = self.attached_mv_txs.read();
+        for (&db_id, &(tx_id, _)) in txs.iter() {
+            f(db_id, tx_id);
+        }
+    }
+
+    /// Get the next attached MVCC transaction.
+    /// Returns an arbitrary entry from `attached_mv_txs`, or `None` if empty.
+    pub(crate) fn next_attached_mv_tx(&self) -> Option<(usize, u64, TransactionMode)> {
+        self.attached_mv_txs
+            .read()
+            .iter()
+            .next()
+            .map(|(&db_id, &(tx_id, mode))| (db_id, tx_id, mode))
+    }
+
+    /// Get the MvStore for a specific database.
+    /// Returns None for databases without MVCC or for bootstrap connections.
+    pub(crate) fn mv_store_for_db(&self, db: usize) -> Option<Arc<MvStore>> {
+        if self.is_mvcc_bootstrap_connection() {
+            return None;
+        }
+        if !crate::is_attached_db(db) {
+            self.db.get_mv_store().as_ref().cloned()
+        } else {
+            let catalog = self.attached_databases.read();
+            catalog
+                .index_to_data
+                .get(&db)
+                .and_then(|(db, _)| db.get_mv_store().as_ref().cloned())
+        }
     }
 
     pub(crate) fn set_mvcc_checkpoint_threshold(&self, threshold: i64) -> Result<()> {

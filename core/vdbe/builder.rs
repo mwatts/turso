@@ -5,7 +5,6 @@ use turso_parser::ast::{self, ResolveType, SortOrder, TableInternalId};
 
 use crate::{
     index_method::IndexMethodAttachment,
-    numeric::Numeric,
     parameters::Parameters,
     schema::{BTreeTable, Index, PseudoCursorType, Schema, Table, Trigger},
     translate::{
@@ -13,7 +12,8 @@ use crate::{
         emitter::{MaterializedColumnRef, TransactionMode},
         plan::{ResultSetColumn, TableReferences},
     },
-    Arc, CaptureDataChangesInfo, Connection, Value, VirtualTable,
+    vdbe::affinity::Affinity,
+    Arc, CaptureDataChangesInfo, Connection, VirtualTable,
 };
 
 // Keep distinct hash-table ids far from table internal ids to avoid collisions.
@@ -140,9 +140,13 @@ pub struct ProgramBuilder {
     // TODO: when we support multiple dbs, this should be a write mask to track which DBs need to be written
     txn_mode: TransactionMode,
     /// Set of database IDs that need write transactions (for attached databases).
-    write_databases: std::collections::HashSet<usize>,
+    write_databases: HashSet<usize>,
+    /// Set of attached database IDs that need read transactions.
+    read_databases: HashSet<usize>,
     /// Schema cookies for attached databases at prepare time.
-    write_database_cookies: std::collections::HashMap<usize, u32>,
+    write_database_cookies: HashMap<usize, u32>,
+    /// Schema cookies for attached databases opened for reading.
+    read_database_cookies: HashMap<usize, u32>,
     rollback: bool,
     /// The mode in which the query is being executed.
     query_mode: QueryMode,
@@ -165,6 +169,18 @@ pub struct ProgramBuilder {
     /// Temporary cursor overrides maps table internal IDs to cursor IDs that should be used instead of the normal resolution.
     /// This allows for things like hash build to use a separate cursor for iterating the same table.
     cursor_overrides: HashMap<usize, CursorID>,
+    /// Maps identifier names to registers for custom type encode/decode expressions.
+    /// When set, `Expr::Id("value")` resolves to the register holding the input value,
+    /// and type parameter names resolve to registers holding their concrete values.
+    pub id_register_overrides: HashMap<String, usize>,
+    /// When set, translate_expr will skip custom type decode for Expr::Column.
+    /// This is used when building ORDER BY sort keys so the sorter compares
+    /// encoded (on-disk) values. Decode is presentation-only.
+    pub suppress_custom_type_decode: bool,
+    /// When true, the next `emit_column` call will not bake the default value
+    /// into the Column instruction. Used for custom type columns where the default
+    /// needs to be encoded before use.
+    pub suppress_column_default: bool,
     /// Hash join build signatures keyed by hash table id.
     hash_build_signatures: HashMap<usize, HashBuildSignature>,
     /// Hash tables to keep open across subplans (e.g. materialization).
@@ -185,6 +201,8 @@ pub struct ProgramBuilder {
     /// references in non-recursive CTEs and to prevent fallthrough to schema
     /// resolution for same-named tables/views.
     ctes_being_defined: Vec<String>,
+    /// Counter for subquery numbering in EXPLAIN QUERY PLAN output.
+    next_subquery_eqp_id: usize,
 }
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
@@ -394,8 +412,10 @@ impl ProgramBuilder {
             start_offset: BranchOffset::Placeholder,
             capture_data_changes_info,
             txn_mode: TransactionMode::None,
-            write_databases: std::collections::HashSet::new(),
-            write_database_cookies: std::collections::HashMap::new(),
+            write_databases: HashSet::default(),
+            read_databases: HashSet::default(),
+            write_database_cookies: HashMap::default(),
+            read_database_cookies: HashMap::default(),
             rollback: false,
             query_mode,
             current_parent_explain_idx: None,
@@ -406,6 +426,9 @@ impl ProgramBuilder {
             resolve_type: ResolveType::Abort,
             trigger_conflict_override: None,
             cursor_overrides: HashMap::default(),
+            id_register_overrides: HashMap::default(),
+            suppress_custom_type_decode: false,
+            suppress_column_default: false,
             hash_build_signatures: HashMap::default(),
             hash_tables_to_keep_open: HashSet::default(),
             subquery_result_regs: HashMap::default(),
@@ -413,7 +436,14 @@ impl ProgramBuilder {
             materialized_ctes: HashMap::default(),
             cte_reference_counts: HashMap::default(),
             ctes_being_defined: Vec::new(),
+            next_subquery_eqp_id: 1,
         }
+    }
+
+    pub fn next_subquery_eqp_id(&mut self) -> usize {
+        let id = self.next_subquery_eqp_id;
+        self.next_subquery_eqp_id += 1;
+        id
     }
 
     pub fn alloc_hash_table_id(&mut self) -> usize {
@@ -769,6 +799,7 @@ impl ProgramBuilder {
             } else {
                 String::new()
             },
+            on_error: None,
         });
     }
 
@@ -780,6 +811,7 @@ impl ProgramBuilder {
         self.emit_insn(Insn::Halt {
             err_code,
             description,
+            on_error: None,
         });
     }
 
@@ -925,7 +957,7 @@ impl ProgramBuilder {
     /// reordering the emitted instructions.
     #[inline]
     pub fn preassign_label_to_next_insn(&mut self, label: BranchOffset) {
-        turso_assert!(label.is_label(), "BranchOffset should be a label", { "label": format!("{:?}", label) });
+        turso_assert!(label.is_label(), "BranchOffset should be a label", { "label": label });
         self._resolve_label(label, self.offset().sub(1u32), JumpTarget::AfterThisInsn);
     }
 
@@ -1154,6 +1186,15 @@ impl ProgramBuilder {
                 Insn::HashProbe { target_pc, .. } => resolve(target_pc, "HashProbe")?,
                 Insn::HashNext { target_pc, .. } => resolve(target_pc, "HashNext")?,
                 Insn::HashDistinct { data } => resolve(&mut data.target_pc, "HashDistinct")?,
+                Insn::HashScanUnmatched { target_pc, .. } => {
+                    resolve(target_pc, "HashScanUnmatched")?
+                }
+                Insn::HashNextUnmatched { target_pc, .. } => {
+                    resolve(target_pc, "HashNextUnmatched")?
+                }
+                Insn::Program {
+                    ignore_jump_target, ..
+                } => resolve(ignore_jump_target, "Program")?,
                 _ => {}
             }
         }
@@ -1328,6 +1369,18 @@ impl ProgramBuilder {
         }
     }
 
+    /// Begin a read operation on a specific attached database.
+    /// This ensures a Transaction instruction is emitted for the attached pager
+    /// so that a WAL read lock is acquired.
+    pub fn begin_read_on_database(&mut self, database_id: usize, schema_cookie: u32) {
+        self.begin_read_operation();
+        if crate::is_attached_db(database_id) {
+            self.read_databases.insert(database_id);
+            self.read_database_cookies
+                .insert(database_id, schema_cookie);
+        }
+    }
+
     pub fn begin_concurrent_operation(&mut self) {
         self.txn_mode = TransactionMode::Concurrent;
     }
@@ -1351,6 +1404,7 @@ impl ProgramBuilder {
             self.emit_insn(Insn::Halt {
                 err_code: 0,
                 description: description.to_string(),
+                on_error: None,
             });
             return;
         }
@@ -1360,15 +1414,15 @@ impl ProgramBuilder {
             self.preassign_label_to_next_insn(self.init_label);
 
             if !matches!(self.txn_mode, TransactionMode::None) {
-                // Emit Transaction for main database (db 0) always
+                // Emit Transaction for main database always
                 self.emit_insn(Insn::Transaction {
-                    db: 0,
+                    db: crate::MAIN_DB_ID,
                     tx_mode: self.txn_mode,
                     schema_cookie: schema.schema_version,
                 });
                 // Emit Transaction for each attached database that needs a write
                 for &db_id in &self.write_databases.clone() {
-                    if db_id >= 2 {
+                    if crate::is_attached_db(db_id) {
                         let cookie = self
                             .write_database_cookies
                             .get(&db_id)
@@ -1377,6 +1431,18 @@ impl ProgramBuilder {
                         self.emit_insn(Insn::Transaction {
                             db: db_id,
                             tx_mode: self.txn_mode,
+                            schema_cookie: cookie,
+                        });
+                    }
+                }
+                // Emit Transaction for each attached database that only needs a read
+                // (skip databases already covered by write_databases)
+                for &db_id in &self.read_databases.clone() {
+                    if !self.write_databases.contains(&db_id) {
+                        let cookie = self.read_database_cookies.get(&db_id).copied().unwrap_or(0);
+                        self.emit_insn(Insn::Transaction {
+                            db: db_id,
+                            tx_mode: TransactionMode::Read,
                             schema_cookie: cookie,
                         });
                     }
@@ -1437,6 +1503,9 @@ impl ProgramBuilder {
                 .get(column)
                 .expect("column index out of bounds");
             if column_def.is_rowid_alias() {
+                // Consume the suppress_column_default flag so it doesn't
+                // leak to the next column (emit_column normally consumes it).
+                self.suppress_column_default = false;
                 self.emit_insn(Insn::RowId {
                     cursor_id,
                     dest: out,
@@ -1452,8 +1521,6 @@ impl ProgramBuilder {
     fn emit_column(&mut self, cursor_id: CursorID, column: usize, out: usize) {
         let (_, cursor_type) = self.cursor_ref.get(cursor_id).expect("cursor_id is valid");
 
-        use crate::translate::expr::sanitize_string;
-
         let default = 'value: {
             let default = match cursor_type {
                 CursorType::BTreeTable(btree) => &btree.columns[column].default,
@@ -1462,29 +1529,46 @@ impl ProgramBuilder {
                 _ => break 'value None,
             };
 
-            let Some(ast::Expr::Literal(ref literal)) = default.as_ref().map(|v| v.as_ref()) else {
+            let Some(ref default_expr) = default else {
                 break 'value None;
             };
 
-            Some(match literal {
-                ast::Literal::Numeric(s) => Value::Numeric(Numeric::from(s)),
-                ast::Literal::Null => Value::Null,
-                ast::Literal::String(s) => Value::Text(sanitize_string(s).into()),
-                ast::Literal::Blob(s) => Value::Blob(
-                    // Taken from `translate_expr`
-                    s.as_bytes()
-                        .chunks_exact(2)
-                        .map(|pair| {
-                            // We assume that sqlite3-parser has already validated that
-                            // the input is valid hex string, thus expect is safe.
-                            let hex_byte =
-                                std::str::from_utf8(pair).expect("parser validated hex string");
-                            u8::from_str_radix(hex_byte, 16).expect("parser validated hex digit")
-                        })
-                        .collect(),
-                ),
-                _ => break 'value None,
-            })
+            // Try to constant-fold the default expression into a Value for the
+            // Column instruction. Non-constant defaults (e.g. DEFAULT (ABS(-5)))
+            // can't be folded and yield None here — that's correct: they are
+            // evaluated at INSERT time via translate_expr. The Column default
+            // only matters for pre-existing rows after ALTER TABLE ADD COLUMN,
+            // and ALTER TABLE already validates that the default is constant.
+            let mut value = match crate::translate::alter::eval_constant_default_value(default_expr)
+            {
+                Ok(v) => v,
+                Err(_) => break 'value None,
+            };
+
+            // Apply column affinity to the default value, matching SQLite's
+            // sqlite3ColumnDefault which calls sqlite3ValueFromExpr with
+            // pCol->affinity. This ensures e.g. ALTER TABLE ADD COLUMN c TEXT
+            // DEFAULT 0 returns text "0" rather than integer 0 for pre-existing rows.
+            let affinity = match cursor_type {
+                CursorType::BTreeTable(btree) => btree.columns[column].affinity(),
+                CursorType::MaterializedView(btree, _) => btree.columns[column].affinity(),
+                _ => Affinity::Blob,
+            };
+            if let Some(converted) = affinity.convert(&value) {
+                value = match converted {
+                    either::Either::Left(val_ref) => val_ref.to_owned(),
+                    either::Either::Right(val) => val,
+                };
+            }
+
+            Some(value)
+        };
+
+        let default = if self.suppress_column_default {
+            self.suppress_column_default = false;
+            None
+        } else {
+            default
         };
 
         self.emit_insn(Insn::Column {
@@ -1495,12 +1579,12 @@ impl ProgramBuilder {
         });
     }
 
-    pub fn build(
+    pub fn build_prepared_program(
         mut self,
-        connection: Arc<Connection>,
+        prepare_context: PrepareContext,
         change_cnt_on: bool,
         sql: &str,
-    ) -> crate::Result<Program> {
+    ) -> crate::Result<PreparedProgram> {
         self.resolve_labels()?;
 
         self.parameters.list.dedup();
@@ -1533,9 +1617,21 @@ impl ProgramBuilder {
             is_subprogram: self.is_subprogram,
             contains_trigger_subprograms,
             resolve_type: self.resolve_type,
-            prepare_context: PrepareContext::from_connection(&connection),
+            prepare_context,
             write_databases: self.write_databases,
+            read_databases: self.read_databases,
         };
+        Ok(prepared)
+    }
+
+    pub fn build(
+        self,
+        connection: Arc<Connection>,
+        change_cnt_on: bool,
+        sql: &str,
+    ) -> crate::Result<Program> {
+        let prepare_context = PrepareContext::from_connection(&connection);
+        let prepared = self.build_prepared_program(prepare_context, change_cnt_on, sql)?;
         Ok(Program::from_prepared(Arc::new(prepared), connection))
     }
 }

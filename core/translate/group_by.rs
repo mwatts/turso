@@ -17,11 +17,12 @@ use crate::translate::{
     optimizer::Optimizable,
 };
 use crate::{
+    emit_explain,
     schema::PseudoCursorType,
     translate::collate::{get_collseq_from_expr, CollationSeq},
     util::exprs_are_equivalent,
     vdbe::{
-        builder::{CursorType, ProgramBuilder},
+        builder::{CursorType, ProgramBuilder, QueryMode},
         insn::Insn,
         BranchOffset,
     },
@@ -155,7 +156,9 @@ pub fn init_group_by<'a>(
             cursor_id: sort_cursor,
             columns: column_count,
             order_and_collations,
+            comparator_func_names: vec![],
         });
+        emit_explain!(program, false, "USE SORTER FOR GROUP BY".to_owned());
         let pseudo_cursor = group_by_create_pseudo_table(program, column_count);
         GroupByRowSource::Sorter {
             pseudo_cursor,
@@ -307,10 +310,13 @@ fn collect_non_aggregate_expressions<'a>(
     }
 
     for group_expr in &group_by.exprs {
-        let in_result = result_columns
+        let expr_appears_in_result_columns = result_columns
             .iter()
-            .any(|expr| exprs_are_equivalent(expr, group_expr));
-        non_aggregate_expressions.push((group_expr, in_result));
+            .any(|expr| exprs_are_equivalent(expr, group_expr))
+            || root_result_columns
+                .iter()
+                .any(|rc| exprs_are_equivalent(&rc.expr, group_expr));
+        non_aggregate_expressions.push((group_expr, expr_appears_in_result_columns));
     }
     for expr in result_columns {
         let in_group_by = group_by
@@ -367,6 +373,16 @@ fn collect_result_columns<'a>(
             }
             _ => {
                 if plan.aggregates.iter().any(|a| a.original_expr == *expr) {
+                    return Ok(WalkControl::SkipChildren);
+                }
+                // Skip children of GROUP BY expressions — their leaf columns
+                // are already covered by the GROUP BY key and don't need
+                // separate materialization in the sorter.
+                if plan
+                    .group_by
+                    .as_ref()
+                    .is_some_and(|gb| gb.exprs.iter().any(|ge| exprs_are_equivalent(ge, expr)))
+                {
                     return Ok(WalkControl::SkipChildren);
                 }
             }
@@ -644,15 +660,16 @@ pub fn group_by_process_single_group(
         } => {
             let mut next_reg = *start_reg_dest;
 
-            for (sorter_column_index, (expr, in_result)) in
+            for (sorter_column_index, (expr, expr_appears_in_result_columns)) in
                 t_ctx.non_aggregate_expressions.iter().enumerate()
             {
-                if *in_result {
+                if *expr_appears_in_result_columns {
                     program.emit_column_or_rowid(*pseudo_cursor, sorter_column_index, next_reg);
-                    t_ctx
-                        .resolver
-                        .expr_to_reg_cache
-                        .push((std::borrow::Cow::Borrowed(expr), next_reg));
+                    t_ctx.resolver.expr_to_reg_cache.push((
+                        std::borrow::Cow::Borrowed(expr),
+                        next_reg,
+                        false,
+                    ));
                     next_reg += 1;
                 }
             }
@@ -675,10 +692,11 @@ pub fn group_by_process_single_group(
                     dest_reg,
                     &t_ctx.resolver,
                 )?;
-                t_ctx
-                    .resolver
-                    .expr_to_reg_cache
-                    .push((std::borrow::Cow::Borrowed(expr), dest_reg));
+                t_ctx.resolver.expr_to_reg_cache.push((
+                    std::borrow::Cow::Borrowed(expr),
+                    dest_reg,
+                    false,
+                ));
             }
         }
     }
@@ -804,6 +822,7 @@ pub fn group_by_emit_row_phase<'a>(
         t_ctx.resolver.expr_to_reg_cache.push((
             std::borrow::Cow::Borrowed(&agg.original_expr),
             agg_result_reg,
+            false,
         ));
     }
 
