@@ -15,4 +15,6 @@ pub use csr::{EdgeInput, Graph, Neighbor};
 pub use error::{LimitKind, RuntimeError, RuntimeResult};
 pub use limits::{BuildLimits, Cancellation, NeverCancelled, TraversalLimits};
 pub use shortest::{shortest_path, weighted_shortest_path, ShortestPathRequest};
-pub use traversal::{traverse, Path, TraversalOrder, TraversalRequest, Uniqueness};
+pub use traversal::{
+    traverse, Path, TraversalCursor, TraversalOrder, TraversalRequest, Uniqueness,
+};

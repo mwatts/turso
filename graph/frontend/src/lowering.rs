@@ -112,6 +112,7 @@ fn lower_plan(
         }),
         ir::PlanKind::NodeScan(scan) => lower_node_scan(scan, catalog),
         ir::PlanKind::FixedExpand(expand) => lower_fixed_expand(expand, catalog, optional, &[]),
+        ir::PlanKind::GraphExpand(expand) => lower_graph_expand(expand, catalog),
         ir::PlanKind::Filter(filter) => {
             let input = lower_plan(&filter.input, catalog, optional)?;
             let predicate = lower_expression(&filter.predicate, &input.bindings, catalog, "q")?;
@@ -171,6 +172,90 @@ fn lower_plan(
         }
         ir::PlanKind::Union(_) => Err(LowerError::UnsupportedOperator("union")),
     }
+}
+
+fn lower_graph_expand(
+    expand: &ir::GraphExpand,
+    catalog: &dyn RelationalCatalogSnapshot,
+) -> Result<Lowered, LowerError> {
+    let input = lower_plan(&expand.input, catalog, false)?;
+    let from = input
+        .bindings
+        .get(&expand.from)
+        .copied()
+        .ok_or(LowerError::MissingBinding(expand.from))?;
+    let relationship = catalog
+        .relationship_layout(expand.relationship_source)
+        .ok_or(LowerError::MissingSource(expand.relationship_source))?;
+    let target = catalog
+        .node_layout(expand.target_node_source)
+        .ok_or(LowerError::MissingSource(expand.target_node_source))?;
+    let direction = match expand.direction {
+        ir::Direction::Outgoing => "outgoing",
+        ir::Direction::Incoming => "incoming",
+        ir::Direction::Both => "both",
+    };
+    let uniqueness = match expand.uniqueness {
+        ir::PathUniqueness::Walk => "walk",
+        ir::PathUniqueness::Trail => "trail",
+        ir::PathUniqueness::Path => "path",
+    };
+    let relationship_types = expand
+        .relationship_types
+        .iter()
+        .map(|relationship_type| relationship_type.get().to_string())
+        .collect::<Vec<_>>()
+        .join(",");
+    let limits = turso_graph_runtime::TraversalLimits::default();
+    let mut bindings = input.bindings;
+    bindings.insert(
+        expand.relationship.id(),
+        BindingLayout {
+            source: expand.relationship_source,
+            kind: EntityKind::Relationship,
+        },
+    );
+    bindings.insert(
+        expand.to.id(),
+        BindingLayout {
+            source: expand.target_node_source,
+            kind: EntityKind::Node,
+        },
+    );
+    Ok(Lowered {
+        sql: format!(
+            "SELECT q.*, r.{} AS {}, n.{} AS {} \
+             FROM ({}) AS q \
+             JOIN __turso_graph_expand({}, {}, q.{}, '{}', '{}', {}, {}, '{}', {}, {}, {}, {}, {}) AS gx \
+             JOIN {} AS n ON gx.is_terminal = 1 AND gx.node_source_id = {} AND n.{} = gx.node_identity \
+             LEFT JOIN {} AS r ON gx.relationship_source_id = {} AND r.{} = gx.relationship_identity",
+            quote_identifier(&relationship.identity_column),
+            binding_column(expand.relationship.id()),
+            quote_identifier(&target.identity_column),
+            binding_column(expand.to.id()),
+            input.sql,
+            expand.graph.get(),
+            from.source.get(),
+            binding_column(expand.from),
+            direction,
+            relationship_types,
+            expand.min_hops,
+            expand.max_hops,
+            uniqueness,
+            limits.max_node_visits,
+            limits.max_edge_visits,
+            limits.max_paths,
+            limits.max_work,
+            limits.max_memory_bytes,
+            quote_identifier(&target.table),
+            expand.target_node_source.get(),
+            quote_identifier(&target.identity_column),
+            quote_identifier(&relationship.table),
+            expand.relationship_source.get(),
+            quote_identifier(&relationship.identity_column),
+        ),
+        bindings,
+    })
 }
 
 fn lower_optional_chain(

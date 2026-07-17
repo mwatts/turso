@@ -40,6 +40,7 @@ pub enum PlanKind {
     Unit(Unit),
     NodeScan(NodeScan),
     FixedExpand(FixedExpand),
+    GraphExpand(GraphExpand),
     Filter(Filter),
     Project(Project),
     Aggregate(Aggregate),
@@ -75,6 +76,30 @@ pub struct FixedExpand {
     pub to: Binding,
     pub direction: Direction,
     pub relationship_types: Vec<RelationshipTypeId>,
+}
+
+/// A bounded variable-length expansion from an already-bound node.
+#[derive(Clone, Debug, PartialEq)]
+pub struct GraphExpand {
+    pub input: Box<Plan>,
+    pub graph: GraphId,
+    pub relationship_source: SourceTableId,
+    pub target_node_source: SourceTableId,
+    pub from: BindingId,
+    pub relationship: Binding,
+    pub to: Binding,
+    pub direction: Direction,
+    pub relationship_types: Vec<RelationshipTypeId>,
+    pub min_hops: u32,
+    pub max_hops: u32,
+    pub uniqueness: PathUniqueness,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum PathUniqueness {
+    Walk,
+    Trail,
+    Path,
 }
 
 #[derive(Clone, Debug, PartialEq)]

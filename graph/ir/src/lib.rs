@@ -22,7 +22,8 @@ pub use identity::{
     SourceTableId,
 };
 pub use plan::{
-    Aggregate, AggregateFunction, Aggregation, Distinct, Filter, FixedExpand, Grouping, LeftApply,
-    Limit, NodeScan, Plan, PlanKind, Project, Projection, Skip, Sort, SortKey, Union, Unit, Unwind,
+    Aggregate, AggregateFunction, Aggregation, Distinct, Filter, FixedExpand, GraphExpand,
+    Grouping, LeftApply, Limit, NodeScan, PathUniqueness, Plan, PlanKind, Project, Projection,
+    Skip, Sort, SortKey, Union, Unit, Unwind,
 };
 pub use scope::{Binding, Direction, Nullability, ResultColumn, ResultShape, Scope};

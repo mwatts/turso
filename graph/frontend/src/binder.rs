@@ -98,7 +98,16 @@ pub enum BindError {
     EmptyQuery,
     #[error("graph query has too many bindings")]
     TooManyBindings,
+    #[error("invalid relationship range {min}..{max} at byte {span_start}..{span_end}")]
+    InvalidRelationshipRange {
+        min: u32,
+        max: u32,
+        span_start: usize,
+        span_end: usize,
+    },
 }
+
+const DEFAULT_UNBOUNDED_MAX_HOPS: u32 = 64;
 
 pub fn bind(
     query: &cypher::Query,
@@ -223,6 +232,17 @@ impl<'a> Binder<'a> {
         if path.variable.is_some() {
             return Err(at_unsupported(path.span, "named paths"));
         }
+        if clause.optional
+            && path
+                .steps
+                .iter()
+                .any(|(relationship, _)| relationship.range.is_some())
+        {
+            return Err(at_unsupported(
+                path.span,
+                "optional variable-length relationships",
+            ));
+        }
         let left = self.plan.clone();
         let old_ids: Vec<_> = self.scope.iter().map(ir::Binding::id).collect();
         self.bind_path(path)?;
@@ -272,16 +292,31 @@ impl<'a> Binder<'a> {
         let start = self.bind_start_node(&path.start)?;
         let mut from = start;
         for (relationship, node) in &path.steps {
-            if relationship.range.is_some() {
+            if relationship.range.is_some() && relationship.variable.is_some() {
                 return Err(at_unsupported(
                     relationship.span,
-                    "variable-length relationships",
+                    "named variable-length relationships",
+                ));
+            }
+            if relationship.range.is_some() && !relationship.properties.is_empty() {
+                return Err(at_unsupported(
+                    relationship.span,
+                    "variable-length relationship properties",
                 ));
             }
             let relationship_binding = self.new_entity_binding(
                 relationship.variable.as_ref(),
                 "_relationship",
                 ir::ValueType::Relationship,
+                if relationship
+                    .range
+                    .as_ref()
+                    .is_some_and(|range| range.value.min == Some(0))
+                {
+                    ir::Nullability::Nullable
+                } else {
+                    ir::Nullability::NonNull
+                },
                 CatalogEntity::Relationship,
                 relationship.span,
             )?;
@@ -289,6 +324,7 @@ impl<'a> Binder<'a> {
                 node.variable.as_ref(),
                 "_node",
                 ir::ValueType::Node,
+                ir::Nullability::NonNull,
                 CatalogEntity::Node,
                 node.span,
             )?;
@@ -328,7 +364,35 @@ impl<'a> Binder<'a> {
             };
             let input = self.plan.take().ok_or(BindError::EmptyQuery)?;
             let scope = ir::Scope::new(self.scope.clone())?;
-            self.plan = Some(ir::Plan::new(
+            let kind = if let Some(range) = &relationship.range {
+                let min_hops = range.value.min.unwrap_or(1);
+                let max_hops = range
+                    .value
+                    .max
+                    .unwrap_or_else(|| DEFAULT_UNBOUNDED_MAX_HOPS.max(min_hops));
+                if min_hops > max_hops {
+                    return Err(BindError::InvalidRelationshipRange {
+                        min: min_hops,
+                        max: max_hops,
+                        span_start: range.span.start,
+                        span_end: range.span.end,
+                    });
+                }
+                ir::PlanKind::GraphExpand(ir::GraphExpand {
+                    input: Box::new(input),
+                    graph: self.graph,
+                    relationship_source: source,
+                    target_node_source,
+                    from,
+                    relationship: relationship_binding.clone(),
+                    to: to.clone(),
+                    direction,
+                    relationship_types,
+                    min_hops,
+                    max_hops,
+                    uniqueness: ir::PathUniqueness::Trail,
+                })
+            } else {
                 ir::PlanKind::FixedExpand(ir::FixedExpand {
                     input: Box::new(input),
                     relationship_source: source,
@@ -338,10 +402,9 @@ impl<'a> Binder<'a> {
                     to: to.clone(),
                     direction,
                     relationship_types,
-                }),
-                scope,
-                ir::ResultShape::default(),
-            )?);
+                })
+            };
+            self.plan = Some(ir::Plan::new(kind, scope, ir::ResultShape::default())?);
             self.bind_properties(
                 &relationship_binding,
                 CatalogEntity::Relationship,
@@ -371,6 +434,7 @@ impl<'a> Binder<'a> {
             node.variable.as_ref(),
             "_node",
             ir::ValueType::Node,
+            ir::Nullability::NonNull,
             CatalogEntity::Node,
             node.span,
         )?;
@@ -787,6 +851,7 @@ impl<'a> Binder<'a> {
         variable: Option<&cypher::Spanned<String>>,
         anonymous_prefix: &str,
         value_type: ir::ValueType,
+        nullability: ir::Nullability,
         kind: CatalogEntity,
         span: cypher::Span,
     ) -> Result<ir::Binding, BindError> {
@@ -807,8 +872,8 @@ impl<'a> Binder<'a> {
         let name = variable
             .map(|variable| variable.value.clone())
             .unwrap_or_else(|| format!("{anonymous_prefix}_{}", id.get()));
-        let binding = ir::Binding::new(id, name, value_type, ir::Nullability::NonNull)
-            .map_err(BindError::InvalidPlan)?;
+        let binding =
+            ir::Binding::new(id, name, value_type, nullability).map_err(BindError::InvalidPlan)?;
         self.scope.push(binding.clone());
         self.entities.insert(id, EntityBinding { kind });
         let _ = span;
@@ -1070,16 +1135,30 @@ mod tests {
     }
 
     #[test]
-    fn rejects_variable_length_relationships_before_planning() {
-        let error = bind_text(
+    fn binds_bounded_anonymous_variable_length_relationships() {
+        let bound = bind_text(
             "MATCH (p:Person)-[:KNOWS*1..3]->(friend) RETURN friend",
             ParameterTypes::new(),
         )
-        .expect_err("first slice is fixed-hop only");
+        .expect("bounded expansion should bind");
+        let ir::PlanKind::Project(project) = bound.plan.kind() else {
+            panic!("expected projection");
+        };
+        let ir::PlanKind::GraphExpand(expand) = project.input.kind() else {
+            panic!("expected graph expansion");
+        };
+        assert_eq!((expand.min_hops, expand.max_hops), (1, 3));
+        assert_eq!(expand.uniqueness, ir::PathUniqueness::Trail);
+
+        let error = bind_text(
+            "MATCH (p:Person)-[rels:KNOWS*1..3]->(friend) RETURN friend",
+            ParameterTypes::new(),
+        )
+        .expect_err("named relationship list semantics are not implemented");
         assert!(matches!(
             error,
             BindError::Unsupported {
-                feature: "variable-length relationships",
+                feature: "named variable-length relationships",
                 ..
             }
         ));

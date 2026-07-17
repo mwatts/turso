@@ -16,7 +16,7 @@ pub enum SourceIdentity {
     Blob(Vec<u8>),
 }
 
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, Hash, PartialEq)]
 pub struct NodeCoordinate {
     pub source: SourceTableId,
     pub identity: SourceIdentity,
@@ -36,6 +36,7 @@ pub struct TraversalSnapshot {
     source_generation: u64,
     graph: Graph,
     nodes: Vec<NodeCoordinate>,
+    node_ids: HashMap<NodeCoordinate, NodeId>,
     relationships: Vec<RelationshipCoordinate>,
 }
 
@@ -64,6 +65,15 @@ impl TraversalSnapshot {
         usize::try_from(id.get() - 1)
             .ok()
             .and_then(|index| self.nodes.get(index))
+    }
+
+    pub fn node_id(&self, source: SourceTableId, identity: &SourceIdentity) -> Option<NodeId> {
+        self.node_ids
+            .get(&NodeCoordinate {
+                source,
+                identity: identity.clone(),
+            })
+            .copied()
     }
 
     pub fn relationship(&self, id: RelationshipId) -> Option<&RelationshipCoordinate> {
@@ -335,6 +345,12 @@ fn build_in_transaction(
         .map(next_node_id)
         .collect::<Result<Vec<_>, _>>()?;
     let graph = Graph::build_cancellable(graph_node_ids, edges, limits, cancellation)?;
+    let node_lookup = node_coordinates
+        .iter()
+        .cloned()
+        .enumerate()
+        .map(|(index, coordinate)| Ok((coordinate, next_node_id(index)?)))
+        .collect::<Result<HashMap<_, _>, SnapshotError>>()?;
     Ok(TraversalSnapshot {
         graph_id: registered.id,
         graph_name: registered.name,
@@ -342,6 +358,7 @@ fn build_in_transaction(
         source_generation: registered.generation,
         graph,
         nodes: node_coordinates,
+        node_ids: node_lookup,
         relationships: relationship_coordinates,
     })
 }

@@ -46,6 +46,114 @@ pub struct Path {
     pub total_weight: u64,
 }
 
+/// Resumable traversal state used by execution adapters that cannot
+/// materialize every matching path before returning the first row.
+pub struct TraversalCursor {
+    request: TraversalRequest,
+    budget: Budget,
+    frontier: Frontier,
+    finished: bool,
+}
+
+impl TraversalCursor {
+    pub fn new(
+        graph: &Graph,
+        request: TraversalRequest,
+        limits: TraversalLimits,
+    ) -> RuntimeResult<Self> {
+        validate_request(graph, &request)?;
+        let mut budget = Budget::new(limits)?;
+        budget.require_hops(request.max_hops)?;
+        budget.node()?;
+
+        let initial = PathState::start(request.start);
+        budget.retain_memory(initial.memory_bytes())?;
+        let mut frontier = Frontier::new(request.order);
+        frontier.push(initial);
+        Ok(Self {
+            request,
+            budget,
+            frontier,
+            finished: false,
+        })
+    }
+
+    /// Advance until the next matching path or exhaustion while preserving
+    /// the frontier and resource counters for the following call.
+    pub fn next_path(
+        &mut self,
+        graph: &Graph,
+        cancellation: &dyn Cancellation,
+    ) -> RuntimeResult<Option<Path>> {
+        if self.finished {
+            return Ok(None);
+        }
+        while let Some(state) = self.frontier.pop() {
+            if cancellation.is_cancelled() {
+                return Err(RuntimeError::Cancelled);
+            }
+            self.budget.work()?;
+            self.budget.release_memory(state.memory_bytes());
+            let hops = u32::try_from(state.relationships.len()).map_err(|_| {
+                RuntimeError::LimitExceeded {
+                    kind: crate::LimitKind::Hops,
+                    limit: u64::from(self.request.max_hops),
+                }
+            })?;
+
+            if hops < self.request.max_hops {
+                self.expand(graph, &state, cancellation)?;
+            }
+            if hops >= self.request.min_hops {
+                self.budget.path()?;
+                return Ok(Some(state.into_path()));
+            }
+        }
+        self.finished = true;
+        Ok(None)
+    }
+
+    fn expand(
+        &mut self,
+        graph: &Graph,
+        state: &PathState,
+        cancellation: &dyn Cancellation,
+    ) -> RuntimeResult<()> {
+        let neighbors = graph.neighbors(
+            *state.nodes.last().expect("path state always has a node"),
+            self.request.direction,
+            &self.request.relationship_types,
+        )?;
+        for neighbor in neighbors {
+            if cancellation.is_cancelled() {
+                return Err(RuntimeError::Cancelled);
+            }
+            self.budget.work()?;
+            self.budget.edge()?;
+            if !allows(
+                self.request.uniqueness,
+                state,
+                neighbor.node,
+                neighbor.relationship,
+            ) {
+                continue;
+            }
+            let mut child = state.clone();
+            child.nodes.push(neighbor.node);
+            child.relationships.push(neighbor.relationship);
+            child.relationship_types.push(neighbor.relationship_type);
+            child.total_weight = child
+                .total_weight
+                .checked_add(neighbor.weight)
+                .ok_or(RuntimeError::CostOverflow)?;
+            self.budget.node()?;
+            self.budget.retain_memory(child.memory_bytes())?;
+            self.frontier.push(child);
+        }
+        Ok(())
+    }
+}
+
 impl Path {
     pub fn hop_count(&self) -> usize {
         self.relationships.len()
@@ -129,15 +237,7 @@ pub fn traverse(
     limits: TraversalLimits,
     cancellation: &dyn Cancellation,
 ) -> RuntimeResult<Vec<Path>> {
-    if request.min_hops > request.max_hops {
-        return Err(RuntimeError::InvalidHopRange {
-            min: request.min_hops,
-            max: request.max_hops,
-        });
-    }
-    if !graph.contains_node(request.start) {
-        return Err(RuntimeError::UnknownNode(request.start));
-    }
+    validate_request(graph, request)?;
     let mut budget = Budget::new(limits)?;
     budget.require_hops(request.max_hops)?;
     budget.node()?;
@@ -202,6 +302,19 @@ pub fn traverse(
         }
     }
     Ok(paths)
+}
+
+fn validate_request(graph: &Graph, request: &TraversalRequest) -> RuntimeResult<()> {
+    if request.min_hops > request.max_hops {
+        return Err(RuntimeError::InvalidHopRange {
+            min: request.min_hops,
+            max: request.max_hops,
+        });
+    }
+    if !graph.contains_node(request.start) {
+        return Err(RuntimeError::UnknownNode(request.start));
+    }
+    Ok(())
 }
 
 fn allows(
@@ -291,6 +404,29 @@ mod tests {
                 .map(|path| (path.nodes.last().copied().unwrap(), path.hop_count()))
                 .collect::<Vec<_>>(),
             vec![(node(2), 1), (node(3), 2)]
+        );
+    }
+
+    #[test]
+    fn resumable_cursor_matches_materialized_breadth_first_results() {
+        let graph = graph();
+        let request = request(TraversalOrder::BreadthFirst, Uniqueness::Trail);
+        let expected = traverse(
+            &graph,
+            &request,
+            TraversalLimits::default(),
+            &crate::NeverCancelled,
+        )
+        .unwrap();
+        let mut cursor = TraversalCursor::new(&graph, request, TraversalLimits::default()).unwrap();
+        let mut actual = Vec::new();
+        while let Some(path) = cursor.next_path(&graph, &crate::NeverCancelled).unwrap() {
+            actual.push(path);
+        }
+        assert_eq!(actual, expected);
+        assert_eq!(
+            cursor.next_path(&graph, &crate::NeverCancelled).unwrap(),
+            None
         );
     }
 
