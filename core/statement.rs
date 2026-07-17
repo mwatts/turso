@@ -589,7 +589,12 @@ impl Statement {
             self.state.query_deadline = None;
 
             // After ANALYZE completes, refresh in-memory stats so planners can use them.
-            let sql = self.program.sql.trim_start().as_bytes();
+            let sql = self
+                .program
+                .prepared_source
+                .source()
+                .trim_start()
+                .as_bytes();
             if sql.len() >= 7 && sql[..7].eq_ignore_ascii_case(b"ANALYZE") {
                 // The stats refresh runs a SELECT on this same connection. At
                 // this point ANALYZE is already Done, so it must not count as a
@@ -869,8 +874,19 @@ impl Statement {
         // same-version reprepare still refreshes it.
         conn.refresh_schema_from_shared_for_reprepare();
         let new_program = {
-            let (cmd, _) = conn.parse_sql(&self.program.sql)?;
-            let cmd = cmd.expect("Same SQL string should be able to be parsed");
+            let (cmd, _) = conn.compile_prepared_source(&self.program.prepared_source)?;
+            let cmd = cmd.ok_or_else(|| {
+                if let Some(frontend) = self.program.prepared_source.frontend_id() {
+                    crate::FrontendError::CompilerReturnedNoStatement {
+                        frontend: frontend.clone(),
+                    }
+                    .into()
+                } else {
+                    LimboError::InternalError(
+                        "prepared SQL no longer parses to a statement".to_string(),
+                    )
+                }
+            })?;
 
             let syms = conn.syms.read();
             let mode = self.query_mode;
@@ -885,7 +901,7 @@ impl Statement {
                 conn.clone(),
                 &syms,
                 mode,
-                &self.program.sql,
+                self.program.prepared_source.clone(),
                 self.origin,
             )?
         };
@@ -1487,7 +1503,7 @@ impl Statement {
     }
 
     pub fn get_sql(&self) -> &str {
-        &self.program.sql
+        self.program.prepared_source.source()
     }
 
     pub fn is_busy(&self) -> bool {

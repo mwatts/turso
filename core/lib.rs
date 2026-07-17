@@ -52,6 +52,7 @@ pub mod dialect;
 mod error;
 mod ext;
 mod fast_lock;
+mod frontend;
 mod function;
 #[cfg(not(any(feature = "fuzz", feature = "bench")))]
 mod functions;
@@ -140,6 +141,7 @@ pub use connection::{resolve_ext_path, Connection, Row, StepResult, SymbolTable}
 pub(crate) use connection::{AtomicTransactionState, TransactionState};
 pub use dialect::{Dialect, SqliteDialect};
 pub use error::{io_error, CompletionError, LimboError};
+pub use frontend::{FrontendCompiler, FrontendError, FrontendId, PreparedSource};
 pub use function::ContextCollationFunction;
 #[cfg(feature = "io_memory_yield")]
 pub use io::MemoryYieldIO;
@@ -2322,6 +2324,7 @@ impl Database {
             named_savepoints: RwLock::new(Vec::new()),
             schema_reparse_in_progress: AtomicBool::new(false),
             prepare_context_generation: AtomicU64::new(0),
+            frontend_compilers: RwLock::new(HashMap::default()),
             sequence_currvals: RwLock::new(HashMap::default()),
         });
         self.n_connections

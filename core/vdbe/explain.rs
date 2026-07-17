@@ -1004,8 +1004,9 @@ pub fn insn_to_row(
                 let sql = subprogram
                     .prepared_program()
                     .expect("Program subprogram should be resolved before EXPLAIN")
-                    .sql
-                    .clone();
+                    .prepared_source
+                    .source()
+                    .to_string();
                 let comment = format!("subprogram={sql}");
                 (
                     "Program",

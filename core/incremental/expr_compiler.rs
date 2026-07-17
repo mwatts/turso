@@ -360,7 +360,8 @@ impl CompiledExpression {
         });
 
         // Build the program from the compiled expression bytecode
-        let program = Arc::new(builder.build(connection, false, "")?);
+        let program =
+            Arc::new(builder.build(connection, false, crate::PreparedSource::dialect(""))?);
 
         Ok(CompiledExpression {
             executor: ExpressionExecutor::Compiled(program),

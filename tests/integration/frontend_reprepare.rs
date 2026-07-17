@@ -2,8 +2,8 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
 
 use turso_core::{
-    FrontendCompiler, FrontendError, FrontendId, LimboError, Result, StatementStatusCounter,
-    Value,
+    Database, DatabaseOpts, FrontendCompiler, FrontendError, FrontendId, LimboError, OpenFlags,
+    PlatformIO, Result, SqliteDialect, StatementStatusCounter, Value, IO,
 };
 use turso_parser::ast::Cmd;
 use turso_parser::parser::Parser;
@@ -109,9 +109,20 @@ impl FrontendCompiler for RetryCompiler {
 
 /// The cold schema-lookup retry inside `Connection::compile_cmd` is separate
 /// from `Statement::reprepare`; both must dispatch the same prepared source.
-#[turso_macros::test]
-fn compile_cmd_schema_retry_uses_frontend_recipe(tmp_db: TempDatabase) -> Result<()> {
-    let conn = tmp_db.connect_limbo();
+#[test]
+fn compile_cmd_schema_retry_uses_frontend_recipe() -> Result<()> {
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("frontend-schema-retry.db");
+    let io: Arc<dyn IO> = Arc::new(PlatformIO::new()?);
+    let db = Database::open_file_with_flags(
+        io,
+        path.to_str().unwrap(),
+        OpenFlags::default(),
+        DatabaseOpts::new().with_multiprocess_wal(true),
+        None,
+        Arc::new(SqliteDialect),
+    )?;
+    let conn = db.connect()?;
     let frontend = FrontendId::new("retry-synthetic")?;
     let compiler = Arc::new(RetryCompiler::new());
     conn.register_frontend_compiler(frontend.clone(), compiler.clone())?;
@@ -133,9 +144,7 @@ fn compile_cmd_schema_retry_uses_frontend_recipe(tmp_db: TempDatabase) -> Result
 /// to SQLite instead would hide the lost frontend identity behind a parse
 /// error and make schema-triggered failures nondeterministic.
 #[turso_macros::test]
-fn missing_frontend_compiler_is_typed_and_never_falls_through_to_sqlite(
-    tmp_db: TempDatabase,
-) {
+fn missing_frontend_compiler_is_typed_and_never_falls_through_to_sqlite(tmp_db: TempDatabase) {
     let conn = tmp_db.connect_limbo();
     let frontend = FrontendId::new("not-registered").unwrap();
 
@@ -148,4 +157,23 @@ fn missing_frontend_compiler_is_typed_and_never_falls_through_to_sqlite(
         panic!("expected typed missing-compiler error, got {err:?}");
     };
     assert_eq!(actual, frontend);
+}
+
+/// Compiler identity is stable for a connection. Replacing a registration
+/// would let an existing prepared recipe acquire different semantics.
+#[turso_macros::test]
+fn frontend_compiler_registration_cannot_be_replaced(tmp_db: TempDatabase) -> Result<()> {
+    let conn = tmp_db.connect_limbo();
+    let frontend = FrontendId::new("synthetic")?;
+    conn.register_frontend_compiler(frontend.clone(), Arc::new(SyntheticCompiler::new()))?;
+
+    let err = conn
+        .register_frontend_compiler(frontend.clone(), Arc::new(SyntheticCompiler::new()))
+        .expect_err("replacing a compiler must be rejected");
+    let LimboError::Frontend(FrontendError::CompilerAlreadyRegistered { frontend: actual }) = err
+    else {
+        panic!("expected typed duplicate-compiler error, got {err:?}");
+    };
+    assert_eq!(actual, frontend);
+    Ok(())
 }

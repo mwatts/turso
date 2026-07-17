@@ -512,6 +512,10 @@ fn build_blob_program(
     b.preassign_label_to_next_insn(l_end);
 
     conn.with_schema_mut(|schema| b.epilogue(schema))?;
-    b.build(conn.clone(), false, "incremental blob io")
-        .map_err(|e| LimboError::InternalError(format!("blob program build failed: {e}")))
+    b.build(
+        conn.clone(),
+        false,
+        crate::PreparedSource::dialect("incremental blob io"),
+    )
+    .map_err(|e| LimboError::InternalError(format!("blob program build failed: {e}")))
 }

@@ -1,5 +1,6 @@
 use thiserror::Error;
 
+use crate::frontend::FrontendError;
 use crate::storage::page_cache::CacheError;
 
 #[derive(Debug, Clone, Error, miette::Diagnostic)]
@@ -16,6 +17,8 @@ pub enum LimboError {
     DatabaseFull(String),
     #[error("Parse error: {0}")]
     ParseError(String),
+    #[error(transparent)]
+    Frontend(#[from] FrontendError),
     #[error(transparent)]
     #[diagnostic(transparent)]
     LexerError(#[from] turso_parser::error::Error),

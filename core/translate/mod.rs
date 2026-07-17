@@ -54,7 +54,7 @@ use crate::translate::delete::translate_delete;
 use crate::translate::emitter::Resolver;
 use crate::vdbe::builder::{ProgramBuilder, ProgramBuilderOpts, QueryMode};
 use crate::vdbe::Program;
-use crate::{bail_parse_error, Connection, Result, SymbolTable};
+use crate::{bail_parse_error, Connection, PreparedSource, Result, SymbolTable};
 use alter::translate_alter_table;
 use analyze::translate_analyze;
 use index::{translate_create_index, translate_drop_index, translate_optimize, translate_reindex};
@@ -78,9 +78,10 @@ pub fn translate(
     connection: Arc<Connection>,
     syms: &SymbolTable,
     query_mode: QueryMode,
-    input: &str,
+    prepared_source: PreparedSource,
     origin: crate::statement::StatementOrigin,
 ) -> Result<Program> {
+    let input = prepared_source.source();
     tracing::trace!("querying {}", input);
     let change_cnt_on = matches!(
         stmt,
@@ -140,7 +141,7 @@ pub fn translate(
 
     program.epilogue(schema);
 
-    program.build(connection, change_cnt_on, input)
+    program.build(connection, change_cnt_on, prepared_source)
 }
 
 // TODO: for now leaving the return value as a Program. But ideally to support nested parsing of arbitraty
@@ -549,7 +550,7 @@ mod tests {
             conn,
             &empty_syms,
             QueryMode::Normal,
-            "",
+            PreparedSource::dialect(""),
             crate::statement::StatementOrigin::Root,
         );
         let err = result.unwrap_err().to_string();
@@ -597,7 +598,7 @@ mod tests {
             conn,
             &syms,
             QueryMode::Normal,
-            "",
+            PreparedSource::dialect(""),
             crate::statement::StatementOrigin::Root,
         )
         .expect_err("translation should fail with malformed sqlite_sequence");
@@ -640,7 +641,7 @@ mod tests {
             conn,
             &syms,
             QueryMode::Normal,
-            "",
+            PreparedSource::dialect(""),
             crate::statement::StatementOrigin::Root,
         )
         .expect_err("translation should fail with missing sqlite_sequence");

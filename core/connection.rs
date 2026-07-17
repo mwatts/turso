@@ -26,9 +26,10 @@ use crate::{
     vdbe, AllViewsTxState, AtomicCipherMode, AtomicSyncMode, AtomicTempStore, BusyHandler,
     BusyHandlerCallback, CaptureDataChangesInfo, CheckpointMode, CheckpointResult, CipherMode, Cmd,
     Completion, ConnectionMetrics, Database, DatabaseCatalog, DatabaseOpts, Duration,
-    EncryptionKey, EncryptionOpts, IOResult, IndexMethod, LimboError, MvStore, OpenFlags, PageSize,
-    Pager, Program, QueryMode, QueryRunner, Result, Schema, Statement, SyncMode, TransactionMode,
-    Trigger, Value, VirtualTable, WalAutoActions,
+    EncryptionKey, EncryptionOpts, FrontendCompiler, FrontendError, FrontendId, IOResult,
+    IndexMethod, LimboError, MvStore, OpenFlags, PageSize, Pager, PreparedSource, Program,
+    QueryMode, QueryRunner, Result, Schema, Statement, SyncMode, TransactionMode, Trigger, Value,
+    VirtualTable, WalAutoActions,
 };
 use crate::{is_memory_like, turso_assert};
 use crate::{MAIN_DB_ID, TEMP_DB_ID};
@@ -493,6 +494,10 @@ pub struct Connection {
     /// MUST be incremented whenever any setting that affects PrepareContext changes,
     /// and this is not currently centralized; each setter bumps the generation individually.
     pub(crate) prepare_context_generation: AtomicU64,
+    /// Compiler services keyed by the data-only frontend identity retained in
+    /// prepared programs. Services are connection-local and never stored in
+    /// bytecode.
+    pub(crate) frontend_compilers: RwLock<HashMap<FrontendId, Arc<dyn FrontendCompiler>>>,
     /// Per-connection last-returned value for each sequence (for currval()).
     pub(crate) sequence_currvals: RwLock<HashMap<String, i64>>,
 }
@@ -557,6 +562,57 @@ impl Drop for Connection {
 }
 
 impl Connection {
+    /// Register a compiler for statements prepared through `frontend`.
+    ///
+    /// Registrations are connection-local. Replacing an existing compiler is
+    /// rejected so a prepared source cannot silently change meaning.
+    pub fn register_frontend_compiler(
+        &self,
+        frontend: FrontendId,
+        compiler: Arc<dyn FrontendCompiler>,
+    ) -> Result<()> {
+        let mut compilers = self.frontend_compilers.write();
+        if compilers.contains_key(&frontend) {
+            return Err(FrontendError::CompilerAlreadyRegistered { frontend }.into());
+        }
+        compilers.insert(frontend, compiler);
+        Ok(())
+    }
+
+    pub(crate) fn compile_prepared_source(
+        &self,
+        prepared_source: &PreparedSource,
+    ) -> Result<(Option<Cmd>, usize)> {
+        let PreparedSource::Frontend { frontend, source } = prepared_source else {
+            return self.parse_sql(prepared_source.source());
+        };
+
+        // Do not invoke frontend code while holding the registry lock. A
+        // compiler may legitimately inspect connection-independent shared
+        // state, and the registry must not become a callback lock.
+        let compiler = self
+            .frontend_compilers
+            .read()
+            .get(frontend)
+            .cloned()
+            .ok_or_else(|| FrontendError::CompilerNotRegistered {
+                frontend: frontend.clone(),
+            })?;
+        let (cmd, consumed) = compiler.compile(source)?;
+        if consumed > source.len()
+            || !source.is_char_boundary(consumed)
+            || (cmd.is_some() && consumed == 0)
+        {
+            return Err(FrontendError::InvalidConsumedBytes {
+                frontend: frontend.clone(),
+                consumed,
+                source_len: source.len(),
+            }
+            .into());
+        }
+        Ok((cmd, consumed))
+    }
+
     fn schema_reparse_guard(self: &Arc<Connection>) -> SchemaReparseGuard {
         let was_reparsing = self.schema_reparse_in_progress.swap(true, Ordering::SeqCst);
         turso_assert!(
@@ -893,7 +949,7 @@ impl Connection {
     fn compile_cmd(
         self: &Arc<Connection>,
         cmd: Cmd,
-        input: &str,
+        prepared_source: &PreparedSource,
         origin: StatementOrigin,
     ) -> Result<(Program, Arc<Pager>, QueryMode)> {
         self.maybe_update_schema();
@@ -910,18 +966,18 @@ impl Connection {
             self.clone(),
             &syms,
             mode,
-            input,
+            prepared_source.clone(),
             origin,
         ) {
             Ok(program) => Ok((program, pager, mode)),
             Err(err) if self.should_retry_cross_process_schema_lookup(&err)? => {
-                // Cold path: re-parse the SQL from scratch after schema refresh rather
-                // than cloning the original AST, which can overflow the stack
-                // on deeply nested expression trees.
+                // Cold path: compile the prepared source from scratch after
+                // schema refresh rather than cloning the original AST, which
+                // can overflow the stack on deeply nested expression trees.
                 drop(syms);
                 let cmd = {
                     crate::stack::trace_stack!("schema_retry_parse");
-                    let (cmd, _) = self.parse_sql(input)?;
+                    let (cmd, _) = self.compile_prepared_source(prepared_source)?;
                     let Some(cmd) = cmd else {
                         return Err(err);
                     };
@@ -940,7 +996,7 @@ impl Connection {
                     self.clone(),
                     &syms,
                     mode,
-                    input,
+                    prepared_source.clone(),
                     origin,
                 )
                 .map(|program| (program, pager, mode))
@@ -990,9 +1046,10 @@ impl Connection {
             let sql = sql.as_ref();
             tracing::debug!("Preparing: {}", sql);
 
+            let full_source = PreparedSource::dialect(sql);
             let (cmd, byte_offset_end) = {
                 crate::stack::trace_stack!("parse");
-                self.parse_sql(sql)?
+                self.compile_prepared_source(&full_source)?
             };
             let cmd = match cmd {
                 Some(cmd) => cmd,
@@ -1005,7 +1062,8 @@ impl Connection {
             let input = str::from_utf8(&sql.as_bytes()[..byte_offset_end])
                 .unwrap()
                 .trim();
-            let (program, pager, mode) = self.compile_cmd(cmd, input, origin)?;
+            let prepared_source = full_source.with_source(input);
+            let (program, pager, mode) = self.compile_cmd(cmd, &prepared_source, origin)?;
 
             Ok(Statement::new_with_origin(
                 program,
@@ -1020,6 +1078,47 @@ impl Connection {
             self.end_nested();
         }
         result
+    }
+
+    /// Compile and prepare source using a registered connection-local
+    /// frontend. The frontend identity and original source are retained for
+    /// schema and prepare-context invalidation.
+    pub fn prepare_frontend(
+        self: &Arc<Connection>,
+        frontend: &FrontendId,
+        source: impl AsRef<str>,
+    ) -> Result<Statement> {
+        if self.is_closed() {
+            return Err(LimboError::InternalError("Connection closed".to_string()));
+        }
+        let source = source.as_ref();
+        if source.is_empty() {
+            return Err(LimboError::InvalidArgument(
+                "The supplied frontend source contains no statements".to_string(),
+            ));
+        }
+
+        let full_source = PreparedSource::frontend(frontend.clone(), source);
+        let (cmd, byte_offset_end) = self.compile_prepared_source(&full_source)?;
+        let cmd = cmd.ok_or_else(|| {
+            LimboError::InvalidArgument(
+                "The supplied frontend source contains no statements".to_string(),
+            )
+        })?;
+        let input = source
+            .get(..byte_offset_end)
+            .expect("compile_prepared_source validated the consumed byte offset");
+        let prepared_source = full_source.with_source(input);
+        let (program, pager, mode) =
+            self.compile_cmd(cmd, &prepared_source, StatementOrigin::Root)?;
+        Ok(Statement::new_with_origin(
+            program,
+            pager,
+            mode,
+            byte_offset_end,
+            StatementOrigin::Root,
+            false,
+        ))
     }
 
     /// Prepare an already-translated statement while keeping the original
@@ -1052,7 +1151,9 @@ impl Connection {
             self.start_nested();
         }
         let result = (|| {
-            let (program, pager, mode) = self.compile_cmd(Cmd::Stmt(stmt), input, origin)?;
+            let prepared_source = PreparedSource::dialect(input);
+            let (program, pager, mode) =
+                self.compile_cmd(Cmd::Stmt(stmt), &prepared_source, origin)?;
             Ok(Statement::new_with_origin(
                 program,
                 pager,
@@ -1644,7 +1745,9 @@ impl Connection {
             let input = str::from_utf8(&remaining.as_bytes()[..byte_offset_end])
                 .unwrap()
                 .trim();
-            let (program, pager, mode) = self.compile_cmd(cmd, input, StatementOrigin::Root)?;
+            let prepared_source = PreparedSource::dialect(input);
+            let (program, pager, mode) =
+                self.compile_cmd(cmd, &prepared_source, StatementOrigin::Root)?;
             Statement::new(program, pager, mode, 0).run_ignore_rows()?;
             remaining = &remaining[byte_offset_end..];
         }
@@ -1678,7 +1781,9 @@ impl Connection {
         if self.is_closed() {
             return Err(LimboError::InternalError("Connection closed".to_string()));
         }
-        let (program, pager, mode) = self.compile_cmd(cmd, input, StatementOrigin::Root)?;
+        let prepared_source = PreparedSource::dialect(input);
+        let (program, pager, mode) =
+            self.compile_cmd(cmd, &prepared_source, StatementOrigin::Root)?;
         let stmt = Statement::new(program, pager, mode, 0);
         Ok(Some(stmt))
     }
@@ -1701,7 +1806,9 @@ impl Connection {
             let input = str::from_utf8(&remaining.as_bytes()[..byte_offset_end])
                 .unwrap()
                 .trim();
-            let (program, pager, mode) = self.compile_cmd(cmd, input, StatementOrigin::Root)?;
+            let prepared_source = PreparedSource::dialect(input);
+            let (program, pager, mode) =
+                self.compile_cmd(cmd, &prepared_source, StatementOrigin::Root)?;
             {
                 crate::stack::trace_stack!("run");
                 Statement::new(program, pager.clone(), mode, 0).run_ignore_rows()?;
@@ -1723,7 +1830,9 @@ impl Connection {
         let input = str::from_utf8(&sql.as_ref().as_bytes()[..byte_offset_end])
             .unwrap()
             .trim();
-        let (program, pager, mode) = self.compile_cmd(cmd, input, StatementOrigin::Root)?;
+        let prepared_source = PreparedSource::dialect(input);
+        let (program, pager, mode) =
+            self.compile_cmd(cmd, &prepared_source, StatementOrigin::Root)?;
         let stmt = Statement::new(program, pager, mode, 0);
         Ok(Some((stmt, byte_offset_end)))
     }

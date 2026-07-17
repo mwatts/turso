@@ -1970,7 +1970,7 @@ impl ProgramBuilder {
         mut self,
         prepare_context: PrepareContext,
         change_cnt_on: bool,
-        sql: &str,
+        prepared_source: crate::PreparedSource,
     ) -> crate::Result<PreparedProgram> {
         self.resolve_labels()?;
 
@@ -1995,7 +1995,7 @@ impl ProgramBuilder {
             readonly: self.flags.readonly(),
             result_columns: self.result_columns,
             table_references: self.table_references,
-            sql: sql.to_string(),
+            prepared_source,
             needs_stmt_subtransactions: crate::Arc::new(crate::AtomicBool::new(
                 needs_stmt_subtransactions,
             )),
@@ -2014,10 +2014,11 @@ impl ProgramBuilder {
         self,
         connection: Arc<Connection>,
         change_cnt_on: bool,
-        sql: &str,
+        prepared_source: crate::PreparedSource,
     ) -> crate::Result<Program> {
         let prepare_context = PrepareContext::from_connection(&connection);
-        let prepared = self.build_prepared_program(prepare_context, change_cnt_on, sql)?;
+        let prepared =
+            self.build_prepared_program(prepare_context, change_cnt_on, prepared_source)?;
         Ok(Program::from_prepared(Arc::new(prepared), connection))
     }
 }

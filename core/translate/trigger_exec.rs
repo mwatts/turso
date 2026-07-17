@@ -624,8 +624,11 @@ fn execute_trigger_commands(
     resolver.trigger_context = prev_trigger_context;
     compile_result?;
     subprogram_builder.epilogue(resolver.schema());
-    let built_subprogram =
-        subprogram_builder.build(connection.clone(), true, "trigger subprogram")?;
+    let built_subprogram = subprogram_builder.build(
+        connection.clone(),
+        true,
+        crate::PreparedSource::dialect("trigger subprogram"),
+    )?;
     let subprogram_prepared = built_subprogram.prepared();
 
     // Trigger subprograms do not emit Transaction opcodes, so the parent statement
