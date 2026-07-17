@@ -71,6 +71,10 @@ impl GraphSession {
         self.graph
     }
 
+    pub fn graph_name(&self) -> &str {
+        &self.graph_name
+    }
+
     pub fn query(
         &self,
         source: &str,
@@ -85,6 +89,24 @@ impl GraphSession {
         parameters: &MutationParameters,
         cancellation: &dyn Cancellation,
     ) -> Result<Vec<Vec<Value>>, GraphSessionError> {
+        let mut statement = self.prepare_query_cancellable(source, parameters, cancellation)?;
+        Ok(statement.run_collect_rows()?)
+    }
+
+    pub fn prepare_query(
+        &self,
+        source: &str,
+        parameters: &MutationParameters,
+    ) -> Result<Statement, GraphSessionError> {
+        self.prepare_query_cancellable(source, parameters, &NeverCancelled)
+    }
+
+    pub fn prepare_query_cancellable(
+        &self,
+        source: &str,
+        parameters: &MutationParameters,
+        cancellation: &dyn Cancellation,
+    ) -> Result<Statement, GraphSessionError> {
         let syntax = turso_graph_cypher::parse(source)?;
         if requires_traversal_snapshot(&syntax) {
             self.snapshots.refresh_visible(
@@ -98,7 +120,7 @@ impl GraphSession {
             .connection
             .prepare_frontend(&graph_frontend_id(), source)?;
         bind_query_parameters(&mut statement, parameters)?;
-        Ok(statement.run_collect_rows()?)
+        Ok(statement)
     }
 
     pub fn mutate(
