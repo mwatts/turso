@@ -1,0 +1,17 @@
+[package]
+name = "turso_graph_runtime"
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Derived adjacency and traversal runtime for Turso graph queries"
+
+[lints]
+workspace = true
+
+[lib]
+path = "src/lib.rs"
+
+[dependencies]
+turso_graph_ir = { workspace = true }

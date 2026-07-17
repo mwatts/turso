@@ -7292,6 +7292,34 @@ dependencies = [
 ]
 
 [[package]]
+name = "turso_graph_cypher"
+version = "0.7.0"
+dependencies = [
+ "turso_graph_ir",
+]
+
+[[package]]
+name = "turso_graph_frontend"
+version = "0.7.0"
+dependencies = [
+ "turso_core",
+ "turso_graph_cypher",
+ "turso_graph_ir",
+ "turso_graph_runtime",
+]
+
+[[package]]
+name = "turso_graph_ir"
+version = "0.7.0"
+
+[[package]]
+name = "turso_graph_runtime"
+version = "0.7.0"
+dependencies = [
+ "turso_graph_ir",
+]
+
+[[package]]
 name = "turso_macros"
 version = "0.7.0"
 dependencies = [

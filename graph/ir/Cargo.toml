@@ -1,0 +1,14 @@
+[package]
+name = "turso_graph_ir"
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Turso-owned graph identities, catalog contracts, and bound query IR"
+
+[lints]
+workspace = true
+
+[lib]
+path = "src/lib.rs"

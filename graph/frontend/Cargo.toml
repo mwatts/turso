@@ -1,0 +1,20 @@
+[package]
+name = "turso_graph_frontend"
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Cypher preparation and graph query orchestration for Turso"
+
+[lints]
+workspace = true
+
+[lib]
+path = "src/lib.rs"
+
+[dependencies]
+turso_core = { workspace = true }
+turso_graph_cypher = { workspace = true }
+turso_graph_ir = { workspace = true }
+turso_graph_runtime = { workspace = true }
