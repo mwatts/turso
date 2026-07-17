@@ -52,6 +52,14 @@ by Bitnine Co., Ltd.:
 * Source revision: 6876abcab0a3281eb65a7e2a91238e0b5abfdea7
 * Homepage: https://github.com/apache/age
 
+This project includes graph runtime code structurally adapted from pgGraph,
+distributed by Evokoa Pte. Ltd.:
+
+* License: licenses/graph/pggraph-apache-license.md (Apache License v2.0)
+* Notice: licenses/graph/pggraph-notice.md
+* Source revision: d689bcf2b3b52d7f878f61718be69ebcb953affc
+* Homepage: https://github.com/Evokoa/pgGraph
+
 
 This project depends on ipnetwork, distributed by the ipnetwork project:
 

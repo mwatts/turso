@@ -1,0 +1,88 @@
+version = 1
+purpose = "Normalized differential cases for the pinned pgGraph runtime"
+
+[[fixture]]
+id = "inbound-csr"
+algorithm = "incoming"
+nodes = [1, 2, 3]
+edges = [
+  { id = 10, source = 1, target = 2, kind = 7, weight = 3 },
+  { id = 11, source = 3, target = 2, kind = 9, weight = 5 },
+]
+start = 2
+max_hops = 1
+expected_paths = [[2, 1], [2, 3]]
+source_path = "graph/src/edge_store.rs"
+source_case = "reversed_builds_inbound_csr_without_scanning_at_query_time"
+revision = "d689bcf2b3b52d7f878f61718be69ebcb953affc"
+license = "Apache-2.0"
+
+[[fixture]]
+id = "bfs-depth-limit"
+algorithm = "traverse"
+nodes = [1, 2, 3, 4, 5]
+edges = [
+  { id = 10, source = 1, target = 2, kind = 1, weight = 1 },
+  { id = 11, source = 2, target = 3, kind = 1, weight = 1 },
+  { id = 12, source = 3, target = 4, kind = 1, weight = 1 },
+  { id = 13, source = 1, target = 5, kind = 2, weight = 1 },
+]
+start = 1
+max_hops = 1
+expected_paths = [[1, 2], [1, 5]]
+source_path = "graph/src/bfs.rs"
+source_case = "bfs_respects_max_depth"
+revision = "d689bcf2b3b52d7f878f61718be69ebcb953affc"
+license = "Apache-2.0"
+
+[[fixture]]
+id = "shortest-no-connection"
+algorithm = "shortest"
+nodes = [1, 2]
+edges = []
+start = 1
+target = 2
+max_hops = 8
+expected_paths = []
+source_path = "graph/src/path_finder.rs"
+source_case = "shortest_path_no_connection"
+revision = "d689bcf2b3b52d7f878f61718be69ebcb953affc"
+license = "Apache-2.0"
+
+[[fixture]]
+id = "shortest-cycle"
+algorithm = "shortest"
+nodes = [1, 2, 3]
+edges = [
+  { id = 10, source = 1, target = 2, kind = 1, weight = 1 },
+  { id = 11, source = 2, target = 3, kind = 1, weight = 1 },
+  { id = 12, source = 3, target = 1, kind = 1, weight = 1 },
+]
+start = 1
+target = 3
+max_hops = 8
+expected_paths = [[1, 2, 3]]
+source_path = "graph/src/path_finder.rs"
+source_case = "shortest_path_with_cycle_terminates"
+revision = "d689bcf2b3b52d7f878f61718be69ebcb953affc"
+license = "Apache-2.0"
+
+[[fixture]]
+id = "weighted-lower-cost"
+algorithm = "weighted"
+nodes = [1, 2, 3, 4]
+edges = [
+  { id = 10, source = 1, target = 2, kind = 1, weight = 100 },
+  { id = 11, source = 2, target = 4, kind = 1, weight = 1 },
+  { id = 12, source = 1, target = 3, kind = 1, weight = 5 },
+  { id = 13, source = 3, target = 4, kind = 1, weight = 5 },
+]
+start = 1
+target = 4
+max_hops = 8
+expected_paths = [[1, 3, 4]]
+expected_weight = 10
+source_path = "graph/src/path_finder.rs"
+source_case = "weighted_shortest_path_prefers_lower_total_cost"
+revision = "d689bcf2b3b52d7f878f61718be69ebcb953affc"
+license = "Apache-2.0"

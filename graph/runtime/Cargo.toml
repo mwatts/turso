@@ -14,4 +14,9 @@ workspace = true
 path = "src/lib.rs"
 
 [dependencies]
+thiserror.workspace = true
 turso_graph_ir = { workspace = true }
+
+[dev-dependencies]
+serde = { workspace = true, features = ["derive"] }
+toml.workspace = true

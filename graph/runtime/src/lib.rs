@@ -4,3 +4,15 @@
 //! own storage, transactions, or frontend syntax.
 
 #![forbid(unsafe_code)]
+
+mod csr;
+mod error;
+mod limits;
+mod shortest;
+mod traversal;
+
+pub use csr::{EdgeInput, Graph, Neighbor};
+pub use error::{LimitKind, RuntimeError, RuntimeResult};
+pub use limits::{BuildLimits, Cancellation, NeverCancelled, TraversalLimits};
+pub use shortest::{shortest_path, weighted_shortest_path, ShortestPathRequest};
+pub use traversal::{traverse, Path, TraversalOrder, TraversalRequest, Uniqueness};

@@ -110,6 +110,29 @@ The following are references only and must not become the integration seam:
 - `graph/src/sql_*` and `graph/src/sql_facade/`
 - pgrx/SPI/GUC/background-worker and extension lifecycle code
 
+The initial portable runtime adaptation is installed in:
+
+- `graph/runtime/src/csr.rs`, structurally adapted from
+  `graph/src/edge_store.rs` into safe, owned forward and reverse CSR arrays;
+- `graph/runtime/src/traversal.rs`, structurally adapted from
+  `graph/src/bfs.rs` into bounded BFS/DFS path enumeration with explicit
+  walk, trail, and path uniqueness;
+- `graph/runtime/src/shortest.rs`, structurally adapted from
+  `graph/src/path_finder.rs` into bounded unweighted BFS and weighted Dijkstra
+  over Turso graph identities;
+- `graph/runtime/src/limits.rs`, structurally adapted from
+  `graph/src/safety.rs` into typed caller-owned limits and cancellation.
+
+The adaptation excludes mmap/sidecar persistence, PostgreSQL node stores,
+tenant/ACL state, transaction overlays, and server error reporting. The
+applicable license and notice are copied to
+`licenses/graph/pggraph-apache-license.md` and
+`licenses/graph/pggraph-notice.md`.
+
+Normalized differential expectations from the pinned pgrx-free unit tests are
+recorded in `graph/testdata/pggraph-runtime/manifest.toml` and executed by
+`graph/runtime/tests/pggraph_equivalence.rs`.
+
 ## Per-file record
 
 Every copied or adapted file must carry a short header or adjacent module-level
