@@ -103,3 +103,8 @@ dhat-heap.json
 .aristo/critiques/
 .aristo/proofs/*.proof.bak
 .aristo/archive/
+
+# Beads / Dolt files (added by bd init)
+.dolt/
+.beads-credential-key
+.beads/proxieddb/

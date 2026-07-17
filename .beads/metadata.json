@@ -1,0 +1,7 @@
+{
+  "database": "dolt",
+  "backend": "dolt",
+  "dolt_mode": "embedded",
+  "dolt_database": "turso",
+  "project_id": "bd4296a9-ba30-4827-944e-8533fe0b18c6"
+}
