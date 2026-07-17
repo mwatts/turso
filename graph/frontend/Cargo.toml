@@ -19,3 +19,8 @@ turso_core = { workspace = true }
 turso_graph_cypher = { workspace = true }
 turso_graph_ir = { workspace = true }
 turso_graph_runtime = { workspace = true }
+turso_parser = { workspace = true }
+
+[dev-dependencies]
+serde = { workspace = true, features = ["derive"] }
+toml = { workspace = true }

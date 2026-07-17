@@ -7305,11 +7305,14 @@ dependencies = [
 name = "turso_graph_frontend"
 version = "0.7.0"
 dependencies = [
+ "serde",
  "thiserror 2.0.16",
+ "toml",
  "turso_core",
  "turso_graph_cypher",
  "turso_graph_ir",
  "turso_graph_runtime",
+ "turso_parser",
 ]
 
 [[package]]

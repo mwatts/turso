@@ -35,6 +35,23 @@ from Uni, distributed by the Uni contributors:
 * Source revision: 0812a496c62769b67cf688930750ae384e3de68d
 * Homepage: https://github.com/rustic-ai/uni-db
 
+This project includes graph-query fixtures adapted from Grafeo, distributed by
+the Grafeo contributors:
+
+* License: licenses/graph/grafeo-apache-license.md (Apache License v2.0)
+* Notice: licenses/graph/grafeo-notice.md
+* Source revision: 4ebae02f06f8f0cbc57543f74b6ba06f259dbed3
+* Homepage: https://github.com/GrafeoDB/grafeo
+
+This project includes graph-query fixtures adapted from Apache AGE, distributed
+by the Apache Software Foundation and including portions originally developed
+by Bitnine Co., Ltd.:
+
+* License: licenses/graph/apache-age-apache-license.md (Apache License v2.0)
+* Notice: licenses/graph/apache-age-notice.md
+* Source revision: 6876abcab0a3281eb65a7e2a91238e0b5abfdea7
+* Homepage: https://github.com/apache/age
+
 
 This project depends on ipnetwork, distributed by the ipnetwork project:
 

@@ -78,12 +78,23 @@ The graph IR is Turso-owned. Grafeo material under
 types must not cross into Turso core. Selected `.gtest` cases may be adapted as
 fixtures with their original case names recorded.
 
+The initial normalized fixture adaptations are recorded in
+`graph/testdata/fixed-patterns/manifest.toml`, with source case, revision,
+ordering contract, and parser-support status per case. The applicable license
+and notice are copied to `licenses/graph/grafeo-apache-license.md` and
+`licenses/graph/grafeo-notice.md`.
+
 ### Apache AGE
 
 AGE code under `src/backend/parser/` and `src/backend/optimizer/` is a
 behavioral reference for translating graph clauses into relational operations.
 PostgreSQL `Node`, `Query`, `Plan`, executor, and extension types are excluded.
 The regression SQL and expected-output pairs may be adapted as fixtures.
+
+The AGE cases normalized into `graph/testdata/fixed-patterns/manifest.toml`
+retain their regression file and source location. The applicable license and
+notice are copied to `licenses/graph/apache-age-apache-license.md` and
+`licenses/graph/apache-age-notice.md`.
 
 ### pgGraph
 

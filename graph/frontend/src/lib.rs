@@ -8,6 +8,7 @@
 
 mod binder;
 mod catalog;
+mod lowering;
 
 pub use binder::{
     bind, BindError, BoundQuery, CatalogEntity, GraphCatalogSnapshot, ParameterTypes,
@@ -18,3 +19,4 @@ pub use catalog::{
     NodeSourceRegistration, RegisteredGraph, RegisteredNodeSource, RegisteredRelationshipSource,
     RelationshipSourceRegistration,
 };
+pub use lowering::{lower_relational, LowerError};
