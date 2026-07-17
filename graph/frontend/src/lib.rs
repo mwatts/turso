@@ -11,11 +11,12 @@ mod catalog;
 mod compiler;
 mod graph_expand;
 mod lowering;
+mod mutation;
 mod snapshot;
 
 pub use binder::{
-    bind, BindError, BoundQuery, CatalogEntity, GraphCatalogSnapshot, ParameterTypes,
-    ResolvedProperty,
+    bind, bind_mutation, BindError, BoundMutation, BoundQuery, CatalogEntity, GraphCatalogSnapshot,
+    ParameterTypes, ResolvedProperty,
 };
 pub use catalog::{
     graph_generation, load_registered_graph, register_graph, CatalogError, GraphRegistration,
@@ -28,6 +29,7 @@ pub use lowering::{
     lower_relational, LowerError, NodeTableLayout, RelationalCatalogSnapshot,
     RelationshipTableLayout,
 };
+pub use mutation::{execute_cypher_mutation, MutationError, MutationParameters, MutationSummary};
 pub use snapshot::{
     build_traversal_snapshot, NodeCoordinate, PublishOutcome, RelationshipCoordinate,
     SnapshotError, SnapshotStore, SourceIdentity, TraversalSnapshot,

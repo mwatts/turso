@@ -8,7 +8,7 @@
 //! Changes: Replaced Uni AST and error types, reduced the supported syntax,
 //! and retained only a source-AST walker with byte-span diagnostics.
 
-use pest::{Parser, error::InputLocation, iterators::Pair};
+use pest::{error::InputLocation, iterators::Pair, Parser};
 use pest_derive::Parser;
 use thiserror::Error;
 

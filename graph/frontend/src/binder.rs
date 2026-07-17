@@ -21,6 +21,9 @@ pub struct ResolvedProperty {
 pub trait GraphCatalogSnapshot {
     fn node_source(&self, graph: ir::GraphId) -> Option<ir::SourceTableId>;
     fn relationship_source(&self, graph: ir::GraphId) -> Option<ir::SourceTableId>;
+    fn relationship_sources(&self, graph: ir::GraphId) -> Vec<ir::SourceTableId> {
+        self.relationship_source(graph).into_iter().collect()
+    }
     fn label(&self, graph: ir::GraphId, name: &str) -> Option<ir::LabelId>;
     fn relationship_type(&self, graph: ir::GraphId, name: &str) -> Option<ir::RelationshipTypeId>;
     fn property(
@@ -36,6 +39,11 @@ pub type ParameterTypes = HashMap<String, (ir::ValueType, ir::Nullability)>;
 #[derive(Clone, Debug, PartialEq)]
 pub struct BoundQuery {
     pub plan: ir::Plan,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct BoundMutation {
+    pub request: ir::MutationRequest,
 }
 
 #[derive(Clone, Debug, Error, Eq, PartialEq)]
@@ -96,6 +104,8 @@ pub enum BindError {
     InvalidPlan(#[from] ir::PlanError),
     #[error("query produced no plan")]
     EmptyQuery,
+    #[error("mutation query contains no mutation clauses")]
+    EmptyMutation,
     #[error("graph query has too many bindings")]
     TooManyBindings,
     #[error("invalid relationship range {min}..{max} at byte {span_start}..{span_end}")]
@@ -116,6 +126,15 @@ pub fn bind(
     parameters: &ParameterTypes,
 ) -> Result<BoundQuery, BindError> {
     Binder::new(graph, catalog, parameters).bind_query(query)
+}
+
+pub fn bind_mutation(
+    query: &cypher::Query,
+    graph: ir::GraphId,
+    catalog: &dyn GraphCatalogSnapshot,
+    parameters: &ParameterTypes,
+) -> Result<BoundMutation, BindError> {
+    Binder::new(graph, catalog, parameters).bind_mutation_query(query)
 }
 
 #[derive(Clone, Copy)]
@@ -156,6 +175,16 @@ impl<'a> Binder<'a> {
                 cypher::Clause::Match(clause) => {
                     self.bind_match(clause, clause_span(clause, query))?
                 }
+                cypher::Clause::Create(_)
+                | cypher::Clause::Merge(_)
+                | cypher::Clause::Set(_)
+                | cypher::Clause::Remove(_)
+                | cypher::Clause::Delete(_) => {
+                    return Err(at_unsupported(
+                        clause.span,
+                        "mutation clauses in read queries",
+                    ));
+                }
                 cypher::Clause::Unwind(clause) => self.bind_unwind(clause)?,
                 cypher::Clause::With(clause) => self.bind_projection(clause, false)?,
                 cypher::Clause::Return(clause) => self.bind_projection(clause, true)?,
@@ -164,6 +193,305 @@ impl<'a> Binder<'a> {
         Ok(BoundQuery {
             plan: self.plan.ok_or(BindError::EmptyQuery)?,
         })
+    }
+
+    fn bind_mutation_query(mut self, query: &cypher::Query) -> Result<BoundMutation, BindError> {
+        let mut operations = Vec::new();
+        let mut mutation_started = false;
+        for clause in &query.clauses {
+            match &clause.value {
+                cypher::Clause::Match(value) => {
+                    if mutation_started {
+                        return Err(at_unsupported(clause.span, "MATCH after a mutation clause"));
+                    }
+                    self.bind_match(value, clause.span)?;
+                }
+                cypher::Clause::Create(value) => {
+                    mutation_started = true;
+                    for path in &value.paths {
+                        self.bind_create_path(path, false, &mut operations)?;
+                    }
+                }
+                cypher::Clause::Merge(value) => {
+                    mutation_started = true;
+                    self.bind_create_path(&value.path, true, &mut operations)?;
+                }
+                cypher::Clause::Set(value) => {
+                    mutation_started = true;
+                    self.bind_set(value, &mut operations)?;
+                }
+                cypher::Clause::Remove(value) => {
+                    mutation_started = true;
+                    self.bind_remove(value, &mut operations)?;
+                }
+                cypher::Clause::Delete(value) => {
+                    mutation_started = true;
+                    self.bind_delete(value, &mut operations)?;
+                }
+                cypher::Clause::Unwind(_) | cypher::Clause::With(_) | cypher::Clause::Return(_) => {
+                    return Err(at_unsupported(
+                        clause.span,
+                        "projection clauses in mutation queries",
+                    ));
+                }
+            }
+        }
+        if operations.is_empty() {
+            return Err(BindError::EmptyMutation);
+        }
+        Ok(BoundMutation {
+            request: ir::MutationRequest {
+                graph: self.graph,
+                input: self.plan,
+                operations,
+            },
+        })
+    }
+
+    fn bind_create_path(
+        &mut self,
+        path: &cypher::PathPattern,
+        merge: bool,
+        operations: &mut Vec<ir::Mutation>,
+    ) -> Result<(), BindError> {
+        if path.variable.is_some() {
+            return Err(at_unsupported(path.span, "named mutation paths"));
+        }
+        let mut from = self.bind_created_node(&path.start, merge, operations)?;
+        for (relationship, node) in &path.steps {
+            if relationship.range.is_some() {
+                return Err(at_unsupported(
+                    relationship.span,
+                    "variable-length mutation relationships",
+                ));
+            }
+            if relationship.direction == cypher::Direction::Both {
+                return Err(at_unsupported(
+                    relationship.span,
+                    "undirected relationship creation",
+                ));
+            }
+            let to = self.bind_created_node(node, merge, operations)?;
+            let source = self.relationship_source(relationship.span)?;
+            let binding = self.new_entity_binding(
+                relationship.variable.as_ref(),
+                "_relationship",
+                ir::ValueType::Relationship,
+                ir::Nullability::NonNull,
+                CatalogEntity::Relationship,
+                relationship.span,
+            )?;
+            let relationship_types = relationship
+                .types
+                .iter()
+                .map(|name| {
+                    self.catalog
+                        .relationship_type(self.graph, &name.value)
+                        .ok_or_else(|| BindError::UnknownRelationshipType {
+                            name: name.value.clone(),
+                            span_start: name.span.start,
+                            span_end: name.span.end,
+                        })
+                })
+                .collect::<Result<Vec<_>, _>>()?;
+            let properties = self
+                .bind_mutation_properties(CatalogEntity::Relationship, &relationship.properties)?;
+            let next_from = to;
+            let (relationship_from, relationship_to) =
+                if relationship.direction == cypher::Direction::Incoming {
+                    (to, from)
+                } else {
+                    (from, to)
+                };
+            let create = ir::CreateRelationship {
+                binding,
+                source,
+                from: relationship_from,
+                to: relationship_to,
+                direction: ir::Direction::Outgoing,
+                relationship_types,
+                properties,
+            };
+            operations.push(if merge {
+                ir::Mutation::MergeRelationship(ir::MergeRelationship { create })
+            } else {
+                ir::Mutation::CreateRelationship(create)
+            });
+            from = next_from;
+        }
+        Ok(())
+    }
+
+    fn bind_created_node(
+        &mut self,
+        node: &cypher::NodePattern,
+        merge: bool,
+        operations: &mut Vec<ir::Mutation>,
+    ) -> Result<ir::BindingId, BindError> {
+        if let Some(variable) = &node.variable {
+            if let Some(binding) = self
+                .scope
+                .iter()
+                .find(|binding| binding.name() == variable.value)
+                .cloned()
+            {
+                if !node.labels.is_empty() || !node.properties.is_empty() {
+                    return Err(at_unsupported(
+                        node.span,
+                        "labels or properties on an already-bound CREATE node",
+                    ));
+                }
+                return Ok(binding.id());
+            }
+        }
+        let source = self.node_source(node.span)?;
+        let binding = self.new_entity_binding(
+            node.variable.as_ref(),
+            "_node",
+            ir::ValueType::Node,
+            ir::Nullability::NonNull,
+            CatalogEntity::Node,
+            node.span,
+        )?;
+        let create = ir::CreateNode {
+            binding: binding.clone(),
+            source,
+            labels: self.resolve_labels(node)?,
+            properties: self.bind_mutation_properties(CatalogEntity::Node, &node.properties)?,
+        };
+        operations.push(if merge {
+            ir::Mutation::MergeNode(ir::MergeNode { create })
+        } else {
+            ir::Mutation::CreateNode(create)
+        });
+        Ok(binding.id())
+    }
+
+    fn bind_set(
+        &mut self,
+        clause: &cypher::SetClause,
+        operations: &mut Vec<ir::Mutation>,
+    ) -> Result<(), BindError> {
+        for item in &clause.items {
+            let (binding, kind, source) = self.resolve_mutation_target(&item.target)?;
+            let property = self.resolve_property(kind, &item.target.property)?;
+            operations.push(ir::Mutation::SetProperty(ir::SetProperty {
+                entity: binding,
+                source,
+                property: property.id,
+                value: self.bind_expression(&item.value)?,
+            }));
+        }
+        Ok(())
+    }
+
+    fn bind_remove(
+        &self,
+        clause: &cypher::RemoveClause,
+        operations: &mut Vec<ir::Mutation>,
+    ) -> Result<(), BindError> {
+        for item in &clause.items {
+            let (binding, kind, source) = self.resolve_mutation_target(item)?;
+            let property = self.resolve_property(kind, &item.property)?;
+            operations.push(ir::Mutation::RemoveProperty(ir::RemoveProperty {
+                entity: binding,
+                source,
+                property: property.id,
+            }));
+        }
+        Ok(())
+    }
+
+    fn bind_delete(
+        &self,
+        clause: &cypher::DeleteClause,
+        operations: &mut Vec<ir::Mutation>,
+    ) -> Result<(), BindError> {
+        for variable in &clause.variables {
+            let binding = self.resolve_binding(&variable.value, variable.span)?;
+            let kind = self
+                .entities
+                .get(&binding.id())
+                .ok_or(BindError::InvalidPropertyTarget {
+                    span_start: variable.span.start,
+                    span_end: variable.span.end,
+                })?
+                .kind;
+            let source = self.entity_source(kind, variable.span)?;
+            operations.push(ir::Mutation::Delete(ir::DeleteEntity {
+                entity: binding.id(),
+                source,
+                detach: clause.detach,
+            }));
+        }
+        Ok(())
+    }
+
+    fn bind_mutation_properties(
+        &mut self,
+        entity: CatalogEntity,
+        properties: &[(cypher::Spanned<String>, cypher::Spanned<cypher::Expression>)],
+    ) -> Result<Vec<ir::PropertyValue>, BindError> {
+        properties
+            .iter()
+            .map(|(name, value)| {
+                Ok(ir::PropertyValue {
+                    property: self.resolve_property(entity, name)?.id,
+                    value: self.bind_expression(value)?,
+                })
+            })
+            .collect()
+    }
+
+    fn resolve_mutation_target(
+        &self,
+        target: &cypher::PropertyTarget,
+    ) -> Result<(ir::BindingId, CatalogEntity, ir::SourceTableId), BindError> {
+        let binding = self.resolve_binding(&target.variable.value, target.variable.span)?;
+        let kind = self
+            .entities
+            .get(&binding.id())
+            .ok_or(BindError::InvalidPropertyTarget {
+                span_start: target.variable.span.start,
+                span_end: target.variable.span.end,
+            })?
+            .kind;
+        Ok((
+            binding.id(),
+            kind,
+            self.entity_source(kind, target.variable.span)?,
+        ))
+    }
+
+    fn entity_source(
+        &self,
+        kind: CatalogEntity,
+        span: cypher::Span,
+    ) -> Result<ir::SourceTableId, BindError> {
+        match kind {
+            CatalogEntity::Node => self.node_source(span),
+            CatalogEntity::Relationship => self.relationship_source(span),
+        }
+    }
+
+    fn node_source(&self, span: cypher::Span) -> Result<ir::SourceTableId, BindError> {
+        self.catalog
+            .node_source(self.graph)
+            .ok_or(BindError::MissingSource {
+                entity: "node",
+                span_start: span.start,
+                span_end: span.end,
+            })
+    }
+
+    fn relationship_source(&self, span: cypher::Span) -> Result<ir::SourceTableId, BindError> {
+        self.catalog
+            .relationship_source(self.graph)
+            .ok_or(BindError::MissingSource {
+                entity: "relationship",
+                span_start: span.start,
+                span_end: span.end,
+            })
     }
 
     fn bind_unwind(&mut self, clause: &cypher::UnwindClause) -> Result<(), BindError> {
@@ -1060,6 +1388,72 @@ mod tests {
             &Catalog,
             &parameters,
         )
+    }
+
+    fn bind_mutation_text(source: &str) -> Result<BoundMutation, BindError> {
+        let query = cypher::parse(source).expect("fixture must parse");
+        bind_mutation(
+            &query,
+            ir::GraphId::new(1).expect("non-zero"),
+            &Catalog,
+            &ParameterTypes::new(),
+        )
+    }
+
+    #[test]
+    fn binds_created_path_to_stable_sources_and_endpoints() {
+        let bound = bind_mutation_text(
+            "CREATE (a:Person {id: 1, name: 'Ada'})-[r:KNOWS {since: 2020}]->(b:Person {id: 2})",
+        )
+        .expect("mutation should bind");
+        assert!(bound.request.input.is_none());
+        assert_eq!(bound.request.operations.len(), 3);
+        let ir::Mutation::CreateNode(first) = &bound.request.operations[0] else {
+            panic!("expected first node creation")
+        };
+        let ir::Mutation::CreateRelationship(relationship) = &bound.request.operations[2] else {
+            panic!("expected relationship creation")
+        };
+        assert_eq!(first.source, ir::SourceTableId::new(10).unwrap());
+        assert_eq!(relationship.source, ir::SourceTableId::new(11).unwrap());
+        assert_eq!(relationship.from, first.binding.id());
+        let ir::Mutation::CreateNode(second) = &bound.request.operations[1] else {
+            panic!("expected second node creation")
+        };
+        assert_eq!(relationship.to, second.binding.id());
+    }
+
+    #[test]
+    fn binds_match_updates_and_detach_delete_against_the_match_input() {
+        let bound = bind_mutation_text(
+            "MATCH (n:Person {id: 1}) SET n.name = 'Grace' REMOVE n.name DETACH DELETE n",
+        )
+        .expect("mutation should bind");
+        assert!(bound.request.input.is_some());
+        assert!(matches!(
+            bound.request.operations.as_slice(),
+            [
+                ir::Mutation::SetProperty(_),
+                ir::Mutation::RemoveProperty(_),
+                ir::Mutation::Delete(_)
+            ]
+        ));
+    }
+
+    #[test]
+    fn mutation_binding_rejects_read_projection_and_unknown_targets() {
+        assert!(matches!(
+            bind_mutation_text("MATCH (n) SET missing.name = 'x'"),
+            Err(BindError::UnknownVariable { .. })
+        ));
+        assert!(matches!(
+            bind_mutation_text("CREATE (n:Person {id: 1}) RETURN n"),
+            Err(BindError::Unsupported { .. })
+        ));
+        assert!(matches!(
+            bind_mutation_text("CREATE (:Person {id: 1}) MATCH (n) DELETE n"),
+            Err(BindError::Unsupported { .. })
+        ));
     }
 
     #[test]

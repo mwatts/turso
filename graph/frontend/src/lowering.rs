@@ -67,6 +67,74 @@ struct Lowered {
     bindings: HashMap<ir::BindingId, BindingLayout>,
 }
 
+pub(crate) struct LoweredMutationInput {
+    pub(crate) sql: String,
+    bindings: HashMap<ir::BindingId, BindingLayout>,
+}
+
+#[derive(Clone, Copy)]
+pub(crate) enum MutationEntityKind {
+    Node,
+    Relationship,
+}
+
+pub(crate) fn lower_mutation_input(
+    plan: &ir::Plan,
+    catalog: &dyn RelationalCatalogSnapshot,
+) -> Result<LoweredMutationInput, LowerError> {
+    let lowered = lower_plan(plan, catalog, false)?;
+    Ok(LoweredMutationInput {
+        sql: lowered.sql,
+        bindings: lowered.bindings,
+    })
+}
+
+pub(crate) fn unit_mutation_input() -> LoweredMutationInput {
+    LoweredMutationInput {
+        sql: "SELECT 1 AS __unit".to_owned(),
+        bindings: HashMap::new(),
+    }
+}
+
+pub(crate) fn lower_mutation_expression(
+    expression: &ir::TypedExpression,
+    input: &LoweredMutationInput,
+    catalog: &dyn RelationalCatalogSnapshot,
+    references: &HashMap<ir::BindingId, String>,
+    additional_bindings: &HashMap<ir::BindingId, (ir::SourceTableId, MutationEntityKind)>,
+) -> Result<String, LowerError> {
+    let mut bindings = input.bindings.clone();
+    bindings.extend(additional_bindings.iter().map(|(binding, (source, kind))| {
+        (
+            *binding,
+            BindingLayout {
+                source: *source,
+                kind: match kind {
+                    MutationEntityKind::Node => EntityKind::Node,
+                    MutationEntityKind::Relationship => EntityKind::Relationship,
+                },
+            },
+        )
+    }));
+    lower_expression_with_references(expression, &bindings, catalog, "q", references)
+}
+
+pub(crate) fn mutation_rows_sql(
+    input: &LoweredMutationInput,
+    bindings: &[ir::BindingId],
+) -> String {
+    let columns = bindings
+        .iter()
+        .map(|binding| format!("q.{}", binding_column(*binding)))
+        .collect::<Vec<_>>()
+        .join(", ");
+    format!("SELECT {columns} FROM ({}) AS q", input.sql)
+}
+
+pub(crate) fn quoted_identifier(identifier: &str) -> String {
+    quote_identifier(identifier)
+}
+
 /// Lower a bound fixed-pattern graph plan into Turso's public SQL AST.
 ///
 /// Generated SQL is parsed immediately, making the AST the only value that

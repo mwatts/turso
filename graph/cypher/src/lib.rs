@@ -14,4 +14,4 @@ pub use ast::{
     PropertyTarget, Query, RelationshipPattern, RelationshipRange, RemoveClause, SetClause,
     SetItem, SortItem, Span, Spanned, UnwindClause,
 };
-pub use parser::{ParseError, parse};
+pub use parser::{parse, ParseError};

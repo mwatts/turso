@@ -696,6 +696,25 @@ same bounded-call contract.
 **Exit:** mutation TCK cases and multi-connection rollback/visibility tests
 pass in supported transaction modes, including injected failures.
 
+**D1 implementation checkpoint (2026-07-17):** the Cypher source AST, Turso-owned
+mutation IR, binder, and relational executor now cover `CREATE`, property
+`SET`/`REMOVE`, `DELETE`, `DETACH DELETE`, and property/end-point based `MERGE`.
+The read frontend remains a single-statement `FrontendCompiler`; mutations use
+a separate validated request boundary because a multi-entity mutation cannot
+be represented atomically by that interface. The executor materializes the
+matched binding identities, applies ordinary Turso DML once per match row, and
+wraps the complete Cypher statement in a savepoint. This preserves an outer
+transaction while rolling back all earlier row changes on a later constraint,
+detach, or statement error. Focused tests cover per-match creation, parameters,
+missing matches, uniqueness failure, detach behavior, merge idempotence, and
+outer rollback.
+
+This checkpoint deliberately does not publish or patch the shared CSR snapshot.
+Transaction-local read-your-writes and snapshot invalidation remain the next M6
+task. Mutation queries currently require `MATCH` clauses to precede writes and
+reject `WITH`, `UNWIND`, `RETURN`, named paths, variable-length creation, and
+whole-map updates rather than approximating their semantics.
+
 #### M7 — Postgres graph compatibility adapter
 
 - Expose a deliberately scoped `graph.*` SQL API through

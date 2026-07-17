@@ -9,6 +9,7 @@
 mod error;
 mod expression;
 mod identity;
+mod mutation;
 mod plan;
 mod scope;
 
@@ -20,6 +21,10 @@ pub use expression::{
 pub use identity::{
     BindingId, GraphId, LabelId, NodeId, PropertyId, RelationshipId, RelationshipTypeId,
     SourceTableId,
+};
+pub use mutation::{
+    CreateNode, CreateRelationship, DeleteEntity, MergeNode, MergeRelationship, Mutation,
+    MutationRequest, PropertyValue, RemoveProperty, SetProperty,
 };
 pub use plan::{
     Aggregate, AggregateFunction, Aggregation, Distinct, Filter, FixedExpand, GraphExpand,
