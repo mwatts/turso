@@ -7311,6 +7311,9 @@ dependencies = [
 [[package]]
 name = "turso_graph_ir"
 version = "0.7.0"
+dependencies = [
+ "thiserror 2.0.16",
+]
 
 [[package]]
 name = "turso_graph_runtime"
