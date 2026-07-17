@@ -20,6 +20,8 @@ const SOURCES_TABLE: &str = "__turso_internal_graph_sources";
 const NODE_SOURCES_TABLE: &str = "__turso_internal_graph_node_sources";
 const RELATIONSHIP_SOURCES_TABLE: &str = "__turso_internal_graph_relationship_sources";
 
+pub const GRAPH_CATALOG_VERSION: u64 = 1;
+
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct NodeSourceRegistration {
     pub name: String,

@@ -10,6 +10,7 @@ mod binder;
 mod catalog;
 mod compiler;
 mod lowering;
+mod snapshot;
 
 pub use binder::{
     bind, BindError, BoundQuery, CatalogEntity, GraphCatalogSnapshot, ParameterTypes,
@@ -18,10 +19,14 @@ pub use binder::{
 pub use catalog::{
     graph_generation, load_registered_graph, register_graph, CatalogError, GraphRegistration,
     NodeSourceRegistration, RegisteredGraph, RegisteredNodeSource, RegisteredRelationshipSource,
-    RelationshipSourceRegistration,
+    RelationshipSourceRegistration, GRAPH_CATALOG_VERSION,
 };
 pub use compiler::{graph_frontend_id, GraphCompilationCatalog, GraphCompiler};
 pub use lowering::{
     lower_relational, LowerError, NodeTableLayout, RelationalCatalogSnapshot,
     RelationshipTableLayout,
+};
+pub use snapshot::{
+    build_traversal_snapshot, NodeCoordinate, PublishOutcome, RelationshipCoordinate,
+    SnapshotError, SnapshotStore, SourceIdentity, TraversalSnapshot,
 };

@@ -11,7 +11,7 @@ use std::mem::size_of;
 
 use turso_graph_ir::{Direction, NodeId, RelationshipId, RelationshipTypeId};
 
-use crate::{BuildLimits, LimitKind, RuntimeError, RuntimeResult};
+use crate::{BuildLimits, Cancellation, LimitKind, NeverCancelled, RuntimeError, RuntimeResult};
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct EdgeInput {
@@ -57,9 +57,21 @@ impl Graph {
         edges: impl IntoIterator<Item = EdgeInput>,
         limits: BuildLimits,
     ) -> RuntimeResult<Self> {
+        Self::build_cancellable(nodes, edges, limits, &NeverCancelled)
+    }
+
+    pub fn build_cancellable(
+        nodes: impl IntoIterator<Item = NodeId>,
+        edges: impl IntoIterator<Item = EdgeInput>,
+        limits: BuildLimits,
+        cancellation: &dyn Cancellation,
+    ) -> RuntimeResult<Self> {
         let mut node_values = Vec::new();
         let mut node_indexes = HashMap::new();
         for node in nodes {
+            if cancellation.is_cancelled() {
+                return Err(RuntimeError::Cancelled);
+            }
             if node_values.len() as u64 >= limits.max_nodes {
                 return Err(RuntimeError::LimitExceeded {
                     kind: LimitKind::Nodes,
@@ -80,6 +92,9 @@ impl Graph {
         let mut edge_values = Vec::new();
         let mut relationship_ids = HashSet::new();
         for edge in edges {
+            if cancellation.is_cancelled() {
+                return Err(RuntimeError::Cancelled);
+            }
             if edge_values.len() as u64 >= limits.max_edges {
                 return Err(RuntimeError::LimitExceeded {
                     kind: LimitKind::Edges,
@@ -113,8 +128,8 @@ impl Graph {
                 limit: limits.max_memory_bytes,
             });
         }
-        let forward = build_csr(&node_indexes, &edge_values, false);
-        let reverse = build_csr(&node_indexes, &edge_values, true);
+        let forward = build_csr(&node_indexes, &edge_values, false, cancellation)?;
+        let reverse = build_csr(&node_indexes, &edge_values, true, cancellation)?;
         Ok(Self {
             nodes: node_values,
             node_indexes,
@@ -199,9 +214,17 @@ impl Graph {
     }
 }
 
-fn build_csr(indexes: &HashMap<NodeId, u32>, edges: &[EdgeInput], reverse: bool) -> Csr {
+fn build_csr(
+    indexes: &HashMap<NodeId, u32>,
+    edges: &[EdgeInput],
+    reverse: bool,
+    cancellation: &dyn Cancellation,
+) -> RuntimeResult<Csr> {
     let mut rows = vec![Vec::new(); indexes.len()];
     for edge in edges {
+        if cancellation.is_cancelled() {
+            return Err(RuntimeError::Cancelled);
+        }
         let (row_node, adjacent_node) = if reverse {
             (edge.target, edge.source)
         } else {
@@ -218,16 +241,19 @@ fn build_csr(indexes: &HashMap<NodeId, u32>, edges: &[EdgeInput], reverse: bool)
     let mut values = Vec::with_capacity(edges.len());
     offsets.push(0);
     for row in &mut rows {
+        if cancellation.is_cancelled() {
+            return Err(RuntimeError::Cancelled);
+        }
         row.sort_unstable_by_key(|edge| {
             (edge.node_index, edge.relationship, edge.relationship_type)
         });
         values.append(row);
         offsets.push(values.len());
     }
-    Csr {
+    Ok(Csr {
         offsets,
         edges: values,
-    }
+    })
 }
 
 fn estimated_graph_bytes(node_count: usize, edge_count: usize) -> u64 {
