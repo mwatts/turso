@@ -1,5 +1,5 @@
 use std::collections::HashMap;
-use std::sync::{Arc, RwLock};
+use std::sync::{Arc, RwLock, Weak};
 
 use thiserror::Error;
 use turso_core::{Connection, Numeric, Value};
@@ -7,6 +7,8 @@ use turso_graph_ir::{GraphId, NodeId, RelationshipId, RelationshipTypeId, Source
 use turso_graph_runtime::{BuildLimits, Cancellation, EdgeInput, Graph, RuntimeError};
 
 use crate::{load_registered_graph, CatalogError, GRAPH_CATALOG_VERSION};
+
+const VISIBLE_SNAPSHOT_SAVEPOINT: &str = "__turso_graph_visible_snapshot";
 
 #[derive(Clone, Debug, Eq, Hash, PartialEq)]
 pub enum SourceIdentity {
@@ -138,6 +140,7 @@ pub enum SnapshotError {
 #[derive(Default)]
 pub struct SnapshotStore {
     snapshots: RwLock<HashMap<GraphId, Arc<TraversalSnapshot>>>,
+    session_overlays: RwLock<Vec<(Weak<Connection>, Weak<SessionSnapshotStore>)>>,
 }
 
 impl SnapshotStore {
@@ -148,6 +151,52 @@ impl SnapshotStore {
             .map_err(|_| SnapshotError::StorePoisoned)?
             .get(&graph)
             .cloned())
+    }
+
+    pub fn register_session(
+        &self,
+        connection: &Arc<Connection>,
+        snapshots: &Arc<SessionSnapshotStore>,
+    ) -> Result<(), SnapshotError> {
+        let mut sessions = self
+            .session_overlays
+            .write()
+            .map_err(|_| SnapshotError::StorePoisoned)?;
+        sessions.retain(|(connection, snapshots)| {
+            connection.strong_count() > 0 && snapshots.strong_count() > 0
+        });
+        if let Some((_, registered)) = sessions.iter_mut().find(|(registered, _)| {
+            registered
+                .upgrade()
+                .is_some_and(|registered| Arc::ptr_eq(&registered, connection))
+        }) {
+            *registered = Arc::downgrade(snapshots);
+        } else {
+            sessions.push((Arc::downgrade(connection), Arc::downgrade(snapshots)));
+        }
+        Ok(())
+    }
+
+    pub(crate) fn get_for_connection(
+        &self,
+        connection: &Arc<Connection>,
+        graph: GraphId,
+    ) -> Result<Option<Arc<TraversalSnapshot>>, SnapshotError> {
+        let session = self
+            .session_overlays
+            .read()
+            .map_err(|_| SnapshotError::StorePoisoned)?
+            .iter()
+            .find_map(|(registered, snapshots)| {
+                registered
+                    .upgrade()
+                    .filter(|registered| Arc::ptr_eq(registered, connection))
+                    .and_then(|_| snapshots.upgrade())
+            });
+        match session {
+            Some(session) => session.get(graph),
+            None => self.get(graph),
+        }
     }
 
     pub fn get_current(
@@ -203,6 +252,66 @@ impl SnapshotStore {
     }
 }
 
+/// Connection-local snapshot overlay used for transaction-visible traversal.
+///
+/// Local candidates are never published into the shared derived-state store.
+/// Rebuilding before a graph read makes rollback, savepoint rollback, and
+/// commit invalidation correctness independent of engine transaction hooks.
+pub struct SessionSnapshotStore {
+    shared: Arc<SnapshotStore>,
+    local: RwLock<HashMap<GraphId, Arc<TraversalSnapshot>>>,
+}
+
+impl SessionSnapshotStore {
+    pub fn new(shared: Arc<SnapshotStore>) -> Self {
+        Self {
+            shared,
+            local: RwLock::new(HashMap::new()),
+        }
+    }
+
+    pub fn get(&self, graph: GraphId) -> Result<Option<Arc<TraversalSnapshot>>, SnapshotError> {
+        if let Some(snapshot) = self
+            .local
+            .read()
+            .map_err(|_| SnapshotError::StorePoisoned)?
+            .get(&graph)
+            .cloned()
+        {
+            return Ok(Some(snapshot));
+        }
+        self.shared.get(graph)
+    }
+
+    pub fn refresh_visible(
+        &self,
+        connection: &Arc<Connection>,
+        graph_name: &str,
+        limits: BuildLimits,
+        cancellation: &dyn Cancellation,
+    ) -> Result<Arc<TraversalSnapshot>, SnapshotError> {
+        let snapshot = Arc::new(build_visible_traversal_snapshot(
+            connection,
+            graph_name,
+            limits,
+            cancellation,
+        )?);
+        self.local
+            .write()
+            .map_err(|_| SnapshotError::StorePoisoned)?
+            .insert(snapshot.graph_id(), snapshot.clone());
+        Ok(snapshot)
+    }
+
+    pub fn clear(&self) -> Result<(), SnapshotError> {
+        self.local
+            .write()
+            .map_err(|_| SnapshotError::StorePoisoned)?
+            .clear();
+        Ok(())
+    }
+}
+
 pub fn build_traversal_snapshot(
     connection: &Arc<Connection>,
     graph_name: &str,
@@ -229,6 +338,37 @@ pub fn build_traversal_snapshot(
                 rollback,
             }),
         },
+    }
+}
+
+/// Build from rows visible to this connection without publishing the result.
+/// A nested savepoint supplies one consistent read boundary in both autocommit
+/// mode and an existing explicit transaction.
+pub fn build_visible_traversal_snapshot(
+    connection: &Arc<Connection>,
+    graph_name: &str,
+    limits: BuildLimits,
+    cancellation: &dyn Cancellation,
+) -> Result<TraversalSnapshot, SnapshotError> {
+    connection.execute(format!("SAVEPOINT {VISIBLE_SNAPSHOT_SAVEPOINT}"))?;
+    let result = build_in_transaction(connection, graph_name, limits, cancellation);
+    match result {
+        Ok(snapshot) => {
+            connection.execute(format!("RELEASE {VISIBLE_SNAPSHOT_SAVEPOINT}"))?;
+            Ok(snapshot)
+        }
+        Err(cause) => {
+            let rollback = connection
+                .execute(format!("ROLLBACK TO {VISIBLE_SNAPSHOT_SAVEPOINT}"))
+                .and_then(|()| connection.execute(format!("RELEASE {VISIBLE_SNAPSHOT_SAVEPOINT}")));
+            match rollback {
+                Ok(()) => Err(cause),
+                Err(rollback) => Err(SnapshotError::RollbackFailed {
+                    cause: Box::new(cause),
+                    rollback,
+                }),
+            }
+        }
     }
 }
 

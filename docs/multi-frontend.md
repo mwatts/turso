@@ -715,6 +715,29 @@ task. Mutation queries currently require `MATCH` clauses to precede writes and
 reject `WITH`, `UNWIND`, `RETURN`, named paths, variable-length creation, and
 whole-map updates rather than approximating their semantics.
 
+**D2 implementation checkpoint (2026-07-17):** `GraphSession` now owns the
+connection-local query/mutation lifecycle. Immediately before each
+variable-length query it rebuilds a private CSR from rows visible to that
+connection inside a nested savepoint. The completed candidate replaces only
+that session's overlay; it is never published to the shared snapshot store.
+Rebuilding on every variable traversal is the correctness fallback from the
+delivery plan: commit, rollback, savepoint rollback, mutation failure, and
+statement cancellation cannot leave a transaction-generation cache stale.
+Fixed-pattern reads continue through ordinary relational lowering without an
+unnecessary CSR rebuild.
+
+Internal virtual tables are database-schema scoped rather than connection
+scoped. Session overlays therefore live in the shared snapshot registry as
+weak `(Connection, SessionSnapshotStore)` registrations, and the graph cursor
+selects its overlay using the `Arc<Connection>` supplied by `open`. This is
+required for MVCC, where schema refresh can replace a connection's prior table
+object. WAL and MVCC tests prove same-transaction visibility, cross-connection
+isolation, explicit commit and rollback, nested savepoint rollback, autocommit,
+failed mutation cleanup, and cancelled rebuild behavior. The existing
+resumable-cursor abandonment tests cover dropping execution after a local
+snapshot has been selected. A transaction/generation delta cache remains a
+measurement-gated optimization, not part of the correctness contract.
+
 #### M7 — Postgres graph compatibility adapter
 
 - Expose a deliberately scoped `graph.*` SQL API through

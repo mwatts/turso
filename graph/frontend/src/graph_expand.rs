@@ -232,7 +232,7 @@ impl GraphExpandCursor {
         };
         let snapshot = self
             .snapshots
-            .get(graph_id)
+            .get_for_connection(&self.connection, graph_id)
             .map_err(|error| LimboError::ExtensionError(error.to_string()))?
             .ok_or_else(|| {
                 LimboError::InvalidArgument(format!("graph snapshot {graph_id} is not built"))
