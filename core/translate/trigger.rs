@@ -96,9 +96,13 @@ pub fn translate_create_trigger(
     sql: String,
     commands: &[ast::TriggerCmd],
     when_clause: Option<&ast::Expr>,
+    internal: bool,
 ) -> Result<()> {
     let normalized_trigger_name = normalize_ident(trigger_name.name.as_str());
     let normalized_table_name = normalize_ident(tbl_name.name.as_str());
+    if !internal && normalized_trigger_name.starts_with(crate::schema::TURSO_GRAPH_CATALOG_PREFIX) {
+        bail_parse_error!("trigger name reserved for internal use: {normalized_trigger_name}");
+    }
     let database_id =
         resolve_create_trigger_database_id(resolver, &trigger_name, &tbl_name, temporary)?;
     let target_table_database_id = if temporary {
@@ -472,12 +476,16 @@ pub fn translate_drop_trigger(
     trigger_name: &ast::QualifiedName,
     if_exists: bool,
     program: &mut ProgramBuilder,
+    internal: bool,
 ) -> Result<()> {
     let database_id = resolver.resolve_existing_trigger_database_id(trigger_name)?;
     let schema_cookie = resolver.with_schema(database_id, |s| s.schema_version);
     program.begin_write_on_database(database_id, schema_cookie)?;
     program.begin_write_operation()?;
     let normalized_trigger_name = normalize_ident(trigger_name.name.as_str());
+    if !internal && normalized_trigger_name.starts_with(crate::schema::TURSO_GRAPH_CATALOG_PREFIX) {
+        bail_parse_error!("trigger name reserved for internal use: {normalized_trigger_name}");
+    }
 
     // Check if trigger exists
     if resolver.with_schema(database_id, |s| {

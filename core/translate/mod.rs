@@ -136,7 +136,14 @@ pub fn translate(
                 &mut program,
             )?;
         }
-        stmt => translate_inner(stmt, &mut resolver, &mut program, &connection, input)?,
+        stmt => translate_inner(
+            stmt,
+            &mut resolver,
+            &mut program,
+            &connection,
+            input,
+            matches!(origin, crate::statement::StatementOrigin::InternalHelper),
+        )?,
     };
 
     program.epilogue(schema);
@@ -154,6 +161,7 @@ pub fn translate_inner(
     program: &mut ProgramBuilder,
     connection: &Arc<Connection>,
     input: &str,
+    internal: bool,
 ) -> Result<()> {
     let is_write = matches!(
         stmt,
@@ -255,6 +263,7 @@ pub fn translate_inner(
                 sql,
                 &commands,
                 when_clause.as_deref(),
+                internal,
             )?
         }
         ast::Stmt::CreateView {
@@ -322,7 +331,7 @@ pub fn translate_inner(
         ast::Stmt::DropIndex {
             if_exists,
             idx_name,
-        } => translate_drop_index(&idx_name, resolver, if_exists, program)?,
+        } => translate_drop_index(&idx_name, resolver, if_exists, program, internal)?,
         ast::Stmt::DropTable {
             if_exists,
             tbl_name,
@@ -330,7 +339,9 @@ pub fn translate_inner(
         ast::Stmt::DropTrigger {
             if_exists,
             trigger_name,
-        } => trigger::translate_drop_trigger(resolver, &trigger_name, if_exists, program)?,
+        } => {
+            trigger::translate_drop_trigger(resolver, &trigger_name, if_exists, program, internal)?
+        }
         ast::Stmt::DropView {
             if_exists,
             view_name,

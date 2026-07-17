@@ -205,10 +205,12 @@ fn validate_update(
     body: &ast::Update,
     table_name: &str,
     is_internal_schema_change: bool,
+    is_internal_graph_trigger: bool,
     conn: &Arc<Connection>,
 ) -> crate::Result<()> {
     // Check if this is a system table that should be protected from direct writes
     if !is_internal_schema_change
+        && !is_internal_graph_trigger
         && !conn.is_nested_stmt()
         && !conn.is_mvcc_bootstrap_connection()
         && !crate::schema::allow_user_dml(table_name)
@@ -268,6 +270,12 @@ fn prepare_update_plan(
         &body,
         target_name.as_str(),
         is_internal_schema_change,
+        program.trigger.as_ref().is_some_and(|trigger| {
+            target_name.as_str() == crate::schema::TURSO_GRAPH_GENERATIONS_TABLE_NAME
+                && trigger
+                    .name
+                    .starts_with(crate::schema::TURSO_GRAPH_GENERATION_TRIGGER_PREFIX)
+        }),
         connection,
     )?;
 

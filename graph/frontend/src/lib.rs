@@ -7,8 +7,14 @@
 #![forbid(unsafe_code)]
 
 mod binder;
+mod catalog;
 
 pub use binder::{
     bind, BindError, BoundQuery, CatalogEntity, GraphCatalogSnapshot, ParameterTypes,
     ResolvedProperty,
+};
+pub use catalog::{
+    graph_generation, load_registered_graph, register_graph, CatalogError, GraphRegistration,
+    NodeSourceRegistration, RegisteredGraph, RegisteredNodeSource, RegisteredRelationshipSource,
+    RelationshipSourceRegistration,
 };

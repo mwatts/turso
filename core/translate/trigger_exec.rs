@@ -608,6 +608,7 @@ fn execute_trigger_commands(
                 &mut subprogram_builder,
                 connection,
                 "trigger subprogram",
+                false,
             )?;
             if matches!(
                 command,

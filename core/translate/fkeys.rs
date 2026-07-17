@@ -1734,6 +1734,7 @@ fn emit_fk_action_subprogram(
             &mut subprogram_builder,
             connection,
             description,
+            false,
         )?;
         subprogram_builder.epilogue(resolver.schema());
         let built = subprogram_builder.build(
