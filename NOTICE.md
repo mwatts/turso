@@ -60,6 +60,33 @@ distributed by Evokoa Pte. Ltd.:
 * Source revision: d689bcf2b3b52d7f878f61718be69ebcb953affc
 * Homepage: https://github.com/Evokoa/pgGraph
 
+This project includes graph-query fixtures adapted from Ladybug, distributed
+by the Kùzu contributors:
+
+* License: licenses/graph/ladybug-mit-license.md (MIT License)
+* Source revision: 7eab431c6becf64f58f7c2ff4c0fb1f160acb492
+* Homepage: https://github.com/mwatts/ladybug
+
+This project includes graph-query fixtures adapted from SparrowDB, distributed
+by Rich Yaker:
+
+* License: licenses/graph/sparrowdb-mit-license.md (MIT License)
+* Source revision: 82d85b7a861dfb2e127452ed89eebbcee74bfef0
+* Homepage: https://github.com/ryaker/SparrowDB
+
+This project includes graph-query fixtures adapted from CQLite, distributed by
+Tilman Roeder:
+
+* License: licenses/graph/cqlite-mit-license.md (MIT License)
+* Source revision: e2b677e8429a4cb0ead087ffbd9195f4f3999819
+* Homepage: https://github.com/mwatts/cqlite
+
+This project includes graph-query fixtures behaviorally adapted from Samyama:
+
+* License: licenses/graph/samyama-apache-license.md (Apache License v2.0)
+* Source revision: 4520154a65838d2e17a51b91882a99df816365c3
+* Homepage: https://github.com/samyama-ai/samyama-graph
+
 
 This project depends on ipnetwork, distributed by the ipnetwork project:
 

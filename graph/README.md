@@ -23,9 +23,21 @@ cypher   runtime
 - `turso_graph_frontend` composes the parser, binder/IR, runtime, and core
   frontend preparation API. It never emits VDBE instructions directly.
 
-The dependency direction is enforced by Cargo manifests. None of the four
-crates contains donor implementation code in this scaffold. Before copied,
-translated, or structurally adapted material enters a crate, follow
+The dependency direction is enforced by Cargo manifests. Structurally adapted
+code remains limited to the attributed parser and portable runtime files;
+donor catalog, planner, storage, executor, and server types do not cross the
+boundary. Before copied, translated, or structurally adapted material enters a
+crate, follow
 [`PROVENANCE.md`](PROVENANCE.md): pin its source and license, record the
 adaptation, add file-level attribution, and install the required license and
 NOTICE text in the same commit.
+
+The current compatibility result is published in
+[`CONFORMANCE.md`](CONFORMANCE.md) and verified by the executable mixed-source
+manifest. Run it and the representative CSR benchmarks with:
+
+```sh
+cargo test -p turso_graph_frontend --test conformance
+cargo test -p turso_graph_runtime --test benchmark_shapes
+cargo bench -p turso_graph_runtime --bench graph_shapes
+```

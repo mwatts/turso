@@ -18,5 +18,11 @@ thiserror.workspace = true
 turso_graph_ir = { workspace = true }
 
 [dev-dependencies]
+divan = { workspace = true }
 serde = { workspace = true, features = ["derive"] }
 toml.workspace = true
+turso_macros = { workspace = true }
+
+[[bench]]
+name = "graph_shapes"
+harness = false

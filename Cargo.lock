@@ -7328,10 +7328,12 @@ dependencies = [
 name = "turso_graph_runtime"
 version = "0.7.0"
 dependencies = [
+ "codspeed-divan-compat",
  "serde",
  "thiserror 2.0.16",
  "toml",
  "turso_graph_ir",
+ "turso_macros",
 ]
 
 [[package]]

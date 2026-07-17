@@ -5,11 +5,11 @@ frontend. It is the source of truth for donor revisions and adaptation
 boundaries. Add an entry here before copying, translating, or structurally
 adapting external material into this repository.
 
-The Turso repository is MIT licensed. All four selected donors are Apache-2.0
-licensed, which permits their use here provided the Apache license, notices,
-attribution, and modification requirements are preserved. Adapted files remain
-subject to the donor's Apache-2.0 terms; this manifest does not relicense them
-as MIT-only code.
+The Turso repository is MIT licensed. Uni, Grafeo, Apache AGE, pgGraph, and
+Samyama are Apache-2.0 licensed; Ladybug, SparrowDB, and CQLite are MIT
+licensed. The applicable license, notice, attribution, and modification
+requirements remain preserved. This manifest does not relicense adapted
+material as MIT-only code.
 
 ## Pinned sources
 
@@ -19,6 +19,10 @@ as MIT-only code.
 | Grafeo | <https://github.com/GrafeoDB/grafeo> | `4ebae02f06f8f0cbc57543f74b6ba06f259dbed3` | Apache-2.0; NOTICE copyright 2025-2026 S.T. Grond | Use its graph plans and Cypher tests as design and behavioral references for a Turso-owned graph IR. Adapt selected fixtures. |
 | Apache AGE | <https://github.com/apache/age> | `6876abcab0a3281eb65a7e2a91238e0b5abfdea7` | Apache-2.0; Apache Software Foundation and Bitnine NOTICE | Use parser transforms and regression tests as semantic references for relational lowering. Implement lowering in Turso Rust rather than translating PostgreSQL internals. |
 | pgGraph | <https://github.com/Evokoa/pgGraph> | `d689bcf2b3b52d7f878f61718be69ebcb953affc` | Apache-2.0; NOTICE copyright 2026 Evokoa Pte. Ltd. | Translate portable CSR, traversal, path, and safety logic to Turso-owned interfaces. Exclude PostgreSQL/pgrx catalog, SPI, SQL facade, and extension lifecycle code. |
+| Ladybug | <https://github.com/mwatts/ladybug> | `7eab431c6becf64f58f7c2ff4c0fb1f160acb492` | MIT; copyright 2022-2025 Kùzu Inc. | Adapt focused undirected, optional-match, recursive-range, shortest-path, mutation, and error test intent. Exclude the C++ engine, storage, and test harness. |
+| SparrowDB | <https://github.com/ryaker/SparrowDB> | `82d85b7a861dfb2e127452ed89eebbcee74bfef0` | MIT; copyright 2026 Rich Yaker | Adapt path-multiplicity, mutation, null, and historical regression cases as a secondary behavior oracle. Exclude its binder and executor. |
+| CQLite | <https://github.com/mwatts/cqlite> | `e2b677e8429a4cb0ead087ffbd9195f4f3999819` | MIT; copyright 2021 Tilman Roeder | Adapt compact parser, matching, property, mutation, and transaction smoke cases. Exclude its graph storage and execution engine. |
+| Samyama | <https://github.com/samyama-ai/samyama-graph> | `4520154a65838d2e17a51b91882a99df816365c3` | Apache-2.0 | Use planner, join-enumeration, aggregation, and optimizer tests as behavioral references. Import no optimizer rule until a Turso benchmark identifies the deficiency. |
 
 The corresponding upstream `LICENSE` and `NOTICE` files were inspected at the
 pinned revisions. When adapted source first lands, copy the applicable license
@@ -132,6 +136,26 @@ applicable license and notice are copied to
 Normalized differential expectations from the pinned pgrx-free unit tests are
 recorded in `graph/testdata/pggraph-runtime/manifest.toml` and executed by
 `graph/runtime/tests/pggraph_equivalence.rs`.
+
+### Mixed-source conformance donors
+
+The executable mixed-source slice is recorded in
+`graph/testdata/conformance/manifest.toml` and run by
+`graph/frontend/tests/conformance.rs`. It normalizes, without copying donor
+test bodies, cases from the openCypher TCK copy pinned through Uni, Grafeo, AGE,
+pgGraph, Ladybug, SparrowDB, CQLite, and Samyama. The generated
+`graph/CONFORMANCE.md` report separates supported, failed, and unsupported
+scenarios, and CI fails on zero discovery, stale report output, or a supported
+scenario failure. Required ordering is preserved; unordered results are sorted
+and compared as multisets.
+
+Ladybug's MIT license is copied to
+`licenses/graph/ladybug-mit-license.md`; SparrowDB's to
+`licenses/graph/sparrowdb-mit-license.md`; CQLite's to
+`licenses/graph/cqlite-mit-license.md`. Samyama's Apache license reference is at
+`licenses/graph/samyama-apache-license.md`, with the full Apache-2.0 text
+already reproduced in the graph license directory. No donor implementation
+from these four projects crosses the Turso graph boundary.
 
 ## Per-file record
 

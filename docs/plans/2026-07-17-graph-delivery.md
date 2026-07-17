@@ -148,6 +148,26 @@ Add graph benchmarks with representative sparse, dense, skewed, cyclic, and
 high-degree datasets. Enforce resource caps in tests rather than relying on
 machine exhaustion.
 
+### D5 implementation checkpoint
+
+`graph/testdata/conformance/manifest.toml` contains an executable 18-scenario
+slice sourced from the openCypher TCK copy in Uni, AGE, Grafeo, pgGraph,
+Ladybug, SparrowDB, CQLite, and Samyama. Twelve scenarios execute end-to-end,
+six unsupported scenarios must fail at the frontend boundary, and any supported
+error or row mismatch is reported as failed and fails CI. Required ordering is
+preserved; unordered results are sorted and compared as multisets. The generated
+`graph/CONFORMANCE.md` report is checked against the executing test, so zero
+discovery or report drift fails.
+
+The five Divan benchmarks under `graph/runtime/benches/graph_shapes.rs` use the
+reproducible sparse, dense, skewed, cyclic, and high-degree inputs recorded in
+`graph/testdata/benchmarks/manifest.toml`. Node, relationship, and memory caps
+are exercised for every shape. A development-host sample produced median CSR
+build times of 1.17 ms (10k sparse), 4.64 ms (250-node/62,250-edge dense),
+1.82 ms (10k skewed), 1.57 ms (10k cyclic), and 1.04 ms (10k high-degree).
+No Samyama or Grafeo optimizer rule was imported: the measurements identify no
+correctness-preserving optimizer deficiency in this delivery slice.
+
 ## Task 6: optional protocol surfaces
 
 Add HTTP/JSON only after the shared session behavior is stable. Keep protocol

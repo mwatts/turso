@@ -819,6 +819,20 @@ a sidecar remains outside the one-file product contract.
 **Exit:** the compatibility target, performance envelope, and operational
 failure modes are reproducible in CI and documented for users.
 
+**D5 implementation checkpoint (2026-07-17):** an executable, provenance-complete
+18-scenario corpus now covers the TCK-via-Uni, AGE, Grafeo, pgGraph, Ladybug,
+SparrowDB, CQLite, and Samyama. The checked report has 12 supported, zero failed,
+and six unsupported scenarios; CI separates all three outcomes, rejects zero
+discovery, preserves ordered results, and treats unordered results as multisets.
+The corpus also confirmed that AGE-style omitted traversal bounds are supported
+under Turso's finite runtime caps, replacing the earlier deferred classification.
+
+Divan CSR-build benchmarks cover manifest-defined sparse, dense, skewed, cyclic,
+and high-degree graphs, while tests force node, relationship, and memory-limit
+failures on every shape. The recorded medians range from about 1.0 to 4.6 ms for
+the selected inputs. No optimizer transplant is justified by this baseline;
+Samyama and Grafeo remain evidence-triggered donors rather than dependencies.
+
 ### 6.8 Verification strategy
 
 | Layer | Primary verification |

@@ -226,17 +226,17 @@ adaptation = "fixture-adaptation"
 intent = "Enforce the planned traversal depth safety boundary."
 
 [[fixture]]
-id = "deferred-unbounded-traversal"
+id = "unbounded-traversal-with-resource-cap"
 category = "bounded-traversal"
-status = "deferred"
-target_task = "post-Q4"
+status = "required"
+target_task = "D5"
 source_repo = "https://github.com/GrafeoDB/grafeo"
 revision = "4ebae02f06f8f0cbc57543f74b6ba06f259dbed3"
 source_path = "tests/spec/lpg/cypher/patterns.gtest"
 source_case = "variable_length_unbounded"
 license = "Apache-2.0"
-adaptation = "behavioral-reference"
-intent = "Unsupported initially: unbounded traversal needs a public resource-limit contract."
+adaptation = "fixture-adaptation"
+intent = "Execute omitted bounds under the shared finite traversal resource contract."
 
 [[fixture]]
 id = "deferred-all-shortest-paths"

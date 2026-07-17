@@ -1,0 +1,32 @@
+version = 1
+purpose = "Reproducible graph runtime benchmark inputs and resource-cap cases"
+
+[[shape]]
+name = "sparse"
+nodes = 10000
+relationships = 9999
+definition = "directed chain: i -> i+1"
+
+[[shape]]
+name = "dense"
+nodes = 250
+relationships = 62250
+definition = "complete directed graph without self loops"
+
+[[shape]]
+name = "skewed"
+nodes = 10000
+relationships = 19998
+definition = "one hub edge plus one chain edge for every node after the first"
+
+[[shape]]
+name = "cyclic"
+nodes = 10000
+relationships = 10000
+definition = "directed ring"
+
+[[shape]]
+name = "high-degree"
+nodes = 10000
+relationships = 9999
+definition = "outgoing star from node 1"
