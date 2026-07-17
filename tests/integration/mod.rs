@@ -12,6 +12,7 @@ mod functions;
 mod fuzz_transaction;
 mod index_method;
 mod integrity_check;
+mod multi_frontend_doc;
 mod mvcc;
 mod pragma;
 mod query_processing;
