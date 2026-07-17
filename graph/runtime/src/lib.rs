@@ -11,10 +11,10 @@ mod limits;
 mod shortest;
 mod traversal;
 
-pub use csr::{EdgeInput, Graph, Neighbor};
+pub use csr::{EdgeInput, Graph, Neighbor, NeighborCursor};
 pub use error::{LimitKind, RuntimeError, RuntimeResult};
 pub use limits::{BuildLimits, Cancellation, NeverCancelled, TraversalLimits};
 pub use shortest::{shortest_path, weighted_shortest_path, ShortestPathRequest};
 pub use traversal::{
-    traverse, Path, TraversalCursor, TraversalOrder, TraversalRequest, Uniqueness,
+    traverse, Path, TraversalCursor, TraversalOrder, TraversalRequest, TraversalStep, Uniqueness,
 };

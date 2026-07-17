@@ -12,7 +12,10 @@ use std::mem::size_of;
 
 use turso_graph_ir::{Direction, NodeId, RelationshipId, RelationshipTypeId};
 
-use crate::{limits::Budget, Cancellation, Graph, RuntimeError, RuntimeResult, TraversalLimits};
+use crate::{
+    limits::Budget, Cancellation, Graph, NeighborCursor, RuntimeError, RuntimeResult,
+    TraversalLimits,
+};
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum TraversalOrder {
@@ -52,7 +55,20 @@ pub struct TraversalCursor {
     request: TraversalRequest,
     budget: Budget,
     frontier: Frontier,
+    active: Option<ActivePath>,
     finished: bool,
+}
+
+pub enum TraversalStep {
+    Path(Path),
+    Pending,
+    Done,
+}
+
+struct ActivePath {
+    state: PathState,
+    neighbors: Option<NeighborCursor>,
+    emit: bool,
 }
 
 impl TraversalCursor {
@@ -74,6 +90,7 @@ impl TraversalCursor {
             request,
             budget,
             frontier,
+            active: None,
             finished: false,
         })
     }
@@ -85,72 +102,112 @@ impl TraversalCursor {
         graph: &Graph,
         cancellation: &dyn Cancellation,
     ) -> RuntimeResult<Option<Path>> {
-        if self.finished {
-            return Ok(None);
-        }
-        while let Some(state) = self.frontier.pop() {
-            if cancellation.is_cancelled() {
-                return Err(RuntimeError::Cancelled);
-            }
-            self.budget.work()?;
-            self.budget.release_memory(state.memory_bytes());
-            let hops = u32::try_from(state.relationships.len()).map_err(|_| {
-                RuntimeError::LimitExceeded {
-                    kind: crate::LimitKind::Hops,
-                    limit: u64::from(self.request.max_hops),
-                }
-            })?;
-
-            if hops < self.request.max_hops {
-                self.expand(graph, &state, cancellation)?;
-            }
-            if hops >= self.request.min_hops {
-                self.budget.path()?;
-                return Ok(Some(state.into_path()));
+        loop {
+            match self.step(graph, cancellation, 1024)? {
+                TraversalStep::Path(path) => return Ok(Some(path)),
+                TraversalStep::Pending => {}
+                TraversalStep::Done => return Ok(None),
             }
         }
-        self.finished = true;
-        Ok(None)
     }
 
-    fn expand(
+    /// Perform at most `work_quantum` state or adjacency operations. A
+    /// `Pending` result preserves all progress and is safe to resume.
+    pub fn step(
         &mut self,
         graph: &Graph,
-        state: &PathState,
         cancellation: &dyn Cancellation,
-    ) -> RuntimeResult<()> {
-        let neighbors = graph.neighbors(
-            *state.nodes.last().expect("path state always has a node"),
-            self.request.direction,
-            &self.request.relationship_types,
-        )?;
-        for neighbor in neighbors {
+        work_quantum: u64,
+    ) -> RuntimeResult<TraversalStep> {
+        if self.finished {
+            return Ok(TraversalStep::Done);
+        }
+        let work_quantum = work_quantum.max(1);
+        let mut work = 0;
+        loop {
             if cancellation.is_cancelled() {
                 return Err(RuntimeError::Cancelled);
             }
-            self.budget.work()?;
-            self.budget.edge()?;
-            if !allows(
-                self.request.uniqueness,
-                state,
-                neighbor.node,
-                neighbor.relationship,
-            ) {
-                continue;
+            if self.active.is_none() {
+                if work >= work_quantum {
+                    return Ok(TraversalStep::Pending);
+                }
+                let Some(state) = self.frontier.pop() else {
+                    self.finished = true;
+                    return Ok(TraversalStep::Done);
+                };
+                self.budget.work()?;
+                work += 1;
+                self.budget.release_memory(state.memory_bytes());
+                let hops = u32::try_from(state.relationships.len()).map_err(|_| {
+                    RuntimeError::LimitExceeded {
+                        kind: crate::LimitKind::Hops,
+                        limit: u64::from(self.request.max_hops),
+                    }
+                })?;
+                let neighbors = (hops < self.request.max_hops)
+                    .then(|| {
+                        graph.neighbor_cursor(
+                            *state.nodes.last().expect("path state always has a node"),
+                            self.request.direction,
+                            &self.request.relationship_types,
+                        )
+                    })
+                    .transpose()?;
+                self.active = Some(ActivePath {
+                    state,
+                    neighbors,
+                    emit: hops >= self.request.min_hops,
+                });
             }
-            let mut child = state.clone();
-            child.nodes.push(neighbor.node);
-            child.relationships.push(neighbor.relationship);
-            child.relationship_types.push(neighbor.relationship_type);
-            child.total_weight = child
-                .total_weight
-                .checked_add(neighbor.weight)
-                .ok_or(RuntimeError::CostOverflow)?;
-            self.budget.node()?;
-            self.budget.retain_memory(child.memory_bytes())?;
-            self.frontier.push(child);
+
+            let active = self.active.as_mut().expect("active path was initialized");
+            if let Some(neighbors) = &mut active.neighbors {
+                if work >= work_quantum {
+                    return Ok(TraversalStep::Pending);
+                }
+                if cancellation.is_cancelled() {
+                    return Err(RuntimeError::Cancelled);
+                }
+                self.budget.work()?;
+                work += 1;
+                match neighbors.step(graph) {
+                    crate::csr::NeighborCursorStep::Filtered => continue,
+                    crate::csr::NeighborCursorStep::Done => {
+                        active.neighbors = None;
+                        continue;
+                    }
+                    crate::csr::NeighborCursorStep::Neighbor(neighbor) => {
+                        self.budget.edge()?;
+                        if !allows(
+                            self.request.uniqueness,
+                            &active.state,
+                            neighbor.node,
+                            neighbor.relationship,
+                        ) {
+                            continue;
+                        }
+                        let mut child = active.state.clone();
+                        child.nodes.push(neighbor.node);
+                        child.relationships.push(neighbor.relationship);
+                        child.relationship_types.push(neighbor.relationship_type);
+                        child.total_weight = child
+                            .total_weight
+                            .checked_add(neighbor.weight)
+                            .ok_or(RuntimeError::CostOverflow)?;
+                        self.budget.node()?;
+                        self.budget.retain_memory(child.memory_bytes())?;
+                        self.frontier.push(child);
+                        continue;
+                    }
+                }
+            }
+            let active = self.active.take().expect("completed active path exists");
+            if active.emit {
+                self.budget.path()?;
+                return Ok(TraversalStep::Path(active.state.into_path()));
+            }
         }
-        Ok(())
     }
 }
 
@@ -428,6 +485,38 @@ mod tests {
             cursor.next_path(&graph, &crate::NeverCancelled).unwrap(),
             None
         );
+    }
+
+    #[test]
+    fn work_quantum_bounds_no_result_progress_and_resumes_exactly() {
+        let nodes = (1..=102).map(node).collect::<Vec<_>>();
+        let edges = (2..=102)
+            .map(|target| edge(target + 100, 1, target, 1))
+            .collect::<Vec<_>>();
+        let graph = Graph::build(nodes, edges, BuildLimits::default()).unwrap();
+        let request = TraversalRequest {
+            start: node(1),
+            direction: Direction::Outgoing,
+            relationship_types: vec![],
+            min_hops: 2,
+            max_hops: 2,
+            uniqueness: Uniqueness::Trail,
+            order: TraversalOrder::BreadthFirst,
+        };
+        let mut cursor = TraversalCursor::new(&graph, request, TraversalLimits::default()).unwrap();
+        let mut pending = 0;
+        loop {
+            match cursor.step(&graph, &crate::NeverCancelled, 7).unwrap() {
+                TraversalStep::Pending => pending += 1,
+                TraversalStep::Done => break,
+                TraversalStep::Path(path) => panic!("unexpected path {path:?}"),
+            }
+        }
+        assert!(pending >= 20, "fanout must be split across many quanta");
+        assert!(matches!(
+            cursor.step(&graph, &crate::NeverCancelled, 7).unwrap(),
+            TraversalStep::Done
+        ));
     }
 
     #[test]

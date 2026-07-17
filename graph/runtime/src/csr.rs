@@ -30,6 +30,21 @@ pub struct Neighbor {
     pub weight: u64,
 }
 
+pub struct NeighborCursor {
+    direction: Direction,
+    relationship_types: Vec<RelationshipTypeId>,
+    forward_position: usize,
+    forward_end: usize,
+    reverse_position: usize,
+    reverse_end: usize,
+}
+
+pub(crate) enum NeighborCursorStep {
+    Neighbor(Neighbor),
+    Filtered,
+    Done,
+}
+
 #[derive(Clone, Copy)]
 struct CsrEdge {
     node_index: u32,
@@ -160,58 +175,111 @@ impl Graph {
         direction: Direction,
         relationship_types: &[RelationshipTypeId],
     ) -> RuntimeResult<Vec<Neighbor>> {
-        let index = *self
-            .node_indexes
-            .get(&node)
-            .ok_or(RuntimeError::UnknownNode(node))?;
+        let mut cursor = self.neighbor_cursor(node, direction, relationship_types)?;
         let mut neighbors = Vec::new();
-        match direction {
-            Direction::Outgoing => {
-                self.append_neighbors(&mut neighbors, &self.forward, index, relationship_types)
-            }
-            Direction::Incoming => {
-                self.append_neighbors(&mut neighbors, &self.reverse, index, relationship_types)
-            }
-            Direction::Both => {
-                self.append_neighbors(&mut neighbors, &self.forward, index, relationship_types);
-                self.append_neighbors(&mut neighbors, &self.reverse, index, relationship_types);
-                neighbors.sort_unstable_by_key(|neighbor| {
-                    (
-                        neighbor.node,
-                        neighbor.relationship,
-                        neighbor.relationship_type,
-                    )
-                });
-                neighbors.dedup_by_key(|neighbor| neighbor.relationship);
+        loop {
+            match cursor.step(self) {
+                NeighborCursorStep::Neighbor(neighbor) => neighbors.push(neighbor),
+                NeighborCursorStep::Filtered => {}
+                NeighborCursorStep::Done => break,
             }
         }
         Ok(neighbors)
     }
 
-    fn append_neighbors(
+    pub fn neighbor_cursor(
         &self,
-        output: &mut Vec<Neighbor>,
-        csr: &Csr,
-        index: u32,
+        node: NodeId,
+        direction: Direction,
         relationship_types: &[RelationshipTypeId],
-    ) {
-        let start = csr.offsets[index as usize];
-        let end = csr.offsets[index as usize + 1];
-        output.extend(
-            csr.edges[start..end]
-                .iter()
-                .filter(|edge| {
-                    relationship_types.is_empty()
-                        || relationship_types.contains(&edge.relationship_type)
-                })
-                .map(|edge| Neighbor {
-                    node: self.nodes[edge.node_index as usize],
-                    relationship: edge.relationship,
-                    relationship_type: edge.relationship_type,
-                    weight: edge.weight,
-                }),
-        );
+    ) -> RuntimeResult<NeighborCursor> {
+        let index = *self
+            .node_indexes
+            .get(&node)
+            .ok_or(RuntimeError::UnknownNode(node))? as usize;
+        Ok(NeighborCursor {
+            direction,
+            relationship_types: relationship_types.to_vec(),
+            forward_position: self.forward.offsets[index],
+            forward_end: self.forward.offsets[index + 1],
+            reverse_position: self.reverse.offsets[index],
+            reverse_end: self.reverse.offsets[index + 1],
+        })
     }
+}
+
+impl NeighborCursor {
+    pub(crate) fn step(&mut self, graph: &Graph) -> NeighborCursorStep {
+        let edge = match self.direction {
+            Direction::Outgoing => {
+                take_edge(&graph.forward, &mut self.forward_position, self.forward_end)
+            }
+            Direction::Incoming => {
+                take_edge(&graph.reverse, &mut self.reverse_position, self.reverse_end)
+            }
+            Direction::Both => self.take_both(graph),
+        };
+        let Some(edge) = edge else {
+            return NeighborCursorStep::Done;
+        };
+        if !self.relationship_types.is_empty()
+            && !self.relationship_types.contains(&edge.relationship_type)
+        {
+            return NeighborCursorStep::Filtered;
+        }
+        NeighborCursorStep::Neighbor(Neighbor {
+            node: graph.nodes[edge.node_index as usize],
+            relationship: edge.relationship,
+            relationship_type: edge.relationship_type,
+            weight: edge.weight,
+        })
+    }
+
+    fn take_both(&mut self, graph: &Graph) -> Option<CsrEdge> {
+        let forward = graph.forward.edges.get(self.forward_position).copied();
+        let reverse = graph.reverse.edges.get(self.reverse_position).copied();
+        match (
+            forward.filter(|_| self.forward_position < self.forward_end),
+            reverse.filter(|_| self.reverse_position < self.reverse_end),
+        ) {
+            (Some(forward), Some(reverse)) => {
+                let forward_key = edge_key(forward);
+                let reverse_key = edge_key(reverse);
+                if forward_key <= reverse_key {
+                    self.forward_position += 1;
+                    if forward.relationship == reverse.relationship {
+                        self.reverse_position += 1;
+                    }
+                    Some(forward)
+                } else {
+                    self.reverse_position += 1;
+                    Some(reverse)
+                }
+            }
+            (Some(forward), None) => {
+                self.forward_position += 1;
+                Some(forward)
+            }
+            (None, Some(reverse)) => {
+                self.reverse_position += 1;
+                Some(reverse)
+            }
+            (None, None) => None,
+        }
+    }
+}
+
+fn take_edge(csr: &Csr, position: &mut usize, end: usize) -> Option<CsrEdge> {
+    if *position >= end {
+        return None;
+    }
+    let edge = csr.edges[*position];
+    *position += 1;
+    Some(edge)
+}
+
+fn edge_key(edge: CsrEdge) -> (u32, RelationshipId, RelationshipTypeId) {
+    (edge.node_index, edge.relationship, edge.relationship_type)
 }
 
 fn build_csr(

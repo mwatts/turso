@@ -1396,7 +1396,7 @@ pub fn op_vfilter(
         },
         insn
     );
-    let has_rows = {
+    let step = {
         let cursor = get_cursor!(state, *cursor_id);
         let cursor = cursor.as_virtual_mut();
         let mut args = Vec::with_capacity(*arg_count);
@@ -1410,9 +1410,14 @@ pub fn op_vfilter(
         };
         cursor.filter(*idx_num as i32, idx_str, *arg_count, args)?
     };
+    if step == crate::InternalVirtualTableStep::Yield {
+        return Ok(InsnFunctionStepResult::IO(IOCompletions::Single(
+            Completion::new_yield(),
+        )));
+    }
     // Increment filter_operations metric for virtual table filter
     state.metrics.filter_operations = state.metrics.filter_operations.saturating_add(1);
-    if !has_rows {
+    if step == crate::InternalVirtualTableStep::Done {
         state.pc = pc_if_empty.as_offset_int();
     } else {
         // VFilter positions to the first row if any exist, which counts as a read
@@ -1553,12 +1558,17 @@ pub fn op_vnext(
         },
         insn
     );
-    let has_more = {
+    let step = {
         let cursor = state.get_cursor(*cursor_id);
         let cursor = cursor.as_virtual_mut();
         cursor.next()?
     };
-    if has_more {
+    if step == crate::InternalVirtualTableStep::Yield {
+        return Ok(InsnFunctionStepResult::IO(IOCompletions::Single(
+            Completion::new_yield(),
+        )));
+    }
+    if step == crate::InternalVirtualTableStep::Row {
         // Increment metrics for row read from virtual table (including materialized views)
         state.record_rows_read(1);
         state.pc = pc_if_next.as_offset_int();

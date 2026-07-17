@@ -2,8 +2,8 @@ use std::sync::Arc;
 
 use parking_lot::RwLock;
 use turso_core::{
-    schema::Schema, Connection, InternalVirtualTable, InternalVirtualTableCursor, LimboError,
-    Numeric, Value,
+    schema::Schema, Connection, InternalVirtualTable, InternalVirtualTableCursor,
+    InternalVirtualTableStep, LimboError, Numeric, Value,
 };
 use turso_ext::{
     ConstraintInfo, ConstraintOp, ConstraintUsage, IndexInfo, OrderByInfo, ResultCode,
@@ -11,7 +11,7 @@ use turso_ext::{
 use turso_graph_ir::{Direction, GraphId, RelationshipTypeId, SourceTableId};
 use turso_graph_runtime::{
     Cancellation, Path, TraversalCursor, TraversalLimits, TraversalOrder, TraversalRequest,
-    Uniqueness,
+    TraversalStep, Uniqueness,
 };
 
 use crate::{SnapshotStore, SourceIdentity, TraversalSnapshot};
@@ -22,6 +22,7 @@ const OUTPUT_COLUMN_COUNT: usize = 11;
 const INPUT_COLUMN_COUNT: usize = 13;
 const COL_GRAPH_ID: usize = OUTPUT_COLUMN_COUNT;
 const COL_MAX_MEMORY_BYTES: usize = COL_GRAPH_ID + 12;
+const CURSOR_WORK_QUANTUM: u64 = 256;
 
 /// Install graph query tables while a graph-capable dialect constructs its
 /// catalog. The snapshot store is process-local derived state; canonical graph
@@ -160,6 +161,7 @@ struct GraphExpandCursor {
     path_position: usize,
     row_id: i64,
     inputs: Vec<Value>,
+    filter_in_progress: bool,
 }
 
 impl GraphExpandCursor {
@@ -174,10 +176,11 @@ impl GraphExpandCursor {
             path_position: 0,
             row_id: 0,
             inputs: Vec::new(),
+            filter_in_progress: false,
         }
     }
 
-    fn advance_path(&mut self) -> turso_core::Result<bool> {
+    fn advance_path_step(&mut self) -> turso_core::Result<InternalVirtualTableStep> {
         let snapshot = self.snapshot.as_ref().ok_or_else(|| {
             LimboError::InternalError("graph expansion has no snapshot".to_owned())
         })?;
@@ -185,18 +188,82 @@ impl GraphExpandCursor {
             LimboError::InternalError("graph expansion has no traversal state".to_owned())
         })?;
         let cancellation = ConnectionCancellation(&self.connection);
-        self.current_path = traversal
-            .next_path(snapshot.graph(), &cancellation)
-            .map_err(runtime_error)?;
-        self.path_position = 0;
-        if self.current_path.is_some() {
-            self.path_id = self.path_id.checked_add(1).ok_or_else(|| {
-                LimboError::ExtensionError("graph path identity overflow".to_owned())
-            })?;
-            Ok(true)
-        } else {
-            Ok(false)
+        match traversal
+            .step(snapshot.graph(), &cancellation, CURSOR_WORK_QUANTUM)
+            .map_err(runtime_error)?
+        {
+            TraversalStep::Path(path) => {
+                self.current_path = Some(path);
+                self.path_position = 0;
+                self.path_id = self.path_id.checked_add(1).ok_or_else(|| {
+                    LimboError::ExtensionError("graph path identity overflow".to_owned())
+                })?;
+                Ok(InternalVirtualTableStep::Row)
+            }
+            TraversalStep::Pending => Ok(InternalVirtualTableStep::Yield),
+            TraversalStep::Done => {
+                self.current_path = None;
+                Ok(InternalVirtualTableStep::Done)
+            }
         }
+    }
+
+    fn initialize_filter(&mut self, args: &[Value], idx_num: i32) -> turso_core::Result<()> {
+        if idx_num != INPUT_COLUMN_COUNT as i32 || args.len() != INPUT_COLUMN_COUNT {
+            return Err(LimboError::InvalidArgument(format!(
+                "{GRAPH_EXPAND_TABLE_NAME} requires {INPUT_COLUMN_COUNT} arguments"
+            )));
+        }
+        let graph_id = graph_id(&args[0])?;
+        let start_source = source_table_id(&args[1], "start_node_source_id")?;
+        let start_identity = source_identity(&args[2], "start_node_identity")?;
+        let direction = direction(&args[3])?;
+        let relationship_types = relationship_types(&args[4])?;
+        let min_hops = nonnegative_u32(&args[5], "min_hops")?;
+        let max_hops = nonnegative_u32(&args[6], "max_hops")?;
+        let uniqueness = uniqueness(&args[7])?;
+        let limits = TraversalLimits {
+            max_node_visits: nonnegative_u64(&args[8], "max_node_visits")?,
+            max_edge_visits: nonnegative_u64(&args[9], "max_edge_visits")?,
+            max_paths: nonnegative_u64(&args[10], "max_paths")?,
+            max_hops,
+            max_work: nonnegative_u64(&args[11], "max_work")?,
+            max_memory_bytes: nonnegative_u64(&args[12], "max_memory_bytes")?,
+        };
+        let snapshot = self
+            .snapshots
+            .get(graph_id)
+            .map_err(|error| LimboError::ExtensionError(error.to_string()))?
+            .ok_or_else(|| {
+                LimboError::InvalidArgument(format!("graph snapshot {graph_id} is not built"))
+            })?;
+        let start = snapshot
+            .node_id(start_source, &start_identity)
+            .ok_or_else(|| {
+                LimboError::InvalidArgument(format!(
+                    "start node {start_source}:{start_identity:?} is not present in graph {graph_id}"
+                ))
+            })?;
+        let request = TraversalRequest {
+            start,
+            direction,
+            relationship_types,
+            min_hops,
+            max_hops,
+            uniqueness,
+            order: TraversalOrder::BreadthFirst,
+        };
+        let traversal =
+            TraversalCursor::new(snapshot.graph(), request, limits).map_err(runtime_error)?;
+
+        self.snapshot = Some(snapshot);
+        self.traversal = Some(traversal);
+        self.current_path = None;
+        self.path_id = 0;
+        self.path_position = 0;
+        self.row_id = 1;
+        self.inputs = args.to_vec();
+        Ok(())
     }
 
     fn current_path(&self) -> turso_core::Result<&Path> {
@@ -208,22 +275,31 @@ impl GraphExpandCursor {
 
 impl InternalVirtualTableCursor for GraphExpandCursor {
     fn next(&mut self) -> turso_core::Result<bool> {
+        loop {
+            match self.next_step()? {
+                InternalVirtualTableStep::Row => return Ok(true),
+                InternalVirtualTableStep::Done => return Ok(false),
+                InternalVirtualTableStep::Yield => {}
+            }
+        }
+    }
+
+    fn next_step(&mut self) -> turso_core::Result<InternalVirtualTableStep> {
         let path = self.current_path()?;
         if self.path_position + 1 < path.nodes.len() {
             self.path_position += 1;
             self.row_id = self.row_id.checked_add(1).ok_or_else(|| {
                 LimboError::ExtensionError("graph expansion row identity overflow".to_owned())
             })?;
-            return Ok(true);
+            return Ok(InternalVirtualTableStep::Row);
         }
-        if self.advance_path()? {
+        let step = self.advance_path_step()?;
+        if step == InternalVirtualTableStep::Row {
             self.row_id = self.row_id.checked_add(1).ok_or_else(|| {
                 LimboError::ExtensionError("graph expansion row identity overflow".to_owned())
             })?;
-            Ok(true)
-        } else {
-            Ok(false)
         }
+        Ok(step)
     }
 
     fn rowid(&self) -> i64 {
@@ -316,61 +392,30 @@ impl InternalVirtualTableCursor for GraphExpandCursor {
         _idx_str: Option<String>,
         idx_num: i32,
     ) -> turso_core::Result<bool> {
-        if idx_num != INPUT_COLUMN_COUNT as i32 || args.len() != INPUT_COLUMN_COUNT {
-            return Err(LimboError::InvalidArgument(format!(
-                "{GRAPH_EXPAND_TABLE_NAME} requires {INPUT_COLUMN_COUNT} arguments"
-            )));
+        loop {
+            match self.filter_step(args, None, idx_num)? {
+                InternalVirtualTableStep::Row => return Ok(true),
+                InternalVirtualTableStep::Done => return Ok(false),
+                InternalVirtualTableStep::Yield => {}
+            }
         }
-        let graph_id = graph_id(&args[0])?;
-        let start_source = source_table_id(&args[1], "start_node_source_id")?;
-        let start_identity = source_identity(&args[2], "start_node_identity")?;
-        let direction = direction(&args[3])?;
-        let relationship_types = relationship_types(&args[4])?;
-        let min_hops = nonnegative_u32(&args[5], "min_hops")?;
-        let max_hops = nonnegative_u32(&args[6], "max_hops")?;
-        let uniqueness = uniqueness(&args[7])?;
-        let limits = TraversalLimits {
-            max_node_visits: nonnegative_u64(&args[8], "max_node_visits")?,
-            max_edge_visits: nonnegative_u64(&args[9], "max_edge_visits")?,
-            max_paths: nonnegative_u64(&args[10], "max_paths")?,
-            max_hops,
-            max_work: nonnegative_u64(&args[11], "max_work")?,
-            max_memory_bytes: nonnegative_u64(&args[12], "max_memory_bytes")?,
-        };
-        let snapshot = self
-            .snapshots
-            .get(graph_id)
-            .map_err(|error| LimboError::ExtensionError(error.to_string()))?
-            .ok_or_else(|| {
-                LimboError::InvalidArgument(format!("graph snapshot {graph_id} is not built"))
-            })?;
-        let start = snapshot
-            .node_id(start_source, &start_identity)
-            .ok_or_else(|| {
-                LimboError::InvalidArgument(format!(
-                    "start node {start_source}:{start_identity:?} is not present in graph {graph_id}"
-                ))
-            })?;
-        let request = TraversalRequest {
-            start,
-            direction,
-            relationship_types,
-            min_hops,
-            max_hops,
-            uniqueness,
-            order: TraversalOrder::BreadthFirst,
-        };
-        let traversal =
-            TraversalCursor::new(snapshot.graph(), request, limits).map_err(runtime_error)?;
+    }
 
-        self.snapshot = Some(snapshot);
-        self.traversal = Some(traversal);
-        self.current_path = None;
-        self.path_id = 0;
-        self.path_position = 0;
-        self.row_id = 1;
-        self.inputs = args.to_vec();
-        self.advance_path()
+    fn filter_step(
+        &mut self,
+        args: &[Value],
+        _idx_str: Option<String>,
+        idx_num: i32,
+    ) -> turso_core::Result<InternalVirtualTableStep> {
+        if !self.filter_in_progress {
+            self.initialize_filter(args, idx_num)?;
+            self.filter_in_progress = true;
+        }
+        let step = self.advance_path_step()?;
+        if step != InternalVirtualTableStep::Yield {
+            self.filter_in_progress = false;
+        }
+        Ok(step)
     }
 }
 
@@ -535,6 +580,10 @@ mod tests {
     use turso_graph_runtime::{BuildLimits, NeverCancelled};
 
     fn setup() -> (Arc<Connection>, Arc<SnapshotStore>, GraphId) {
+        setup_with_fanout(0)
+    }
+
+    fn setup_with_fanout(fanout: u32) -> (Arc<Connection>, Arc<SnapshotStore>, GraphId) {
         let io = Arc::new(MemoryIO::new());
         let connection = Database::open_file(io, ":memory:graph-expand", Arc::new(SqliteDialect))
             .unwrap()
@@ -548,6 +597,22 @@ mod tests {
                  INSERT INTO relationships VALUES (100, 10, 20), (200, 20, 30)",
             )
             .unwrap();
+        if fanout > 0 {
+            let people = (0..fanout)
+                .map(|index| format!("({}, 'F{index}')", 1_000 + index))
+                .collect::<Vec<_>>()
+                .join(",");
+            let relationships = (0..fanout)
+                .map(|index| format!("({}, 10, {})", 1_000 + index, 1_000 + index))
+                .collect::<Vec<_>>()
+                .join(",");
+            connection
+                .execute(format!(
+                    "INSERT INTO people VALUES {people}; \
+                     INSERT INTO relationships VALUES {relationships}"
+                ))
+                .unwrap();
+        }
         let registered = register_graph(
             &connection,
             &GraphRegistration {
@@ -789,5 +854,64 @@ mod tests {
             .run_collect_rows()
             .unwrap_err();
         assert!(error.to_string().contains("Work resource limit exceeded"));
+    }
+
+    #[test]
+    fn high_fanout_filter_yields_resumes_and_can_be_abandoned() {
+        let (connection, _snapshots, graph_id) = setup_with_fanout(300);
+        let sql = format!(
+            "SELECT path_id, node_identity FROM {GRAPH_EXPAND_TABLE_NAME}(
+                {}, 1, 10, 'outgoing', '1', 2, 2, 'trail',
+                10000, 10000, 10000, 100000, 16777216
+            )",
+            graph_id.get()
+        );
+
+        let mut abandoned = connection.prepare(&sql).unwrap();
+        assert!(matches!(
+            abandoned.step().unwrap(),
+            turso_core::StepResult::Yield
+        ));
+        drop(abandoned);
+
+        let mut statement = connection.prepare(sql).unwrap();
+        let mut yields = 0;
+        let mut rows = 0;
+        loop {
+            match statement.step().unwrap() {
+                turso_core::StepResult::Yield => yields += 1,
+                turso_core::StepResult::Row => rows += 1,
+                turso_core::StepResult::Done => break,
+                turso_core::StepResult::IO => panic!("in-memory graph scan performed I/O"),
+                turso_core::StepResult::Interrupt | turso_core::StepResult::Busy => {
+                    panic!("unexpected graph scan interruption")
+                }
+            }
+        }
+        assert!(yields >= 1);
+        assert_eq!(rows, 3);
+    }
+
+    #[test]
+    fn connection_interrupt_is_observed_at_the_next_graph_quantum() {
+        let (connection, _snapshots, graph_id) = setup_with_fanout(300);
+        let mut statement = connection
+            .prepare(format!(
+                "SELECT path_id FROM {GRAPH_EXPAND_TABLE_NAME}(
+                    {}, 1, 10, 'outgoing', '1', 2, 2, 'trail',
+                    10000, 10000, 10000, 100000, 16777216
+                )",
+                graph_id.get()
+            ))
+            .unwrap();
+        assert!(matches!(
+            statement.step().unwrap(),
+            turso_core::StepResult::Yield
+        ));
+        connection.interrupt();
+        assert!(matches!(
+            statement.step().unwrap(),
+            turso_core::StepResult::Interrupt
+        ));
     }
 }

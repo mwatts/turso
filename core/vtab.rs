@@ -275,12 +275,12 @@ impl VirtualTableCursor {
         self.null_flag = flag;
     }
 
-    pub(crate) fn next(&mut self) -> crate::Result<bool> {
+    pub(crate) fn next(&mut self) -> crate::Result<InternalVirtualTableStep> {
         self.null_flag = false;
         match &mut self.inner {
-            VirtualTableCursorInner::Pragma(cursor) => cursor.next(),
-            VirtualTableCursorInner::External(cursor) => cursor.next(),
-            VirtualTableCursorInner::Internal(cursor) => cursor.write().next(),
+            VirtualTableCursorInner::Pragma(cursor) => cursor.next().map(step_from_has_row),
+            VirtualTableCursorInner::External(cursor) => cursor.next().map(step_from_has_row),
+            VirtualTableCursorInner::Internal(cursor) => cursor.write().next_step(),
         }
     }
 
@@ -309,15 +309,15 @@ impl VirtualTableCursor {
         idx_str: Option<String>,
         arg_count: usize,
         args: Vec<Value>,
-    ) -> crate::Result<bool> {
+    ) -> crate::Result<InternalVirtualTableStep> {
         self.null_flag = false;
         match &mut self.inner {
-            VirtualTableCursorInner::Pragma(cursor) => cursor.filter(args),
-            VirtualTableCursorInner::External(cursor) => {
-                cursor.filter(idx_num, idx_str, arg_count, args)
-            }
+            VirtualTableCursorInner::Pragma(cursor) => cursor.filter(args).map(step_from_has_row),
+            VirtualTableCursorInner::External(cursor) => cursor
+                .filter(idx_num, idx_str, arg_count, args)
+                .map(step_from_has_row),
             VirtualTableCursorInner::Internal(cursor) => {
-                cursor.write().filter(&args, idx_str, idx_num)
+                cursor.write().filter_step(&args, idx_str, idx_num)
             }
         }
     }
@@ -620,6 +620,38 @@ pub trait InternalVirtualTableCursor: Send + Sync {
         idx_str: Option<String>,
         idx_num: i32,
     ) -> Result<bool, LimboError>;
+
+    /// Resumable form used by internal cursors that perform bounded CPU work.
+    /// Existing synchronous tables inherit the default adapter.
+    fn next_step(&mut self) -> Result<InternalVirtualTableStep, LimboError> {
+        self.next().map(step_from_has_row)
+    }
+
+    /// Resumable filter form used by internal cursors that may yield before
+    /// positioning on their first row.
+    fn filter_step(
+        &mut self,
+        args: &[Value],
+        idx_str: Option<String>,
+        idx_num: i32,
+    ) -> Result<InternalVirtualTableStep, LimboError> {
+        self.filter(args, idx_str, idx_num).map(step_from_has_row)
+    }
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum InternalVirtualTableStep {
+    Row,
+    Done,
+    Yield,
+}
+
+fn step_from_has_row(has_row: bool) -> InternalVirtualTableStep {
+    if has_row {
+        InternalVirtualTableStep::Row
+    } else {
+        InternalVirtualTableStep::Done
+    }
 }
 
 #[cfg(all(test, feature = "fs"))]

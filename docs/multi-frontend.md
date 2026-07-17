@@ -651,6 +651,38 @@ dependency.
 **Exit:** bounded variable-length and shortest-path scenarios pass under
 normal, injected-yield, cancellation, and resource-exhaustion execution.
 
+##### Graph cursor decision record (2026-07-17)
+
+The synchronous virtual-table spike failed the fairness gate: a single
+`VFilter` or `VNext` call could consume the complete traversal work budget
+before producing a row. The selected implementation retains the virtual-table
+planning boundary but makes only the internal graph cursor resumable. Turso's
+internal-vtable adapter now accepts `Row`, `Done`, or `Yield`; existing internal
+tables keep their synchronous default, while `GraphExpand` advances at most 256
+state/adjacency operations and returns an explicit cooperative yield when more
+work remains. No graph opcode and no general asynchronous virtual-table API are
+needed.
+
+The reproducible debug-build gate in
+`graph/runtime/examples/cursor_gate.rs` uses a 100,000-edge star whose requested
+two-hop result set is empty, an adversarial case for work before first output.
+Three local runs produced 1,172 cursor calls and 1,171 yields, took
+49.2–49.7 ms total, and had a maximum individual call of 0.547–0.625 ms. Wall
+times are machine-specific; the enforced contract is the deterministic
+256-operation quantum. Tests additionally prove that:
+
+- a 300-edge high-fanout `VFilter` yields before completing, resumes to the
+  exact three rows of the only two-hop path, and may be abandoned at the yield;
+- connection interruption is observed on the next quantum;
+- node, edge, path, hop, work, and retained-memory limits fail explicitly; and
+- adjacency filtering itself advances one raw CSR edge at a time, so a single
+  high-degree node cannot bypass the quantum.
+
+**Decision:** retain `GraphExpand` as an internal table-valued scan with its
+specialized resumable cursor. Revisit a dedicated opcode only if later
+predicate pushdown or weighted-shortest-path measurements cannot satisfy the
+same bounded-call contract.
+
 #### M6 — transaction visibility and mutations
 
 - Add `CREATE`, `SET`, `REMOVE`, `DELETE`/`DETACH DELETE`, then `MERGE` to IR
