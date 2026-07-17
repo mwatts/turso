@@ -572,7 +572,10 @@ impl Connection {
         compiler: Arc<dyn FrontendCompiler>,
     ) -> Result<()> {
         let mut compilers = self.frontend_compilers.write();
-        if compilers.contains_key(&frontend) {
+        if let Some(existing) = compilers.get(&frontend) {
+            if Arc::ptr_eq(existing, &compiler) {
+                return Ok(());
+            }
             return Err(FrontendError::CompilerAlreadyRegistered { frontend }.into());
         }
         compilers.insert(frontend, compiler);

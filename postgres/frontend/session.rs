@@ -1,10 +1,10 @@
 use std::num::NonZero;
 use std::str;
-use std::sync::Arc;
+use std::sync::{Arc, OnceLock};
 
 use crate::aliases;
 use crate::catalog::{self, PostgresDialect};
-use turso_core::{Connection, LimboError, Result, Statement, Value};
+use turso_core::{Connection, FrontendCompiler, FrontendId, LimboError, Result, Statement, Value};
 use turso_parser::ast;
 use turso_pg_parser::translator::{
     is_refresh_matview, try_extract_copy_from, try_extract_create_schema, try_extract_drop_schema,
@@ -17,6 +17,39 @@ use crate::copy::parse_copy_text_format;
 #[derive(Clone)]
 pub struct PgConnection {
     conn: Arc<Connection>,
+    compiler_registration_error: Option<LimboError>,
+}
+
+const POSTGRES_FRONTEND_NAME: &str = "postgres";
+
+#[derive(Debug, Default)]
+struct PostgresCompiler;
+
+impl FrontendCompiler for PostgresCompiler {
+    fn compile(&self, source: &str) -> Result<(Option<ast::Cmd>, usize)> {
+        reject_sqlite_catalog_access(source)?;
+        let parse_result =
+            turso_pg_parser::parse(source).map_err(|e| LimboError::ParseError(e.to_string()))?;
+        let stmt = PostgreSQLTranslator::new()
+            .translate(&parse_result)
+            .map_err(|e| LimboError::ParseError(e.to_string()))?;
+        reject_catalog_dml(&stmt)?;
+        Ok((Some(ast::Cmd::Stmt(stmt)), source.len()))
+    }
+}
+
+fn postgres_frontend_id() -> FrontendId {
+    static ID: OnceLock<FrontendId> = OnceLock::new();
+    ID.get_or_init(|| {
+        FrontendId::new(POSTGRES_FRONTEND_NAME)
+            .expect("the static Postgres frontend id must be non-empty")
+    })
+    .clone()
+}
+
+fn postgres_compiler() -> Arc<dyn FrontendCompiler> {
+    static COMPILER: OnceLock<Arc<PostgresCompiler>> = OnceLock::new();
+    COMPILER.get_or_init(|| Arc::new(PostgresCompiler)).clone()
 }
 
 /// Open a database with the PostgreSQL schema dialect, resolving the IO
@@ -61,7 +94,13 @@ pub fn open_database_with_io(
 impl PgConnection {
     pub fn new(conn: Arc<Connection>) -> Self {
         aliases::install(&conn);
-        Self { conn }
+        let compiler_registration_error = conn
+            .register_frontend_compiler(postgres_frontend_id(), postgres_compiler())
+            .err();
+        Self {
+            conn,
+            compiler_registration_error,
+        }
     }
 
     pub fn inner(&self) -> &Arc<Connection> {
@@ -69,6 +108,9 @@ impl PgConnection {
     }
 
     pub fn prepare(&self, sql: impl AsRef<str>) -> Result<Statement> {
+        if let Some(err) = &self.compiler_registration_error {
+            return Err(err.clone());
+        }
         prepare_statement(&self.conn, sql.as_ref())
     }
 
@@ -100,7 +142,7 @@ impl PgConnection {
     }
 
     pub fn query_runner<'a>(&'a self, sql: &'a [u8]) -> PgQueryRunner<'a> {
-        PgQueryRunner::new(&self.conn, sql)
+        PgQueryRunner::new(&self.conn, sql, self.compiler_registration_error.clone())
     }
 }
 
@@ -108,10 +150,15 @@ pub struct PgQueryRunner<'a> {
     conn: &'a Arc<Connection>,
     stmts: Vec<String>,
     index: usize,
+    compiler_registration_error: Option<LimboError>,
 }
 
 impl<'a> PgQueryRunner<'a> {
-    fn new(conn: &'a Arc<Connection>, sql: &'a [u8]) -> Self {
+    fn new(
+        conn: &'a Arc<Connection>,
+        sql: &'a [u8],
+        compiler_registration_error: Option<LimboError>,
+    ) -> Self {
         let sql = str::from_utf8(sql).unwrap_or("");
         Self {
             conn,
@@ -121,6 +168,7 @@ impl<'a> PgQueryRunner<'a> {
                 .filter(|stmt| !stmt.trim().is_empty())
                 .collect(),
             index: 0,
+            compiler_registration_error,
         }
     }
 }
@@ -129,6 +177,9 @@ impl Iterator for PgQueryRunner<'_> {
     type Item = Result<Option<Statement>>;
 
     fn next(&mut self) -> Option<Self::Item> {
+        if let Some(err) = self.compiler_registration_error.take() {
+            return Some(Err(err));
+        }
         if self.index >= self.stmts.len() {
             return None;
         }
@@ -175,7 +226,7 @@ fn prepare_statement(conn: &Arc<Connection>, sql: &str) -> Result<Statement> {
         stmt.run_ignore_rows()?;
     }
 
-    conn.prepare_translated_stmt(translated.stmt, sql)
+    conn.prepare_frontend(&postgres_frontend_id(), sql)
 }
 
 fn reject_catalog_dml(stmt: &ast::Stmt) -> Result<()> {

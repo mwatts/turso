@@ -1,5 +1,38 @@
 use crate::common::TempDatabase;
-use turso_core::{Numeric, StepResult, Value};
+use std::sync::Arc;
+use turso_core::{
+    Database, MemoryIO, Numeric, SqliteDialect, StatementStatusCounter, StepResult, Value, IO,
+};
+use turso_pg::PgConnection;
+
+#[test]
+fn postgres_source_reprepares_through_registered_compiler_on_sqlite_host() {
+    // A SQLite host makes the assertion strong: reparsing the retained source
+    // through the database dialect cannot understand PostgreSQL's cast syntax.
+    let io: Arc<dyn IO> = Arc::new(MemoryIO::new());
+    let db = Database::open_file(io, ":memory:", Arc::new(SqliteDialect)).unwrap();
+    let raw = db.connect().unwrap();
+    let conn = PgConnection::new(raw);
+
+    conn.execute("CREATE TABLE items (id INTEGER PRIMARY KEY)")
+        .unwrap();
+    conn.execute("INSERT INTO items VALUES (42)").unwrap();
+
+    let mut stmt = conn
+        .prepare("SELECT id::INTEGER FROM items WHERE id = $1")
+        .unwrap();
+    stmt.bind_at(1.try_into().unwrap(), Value::from_i64(42))
+        .unwrap();
+
+    // A schema change invalidates the prepared program. Reprepare must invoke
+    // PostgresCompiler with the original source and retain the bound value.
+    conn.execute("CREATE TABLE schema_change_marker (id INTEGER)")
+        .unwrap();
+    let rows = stmt.run_collect_rows().unwrap();
+
+    assert_eq!(rows, vec![vec![Value::from_i64(42)]]);
+    assert_eq!(stmt.stmt_status(StatementStatusCounter::Reprepare), 1);
+}
 
 #[turso_macros::test(mvcc)]
 fn test_postgres_frontend_rejects_pragma(db: TempDatabase) {
