@@ -33,9 +33,52 @@ pub struct Query {
 #[derive(Clone, Debug, PartialEq)]
 pub enum Clause {
     Match(MatchClause),
+    Create(CreateClause),
+    Merge(MergeClause),
+    Set(SetClause),
+    Remove(RemoveClause),
+    Delete(DeleteClause),
     Unwind(UnwindClause),
     With(ProjectionClause),
     Return(ProjectionClause),
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct CreateClause {
+    pub paths: Vec<PathPattern>,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct MergeClause {
+    pub path: PathPattern,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct PropertyTarget {
+    pub variable: Spanned<String>,
+    pub property: Spanned<String>,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct SetItem {
+    pub target: PropertyTarget,
+    pub value: Spanned<Expression>,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct SetClause {
+    pub items: Vec<SetItem>,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct RemoveClause {
+    pub items: Vec<PropertyTarget>,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct DeleteClause {
+    pub detach: bool,
+    pub variables: Vec<Spanned<String>>,
 }
 
 #[derive(Clone, Debug, PartialEq)]

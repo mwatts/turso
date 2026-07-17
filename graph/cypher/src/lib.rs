@@ -9,8 +9,9 @@ mod ast;
 mod parser;
 
 pub use ast::{
-    BinaryOperator, Clause, Direction, Expression, Literal, MatchClause, NodePattern, PathPattern,
-    ProjectionClause, ProjectionItem, Query, RelationshipPattern, RelationshipRange, SortItem,
-    Span, Spanned, UnwindClause,
+    BinaryOperator, Clause, CreateClause, DeleteClause, Direction, Expression, Literal,
+    MatchClause, MergeClause, NodePattern, PathPattern, ProjectionClause, ProjectionItem,
+    PropertyTarget, Query, RelationshipPattern, RelationshipRange, RemoveClause, SetClause,
+    SetItem, SortItem, Span, Spanned, UnwindClause,
 };
-pub use parser::{parse, ParseError};
+pub use parser::{ParseError, parse};

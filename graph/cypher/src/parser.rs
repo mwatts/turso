@@ -8,14 +8,15 @@
 //! Changes: Replaced Uni AST and error types, reduced the supported syntax,
 //! and retained only a source-AST walker with byte-span diagnostics.
 
-use pest::{error::InputLocation, iterators::Pair, Parser};
+use pest::{Parser, error::InputLocation, iterators::Pair};
 use pest_derive::Parser;
 use thiserror::Error;
 
 use crate::{
-    BinaryOperator, Clause, Direction, Expression, Literal, MatchClause, NodePattern, PathPattern,
-    ProjectionClause, ProjectionItem, Query, RelationshipPattern, RelationshipRange, SortItem,
-    Span, Spanned, UnwindClause,
+    BinaryOperator, Clause, CreateClause, DeleteClause, Direction, Expression, Literal,
+    MatchClause, MergeClause, NodePattern, PathPattern, ProjectionClause, ProjectionItem,
+    PropertyTarget, Query, RelationshipPattern, RelationshipRange, RemoveClause, SetClause,
+    SetItem, SortItem, Span, Spanned, UnwindClause,
 };
 
 #[derive(Parser)]
@@ -77,12 +78,101 @@ fn walk_clause(pair: Pair<'_, Rule>) -> Result<Spanned<Clause>, ParseError> {
     let span = pair_span(&pair);
     let clause = match pair.as_rule() {
         Rule::match_clause => Clause::Match(walk_match(pair)?),
+        Rule::create_clause => Clause::Create(walk_create(pair)?),
+        Rule::merge_clause => Clause::Merge(walk_merge(pair)?),
+        Rule::set_clause => Clause::Set(walk_set(pair)?),
+        Rule::remove_clause => Clause::Remove(walk_remove(pair)?),
+        Rule::delete_clause => Clause::Delete(walk_delete(pair)?),
         Rule::unwind_clause => Clause::Unwind(walk_unwind(pair)?),
         Rule::with_clause => Clause::With(walk_projection_clause(pair)?),
         Rule::return_clause => Clause::Return(walk_projection_clause(pair)?),
         rule => return Err(unexpected(&pair, "clause", rule)),
     };
     Ok(Spanned::new(clause, span))
+}
+
+fn walk_create(pair: Pair<'_, Rule>) -> Result<CreateClause, ParseError> {
+    let span = pair_span(&pair);
+    let pattern = pair
+        .into_inner()
+        .find(|item| item.as_rule() == Rule::pattern)
+        .ok_or_else(|| ParseError::at(span, "CREATE has no pattern"))?;
+    let paths = pattern
+        .into_inner()
+        .filter(|item| item.as_rule() == Rule::path_pattern)
+        .map(walk_path)
+        .collect::<Result<Vec<_>, _>>()?;
+    Ok(CreateClause { paths })
+}
+
+fn walk_merge(pair: Pair<'_, Rule>) -> Result<MergeClause, ParseError> {
+    let span = pair_span(&pair);
+    let path = pair
+        .into_inner()
+        .find(|item| item.as_rule() == Rule::path_pattern)
+        .ok_or_else(|| ParseError::at(span, "MERGE has no pattern"))?;
+    Ok(MergeClause {
+        path: walk_path(path)?,
+    })
+}
+
+fn walk_property_target(pair: Pair<'_, Rule>) -> Result<PropertyTarget, ParseError> {
+    let span = pair_span(&pair);
+    let mut identifiers = pair.into_inner();
+    let variable = identifiers
+        .next()
+        .ok_or_else(|| ParseError::at(span, "property target has no variable"))?;
+    let property = identifiers
+        .next()
+        .ok_or_else(|| ParseError::at(span, "property target has no property"))?;
+    Ok(PropertyTarget {
+        variable: walk_identifier(variable),
+        property: walk_identifier(property),
+    })
+}
+
+fn walk_set(pair: Pair<'_, Rule>) -> Result<SetClause, ParseError> {
+    let items = pair
+        .into_inner()
+        .filter(|item| item.as_rule() == Rule::set_item)
+        .map(|item| {
+            let span = pair_span(&item);
+            let mut inner = item.into_inner();
+            let target = inner
+                .next()
+                .ok_or_else(|| ParseError::at(span, "SET item has no target"))?;
+            let value = inner
+                .next()
+                .ok_or_else(|| ParseError::at(span, "SET item has no value"))?;
+            Ok(SetItem {
+                target: walk_property_target(target)?,
+                value: walk_expression(value)?,
+            })
+        })
+        .collect::<Result<Vec<_>, _>>()?;
+    Ok(SetClause { items })
+}
+
+fn walk_remove(pair: Pair<'_, Rule>) -> Result<RemoveClause, ParseError> {
+    let items = pair
+        .into_inner()
+        .filter(|item| item.as_rule() == Rule::property_target)
+        .map(walk_property_target)
+        .collect::<Result<Vec<_>, _>>()?;
+    Ok(RemoveClause { items })
+}
+
+fn walk_delete(pair: Pair<'_, Rule>) -> Result<DeleteClause, ParseError> {
+    let detach = pair
+        .clone()
+        .into_inner()
+        .any(|item| item.as_rule() == Rule::DETACH);
+    let variables = pair
+        .into_inner()
+        .filter(|item| item.as_rule() == Rule::identifier)
+        .map(walk_identifier)
+        .collect();
+    Ok(DeleteClause { detach, variables })
 }
 
 fn walk_unwind(pair: Pair<'_, Rule>) -> Result<UnwindClause, ParseError> {
@@ -657,6 +747,55 @@ mod tests {
         assert!(projection.order_by[0].descending);
         assert!(projection.skip.is_some());
         assert!(projection.limit.is_some());
+    }
+
+    #[test]
+    fn parses_create_and_merge_patterns() {
+        let query = parse(
+            "CREATE (a:Person {name: 'Ada'})-[:KNOWS]->(b:Person) MERGE (b)-[:KNOWS]->(c:Person {name: 'Grace'})",
+        )
+        .expect("mutation query");
+        let Clause::Create(create) = &query.clauses[0].value else {
+            panic!("expected CREATE")
+        };
+        assert_eq!(create.paths.len(), 1);
+        assert_eq!(create.paths[0].steps.len(), 1);
+        let Clause::Merge(merge) = &query.clauses[1].value else {
+            panic!("expected MERGE")
+        };
+        assert_eq!(merge.path.steps.len(), 1);
+    }
+
+    #[test]
+    fn parses_property_updates_and_deletes_with_source_spans() {
+        let source = "MATCH (n:Person) SET n.name = 'Ada', n.age = 37 REMOVE n.old DETACH DELETE n";
+        let query = parse(source).expect("mutation query");
+        let Clause::Set(set) = &query.clauses[1].value else {
+            panic!("expected SET")
+        };
+        assert_eq!(set.items.len(), 2);
+        assert_eq!(set.items[0].target.variable.value, "n");
+        assert_eq!(set.items[0].target.property.value, "name");
+        assert_eq!(
+            &source[set.items[0].target.property.span.start..set.items[0].target.property.span.end],
+            "name"
+        );
+        let Clause::Remove(remove) = &query.clauses[2].value else {
+            panic!("expected REMOVE")
+        };
+        assert_eq!(remove.items[0].property.value, "old");
+        let Clause::Delete(delete) = &query.clauses[3].value else {
+            panic!("expected DELETE")
+        };
+        assert!(delete.detach);
+        assert_eq!(delete.variables[0].value, "n");
+    }
+
+    #[test]
+    fn reserves_mutation_keywords_and_rejects_unsupported_set_forms() {
+        assert!(parse("MATCH (set) RETURN set").is_err());
+        assert!(parse("MATCH (n) SET n = {name: 'Ada'}").is_err());
+        assert!(parse("MATCH (n) SET n += {name: 'Ada'}").is_err());
     }
 
     #[test]
