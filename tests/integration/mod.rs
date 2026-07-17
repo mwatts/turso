@@ -9,6 +9,7 @@ mod database;
 mod expr_depth_stack_overflow;
 mod external_apis;
 mod functions;
+mod frontend_reprepare;
 mod fuzz_transaction;
 mod index_method;
 mod integrity_check;
