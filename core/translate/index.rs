@@ -1180,9 +1180,6 @@ pub fn translate_drop_index(
 ) -> crate::Result<()> {
     let database_id = resolver.resolve_existing_index_database_id(qualified_name)?;
     let idx_name = normalize_ident(qualified_name.name.as_str());
-    if !internal && crate::schema::is_system_table(&idx_name) {
-        bail_parse_error!("index name reserved for internal use: {idx_name}");
-    }
     let opts = ProgramBuilderOpts::new(5, 40, 5);
     program.extend(&opts);
 
@@ -1227,6 +1224,9 @@ pub fn translate_drop_index(
                     .to_string(),
             ));
         }
+    }
+    if !internal && crate::schema::is_system_table(&idx_name) {
+        bail_parse_error!("index name reserved for internal use: {idx_name}");
     }
 
     let cdc_table = prepare_cdc_if_necessary(program, resolver.schema(), Some(SQLITE_TABLEID))?;
