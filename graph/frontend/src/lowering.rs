@@ -1,18 +1,600 @@
+use std::collections::HashMap;
+
 use thiserror::Error;
-use turso_graph_ir::Plan;
+use turso_graph_ir as ir;
 use turso_parser::ast;
 
-use crate::RegisteredGraph;
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct NodeTableLayout {
+    pub table: String,
+    pub identity_column: String,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct RelationshipTableLayout {
+    pub table: String,
+    pub identity_column: String,
+    pub start_column: String,
+    pub end_column: String,
+}
+
+/// Physical relational names resolved from stable graph catalog identities.
+pub trait RelationalCatalogSnapshot {
+    fn node_layout(&self, source: ir::SourceTableId) -> Option<NodeTableLayout>;
+    fn relationship_layout(&self, source: ir::SourceTableId) -> Option<RelationshipTableLayout>;
+    fn property_column(
+        &self,
+        source: ir::SourceTableId,
+        property: ir::PropertyId,
+    ) -> Option<String>;
+}
 
 #[derive(Debug, Error)]
 pub enum LowerError {
-    #[error("relational graph lowering is not implemented")]
-    NotImplemented,
+    #[error("missing relational layout for graph source {0}")]
+    MissingSource(ir::SourceTableId),
+    #[error("missing relational column for property {property} on source {source_id}")]
+    MissingProperty {
+        source_id: ir::SourceTableId,
+        property: ir::PropertyId,
+    },
+    #[error("binding {0} has no relational source")]
+    MissingBinding(ir::BindingId),
+    #[error("unsupported relational graph operator: {0}")]
+    UnsupportedOperator(&'static str),
+    #[error("invalid resolved function or parameter name: {0}")]
+    InvalidName(String),
+    #[error("generated relational SQL did not parse: {0}")]
+    InvalidGeneratedSql(#[from] turso_core::LimboError),
+    #[error("generated relational SQL contained no statement")]
+    EmptyGeneratedSql,
+}
+
+#[derive(Clone, Copy)]
+enum EntityKind {
+    Node,
+    Relationship,
+}
+
+#[derive(Clone, Copy)]
+struct BindingLayout {
+    source: ir::SourceTableId,
+    kind: EntityKind,
+}
+
+struct Lowered {
+    sql: String,
+    bindings: HashMap<ir::BindingId, BindingLayout>,
 }
 
 /// Lower a bound fixed-pattern graph plan into Turso's public SQL AST.
 ///
-/// This intentionally returns an AST rather than planner or VDBE internals.
-pub fn lower_relational(_plan: &Plan, _graph: &RegisteredGraph) -> Result<ast::Stmt, LowerError> {
-    Err(LowerError::NotImplemented)
+/// Generated SQL is parsed immediately, making the AST the only value that
+/// crosses into Turso preparation. No planner or VDBE internals are built here.
+pub fn lower_relational(
+    plan: &ir::Plan,
+    catalog: &dyn RelationalCatalogSnapshot,
+) -> Result<ast::Stmt, LowerError> {
+    let lowered = lower_plan(plan, catalog, false)?;
+    let sql = if plan.result_shape().is_empty() {
+        lowered.sql
+    } else {
+        let columns = plan
+            .result_shape()
+            .iter()
+            .map(|column| {
+                format!(
+                    "q.{} AS {}",
+                    binding_column(column.binding()),
+                    quote_identifier(column.name())
+                )
+            })
+            .collect::<Vec<_>>()
+            .join(", ");
+        format!("SELECT {columns} FROM ({}) AS q", lowered.sql)
+    };
+    let (command, _) = turso_core::dialect::sqlite::parse(&sql)?;
+    match command {
+        Some(ast::Cmd::Stmt(statement)) => Ok(statement),
+        _ => Err(LowerError::EmptyGeneratedSql),
+    }
+}
+
+fn lower_plan(
+    plan: &ir::Plan,
+    catalog: &dyn RelationalCatalogSnapshot,
+    optional: bool,
+) -> Result<Lowered, LowerError> {
+    match plan.kind() {
+        ir::PlanKind::Unit(_) => Ok(Lowered {
+            sql: "SELECT 1 AS __unit".to_owned(),
+            bindings: HashMap::new(),
+        }),
+        ir::PlanKind::NodeScan(scan) => lower_node_scan(scan, catalog),
+        ir::PlanKind::FixedExpand(expand) => lower_fixed_expand(expand, catalog, optional, &[]),
+        ir::PlanKind::Filter(filter) => {
+            let input = lower_plan(&filter.input, catalog, optional)?;
+            let predicate = lower_expression(&filter.predicate, &input.bindings, catalog, "q")?;
+            Ok(Lowered {
+                sql: format!("SELECT q.* FROM ({}) AS q WHERE {predicate}", input.sql),
+                bindings: input.bindings,
+            })
+        }
+        ir::PlanKind::Project(project) => lower_project(project, catalog, optional),
+        ir::PlanKind::Distinct(distinct) => {
+            let input = lower_plan(&distinct.input, catalog, optional)?;
+            Ok(Lowered {
+                sql: format!("SELECT DISTINCT q.* FROM ({}) AS q", input.sql),
+                bindings: input.bindings,
+            })
+        }
+        ir::PlanKind::LeftApply(apply) => lower_optional_chain(&apply.right, catalog),
+        ir::PlanKind::Aggregate(_) => Err(LowerError::UnsupportedOperator("aggregate")),
+        ir::PlanKind::Sort(sort) => {
+            let input = lower_plan(&sort.input, catalog, optional)?;
+            let ordering = lower_ordering(&sort.keys, &input.bindings, catalog)?;
+            Ok(Lowered {
+                sql: format!("SELECT q.* FROM ({}) AS q ORDER BY {ordering}", input.sql),
+                bindings: input.bindings,
+            })
+        }
+        ir::PlanKind::Skip(skip) => {
+            let input = lower_plan(&skip.input, catalog, optional)?;
+            let count = lower_expression(&skip.count, &input.bindings, catalog, "q")?;
+            Ok(Lowered {
+                sql: format!(
+                    "SELECT q.* FROM ({}) AS q LIMIT -1 OFFSET {count}",
+                    input.sql
+                ),
+                bindings: input.bindings,
+            })
+        }
+        ir::PlanKind::Limit(limit) => {
+            let input = lower_plan(&limit.input, catalog, optional)?;
+            let count = lower_expression(&limit.count, &input.bindings, catalog, "q")?;
+            Ok(Lowered {
+                sql: format!("SELECT q.* FROM ({}) AS q LIMIT {count}", input.sql),
+                bindings: input.bindings,
+            })
+        }
+        ir::PlanKind::Unwind(unwind) => {
+            let input = lower_plan(&unwind.input, catalog, optional)?;
+            let list = lower_expression(&unwind.list, &input.bindings, catalog, "q")?;
+            Ok(Lowered {
+                sql: format!(
+                    "SELECT q.*, j.value AS {} FROM ({}) AS q JOIN json_each({list}) AS j",
+                    binding_column(unwind.output.id()),
+                    input.sql
+                ),
+                bindings: input.bindings,
+            })
+        }
+        ir::PlanKind::Union(_) => Err(LowerError::UnsupportedOperator("union")),
+    }
+}
+
+fn lower_optional_chain(
+    plan: &ir::Plan,
+    catalog: &dyn RelationalCatalogSnapshot,
+) -> Result<Lowered, LowerError> {
+    let original = plan;
+    let mut current = plan;
+    let mut predicates = Vec::new();
+    while let ir::PlanKind::Filter(filter) = current.kind() {
+        predicates.push(&filter.predicate);
+        current = &filter.input;
+    }
+    match current.kind() {
+        ir::PlanKind::FixedExpand(expand) => lower_fixed_expand(expand, catalog, true, &predicates),
+        _ => lower_plan(original, catalog, false),
+    }
+}
+
+fn lower_project(
+    project: &ir::Project,
+    catalog: &dyn RelationalCatalogSnapshot,
+    optional: bool,
+) -> Result<Lowered, LowerError> {
+    let (input, sort_keys) = match project.input.kind() {
+        ir::PlanKind::Sort(sort) => (
+            lower_plan(&sort.input, catalog, optional)?,
+            Some(sort.keys.as_slice()),
+        ),
+        _ => (lower_plan(&project.input, catalog, optional)?, None),
+    };
+    let mut bindings = HashMap::new();
+    let columns = project
+        .projections
+        .iter()
+        .map(|projection| {
+            if let ir::Expression::Binding(input_binding) = projection.expression.expression {
+                if let Some(layout) = input.bindings.get(&input_binding) {
+                    bindings.insert(projection.output.id(), *layout);
+                }
+            }
+            let expression =
+                lower_expression(&projection.expression, &input.bindings, catalog, "q")?;
+            Ok(format!(
+                "{expression} AS {}",
+                binding_column(projection.output.id())
+            ))
+        })
+        .collect::<Result<Vec<_>, LowerError>>()?
+        .join(", ");
+    let ordering = sort_keys
+        .map(|keys| lower_ordering(keys, &input.bindings, catalog))
+        .transpose()?
+        .map(|ordering| format!(" ORDER BY {ordering}"))
+        .unwrap_or_default();
+    Ok(Lowered {
+        sql: format!("SELECT {columns} FROM ({}) AS q{ordering}", input.sql),
+        bindings,
+    })
+}
+
+fn lower_ordering(
+    keys: &[ir::SortKey],
+    bindings: &HashMap<ir::BindingId, BindingLayout>,
+    catalog: &dyn RelationalCatalogSnapshot,
+) -> Result<String, LowerError> {
+    keys.iter()
+        .map(|key| {
+            let expression = lower_expression(&key.expression, bindings, catalog, "q")?;
+            let direction = match key.direction {
+                ir::SortDirection::Ascending => "ASC",
+                ir::SortDirection::Descending => "DESC",
+            };
+            let null_order = match key.null_order {
+                ir::NullOrder::First => "NULLS FIRST",
+                ir::NullOrder::Last => "NULLS LAST",
+            };
+            Ok(format!("{expression} {direction} {null_order}"))
+        })
+        .collect::<Result<Vec<_>, LowerError>>()
+        .map(|items| items.join(", "))
+}
+
+fn lower_node_scan(
+    scan: &ir::NodeScan,
+    catalog: &dyn RelationalCatalogSnapshot,
+) -> Result<Lowered, LowerError> {
+    let layout = catalog
+        .node_layout(scan.source)
+        .ok_or(LowerError::MissingSource(scan.source))?;
+    let mut bindings = HashMap::new();
+    bindings.insert(
+        scan.binding,
+        BindingLayout {
+            source: scan.source,
+            kind: EntityKind::Node,
+        },
+    );
+    Ok(Lowered {
+        sql: format!(
+            "SELECT n.{} AS {} FROM {} AS n",
+            quote_identifier(&layout.identity_column),
+            binding_column(scan.binding),
+            quote_identifier(&layout.table)
+        ),
+        bindings,
+    })
+}
+
+fn lower_fixed_expand(
+    expand: &ir::FixedExpand,
+    catalog: &dyn RelationalCatalogSnapshot,
+    optional: bool,
+    join_predicates: &[&ir::TypedExpression],
+) -> Result<Lowered, LowerError> {
+    let input = if optional {
+        lower_optional_chain(&expand.input, catalog)?
+    } else {
+        lower_plan(&expand.input, catalog, false)?
+    };
+    let relationship = catalog
+        .relationship_layout(expand.relationship_source)
+        .ok_or(LowerError::MissingSource(expand.relationship_source))?;
+    let target = catalog
+        .node_layout(expand.target_node_source)
+        .ok_or(LowerError::MissingSource(expand.target_node_source))?;
+    let join = if optional { "LEFT JOIN" } else { "JOIN" };
+    let from = format!("q.{}", binding_column(expand.from));
+    let relationship_alias = "r";
+    let target_alias = "n";
+    let (relationship_on, mut node_on) = match expand.direction {
+        ir::Direction::Outgoing => (
+            format!(
+                "{relationship_alias}.{} = {from}",
+                quote_identifier(&relationship.start_column)
+            ),
+            format!(
+                "{target_alias}.{} = {relationship_alias}.{}",
+                quote_identifier(&target.identity_column),
+                quote_identifier(&relationship.end_column)
+            ),
+        ),
+        ir::Direction::Incoming => (
+            format!(
+                "{relationship_alias}.{} = {from}",
+                quote_identifier(&relationship.end_column)
+            ),
+            format!(
+                "{target_alias}.{} = {relationship_alias}.{}",
+                quote_identifier(&target.identity_column),
+                quote_identifier(&relationship.start_column)
+            ),
+        ),
+        ir::Direction::Both => (
+            format!(
+                "({relationship_alias}.{} = {from} OR {relationship_alias}.{} = {from})",
+                quote_identifier(&relationship.start_column),
+                quote_identifier(&relationship.end_column)
+            ),
+            format!(
+                "{target_alias}.{} = CASE WHEN {relationship_alias}.{} = {from} \
+                 THEN {relationship_alias}.{} ELSE {relationship_alias}.{} END",
+                quote_identifier(&target.identity_column),
+                quote_identifier(&relationship.start_column),
+                quote_identifier(&relationship.end_column),
+                quote_identifier(&relationship.start_column)
+            ),
+        ),
+    };
+    let mut bindings = input.bindings;
+    bindings.insert(
+        expand.relationship.id(),
+        BindingLayout {
+            source: expand.relationship_source,
+            kind: EntityKind::Relationship,
+        },
+    );
+    bindings.insert(
+        expand.to.id(),
+        BindingLayout {
+            source: expand.target_node_source,
+            kind: EntityKind::Node,
+        },
+    );
+    if !join_predicates.is_empty() {
+        let references = HashMap::from([
+            (
+                expand.relationship.id(),
+                format!(
+                    "{relationship_alias}.{}",
+                    quote_identifier(&relationship.identity_column)
+                ),
+            ),
+            (
+                expand.to.id(),
+                format!(
+                    "{target_alias}.{}",
+                    quote_identifier(&target.identity_column)
+                ),
+            ),
+        ]);
+        let predicates = join_predicates
+            .iter()
+            .map(|predicate| {
+                lower_expression_with_references(predicate, &bindings, catalog, "q", &references)
+            })
+            .collect::<Result<Vec<_>, _>>()?
+            .join(" AND ");
+        node_on = format!("({node_on}) AND ({predicates})");
+    }
+    let relationship_identity = if optional {
+        format!(
+            "CASE WHEN {target_alias}.{} IS NULL THEN NULL ELSE {relationship_alias}.{} END",
+            quote_identifier(&target.identity_column),
+            quote_identifier(&relationship.identity_column)
+        )
+    } else {
+        format!(
+            "{relationship_alias}.{}",
+            quote_identifier(&relationship.identity_column)
+        )
+    };
+    Ok(Lowered {
+        sql: format!(
+            "SELECT q.*, {relationship_identity} AS {}, {target_alias}.{} AS {} \
+             FROM ({}) AS q {join} {} AS {relationship_alias} ON {relationship_on} \
+             {join} {} AS {target_alias} ON {node_on}",
+            binding_column(expand.relationship.id()),
+            quote_identifier(&target.identity_column),
+            binding_column(expand.to.id()),
+            input.sql,
+            quote_identifier(&relationship.table),
+            quote_identifier(&target.table),
+        ),
+        bindings,
+    })
+}
+
+fn lower_expression(
+    expression: &ir::TypedExpression,
+    bindings: &HashMap<ir::BindingId, BindingLayout>,
+    catalog: &dyn RelationalCatalogSnapshot,
+    input_alias: &str,
+) -> Result<String, LowerError> {
+    lower_expression_with_references(expression, bindings, catalog, input_alias, &HashMap::new())
+}
+
+fn lower_expression_with_references(
+    expression: &ir::TypedExpression,
+    bindings: &HashMap<ir::BindingId, BindingLayout>,
+    catalog: &dyn RelationalCatalogSnapshot,
+    input_alias: &str,
+    references: &HashMap<ir::BindingId, String>,
+) -> Result<String, LowerError> {
+    match &expression.expression {
+        ir::Expression::Literal(literal) => Ok(lower_literal(literal)),
+        ir::Expression::Binding(binding) => {
+            Ok(binding_reference(*binding, input_alias, references))
+        }
+        ir::Expression::Property { entity, property } => {
+            let binding = bindings
+                .get(entity)
+                .ok_or(LowerError::MissingBinding(*entity))?;
+            let column = catalog.property_column(binding.source, *property).ok_or(
+                LowerError::MissingProperty {
+                    source_id: binding.source,
+                    property: *property,
+                },
+            )?;
+            let (table, identity) = match binding.kind {
+                EntityKind::Node => {
+                    let layout = catalog
+                        .node_layout(binding.source)
+                        .ok_or(LowerError::MissingSource(binding.source))?;
+                    (layout.table, layout.identity_column)
+                }
+                EntityKind::Relationship => {
+                    let layout = catalog
+                        .relationship_layout(binding.source)
+                        .ok_or(LowerError::MissingSource(binding.source))?;
+                    (layout.table, layout.identity_column)
+                }
+            };
+            Ok(format!(
+                "(SELECT p.{} FROM {} AS p WHERE p.{} = {})",
+                quote_identifier(&column),
+                quote_identifier(&table),
+                quote_identifier(&identity),
+                binding_reference(*entity, input_alias, references)
+            ))
+        }
+        ir::Expression::Parameter(name) => {
+            validate_bare_name(name)?;
+            Ok(format!("${name}"))
+        }
+        ir::Expression::Unary { op, expression } => {
+            let value = lower_expression_with_references(
+                expression,
+                bindings,
+                catalog,
+                input_alias,
+                references,
+            )?;
+            Ok(match op {
+                ir::UnaryOp::Not => format!("NOT ({value})"),
+                ir::UnaryOp::Negate => format!("-({value})"),
+                ir::UnaryOp::IsNull => format!("({value}) IS NULL"),
+                ir::UnaryOp::IsNotNull => format!("({value}) IS NOT NULL"),
+            })
+        }
+        ir::Expression::Binary { left, op, right } => {
+            let left =
+                lower_expression_with_references(left, bindings, catalog, input_alias, references)?;
+            let right = lower_expression_with_references(
+                right,
+                bindings,
+                catalog,
+                input_alias,
+                references,
+            )?;
+            Ok(format!("({left}) {} ({right})", binary_operator(*op)))
+        }
+        ir::Expression::Function {
+            function,
+            arguments,
+        } => {
+            validate_bare_name(function.as_str())?;
+            let arguments = arguments
+                .iter()
+                .map(|argument| {
+                    lower_expression_with_references(
+                        argument,
+                        bindings,
+                        catalog,
+                        input_alias,
+                        references,
+                    )
+                })
+                .collect::<Result<Vec<_>, _>>()?
+                .join(", ");
+            Ok(format!("{}({arguments})", function.as_str()))
+        }
+        ir::Expression::List(values) => {
+            let values = values
+                .iter()
+                .map(|value| {
+                    lower_expression_with_references(
+                        value,
+                        bindings,
+                        catalog,
+                        input_alias,
+                        references,
+                    )
+                })
+                .collect::<Result<Vec<_>, _>>()?
+                .join(", ");
+            Ok(format!("json_array({values})"))
+        }
+    }
+}
+
+fn binding_reference(
+    binding: ir::BindingId,
+    input_alias: &str,
+    references: &HashMap<ir::BindingId, String>,
+) -> String {
+    references
+        .get(&binding)
+        .cloned()
+        .unwrap_or_else(|| format!("{input_alias}.{}", binding_column(binding)))
+}
+
+fn lower_literal(literal: &ir::Literal) -> String {
+    match literal {
+        ir::Literal::Null => "NULL".to_owned(),
+        ir::Literal::Boolean(true) => "TRUE".to_owned(),
+        ir::Literal::Boolean(false) => "FALSE".to_owned(),
+        ir::Literal::Integer(value) => value.to_string(),
+        ir::Literal::Real(value) => value.to_string(),
+        ir::Literal::Text(value) => format!("'{}'", value.replace('\'', "''")),
+        ir::Literal::Bytes(value) => {
+            let hex = value
+                .iter()
+                .map(|byte| format!("{byte:02x}"))
+                .collect::<String>();
+            format!("X'{hex}'")
+        }
+    }
+}
+
+fn binary_operator(operator: ir::BinaryOp) -> &'static str {
+    match operator {
+        ir::BinaryOp::Equal => "=",
+        ir::BinaryOp::NotEqual => "!=",
+        ir::BinaryOp::Less => "<",
+        ir::BinaryOp::LessOrEqual => "<=",
+        ir::BinaryOp::Greater => ">",
+        ir::BinaryOp::GreaterOrEqual => ">=",
+        ir::BinaryOp::Add => "+",
+        ir::BinaryOp::Subtract => "-",
+        ir::BinaryOp::Multiply => "*",
+        ir::BinaryOp::Divide => "/",
+        ir::BinaryOp::And => "AND",
+        ir::BinaryOp::Or => "OR",
+        ir::BinaryOp::In => "IN",
+    }
+}
+
+fn binding_column(binding: ir::BindingId) -> String {
+    format!("b{}", binding.get())
+}
+
+fn quote_identifier(identifier: &str) -> String {
+    format!("\"{}\"", identifier.replace('"', "\"\""))
+}
+
+fn validate_bare_name(name: &str) -> Result<(), LowerError> {
+    if !name.is_empty()
+        && name
+            .bytes()
+            .all(|byte| byte.is_ascii_alphanumeric() || byte == b'_')
+    {
+        Ok(())
+    } else {
+        Err(LowerError::InvalidName(name.to_owned()))
+    }
 }

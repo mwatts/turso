@@ -8,6 +8,7 @@
 
 mod binder;
 mod catalog;
+mod compiler;
 mod lowering;
 
 pub use binder::{
@@ -19,4 +20,8 @@ pub use catalog::{
     NodeSourceRegistration, RegisteredGraph, RegisteredNodeSource, RegisteredRelationshipSource,
     RelationshipSourceRegistration,
 };
-pub use lowering::{lower_relational, LowerError};
+pub use compiler::{graph_frontend_id, GraphCompilationCatalog, GraphCompiler};
+pub use lowering::{
+    lower_relational, LowerError, NodeTableLayout, RelationalCatalogSnapshot,
+    RelationshipTableLayout,
+};

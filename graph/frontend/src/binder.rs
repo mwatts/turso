@@ -147,6 +147,7 @@ impl<'a> Binder<'a> {
                 cypher::Clause::Match(clause) => {
                     self.bind_match(clause, clause_span(clause, query))?
                 }
+                cypher::Clause::Unwind(clause) => self.bind_unwind(clause)?,
                 cypher::Clause::With(clause) => self.bind_projection(clause, false)?,
                 cypher::Clause::Return(clause) => self.bind_projection(clause, true)?,
             }
@@ -154,6 +155,60 @@ impl<'a> Binder<'a> {
         Ok(BoundQuery {
             plan: self.plan.ok_or(BindError::EmptyQuery)?,
         })
+    }
+
+    fn bind_unwind(&mut self, clause: &cypher::UnwindClause) -> Result<(), BindError> {
+        if self
+            .scope
+            .iter()
+            .any(|binding| binding.name() == clause.alias.value)
+        {
+            return Err(BindError::DuplicateVariable {
+                name: clause.alias.value.clone(),
+                span_start: clause.alias.span.start,
+                span_end: clause.alias.span.end,
+            });
+        }
+        let list = self.bind_expression(&clause.expression)?;
+        let value_type = match &list.value_type {
+            ir::ValueType::List(element) => (**element).clone(),
+            _ => ir::ValueType::Any,
+        };
+        let nullability = match &list.expression {
+            ir::Expression::List(values)
+                if values
+                    .iter()
+                    .all(|value| value.nullability == ir::Nullability::NonNull) =>
+            {
+                ir::Nullability::NonNull
+            }
+            _ => ir::Nullability::Nullable,
+        };
+        let output = ir::Binding::new(
+            self.next_id()?,
+            clause.alias.value.clone(),
+            value_type,
+            nullability,
+        )?;
+        let input = match self.plan.take() {
+            Some(input) => input,
+            None => ir::Plan::new(
+                ir::PlanKind::Unit(ir::Unit),
+                ir::Scope::default(),
+                ir::ResultShape::default(),
+            )?,
+        };
+        self.scope.push(output.clone());
+        self.plan = Some(ir::Plan::new(
+            ir::PlanKind::Unwind(ir::Unwind {
+                input: Box::new(input),
+                list,
+                output,
+            }),
+            ir::Scope::new(self.scope.clone())?,
+            ir::ResultShape::default(),
+        )?);
+        Ok(())
     }
 
     fn bind_match(
@@ -258,6 +313,14 @@ impl<'a> Binder<'a> {
                         span_start: relationship.span.start,
                         span_end: relationship.span.end,
                     })?;
+            let target_node_source =
+                self.catalog
+                    .node_source(self.graph)
+                    .ok_or(BindError::MissingSource {
+                        entity: "node",
+                        span_start: node.span.start,
+                        span_end: node.span.end,
+                    })?;
             let direction = match relationship.direction {
                 cypher::Direction::Outgoing => ir::Direction::Outgoing,
                 cypher::Direction::Incoming => ir::Direction::Incoming,
@@ -269,6 +332,7 @@ impl<'a> Binder<'a> {
                 ir::PlanKind::FixedExpand(ir::FixedExpand {
                     input: Box::new(input),
                     relationship_source: source,
+                    target_node_source,
                     from,
                     relationship: relationship_binding.clone(),
                     to: to.clone(),
@@ -392,7 +456,36 @@ impl<'a> Binder<'a> {
         clause: &cypher::ProjectionClause,
         is_return: bool,
     ) -> Result<(), BindError> {
-        let input = self.plan.take().ok_or(BindError::EmptyQuery)?;
+        let mut input = self.plan.take().ok_or(BindError::EmptyQuery)?;
+        let sort_keys = clause
+            .order_by
+            .iter()
+            .map(|item| {
+                Ok(ir::SortKey {
+                    expression: self.bind_expression(&item.expression)?,
+                    direction: if item.descending {
+                        ir::SortDirection::Descending
+                    } else {
+                        ir::SortDirection::Ascending
+                    },
+                    null_order: if item.descending {
+                        ir::NullOrder::First
+                    } else {
+                        ir::NullOrder::Last
+                    },
+                })
+            })
+            .collect::<Result<Vec<_>, BindError>>()?;
+        if !sort_keys.is_empty() {
+            input = ir::Plan::new(
+                ir::PlanKind::Sort(ir::Sort {
+                    input: Box::new(input),
+                    keys: sort_keys,
+                }),
+                ir::Scope::new(self.scope.clone())?,
+                ir::ResultShape::default(),
+            )?;
+        }
         let mut projections = Vec::new();
         let mut output_scope = Vec::new();
         let mut output_entities = HashMap::new();
@@ -508,6 +601,32 @@ impl<'a> Binder<'a> {
                 result_shape,
             )?);
         }
+        if let Some(skip) = &clause.skip {
+            let count = self.bind_expression(skip)?;
+            let input = self.plan.take().ok_or(BindError::EmptyQuery)?;
+            let result_shape = input.result_shape().clone();
+            self.plan = Some(ir::Plan::new(
+                ir::PlanKind::Skip(ir::Skip {
+                    input: Box::new(input),
+                    count,
+                }),
+                ir::Scope::new(self.scope.clone())?,
+                result_shape,
+            )?);
+        }
+        if let Some(limit) = &clause.limit {
+            let count = self.bind_expression(limit)?;
+            let input = self.plan.take().ok_or(BindError::EmptyQuery)?;
+            let result_shape = input.result_shape().clone();
+            self.plan = Some(ir::Plan::new(
+                ir::PlanKind::Limit(ir::Limit {
+                    input: Box::new(input),
+                    count,
+                }),
+                ir::Scope::new(self.scope.clone())?,
+                result_shape,
+            )?);
+        }
         Ok(())
     }
 
@@ -612,6 +731,22 @@ impl<'a> Binder<'a> {
                     },
                     ir::ValueType::Any,
                     ir::Nullability::Nullable,
+                )
+            }
+            cypher::Expression::List(values) => {
+                let values = values
+                    .iter()
+                    .map(|value| self.bind_expression(value))
+                    .collect::<Result<Vec<_>, _>>()?;
+                let element_type = values
+                    .first()
+                    .map(|value| value.value_type.clone())
+                    .filter(|first| values.iter().all(|value| &value.value_type == first))
+                    .unwrap_or(ir::ValueType::Any);
+                (
+                    ir::Expression::List(values),
+                    ir::ValueType::List(Box::new(element_type)),
+                    ir::Nullability::NonNull,
                 )
             }
         };
@@ -779,7 +914,10 @@ fn nullable(left: ir::Nullability, right: ir::Nullability) -> ir::Nullability {
 fn projection_name(expression: &cypher::Spanned<cypher::Expression>) -> String {
     match &expression.value {
         cypher::Expression::Variable(name) => name.clone(),
-        cypher::Expression::Property { name, .. } => name.value.clone(),
+        cypher::Expression::Property { entity, name } => match &entity.value {
+            cypher::Expression::Variable(entity) => format!("{entity}.{}", name.value),
+            _ => name.value.clone(),
+        },
         _ => format!("expression_{}", expression.span.start),
     }
 }

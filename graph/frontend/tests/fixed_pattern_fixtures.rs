@@ -1,10 +1,13 @@
 use std::collections::{HashMap, HashSet};
+use std::sync::Arc;
 
 use serde::Deserialize;
+use turso_core::{Database, MemoryIO, SqliteDialect, Value};
 use turso_graph_cypher::parse;
 use turso_graph_frontend::{
-    bind, lower_relational, CatalogEntity, GraphCatalogSnapshot, ParameterTypes, RegisteredGraph,
-    RegisteredNodeSource, RegisteredRelationshipSource, ResolvedProperty,
+    bind, graph_frontend_id, lower_relational, CatalogEntity, GraphCatalogSnapshot, GraphCompiler,
+    NodeTableLayout, ParameterTypes, RelationalCatalogSnapshot, RelationshipTableLayout,
+    ResolvedProperty,
 };
 use turso_graph_ir::{
     GraphId, LabelId, Nullability, PropertyId, RelationshipTypeId, SourceTableId, ValueType,
@@ -77,31 +80,35 @@ impl GraphCatalogSnapshot for Catalog {
     }
 }
 
-fn manifest() -> Manifest {
-    toml::from_str(MANIFEST).expect("fixed-pattern manifest must be valid TOML")
-}
-
-fn registered_graph() -> RegisteredGraph {
-    RegisteredGraph {
-        id: GraphId::new(1).expect("graph id"),
-        name: "fixture".to_owned(),
-        generation: 0,
-        node_sources: vec![RegisteredNodeSource {
-            id: SourceTableId::new(1).expect("node source"),
-            name: "Person".to_owned(),
+impl RelationalCatalogSnapshot for Catalog {
+    fn node_layout(&self, source: SourceTableId) -> Option<NodeTableLayout> {
+        (source.get() == 1).then(|| NodeTableLayout {
             table: "people".to_owned(),
             identity_column: "id".to_owned(),
-        }],
-        relationship_sources: vec![RegisteredRelationshipSource {
-            id: SourceTableId::new(2).expect("relationship source"),
-            name: "KNOWS".to_owned(),
+        })
+    }
+
+    fn relationship_layout(&self, source: SourceTableId) -> Option<RelationshipTableLayout> {
+        (source.get() == 2).then(|| RelationshipTableLayout {
             table: "relationships".to_owned(),
+            identity_column: "id".to_owned(),
             start_column: "src".to_owned(),
             end_column: "dst".to_owned(),
-            start_node_source: SourceTableId::new(1).expect("start source"),
-            end_node_source: SourceTableId::new(1).expect("end source"),
-        }],
+        })
     }
+
+    fn property_column(&self, _source: SourceTableId, property: PropertyId) -> Option<String> {
+        match property.get() {
+            1 => Some("name".to_owned()),
+            2 => Some("age".to_owned()),
+            3 => Some("val".to_owned()),
+            _ => None,
+        }
+    }
+}
+
+fn manifest() -> Manifest {
+    toml::from_str(MANIFEST).expect("fixed-pattern manifest must be valid TOML")
 }
 
 #[test]
@@ -133,7 +140,6 @@ fn fixture_manifest_has_provenance_ordering_and_explicit_support_status() {
 
 #[test]
 fn required_fixtures_reach_relational_lowering() {
-    let graph = registered_graph();
     let parameters = HashMap::from([("name".to_owned(), (ValueType::Text, Nullability::NonNull))]);
     for fixture in manifest().fixture {
         let parsed = parse(&fixture.query);
@@ -153,7 +159,114 @@ fn required_fixtures_reach_relational_lowering() {
             &parameters as &ParameterTypes,
         )
         .unwrap_or_else(|error| panic!("{} did not bind: {error}", fixture.id));
-        lower_relational(&bound.plan, &graph)
+        lower_relational(&bound.plan, &Catalog)
             .unwrap_or_else(|error| panic!("{} did not lower: {error}", fixture.id));
     }
+}
+
+#[test]
+fn supported_fixtures_execute_through_turso_planner_and_vdbe() {
+    let io = Arc::new(MemoryIO::new());
+    let connection = Database::open_file(io, ":memory:graph-lowering", Arc::new(SqliteDialect))
+        .expect("open graph fixture database")
+        .connect()
+        .expect("connect graph fixture database");
+    connection
+        .execute(
+            "CREATE TABLE people(\
+                 id INTEGER PRIMARY KEY, name TEXT, age INTEGER, val INTEGER\
+             );\
+             CREATE TABLE relationships(\
+                 id INTEGER PRIMARY KEY, src INTEGER, dst INTEGER\
+             );\
+             INSERT INTO people VALUES\
+                 (1, 'Alix', 30, 1),\
+                 (2, 'Bea', 20, 2),\
+                 (3, 'Cy', 40, 3),\
+                 (4, 'Dee', 25, 4);\
+             INSERT INTO relationships VALUES (1, 1, 2), (2, 2, 3);",
+        )
+        .expect("create graph fixture data");
+
+    let parameters = HashMap::from([("name".to_owned(), (ValueType::Text, Nullability::NonNull))]);
+    connection
+        .register_frontend_compiler(
+            graph_frontend_id(),
+            Arc::new(GraphCompiler::new(
+                GraphId::new(1).expect("graph id"),
+                Arc::new(Catalog),
+                parameters,
+            )),
+        )
+        .expect("register graph compiler");
+
+    let mut observed = HashMap::new();
+    for fixture in manifest().fixture {
+        assert_eq!(fixture.parser_status, "supported");
+        let mut statement = connection
+            .prepare_frontend(&graph_frontend_id(), &fixture.query)
+            .unwrap_or_else(|error| panic!("{} did not prepare: {error}", fixture.id));
+        if let Some(index) = statement.parameter_index("$name") {
+            statement
+                .bind_at(index, Value::build_text("Alix"))
+                .expect("bind fixture parameter");
+        }
+        let rows = statement
+            .run_collect_rows()
+            .unwrap_or_else(|error| panic!("{} did not execute: {error}", fixture.id));
+        observed.insert(
+            fixture.id,
+            rows.into_iter()
+                .map(|row| row.into_iter().map(|value| value.to_string()).collect())
+                .collect::<Vec<Vec<String>>>(),
+        );
+    }
+
+    assert_eq!(
+        observed["unwind-list"],
+        vec![vec!["1"], vec!["2"], vec!["3"]]
+    );
+    assert_eq!(
+        observed["fixed-directed-edge"],
+        vec![vec!["Alix", "Bea"], vec!["Bea", "Cy"]]
+    );
+    assert_eq!(observed["fixed-undirected-edge"], vec![vec!["Bea"]]);
+    assert_eq!(observed["fixed-multi-hop"], vec![vec!["1", "2", "3"]]);
+    assert_eq!(observed["property-predicate-parameter"], vec![vec!["Alix"]]);
+    assert_eq!(
+        observed["order-by-projected-row"],
+        vec![vec!["Bea"], vec!["Dee"], vec!["Alix"], vec!["Cy"]]
+    );
+    assert_eq!(observed["skip-and-limit"], vec![vec!["2"], vec!["3"]]);
+    assert_eq!(observed["aggregate-count"], vec![vec!["4"]]);
+
+    let incoming = "MATCH (a:Person)<-[:KNOWS]-(b:Person) \
+                    RETURN a.name, b.name ORDER BY a.name";
+    let rows = connection
+        .prepare_frontend(&graph_frontend_id(), incoming)
+        .expect("prepare incoming expansion")
+        .run_collect_rows()
+        .expect("execute incoming expansion");
+    assert_eq!(
+        rows,
+        vec![
+            vec![Value::build_text("Bea"), Value::build_text("Alix")],
+            vec![Value::build_text("Cy"), Value::build_text("Bea")],
+        ],
+        "incoming expansion must reverse the relationship endpoints"
+    );
+
+    let optional_with_predicate = "MATCH (a:Person {name: 'Alix'}) \
+         OPTIONAL MATCH (a)-[r:KNOWS]->(b) WHERE b.age > 100 \
+         RETURN a.name, r, b.name";
+    let rows = connection
+        .prepare_frontend(&graph_frontend_id(), optional_with_predicate)
+        .expect("prepare optional predicate")
+        .run_collect_rows()
+        .expect("execute optional predicate");
+    assert_eq!(
+        rows,
+        vec![vec![Value::build_text("Alix"), Value::Null, Value::Null]],
+        "an optional predicate must preserve the input row and null the entire unmatched pattern"
+    );
 }

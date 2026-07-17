@@ -37,6 +37,7 @@ impl Plan {
 /// First read-only operator set shared by Cypher and compatibility adapters.
 #[derive(Clone, Debug, PartialEq)]
 pub enum PlanKind {
+    Unit(Unit),
     NodeScan(NodeScan),
     FixedExpand(FixedExpand),
     Filter(Filter),
@@ -51,6 +52,10 @@ pub enum PlanKind {
     Union(Union),
 }
 
+/// A single row with no bindings, used by source clauses such as `UNWIND`.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct Unit;
+
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct NodeScan {
     pub graph: GraphId,
@@ -64,6 +69,7 @@ pub struct NodeScan {
 pub struct FixedExpand {
     pub input: Box<Plan>,
     pub relationship_source: SourceTableId,
+    pub target_node_source: SourceTableId,
     pub from: BindingId,
     pub relationship: Binding,
     pub to: Binding,

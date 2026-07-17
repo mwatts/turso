@@ -31,6 +31,7 @@ pub struct NodeSourceRegistration {
 pub struct RelationshipSourceRegistration {
     pub name: String,
     pub table: String,
+    pub identity_column: String,
     pub start_column: String,
     pub end_column: String,
     pub start_node_source: String,
@@ -57,6 +58,7 @@ pub struct RegisteredRelationshipSource {
     pub id: SourceTableId,
     pub name: String,
     pub table: String,
+    pub identity_column: String,
     pub start_column: String,
     pub end_column: String,
     pub start_node_source: SourceTableId,
@@ -176,7 +178,7 @@ pub fn load_registered_graph(
     let relationship_rows = query_rows(
         connection,
         &format!(
-            "SELECT s.id, s.name, r.table_name, r.start_column, r.end_column, \
+            "SELECT s.id, s.name, r.table_name, r.identity_column, r.start_column, r.end_column, \
              r.start_node_source_id, r.end_node_source_id FROM {SOURCES_TABLE} s \
              JOIN {RELATIONSHIP_SOURCES_TABLE} r ON r.source_id = s.id \
              WHERE s.graph_id = {} ORDER BY s.id",
@@ -189,15 +191,20 @@ pub fn load_registered_graph(
             id: source_id(integer(&row, 0, "relationship source id")?)?,
             name: text(&row, 1, "relationship source name")?.to_owned(),
             table: text(&row, 2, "relationship source table")?.to_owned(),
-            start_column: text(&row, 3, "start column")?.to_owned(),
-            end_column: text(&row, 4, "end column")?.to_owned(),
-            start_node_source: source_id(integer(&row, 5, "start node source id")?)?,
-            end_node_source: source_id(integer(&row, 6, "end node source id")?)?,
+            identity_column: text(&row, 3, "relationship identity column")?.to_owned(),
+            start_column: text(&row, 4, "start column")?.to_owned(),
+            end_column: text(&row, 5, "end column")?.to_owned(),
+            start_node_source: source_id(integer(&row, 6, "start node source id")?)?,
+            end_node_source: source_id(integer(&row, 7, "end node source id")?)?,
         };
         require_columns(
             connection,
             &source.table,
-            &[&source.start_column, &source.end_column],
+            &[
+                &source.identity_column,
+                &source.start_column,
+                &source.end_column,
+            ],
         )?;
         relationship_sources.push(source);
     }
@@ -238,7 +245,16 @@ fn register_graph_in_transaction(
         require_columns(
             connection,
             &relationship.table,
-            &[&relationship.start_column, &relationship.end_column],
+            &[
+                &relationship.identity_column,
+                &relationship.start_column,
+                &relationship.end_column,
+            ],
+        )?;
+        require_unique_identity(
+            connection,
+            &relationship.table,
+            &relationship.identity_column,
         )?;
     }
 
@@ -326,10 +342,11 @@ fn register_graph_in_transaction(
             "relationship source id",
         )?;
         execute_internal(connection, format!(
-            "INSERT INTO {RELATIONSHIP_SOURCES_TABLE}(source_id, table_name, start_column, end_column, start_node_source_id, end_node_source_id) \
-             VALUES ({}, {}, {}, {}, {}, {})",
+            "INSERT INTO {RELATIONSHIP_SOURCES_TABLE}(source_id, table_name, identity_column, start_column, end_column, start_node_source_id, end_node_source_id) \
+             VALUES ({}, {}, {}, {}, {}, {}, {})",
             relationship_id,
             sql_string(&relationship.table),
+            sql_string(&relationship.identity_column),
             sql_string(&relationship.start_column),
             sql_string(&relationship.end_column),
             start.get(),
@@ -384,7 +401,7 @@ fn create_catalog(connection: &Arc<Connection>) -> Result<(), CatalogError> {
         "CREATE TABLE IF NOT EXISTS {NODE_SOURCES_TABLE}(source_id INTEGER PRIMARY KEY, table_name TEXT NOT NULL, identity_column TEXT NOT NULL)"
     ))?;
     execute_internal(connection, format!(
-        "CREATE TABLE IF NOT EXISTS {RELATIONSHIP_SOURCES_TABLE}(source_id INTEGER PRIMARY KEY, table_name TEXT NOT NULL, start_column TEXT NOT NULL, end_column TEXT NOT NULL, start_node_source_id INTEGER NOT NULL, end_node_source_id INTEGER NOT NULL)"
+        "CREATE TABLE IF NOT EXISTS {RELATIONSHIP_SOURCES_TABLE}(source_id INTEGER PRIMARY KEY, table_name TEXT NOT NULL, identity_column TEXT NOT NULL, start_column TEXT NOT NULL, end_column TEXT NOT NULL, start_node_source_id INTEGER NOT NULL, end_node_source_id INTEGER NOT NULL)"
     ))?;
     Ok(())
 }
@@ -430,7 +447,14 @@ fn validate_registration_names(registration: &GraphRegistration) -> Result<(), C
     }
     for source in &registration.relationship_sources {
         validate_name("relationship source", &source.name)?;
-        validate_source_identifiers(&source.table, &[&source.start_column, &source.end_column])?;
+        validate_source_identifiers(
+            &source.table,
+            &[
+                &source.identity_column,
+                &source.start_column,
+                &source.end_column,
+            ],
+        )?;
         if !source_names.insert(source.name.to_ascii_lowercase()) {
             return Err(CatalogError::DuplicateName {
                 kind: "relationship source",
@@ -705,6 +729,7 @@ mod tests {
             relationship_sources: vec![RelationshipSourceRegistration {
                 name: "KNOWS".to_owned(),
                 table: "friendships".to_owned(),
+                identity_column: "id".to_owned(),
                 start_column: "src".to_owned(),
                 end_column: "dst".to_owned(),
                 start_node_source: "Person".to_owned(),

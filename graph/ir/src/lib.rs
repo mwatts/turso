@@ -23,6 +23,6 @@ pub use identity::{
 };
 pub use plan::{
     Aggregate, AggregateFunction, Aggregation, Distinct, Filter, FixedExpand, Grouping, LeftApply,
-    Limit, NodeScan, Plan, PlanKind, Project, Projection, Skip, Sort, SortKey, Union, Unwind,
+    Limit, NodeScan, Plan, PlanKind, Project, Projection, Skip, Sort, SortKey, Union, Unit, Unwind,
 };
 pub use scope::{Binding, Direction, Nullability, ResultColumn, ResultShape, Scope};

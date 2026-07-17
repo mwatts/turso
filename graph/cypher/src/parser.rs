@@ -14,7 +14,8 @@ use thiserror::Error;
 
 use crate::{
     BinaryOperator, Clause, Direction, Expression, Literal, MatchClause, NodePattern, PathPattern,
-    ProjectionClause, ProjectionItem, Query, RelationshipPattern, RelationshipRange, Span, Spanned,
+    ProjectionClause, ProjectionItem, Query, RelationshipPattern, RelationshipRange, SortItem,
+    Span, Spanned, UnwindClause,
 };
 
 #[derive(Parser)]
@@ -76,11 +77,28 @@ fn walk_clause(pair: Pair<'_, Rule>) -> Result<Spanned<Clause>, ParseError> {
     let span = pair_span(&pair);
     let clause = match pair.as_rule() {
         Rule::match_clause => Clause::Match(walk_match(pair)?),
+        Rule::unwind_clause => Clause::Unwind(walk_unwind(pair)?),
         Rule::with_clause => Clause::With(walk_projection_clause(pair)?),
         Rule::return_clause => Clause::Return(walk_projection_clause(pair)?),
         rule => return Err(unexpected(&pair, "clause", rule)),
     };
     Ok(Spanned::new(clause, span))
+}
+
+fn walk_unwind(pair: Pair<'_, Rule>) -> Result<UnwindClause, ParseError> {
+    let span = pair_span(&pair);
+    let mut inner = pair.into_inner();
+    let expression = inner
+        .find(|item| item.as_rule() == Rule::expression)
+        .ok_or_else(|| ParseError::at(span, "UNWIND has no expression"))?;
+    let expression = walk_expression(expression)?;
+    let alias = inner
+        .find(|item| item.as_rule() == Rule::identifier)
+        .ok_or_else(|| ParseError::at(span, "UNWIND has no alias"))?;
+    Ok(UnwindClause {
+        expression,
+        alias: walk_identifier(alias),
+    })
 }
 
 fn walk_match(pair: Pair<'_, Rule>) -> Result<MatchClause, ParseError> {
@@ -253,11 +271,30 @@ fn walk_projection_clause(pair: Pair<'_, Rule>) -> Result<ProjectionClause, Pars
     let mut distinct = false;
     let mut items = Vec::new();
     let mut predicate = None;
+    let mut order_by = Vec::new();
+    let mut skip = None;
+    let mut limit = None;
     for child in pair.into_inner() {
         match child.as_rule() {
             Rule::DISTINCT => distinct = true,
             Rule::projection_items => items = walk_projection_items(child)?,
             Rule::where_clause => predicate = Some(walk_where(child)?),
+            Rule::projection_tail => {
+                for tail in child.into_inner() {
+                    match tail.as_rule() {
+                        Rule::order_by_clause => {
+                            order_by = tail
+                                .into_inner()
+                                .filter(|item| item.as_rule() == Rule::sort_item)
+                                .map(walk_sort_item)
+                                .collect::<Result<Vec<_>, _>>()?;
+                        }
+                        Rule::skip_clause => skip = Some(walk_tail_expression(tail)?),
+                        Rule::limit_clause => limit = Some(walk_tail_expression(tail)?),
+                        _ => {}
+                    }
+                }
+            }
             _ => {}
         }
     }
@@ -265,7 +302,33 @@ fn walk_projection_clause(pair: Pair<'_, Rule>) -> Result<ProjectionClause, Pars
         distinct,
         items,
         predicate,
+        order_by,
+        skip,
+        limit,
     })
+}
+
+fn walk_sort_item(pair: Pair<'_, Rule>) -> Result<SortItem, ParseError> {
+    let span = pair_span(&pair);
+    let mut inner = pair.into_inner();
+    let expression = inner
+        .next()
+        .ok_or_else(|| ParseError::at(span, "ORDER BY item has no expression"))?;
+    let expression = walk_expression(expression)?;
+    let descending = inner.any(|item| item.as_rule() == Rule::DESC);
+    Ok(SortItem {
+        expression,
+        descending,
+    })
+}
+
+fn walk_tail_expression(pair: Pair<'_, Rule>) -> Result<Spanned<Expression>, ParseError> {
+    let span = pair_span(&pair);
+    let expression = pair
+        .into_inner()
+        .find(|item| item.as_rule() == Rule::expression)
+        .ok_or_else(|| ParseError::at(span, "clause has no expression"))?;
+    walk_expression(expression)
 }
 
 fn walk_projection_items(pair: Pair<'_, Rule>) -> Result<Vec<ProjectionItem>, ParseError> {
@@ -321,6 +384,13 @@ fn walk_expression(pair: Pair<'_, Rule>) -> Result<Spanned<Expression>, ParseErr
         Rule::identifier => Expression::Variable(identifier_text(pair.as_str())),
         Rule::parameter => Expression::Parameter(pair.as_str()[1..].to_owned()),
         Rule::function_call => walk_function(pair)?,
+        Rule::list_literal => Expression::List(
+            pair.into_inner()
+                .filter(|item| item.as_rule() == Rule::expression_list)
+                .flat_map(Pair::into_inner)
+                .map(walk_expression)
+                .collect::<Result<Vec<_>, _>>()?,
+        ),
         rule => return Err(unexpected(&pair, "expression", rule)),
     };
     Ok(Spanned::new(value, span))
@@ -566,6 +636,27 @@ mod tests {
         assert_eq!(query.clauses.len(), 3);
         assert!(matches!(query.clauses[1].value, Clause::With(_)));
         assert!(matches!(query.clauses[2].value, Clause::Return(_)));
+    }
+
+    #[test]
+    fn parses_unwind_list_ordering_and_pagination() {
+        let query =
+            parse("UNWIND [1, 2, 3] AS x RETURN x ORDER BY x DESC SKIP 1 LIMIT 2").expect("query");
+        let Clause::Unwind(unwind) = &query.clauses[0].value else {
+            panic!("expected UNWIND")
+        };
+        assert_eq!(unwind.alias.value, "x");
+        assert!(matches!(
+            unwind.expression.value,
+            Expression::List(ref values) if values.len() == 3
+        ));
+        let Clause::Return(projection) = &query.clauses[1].value else {
+            panic!("expected RETURN")
+        };
+        assert_eq!(projection.order_by.len(), 1);
+        assert!(projection.order_by[0].descending);
+        assert!(projection.skip.is_some());
+        assert!(projection.limit.is_some());
     }
 
     #[test]

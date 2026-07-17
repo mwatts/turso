@@ -10,6 +10,7 @@ mod parser;
 
 pub use ast::{
     BinaryOperator, Clause, Direction, Expression, Literal, MatchClause, NodePattern, PathPattern,
-    ProjectionClause, ProjectionItem, Query, RelationshipPattern, RelationshipRange, Span, Spanned,
+    ProjectionClause, ProjectionItem, Query, RelationshipPattern, RelationshipRange, SortItem,
+    Span, Spanned, UnwindClause,
 };
 pub use parser::{parse, ParseError};

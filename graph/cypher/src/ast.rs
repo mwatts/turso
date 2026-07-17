@@ -33,8 +33,15 @@ pub struct Query {
 #[derive(Clone, Debug, PartialEq)]
 pub enum Clause {
     Match(MatchClause),
+    Unwind(UnwindClause),
     With(ProjectionClause),
     Return(ProjectionClause),
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct UnwindClause {
+    pub expression: Spanned<Expression>,
+    pub alias: Spanned<String>,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -88,6 +95,15 @@ pub struct ProjectionClause {
     pub distinct: bool,
     pub items: Vec<ProjectionItem>,
     pub predicate: Option<Spanned<Expression>>,
+    pub order_by: Vec<SortItem>,
+    pub skip: Option<Spanned<Expression>>,
+    pub limit: Option<Spanned<Expression>>,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct SortItem {
+    pub expression: Spanned<Expression>,
+    pub descending: bool,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -143,4 +159,5 @@ pub enum Expression {
         arguments: Vec<Spanned<Expression>>,
         distinct: bool,
     },
+    List(Vec<Spanned<Expression>>),
 }
