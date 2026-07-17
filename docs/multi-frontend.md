@@ -833,6 +833,13 @@ failures on every shape. The recorded medians range from about 1.0 to 4.6 ms for
 the selected inputs. No optimizer transplant is justified by this baseline;
 Samyama and Grafeo remain evidence-triggered donors rather than dependencies.
 
+Optional HTTP/JSON and Bolt surfaces are explicitly deferred. They were not
+approved as part of this implementation goal; `GraphSession` remains the shared
+service seam and the Postgres `graph.cypher` adapter is the delivered external
+surface. Any future protocol must remain a thin adapter with a separately
+approved authentication, namespace, cancellation, timeout, and transaction
+lifecycle contract.
+
 ### 6.8 Verification strategy
 
 | Layer | Primary verification |

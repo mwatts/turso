@@ -177,6 +177,15 @@ conversion, cancellation, timeout, and transaction/session lifecycle.
 Add Bolt only as a separately approved plan with its own compatibility matrix.
 Do not move parsing, binding, planning, or traversal into protocol crates.
 
+### D6 disposition: explicitly deferred
+
+No HTTP/JSON or Bolt surface is part of the approved graph implementation goal.
+The stable shared boundary is `GraphSession`, with the thin Postgres adapter as
+the only protocol-facing integration in this delivery. HTTP/JSON remains a
+future adapter task once authentication/namespace and transaction-session
+requirements are approved. Bolt still requires its own plan and compatibility
+matrix. Deferral adds no protocol parsing, planning, storage, or traversal code.
+
 ## Verification and completion
 
 ```bash
