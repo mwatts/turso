@@ -34,6 +34,6 @@ pub use mutation::{execute_cypher_mutation, MutationError, MutationParameters, M
 pub use session::{GraphSession, GraphSessionError};
 pub use snapshot::{
     build_traversal_snapshot, build_visible_traversal_snapshot, NodeCoordinate, PublishOutcome,
-    RelationshipCoordinate, SessionSnapshotStore, SnapshotError, SnapshotStore, SourceIdentity,
-    TraversalSnapshot,
+    RelationshipCoordinate, SessionSnapshotStore, SnapshotError, SnapshotMetadata,
+    SnapshotPersistenceMode, SnapshotStatus, SnapshotStore, SourceIdentity, TraversalSnapshot,
 };

@@ -109,7 +109,7 @@ impl GraphSession {
     ) -> Result<Statement, GraphSessionError> {
         let syntax = turso_graph_cypher::parse(source)?;
         if requires_traversal_snapshot(&syntax) {
-            self.snapshots.refresh_visible(
+            self.snapshots.refresh_visible_if_stale(
                 &self.connection,
                 &self.graph_name,
                 self.limits,
@@ -496,6 +496,52 @@ mod tests {
             ))
         ));
         assert!(outgoing(&fixture.writer_session).is_empty());
+    }
+
+    #[test]
+    fn traversal_snapshot_rebuilds_once_per_visible_generation() {
+        let fixture = fixture(":memory:graph-session-refresh-frequency");
+        let (initial, rebuilt) = fixture
+            .writer_session
+            .snapshots
+            .refresh_visible_if_stale(
+                &fixture.writer,
+                "social",
+                BuildLimits::default(),
+                &NeverCancelled,
+            )
+            .unwrap();
+        assert!(!rebuilt, "the current shared snapshot should be reused");
+
+        fixture
+            .writer
+            .execute("INSERT INTO relationships VALUES (10, 1, 2)")
+            .unwrap();
+        let (refreshed, rebuilt) = fixture
+            .writer_session
+            .snapshots
+            .refresh_visible_if_stale(
+                &fixture.writer,
+                "social",
+                BuildLimits::default(),
+                &NeverCancelled,
+            )
+            .unwrap();
+        assert!(rebuilt);
+        assert!(!Arc::ptr_eq(&initial, &refreshed));
+
+        let (reused, rebuilt) = fixture
+            .writer_session
+            .snapshots
+            .refresh_visible_if_stale(
+                &fixture.writer,
+                "social",
+                BuildLimits::default(),
+                &NeverCancelled,
+            )
+            .unwrap();
+        assert!(!rebuilt);
+        assert!(Arc::ptr_eq(&refreshed, &reused));
     }
 
     #[test]

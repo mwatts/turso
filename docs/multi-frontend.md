@@ -788,6 +788,25 @@ compatibility matrix.
 **Exit:** freshness is observable and enforced, recovery is deterministic, and
 the chosen persistence mode satisfies the one-file product contract.
 
+**D4 implementation checkpoint (2026-07-17):** the selected MVP mode is
+explicit in-memory rebuild on demand. `SnapshotStore` exposes the mode and a
+`Missing`/`Current`/`Stale` status with catalog version, source generation,
+build duration, graph size, retained-memory estimate, and conservative
+peak-build estimate. Snapshot consumers validate freshness against the rows
+visible to their connection; sessions reuse a current generation and lazily
+rebuild after the next committed or transaction-local generation change.
+
+The checked-in `snapshot_profile` example measures startup, build, refresh,
+memory, and durable write amplification. On the recorded development run, a
+100,000-node/99,999-edge sparse chain rebuilt in about 0.54 seconds, retained
+about 18.3 MiB, conservatively peaked at 27.5 MiB, and wrote zero derived bytes.
+This meets the recorded experimental envelope, so same-file chunks would add a
+publish/recovery format without evidence that the MVP needs it. Restart,
+discard, stale publish, cancellation, resource failure, schema damage, and
+rebuild tests prove the derived state can disappear without changing canonical
+rows. D5 benchmark shapes remain the gate that can reopen same-file persistence;
+a sidecar remains outside the one-file product contract.
+
 #### M9 — conformance, optimization, and protocol surfaces
 
 - Expand TCK coverage and keep unsupported scenarios visible.

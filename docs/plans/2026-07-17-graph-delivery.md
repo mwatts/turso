@@ -93,6 +93,46 @@ Persisted state must be discardable. Test crash during build, crash during
 publish, stale versions, schema changes, corruption, interrupted refresh, and
 rebuild. No derived-state failure may change canonical graph rows.
 
+### D4 decision: in-memory rebuild on demand
+
+The initial operational mode is `InMemoryRebuildOnDemand`. Persistence inside
+the Turso file is deferred, and no sidecar is created. The reproducible profile
+command is:
+
+```sh
+cargo run -q -p turso_graph_frontend --example snapshot_profile -- 1000 10000 100000
+```
+
+The 2026-07-17 debug-build profile on the development host produced:
+
+| Nodes | Relationships | Build | Refresh | Retained estimate | Conservative build peak | Durable derived writes |
+|---:|---:|---:|---:|---:|---:|---:|
+| 1,000 | 999 | 6.37 ms | 6.96 ms | 0.18 MiB | 0.27 MiB | 0 bytes |
+| 10,000 | 9,999 | 55.69 ms | 55.79 ms | 1.83 MiB | 2.75 MiB | 0 bytes |
+| 100,000 | 99,999 | 542.51 ms | 540.80 ms | 18.31 MiB | 27.47 MiB | 0 bytes |
+
+Store startup itself remained below 0.003 ms at every size. The accepted MVP
+envelope is a 100,000-node/relationship sparse graph rebuilt in at most one
+second with at most 64 MiB conservative peak memory. D5 must measure dense,
+skewed, cyclic, and high-degree inputs; exceeding that envelope reopens the
+same-file-chunk decision rather than silently adding a sidecar.
+
+Every snapshot now exposes catalog version, source generation, node/edge count,
+build duration, retained heap estimate, and conservative peak-build estimate.
+The store reports `Missing`, `Current`, or `Stale`, and `GraphExpand` refuses a
+snapshot whose catalog version or transaction-visible source generation no
+longer matches. A session reuses a current snapshot and rebuilds only once per
+visible generation. This is the post-commit maintenance policy: the next graph
+read refreshes through an ordinary Turso connection, with no background worker.
+
+The recovery contract follows from having no durable derived bytes. A crash or
+restart produces `Missing`; explicit discard handles suspected process-local
+damage; both rebuild from canonical rows. Cancellation, resource exhaustion,
+invalid endpoints, schema damage, and stale publication leave the last complete
+snapshot untouched. Tests assert that discard/restart, interrupted build,
+stale publish, schema failure, and rebuild never change canonical node or
+relationship rows.
+
 ## Task 5: expand conformance and optimization
 
 Add normalized cases from the openCypher TCK, AGE, Grafeo, pgGraph, Ladybug,

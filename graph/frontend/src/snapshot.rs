@@ -1,5 +1,7 @@
 use std::collections::HashMap;
+use std::mem::size_of;
 use std::sync::{Arc, RwLock, Weak};
+use std::time::{Duration, Instant};
 
 use thiserror::Error;
 use turso_core::{Connection, Numeric, Value};
@@ -40,6 +42,9 @@ pub struct TraversalSnapshot {
     nodes: Vec<NodeCoordinate>,
     node_ids: HashMap<NodeCoordinate, NodeId>,
     relationships: Vec<RelationshipCoordinate>,
+    build_elapsed: Duration,
+    estimated_heap_bytes: u64,
+    estimated_peak_build_bytes: u64,
 }
 
 impl TraversalSnapshot {
@@ -83,6 +88,59 @@ impl TraversalSnapshot {
             .ok()
             .and_then(|index| self.relationships.get(index))
     }
+
+    pub const fn build_elapsed(&self) -> Duration {
+        self.build_elapsed
+    }
+
+    pub const fn estimated_heap_bytes(&self) -> u64 {
+        self.estimated_heap_bytes
+    }
+
+    pub const fn estimated_peak_build_bytes(&self) -> u64 {
+        self.estimated_peak_build_bytes
+    }
+
+    pub fn metadata(&self) -> SnapshotMetadata {
+        SnapshotMetadata {
+            graph_id: self.graph_id,
+            catalog_version: self.catalog_version,
+            source_generation: self.source_generation,
+            node_count: self.graph.node_count(),
+            relationship_count: self.graph.edge_count(),
+            build_elapsed: self.build_elapsed,
+            estimated_heap_bytes: self.estimated_heap_bytes,
+            estimated_peak_build_bytes: self.estimated_peak_build_bytes,
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct SnapshotMetadata {
+    pub graph_id: GraphId,
+    pub catalog_version: u64,
+    pub source_generation: u64,
+    pub node_count: usize,
+    pub relationship_count: usize,
+    pub build_elapsed: Duration,
+    pub estimated_heap_bytes: u64,
+    pub estimated_peak_build_bytes: u64,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum SnapshotStatus {
+    Missing,
+    Current(SnapshotMetadata),
+    Stale {
+        snapshot: SnapshotMetadata,
+        current_catalog_version: u64,
+        current_generation: u64,
+    },
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum SnapshotPersistenceMode {
+    InMemoryRebuildOnDemand,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -144,6 +202,10 @@ pub struct SnapshotStore {
 }
 
 impl SnapshotStore {
+    pub const fn persistence_mode(&self) -> SnapshotPersistenceMode {
+        SnapshotPersistenceMode::InMemoryRebuildOnDemand
+    }
+
     pub fn get(&self, graph: GraphId) -> Result<Option<Arc<TraversalSnapshot>>, SnapshotError> {
         Ok(self
             .snapshots
@@ -193,10 +255,38 @@ impl SnapshotStore {
                     .filter(|registered| Arc::ptr_eq(registered, connection))
                     .and_then(|_| snapshots.upgrade())
             });
-        match session {
+        let snapshot = match session {
             Some(session) => session.get(graph),
             None => self.get(graph),
-        }
+        }?;
+        snapshot
+            .map(|snapshot| {
+                is_snapshot_current(connection, &snapshot)
+                    .map(|current| current.then_some(snapshot))
+            })
+            .transpose()
+            .map(Option::flatten)
+    }
+
+    pub fn status(
+        &self,
+        connection: &Arc<Connection>,
+        graph_name: &str,
+    ) -> Result<SnapshotStatus, SnapshotError> {
+        let registered = load_registered_graph(connection, graph_name)?;
+        let Some(snapshot) = self.get(registered.id)? else {
+            return Ok(SnapshotStatus::Missing);
+        };
+        Ok(classify_snapshot(&snapshot, registered.generation))
+    }
+
+    pub fn discard(&self, graph: GraphId) -> Result<bool, SnapshotError> {
+        Ok(self
+            .snapshots
+            .write()
+            .map_err(|_| SnapshotError::StorePoisoned)?
+            .remove(&graph)
+            .is_some())
     }
 
     pub fn get_current(
@@ -206,8 +296,10 @@ impl SnapshotStore {
     ) -> Result<Option<Arc<TraversalSnapshot>>, SnapshotError> {
         let registered = load_registered_graph(connection, graph_name)?;
         Ok(self.get(registered.id)?.filter(|snapshot| {
-            snapshot.catalog_version == GRAPH_CATALOG_VERSION
-                && snapshot.source_generation == registered.generation
+            matches!(
+                classify_snapshot(snapshot, registered.generation),
+                SnapshotStatus::Current(_)
+            )
         }))
     }
 
@@ -303,6 +395,27 @@ impl SessionSnapshotStore {
         Ok(snapshot)
     }
 
+    pub fn refresh_visible_if_stale(
+        &self,
+        connection: &Arc<Connection>,
+        graph_name: &str,
+        limits: BuildLimits,
+        cancellation: &dyn Cancellation,
+    ) -> Result<(Arc<TraversalSnapshot>, bool), SnapshotError> {
+        check_cancelled(cancellation)?;
+        let registered = load_registered_graph(connection, graph_name)?;
+        if let Some(snapshot) = self.get(registered.id)? {
+            if matches!(
+                classify_snapshot(&snapshot, registered.generation),
+                SnapshotStatus::Current(_)
+            ) {
+                return Ok((snapshot, false));
+            }
+        }
+        self.refresh_visible(connection, graph_name, limits, cancellation)
+            .map(|snapshot| (snapshot, true))
+    }
+
     pub fn clear(&self) -> Result<(), SnapshotError> {
         self.local
             .write()
@@ -378,6 +491,7 @@ fn build_in_transaction(
     limits: BuildLimits,
     cancellation: &dyn Cancellation,
 ) -> Result<TraversalSnapshot, SnapshotError> {
+    let started = Instant::now();
     check_cancelled(cancellation)?;
     let registered = load_registered_graph(connection, graph_name)?;
     let mut node_coordinates = Vec::new();
@@ -491,6 +605,13 @@ fn build_in_transaction(
         .enumerate()
         .map(|(index, coordinate)| Ok((coordinate, next_node_id(index)?)))
         .collect::<Result<HashMap<_, _>, SnapshotError>>()?;
+    let estimated_heap_bytes =
+        estimated_snapshot_heap_bytes(&graph, &node_coordinates, &relationship_coordinates);
+    let estimated_peak_build_bytes = estimated_peak_build_bytes(
+        estimated_heap_bytes,
+        node_coordinates.len(),
+        relationship_coordinates.len(),
+    );
     Ok(TraversalSnapshot {
         graph_id: registered.id,
         graph_name: registered.name,
@@ -500,7 +621,73 @@ fn build_in_transaction(
         nodes: node_coordinates,
         node_ids: node_lookup,
         relationships: relationship_coordinates,
+        build_elapsed: started.elapsed(),
+        estimated_heap_bytes,
+        estimated_peak_build_bytes,
     })
+}
+
+fn classify_snapshot(snapshot: &TraversalSnapshot, current_generation: u64) -> SnapshotStatus {
+    let metadata = snapshot.metadata();
+    if snapshot.catalog_version == GRAPH_CATALOG_VERSION
+        && snapshot.source_generation == current_generation
+    {
+        SnapshotStatus::Current(metadata)
+    } else {
+        SnapshotStatus::Stale {
+            snapshot: metadata,
+            current_catalog_version: GRAPH_CATALOG_VERSION,
+            current_generation,
+        }
+    }
+}
+
+fn is_snapshot_current(
+    connection: &Arc<Connection>,
+    snapshot: &TraversalSnapshot,
+) -> Result<bool, SnapshotError> {
+    let registered = load_registered_graph(connection, snapshot.graph_name())?;
+    Ok(registered.id == snapshot.graph_id
+        && matches!(
+            classify_snapshot(snapshot, registered.generation),
+            SnapshotStatus::Current(_)
+        ))
+}
+
+fn estimated_snapshot_heap_bytes(
+    graph: &Graph,
+    nodes: &[NodeCoordinate],
+    relationships: &[RelationshipCoordinate],
+) -> u64 {
+    let coordinate_bytes = nodes
+        .iter()
+        .map(|node| size_of::<NodeCoordinate>() + source_identity_heap_bytes(&node.identity))
+        .chain(relationships.iter().map(|relationship| {
+            size_of::<RelationshipCoordinate>() + source_identity_heap_bytes(&relationship.identity)
+        }))
+        .sum::<usize>();
+    graph
+        .estimated_heap_bytes()
+        .saturating_add(coordinate_bytes as u64)
+}
+
+fn estimated_peak_build_bytes(
+    retained_bytes: u64,
+    node_count: usize,
+    relationship_count: usize,
+) -> u64 {
+    let transient_bytes = node_count
+        .saturating_mul(size_of::<NodeId>() + size_of::<NodeCoordinate>())
+        .saturating_add(relationship_count.saturating_mul(size_of::<EdgeInput>()));
+    retained_bytes.saturating_add(transient_bytes as u64)
+}
+
+fn source_identity_heap_bytes(identity: &SourceIdentity) -> usize {
+    match identity {
+        SourceIdentity::Text(value) => value.capacity(),
+        SourceIdentity::Blob(value) => value.capacity(),
+        SourceIdentity::Integer(_) | SourceIdentity::Real(_) => 0,
+    }
 }
 
 fn query_rows_cancellable(
@@ -943,5 +1130,151 @@ mod tests {
             &store.get(registered.id).unwrap().unwrap()
         ));
         assert!(store.get_current(&connection, "social").unwrap().is_none());
+    }
+
+    #[test]
+    fn freshness_is_observable_and_stale_snapshots_cannot_be_opened() {
+        let connection = connection(":memory:snapshot-freshness");
+        let registered = register(&connection);
+        connection
+            .execute("INSERT INTO people VALUES (1, 'A')")
+            .unwrap();
+        let store = SnapshotStore::default();
+        store
+            .refresh(
+                &connection,
+                "social",
+                BuildLimits::default(),
+                &turso_graph_runtime::NeverCancelled,
+            )
+            .unwrap();
+
+        let SnapshotStatus::Current(metadata) = store.status(&connection, "social").unwrap() else {
+            panic!("published snapshot must be current");
+        };
+        assert_eq!(metadata.node_count, 1);
+        assert_eq!(metadata.relationship_count, 0);
+        assert!(metadata.estimated_heap_bytes > 0);
+        assert!(metadata.estimated_peak_build_bytes >= metadata.estimated_heap_bytes);
+        assert_eq!(
+            store.persistence_mode(),
+            SnapshotPersistenceMode::InMemoryRebuildOnDemand
+        );
+
+        connection
+            .execute("INSERT INTO people VALUES (2, 'B')")
+            .unwrap();
+        assert!(matches!(
+            store.status(&connection, "social").unwrap(),
+            SnapshotStatus::Stale {
+                snapshot: SnapshotMetadata {
+                    source_generation: 1,
+                    ..
+                },
+                current_generation: 2,
+                ..
+            }
+        ));
+        assert!(store
+            .get_for_connection(&connection, registered.id)
+            .unwrap()
+            .is_none());
+    }
+
+    #[test]
+    fn discarded_or_process_lost_state_rebuilds_without_changing_canonical_rows() {
+        let connection = connection(":memory:snapshot-discard");
+        let registered = register(&connection);
+        connection
+            .execute(
+                "INSERT INTO people VALUES (1, 'A'), (2, 'B'); \
+                 INSERT INTO relationships VALUES (10, 1, 2)",
+            )
+            .unwrap();
+        let store = SnapshotStore::default();
+        store
+            .refresh(
+                &connection,
+                "social",
+                BuildLimits::default(),
+                &turso_graph_runtime::NeverCancelled,
+            )
+            .unwrap();
+        assert!(store.discard(registered.id).unwrap());
+        assert_eq!(
+            store.status(&connection, "social").unwrap(),
+            SnapshotStatus::Missing
+        );
+
+        let after_process_loss = SnapshotStore::default();
+        assert_eq!(
+            after_process_loss.status(&connection, "social").unwrap(),
+            SnapshotStatus::Missing
+        );
+        after_process_loss
+            .refresh(
+                &connection,
+                "social",
+                BuildLimits::default(),
+                &turso_graph_runtime::NeverCancelled,
+            )
+            .unwrap();
+        let rebuilt = after_process_loss
+            .get_current(&connection, "social")
+            .unwrap()
+            .unwrap();
+        assert_eq!(rebuilt.graph().node_count(), 2);
+        assert_eq!(rebuilt.graph().edge_count(), 1);
+        assert_eq!(
+            query_rows_cancellable(
+                &connection,
+                "SELECT (SELECT count(*) FROM people), (SELECT count(*) FROM relationships)",
+                &turso_graph_runtime::NeverCancelled,
+            )
+            .unwrap(),
+            vec![vec![Value::from_i64(2), Value::from_i64(1)]]
+        );
+    }
+
+    #[test]
+    fn schema_damage_rejects_refresh_and_preserves_canonical_rows_and_old_state() {
+        let connection = connection(":memory:snapshot-schema-damage");
+        let registered = register(&connection);
+        connection
+            .execute("INSERT INTO people VALUES (1, 'A')")
+            .unwrap();
+        let store = SnapshotStore::default();
+        store
+            .refresh(
+                &connection,
+                "social",
+                BuildLimits::default(),
+                &turso_graph_runtime::NeverCancelled,
+            )
+            .unwrap();
+        let original = store.get(registered.id).unwrap().unwrap();
+
+        connection.execute("DROP TABLE relationships").unwrap();
+        assert!(store
+            .refresh(
+                &connection,
+                "social",
+                BuildLimits::default(),
+                &turso_graph_runtime::NeverCancelled,
+            )
+            .is_err());
+        assert!(Arc::ptr_eq(
+            &original,
+            &store.get(registered.id).unwrap().unwrap()
+        ));
+        assert_eq!(
+            query_rows_cancellable(
+                &connection,
+                "SELECT id, name FROM people ORDER BY id",
+                &turso_graph_runtime::NeverCancelled,
+            )
+            .unwrap(),
+            vec![vec![Value::from_i64(1), Value::build_text("A")]]
+        );
     }
 }
