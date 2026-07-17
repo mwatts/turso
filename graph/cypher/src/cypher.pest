@@ -1,0 +1,77 @@
+// Source: https://github.com/rustic-ai/uni-db
+// Revision: 0812a496c62769b67cf688930750ae384e3de68d
+// Path: crates/uni-cypher/src/grammar/cypher.pest
+// License: Apache-2.0
+// Adaptation: structural-adaptation
+// Changes: Reduced to the initial read-query slice and changed to emit only
+// Turso-owned source syntax.
+
+WHITESPACE = _{ " " | "\t" | "\n" | "\r" }
+COMMENT = _{ "//" ~ (!"\n" ~ ANY)* | "/*" ~ (!"*/" ~ ANY)* ~ "*/" }
+
+MATCH = @{ ^"match" ~ !ident_char }
+OPTIONAL = @{ ^"optional" ~ !ident_char }
+WHERE = @{ ^"where" ~ !ident_char }
+WITH = @{ ^"with" ~ !ident_char }
+RETURN = @{ ^"return" ~ !ident_char }
+AS = @{ ^"as" ~ !ident_char }
+DISTINCT = @{ ^"distinct" ~ !ident_char }
+AND = @{ ^"and" ~ !ident_char }
+OR = @{ ^"or" ~ !ident_char }
+NULL = @{ ^"null" ~ !ident_char }
+TRUE = @{ ^"true" ~ !ident_char }
+FALSE = @{ ^"false" ~ !ident_char }
+
+ident_char = _{ ASCII_ALPHANUMERIC | "_" }
+keyword = _{ MATCH | OPTIONAL | WHERE | WITH | RETURN | AS | DISTINCT | AND | OR | NULL | TRUE | FALSE }
+identifier = @{ !keyword ~ ((ASCII_ALPHA | "_") ~ (ASCII_ALPHANUMERIC | "_")* | "`" ~ (!"`" ~ ANY)* ~ "`") }
+parameter = @{ "$" ~ (ASCII_ALPHANUMERIC | "_")+ }
+unsigned_integer = @{ ASCII_DIGIT ~ (ASCII_DIGIT | "_")* }
+integer = @{ "-"? ~ ASCII_DIGIT ~ (ASCII_DIGIT | "_")* }
+real = @{ "-"? ~ ASCII_DIGIT+ ~ "." ~ ASCII_DIGIT+ }
+string = @{ "'" ~ ("''" | "\\'" | !("'" | "\\") ~ ANY | "\\" ~ ANY)* ~ "'" }
+
+query = { SOI ~ clause+ ~ EOI }
+clause = { match_clause | with_clause | return_clause }
+match_clause = { OPTIONAL? ~ MATCH ~ pattern ~ where_clause? }
+with_clause = { WITH ~ DISTINCT? ~ projection_items ~ where_clause? }
+return_clause = { RETURN ~ DISTINCT? ~ projection_items }
+where_clause = { WHERE ~ expression }
+
+pattern = { path_pattern ~ ("," ~ path_pattern)* }
+path_pattern = { (identifier ~ "=")? ~ node_pattern ~ (relationship_pattern ~ node_pattern)* }
+node_pattern = { "(" ~ identifier? ~ node_labels? ~ map_literal? ~ ")" }
+node_labels = { (":" ~ identifier)+ }
+
+relationship_pattern = { incoming_relationship | outgoing_relationship | undirected_relationship }
+incoming_relationship = { "<-" ~ relationship_body? ~ "-" }
+outgoing_relationship = { "-" ~ relationship_body? ~ "->" }
+undirected_relationship = { "-" ~ relationship_body? ~ "-" }
+relationship_body = { "[" ~ identifier? ~ relationship_types? ~ range_literal? ~ map_literal? ~ "]" }
+relationship_types = { ":" ~ identifier ~ ("|" ~ ":"? ~ identifier)* }
+range_literal = { "*" ~ unsigned_integer? ~ (".." ~ unsigned_integer?)? }
+
+projection_items = { projection_all | projection_item ~ ("," ~ projection_item)* }
+projection_all = { "*" }
+projection_item = { expression ~ (AS ~ identifier)? }
+
+expression = { or_expression }
+or_expression = { and_expression ~ (or_op ~ and_expression)* }
+or_op = { OR }
+and_expression = { comparison_expression ~ (and_op ~ comparison_expression)* }
+and_op = { AND }
+comparison_expression = { additive_expression ~ (comparison_op ~ additive_expression)* }
+comparison_op = { "<>" | "!=" | "<=" | ">=" | "=" | "<" | ">" }
+additive_expression = { multiplicative_expression ~ (additive_op ~ multiplicative_expression)* }
+additive_op = { "+" | "-" }
+multiplicative_expression = { postfix_expression ~ (multiplicative_op ~ postfix_expression)* }
+multiplicative_op = { "*" | "/" }
+postfix_expression = { primary_expression ~ property_suffix* }
+property_suffix = { "." ~ identifier }
+primary_expression = { function_call | literal | parameter | identifier | "(" ~ expression ~ ")" }
+function_call = { identifier ~ "(" ~ DISTINCT? ~ expression_list? ~ ")" }
+expression_list = { expression ~ ("," ~ expression)* }
+literal = { real | integer | string | TRUE | FALSE | NULL }
+
+map_literal = { "{" ~ (map_entry ~ ("," ~ map_entry)*)? ~ "}" }
+map_entry = { identifier ~ ":" ~ expression }

@@ -7295,6 +7295,9 @@ dependencies = [
 name = "turso_graph_cypher"
 version = "0.7.0"
 dependencies = [
+ "pest",
+ "pest_derive",
+ "thiserror 2.0.16",
  "turso_graph_ir",
 ]
 
@@ -7302,6 +7305,7 @@ dependencies = [
 name = "turso_graph_frontend"
 version = "0.7.0"
 dependencies = [
+ "thiserror 2.0.16",
  "turso_core",
  "turso_graph_cypher",
  "turso_graph_ir",

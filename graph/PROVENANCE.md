@@ -58,6 +58,19 @@ Candidate parser material is limited to:
 The parser must emit frontend-owned syntax nodes and diagnostics. Uni graph,
 storage, planner, executor, and catalog types are outside the boundary.
 
+The initial adaptation is installed in:
+
+- `graph/cypher/src/cypher.pest`, structurally adapted from Uni's reduced
+  grammar surface;
+- `graph/cypher/src/parser.rs`, structurally adapted from Uni's walker shape
+  while replacing its AST, errors, and downstream types;
+- `graph/cypher/src/ast.rs`, a Turso-owned source AST using Uni only as a
+  behavioral reference.
+
+The applicable upstream license is copied to
+`licenses/graph/uni-db-apache-license.md`. Uni has no upstream `NOTICE` file at
+the pinned revision.
+
 ### Grafeo
 
 The graph IR is Turso-owned. Grafeo material under

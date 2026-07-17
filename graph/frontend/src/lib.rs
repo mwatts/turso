@@ -5,3 +5,10 @@
 //! instructions or own database state.
 
 #![forbid(unsafe_code)]
+
+mod binder;
+
+pub use binder::{
+    bind, BindError, BoundQuery, CatalogEntity, GraphCatalogSnapshot, ParameterTypes,
+    ResolvedProperty,
+};

@@ -4,3 +4,12 @@
 //! cross the boundary through Turso-owned graph IR contracts.
 
 #![forbid(unsafe_code)]
+
+mod ast;
+mod parser;
+
+pub use ast::{
+    BinaryOperator, Clause, Direction, Expression, Literal, MatchClause, NodePattern, PathPattern,
+    ProjectionClause, ProjectionItem, Query, RelationshipPattern, RelationshipRange, Span, Spanned,
+};
+pub use parser::{parse, ParseError};

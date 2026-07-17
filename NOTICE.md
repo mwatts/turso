@@ -28,6 +28,13 @@ This product depends on spotless, distributed by the diffplug authors:
 * License: licenses/bindings/java/spotless-license.md (Apache License v2.0)
 * Homepage: https://github.com/diffplug/spotless
 
+This project includes a structurally adapted Cypher grammar and parser walker
+from Uni, distributed by the Uni contributors:
+
+* License: licenses/graph/uni-db-apache-license.md (Apache License v2.0)
+* Source revision: 0812a496c62769b67cf688930750ae384e3de68d
+* Homepage: https://github.com/rustic-ai/uni-db
+
 
 This project depends on ipnetwork, distributed by the ipnetwork project:
 
