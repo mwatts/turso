@@ -622,8 +622,26 @@ fn lower_expression_with_references(
                 selector.push('.');
                 selector.push_str(&quote_identifier(field));
             }
+            // core's SQL grammar caps dot-chain expressions at 3 identifiers
+            // (`Expr::DoublyQualified`, core/translate/expr/binding.rs). The
+            // `p.col.field1` form (<=1 nested field) fits that cap, but
+            // `p.col.field1.field2` (2 nested fields) would be a 4th
+            // identifier core's parser cannot parse at all. core's only AST
+            // path for genuine 2-level nested field access instead requires
+            // an unqualified column name as the chain's root
+            // (`col.field1.field2`, `try_resolve_nested_field_access`), so
+            // the `p.` alias prefix is dropped for that case. This is safe:
+            // `find_custom_type_column` only searches this subquery's own
+            // single joined table, never the outer query's scope, so the
+            // bare column name stays unambiguous. The WHERE clause's
+            // identity correlation keeps using the `p.` alias either way.
+            let selector = if fields.len() < 2 {
+                format!("p.{selector}")
+            } else {
+                selector
+            };
             Ok(format!(
-                "(SELECT p.{} FROM {} AS p WHERE p.{} = {})",
+                "(SELECT {} FROM {} AS p WHERE p.{} = {})",
                 selector,
                 quote_identifier(&table),
                 quote_identifier(&identity),
@@ -862,6 +880,42 @@ mod tests {
         assert_eq!(
             sql,
             "(SELECT p.\"address\".\"city\" FROM \"people\" AS p WHERE p.\"id\" = n.b1)"
+        );
+    }
+
+    #[test]
+    fn lowers_two_level_nested_property_field_chain_without_alias_prefix() {
+        let catalog = Catalog;
+        let source = ir::SourceTableId::new(1).unwrap();
+        let entity = ir::BindingId::new(1).unwrap();
+        let mut bindings = HashMap::new();
+        bindings.insert(
+            entity,
+            BindingLayout {
+                source,
+                kind: EntityKind::Node,
+            },
+        );
+        let expression = ir::TypedExpression {
+            expression: ir::Expression::Property {
+                entity,
+                property: ir::PropertyId::new(1).unwrap(),
+                fields: vec!["address".to_owned(), "city".to_owned()],
+            },
+            value_type: ir::ValueType::Text,
+            nullability: ir::Nullability::Nullable,
+        };
+        let sql = lower_expression(&expression, &bindings, &catalog, "n")
+            .expect("property lowering should succeed");
+        // 2-nested-field access must NOT prefix the SELECT-list expression
+        // with the correlated subquery's `p.` alias: core's parser has no
+        // 4-identifier dot-chain AST node, so `p.col.field1.field2` is a
+        // syntax error. The bare 3-identifier form `col.field1.field2` hits
+        // core's unqualified-column nested-field-access fallback instead.
+        // The WHERE clause's identity correlation keeps using `p.` as before.
+        assert_eq!(
+            sql,
+            "(SELECT \"address\".\"address\".\"city\" FROM \"people\" AS p WHERE p.\"id\" = n.b1)"
         );
     }
 }

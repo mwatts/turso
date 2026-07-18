@@ -263,3 +263,45 @@ fn create_with_union_map_literal_lowers_and_executes() {
         "CREATE's map-literal-lowered union value must match a direct SQL union_value() insert"
     );
 }
+
+#[test]
+fn matches_two_level_nested_struct_field_read_executes() {
+    let connection = connect(true);
+    connection
+        .execute(
+            "CREATE TYPE point AS STRUCT(x INTEGER, y INTEGER); \
+             CREATE TYPE region AS STRUCT(origin point, label TEXT); \
+             CREATE TABLE zones(id INTEGER PRIMARY KEY, bounds region) STRICT;",
+        )
+        .expect("create nested struct-typed source");
+    let session = graph_session_for_node_source(&connection, "Zone", "zones");
+
+    // `bind_map_property` only recurses for the outer struct/union property
+    // assignment; a nested map-literal *value* for a struct-typed field
+    // (e.g. `{origin: {x: 3, y: 4}, label: 'north'}`'s `origin` entry) is
+    // bound through the general `bind_expression` path instead, which
+    // rejects any bare `cypher::Expression::Map` ("map literal outside a
+    // property assignment", `binder.rs`). That is a real, pre-existing gap
+    // in CREATE's map-literal support for genuinely 2-level-nested struct
+    // literals, orthogonal to this task's property-*read* lowering fix, so
+    // (mirroring `create_with_union_map_literal_lowers_and_executes`'s same
+    // workaround for an unrelated CREATE-side limitation) the nested value
+    // is inserted directly via SQL `struct_pack` here; only the
+    // MATCH...RETURN 2-level nested field *read* below — this fix's actual
+    // target — goes through the graph session.
+    connection
+        .execute(
+            "INSERT INTO zones(id, bounds) VALUES (1, struct_pack(struct_pack(3, 4), 'north'))",
+        )
+        .expect("insert nested struct-valued row");
+
+    let rows = session
+        .query(
+            "MATCH (z:Zone) RETURN z.bounds.origin.x",
+            &MutationParameters::new(),
+        )
+        .expect("2-level nested field read must execute, not fail with a SQL syntax error");
+
+    assert_eq!(rows.len(), 1);
+    assert_eq!(rows[0], vec![turso_core::Value::from_i64(3)]);
+}
