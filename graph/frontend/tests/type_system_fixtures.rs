@@ -372,3 +372,51 @@ fn nested_struct_field_read_lowers_and_executes() {
         "expected BindError::Unsupported, got {error:?}"
     );
 }
+
+#[test]
+fn vector32_call_binds_to_vector_value_type() {
+    let connection = connect(false);
+    connection
+        .execute("CREATE TABLE embeddings(id INTEGER PRIMARY KEY, vector BLOB);")
+        .expect("create node source");
+    let catalog = node_source_catalog(&connection, "embeddings");
+
+    let value_type = returned_value_type(&catalog, "MATCH () RETURN vector32(1.0, 2.0, 3.0)");
+
+    assert_eq!(
+        value_type,
+        ir::ValueType::Vector(ir::VectorKind::Float32Dense, Some(3))
+    );
+}
+
+#[test]
+fn vector_distance_cos_call_binds_to_real() {
+    let connection = connect(false);
+    connection
+        .execute("CREATE TABLE embeddings(id INTEGER PRIMARY KEY, vector BLOB);")
+        .expect("create node source");
+    let catalog = node_source_catalog(&connection, "embeddings");
+
+    let value_type = returned_value_type(
+        &catalog,
+        "MATCH () RETURN vector_distance_cos(vector32(1.0), vector32(2.0))",
+    );
+
+    assert_eq!(value_type, ir::ValueType::Real);
+}
+
+#[test]
+fn fts_match_call_binds_to_boolean() {
+    let connection = connect(false);
+    connection
+        .execute("CREATE TABLE embeddings(id INTEGER PRIMARY KEY, vector BLOB);")
+        .expect("create node source");
+    let catalog = node_source_catalog(&connection, "embeddings");
+
+    let value_type = returned_value_type(
+        &catalog,
+        "MATCH () RETURN fts_match('needle', 'haystack text')",
+    );
+
+    assert_eq!(value_type, ir::ValueType::Boolean);
+}
