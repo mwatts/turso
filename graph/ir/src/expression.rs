@@ -13,6 +13,35 @@ pub enum ValueType {
     Relationship,
     Path,
     List(Box<ValueType>),
+    /// A `CREATE TYPE name BASE <primitive> ENCODE ... DECODE ...` scalar.
+    /// `base` is the underlying storage primitive (e.g. `Bytes` for a BLOB
+    /// custom type).
+    Custom {
+        name: String,
+        base: Box<ValueType>,
+    },
+    /// A `CREATE TYPE name AS STRUCT(...)` composite, fields in declared order.
+    Struct(Vec<(String, ValueType)>),
+    /// A `CREATE TYPE name AS UNION(...)` tagged union, variants in declared order.
+    Union(Vec<(String, ValueType)>),
+    /// The result of a typed vector function call (`vector32`, `vector64`, ...).
+    /// Dims are known only when statically determinable from the call site —
+    /// never from a column declaration, since no schema-level VECTOR column
+    /// type exists (see `docs/plans/2026-07-17-graph-type-system-design.md`).
+    Vector(VectorKind, Option<u32>),
+}
+
+/// Mirrors `core::vector::vector_types::VectorType`'s 5 encodings. Kept local
+/// (not reused from `core`) because `graph/ir` has zero `turso_core`
+/// dependency; this enum carries no behavior, only the closed set of vector
+/// encodings the typed function registry (Task 11) can produce.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum VectorKind {
+    Float32Dense,
+    Float64Dense,
+    Float32Sparse,
+    Float1Bit,
+    Float8,
 }
 
 /// Literal data owned by graph IR rather than a storage-engine value type.
@@ -74,6 +103,7 @@ pub enum Expression {
     Property {
         entity: BindingId,
         property: PropertyId,
+        fields: Vec<String>,
     },
     Parameter(String),
     Unary {
@@ -90,6 +120,12 @@ pub enum Expression {
         arguments: Vec<TypedExpression>,
     },
     List(Vec<TypedExpression>),
+    /// A `{field: value}` literal bound against a resolved STRUCT/UNION
+    /// property target. Entries preserve the literal's source order as
+    /// written by the user, not the target's declared field/variant order —
+    /// consumers that need declared order (e.g. lowering) must look up
+    /// entries by name rather than by position.
+    Map(Vec<(String, TypedExpression)>),
 }
 
 /// Expression plus the type/nullability established by the binder.
@@ -110,4 +146,68 @@ pub enum SortDirection {
 pub enum NullOrder {
     First,
     Last,
+}
+
+#[cfg(test)]
+mod value_type_tests {
+    use super::*;
+
+    #[test]
+    fn struct_and_union_value_types_compare_by_field_shape() {
+        let a = ValueType::Struct(vec![
+            ("x".to_owned(), ValueType::Integer),
+            ("y".to_owned(), ValueType::Integer),
+        ]);
+        let b = ValueType::Struct(vec![
+            ("x".to_owned(), ValueType::Integer),
+            ("y".to_owned(), ValueType::Integer),
+        ]);
+        assert_eq!(a, b);
+
+        let point = ValueType::Custom {
+            name: "point".to_owned(),
+            base: Box::new(ValueType::Bytes),
+        };
+        assert_eq!(point.clone(), point);
+
+        let tagged = ValueType::Union(vec![("ok".to_owned(), ValueType::Text)]);
+        assert_ne!(a, tagged);
+    }
+
+    #[test]
+    fn vector_value_type_carries_kind_and_optional_dims() {
+        let dense = ValueType::Vector(VectorKind::Float32Dense, Some(3));
+        let unknown_dims = ValueType::Vector(VectorKind::Float32Dense, None);
+        assert_ne!(dense, unknown_dims);
+        assert_eq!(VectorKind::Float32Dense, VectorKind::Float32Dense);
+    }
+
+    #[test]
+    fn map_expression_holds_ordered_field_bindings() {
+        let map = Expression::Map(vec![(
+            "x".to_owned(),
+            TypedExpression {
+                expression: Expression::Literal(Literal::Integer(1)),
+                value_type: ValueType::Integer,
+                nullability: Nullability::NonNull,
+            },
+        )]);
+        match map {
+            Expression::Map(entries) => assert_eq!(entries.len(), 1),
+            _ => panic!("expected Map"),
+        }
+    }
+
+    #[test]
+    fn property_expression_carries_nested_field_chain() {
+        let property = Expression::Property {
+            entity: BindingId::new(1).unwrap(),
+            property: PropertyId::new(1).unwrap(),
+            fields: vec!["address".to_owned(), "city".to_owned()],
+        };
+        match property {
+            Expression::Property { fields, .. } => assert_eq!(fields.len(), 2),
+            _ => panic!("expected Property"),
+        }
+    }
 }

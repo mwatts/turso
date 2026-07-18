@@ -583,7 +583,16 @@ fn lower_expression_with_references(
         ir::Expression::Binding(binding) => {
             Ok(binding_reference(*binding, input_alias, references))
         }
-        ir::Expression::Property { entity, property } => {
+        ir::Expression::Property {
+            entity,
+            property,
+            fields,
+        } => {
+            if fields.len() > 2 {
+                return Err(LowerError::UnsupportedOperator(
+                    "struct/union field access deeper than two levels",
+                ));
+            }
             let binding = bindings
                 .get(entity)
                 .ok_or(LowerError::MissingBinding(*entity))?;
@@ -607,9 +616,33 @@ fn lower_expression_with_references(
                     (layout.table, layout.identity_column)
                 }
             };
+            let mut selector = quote_identifier(&column);
+            for field in fields {
+                validate_bare_name(field)?;
+                selector.push('.');
+                selector.push_str(&quote_identifier(field));
+            }
+            // core's SQL grammar caps dot-chain expressions at 3 identifiers
+            // (`Expr::DoublyQualified`, core/translate/expr/binding.rs). The
+            // `p.col.field1` form (<=1 nested field) fits that cap, but
+            // `p.col.field1.field2` (2 nested fields) would be a 4th
+            // identifier core's parser cannot parse at all. core's only AST
+            // path for genuine 2-level nested field access instead requires
+            // an unqualified column name as the chain's root
+            // (`col.field1.field2`, `try_resolve_nested_field_access`), so
+            // the `p.` alias prefix is dropped for that case. This is safe:
+            // `find_custom_type_column` only searches this subquery's own
+            // single joined table, never the outer query's scope, so the
+            // bare column name stays unambiguous. The WHERE clause's
+            // identity correlation keeps using the `p.` alias either way.
+            let selector = if fields.len() < 2 {
+                format!("p.{selector}")
+            } else {
+                selector
+            };
             Ok(format!(
-                "(SELECT p.{} FROM {} AS p WHERE p.{} = {})",
-                quote_identifier(&column),
+                "(SELECT {} FROM {} AS p WHERE p.{} = {})",
+                selector,
                 quote_identifier(&table),
                 quote_identifier(&identity),
                 binding_reference(*entity, input_alias, references)
@@ -682,6 +715,44 @@ fn lower_expression_with_references(
                 .join(", ");
             Ok(format!("json_array({values})"))
         }
+        ir::Expression::Map(entries) => match &expression.value_type {
+            ir::ValueType::Struct(fields) => {
+                let mut ordered = Vec::with_capacity(fields.len());
+                for (field_name, _) in fields {
+                    let (_, value) = entries
+                        .iter()
+                        .find(|(name, _)| name == field_name)
+                        .ok_or_else(|| LowerError::InvalidName(field_name.clone()))?;
+                    ordered.push(lower_expression_with_references(
+                        value,
+                        bindings,
+                        catalog,
+                        input_alias,
+                        references,
+                    )?);
+                }
+                Ok(format!("struct_pack({})", ordered.join(", ")))
+            }
+            ir::ValueType::Union(_) => {
+                // Invariant: bind_map_property (graph/frontend/src/binder.rs)
+                // only ever constructs a Union-typed Map with exactly one entry.
+                let (tag, value) = &entries[0];
+                let value_sql = lower_expression_with_references(
+                    value,
+                    bindings,
+                    catalog,
+                    input_alias,
+                    references,
+                )?;
+                Ok(format!(
+                    "union_value('{}', {value_sql})",
+                    tag.replace('\'', "''")
+                ))
+            }
+            _ => Err(LowerError::UnsupportedOperator(
+                "map literal outside a struct or union property",
+            )),
+        },
     }
 }
 
@@ -749,5 +820,102 @@ fn validate_bare_name(name: &str) -> Result<(), LowerError> {
         Ok(())
     } else {
         Err(LowerError::InvalidName(name.to_owned()))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    struct Catalog;
+
+    impl RelationalCatalogSnapshot for Catalog {
+        fn node_layout(&self, _source: ir::SourceTableId) -> Option<NodeTableLayout> {
+            Some(NodeTableLayout {
+                table: "people".to_owned(),
+                identity_column: "id".to_owned(),
+            })
+        }
+
+        fn relationship_layout(
+            &self,
+            _source: ir::SourceTableId,
+        ) -> Option<RelationshipTableLayout> {
+            None
+        }
+
+        fn property_column(
+            &self,
+            _source: ir::SourceTableId,
+            _property: ir::PropertyId,
+        ) -> Option<String> {
+            Some("address".to_owned())
+        }
+    }
+
+    #[test]
+    fn lowers_nested_property_field_chain_inside_correlated_subquery() {
+        let catalog = Catalog;
+        let source = ir::SourceTableId::new(1).unwrap();
+        let entity = ir::BindingId::new(1).unwrap();
+        let mut bindings = HashMap::new();
+        bindings.insert(
+            entity,
+            BindingLayout {
+                source,
+                kind: EntityKind::Node,
+            },
+        );
+        let expression = ir::TypedExpression {
+            expression: ir::Expression::Property {
+                entity,
+                property: ir::PropertyId::new(1).unwrap(),
+                fields: vec!["city".to_owned()],
+            },
+            value_type: ir::ValueType::Text,
+            nullability: ir::Nullability::Nullable,
+        };
+        let sql = lower_expression(&expression, &bindings, &catalog, "n")
+            .expect("property lowering should succeed");
+        assert_eq!(
+            sql,
+            "(SELECT p.\"address\".\"city\" FROM \"people\" AS p WHERE p.\"id\" = n.b1)"
+        );
+    }
+
+    #[test]
+    fn lowers_two_level_nested_property_field_chain_without_alias_prefix() {
+        let catalog = Catalog;
+        let source = ir::SourceTableId::new(1).unwrap();
+        let entity = ir::BindingId::new(1).unwrap();
+        let mut bindings = HashMap::new();
+        bindings.insert(
+            entity,
+            BindingLayout {
+                source,
+                kind: EntityKind::Node,
+            },
+        );
+        let expression = ir::TypedExpression {
+            expression: ir::Expression::Property {
+                entity,
+                property: ir::PropertyId::new(1).unwrap(),
+                fields: vec!["address".to_owned(), "city".to_owned()],
+            },
+            value_type: ir::ValueType::Text,
+            nullability: ir::Nullability::Nullable,
+        };
+        let sql = lower_expression(&expression, &bindings, &catalog, "n")
+            .expect("property lowering should succeed");
+        // 2-nested-field access must NOT prefix the SELECT-list expression
+        // with the correlated subquery's `p.` alias: core's parser has no
+        // 4-identifier dot-chain AST node, so `p.col.field1.field2` is a
+        // syntax error. The bare 3-identifier form `col.field1.field2` hits
+        // core's unqualified-column nested-field-access fallback instead.
+        // The WHERE clause's identity correlation keeps using `p.` as before.
+        assert_eq!(
+            sql,
+            "(SELECT \"address\".\"address\".\"city\" FROM \"people\" AS p WHERE p.\"id\" = n.b1)"
+        );
     }
 }

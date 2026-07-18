@@ -1016,6 +1016,50 @@ impl Schema {
         Ok(Some(ResolvedType { primitive, chain }))
     }
 
+    /// Classifies one table column's declared type into a [`crate::statement::ColumnTypeInfo`],
+    /// resolving `CREATE TYPE`/`CREATE DOMAIN` chains against this schema's type
+    /// registry. Shared by [`crate::statement::Statement::get_column_type_info`]
+    /// (SQL result columns) and the graph frontend's `SchemaCatalog` (Cypher
+    /// property resolution) — one classification implementation, two callers.
+    pub fn classify_column(
+        &self,
+        column: &Column,
+        is_strict: bool,
+    ) -> crate::statement::ColumnTypeInfo {
+        use crate::statement::{ColumnTypeInfo, ColumnTypeKind};
+
+        let declared_name = column.ty_str.clone();
+        let array_dimensions = column.array_dimensions();
+        let resolved = self.resolve_type(&declared_name, is_strict).ok().flatten();
+        // `kind` is computed from the leaf TypeDef in the resolution chain:
+        // STRUCT and UNION are tagged on `TypeDefKind`, DOMAIN is tagged
+        // separately on `TypeDef.is_domain`, and anything else registered
+        // through CREATE TYPE is a Custom. A column whose declared name
+        // does not appear in the type registry is a Builtin.
+        let (base_type, kind) = match resolved {
+            Some(resolved) => {
+                let leaf = resolved.leaf();
+                let kind = if leaf.is_struct() {
+                    ColumnTypeKind::Struct
+                } else if leaf.is_union() {
+                    ColumnTypeKind::Union
+                } else if leaf.is_domain {
+                    ColumnTypeKind::Domain
+                } else {
+                    ColumnTypeKind::Custom
+                };
+                (Some(resolved.primitive.to_uppercase()), kind)
+            }
+            None => (None, ColumnTypeKind::Builtin),
+        };
+        ColumnTypeInfo {
+            declared_name,
+            array_dimensions,
+            base_type,
+            kind,
+        }
+    }
+
     pub fn remove_type(&mut self, type_name: &str) {
         self.type_registry.remove(&type_name.to_lowercase());
     }
@@ -2619,6 +2663,60 @@ impl Schema {
         }
 
         None
+    }
+}
+
+#[cfg(test)]
+mod classify_column_tests {
+    use crate::statement::ColumnTypeKind;
+    use crate::{Connection, Database, DatabaseOpts, MemoryIO, OpenFlags, SqliteDialect};
+    use std::sync::Arc;
+
+    fn connect(strict_custom_types: bool) -> Arc<Connection> {
+        let io = Arc::new(MemoryIO::new());
+        Database::open_file_with_flags(
+            io,
+            ":memory:classify-column",
+            OpenFlags::default(),
+            DatabaseOpts::new().with_custom_types(strict_custom_types),
+            None,
+            Arc::new(SqliteDialect),
+        )
+        .expect("open database")
+        .connect()
+        .expect("connect")
+    }
+
+    #[test]
+    fn classifies_builtin_column_as_builtin() {
+        let connection = connect(false);
+        connection
+            .execute("CREATE TABLE t(id INTEGER, name TEXT)")
+            .expect("create table");
+        let schema = connection.current_schema();
+        let table = schema.get_table("t").expect("table exists");
+        let (_, column) = table.get_column_by_name("name").expect("column exists");
+        let info = schema.classify_column(column, table.is_strict());
+        assert_eq!(info.kind, ColumnTypeKind::Builtin);
+        assert_eq!(info.base_type, None);
+        assert_eq!(info.array_dimensions, 0);
+    }
+
+    #[test]
+    fn classifies_struct_column_under_strict_custom_types() {
+        let connection = connect(true);
+        connection
+            .execute(
+                "CREATE TYPE point AS STRUCT(x INTEGER, y INTEGER); \
+                 CREATE TABLE shapes(id INTEGER PRIMARY KEY, origin point) STRICT",
+            )
+            .expect("create struct type and table");
+        let schema = connection.current_schema();
+        let table = schema.get_table("shapes").expect("table exists");
+        let (_, column) = table.get_column_by_name("origin").expect("column exists");
+        let info = schema.classify_column(column, table.is_strict());
+        assert_eq!(info.kind, ColumnTypeKind::Struct);
+        assert_eq!(info.declared_name, "point");
     }
 }
 

@@ -435,9 +435,19 @@ impl<'a> Binder<'a> {
         properties
             .iter()
             .map(|(name, value)| {
+                let resolved = self.resolve_property(entity, name)?;
+                let bound_value = match &value.value {
+                    cypher::Expression::Map(entries) => self.bind_map_property(
+                        &resolved.value_type,
+                        resolved.nullability,
+                        entries,
+                        value.span,
+                    )?,
+                    _ => self.bind_expression(value)?,
+                };
                 Ok(ir::PropertyValue {
-                    property: self.resolve_property(entity, name)?.id,
-                    value: self.bind_expression(value)?,
+                    property: resolved.id,
+                    value: bound_value,
                 })
             })
             .collect()
@@ -822,6 +832,7 @@ impl<'a> Binder<'a> {
                 expression: ir::Expression::Property {
                     entity: binding.id(),
                     property: property.id,
+                    fields: Vec::new(),
                 },
                 value_type: property.value_type,
                 nullability: property.nullability,
@@ -1054,29 +1065,47 @@ impl<'a> Binder<'a> {
                     *nullability,
                 )
             }
-            cypher::Expression::Property { entity, name } => {
-                let cypher::Expression::Variable(variable) = &entity.value else {
+            cypher::Expression::Property { .. } => {
+                let (root, field_chain) = flatten_property_chain(expression);
+                let cypher::Expression::Variable(variable) = &root.value else {
                     return Err(BindError::InvalidPropertyTarget {
-                        span_start: entity.span.start,
-                        span_end: entity.span.end,
+                        span_start: root.span.start,
+                        span_end: root.span.end,
                     });
                 };
-                let binding = self.resolve_binding(variable, entity.span)?;
+                let binding = self.resolve_binding(variable, root.span)?;
                 let kind = self
                     .entities
                     .get(&binding.id())
                     .ok_or(BindError::InvalidPropertyTarget {
-                        span_start: entity.span.start,
-                        span_end: entity.span.end,
+                        span_start: root.span.start,
+                        span_end: root.span.end,
                     })?
                     .kind;
-                let property = self.resolve_property(kind, name)?;
+                let (property_name, nested_fields) = field_chain.split_first().expect(
+                    "flatten_property_chain always yields at least the outer Property's name",
+                );
+                let property = self.resolve_property(kind, property_name)?;
+                if nested_fields.len() > 2 {
+                    return Err(at_unsupported(
+                        expression.span,
+                        "struct/union field access deeper than two levels",
+                    ));
+                }
+                let mut value_type = property.value_type.clone();
+                for field in nested_fields {
+                    value_type = self.resolve_field(&value_type, field)?;
+                }
                 (
                     ir::Expression::Property {
                         entity: binding.id(),
                         property: property.id,
+                        fields: nested_fields
+                            .iter()
+                            .map(|field| field.value.clone())
+                            .collect(),
                     },
-                    property.value_type,
+                    value_type,
                     nullable(binding.nullability(), property.nullability),
                 )
             }
@@ -1116,13 +1145,27 @@ impl<'a> Binder<'a> {
                     .iter()
                     .map(|argument| self.bind_expression(argument))
                     .collect::<Result<Vec<_>, _>>()?;
+                let (value_type, nullability) = match crate::functions::lookup(function.as_str()) {
+                    Some(signature) => {
+                        if let Err(feature) =
+                            crate::functions::validate_arguments(&signature, &arguments)
+                        {
+                            return Err(at_unsupported(expression.span, feature));
+                        }
+                        (
+                            (signature.return_type)(&arguments),
+                            ir::Nullability::Nullable,
+                        )
+                    }
+                    None => (ir::ValueType::Any, ir::Nullability::Nullable),
+                };
                 (
                     ir::Expression::Function {
                         function,
                         arguments,
                     },
-                    ir::ValueType::Any,
-                    ir::Nullability::Nullable,
+                    value_type,
+                    nullability,
                 )
             }
             cypher::Expression::List(values) => {
@@ -1141,12 +1184,87 @@ impl<'a> Binder<'a> {
                     ir::Nullability::NonNull,
                 )
             }
+            cypher::Expression::Map(_) => {
+                return Err(at_unsupported(
+                    expression.span,
+                    "map literal outside a property assignment",
+                ));
+            }
         };
         Ok(ir::TypedExpression {
             expression: expression_ir,
             value_type,
             nullability,
         })
+    }
+
+    fn bind_map_property(
+        &self,
+        target: &ir::ValueType,
+        nullability: ir::Nullability,
+        entries: &[(cypher::Spanned<String>, cypher::Spanned<cypher::Expression>)],
+        span: cypher::Span,
+    ) -> Result<ir::TypedExpression, BindError> {
+        match target {
+            ir::ValueType::Struct(fields) => {
+                if entries.len() != fields.len() {
+                    return Err(at_unsupported(span, "struct literal field count mismatch"));
+                }
+                let mut bound = Vec::with_capacity(entries.len());
+                for (name, value) in entries {
+                    let field_type = fields
+                        .iter()
+                        .find(|(field_name, _)| field_name == &name.value)
+                        .map(|(_, field_type)| field_type)
+                        .ok_or_else(|| BindError::UnknownProperty {
+                            name: name.value.clone(),
+                            span_start: name.span.start,
+                            span_end: name.span.end,
+                        })?;
+                    let bound_value = self.bind_expression(value)?;
+                    if &bound_value.value_type != field_type {
+                        return Err(at_unsupported(value.span, "struct field type mismatch"));
+                    }
+                    bound.push((name.value.clone(), bound_value));
+                }
+                Ok(ir::TypedExpression {
+                    expression: ir::Expression::Map(bound),
+                    value_type: target.clone(),
+                    nullability,
+                })
+            }
+            ir::ValueType::Union(variants) => {
+                if entries.len() != 1 {
+                    return Err(at_unsupported(
+                        span,
+                        "union literal must set exactly one variant",
+                    ));
+                }
+                let (name, value) = &entries[0];
+                let variant_type = variants
+                    .iter()
+                    .find(|(variant_name, _)| variant_name == &name.value)
+                    .map(|(_, variant_type)| variant_type)
+                    .ok_or_else(|| BindError::UnknownProperty {
+                        name: name.value.clone(),
+                        span_start: name.span.start,
+                        span_end: name.span.end,
+                    })?;
+                let bound_value = self.bind_expression(value)?;
+                if &bound_value.value_type != variant_type {
+                    return Err(at_unsupported(value.span, "union variant type mismatch"));
+                }
+                Ok(ir::TypedExpression {
+                    expression: ir::Expression::Map(vec![(name.value.clone(), bound_value)]),
+                    value_type: target.clone(),
+                    nullability,
+                })
+            }
+            _ => Err(at_unsupported(
+                span,
+                "map literal outside a struct or union property",
+            )),
+        }
     }
 
     fn resolve_binding(&self, name: &str, span: cypher::Span) -> Result<&ir::Binding, BindError> {
@@ -1167,6 +1285,32 @@ impl<'a> Binder<'a> {
     ) -> Result<ResolvedProperty, BindError> {
         self.catalog
             .property(self.graph, entity, &name.value)
+            .ok_or_else(|| BindError::UnknownProperty {
+                name: name.value.clone(),
+                span_start: name.span.start,
+                span_end: name.span.end,
+            })
+    }
+
+    fn resolve_field(
+        &self,
+        base_type: &ir::ValueType,
+        name: &cypher::Spanned<String>,
+    ) -> Result<ir::ValueType, BindError> {
+        let fields: &[(String, ir::ValueType)] = match base_type {
+            ir::ValueType::Struct(fields) => fields,
+            ir::ValueType::Union(variants) => variants,
+            _ => {
+                return Err(BindError::InvalidPropertyTarget {
+                    span_start: name.span.start,
+                    span_end: name.span.end,
+                })
+            }
+        };
+        fields
+            .iter()
+            .find(|(field_name, _)| field_name == &name.value)
+            .map(|(_, field_type)| field_type.clone())
             .ok_or_else(|| BindError::UnknownProperty {
                 name: name.value.clone(),
                 span_start: name.span.start,
@@ -1224,6 +1368,25 @@ impl<'a> Binder<'a> {
             ir::ResultShape::default(),
         )?);
         Ok(())
+    }
+}
+
+/// Flattens a chain of Cypher `Property` nodes (`n.a.b.c`) into its root
+/// expression and an ordered list of field names, root-to-leaf. For `n.a`,
+/// returns `(n, [a])`; for `n.a.b`, returns `(n, [a, b])`.
+fn flatten_property_chain(
+    expression: &cypher::Spanned<cypher::Expression>,
+) -> (
+    &cypher::Spanned<cypher::Expression>,
+    Vec<&cypher::Spanned<String>>,
+) {
+    match &expression.value {
+        cypher::Expression::Property { entity, name } => {
+            let (root, mut fields) = flatten_property_chain(entity);
+            fields.push(name);
+            (root, fields)
+        }
+        _ => (expression, Vec::new()),
     }
 }
 
@@ -1370,6 +1533,14 @@ mod tests {
                 (CatalogEntity::Relationship, "since") => {
                     (42, ir::ValueType::Integer, ir::Nullability::Nullable)
                 }
+                (CatalogEntity::Node, "location") => (
+                    43,
+                    ir::ValueType::Struct(vec![
+                        ("x".to_owned(), ir::ValueType::Integer),
+                        ("y".to_owned(), ir::ValueType::Integer),
+                    ]),
+                    ir::Nullability::Nullable,
+                ),
                 _ => return None,
             };
             Some(ResolvedProperty {
@@ -1556,5 +1727,66 @@ mod tests {
                 ..
             }
         ));
+    }
+
+    #[test]
+    fn binds_map_literal_to_struct_mutation_property() {
+        let bound = bind_mutation_text("CREATE (:Person {location: {x: 1, y: 2}})")
+            .expect("mutation should bind");
+        let ir::Mutation::CreateNode(node) = &bound.request.operations[0] else {
+            panic!("expected node creation")
+        };
+        assert_eq!(node.properties.len(), 1);
+        let property = &node.properties[0];
+        assert_eq!(
+            property.property,
+            ir::PropertyId::new(43).expect("non-zero")
+        );
+        match &property.value.expression {
+            ir::Expression::Map(entries) => {
+                assert_eq!(entries.len(), 2);
+                assert_eq!(entries[0].0, "x");
+                assert!(matches!(
+                    entries[0].1.expression,
+                    ir::Expression::Literal(ir::Literal::Integer(1))
+                ));
+                assert_eq!(entries[1].0, "y");
+                assert!(matches!(
+                    entries[1].1.expression,
+                    ir::Expression::Literal(ir::Literal::Integer(2))
+                ));
+            }
+            other => panic!("expected Map expression, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn binds_nested_struct_field_access() {
+        let bound = bind_text("MATCH (n) RETURN n.location.x", ParameterTypes::new())
+            .expect("query should bind");
+        let ir::PlanKind::Project(project) = bound.plan.kind() else {
+            panic!("expected projection");
+        };
+        assert_eq!(project.projections.len(), 1);
+        match &project.projections[0].expression.expression {
+            ir::Expression::Property {
+                property, fields, ..
+            } => {
+                assert_eq!(*property, ir::PropertyId::new(43).expect("non-zero"));
+                assert_eq!(fields, &vec!["x".to_owned()]);
+            }
+            other => panic!("expected Property expression, got {other:?}"),
+        }
+        assert_eq!(
+            project.projections[0].expression.value_type,
+            ir::ValueType::Integer
+        );
+    }
+
+    #[test]
+    fn rejects_field_access_deeper_than_two_levels() {
+        let error = bind_text("MATCH (n) RETURN n.location.x.y.z", ParameterTypes::new())
+            .expect_err("chain deeper than two levels must be rejected");
+        assert!(matches!(error, BindError::Unsupported { .. }));
     }
 }
