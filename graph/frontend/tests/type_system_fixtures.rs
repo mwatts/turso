@@ -305,3 +305,70 @@ fn matches_two_level_nested_struct_field_read_executes() {
     assert_eq!(rows.len(), 1);
     assert_eq!(rows[0], vec![turso_core::Value::from_i64(3)]);
 }
+
+#[test]
+fn nested_struct_field_read_lowers_and_executes() {
+    let connection = connect(true);
+    connection
+        .execute(
+            "CREATE TYPE address AS STRUCT(city TEXT, zip INTEGER); \
+             CREATE TYPE person AS STRUCT(name TEXT, home address); \
+             CREATE TABLE people(id INTEGER PRIMARY KEY, info person) STRICT;",
+        )
+        .expect("create nested struct-typed source");
+    let session = graph_session_for_node_source(&connection, "Person", "people");
+
+    connection
+        .execute("INSERT INTO people VALUES (1, struct_pack('Ada', struct_pack('London', 90210)))")
+        .expect("insert nested struct-valued row");
+
+    // Exactly at the two-level cap: `info` is the root property, `home` and
+    // `city` are the two nested fields beyond it.
+    let rows = session
+        .query(
+            "MATCH (p:Person) RETURN p.info.home.city",
+            &MutationParameters::new(),
+        )
+        .expect("2-level nested field read must execute, not fail with a SQL syntax error");
+
+    assert_eq!(rows.len(), 1);
+    assert_eq!(rows[0], vec![turso_core::Value::build_text("London")]);
+
+    // One level past the cap: `home`, `city`, `extra` are three nested
+    // fields beyond the root `info` property, which core's SQL grammar
+    // cannot express as a dot-chain (see commit 648e3b7b2), so bind() must
+    // reject it rather than attempt to lower unparsable SQL. Asserted via
+    // a direct `bind()` call against a fresh `SchemaCatalog` — the same
+    // pattern `binder.rs`'s own `#[cfg(test)]` module uses for asserting a
+    // specific bind-time error (e.g.
+    // `rejects_field_access_deeper_than_two_levels`) — rather than through
+    // `GraphSession::query`, whose `FrontendCompiler` impl (`compiler.rs`)
+    // collapses every bind error into an opaque `LimboError::ParseError`
+    // string. Registering a second graph on this connection allocates a
+    // new `GraphId` (the first, from `graph_session_for_node_source`
+    // above, already took id 1), so the id actually returned by
+    // `register_graph` is used here instead of assuming id 1, matching
+    // `SchemaCatalog::node_source`'s `graph == self.graph.id` gate.
+    let registered = turso_graph_frontend::register_graph(
+        &connection,
+        &GraphRegistration {
+            name: "typesys-nested-reject".to_owned(),
+            node_sources: vec![NodeSourceRegistration {
+                name: "Person".to_owned(),
+                table: "people".to_owned(),
+                identity_column: "id".to_owned(),
+            }],
+            relationship_sources: vec![],
+        },
+    )
+    .expect("register second graph for the rejection catalog");
+    let graph_id = registered.id;
+    let catalog = SchemaCatalog::new(connection, registered);
+    let parsed = parse("MATCH (p) RETURN p.info.home.city.extra").expect("query parses");
+    let error = bind(&parsed, graph_id, &catalog, &ParameterTypes::new())
+        .expect_err("3-level nested field access must be rejected at bind time");
+    assert!(
+        matches!(error, turso_graph_frontend::BindError::Unsupported { .. }),
+        "expected BindError::Unsupported, got {error:?}"
+    );
+}
