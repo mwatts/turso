@@ -120,8 +120,10 @@ pub enum Expression {
     },
     List(Vec<TypedExpression>),
     /// A `{field: value}` literal bound against a resolved STRUCT/UNION
-    /// property target. Field order matches the target's declared field/
-    /// variant order (established at bind time), not source order.
+    /// property target. Entries preserve the literal's source order as
+    /// written by the user, not the target's declared field/variant order —
+    /// consumers that need declared order (e.g. lowering) must look up
+    /// entries by name rather than by position.
     Map(Vec<(String, TypedExpression)>),
 }
 
