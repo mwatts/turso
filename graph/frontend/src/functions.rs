@@ -87,43 +87,42 @@ fn vector_literal_dims(argument: &ir::TypedExpression, vector_type: CoreVectorTy
         .map(|vector| vector.dims as u32)
 }
 
+/// The one place a vector kind is paired with its core encoding, so a new
+/// kind cannot pick up a mismatched dims parser.
+const fn core_vector_type(kind: ir::VectorKind) -> CoreVectorType {
+    match kind {
+        ir::VectorKind::Float32Dense => CoreVectorType::Float32Dense,
+        ir::VectorKind::Float64Dense => CoreVectorType::Float64Dense,
+        ir::VectorKind::Float32Sparse => CoreVectorType::Float32Sparse,
+        ir::VectorKind::Float1Bit => CoreVectorType::Float1Bit,
+        ir::VectorKind::Float8 => CoreVectorType::Float8,
+    }
+}
+
+fn vector_return_type(kind: ir::VectorKind, args: &[ir::TypedExpression]) -> ir::ValueType {
+    ir::ValueType::Vector(
+        kind,
+        args.first()
+            .and_then(|a| vector_literal_dims(a, core_vector_type(kind))),
+    )
+}
+
+// `ReturnTypeFn` is a capture-free fn pointer, so each arm still names its
+// kind once to close over it statically; all shared logic lives in
+// `vector_return_type`.
 fn vector_return(kind: ir::VectorKind) -> ReturnTypeFn {
     match kind {
-        ir::VectorKind::Float32Dense => |args| {
-            ir::ValueType::Vector(
-                ir::VectorKind::Float32Dense,
-                args.first()
-                    .and_then(|a| vector_literal_dims(a, CoreVectorType::Float32Dense)),
-            )
-        },
-        ir::VectorKind::Float64Dense => |args| {
-            ir::ValueType::Vector(
-                ir::VectorKind::Float64Dense,
-                args.first()
-                    .and_then(|a| vector_literal_dims(a, CoreVectorType::Float64Dense)),
-            )
-        },
-        ir::VectorKind::Float32Sparse => |args| {
-            ir::ValueType::Vector(
-                ir::VectorKind::Float32Sparse,
-                args.first()
-                    .and_then(|a| vector_literal_dims(a, CoreVectorType::Float32Sparse)),
-            )
-        },
-        ir::VectorKind::Float1Bit => |args| {
-            ir::ValueType::Vector(
-                ir::VectorKind::Float1Bit,
-                args.first()
-                    .and_then(|a| vector_literal_dims(a, CoreVectorType::Float1Bit)),
-            )
-        },
-        ir::VectorKind::Float8 => |args| {
-            ir::ValueType::Vector(
-                ir::VectorKind::Float8,
-                args.first()
-                    .and_then(|a| vector_literal_dims(a, CoreVectorType::Float8)),
-            )
-        },
+        ir::VectorKind::Float32Dense => {
+            |args| vector_return_type(ir::VectorKind::Float32Dense, args)
+        }
+        ir::VectorKind::Float64Dense => {
+            |args| vector_return_type(ir::VectorKind::Float64Dense, args)
+        }
+        ir::VectorKind::Float32Sparse => {
+            |args| vector_return_type(ir::VectorKind::Float32Sparse, args)
+        }
+        ir::VectorKind::Float1Bit => |args| vector_return_type(ir::VectorKind::Float1Bit, args),
+        ir::VectorKind::Float8 => |args| vector_return_type(ir::VectorKind::Float8, args),
     }
 }
 
