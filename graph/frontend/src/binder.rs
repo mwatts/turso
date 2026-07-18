@@ -1145,13 +1145,26 @@ impl<'a> Binder<'a> {
                     .iter()
                     .map(|argument| self.bind_expression(argument))
                     .collect::<Result<Vec<_>, _>>()?;
+                let (value_type, nullability) = match crate::functions::lookup(function.as_str()) {
+                    Some(signature) => {
+                        let argument_types: Vec<ir::ValueType> = arguments
+                            .iter()
+                            .map(|argument| argument.value_type.clone())
+                            .collect();
+                        (
+                            (signature.return_type)(&argument_types),
+                            ir::Nullability::Nullable,
+                        )
+                    }
+                    None => (ir::ValueType::Any, ir::Nullability::Nullable),
+                };
                 (
                     ir::Expression::Function {
                         function,
                         arguments,
                     },
-                    ir::ValueType::Any,
-                    ir::Nullability::Nullable,
+                    value_type,
+                    nullability,
                 )
             }
             cypher::Expression::List(values) => {

@@ -9,6 +9,7 @@
 mod binder;
 mod catalog;
 mod compiler;
+mod functions;
 mod graph_expand;
 mod lowering;
 mod mutation;
