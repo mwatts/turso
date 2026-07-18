@@ -45,6 +45,13 @@ impl SchemaCatalog {
 /// name to the corresponding graph `ValueType`. `NUMERIC`/`ANY` have no
 /// single fixed runtime representation, so they (and any unrecognized name)
 /// fall back to `Any` rather than a specific scalar.
+///
+/// Only exact-matches the four canonical keywords; used exclusively for
+/// **array** columns (see `column_value_type`), where `declared_name`/
+/// `base_type` are the only fields not overwritten by core's array-affinity
+/// override. Non-array columns must go through `sqlite_type_value_type`
+/// instead, since their declared spelling can be any legal SQLite type name
+/// (`INT`, `VARCHAR(50)`, `DOUBLE`, ...), not just these four keywords.
 fn primitive_value_type(primitive: &str) -> ir::ValueType {
     match primitive.to_ascii_uppercase().as_str() {
         "INTEGER" => ir::ValueType::Integer,
@@ -52,6 +59,28 @@ fn primitive_value_type(primitive: &str) -> ir::ValueType {
         "TEXT" => ir::ValueType::Text,
         "BLOB" => ir::ValueType::Bytes,
         _ => ir::ValueType::Any,
+    }
+}
+
+/// Maps a column's resolved SQLite storage class (`Column::affinity().to_type()`)
+/// to the corresponding graph `ValueType`. `NUMERIC` has no single fixed
+/// runtime representation (it stores whichever of INTEGER/REAL/TEXT best fits
+/// the value), so it maps to `Any` rather than a specific scalar.
+///
+/// Used for all **non-array** columns: `column.affinity()` is accurate there
+/// (SQLite's substring-based affinity algorithm for `Builtin`, core's
+/// resolved base affinity for `Custom`/`Domain`), unlike for array columns,
+/// which core unconditionally forces to `Blob` affinity for record-format
+/// packing (see `column_value_type`).
+fn sqlite_type_value_type(ty: turso_core::schema::Type) -> ir::ValueType {
+    use turso_core::schema::Type;
+
+    match ty {
+        Type::Integer => ir::ValueType::Integer,
+        Type::Real => ir::ValueType::Real,
+        Type::Text => ir::ValueType::Text,
+        Type::Numeric | Type::Null => ir::ValueType::Any,
+        Type::Blob => ir::ValueType::Bytes,
     }
 }
 
@@ -120,27 +149,42 @@ impl SchemaCatalog {
         use turso_core::ColumnTypeKind;
 
         let info = schema.classify_column(column, is_strict);
+        let is_array = column.array_dimensions() > 0;
         let scalar = match info.kind {
-            // `column.affinity()` is a physical-storage signal: core's
+            // `column.affinity()` is a physical-storage signal that's only
+            // wrong for **array** columns: core's
             // `BTreeTable::resolve_custom_type_affinities` (core/schema.rs)
-            // unconditionally forces array columns to `Blob` affinity for
+            // unconditionally forces them to `Blob` affinity for
             // record-format packing, regardless of their declared element
-            // type. Read the logical type from `classify_column` instead:
-            // `base_type` already carries the resolved primitive for a
-            // `Domain` column's underlying type (`declared_name` there is
-            // the domain's own name, e.g. "posint", not a primitive
+            // type. For those, read the logical type from `classify_column`
+            // instead: `base_type` already carries the resolved primitive
+            // for a `Domain` column's underlying type (`declared_name` there
+            // is the domain's own name, e.g. "posint", not a primitive
             // keyword); for `Builtin`, `base_type` is `None` and
-            // `declared_name` *is* the primitive keyword directly.
+            // `declared_name` *is* the primitive keyword directly — but only
+            // when written as one of the four canonical keywords
+            // (`primitive_value_type` exact-matches those and falls back to
+            // `Any` otherwise). For non-array columns, `column.affinity()`
+            // is accurate regardless of declared spelling (`INT`,
+            // `VARCHAR(50)`, `DOUBLE`, ...), so use it there instead.
             ColumnTypeKind::Builtin | ColumnTypeKind::Domain => {
-                primitive_value_type(info.base_type.as_deref().unwrap_or(&info.declared_name))
+                if is_array {
+                    primitive_value_type(info.base_type.as_deref().unwrap_or(&info.declared_name))
+                } else {
+                    sqlite_type_value_type(column.affinity().to_type())
+                }
             }
             ColumnTypeKind::Custom => {
                 // Same physical-vs-logical distinction as above: `base_type`
                 // is the custom type's resolved underlying primitive,
-                // unaffected by the array-affinity override.
-                let base = Box::new(primitive_value_type(
-                    info.base_type.as_deref().unwrap_or(&info.declared_name),
-                ));
+                // unaffected by the array-affinity override, so it's only
+                // needed for array columns; non-array `Custom` columns get
+                // an accurate resolved base affinity from core already.
+                let base = Box::new(if is_array {
+                    primitive_value_type(info.base_type.as_deref().unwrap_or(&info.declared_name))
+                } else {
+                    sqlite_type_value_type(column.affinity().to_type())
+                });
                 ir::ValueType::Custom {
                     name: info.declared_name,
                     base,
@@ -348,5 +392,56 @@ mod tests {
         assert_eq!(name.id, ir::PropertyId::new(2).unwrap());
         assert_eq!(name.value_type, ir::ValueType::Text);
         assert_eq!(name.nullability, ir::Nullability::Nullable);
+    }
+
+    /// Regression test for a bug introduced alongside the array-element-type
+    /// fix in `column_value_type`: that fix routed *every* `Builtin` column
+    /// (not just arrays) through `primitive_value_type`, which only
+    /// exact-matches the four keywords `INTEGER`/`REAL`/`TEXT`/`BLOB` and
+    /// falls back to `Any` for anything else. Non-array `Builtin` columns
+    /// declared with any other legal SQLite spelling — `INT`, `VARCHAR(n)`,
+    /// `CHAR(n)`, `DOUBLE`, ... — silently mistyped as `Any` instead of
+    /// their real type. `column.affinity()` (SQLite's substring-based
+    /// affinity algorithm) handles these spellings correctly and must be
+    /// used for non-array columns.
+    #[test]
+    fn non_canonical_builtin_spelling_resolves_correct_scalar_type_not_any() {
+        let connection = connect(false);
+        connection
+            .execute("CREATE TABLE things(id INTEGER PRIMARY KEY, age INT, label VARCHAR(20));")
+            .expect("create source");
+        let graph = crate::catalog::register_graph(
+            &connection,
+            &GraphRegistration {
+                name: "typesys".to_owned(),
+                node_sources: vec![NodeSourceRegistration {
+                    name: "Thing".to_owned(),
+                    table: "things".to_owned(),
+                    identity_column: "id".to_owned(),
+                }],
+                relationship_sources: vec![],
+            },
+        )
+        .expect("register graph");
+        let graph_id = graph.id;
+        let catalog = SchemaCatalog::new(connection, graph);
+
+        let age = catalog
+            .property(graph_id, CatalogEntity::Node, "age")
+            .expect("age resolves");
+        assert_eq!(
+            age.value_type,
+            ir::ValueType::Integer,
+            "INT is a non-canonical spelling of INTEGER and must not fall back to Any"
+        );
+
+        let label = catalog
+            .property(graph_id, CatalogEntity::Node, "label")
+            .expect("label resolves");
+        assert_eq!(
+            label.value_type,
+            ir::ValueType::Text,
+            "VARCHAR(20) must resolve via SQLite affinity (Text) and not fall back to Any"
+        );
     }
 }
