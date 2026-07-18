@@ -481,6 +481,7 @@ fn walk_expression(pair: Pair<'_, Rule>) -> Result<Spanned<Expression>, ParseErr
                 .map(walk_expression)
                 .collect::<Result<Vec<_>, _>>()?,
         ),
+        Rule::map_literal => Expression::Map(walk_map(pair)?),
         rule => return Err(unexpected(&pair, "expression", rule)),
     };
     Ok(Spanned::new(value, span))
@@ -747,6 +748,21 @@ mod tests {
         assert!(projection.order_by[0].descending);
         assert!(projection.skip.is_some());
         assert!(projection.limit.is_some());
+    }
+
+    #[test]
+    fn parses_map_literal_as_general_expression() {
+        let query = parse("RETURN {x: 1, y: 2}").expect("parses");
+        let Clause::Return(projection) = &query.clauses[0].value else {
+            panic!("expected RETURN")
+        };
+        let ProjectionItem::Expression { expression, .. } = &projection.items[0] else {
+            panic!("expected expression projection item")
+        };
+        assert!(matches!(
+            expression.value,
+            Expression::Map(ref entries) if entries.len() == 2
+        ));
     }
 
     #[test]

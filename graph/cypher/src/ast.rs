@@ -203,4 +203,5 @@ pub enum Expression {
         distinct: bool,
     },
     List(Vec<Spanned<Expression>>),
+    Map(Vec<(Spanned<String>, Spanned<Expression>)>),
 }
