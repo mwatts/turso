@@ -5,7 +5,10 @@ use std::sync::{Arc, OnceLock};
 use crate::aliases;
 use crate::catalog::{self, PostgresDialect};
 use parking_lot::RwLock;
-use turso_core::{Connection, FrontendCompiler, FrontendId, LimboError, Result, Statement, Value};
+use turso_core::{
+    Connection, FrontendCompilation, FrontendCompiler, FrontendId, LimboError, Result, Statement,
+    Value,
+};
 use turso_graph_frontend::{
     GraphCompilationCatalog, GraphSession, MutationParameters, ParameterTypes, RegisteredGraph,
     SnapshotStore,
@@ -32,25 +35,19 @@ const POSTGRES_FRONTEND_NAME: &str = "postgres";
 struct PostgresCompiler;
 
 impl FrontendCompiler for PostgresCompiler {
-    fn compile(&self, source: &str) -> Result<(Option<ast::Cmd>, usize)> {
-        reject_sqlite_catalog_access(source)?;
-        let parse_result =
-            turso_pg_parser::parse(source).map_err(|e| LimboError::ParseError(e.to_string()))?;
-        let stmt = PostgreSQLTranslator::new()
-            .translate(&parse_result)
-            .map_err(|e| LimboError::ParseError(e.to_string()))?;
-        reject_catalog_dml(&stmt)?;
-        Ok((Some(ast::Cmd::Stmt(stmt)), source.len()))
-    }
-
-    fn prerequisites(&self, source: &str) -> Result<Vec<ast::Stmt>> {
+    fn compile(&self, source: &str) -> Result<FrontendCompilation> {
         reject_sqlite_catalog_access(source)?;
         let parse_result =
             turso_pg_parser::parse(source).map_err(|e| LimboError::ParseError(e.to_string()))?;
         let translated = PostgreSQLTranslator::new()
             .translate_with_prereqs(&parse_result)
             .map_err(|e| LimboError::ParseError(e.to_string()))?;
-        Ok(translated.prereqs)
+        reject_catalog_dml(&translated.stmt)?;
+        Ok(FrontendCompilation {
+            prerequisites: translated.prereqs,
+            cmd: Some(ast::Cmd::Stmt(translated.stmt)),
+            consumed: source.len(),
+        })
     }
 }
 

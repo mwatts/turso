@@ -141,7 +141,9 @@ pub use connection::{resolve_ext_path, Connection, Row, StepResult, SymbolTable}
 pub(crate) use connection::{AtomicTransactionState, TransactionState};
 pub use dialect::{Dialect, SqliteDialect};
 pub use error::{io_error, CompletionError, LimboError};
-pub use frontend::{FrontendCompiler, FrontendError, FrontendId, PreparedSource};
+pub use frontend::{
+    FrontendCompilation, FrontendCompiler, FrontendError, FrontendId, PreparedSource,
+};
 pub use function::ContextCollationFunction;
 #[cfg(feature = "io_memory_yield")]
 pub use io::MemoryYieldIO;

@@ -1,6 +1,6 @@
 use std::sync::{Arc, OnceLock};
 
-use turso_core::{FrontendCompiler, FrontendId, LimboError, Result};
+use turso_core::{FrontendCompilation, FrontendCompiler, FrontendId, LimboError, Result};
 use turso_graph_ir as ir;
 use turso_parser::ast;
 
@@ -43,14 +43,18 @@ impl GraphCompiler {
 }
 
 impl FrontendCompiler for GraphCompiler {
-    fn compile(&self, source: &str) -> Result<(Option<ast::Cmd>, usize)> {
+    fn compile(&self, source: &str) -> Result<FrontendCompilation> {
         let query = turso_graph_cypher::parse(source)
             .map_err(|error| LimboError::ParseError(error.to_string()))?;
         let bound = bind(&query, self.graph, self.catalog.as_ref(), &self.parameters)
             .map_err(|error| LimboError::ParseError(error.to_string()))?;
         let statement = lower_relational(&bound.plan, self.catalog.as_ref())
             .map_err(|error| LimboError::ParseError(error.to_string()))?;
-        Ok((Some(ast::Cmd::Stmt(statement)), source.len()))
+        Ok(FrontendCompilation {
+            prerequisites: Vec::new(),
+            cmd: Some(ast::Cmd::Stmt(statement)),
+            consumed: source.len(),
+        })
     }
 }
 

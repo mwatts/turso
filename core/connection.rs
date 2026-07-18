@@ -26,10 +26,10 @@ use crate::{
     vdbe, AllViewsTxState, AtomicCipherMode, AtomicSyncMode, AtomicTempStore, BusyHandler,
     BusyHandlerCallback, CaptureDataChangesInfo, CheckpointMode, CheckpointResult, CipherMode, Cmd,
     Completion, ConnectionMetrics, Database, DatabaseCatalog, DatabaseOpts, Duration,
-    EncryptionKey, EncryptionOpts, FrontendCompiler, FrontendError, FrontendId, IOResult,
-    IndexMethod, LimboError, MvStore, OpenFlags, PageSize, Pager, PreparedSource, Program,
-    QueryMode, QueryRunner, Result, Schema, Statement, SyncMode, TransactionMode, Trigger, Value,
-    VirtualTable, WalAutoActions,
+    EncryptionKey, EncryptionOpts, FrontendCompilation, FrontendCompiler, FrontendError,
+    FrontendId, IOResult, IndexMethod, LimboError, MvStore, OpenFlags, PageSize, Pager,
+    PreparedSource, Program, QueryMode, QueryRunner, Result, Schema, Statement, SyncMode,
+    TransactionMode, Trigger, Value, VirtualTable, WalAutoActions,
 };
 use crate::{is_memory_like, turso_assert};
 use crate::{MAIN_DB_ID, TEMP_DB_ID};
@@ -595,10 +595,25 @@ impl Connection {
             return self.parse_sql(prepared_source.source());
         };
 
-        let (cmd, consumed) = self.frontend_compiler(frontend)?.compile(source)?;
+        // Recompiles deliberately discard prerequisites: they executed at the
+        // initial prepare_frontend, and a recompile can run mid-step where
+        // executing DDL is unsafe (see `FrontendCompilation::prerequisites`).
+        let compilation = self.compile_frontend_source(frontend, source)?;
+        Ok((compilation.cmd, compilation.consumed))
+    }
+
+    /// Compile frontend source with the registered compiler and validate the
+    /// consumed byte count.
+    fn compile_frontend_source(
+        &self,
+        frontend: &FrontendId,
+        source: &str,
+    ) -> Result<FrontendCompilation> {
+        let compilation = self.frontend_compiler(frontend)?.compile(source)?;
+        let consumed = compilation.consumed;
         if consumed > source.len()
             || !source.is_char_boundary(consumed)
-            || (cmd.is_some() && consumed == 0)
+            || (compilation.cmd.is_some() && consumed == 0)
         {
             return Err(FrontendError::InvalidConsumedBytes {
                 frontend: frontend.clone(),
@@ -607,7 +622,7 @@ impl Connection {
             }
             .into());
         }
-        Ok((cmd, consumed))
+        Ok(compilation)
     }
 
     /// Fetch a registered frontend compiler without invoking frontend code
@@ -1112,26 +1127,27 @@ impl Connection {
             ));
         }
 
-        // Prerequisites must exist before the main statement compiles, and
-        // only the initial prepare may execute them; recompiles skip them by
-        // contract (see `FrontendCompiler::prerequisites`).
-        for prereq in self.frontend_compiler(frontend)?.prerequisites(source)? {
+        let compilation = self.compile_frontend_source(frontend, source)?;
+
+        // Prerequisites execute exactly once, before the main statement is
+        // prepared; recompiles discard them by contract (see
+        // `FrontendCompilation::prerequisites`).
+        for prereq in compilation.prerequisites {
             let input = prereq.to_string();
             let mut stmt = self.prepare_translated_stmt(prereq, &input)?;
             stmt.run_ignore_rows()?;
         }
 
-        let full_source = PreparedSource::frontend(frontend.clone(), source);
-        let (cmd, byte_offset_end) = self.compile_prepared_source(&full_source)?;
-        let cmd = cmd.ok_or_else(|| {
+        let cmd = compilation.cmd.ok_or_else(|| {
             LimboError::InvalidArgument(
                 "The supplied frontend source contains no statements".to_string(),
             )
         })?;
+        let byte_offset_end = compilation.consumed;
         let input = source
             .get(..byte_offset_end)
-            .expect("compile_prepared_source validated the consumed byte offset");
-        let prepared_source = full_source.with_source(input);
+            .expect("compile_frontend_source validated the consumed byte offset");
+        let prepared_source = PreparedSource::frontend(frontend.clone(), input);
         let (program, pager, mode) =
             self.compile_cmd(cmd, &prepared_source, StatementOrigin::Root)?;
         Ok(Statement::new_with_origin(

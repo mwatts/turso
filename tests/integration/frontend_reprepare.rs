@@ -2,10 +2,10 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
 
 use turso_core::{
-    Database, DatabaseOpts, FrontendCompiler, FrontendError, FrontendId, LimboError, OpenFlags,
-    PlatformIO, Result, SqliteDialect, StatementStatusCounter, Value, IO,
+    Database, DatabaseOpts, FrontendCompilation, FrontendCompiler, FrontendError, FrontendId,
+    LimboError, OpenFlags, PlatformIO, Result, SqliteDialect, StatementStatusCounter, Value, IO,
 };
-use turso_parser::ast::{Cmd, Stmt};
+use turso_parser::ast::Cmd;
 use turso_parser::parser::Parser;
 
 use crate::common::TempDatabase;
@@ -14,6 +14,14 @@ fn parse_one(sql: &str) -> Result<Cmd> {
     Parser::new(sql.as_bytes())
         .next_cmd()?
         .ok_or_else(|| LimboError::InternalError("test compiler produced no command".to_string()))
+}
+
+fn compile_only(sql: &str, consumed: usize) -> Result<FrontendCompilation> {
+    Ok(FrontendCompilation {
+        prerequisites: Vec::new(),
+        cmd: Some(parse_one(sql)?),
+        consumed,
+    })
 }
 
 #[derive(Debug)]
@@ -34,7 +42,7 @@ impl SyntheticCompiler {
 }
 
 impl FrontendCompiler for SyntheticCompiler {
-    fn compile(&self, source: &str) -> Result<(Option<Cmd>, usize)> {
+    fn compile(&self, source: &str) -> Result<FrontendCompilation> {
         self.calls.fetch_add(1, Ordering::SeqCst);
         let sql = match source {
             "SYNTHETIC RETURN $value" => "SELECT ?1",
@@ -44,7 +52,7 @@ impl FrontendCompiler for SyntheticCompiler {
                 )))
             }
         };
-        Ok((Some(parse_one(sql)?), source.len()))
+        compile_only(sql, source.len())
     }
 }
 
@@ -80,68 +88,59 @@ fn frontend_compiler_is_reused_for_reprepare_and_keeps_parameters(
 }
 
 #[derive(Debug)]
-struct PrereqCompiler {
-    prereq_calls: AtomicUsize,
-}
-
-impl PrereqCompiler {
-    const fn new() -> Self {
-        Self {
-            prereq_calls: AtomicUsize::new(0),
-        }
-    }
-}
+struct PrereqCompiler;
 
 impl FrontendCompiler for PrereqCompiler {
-    fn compile(&self, source: &str) -> Result<(Option<Cmd>, usize)> {
-        // Compiles to a query over the table the prerequisite creates, so
-        // compilation itself fails if prerequisites did not run first.
-        Ok((
-            Some(parse_one("SELECT count(*) FROM prereq_marker")?),
-            source.len(),
-        ))
-    }
-
-    fn prerequisites(&self, _source: &str) -> Result<Vec<Stmt>> {
-        self.prereq_calls.fetch_add(1, Ordering::SeqCst);
-        let (Cmd::Stmt(stmt) | Cmd::Explain(stmt) | Cmd::ExplainQueryPlan(stmt)) =
-            parse_one("CREATE TABLE IF NOT EXISTS prereq_marker (id INTEGER)")?;
-        Ok(vec![stmt])
+    fn compile(&self, source: &str) -> Result<FrontendCompilation> {
+        // The prerequisite is a deliberately non-idempotent INSERT so a
+        // replay is observable as a second `prereq_events` row.
+        let (Cmd::Stmt(prereq) | Cmd::Explain(prereq) | Cmd::ExplainQueryPlan(prereq)) =
+            parse_one("INSERT INTO prereq_events (id) VALUES (1)")?;
+        Ok(FrontendCompilation {
+            prerequisites: vec![prereq],
+            cmd: Some(parse_one("SELECT count(*) FROM prereq_events")?),
+            consumed: source.len(),
+        })
     }
 }
 
-/// Prerequisites are initial-prepare side effects: they must run before the
-/// main statement compiles, and recompiles must not replay them because a
+/// Prerequisites are initial-prepare side effects: they must execute before
+/// the main statement prepares, and recompiles must discard them because a
 /// reprepare can run mid-step while the statement holds pager locks.
 #[turso_macros::test]
 fn frontend_prerequisites_run_once_before_compile_and_never_on_reprepare(
     tmp_db: TempDatabase,
 ) -> Result<()> {
     let conn = tmp_db.connect_limbo();
+    conn.prepare("CREATE TABLE prereq_events (id INTEGER)")?
+        .run_ignore_rows()?;
     let frontend = FrontendId::new("prereq-synthetic")?;
-    let compiler = Arc::new(PrereqCompiler::new());
-    conn.register_frontend_compiler(frontend.clone(), compiler.clone())?;
+    conn.register_frontend_compiler(frontend.clone(), Arc::new(PrereqCompiler))?;
 
     let mut stmt = conn.prepare_frontend(&frontend, "PREREQ QUERY")?;
+    let count_events = || {
+        conn.prepare("SELECT count(*) FROM prereq_events")?
+            .run_collect_rows()
+    };
     assert_eq!(
-        compiler.prereq_calls.load(Ordering::SeqCst),
-        1,
-        "initial prepare must execute prerequisites before compiling"
+        count_events()?,
+        vec![vec![Value::from_i64(1)]],
+        "initial prepare must execute the prerequisite exactly once"
     );
 
     // Invalidate the prepare context so the next run reprepares.
     conn.set_full_column_names(true);
     let rows = stmt.run_collect_rows()?;
 
-    assert_eq!(rows, vec![vec![Value::from_i64(0)]]);
+    assert_eq!(rows, vec![vec![Value::from_i64(1)]]);
     assert_eq!(
         stmt.stmt_status(StatementStatusCounter::Reprepare),
         1,
         "prepare-context invalidation must trigger exactly one reprepare"
     );
     assert_eq!(
-        compiler.prereq_calls.load(Ordering::SeqCst),
-        1,
+        count_events()?,
+        vec![vec![Value::from_i64(1)]],
         "reprepare must not replay prerequisites"
     );
     Ok(())
@@ -161,7 +160,7 @@ impl RetryCompiler {
 }
 
 impl FrontendCompiler for RetryCompiler {
-    fn compile(&self, source: &str) -> Result<(Option<Cmd>, usize)> {
+    fn compile(&self, source: &str) -> Result<FrontendCompilation> {
         let call = self.calls.fetch_add(1, Ordering::SeqCst);
         let sql = if call == 0 {
             // Force compile_cmd's cross-process schema-lookup retry. The retry
@@ -171,7 +170,7 @@ impl FrontendCompiler for RetryCompiler {
         } else {
             "SELECT 7"
         };
-        Ok((Some(parse_one(sql)?), source.len()))
+        compile_only(sql, source.len())
     }
 }
 

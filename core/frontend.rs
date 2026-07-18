@@ -58,26 +58,32 @@ pub enum FrontendError {
     },
 }
 
-/// Converts source-language text into a Turso parser command.
-///
-/// Implementations may parse and bind frontend syntax, but must not retain
-/// connection or prepared-program state. The returned byte count has the same
-/// contract as [`crate::Dialect::parse`].
-pub trait FrontendCompiler: Send + Sync + 'static {
-    fn compile(&self, source: &str) -> Result<(Option<Cmd>, usize)>;
-
-    /// Statements that must execute before `source` is first prepared, e.g.
-    /// the implicit `CREATE SEQUENCE` a PostgreSQL `SERIAL` column requires.
+/// A compiled frontend statement and the prerequisites its initial prepare
+/// must execute first, produced in one pass over the source.
+#[derive(Debug)]
+pub struct FrontendCompilation {
+    /// Statements that must execute before `cmd` is first prepared, e.g. the
+    /// implicit `CREATE SEQUENCE` a PostgreSQL `SERIAL` column requires.
     ///
     /// Prerequisites run exactly once, during the initial
     /// [`Connection::prepare_frontend`](crate::Connection::prepare_frontend).
-    /// Recompiles (schema-change reprepare, cross-process schema retry) skip
-    /// them: a recompile can run mid-step while the statement holds pager
-    /// locks, where executing DDL is unsafe. Prerequisites must therefore be
-    /// idempotent prepare-time side effects only.
-    fn prerequisites(&self, _source: &str) -> Result<Vec<Stmt>> {
-        Ok(Vec::new())
-    }
+    /// Recompiles (schema-change reprepare, cross-process schema retry)
+    /// discard them: a recompile can run mid-step while the statement holds
+    /// pager locks, where executing DDL is unsafe. Prerequisites must
+    /// therefore be idempotent prepare-time side effects only.
+    pub prerequisites: Vec<Stmt>,
+    pub cmd: Option<Cmd>,
+    /// Bytes of the source consumed; same contract as [`crate::Dialect::parse`].
+    pub consumed: usize,
+}
+
+/// Converts source-language text into a Turso parser command.
+///
+/// Implementations may parse and bind frontend syntax, but must not retain
+/// connection or prepared-program state. Compilation returns the main
+/// command together with any prerequisites so the source is parsed once.
+pub trait FrontendCompiler: Send + Sync + 'static {
+    fn compile(&self, source: &str) -> Result<FrontendCompilation>;
 }
 
 /// Data-only recipe used for initial compilation and every recompile.
