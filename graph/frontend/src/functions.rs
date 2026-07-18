@@ -21,10 +21,11 @@ impl ArgumentType {
                 actual == expected || matches!(actual, ir::ValueType::Any)
             }
             // A BLOB column can hold vector bytes just as validly as a
-            // value actually produced by vector32/etc., and a Custom scalar
-            // over a BLOB base is equally plausible — only reject types
-            // that are clearly not vector-shaped (Text, Integer, Boolean,
-            // Struct, ...).
+            // value actually produced by vector32/etc. Custom scalars are
+            // accepted regardless of their declared base (not just a BLOB
+            // base) since this match is deliberately permissive — only
+            // reject types that are clearly not vector-shaped (Text,
+            // Integer, Boolean, Struct, ...).
             ArgumentType::Vector => matches!(
                 actual,
                 ir::ValueType::Vector(_, _)
