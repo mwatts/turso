@@ -1,5 +1,5 @@
 use std::{
-    collections::{BTreeMap, HashMap, HashSet},
+    collections::{BTreeMap, HashSet},
     fs,
     path::{Path, PathBuf},
     time::Instant,
@@ -7,6 +7,7 @@ use std::{
 
 use regex::Regex;
 use thiserror::Error;
+use turso_graph_frontend::MutationParameters;
 
 use crate::{
     history::recorded_at,
@@ -16,6 +17,7 @@ use crate::{
         HISTORY_SCHEMA_VERSION,
     },
     query_cache::QueryParseCache,
+    runner::empty_fixture,
 };
 
 const AGE_REVISION: &str = "6876abcab0a3281eb65a7e2a91238e0b5abfdea7";
@@ -143,18 +145,10 @@ impl AgeCorpus {
         run_id: &str,
         parse_cache: &mut QueryParseCache,
     ) -> Vec<ResultRecord> {
-        let mut canonical_results: HashMap<&str, ResultRecord> = HashMap::new();
-        let mut records = Vec::with_capacity(self.cases.len());
-        for case in &self.cases {
-            if let Some(canonical) = canonical_results.get(case.semantic_key.as_str()) {
-                records.push(alias_record(case, canonical, environment.clone(), run_id));
-                continue;
-            }
-            let record = run_canonical(case, environment.clone(), run_id, parse_cache);
-            canonical_results.insert(case.semantic_key.as_str(), record.clone());
-            records.push(record);
-        }
-        records
+        self.cases
+            .iter()
+            .map(|case| run_canonical(case, environment.clone(), run_id, parse_cache))
+            .collect()
     }
 }
 
@@ -165,19 +159,34 @@ fn run_canonical(
     parse_cache: &mut QueryParseCache,
 ) -> ResultRecord {
     let started = Instant::now();
-    let (message, execution) = match parse_cache.parse(&case.query) {
-        Ok(()) => (
-            "query parses, but the PostgreSQL AGE graph fixture and agtype result contract are not executable by the generic adapter".to_owned(),
-            "adapter",
-        ),
-        Err(error) => (error, "parser"),
+    let (outcome, message, execution) = match parse_cache.parse(&case.query) {
+        Ok(()) => match empty_fixture(case.id.as_str()) {
+            Ok(fixture) => match fixture
+                .session
+                .query(&case.query, &MutationParameters::new())
+            {
+                Ok(_) => (Outcome::Passed, None, "execution"),
+                Err(error) => (
+                    Outcome::Failed,
+                    Some(format!("query execution failed: {error}")),
+                    "execution",
+                ),
+            },
+            Err(error) => (
+                Outcome::Failed,
+                Some(error.to_string()),
+                "fixture-execution",
+            ),
+        },
+        Err(error) => (Outcome::Failed, Some(error), "parser"),
     };
     base_record(
         case,
         environment,
         run_id,
         started.elapsed().as_nanos().try_into().unwrap_or(u64::MAX),
-        Some(message),
+        outcome,
+        message,
         execution,
     )
 }
@@ -187,6 +196,7 @@ fn base_record(
     environment: RunEnvironment,
     run_id: &str,
     duration_ns: u64,
+    outcome: Outcome,
     message: Option<String>,
     execution: &str,
 ) -> ResultRecord {
@@ -201,7 +211,7 @@ fn base_record(
         area: case.source_path.trim_end_matches(".sql").to_owned(),
         fixture: case.graph_argument.clone(),
         expectation: Expectation::Rows,
-        outcome: Outcome::Unsupported,
+        outcome,
         duration_ns,
         source: SourceIdentity {
             name: "Apache AGE".to_owned(),
@@ -233,27 +243,6 @@ fn base_record(
             ("source_line".to_owned(), case.source_line.to_string()),
         ]),
     }
-}
-
-fn alias_record(
-    case: &AgeCase,
-    canonical: &ResultRecord,
-    environment: RunEnvironment,
-    run_id: &str,
-) -> ResultRecord {
-    let mut record = base_record(
-        case,
-        environment,
-        run_id,
-        0,
-        canonical.message.clone(),
-        "deduplicated",
-    );
-    record.dimensions.insert(
-        "canonical_test_id".to_owned(),
-        canonical.test_id.to_string(),
-    );
-    record
 }
 
 fn collect_sql_files(directory: &Path, paths: &mut Vec<PathBuf>) -> Result<(), AgeError> {

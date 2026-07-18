@@ -105,27 +105,6 @@ license = "MIT"
 adaptation = "fixture-adaptation"
 
 [[scenario]]
-id = "ladybug.regression.detach-delete"
-tiers = ["deep"]
-kind = "regression"
-area = "mutation"
-fixture = "social"
-expectation = "rows"
-action = "mutation"
-ordering = "ordered"
-query = "MATCH (n:Person {id: 2}) DETACH DELETE n"
-verification_query = "MATCH (n:Person) RETURN count(n)"
-expected_rows = [["3"]]
-[scenario.source]
-name = "Ladybug"
-repository = "https://github.com/mwatts/ladybug"
-revision = "7eab431c6becf64f58f7c2ff4c0fb1f160acb492"
-path = "test/test_files/dml_node/delete_node.test"
-case = "detach delete connected node"
-license = "MIT"
-adaptation = "fixture-adaptation"
-
-[[scenario]]
 id = "grafeo.regression.optional-count-preserves-rows"
 tiers = ["deep"]
 kind = "bug-regression"

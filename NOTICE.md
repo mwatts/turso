@@ -60,13 +60,6 @@ distributed by Evokoa Pte. Ltd.:
 * Source revision: d689bcf2b3b52d7f878f61718be69ebcb953affc
 * Homepage: https://github.com/Evokoa/pgGraph
 
-This project includes graph-query fixtures adapted from Ladybug, distributed
-by the Kùzu contributors:
-
-* License: licenses/graph/ladybug-mit-license.md (MIT License)
-* Source revision: 7eab431c6becf64f58f7c2ff4c0fb1f160acb492
-* Homepage: https://github.com/mwatts/ladybug
-
 This project includes graph-query fixtures adapted from SparrowDB, distributed
 by Rich Yaker:
 

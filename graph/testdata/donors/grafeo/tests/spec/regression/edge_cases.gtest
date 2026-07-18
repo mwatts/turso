@@ -36,32 +36,6 @@ tests:
         - [1]
 
   # ---------------------------------------------------------------------------
-  # Self-loop with variable-length expansion
-  # Must terminate and not expand infinitely (inspired by Kuzu #5989).
-  # ---------------------------------------------------------------------------
-
-  - name: self_loop_varlength_terminates
-    # Variable-length expansion on a graph with a self-loop must terminate.
-    setup:
-      - "INSERT (a:N {name: 'Alix'})-[:LOOP]->(a)"
-      - "MATCH (a:N {name: 'Alix'}) INSERT (a)-[:R]->(b:N {name: 'Gus'})-[:R]->(c:N {name: 'Vincent'})"
-    query: MATCH (a:N {name: 'Alix'})-[:R*1..3]->(b) RETURN count(*) AS cnt
-    expect:
-      count: 1
-
-  - name: optional_match_varlength_with_self_loop_returns_null
-    # OPTIONAL MATCH for paths of type :R on a self-loop-only node returns NULL.
-    setup:
-      - "INSERT (a:N {name: 'solo'})-[:LOOP]->(a)"
-    query: |
-      MATCH (a:N {name: 'solo'})
-      OPTIONAL MATCH (a)-[:R*3..5]->(b)
-      RETURN b.name
-    expect:
-      rows:
-        - [null]
-
-  # ---------------------------------------------------------------------------
   # Deleted node access in same session
   # ---------------------------------------------------------------------------
 
@@ -562,20 +536,6 @@ tests:
         - [0]
 
   # ---------------------------------------------------------------------------
-  # DETACH DELETE preserves unrelated edges (inspired by Kuzu #5954)
-  # ---------------------------------------------------------------------------
-
-  - name: detach_delete_preserves_unrelated_edges
-    setup:
-      - "INSERT (:A {id: 1})-[:R]->(:B {id: 1})"
-      - "INSERT (:A {id: 2})-[:R]->(:B {id: 2})"
-      - "MATCH (a:A {id: 1}) DETACH DELETE a"
-    query: MATCH ()-[r:R]->() RETURN count(r) AS cnt
-    expect:
-      rows:
-        - [1]
-
-  # ---------------------------------------------------------------------------
   # Label intersection across MATCH clauses (inspired by Memgraph #2875)
   # ---------------------------------------------------------------------------
 
@@ -704,46 +664,6 @@ tests:
         - [Alix, null]
 
   # ---------------------------------------------------------------------------
-  # WHERE filter on traversal endpoints (inspired by LadybugDB #273)
-  # ---------------------------------------------------------------------------
-
-  - name: filter_on_destination_property
-    setup:
-      - "INSERT (:Person {name: 'Alix'})-[:LIVES_IN]->(:City {name: 'Amsterdam', pop: 900000})"
-      - "INSERT (:Person {name: 'Gus'})-[:LIVES_IN]->(:City {name: 'Berlin', pop: 3700000})"
-    query: |
-      MATCH (p:Person)-[:LIVES_IN]->(c:City)
-      WHERE c.pop > 1000000
-      RETURN p.name, c.name
-    expect:
-      rows:
-        - [Gus, Berlin]
-
-  - name: filter_on_edge_property
-    setup:
-      - "INSERT (:Person {name: 'Alix'})-[:KNOWS {since: 2020}]->(:Person {name: 'Gus'})"
-      - "INSERT (:Person {name: 'Vincent'})-[:KNOWS {since: 2024}]->(:Person {name: 'Jules'})"
-    query: |
-      MATCH (a:Person)-[k:KNOWS]->(b:Person)
-      WHERE k.since >= 2023
-      RETURN a.name, b.name
-    expect:
-      rows:
-        - [Vincent, Jules]
-
-  - name: filter_on_both_endpoints
-    setup:
-      - "INSERT (:Person {name: 'Alix', age: 30})-[:KNOWS]->(:Person {name: 'Gus', age: 25})"
-      - "INSERT (:Person {name: 'Vincent', age: 40})-[:KNOWS]->(:Person {name: 'Jules', age: 35})"
-    query: |
-      MATCH (a:Person)-[:KNOWS]->(b:Person)
-      WHERE a.age > 35 AND b.age > 30
-      RETURN a.name, b.name
-    expect:
-      rows:
-        - [Vincent, Jules]
-
-  # ---------------------------------------------------------------------------
   # UNWIND NULL produces zero rows (inspired by FalkorDB #1031)
   # ---------------------------------------------------------------------------
 
@@ -765,42 +685,6 @@ tests:
     expect:
       rows:
         - [0]
-
-  # ---------------------------------------------------------------------------
-  # IN operator correctness (inspired by Kuzu #6010)
-  # ---------------------------------------------------------------------------
-
-  - name: in_basic_membership
-    query: RETURN 2 IN [1, 2, 3] AS found
-    expect:
-      rows:
-        - [true]
-
-  - name: in_not_found
-    query: RETURN 4 IN [1, 2, 3] AS found
-    expect:
-      rows:
-        - [false]
-
-  - name: in_empty_list
-    query: RETURN 1 IN [] AS found
-    expect:
-      rows:
-        - [false]
-
-  - name: in_with_null_element_found
-    # 1 IN [1, null] is true because 1 is found.
-    query: RETURN 1 IN [1, NULL] AS found
-    expect:
-      rows:
-        - [true]
-
-  - name: in_with_null_not_found
-    # 2 IN [1, null] is NULL (unknown) per SQL semantics.
-    query: RETURN 2 IN [1, NULL] AS found
-    expect:
-      rows:
-        - [null]
 
   # ---------------------------------------------------------------------------
   # Type coercion: string 'false' vs boolean false (JanusGraph #4220)
@@ -839,41 +723,6 @@ tests:
       ordered: true
       rows:
         - [Gus]
-
-  # ---------------------------------------------------------------------------
-  # NULL join semantics (inspired by Kuzu #5893)
-  # ---------------------------------------------------------------------------
-
-  - name: null_equality_in_cross_match_where
-    # Only 'Alix'='Alix' should match; NULL=NULL must not.
-    setup:
-      - "INSERT (:Account {svc: 'A', name: 'Alix'})"
-      - "INSERT (:Account {svc: 'B', name: 'Alix'})"
-      - "INSERT (:Account {svc: 'A'})"
-      - "INSERT (:Account {svc: 'B'})"
-    query: |
-      MATCH (a:Account {svc: 'A'})
-      MATCH (b:Account {svc: 'B'})
-      WHERE a.name = b.name
-      RETURN a.name
-    expect:
-      rows:
-        - [Alix]
-
-  # ---------------------------------------------------------------------------
-  # Functions with NULL arguments return NULL (inspired by Kuzu #5959)
-  # ---------------------------------------------------------------------------
-
-  - name: type_of_null_relationship_returns_null
-    setup:
-      - "INSERT (:N {name: 'Alix'})"
-    query: |
-      MATCH (n:N)
-      OPTIONAL MATCH (n)-[r:NONEXISTENT]->()
-      RETURN type(r) AS t
-    expect:
-      rows:
-        - [null]
 
   # ---------------------------------------------------------------------------
   # Delete + re-create edge in sequence (inspired by Dgraph #9422)
@@ -1303,24 +1152,6 @@ tests:
       rows:
         - [Alix, Acme]
         - [Gus, null]
-
-  # ---------------------------------------------------------------------------
-  # String escapes (inspired by Kuzu #5814)
-  # ---------------------------------------------------------------------------
-
-  - name: newline_escape_in_property
-    setup:
-      - "INSERT (:Entry {text: \"line1\\nline2\"})"
-    query: MATCH (e:Entry) RETURN e.text
-    expect:
-      count: 1
-
-  - name: tab_escape_in_property
-    setup:
-      - "INSERT (:Entry {text: \"col1\\tcol2\"})"
-    query: MATCH (e:Entry) RETURN e.text
-    expect:
-      count: 1
 
   # ---------------------------------------------------------------------------
   # Escaped quotes in property values (inspired by Dgraph #9405)

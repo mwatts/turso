@@ -54,7 +54,9 @@ stable test identity to `graph/test-results/history.jsonl` and regenerate
 `graph/test-results/REPORT.md`. Use `verify-history` to validate the persisted
 schema and uniqueness contract without running a workload.
 
-The corpus commands cover all 26,332 imported source identities from the
-openCypher TCK, Grafeo, LadybugDB/Kuzu, Apache AGE, SparrowDB, and CQLite.
+The corpus commands cover all 10,392 imported source identities from the
+openCypher TCK, Grafeo, Apache AGE, SparrowDB, and CQLite. LadybugDB/Kuzu is
+excluded because its suite mixes vendor-specific database language and result
+contracts into standard-looking Cypher queries.
 Canonical execution and cross-source parser caches remove duplicate work while
 preserving every source identity in the result stream.

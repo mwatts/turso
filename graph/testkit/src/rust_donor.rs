@@ -10,6 +10,7 @@ use syn::{
     Expr, ExprMethodCall, ItemFn, Lit, Local, Pat,
 };
 use thiserror::Error;
+use turso_graph_frontend::MutationParameters;
 
 use crate::{
     history::recorded_at,
@@ -19,6 +20,7 @@ use crate::{
         HISTORY_SCHEMA_VERSION,
     },
     query_cache::QueryParseCache,
+    runner::empty_fixture,
 };
 
 #[derive(Clone, Copy, Debug)]
@@ -175,39 +177,39 @@ impl RustDonorCorpus {
         run_id: &str,
         parse_cache: &mut QueryParseCache,
     ) -> Vec<ResultRecord> {
-        let mut canonical_results: HashMap<&str, ResultRecord> = HashMap::new();
         let mut records = Vec::with_capacity(self.cases.len());
         for case in &self.cases {
-            if let Some(canonical) = canonical_results.get(case.semantic_key.as_str()) {
-                records.push(self.record(
-                    case,
-                    environment.clone(),
-                    run_id,
-                    0,
-                    canonical.message.clone(),
-                    "deduplicated",
-                    Some(&canonical.test_id),
-                ));
-                continue;
-            }
             let started = Instant::now();
-            let (message, execution) = match parse_cache.parse(&case.query) {
-                Ok(()) => (
-                    "query parses, but the donor fixture and result assertions are not executable by the generic adapter".to_owned(),
-                    "adapter",
-                ),
-                Err(error) => (error, "parser"),
+            let (outcome, message, execution) = match parse_cache.parse(&case.query) {
+                Ok(()) => match empty_fixture(case.id.as_str()) {
+                    Ok(fixture) => match fixture
+                        .session
+                        .query(&case.query, &MutationParameters::new())
+                    {
+                        Ok(_) => (Outcome::Passed, None, "execution"),
+                        Err(error) => (
+                            Outcome::Failed,
+                            Some(format!("query execution failed: {error}")),
+                            "execution",
+                        ),
+                    },
+                    Err(error) => (
+                        Outcome::Failed,
+                        Some(error.to_string()),
+                        "fixture-execution",
+                    ),
+                },
+                Err(error) => (Outcome::Failed, Some(error), "parser"),
             };
             let record = self.record(
                 case,
                 environment.clone(),
                 run_id,
                 started.elapsed().as_nanos().try_into().unwrap_or(u64::MAX),
-                Some(message),
+                outcome,
+                message,
                 execution,
-                None,
             );
-            canonical_results.insert(case.semantic_key.as_str(), record.clone());
             records.push(record);
         }
         records
@@ -223,11 +225,11 @@ impl RustDonorCorpus {
         environment: RunEnvironment,
         run_id: &str,
         duration_ns: u64,
+        outcome: Outcome,
         message: Option<String>,
         execution: &str,
-        canonical_id: Option<&TestId>,
     ) -> ResultRecord {
-        let mut dimensions = BTreeMap::from([
+        let dimensions = BTreeMap::from([
             (
                 "semantic_fingerprint".to_owned(),
                 case.semantic_fingerprint.clone(),
@@ -235,9 +237,6 @@ impl RustDonorCorpus {
             ("execution".to_owned(), execution.to_owned()),
             ("method".to_owned(), case.method.clone()),
         ]);
-        if let Some(canonical_id) = canonical_id {
-            dimensions.insert("canonical_test_id".to_owned(), canonical_id.to_string());
-        }
         ResultRecord {
             schema_version: HISTORY_SCHEMA_VERSION,
             run_id: run_id.to_owned(),
@@ -249,7 +248,7 @@ impl RustDonorCorpus {
             area: case.source_path.trim_end_matches(".rs").to_owned(),
             fixture: case.function.clone(),
             expectation: Expectation::Rows,
-            outcome: Outcome::Unsupported,
+            outcome,
             duration_ns,
             source: SourceIdentity {
                 name: self.source.name.to_owned(),

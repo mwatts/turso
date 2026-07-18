@@ -1,9 +1,8 @@
-use std::{collections::HashSet, path::PathBuf};
+use std::{collections::HashSet, fs, path::PathBuf};
 
 use turso_graph_testkit::{
     age::AgeCorpus,
     grafeo::GrafeoCorpus,
-    ladybug::LadybugCorpus,
     manifest::ScenarioManifest,
     model::{Outcome, RunEnvironment},
     performance::PerformanceManifest,
@@ -21,8 +20,6 @@ fn vendored_corpus_has_all_source_identities() {
     let root = repository_root();
     let tck = TckCorpus::load(root.join("graph/testdata/tck/opencypher/features")).unwrap();
     let grafeo = GrafeoCorpus::load(root.join("graph/testdata/donors/grafeo/tests")).unwrap();
-    let ladybug =
-        LadybugCorpus::load(root.join("graph/testdata/donors/ladybug/test_files")).unwrap();
     let age = AgeCorpus::load(root.join("graph/testdata/donors/age/sql")).unwrap();
     let sparrowdb = RustDonorCorpus::load(
         root.join("graph/testdata/donors/sparrowdb/tests"),
@@ -35,12 +32,37 @@ fn vendored_corpus_has_all_source_identities() {
     assert_eq!(
         tck.stats().expanded
             + grafeo.stats().cypher_cases
-            + ladybug.stats().statements
             + age.stats().queries
             + sparrowdb.stats().queries
             + cqlite.stats().queries,
-        26_332
+        10_392
     );
+}
+
+#[test]
+fn corpus_excludes_ladybug_and_kuzu_provenance() {
+    let donor_root = repository_root().join("graph/testdata/donors");
+    assert!(!donor_root.join("ladybug").exists());
+    assert_no_removed_vendor_references(&donor_root);
+}
+
+fn assert_no_removed_vendor_references(directory: &std::path::Path) {
+    for entry in fs::read_dir(directory).unwrap() {
+        let path = entry.unwrap().path();
+        if path.is_dir() {
+            assert_no_removed_vendor_references(&path);
+            continue;
+        }
+        let Ok(contents) = fs::read_to_string(&path) else {
+            continue;
+        };
+        let contents = contents.to_ascii_lowercase();
+        assert!(
+            !contents.contains("ladybug") && !contents.contains("kuzu"),
+            "removed vendor provenance reintroduced in {}",
+            path.display()
+        );
+    }
 }
 
 fn environment() -> RunEnvironment {
@@ -73,12 +95,12 @@ fn deep_suite_has_unique_identities_and_no_unclassified_failures() {
             }
         }
     }
-    assert_eq!(scenarios.len(), 38);
+    assert_eq!(scenarios.len(), 34);
     let runner = ScenarioRunner::new(environment(), "integration-deep", "deep");
     for scenario in &scenarios {
         let record = runner.run(scenario).unwrap();
         assert!(
-            matches!(record.outcome, Outcome::Passed | Outcome::Unsupported),
+            matches!(record.outcome, Outcome::Passed | Outcome::Failed),
             "{}: {:?}",
             record.test_id,
             record.message

@@ -10,7 +10,6 @@ use turso_graph_testkit::{
     age::AgeCorpus,
     grafeo::GrafeoCorpus,
     history::{append, discover_environment, new_run_id, read},
-    ladybug::LadybugCorpus,
     manifest::ScenarioManifest,
     model::Outcome,
     performance::PerformanceManifest,
@@ -60,13 +59,6 @@ enum Command {
         no_record: bool,
     },
     GrafeoStats,
-    Ladybug {
-        #[arg(long)]
-        history: Option<PathBuf>,
-        #[arg(long)]
-        no_record: bool,
-    },
-    LadybugStats,
     Corpus {
         #[arg(long)]
         history: Option<PathBuf>,
@@ -138,8 +130,6 @@ fn run(arguments: Arguments) -> Result<bool> {
         Command::TckStats => tck_stats(&root),
         Command::Grafeo { history, no_record } => run_grafeo(&root, history, no_record),
         Command::GrafeoStats => grafeo_stats(&root),
-        Command::Ladybug { history, no_record } => run_ladybug(&root, history, no_record),
-        Command::LadybugStats => ladybug_stats(&root),
         Command::Corpus { history, no_record } => run_corpus(&root, history, no_record),
         Command::CorpusStats => corpus_stats(&root),
         Command::Age { history, no_record } => run_age(&root, history, no_record),
@@ -163,33 +153,20 @@ fn run(arguments: Arguments) -> Result<bool> {
 fn corpus_stats(root: &Path) -> Result<bool> {
     let tck = tck_corpus(root)?.stats();
     let grafeo = grafeo_corpus(root)?.stats();
-    let ladybug = ladybug_corpus(root)?.stats();
     let age = age_corpus(root)?.stats();
     let sparrowdb = sparrowdb_corpus(root)?.stats();
     let cqlite = cqlite_corpus(root)?.stats();
     println!(
-        "source_identities={} canonical_contracts={} exact_duplicates={} tck={} grafeo={} ladybug={} age={} sparrowdb={} cqlite={}",
-        tck.expanded
-            + grafeo.cypher_cases
-            + ladybug.statements
-            + age.queries
-            + sparrowdb.queries
-            + cqlite.queries,
-        tck.canonical
-            + grafeo.canonical
-            + ladybug.canonical
-            + age.canonical
-            + sparrowdb.canonical
-            + cqlite.canonical,
+        "source_identities={} canonical_contracts={} exact_duplicates={} tck={} grafeo={} age={} sparrowdb={} cqlite={}",
+        tck.expanded + grafeo.cypher_cases + age.queries + sparrowdb.queries + cqlite.queries,
+        tck.canonical + grafeo.canonical + age.canonical + sparrowdb.canonical + cqlite.canonical,
         tck.duplicates
             + grafeo.duplicates
-            + ladybug.duplicates
             + age.duplicates
             + sparrowdb.duplicates
             + cqlite.duplicates,
         tck.expanded,
         grafeo.cypher_cases,
-        ladybug.statements,
         age.queries,
         sparrowdb.queries,
         cqlite.queries
@@ -247,28 +224,30 @@ fn run_age(root: &Path, history: Option<PathBuf>, no_record: bool) -> Result<boo
     let run_id = new_run_id(&environment, "age-deep");
     let mut parse_cache = QueryParseCache::default();
     let records = corpus.run_with_cache(environment, &run_id, &mut parse_cache);
+    let passed = records
+        .iter()
+        .filter(|record| record.outcome == Outcome::Passed)
+        .count();
+    let failed = records.len() - passed;
     println!(
-        "files={} queries={} canonical={} deduplicated={} unsupported={}",
-        stats.files,
-        stats.queries,
-        stats.canonical,
-        stats.duplicates,
-        records.len()
+        "files={} queries={} canonical={} deduplicated={} passed={} failed={}",
+        stats.files, stats.queries, stats.canonical, stats.duplicates, passed, failed
     );
     print_classifications(&records);
+    print_failures(&records);
     if !no_record {
         let history = history.unwrap_or_else(|| default_history(root));
         append(&history, &records)?;
         write_report(&history, &root.join("graph/test-results/REPORT.md"))?;
     }
-    println!("run {run_id}: {} records, clean=true", records.len());
-    Ok(true)
+    let clean = outcomes_are_clean(&records);
+    println!("run {run_id}: {} records, clean={clean}", records.len());
+    Ok(clean)
 }
 
 fn run_corpus(root: &Path, history: Option<PathBuf>, no_record: bool) -> Result<bool> {
     let tck = tck_corpus(root)?;
     let grafeo = grafeo_corpus(root)?;
-    let ladybug = ladybug_corpus(root)?;
     let age = age_corpus(root)?;
     let sparrowdb = sparrowdb_corpus(root)?;
     let cqlite = cqlite_corpus(root)?;
@@ -277,10 +256,10 @@ fn run_corpus(root: &Path, history: Option<PathBuf>, no_record: bool) -> Result<
     let mut parse_cache = QueryParseCache::default();
     let mut records = tck.run_with_cache(environment.clone(), &run_id, &mut parse_cache);
     records.extend(grafeo.run_with_cache(environment.clone(), &run_id, &mut parse_cache));
-    records.extend(ladybug.run_with_cache(environment.clone(), &run_id, &mut parse_cache));
     records.extend(age.run_with_cache(environment.clone(), &run_id, &mut parse_cache));
     records.extend(sparrowdb.run_with_cache(environment.clone(), &run_id, &mut parse_cache));
     records.extend(cqlite.run_with_cache(environment, &run_id, &mut parse_cache));
+    validate_binary_outcomes(&records)?;
     let passed = records
         .iter()
         .filter(|record| record.outcome == Outcome::Passed)
@@ -308,57 +287,7 @@ fn run_corpus(root: &Path, history: Option<PathBuf>, no_record: bool) -> Result<
         append(&history, &records)?;
         write_report(&history, &root.join("graph/test-results/REPORT.md"))?;
     }
-    let clean = failed == 0;
-    println!("run {run_id}: {} records, clean={clean}", records.len());
-    Ok(clean)
-}
-
-fn ladybug_corpus(root: &Path) -> Result<LadybugCorpus> {
-    LadybugCorpus::load(root.join("graph/testdata/donors/ladybug/test_files")).map_err(Into::into)
-}
-
-fn ladybug_stats(root: &Path) -> Result<bool> {
-    let stats = ladybug_corpus(root)?.stats();
-    println!(
-        "files={} statements={} canonical={} duplicates={}",
-        stats.files, stats.statements, stats.canonical, stats.duplicates
-    );
-    Ok(true)
-}
-
-fn run_ladybug(root: &Path, history: Option<PathBuf>, no_record: bool) -> Result<bool> {
-    let corpus = ladybug_corpus(root)?;
-    let stats = corpus.stats();
-    let environment = discover_environment("dev")?;
-    let run_id = new_run_id(&environment, "ladybug-deep");
-    let records = corpus.run(environment, &run_id);
-    let passed = records
-        .iter()
-        .filter(|record| record.outcome == Outcome::Passed)
-        .count();
-    let unsupported = records
-        .iter()
-        .filter(|record| record.outcome == Outcome::Unsupported)
-        .count();
-    let failed = records.len() - passed - unsupported;
-    println!(
-        "files={} statements={} canonical={} deduplicated={} passed={} unsupported={} failed={}",
-        stats.files,
-        stats.statements,
-        stats.canonical,
-        stats.duplicates,
-        passed,
-        unsupported,
-        failed
-    );
-    print_classifications(&records);
-    print_failures(&records);
-    if !no_record {
-        let history = history.unwrap_or_else(|| default_history(root));
-        append(&history, &records)?;
-        write_report(&history, &root.join("graph/test-results/REPORT.md"))?;
-    }
-    let clean = failed == 0;
+    let clean = outcomes_are_clean(&records);
     println!("run {run_id}: {} records, clean={clean}", records.len());
     Ok(clean)
 }
@@ -408,7 +337,7 @@ fn run_grafeo(root: &Path, history: Option<PathBuf>, no_record: bool) -> Result<
         append(&history, &records)?;
         write_report(&history, &root.join("graph/test-results/REPORT.md"))?;
     }
-    let clean = failed == 0;
+    let clean = outcomes_are_clean(&records);
     println!("run {run_id}: {} records, clean={clean}", records.len());
     Ok(clean)
 }
@@ -458,7 +387,7 @@ fn run_tck(root: &Path, history: Option<PathBuf>, no_record: bool) -> Result<boo
         append(&history, &records)?;
         write_report(&history, &root.join("graph/test-results/REPORT.md"))?;
     }
-    let clean = failed == 0;
+    let clean = outcomes_are_clean(&records);
     println!("run {run_id}: {} records, clean={clean}", records.len());
     Ok(clean)
 }
@@ -484,7 +413,10 @@ fn print_failures(records: &[turso_graph_testkit::model::ResultRecord]) {
     for record in records.iter().filter(|record| {
         matches!(
             record.outcome,
-            Outcome::Failed | Outcome::UnexpectedlySupported
+            Outcome::Failed
+                | Outcome::Unsupported
+                | Outcome::UnexpectedlySupported
+                | Outcome::ResourceExhausted
         )
     }) {
         println!(
@@ -494,6 +426,39 @@ fn print_failures(records: &[turso_graph_testkit::model::ResultRecord]) {
             record.message.as_deref().unwrap_or_default()
         );
     }
+}
+
+fn outcomes_are_clean(records: &[turso_graph_testkit::model::ResultRecord]) -> bool {
+    records
+        .iter()
+        .all(|record| record.outcome == Outcome::Passed)
+}
+
+fn validate_binary_outcomes(records: &[turso_graph_testkit::model::ResultRecord]) -> Result<()> {
+    for record in records {
+        anyhow::ensure!(
+            record.dimensions.get("execution").map(String::as_str) != Some("deduplicated"),
+            "{} bypassed execution through a canonical result alias",
+            record.test_id
+        );
+        anyhow::ensure!(
+            matches!(record.outcome, Outcome::Passed | Outcome::Failed),
+            "{} emitted non-binary outcome {:?}",
+            record.test_id,
+            record.outcome
+        );
+        if record.outcome == Outcome::Failed {
+            anyhow::ensure!(
+                record
+                    .message
+                    .as_ref()
+                    .is_some_and(|message| !message.is_empty()),
+                "{} failed without a reason",
+                record.test_id
+            );
+        }
+    }
+    Ok(())
 }
 
 fn outcome_name(outcome: Outcome) -> &'static str {
@@ -587,9 +552,7 @@ fn run_suite(root: &Path, suite: Suite, history: Option<PathBuf>, no_record: boo
         append(&history, &records)?;
         write_report(&history, &root.join("graph/test-results/REPORT.md"))?;
     }
-    let clean = records
-        .iter()
-        .all(|record| matches!(record.outcome, Outcome::Passed | Outcome::Unsupported));
+    let clean = outcomes_are_clean(&records);
     println!("run {run_id}: {} records, clean={clean}", records.len());
     Ok(clean)
 }
@@ -612,4 +575,93 @@ fn repository_root() -> PathBuf {
 
 fn default_history(root: &Path) -> PathBuf {
     root.join("graph/test-results/history.jsonl")
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use turso_graph_testkit::{
+        identity::TestId,
+        model::{
+            Expectation, ResultRecord, RunEnvironment, SourceIdentity, TestKind,
+            HISTORY_SCHEMA_VERSION,
+        },
+    };
+
+    fn record(outcome: Outcome) -> ResultRecord {
+        ResultRecord {
+            schema_version: HISTORY_SCHEMA_VERSION,
+            run_id: "run".to_owned(),
+            recorded_at: "2026-07-18T00:00:00Z".to_owned(),
+            environment: RunEnvironment {
+                git_commit: "0".repeat(40),
+                git_dirty: false,
+                package_version: "test".to_owned(),
+                profile: "test".to_owned(),
+                os: "test".to_owned(),
+                architecture: "test".to_owned(),
+            },
+            suite: "test".to_owned(),
+            test_id: TestId::parse("test.outcome").unwrap(),
+            kind: TestKind::Conformance,
+            area: "test".to_owned(),
+            fixture: "test".to_owned(),
+            expectation: Expectation::Rows,
+            outcome,
+            duration_ns: 0,
+            source: SourceIdentity {
+                name: "test".to_owned(),
+                repository: "test".to_owned(),
+                revision: "test".to_owned(),
+                path: "test".to_owned(),
+                case: "test".to_owned(),
+                license: "test".to_owned(),
+                adaptation: "test".to_owned(),
+                issue: None,
+                fixed_commit: None,
+            },
+            operation: None,
+            graph_shape: None,
+            scale: None,
+            iterations: None,
+            throughput_per_second: None,
+            row_count: None,
+            node_count: None,
+            relationship_count: None,
+            result_digest: None,
+            message: None,
+            dimensions: Default::default(),
+        }
+    }
+
+    #[test]
+    fn unsupported_outcome_keeps_conformance_run_red() {
+        assert!(!outcomes_are_clean(&[record(Outcome::Unsupported)]));
+    }
+
+    #[test]
+    fn only_passed_outcomes_make_conformance_run_clean() {
+        assert!(outcomes_are_clean(&[record(Outcome::Passed)]));
+        assert!(!outcomes_are_clean(&[
+            record(Outcome::Passed),
+            record(Outcome::Failed),
+        ]));
+    }
+
+    #[test]
+    fn binary_outcome_validation_rejects_unsupported_and_reasonless_failures() {
+        assert!(validate_binary_outcomes(&[record(Outcome::Passed)]).is_ok());
+        assert!(validate_binary_outcomes(&[record(Outcome::Unsupported)]).is_err());
+        assert!(validate_binary_outcomes(&[record(Outcome::Failed)]).is_err());
+
+        let mut failed = record(Outcome::Failed);
+        failed.message = Some("parser rejected the query".to_owned());
+        assert!(validate_binary_outcomes(&[failed]).is_ok());
+
+        let mut aliased = record(Outcome::Passed);
+        aliased
+            .dimensions
+            .insert("execution".to_owned(), "deduplicated".to_owned());
+        assert!(validate_binary_outcomes(&[aliased]).is_err());
+    }
 }

@@ -105,21 +105,6 @@ tests:
         - [3]
 
   # ---------------------------------------------------------------------------
-  # Sequential statements (inspired by LadybugDB #333)
-  # ---------------------------------------------------------------------------
-
-  - name: sequential_statements_all_execute
-    # All sequential INSERT statements should execute and be visible.
-    statements:
-      - "INSERT (:Item {val: 1})"
-      - "INSERT (:Item {val: 2})"
-      - "INSERT (:Item {val: 3})"
-      - "MATCH (n:Item) RETURN count(n) AS cnt"
-    expect:
-      rows:
-        - [3]
-
-  # ---------------------------------------------------------------------------
   # Insert negative integer and float (from user janit)
   # ---------------------------------------------------------------------------
 

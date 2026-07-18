@@ -859,7 +859,14 @@ impl<'a> Binder<'a> {
         clause: &cypher::ProjectionClause,
         is_return: bool,
     ) -> Result<(), BindError> {
-        let mut input = self.plan.take().ok_or(BindError::EmptyQuery)?;
+        let mut input = match self.plan.take() {
+            Some(input) => input,
+            None => ir::Plan::new(
+                ir::PlanKind::Unit(ir::Unit),
+                ir::Scope::default(),
+                ir::ResultShape::default(),
+            )?,
+        };
         let sort_keys = clause
             .order_by
             .iter()
@@ -1642,6 +1649,16 @@ mod tests {
         let output = bound.plan.scope().resolve("name").expect("projected name");
         assert_eq!(output.value_type(), &ir::ValueType::Text);
         assert_eq!(output.nullability(), ir::Nullability::Nullable);
+    }
+
+    #[test]
+    fn standalone_projection_uses_a_single_unit_row() {
+        let bound = bind_text("RETURN 1 AS value", ParameterTypes::new())
+            .expect("standalone projection should bind");
+        let ir::PlanKind::Project(project) = bound.plan.kind() else {
+            panic!("expected projection")
+        };
+        assert!(matches!(project.input.kind(), ir::PlanKind::Unit(_)));
     }
 
     #[test]

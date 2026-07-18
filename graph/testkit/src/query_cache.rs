@@ -16,6 +16,7 @@ pub struct QueryParseCacheStats {
 impl QueryParseCache {
     pub fn parse(&mut self, query: &str) -> Result<(), String> {
         self.requests += 1;
+        let query = without_terminal_semicolon(query);
         let key = normalized_query(query);
         self.outcomes
             .entry(key)
@@ -36,12 +37,15 @@ impl QueryParseCache {
     }
 }
 
-fn normalized_query(query: &str) -> String {
+fn without_terminal_semicolon(query: &str) -> &str {
     query
-        .trim_end_matches(';')
-        .split_whitespace()
-        .collect::<Vec<_>>()
-        .join(" ")
+        .trim()
+        .strip_suffix(';')
+        .map_or_else(|| query.trim(), str::trim_end)
+}
+
+fn normalized_query(query: &str) -> String {
+    query.split_whitespace().collect::<Vec<_>>().join(" ")
 }
 
 #[cfg(test)]
@@ -51,8 +55,10 @@ mod tests {
     #[test]
     fn equivalent_whitespace_and_terminal_semicolon_share_parse_work() {
         let mut cache = QueryParseCache::default();
-        let _ = cache.parse("UNWIND [1, 2] AS x RETURN x;");
-        let _ = cache.parse(" UNWIND  [1, 2] AS x\nRETURN x ");
+        let with_semicolon = cache.parse("UNWIND [1, 2] AS x RETURN x;");
+        let without_semicolon = cache.parse(" UNWIND  [1, 2] AS x\nRETURN x ");
+        assert!(with_semicolon.is_ok());
+        assert_eq!(with_semicolon, without_semicolon);
         assert_eq!(cache.stats().requests, 2);
         assert_eq!(cache.stats().unique_queries, 1);
         assert_eq!(cache.stats().intersections, 1);

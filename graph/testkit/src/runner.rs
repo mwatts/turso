@@ -93,6 +93,13 @@ pub(crate) fn empty_fixture(name: &str) -> Result<GraphFixture, RunnerError> {
     build_fixture(name, "", ParameterTypes::new())
 }
 
+pub(crate) fn empty_fixture_with_parameters(
+    name: &str,
+    parameters: &MutationParameters,
+) -> Result<GraphFixture, RunnerError> {
+    build_fixture(name, "", parameter_types(parameters))
+}
+
 fn fixture(
     name: &str,
     scenario: &Scenario,
@@ -210,7 +217,7 @@ fn parameters(values: &BTreeMap<String, toml::Value>) -> Result<MutationParamete
                     return Err(RunnerError::Parameter {
                         name: name.clone(),
                         value: value.clone(),
-                    })
+                    });
                 }
             };
             Ok((name.clone(), value))
@@ -279,7 +286,7 @@ fn classify(
             expected_error(scenario, error, Outcome::Passed)
         }
         (crate::model::Expectation::Unsupported, Err(error)) => {
-            expected_error(scenario, error, Outcome::Unsupported)
+            expected_error(scenario, error, Outcome::Failed)
         }
         (crate::model::Expectation::Error, Ok(rows)) => (
             Outcome::Failed,
@@ -287,7 +294,7 @@ fn classify(
             Some("expected an error but execution succeeded".to_owned()),
         ),
         (crate::model::Expectation::Unsupported, Ok(rows)) => (
-            Outcome::UnexpectedlySupported,
+            Outcome::Failed,
             Some(rows),
             Some("known unsupported scenario succeeded and requires reclassification".to_owned()),
         ),
@@ -313,5 +320,34 @@ fn expected_error(
                 "expected error containing {expected:?}, observed {error:?}"
             )),
         )
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn fixture_keeps_database_alive_for_graph_queries() {
+        let fixture = empty_fixture("database-lifetime").expect("fixture should initialize");
+        let connection = Arc::downgrade(&fixture.connection);
+
+        let rows = fixture
+            .session
+            .query("RETURN 1 AS value", &MutationParameters::new())
+            .expect("standalone projection should execute over one unit row");
+        assert_eq!(rows, vec![vec![Value::from_i64(1)]]);
+
+        let rows = fixture
+            .session
+            .query("MATCH (n:Person) RETURN n.name", &MutationParameters::new())
+            .expect("fixture storage should remain available after construction");
+
+        assert!(rows.is_empty());
+        drop(fixture);
+        assert!(
+            connection.upgrade().is_none(),
+            "dropping a fixture must release its connection"
+        );
     }
 }

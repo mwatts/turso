@@ -19,7 +19,7 @@ use crate::{
         HISTORY_SCHEMA_VERSION,
     },
     query_cache::QueryParseCache,
-    runner::empty_fixture,
+    runner::empty_fixture_with_parameters,
 };
 
 const TCK_REVISION: &str = "0812a496c62769b67cf688930750ae384e3de68d";
@@ -156,18 +156,10 @@ impl TckCorpus {
         run_id: &str,
         parse_cache: &mut QueryParseCache,
     ) -> Vec<ResultRecord> {
-        let mut canonical_results: HashMap<&str, ResultRecord> = HashMap::new();
-        let mut records = Vec::with_capacity(self.cases.len());
-        for case in &self.cases {
-            if let Some(canonical) = canonical_results.get(case.semantic_key.as_str()) {
-                records.push(alias_record(case, canonical, environment.clone(), run_id));
-                continue;
-            }
-            let record = run_canonical(case, environment.clone(), run_id, parse_cache);
-            canonical_results.insert(case.semantic_key.as_str(), record.clone());
-            records.push(record);
-        }
-        records
+        self.cases
+            .iter()
+            .map(|case| run_canonical(case, environment.clone(), run_id, parse_cache))
+            .collect()
     }
 }
 
@@ -399,7 +391,7 @@ fn run_canonical(
     let query = query(case);
     let (outcome, rows, message, execution) = match query {
         None => (
-            Outcome::Unsupported,
+            Outcome::Failed,
             None,
             Some("TCK scenario has no executable query step".to_owned()),
             "discovery-only",
@@ -408,22 +400,8 @@ fn run_canonical(
             Err(error) if expectation == Expectation::Error => {
                 (Outcome::Passed, None, Some(error), "parser")
             }
-            Err(error) => (
-                Outcome::Unsupported,
-                None,
-                Some(error),
-                "parser",
-            ),
-            Ok(_) if !scalar_execution_eligible(case, query) => (
-                Outcome::Unsupported,
-                None,
-                Some(
-                    "query parses, but this scenario requires graph fixtures, parameters, side-effect accounting, or graph-value comparison not yet expressible by the generic TCK adapter"
-                        .to_owned(),
-                ),
-                "adapter",
-            ),
-            Ok(_) => execute_scalar_case(case, query, expectation),
+            Err(error) => (Outcome::Failed, None, Some(error), "parser"),
+            Ok(_) => execute_case(case, query, expectation),
         },
     };
     let duration_ns = started.elapsed().as_nanos().try_into().unwrap_or(u64::MAX);
@@ -440,7 +418,7 @@ fn run_canonical(
     )
 }
 
-fn execute_scalar_case(
+fn execute_case(
     case: &TckCase,
     query: &str,
     expectation: Expectation,
@@ -450,46 +428,95 @@ fn execute_scalar_case(
     Option<String>,
     &'static str,
 ) {
-    let fixture = match empty_fixture(case.id.as_str()) {
+    let Some(parameters) = parameters(case) else {
+        return (
+            Outcome::Failed,
+            None,
+            Some("TCK parameter value is not representable by the generic adapter".to_owned()),
+            "parameter-binding",
+        );
+    };
+    let fixture = match empty_fixture_with_parameters(case.id.as_str(), &parameters) {
         Ok(fixture) => fixture,
         Err(error) => {
-            return (
-                Outcome::Unsupported,
-                None,
-                Some(error.to_string()),
-                "scalar-execution",
-            )
+            return (Outcome::Failed, None, Some(error.to_string()), "execution");
         }
     };
-    match fixture.session.query(query, &MutationParameters::new()) {
-        Err(error) if expectation == Expectation::Error => (
-            Outcome::Passed,
-            None,
-            Some(error.to_string()),
-            "scalar-execution",
-        ),
-        Err(error) => (
-            Outcome::Unsupported,
-            None,
-            Some(error.to_string()),
-            "scalar-execution",
-        ),
+    if let Some(name) = named_graph(case) {
+        let setup = match named_graph_setup(name) {
+            Ok(setup) => setup,
+            Err(error) => return (Outcome::Failed, None, Some(error), "fixture-loading"),
+        };
+        if let Err(error) = execute_tck_statement(&fixture.session, &setup, &parameters) {
+            return (
+                Outcome::Failed,
+                None,
+                Some(format!("TCK named graph `{name}` setup failed: {error}")),
+                "fixture-execution",
+            );
+        }
+    }
+    for setup in setup_queries(case) {
+        if let Err(error) = execute_tck_statement(&fixture.session, setup, &parameters) {
+            return (
+                Outcome::Failed,
+                None,
+                Some(format!("TCK setup query failed: {error}; query: {setup}")),
+                "setup-execution",
+            );
+        }
+    }
+    match execute_tck_statement(&fixture.session, query, &parameters) {
+        Err(error) if expectation == Expectation::Error => {
+            (Outcome::Passed, None, Some(error), "execution")
+        }
+        Err(error) => (Outcome::Failed, None, Some(error), "execution"),
         Ok(rows) if expectation == Expectation::Error => (
             Outcome::Failed,
             Some(stringify_rows(rows)),
             Some("expected an error but execution succeeded".to_owned()),
-            "scalar-execution",
+            "execution",
         ),
         Ok(rows) => {
+            if case
+                .steps
+                .iter()
+                .any(|step| step.value.contains("side effects should be"))
+            {
+                return (
+                    Outcome::Failed,
+                    Some(stringify_rows(rows)),
+                    Some(
+                        "query executed, but TCK side-effect comparison is not implemented"
+                            .to_owned(),
+                    ),
+                    "side-effect-comparison",
+                );
+            }
+            if case
+                .steps
+                .iter()
+                .any(|step| step.value.contains("graph should be"))
+            {
+                return (
+                    Outcome::Failed,
+                    Some(stringify_rows(rows)),
+                    Some(
+                        "query executed, but TCK graph-state comparison is not implemented"
+                            .to_owned(),
+                    ),
+                    "graph-comparison",
+                );
+            }
             let mut rows = stringify_rows(rows);
             let Some((mut expected_rows, ordered)) = expected_rows(case) else {
                 return (
-                    Outcome::Unsupported,
+                    Outcome::Failed,
                     Some(rows),
                     Some(
                         "result expectation is not representable by the scalar adapter".to_owned(),
                     ),
-                    "scalar-execution",
+                    "result-comparison",
                 );
             };
             if !ordered {
@@ -497,29 +524,100 @@ fn execute_scalar_case(
                 expected_rows.sort();
             }
             if rows == expected_rows {
-                (Outcome::Passed, Some(rows), None, "scalar-execution")
+                (Outcome::Passed, Some(rows), None, "execution")
             } else {
                 (
                     Outcome::Failed,
                     Some(rows.clone()),
                     Some(format!("expected {expected_rows:?}, observed {rows:?}")),
-                    "scalar-execution",
+                    "execution",
                 )
             }
         }
     }
 }
 
-fn scalar_execution_eligible(case: &TckCase, query: &str) -> bool {
-    let upper = query.trim_start().to_ascii_uppercase();
-    let scalar_query = upper.starts_with("RETURN ") || upper.starts_with("UNWIND ");
-    scalar_query
-        && !case.steps.iter().any(|step| {
-            step.value == "having executed:"
-                || step.value.contains("parameters are")
-                || step.value.contains("side effects should be")
-                || step.value.contains("graph should be")
+fn setup_queries(case: &TckCase) -> impl Iterator<Item = &str> {
+    case.steps
+        .iter()
+        .filter(|step| step.value.contains("having executed"))
+        .filter_map(|step| step.docstring.as_deref())
+}
+
+fn named_graph(case: &TckCase) -> Option<&str> {
+    case.steps.iter().find_map(|step| {
+        step.value
+            .strip_prefix("the ")
+            .and_then(|value| value.strip_suffix(" graph"))
+    })
+}
+
+fn named_graph_setup(name: &str) -> Result<String, String> {
+    let path = Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("../testdata/tck/opencypher/graphs")
+        .join(name)
+        .join(format!("{name}.cypher"));
+    fs::read_to_string(&path)
+        .map_err(|error| format!("failed to read TCK named graph {}: {error}", path.display()))
+}
+
+fn execute_tck_statement(
+    session: &turso_graph_frontend::GraphSession,
+    statement: &str,
+    parameters: &MutationParameters,
+) -> Result<Vec<Vec<Value>>, String> {
+    match session.query(statement, parameters) {
+        Ok(rows) => Ok(rows),
+        Err(query_error) => session
+            .mutate(statement, parameters)
+            .map(|_| Vec::new())
+            .map_err(|mutation_error| {
+                format!(
+                    "query execution failed: {query_error}; mutation execution failed: {mutation_error}; query: {statement}"
+                )
+            }),
+    }
+}
+
+fn parameters(case: &TckCase) -> Option<MutationParameters> {
+    let Some(step) = case
+        .steps
+        .iter()
+        .find(|step| step.value.contains("parameters are"))
+    else {
+        return Some(MutationParameters::new());
+    };
+    step.table
+        .as_ref()?
+        .rows
+        .iter()
+        .map(|row| {
+            let [name, value] = row.as_slice() else {
+                return None;
+            };
+            Some((name.clone(), parameter_value(value)?))
         })
+        .collect()
+}
+
+fn parameter_value(value: &str) -> Option<Value> {
+    let value = value.trim();
+    match value {
+        "null" => Some(Value::Null),
+        "true" => Some(Value::from_i64(1)),
+        "false" => Some(Value::from_i64(0)),
+        _ => value
+            .parse::<i64>()
+            .map(Value::from_i64)
+            .or_else(|_| value.parse::<f64>().map(Value::from_f64))
+            .ok()
+            .or_else(|| {
+                value
+                    .strip_prefix('\'')
+                    .and_then(|value| value.strip_suffix('\''))
+                    .map(|value| Value::build_text(value.replace("\\'", "'").replace("\\\\", "\\")))
+            }),
+    }
 }
 
 fn query(case: &TckCase) -> Option<&str> {
@@ -694,32 +792,6 @@ fn base_record(
     }
 }
 
-fn alias_record(
-    case: &TckCase,
-    canonical: &ResultRecord,
-    environment: RunEnvironment,
-    run_id: &str,
-) -> ResultRecord {
-    let mut record = base_record(
-        case,
-        environment,
-        run_id,
-        canonical.expectation,
-        canonical.outcome,
-        0,
-        None,
-        canonical.message.clone(),
-        "deduplicated",
-    );
-    record.dimensions.insert(
-        "canonical_test_id".to_owned(),
-        canonical.test_id.to_string(),
-    );
-    record.result_digest.clone_from(&canonical.result_digest);
-    record.row_count = canonical.row_count;
-    record
-}
-
 fn source_identity(case: &TckCase) -> SourceIdentity {
     SourceIdentity {
         name: "openCypher TCK via Uni".to_owned(),
@@ -764,6 +836,67 @@ mod tests {
                 .len(),
             3_926
         );
+    }
+
+    #[test]
+    fn empty_graph_match_is_runnable_by_generic_adapter() {
+        let root =
+            Path::new(env!("CARGO_MANIFEST_DIR")).join("../testdata/tck/opencypher/features");
+        let corpus = TckCorpus::load(root).unwrap();
+        let case = corpus
+            .cases
+            .iter()
+            .find(|case| case.id.as_str() == "tck.clauses.match.match1.scenario-1")
+            .unwrap();
+        let query = query(case).unwrap();
+
+        assert_eq!(
+            execute_case(case, query, Expectation::Rows).0,
+            Outcome::Passed
+        );
+    }
+
+    #[test]
+    fn scalar_tck_parameter_values_are_bound_for_execution() {
+        assert_eq!(parameter_value("42"), Some(Value::from_i64(42)));
+        assert_eq!(parameter_value("2.5"), Some(Value::from_f64(2.5)));
+        assert_eq!(
+            parameter_value("'Ada'"),
+            Some(Value::build_text("Ada".to_owned()))
+        );
+        assert_eq!(parameter_value("null"), Some(Value::Null));
+        assert_eq!(parameter_value("[1, 2]"), None);
+    }
+
+    #[test]
+    fn tck_setup_queries_are_part_of_execution() {
+        let root =
+            Path::new(env!("CARGO_MANIFEST_DIR")).join("../testdata/tck/opencypher/features");
+        let corpus = TckCorpus::load(root).unwrap();
+        let case = corpus
+            .cases
+            .iter()
+            .find(|case| case.id.as_str() == "tck.clauses.match.match1.scenario-5")
+            .unwrap();
+
+        assert_eq!(setup_queries(case).count(), 1);
+    }
+
+    #[test]
+    fn pinned_named_graph_fixture_is_loaded_for_referenced_scenario() {
+        let root =
+            Path::new(env!("CARGO_MANIFEST_DIR")).join("../testdata/tck/opencypher/features");
+        let corpus = TckCorpus::load(root).unwrap();
+        let case = corpus
+            .cases
+            .iter()
+            .find(|case| {
+                case.id.as_str() == "tck.usecases.triadicselection.triadicselection1.scenario-1"
+            })
+            .unwrap();
+
+        assert_eq!(named_graph(case), Some("binary-tree-1"));
+        assert!(named_graph_setup("binary-tree-1").unwrap().contains("c42"));
     }
 
     #[test]

@@ -6,7 +6,6 @@ pub mod age;
 pub mod grafeo;
 pub mod history;
 pub mod identity;
-pub mod ladybug;
 pub mod manifest;
 pub mod model;
 pub mod performance;

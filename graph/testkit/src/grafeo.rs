@@ -1,5 +1,5 @@
 use std::{
-    collections::{BTreeMap, HashMap, HashSet},
+    collections::{BTreeMap, HashSet},
     fs,
     path::{Path, PathBuf},
     time::Instant,
@@ -9,7 +9,7 @@ use serde::Deserialize;
 use serde_yaml::Value as YamlValue;
 use thiserror::Error;
 use turso_core::{Numeric, Value};
-use turso_graph_frontend::MutationParameters;
+use turso_graph_frontend::{GraphSession, MutationParameters};
 
 use crate::{
     history::{recorded_at, result_digest},
@@ -220,18 +220,10 @@ impl GrafeoCorpus {
         run_id: &str,
         parse_cache: &mut QueryParseCache,
     ) -> Vec<ResultRecord> {
-        let mut canonical_results: HashMap<&str, ResultRecord> = HashMap::new();
-        let mut records = Vec::with_capacity(self.cases.len());
-        for case in &self.cases {
-            if let Some(canonical) = canonical_results.get(case.semantic_key.as_str()) {
-                records.push(alias_record(case, canonical, environment.clone(), run_id));
-                continue;
-            }
-            let record = run_canonical(case, environment.clone(), run_id, parse_cache);
-            canonical_results.insert(case.semantic_key.as_str(), record.clone());
-            records.push(record);
-        }
-        records
+        self.cases
+            .iter()
+            .map(|case| run_canonical(case, environment.clone(), run_id, parse_cache))
+            .collect()
     }
 }
 
@@ -363,22 +355,8 @@ fn run_canonical(
         Err(error) if expectation == Expectation::Error => {
             (Outcome::Passed, None, Some(error), "parser")
         }
-        Err(error) => (
-            Outcome::Unsupported,
-            None,
-            Some(error),
-            "parser",
-        ),
-        Ok(_) if !scalar_execution_eligible(case) => (
-            Outcome::Unsupported,
-            None,
-            Some(
-                "query parses, but the donor case requires a graph dataset, setup mutations, parameters, or a non-scalar expectation"
-                    .to_owned(),
-            ),
-            "adapter",
-        ),
-        Ok(_) => execute_scalar_case(case, expectation),
+        Err(error) => (Outcome::Failed, None, Some(error), "parser"),
+        Ok(_) => execute_case(case, expectation),
     };
     base_record(
         case,
@@ -393,19 +371,7 @@ fn run_canonical(
     )
 }
 
-fn scalar_execution_eligible(case: &GrafeoCase) -> bool {
-    let upper = case.query.trim_start().to_ascii_uppercase();
-    case.setup.is_empty()
-        && case.statements.is_empty()
-        && case
-            .dataset
-            .as_deref()
-            .is_none_or(|dataset| dataset == "empty")
-        && (upper.starts_with("RETURN ") || upper.starts_with("UNWIND "))
-        && case.expectation.is_some()
-}
-
-fn execute_scalar_case(
+fn execute_case(
     case: &GrafeoCase,
     expectation: Expectation,
 ) -> (
@@ -417,37 +383,97 @@ fn execute_scalar_case(
     let fixture = match empty_fixture(case.id.as_str()) {
         Ok(fixture) => fixture,
         Err(error) => {
-            return (
-                Outcome::Unsupported,
-                None,
-                Some(error.to_string()),
-                "scalar-execution",
-            )
+            return (Outcome::Failed, None, Some(error.to_string()), "execution");
         }
     };
-    match fixture
-        .session
-        .query(&case.query, &MutationParameters::new())
+    if let Some(dataset) = case
+        .dataset
+        .as_deref()
+        .filter(|dataset| *dataset != "empty")
     {
-        Err(error) if expectation == Expectation::Error => (
-            Outcome::Passed,
-            None,
-            Some(error.to_string()),
-            "scalar-execution",
-        ),
-        Err(error) => (
-            Outcome::Unsupported,
-            None,
-            Some(error.to_string()),
-            "scalar-execution",
-        ),
-        Ok(rows) if expectation == Expectation::Error => (
+        let statements = match dataset_statements(dataset) {
+            Ok(statements) => statements,
+            Err(error) => return (Outcome::Failed, None, Some(error), "dataset-execution"),
+        };
+        for statement in statements {
+            if let Err(error) = execute_statement(&fixture.session, &statement) {
+                return (
+                    Outcome::Failed,
+                    None,
+                    Some(format!("Grafeo dataset `{dataset}` setup failed: {error}")),
+                    "dataset-execution",
+                );
+            }
+        }
+    }
+    for setup in &case.setup {
+        if let Err(error) = execute_statement(&fixture.session, setup) {
+            return (
+                Outcome::Failed,
+                None,
+                Some(format!(
+                    "Grafeo setup query failed: {error}; query: {setup}"
+                )),
+                "setup-execution",
+            );
+        }
+    }
+    let statements = if case.statements.is_empty() {
+        vec![case.query.as_str()]
+    } else {
+        case.statements.iter().map(String::as_str).collect()
+    };
+    let mut rows = Vec::new();
+    for statement in statements {
+        match execute_statement(&fixture.session, statement) {
+            Ok(result) => rows = result,
+            Err(error) if expectation == Expectation::Error => {
+                return (Outcome::Passed, None, Some(error), "execution");
+            }
+            Err(error) => return (Outcome::Failed, None, Some(error), "execution"),
+        }
+    }
+    match rows {
+        rows if expectation == Expectation::Error => (
             Outcome::Failed,
             Some(stringify_rows(rows)),
             Some("expected an error but execution succeeded".to_owned()),
-            "scalar-execution",
+            "execution",
         ),
-        Ok(rows) => compare_rows(case, stringify_rows(rows)),
+        rows => compare_rows(case, stringify_rows(rows)),
+    }
+}
+
+fn dataset_statements(dataset: &str) -> Result<Vec<String>, String> {
+    let path = Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("../testdata/donors/grafeo/tests/spec/datasets")
+        .join(format!("{dataset}.setup"));
+    let content = fs::read_to_string(&path)
+        .map_err(|error| format!("failed to read Grafeo dataset {}: {error}", path.display()))?;
+    Ok(content
+        .lines()
+        .map(str::trim)
+        .filter(|line| !line.is_empty() && !line.starts_with('#'))
+        .map(|line| {
+            line.strip_prefix("INSERT ")
+                .map(|suffix| format!("CREATE {suffix}"))
+                .unwrap_or_else(|| line.replace(" INSERT ", " CREATE "))
+        })
+        .collect())
+}
+
+fn execute_statement(session: &GraphSession, statement: &str) -> Result<Vec<Vec<Value>>, String> {
+    let parameters = MutationParameters::new();
+    match session.query(statement, &parameters) {
+        Ok(rows) => Ok(rows),
+        Err(query_error) => session
+            .mutate(statement, &parameters)
+            .map(|_| Vec::new())
+            .map_err(|mutation_error| {
+                format!(
+                    "query execution failed: {query_error}; mutation execution failed: {mutation_error}; query: {statement}"
+                )
+            }),
     }
 }
 
@@ -476,16 +502,17 @@ fn compare_rows(
             (rows.len() as u64 == *count, format!("{count} rows"))
         }
         Some(GrafeoExpectation::Empty) => (rows.is_empty(), "no rows".to_owned()),
-        Some(GrafeoExpectation::Error) | None => (false, "an error".to_owned()),
+        Some(GrafeoExpectation::Error) => (false, "an error".to_owned()),
+        None => return (Outcome::Passed, Some(rows), None, "execution"),
     };
     if matches {
-        (Outcome::Passed, Some(rows), None, "scalar-execution")
+        (Outcome::Passed, Some(rows), None, "execution")
     } else {
         (
             Outcome::Failed,
             Some(rows.clone()),
             Some(format!("expected {expected}, observed {rows:?}")),
-            "scalar-execution",
+            "execution",
         )
     }
 }
@@ -562,32 +589,6 @@ fn base_record(
             ),
         ]),
     }
-}
-
-fn alias_record(
-    case: &GrafeoCase,
-    canonical: &ResultRecord,
-    environment: RunEnvironment,
-    run_id: &str,
-) -> ResultRecord {
-    let mut record = base_record(
-        case,
-        environment,
-        run_id,
-        canonical.expectation,
-        canonical.outcome,
-        0,
-        None,
-        canonical.message.clone(),
-        "deduplicated",
-    );
-    record.dimensions.insert(
-        "canonical_test_id".to_owned(),
-        canonical.test_id.to_string(),
-    );
-    record.result_digest.clone_from(&canonical.result_digest);
-    record.row_count = canonical.row_count;
-    record
 }
 
 fn collect_manifests(directory: &Path, paths: &mut Vec<PathBuf>) -> Result<(), GrafeoError> {
@@ -667,6 +668,16 @@ fn fingerprint(value: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn named_dataset_statements_are_loaded_as_cypher_mutations() {
+        let statements = dataset_statements("social_network").unwrap();
+        assert!(!statements.is_empty());
+        assert!(statements
+            .iter()
+            .all(|statement| !statement.contains(" INSERT ")));
+        assert!(statements[0].starts_with("CREATE "));
+    }
 
     #[test]
     fn imports_every_cypher_native_and_variant_case() {
