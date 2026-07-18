@@ -7364,6 +7364,7 @@ version = "0.7.0"
 dependencies = [
  "parking_lot",
  "serde",
+ "tempfile",
  "thiserror 2.0.16",
  "toml",
  "turso_core",

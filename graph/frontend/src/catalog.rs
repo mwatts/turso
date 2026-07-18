@@ -105,6 +105,8 @@ pub enum CatalogError {
     InvalidIdentity { kind: &'static str, value: i64 },
     #[error("catalog row has an invalid value in `{0}`")]
     InvalidCatalogValue(&'static str),
+    #[error("source table `{table}` has a struct/union/custom-typed column `{column}` but this connection does not have --experimental-custom-types enabled")]
+    CustomTypesDisabled { table: String, column: String },
     #[error("catalog operation failed: {0}")]
     Database(#[from] turso_core::LimboError),
     #[error("registration failed and rollback also failed: {cause}; rollback: {rollback}")]
@@ -242,6 +244,7 @@ fn register_graph_in_transaction(
     for node in &registration.node_sources {
         require_columns(connection, &node.table, &[&node.identity_column])?;
         require_unique_identity(connection, &node.table, &node.identity_column)?;
+        require_custom_types_enabled_for_source(connection, &node.table)?;
     }
     for relationship in &registration.relationship_sources {
         require_columns(
@@ -253,6 +256,7 @@ fn register_graph_in_transaction(
                 &relationship.end_column,
             ],
         )?;
+        require_custom_types_enabled_for_source(connection, &relationship.table)?;
         require_unique_identity(
             connection,
             &relationship.table,
@@ -568,6 +572,57 @@ fn require_unique_identity(
     })
 }
 
+/// Fails closed when a STRICT source table has a CUSTOM/DOMAIN/STRUCT/UNION
+/// column but this connection lacks --experimental-custom-types. Without
+/// this, SchemaCatalog would silently type such a column as Any/Bytes with
+/// no signal that richer typing exists but is disabled for this connection.
+///
+/// Deliberately does NOT call `Schema::classify_column`: on a connection
+/// with custom types disabled, `core`'s type_registry is entirely empty
+/// (see `core/schema.rs:927-929`, `core/lib.rs:1608-1633`), so
+/// `classify_column` can only ever report `Builtin` here — it cannot
+/// observe a column that was made custom-typed earlier on a different,
+/// enabled connection. Instead this compares the column's raw declared
+/// type name against the exact builtin keyword set CREATE TABLE's own
+/// STRICT column-type validator uses (`core/translate/schema.rs:788-791`).
+/// That same validator (`core/translate/schema.rs:818-829`) guarantees the
+/// soundness of this signal: a STRICT column can only have a non-builtin
+/// type name if a type definition was registered for it at CREATE TABLE
+/// time, so "STRICT column, non-builtin type name" is proof of a
+/// CUSTOM/DOMAIN/STRUCT/UNION column even when the registry isn't loaded
+/// right now. Non-STRICT tables never enforce this, so they're skipped.
+fn require_custom_types_enabled_for_source(
+    connection: &Arc<Connection>,
+    table_name: &str,
+) -> Result<(), CatalogError> {
+    if connection.experimental_custom_types_enabled() {
+        return Ok(());
+    }
+    let schema = connection.current_schema();
+    let Some(table) = schema.get_table(table_name) else {
+        return Err(CatalogError::SourceTableMissing(table_name.to_owned()));
+    };
+    if !table.is_strict() {
+        return Ok(());
+    }
+    for column in table.columns() {
+        let Some(name) = column.name.as_ref() else {
+            continue;
+        };
+        let is_builtin = matches!(
+            column.ty_str.to_ascii_uppercase().as_str(),
+            "INT" | "INTEGER" | "REAL" | "TEXT" | "BLOB" | "ANY"
+        );
+        if !is_builtin {
+            return Err(CatalogError::CustomTypesDisabled {
+                table: table_name.to_owned(),
+                column: name.clone(),
+            });
+        }
+    }
+    Ok(())
+}
+
 fn install_endpoint_index(
     connection: &Arc<Connection>,
     graph: GraphId,
@@ -701,7 +756,7 @@ fn stable_hash(value: &str) -> u64 {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use turso_core::{Database, MemoryIO, SqliteDialect};
+    use turso_core::{Database, DatabaseOpts, MemoryIO, OpenFlags, SqliteDialect};
 
     fn connection() -> Arc<Connection> {
         let io = Arc::new(MemoryIO::new());
@@ -738,6 +793,101 @@ mod tests {
                 end_node_source: "Person".to_owned(),
             }],
         }
+    }
+
+    fn connection_with_custom_types() -> Arc<Connection> {
+        let io = Arc::new(MemoryIO::new());
+        Database::open_file_with_flags(
+            io,
+            ":memory:graph-catalog-custom-types",
+            OpenFlags::default(),
+            DatabaseOpts::new().with_custom_types(true),
+            None,
+            Arc::new(SqliteDialect),
+        )
+        .expect("open database")
+        .connect()
+        .expect("connect")
+    }
+
+    #[test]
+    fn register_graph_allows_struct_column_with_custom_types_enabled() {
+        let connection = connection_with_custom_types();
+        connection
+            .execute(
+                "CREATE TYPE point AS STRUCT(x INTEGER, y INTEGER); \
+                 CREATE TABLE people(id INTEGER PRIMARY KEY, name TEXT, origin point) STRICT; \
+                 CREATE TABLE friendships(id INTEGER PRIMARY KEY, src INTEGER, dst INTEGER) STRICT;",
+            )
+            .expect("create struct-typed source");
+
+        let result = register_graph(&connection, &registration("people_graph"));
+        assert!(result.is_ok(), "expected success: {result:?}");
+    }
+
+    #[test]
+    fn register_graph_rejects_struct_column_when_custom_types_disabled() {
+        // experimental_custom_types_enabled is fixed at Database-open time
+        // (DatabaseOpts), not per-connection and not toggled by CREATE TYPE.
+        // Two in-memory open_file calls never share state, so the only way
+        // to reach "a STRICT table with a struct column exists, but this
+        // connection has custom types disabled" is a real file: create it
+        // with custom types enabled, fully close it, then reopen the same
+        // file without the flag.
+        let temp_dir = tempfile::TempDir::new().expect("tempdir");
+        let db_path = temp_dir.path().join("graph-catalog-custom-types.db");
+        let db_path_str = db_path.to_str().expect("utf8 path");
+
+        {
+            let io: Arc<dyn turso_core::IO> =
+                Arc::new(turso_core::PlatformIO::new().expect("platform io"));
+            let db = Database::open_file_with_flags(
+                io,
+                db_path_str,
+                OpenFlags::default(),
+                DatabaseOpts::new().with_custom_types(true),
+                None,
+                Arc::new(SqliteDialect),
+            )
+            .expect("open database with custom types enabled");
+            let connection = db.connect().expect("connect");
+            connection
+                .execute(
+                    "CREATE TYPE point AS STRUCT(x INTEGER, y INTEGER); \
+                     CREATE TABLE people(id INTEGER PRIMARY KEY, name TEXT, origin point) STRICT; \
+                     CREATE TABLE friendships(id INTEGER PRIMARY KEY, src INTEGER, dst INTEGER) STRICT;",
+                )
+                .expect("create struct-typed source");
+            // Drop the connection and database so the file is fully closed
+            // and the registry's cached Arc<Database> for this path/inode
+            // has no live strong references before the next open.
+            drop(connection);
+            drop(db);
+        }
+
+        let io: Arc<dyn turso_core::IO> =
+            Arc::new(turso_core::PlatformIO::new().expect("platform io"));
+        let connection = Database::open_file_with_flags(
+            io,
+            db_path_str,
+            OpenFlags::default(),
+            DatabaseOpts::new(), // custom types NOT enabled on reopen
+            None,
+            Arc::new(SqliteDialect),
+        )
+        .expect("reopen database with custom types disabled")
+        .connect()
+        .expect("connect");
+
+        let result = register_graph(&connection, &registration("people_graph"));
+        assert!(
+            matches!(
+                &result,
+                Err(CatalogError::CustomTypesDisabled { table, column })
+                    if table == "people" && column == "origin"
+            ),
+            "expected CustomTypesDisabled error: {result:?}"
+        );
     }
 
     #[test]
