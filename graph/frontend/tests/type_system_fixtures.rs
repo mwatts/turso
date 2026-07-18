@@ -381,7 +381,7 @@ fn vector32_call_binds_to_vector_value_type() {
         .expect("create node source");
     let catalog = node_source_catalog(&connection, "embeddings");
 
-    let value_type = returned_value_type(&catalog, "MATCH () RETURN vector32(1.0, 2.0, 3.0)");
+    let value_type = returned_value_type(&catalog, "MATCH () RETURN vector32('[1.0, 2.0, 3.0]')");
 
     assert_eq!(
         value_type,
@@ -399,7 +399,7 @@ fn vector_distance_cos_call_binds_to_real() {
 
     let value_type = returned_value_type(
         &catalog,
-        "MATCH () RETURN vector_distance_cos(vector32(1.0), vector32(2.0))",
+        "MATCH () RETURN vector_distance_cos(vector32('[1.0]'), vector32('[2.0]'))",
     );
 
     assert_eq!(value_type, ir::ValueType::Real);
@@ -416,6 +416,105 @@ fn fts_match_call_binds_to_boolean() {
     let value_type = returned_value_type(
         &catalog,
         "MATCH () RETURN fts_match('needle', 'haystack text')",
+    );
+
+    assert_eq!(value_type, ir::ValueType::Boolean);
+}
+
+#[test]
+fn vector_extract_call_binds_to_text() {
+    let connection = connect(false);
+    connection
+        .execute("CREATE TABLE embeddings(id INTEGER PRIMARY KEY, vector BLOB);")
+        .expect("create node source");
+    let catalog = node_source_catalog(&connection, "embeddings");
+
+    let value_type = returned_value_type(
+        &catalog,
+        "MATCH () RETURN vector_extract(vector32('[1.0, 2.0, 3.0]'))",
+    );
+
+    assert_eq!(value_type, ir::ValueType::Text);
+}
+
+#[test]
+fn vector32_call_with_wrong_argument_count_is_a_bind_error() {
+    let connection = connect(false);
+    connection
+        .execute("CREATE TABLE embeddings(id INTEGER PRIMARY KEY, vector BLOB);")
+        .expect("create node source");
+    let catalog = node_source_catalog(&connection, "embeddings");
+
+    let parsed = parse("MATCH () RETURN vector32(1.0, 2.0, 3.0)").expect("query parses");
+    let error = bind(
+        &parsed,
+        GraphId::new(1).expect("graph id"),
+        &catalog,
+        &ParameterTypes::new(),
+    )
+    .expect_err("vector32 is fixed-arity-1, a 3-argument call must be rejected at bind time");
+    assert!(
+        matches!(error, turso_graph_frontend::BindError::Unsupported { .. }),
+        "expected BindError::Unsupported, got {error:?}"
+    );
+}
+
+#[test]
+fn vector_distance_cos_call_with_mismatched_argument_type_is_a_bind_error() {
+    let connection = connect(false);
+    connection
+        .execute("CREATE TABLE embeddings(id INTEGER PRIMARY KEY, vector BLOB);")
+        .expect("create node source");
+    let catalog = node_source_catalog(&connection, "embeddings");
+
+    let parsed = parse("MATCH () RETURN vector_distance_cos('not a vector', 'also not a vector')")
+        .expect("query parses");
+    let error = bind(
+        &parsed,
+        GraphId::new(1).expect("graph id"),
+        &catalog,
+        &ParameterTypes::new(),
+    )
+    .expect_err("vector_distance_cos requires Vector-shaped arguments, Text must be rejected");
+    assert!(
+        matches!(error, turso_graph_frontend::BindError::Unsupported { .. }),
+        "expected BindError::Unsupported, got {error:?}"
+    );
+}
+
+#[test]
+fn fts_match_call_with_too_few_arguments_is_a_bind_error() {
+    let connection = connect(false);
+    connection
+        .execute("CREATE TABLE embeddings(id INTEGER PRIMARY KEY, vector BLOB);")
+        .expect("create node source");
+    let catalog = node_source_catalog(&connection, "embeddings");
+
+    let parsed = parse("MATCH () RETURN fts_match('only one argument')").expect("query parses");
+    let error = bind(
+        &parsed,
+        GraphId::new(1).expect("graph id"),
+        &catalog,
+        &ParameterTypes::new(),
+    )
+    .expect_err("fts_match requires at least 2 arguments (text, query)");
+    assert!(
+        matches!(error, turso_graph_frontend::BindError::Unsupported { .. }),
+        "expected BindError::Unsupported, got {error:?}"
+    );
+}
+
+#[test]
+fn fts_match_call_with_extra_arguments_still_binds() {
+    let connection = connect(false);
+    connection
+        .execute("CREATE TABLE embeddings(id INTEGER PRIMARY KEY, vector BLOB);")
+        .expect("create node source");
+    let catalog = node_source_catalog(&connection, "embeddings");
+
+    let value_type = returned_value_type(
+        &catalog,
+        "MATCH () RETURN fts_match('col1 text', 'col2 text', 'query')",
     );
 
     assert_eq!(value_type, ir::ValueType::Boolean);

@@ -1147,12 +1147,13 @@ impl<'a> Binder<'a> {
                     .collect::<Result<Vec<_>, _>>()?;
                 let (value_type, nullability) = match crate::functions::lookup(function.as_str()) {
                     Some(signature) => {
-                        let argument_types: Vec<ir::ValueType> = arguments
-                            .iter()
-                            .map(|argument| argument.value_type.clone())
-                            .collect();
+                        if let Err(feature) =
+                            crate::functions::validate_arguments(&signature, &arguments)
+                        {
+                            return Err(at_unsupported(expression.span, feature));
+                        }
                         (
-                            (signature.return_type)(&argument_types),
+                            (signature.return_type)(&arguments),
                             ir::Nullability::Nullable,
                         )
                     }
