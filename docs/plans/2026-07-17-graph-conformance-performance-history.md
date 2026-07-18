@@ -171,3 +171,17 @@ recorded or explicitly marked resource-exhausted with a typed reason.
 The work is complete only when the runner, imported suites, history, generated
 report, performance workloads, first recorded baseline, and verification gates
 all exist and execute from a clean checkout.
+
+## Execution status
+
+Completed on 2026-07-17:
+
+- 38 deep identities execute: 32 supported cases pass and 6 unsupported cases
+  fail at their declared diagnostic boundary.
+- The 13-case smoke subset passes without duplicating scenario definitions.
+- Five lifecycle operations pass at two smoke and two deep scales with
+  post-operation count and result validation outside the timed interval.
+- The first four-suite baseline contains 71 schema-versioned JSONL records from
+  clean commit `e1d73880b74901c879c5bcf4cc96b1006f2d16b5` and passes
+  `verify-history`.
+- Strict Clippy, all testkit tests, and all graph-frontend tests pass.
