@@ -92,13 +92,26 @@ fn wrap_array(mut element: ir::ValueType, dimensions: u32) -> ir::ValueType {
 }
 
 /// Resolves a named `CREATE TYPE`/`CREATE DOMAIN` to a `ValueType`,
-/// recursing into STRUCT fields and UNION variants. Falls back to `Any`
-/// only when the type registry has no entry for `type_name` under the
-/// caller's strictness mode (mirrors `Schema::classify_column`'s own
-/// `None => Builtin` fallback rather than inventing a stricter failure).
-fn resolve_named_type(schema: &Schema, type_name: &str, is_strict: bool) -> ir::ValueType {
+/// recursing into STRUCT fields and UNION variants. Falls back to
+/// `fallback_affinity` (the field/variant's precomputed SQLite affinity,
+/// when available — mirrors `column_value_type`'s use of `column.affinity()`
+/// for ordinary columns) when the type registry has no entry for
+/// `type_name`, e.g. a STRUCT field declared with a bare primitive keyword
+/// like `INTEGER` rather than a registered custom type/domain name. Falls
+/// back further to `Any` only when no affinity fallback is available either
+/// (the top-level call site, resolving a column's own STRUCT/UNION type
+/// name, has none — that name is always registered by construction, since
+/// `classify_column` already determined the column's kind).
+fn resolve_named_type(
+    schema: &Schema,
+    type_name: &str,
+    fallback_affinity: Option<turso_core::schema::Type>,
+    is_strict: bool,
+) -> ir::ValueType {
     let Some(resolved) = schema.resolve_type(type_name, is_strict).ok().flatten() else {
-        return ir::ValueType::Any;
+        return fallback_affinity
+            .map(sqlite_type_value_type)
+            .unwrap_or(ir::ValueType::Any);
     };
     let leaf = resolved.leaf();
     if leaf.is_struct() {
@@ -110,7 +123,12 @@ fn resolve_named_type(schema: &Schema, type_name: &str, is_strict: bool) -> ir::
             .map(|field| {
                 (
                     field.name.clone(),
-                    resolve_named_type(schema, &field.type_name, is_strict),
+                    resolve_named_type(
+                        schema,
+                        &field.type_name,
+                        Some(field.base_affinity.to_type()),
+                        is_strict,
+                    ),
                 )
             })
             .collect();
@@ -124,7 +142,12 @@ fn resolve_named_type(schema: &Schema, type_name: &str, is_strict: bool) -> ir::
             .map(|variant| {
                 (
                     variant.tag_name.clone(),
-                    resolve_named_type(schema, &variant.type_name, is_strict),
+                    resolve_named_type(
+                        schema,
+                        &variant.type_name,
+                        Some(variant.base_affinity.to_type()),
+                        is_strict,
+                    ),
                 )
             })
             .collect();
@@ -191,7 +214,7 @@ impl SchemaCatalog {
                 }
             }
             ColumnTypeKind::Struct | ColumnTypeKind::Union => {
-                resolve_named_type(schema, &info.declared_name, is_strict)
+                resolve_named_type(schema, &info.declared_name, None, is_strict)
             }
             // `ColumnTypeKind` is `#[non_exhaustive]`; fall back to `Any` for any
             // future variant rather than failing to compile on a core upgrade.
@@ -442,6 +465,93 @@ mod tests {
             label.value_type,
             ir::ValueType::Text,
             "VARCHAR(20) must resolve via SQLite affinity (Text) and not fall back to Any"
+        );
+    }
+
+    /// Regression test: a STRUCT field declared with a bare SQLite primitive
+    /// keyword (`x INTEGER`, not a registered `CREATE TYPE`/`CREATE DOMAIN`
+    /// name) must resolve to that primitive's `ValueType`, not `Any`.
+    /// `resolve_named_type` previously looked `field.type_name` up only in
+    /// the custom-type registry via `Schema::resolve_type`, which has no
+    /// entry for a bare primitive keyword, and fell straight through to
+    /// `ir::ValueType::Any` on that miss — silently breaking every
+    /// bare-primitive STRUCT field.
+    #[test]
+    fn struct_field_with_bare_primitive_type_resolves_scalar_not_any() {
+        let connection = connect(true);
+        connection
+            .execute(
+                "CREATE TYPE point AS STRUCT(x INTEGER, y INTEGER); \
+                 CREATE TABLE shapes(id INTEGER PRIMARY KEY, origin point) STRICT;",
+            )
+            .expect("create struct-typed source");
+        let graph = crate::catalog::register_graph(
+            &connection,
+            &GraphRegistration {
+                name: "typesys".to_owned(),
+                node_sources: vec![NodeSourceRegistration {
+                    name: "Shape".to_owned(),
+                    table: "shapes".to_owned(),
+                    identity_column: "id".to_owned(),
+                }],
+                relationship_sources: vec![],
+            },
+        )
+        .expect("register graph");
+        let graph_id = graph.id;
+        let catalog = SchemaCatalog::new(connection, graph);
+
+        let origin = catalog
+            .property(graph_id, CatalogEntity::Node, "origin")
+            .expect("origin resolves");
+        assert_eq!(
+            origin.value_type,
+            ir::ValueType::Struct(vec![
+                ("x".to_owned(), ir::ValueType::Integer),
+                ("y".to_owned(), ir::ValueType::Integer),
+            ]),
+            "bare-primitive STRUCT fields must resolve to their scalar type, not Any"
+        );
+    }
+
+    /// UNION analog of `struct_field_with_bare_primitive_type_resolves_scalar_not_any`:
+    /// a UNION variant declared with a bare SQLite primitive keyword must
+    /// resolve to that primitive's `ValueType`, not `Any`.
+    #[test]
+    fn union_variant_with_bare_primitive_type_resolves_scalar_not_any() {
+        let connection = connect(true);
+        connection
+            .execute(
+                "CREATE TYPE contact AS UNION(email TEXT, phone TEXT); \
+                 CREATE TABLE people(id INTEGER PRIMARY KEY, reach contact) STRICT;",
+            )
+            .expect("create union-typed source");
+        let graph = crate::catalog::register_graph(
+            &connection,
+            &GraphRegistration {
+                name: "typesys".to_owned(),
+                node_sources: vec![NodeSourceRegistration {
+                    name: "Person".to_owned(),
+                    table: "people".to_owned(),
+                    identity_column: "id".to_owned(),
+                }],
+                relationship_sources: vec![],
+            },
+        )
+        .expect("register graph");
+        let graph_id = graph.id;
+        let catalog = SchemaCatalog::new(connection, graph);
+
+        let reach = catalog
+            .property(graph_id, CatalogEntity::Node, "reach")
+            .expect("reach resolves");
+        assert_eq!(
+            reach.value_type,
+            ir::ValueType::Union(vec![
+                ("email".to_owned(), ir::ValueType::Text),
+                ("phone".to_owned(), ir::ValueType::Text),
+            ]),
+            "bare-primitive UNION variants must resolve to their scalar type, not Any"
         );
     }
 }
