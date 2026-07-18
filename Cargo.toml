@@ -33,6 +33,7 @@ members = [
     "postgres/cli",
     "postgres/frontend",
     "postgres/parser",
+    "postgres/regress",
     "postgres/server",
     "postgres/tests",
     "sync/engine",

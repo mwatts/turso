@@ -65,7 +65,7 @@ pub use checkpoint_state_machine::{
 
 #[cfg(feature = "conn_raw_api")]
 use super::persistent_storage::logical_log::{
-    encode_delete_portable_extension, parse_ops_from_plaintext, LOG_RECORD_PREFIX_SIZE,
+    parse_ops_from_plaintext, LogSerializer, LOG_RECORD_PREFIX_SIZE,
 };
 use super::persistent_storage::logical_log::{
     HeaderReadResult, IndexOpKind, ParsedOp, StreamingLogicalLogReader, StreamingResult,
@@ -572,12 +572,9 @@ impl LogRecord {
     /// Test-only: append one row-version op to the payload buffer.
     #[cfg(test)]
     pub(crate) fn push_row_version_for_test(&mut self, row_version: &RowVersion) {
-        crate::mvcc::persistent_storage::logical_log::serialize_op_entry(
-            &mut self.buf,
-            row_version,
-            None,
-        )
-        .expect("failed to serialize row version in test");
+        crate::mvcc::persistent_storage::logical_log::LogSerializer::new(&mut self.buf)
+            .serialize_op_entry(row_version, None)
+            .expect("failed to serialize row version in test");
         self.op_count += 1;
     }
 
@@ -585,7 +582,9 @@ impl LogRecord {
     #[cfg(test)]
     pub(crate) fn set_header_for_test(&mut self, header: &DatabaseHeader) {
         assert!(!self.has_header, "header op appended twice in test");
-        crate::mvcc::persistent_storage::logical_log::serialize_header_entry(&mut self.buf, header);
+        crate::mvcc::persistent_storage::logical_log::LogSerializer::new(&mut self.buf)
+            .serialize_header_entry(header)
+            .expect("failed to serialize database header in test");
         self.has_header = true;
         self.op_count += 1;
     }
@@ -706,8 +705,11 @@ fn portable_delete_op_extension_for_row_version<Clock: LogicalClock, A: Concurre
     };
 
     if row_version.row.id.table_id == SQLITE_SCHEMA_MVCC_TABLE_ID {
-        let extension =
-            encode_delete_portable_extension(Some(row_version.row.payload()), None, Some(rowid));
+        let extension = LogSerializer::encode_delete_portable_extension(
+            Some(row_version.row.payload()),
+            None,
+            Some(rowid),
+        )?;
         return Ok((!extension.is_empty()).then_some(extension));
     }
 
@@ -758,7 +760,8 @@ fn portable_delete_op_extension_for_row_version<Clock: LogicalClock, A: Concurre
     } else {
         ImmutableRecord::from_values(&pk_values, pk_values.len())?.into_payload()
     };
-    let extension = encode_delete_portable_extension(None, Some(&pk_record), Some(rowid));
+    let extension =
+        LogSerializer::encode_delete_portable_extension(None, Some(&pk_record), Some(rowid))?;
     Ok((!extension.is_empty()).then_some(extension))
 }
 
@@ -7399,7 +7402,11 @@ impl<Clock: LogicalClock, A: ConcurrentAllocator> MvStore<Clock, A> {
     /// Apply GC rules to a single version chain. Returns the number removed.
     ///
     /// Rule 1: aborted garbage (begin=None, end=None) — always remove.
-    /// Rule 2: superseded (end=Timestamp(e)) — remove once no reader can see it.
+    /// Rule 2: superseded (end=Timestamp(e)) — remove once no reader can see it,
+    ///         unless it's a tombstone (no committed current version) whose
+    ///         deletion hasn't been checkpointed, or a B-tree-resident version
+    ///         (flagged, or with a checkpointed insert: begin <= ckpt_max)
+    ///         whose physical delete/overwrite hasn't been checkpointed.
     /// Rule 3: checkpointed sole-survivor (end=None) — remove.
     ///
     /// Passive gates Rules 2/3 on `materialized_at` + `min_reader_mark`: reclaim only once the
@@ -7436,9 +7443,20 @@ impl<Clock: LogicalClock, A: ConcurrentAllocator> MvStore<Clock, A> {
                     !materialized_for_readers(rv)
                 } else {
                     // Retain superseded versions until checkpoint makes the physical change
-                    // durable. btree_resident markers and tombstones without a committed
-                    // current successor must survive even when a newer current exists.
-                    *e > ckpt_max && (rv.btree_resident || !has_current)
+                    // durable. Tombstones without a committed current successor must survive
+                    // even when a newer current exists, and so must B-tree-resident versions.
+                    // A version is B-tree resident not only when flagged (seeded from
+                    // the B-tree by the dual cursor) but also when its insert was
+                    // made durable by a checkpoint (begin <= ckpt_max < end): the
+                    // checkpointer derives DB-file existence from begin/end
+                    // timestamps relative to the durable boundary, so dropping such
+                    // a version would erase the only evidence that a later delete
+                    // must be written to the B-tree (see #7638: an abandoned
+                    // post-commit checkpoint advances ckpt_max without clearing
+                    // these chains, and premature GC then resurrects the row).
+                    let in_btree = rv.btree_resident
+                        || matches!(&rv.begin(), Some(TxTimestampOrID::Timestamp(b)) if *b <= ckpt_max);
+                    *e > ckpt_max && (in_btree || !has_current)
                 }
             }
             _ => true,
