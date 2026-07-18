@@ -103,6 +103,7 @@ pub enum Expression {
     Property {
         entity: BindingId,
         property: PropertyId,
+        fields: Vec<String>,
     },
     Parameter(String),
     Unary {
@@ -194,6 +195,19 @@ mod value_type_tests {
         match map {
             Expression::Map(entries) => assert_eq!(entries.len(), 1),
             _ => panic!("expected Map"),
+        }
+    }
+
+    #[test]
+    fn property_expression_carries_nested_field_chain() {
+        let property = Expression::Property {
+            entity: BindingId::new(1).unwrap(),
+            property: PropertyId::new(1).unwrap(),
+            fields: vec!["address".to_owned(), "city".to_owned()],
+        };
+        match property {
+            Expression::Property { fields, .. } => assert_eq!(fields.len(), 2),
+            _ => panic!("expected Property"),
         }
     }
 }

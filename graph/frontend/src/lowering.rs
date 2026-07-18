@@ -583,7 +583,16 @@ fn lower_expression_with_references(
         ir::Expression::Binding(binding) => {
             Ok(binding_reference(*binding, input_alias, references))
         }
-        ir::Expression::Property { entity, property } => {
+        ir::Expression::Property {
+            entity,
+            property,
+            fields,
+        } => {
+            if fields.len() > 2 {
+                return Err(LowerError::UnsupportedOperator(
+                    "struct/union field access deeper than two levels",
+                ));
+            }
             let binding = bindings
                 .get(entity)
                 .ok_or(LowerError::MissingBinding(*entity))?;
@@ -607,9 +616,15 @@ fn lower_expression_with_references(
                     (layout.table, layout.identity_column)
                 }
             };
+            let mut selector = quote_identifier(&column);
+            for field in fields {
+                validate_bare_name(field)?;
+                selector.push('.');
+                selector.push_str(&quote_identifier(field));
+            }
             Ok(format!(
                 "(SELECT p.{} FROM {} AS p WHERE p.{} = {})",
-                quote_identifier(&column),
+                selector,
                 quote_identifier(&table),
                 quote_identifier(&identity),
                 binding_reference(*entity, input_alias, references)
@@ -787,5 +802,66 @@ fn validate_bare_name(name: &str) -> Result<(), LowerError> {
         Ok(())
     } else {
         Err(LowerError::InvalidName(name.to_owned()))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    struct Catalog;
+
+    impl RelationalCatalogSnapshot for Catalog {
+        fn node_layout(&self, _source: ir::SourceTableId) -> Option<NodeTableLayout> {
+            Some(NodeTableLayout {
+                table: "people".to_owned(),
+                identity_column: "id".to_owned(),
+            })
+        }
+
+        fn relationship_layout(
+            &self,
+            _source: ir::SourceTableId,
+        ) -> Option<RelationshipTableLayout> {
+            None
+        }
+
+        fn property_column(
+            &self,
+            _source: ir::SourceTableId,
+            _property: ir::PropertyId,
+        ) -> Option<String> {
+            Some("address".to_owned())
+        }
+    }
+
+    #[test]
+    fn lowers_nested_property_field_chain_inside_correlated_subquery() {
+        let catalog = Catalog;
+        let source = ir::SourceTableId::new(1).unwrap();
+        let entity = ir::BindingId::new(1).unwrap();
+        let mut bindings = HashMap::new();
+        bindings.insert(
+            entity,
+            BindingLayout {
+                source,
+                kind: EntityKind::Node,
+            },
+        );
+        let expression = ir::TypedExpression {
+            expression: ir::Expression::Property {
+                entity,
+                property: ir::PropertyId::new(1).unwrap(),
+                fields: vec!["city".to_owned()],
+            },
+            value_type: ir::ValueType::Text,
+            nullability: ir::Nullability::Nullable,
+        };
+        let sql = lower_expression(&expression, &bindings, &catalog, "n")
+            .expect("property lowering should succeed");
+        assert_eq!(
+            sql,
+            "(SELECT p.\"address\".\"city\" FROM \"people\" AS p WHERE p.\"id\" = n.b1)"
+        );
     }
 }
