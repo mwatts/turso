@@ -242,12 +242,12 @@ fn register_graph_in_transaction(
         return Err(CatalogError::GraphAlreadyExists(registration.name.clone()));
     }
     for node in &registration.node_sources {
-        require_columns(connection, &node.table, &[&node.identity_column])?;
-        require_unique_identity(connection, &node.table, &node.identity_column)?;
+        let columns = require_columns(connection, &node.table, &[&node.identity_column])?;
+        require_unique_identity(connection, &node.table, &node.identity_column, &columns)?;
         require_custom_types_enabled_for_source(connection, &node.table)?;
     }
     for relationship in &registration.relationship_sources {
-        require_columns(
+        let columns = require_columns(
             connection,
             &relationship.table,
             &[
@@ -261,6 +261,7 @@ fn register_graph_in_transaction(
             connection,
             &relationship.table,
             &relationship.identity_column,
+            &columns,
         )?;
     }
 
@@ -526,12 +527,15 @@ fn require_columns(
     Ok(available)
 }
 
+/// `columns` is the table's already-fetched `require_columns` result, which
+/// must include `column`; passing it in avoids a second `PRAGMA table_info`
+/// round trip per source.
 fn require_unique_identity(
     connection: &Arc<Connection>,
     table: &str,
     column: &str,
+    columns: &[(String, bool, bool)],
 ) -> Result<(), CatalogError> {
-    let columns = require_columns(connection, table, &[column])?;
     let primary_columns = columns
         .iter()
         .filter(|(_, _, primary)| *primary)
