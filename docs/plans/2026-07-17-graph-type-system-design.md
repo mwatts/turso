@@ -50,14 +50,24 @@ named priorities.
   (`Expr::FieldAccess`, `sqlite/parser/src/ast.rs:466`, resolved to
   `FieldAccessResolution::{StructField, UnionVariant}` at bind time) —
   verified against `core/benches/struct_union_benchmark.rs:114,209,271,304`.
-- `core/vector/vector_types.rs` — native `VectorType` enum: `Float32Dense`,
+- `core/vector/vector_types.rs:9-15` — native `VectorType` enum: `Float32Dense`,
   `Float64Dense`, `Float32Sparse`, `Float1Bit`, `Float8`. Stored as a plain
   BLOB; even-length blobs are implicitly `Float32Dense`, odd-length blobs
-  carry a trailing type-tag byte. Functions: `vector32`, `vector32_sparse`,
-  `vector64`, `vector8`, `vector1bit`, `vector_extract`,
-  `vector_distance_{cos,l2,jaccard,dot}`, `vector_concat`, `vector_slice`
-  (`core/function.rs:330-363`). No real ANN index yet — search is brute-force
-  scan; `core/index_method/toy_vector_sparse_ivf.rs` is experimental only.
+  carry a trailing type-tag byte, decoded only at the value level by
+  `Vector::vector_type(blob: &[u8]) -> Result<(VectorType, usize, usize)>`
+  (`vector_types.rs:37`). **There is no schema-level VECTOR column type** —
+  confirmed by exhaustive grep of `core/schema.rs` (zero "vector" hits) and of
+  `core` for any `F32_BLOB`-style declared-type convention (zero hits). A
+  column holding vectors is, to the schema, an ordinary `BLOB`/`bytea`
+  column; Turso itself cannot statically say a given column is a vector
+  column, let alone its kind or dimension count, without inspecting stored
+  bytes.
+  - `VectorType` derives `Debug, Clone, PartialEq, Copy` only — no `Eq`/`Hash`.
+  - Functions: `vector32`, `vector32_sparse`, `vector64`, `vector8`,
+    `vector1bit`, `vector_extract`, `vector_distance_{cos,l2,jaccard,dot}`,
+    `vector_concat`, `vector_slice` (`core/function.rs:330-363`). No real ANN
+    index yet — search is brute-force scan;
+    `core/index_method/toy_vector_sparse_ivf.rs` is experimental only.
 - `core/schema.rs:5407-5418` — `Column::is_array()`/`array_dimensions()`:
   native `INTEGER[3]`-style array columns, distinct from JSON arrays
   (`core/json/jsonb.rs`) and from vector blobs.
@@ -81,6 +91,18 @@ named priorities.
   and lowers verbatim to `name(args...)` SQL text. This already mechanically
   reaches `vector_*`/`fts_*`/`struct_pack`/`union_*` — the gap is a *typed*
   signature, not reachability.
+- `core::Statement::get_column_type_info` (`core/statement.rs:1112-1186`)
+  already implements almost the exact column-to-logical-type classification
+  the new catalog needs: it pulls `Column::ty_str`/`array_dimensions()`,
+  calls `Schema::resolve_type(declared_name, table.is_strict())`
+  (`core/schema.rs:993`), and classifies the resolved `TypeDef` into the
+  public `#[non_exhaustive]` `ColumnTypeInfo { declared_name,
+  array_dimensions, base_type, kind: ColumnTypeKind }` where
+  `ColumnTypeKind` (`statement.rs:142-164`) is `Builtin | Custom | Domain |
+  Struct | Union`. This logic is inline in `Statement`, keyed off a live
+  prepared statement and result-column index, so graph/frontend cannot call
+  it as-is — it needs a `(Column, is_strict)` input, not a `Statement`. See
+  section 2 for the extraction this design reuses instead of duplicating it.
 - `graph/cypher/src/cypher.pest:103` — a `map_literal` grammar rule already
   exists, but is wired only into `node_pattern`/`relationship_body`
   (`cypher.pest:69,76`), not into the general expression grammar. There is no
@@ -98,7 +120,10 @@ pub enum ValueType {
     Custom { name: String, base: Box<ValueType> },   // NEW
     Struct(Vec<(String, ValueType)>),                 // NEW
     Union(Vec<(String, ValueType)>),                   // NEW
-    Vector(VectorKind, Option<u32>),                   // NEW: dims from column decl when known
+    Vector(VectorKind, Option<u32>),                   // NEW: dims known only when produced
+                                                        // by a typed vector function call (§5) —
+                                                        // never from a column declaration, since
+                                                        // no schema-level VECTOR column type exists
 }
 
 pub enum VectorKind { Float32Dense, Float64Dense, Float32Sparse, Float1Bit, Float8 }
@@ -130,6 +155,15 @@ missing link the existing handoff doc
 (`docs/plans/2026-07-17-graph-implementation-handoff.md`) does not mention:
 today nothing outside tests builds a `GraphCompilationCatalog`.
 
+Column classification reuses `core` rather than re-deriving it: a small
+additive extraction, `Schema::classify_column(&self, column: &Column,
+is_strict: bool) -> ColumnTypeInfo`, factors the classification logic
+already inline in `Statement::get_column_type_info` (`core/statement.rs:
+1120-1175`) out to `Schema` itself. `Statement::get_column_type_info` is
+changed to delegate to it, and `SchemaCatalog::property()` calls the same
+function. One classification implementation, two callers — no parallel
+reimplementation of struct/domain/custom detection in graph/frontend.
+
 `property()` resolution, per column, is **dual-path**:
 
 - **Non-STRICT source table** (today's and every existing graph's case):
@@ -145,8 +179,13 @@ today nothing outside tests builds a `GraphCompilationCatalog`.
   - `Struct`/`Union` → resolve each field/variant's declared type recursively
     (same rules, including nested struct/union), producing `ValueType::
     Struct`/`Union`.
-  - `VECTOR` column → `ValueType::Vector(kind, dims)` from the column's type
-    parameters.
+  - No column ever resolves to `ValueType::Vector` — there is no schema-level
+    VECTOR column type to resolve against (verified above). A column storing
+    vectors resolves as an ordinary `Bytes`/`Custom` BLOB column like any
+    other; `ValueType::Vector` is produced only by the typed function
+    registry (section 5) for calls to `vector32`/`vector64`/etc., whose
+    return type carries the kind, and dims when statically known from a
+    literal-length argument.
   - array-dimensioned column (`Column::is_array()`) → wrap the resolved
     element type in `ValueType::List`, dropping the declared dimension count
     (a storage-level constraint Turso still enforces on write; the graph IR
@@ -191,9 +230,12 @@ field types resolved in section 1/2.
 A small static table mapping known function names to `(argument ValueTypes,
 return ValueType)`:
 
-- `vector32`, `vector32_sparse`, `vector64`, `vector8`, `vector1bit`,
-  `vector_extract`, `vector_concat`, `vector_slice`,
-  `vector_distance_{cos,l2,jaccard,dot}`
+- `vector32`, `vector32_sparse`, `vector64`, `vector8`, `vector1bit` return
+  `ValueType::Vector(kind, dims)` — the only source of a `Vector`-typed
+  expression in this design, since no column can be statically known to hold
+  one (section 2). `vector_extract`, `vector_concat`, `vector_slice`,
+  `vector_distance_{cos,l2,jaccard,dot}` accept `Vector` arguments and return
+  `Bytes`/`Real` as appropriate.
 - `struct_pack`, `union_value`, `union_tag` (used internally by map-literal
   lowering, and directly callable)
 - `fts_match`, `fts_score`, `fts_highlight`
