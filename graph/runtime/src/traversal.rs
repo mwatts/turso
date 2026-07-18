@@ -150,7 +150,6 @@ impl TraversalCursor {
                         graph.neighbor_cursor(
                             *state.nodes.last().expect("path state always has a node"),
                             self.request.direction,
-                            &self.request.relationship_types,
                         )
                     })
                     .transpose()?;
@@ -171,7 +170,7 @@ impl TraversalCursor {
                 }
                 self.budget.work()?;
                 work += 1;
-                match neighbors.step(graph) {
+                match neighbors.step(graph, &self.request.relationship_types) {
                     crate::csr::NeighborCursorStep::Filtered => continue,
                     crate::csr::NeighborCursorStep::Done => {
                         active.neighbors = None;
@@ -214,6 +213,21 @@ impl TraversalCursor {
 impl Path {
     pub fn hop_count(&self) -> usize {
         self.relationships.len()
+    }
+
+    fn memory_bytes(&self) -> usize {
+        size_of::<Self>()
+            .saturating_add(self.nodes.len().saturating_mul(size_of::<NodeId>()))
+            .saturating_add(
+                self.relationships
+                    .len()
+                    .saturating_mul(size_of::<RelationshipId>()),
+            )
+            .saturating_add(
+                self.relationship_types
+                    .len()
+                    .saturating_mul(size_of::<RelationshipTypeId>()),
+            )
     }
 }
 
@@ -288,75 +302,21 @@ impl Frontier {
     }
 }
 
+/// Materialize every matching path by driving a [`TraversalCursor`], so the
+/// eager and resumable APIs share one expansion implementation.
 pub fn traverse(
     graph: &Graph,
     request: &TraversalRequest,
     limits: TraversalLimits,
     cancellation: &dyn Cancellation,
 ) -> RuntimeResult<Vec<Path>> {
-    validate_request(graph, request)?;
-    let mut budget = Budget::new(limits)?;
-    budget.require_hops(request.max_hops)?;
-    budget.node()?;
-
-    let initial = PathState::start(request.start);
-    budget.retain_memory(initial.memory_bytes())?;
-    let mut frontier = Frontier::new(request.order);
-    frontier.push(initial);
+    let mut cursor = TraversalCursor::new(graph, request.clone(), limits)?;
     let mut paths = Vec::new();
-
-    while let Some(state) = frontier.pop() {
-        if cancellation.is_cancelled() {
-            return Err(RuntimeError::Cancelled);
-        }
-        budget.work()?;
-        budget.release_memory(state.memory_bytes());
-        let hops =
-            u32::try_from(state.relationships.len()).map_err(|_| RuntimeError::LimitExceeded {
-                kind: crate::LimitKind::Hops,
-                limit: u64::from(request.max_hops),
-            })?;
-        if hops >= request.min_hops {
-            budget.path()?;
-            let result = state.clone();
-            budget.retain_memory(result.memory_bytes())?;
-            paths.push(result.into_path());
-        }
-        if hops == request.max_hops {
-            continue;
-        }
-
-        let neighbors = graph.neighbors(
-            *state.nodes.last().expect("path state always has a node"),
-            request.direction,
-            &request.relationship_types,
-        )?;
-        for neighbor in neighbors {
-            if cancellation.is_cancelled() {
-                return Err(RuntimeError::Cancelled);
-            }
-            budget.work()?;
-            budget.edge()?;
-            if !allows(
-                request.uniqueness,
-                &state,
-                neighbor.node,
-                neighbor.relationship,
-            ) {
-                continue;
-            }
-            let mut child = state.clone();
-            child.nodes.push(neighbor.node);
-            child.relationships.push(neighbor.relationship);
-            child.relationship_types.push(neighbor.relationship_type);
-            child.total_weight = child
-                .total_weight
-                .checked_add(neighbor.weight)
-                .ok_or(RuntimeError::CostOverflow)?;
-            budget.node()?;
-            budget.retain_memory(child.memory_bytes())?;
-            frontier.push(child);
-        }
+    while let Some(path) = cursor.next_path(graph, cancellation)? {
+        // Unlike streaming callers, this API retains every result, so the
+        // accumulated paths stay accounted against the traversal budget.
+        cursor.budget.retain_memory(path.memory_bytes())?;
+        paths.push(path);
     }
     Ok(paths)
 }

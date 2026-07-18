@@ -32,7 +32,6 @@ pub struct Neighbor {
 
 pub struct NeighborCursor {
     direction: Direction,
-    relationship_types: Vec<RelationshipTypeId>,
     forward_position: usize,
     forward_end: usize,
     reverse_position: usize,
@@ -175,10 +174,10 @@ impl Graph {
         direction: Direction,
         relationship_types: &[RelationshipTypeId],
     ) -> RuntimeResult<Vec<Neighbor>> {
-        let mut cursor = self.neighbor_cursor(node, direction, relationship_types)?;
+        let mut cursor = self.neighbor_cursor(node, direction)?;
         let mut neighbors = Vec::new();
         loop {
-            match cursor.step(self) {
+            match cursor.step(self, relationship_types) {
                 NeighborCursorStep::Neighbor(neighbor) => neighbors.push(neighbor),
                 NeighborCursorStep::Filtered => {}
                 NeighborCursorStep::Done => break,
@@ -191,7 +190,6 @@ impl Graph {
         &self,
         node: NodeId,
         direction: Direction,
-        relationship_types: &[RelationshipTypeId],
     ) -> RuntimeResult<NeighborCursor> {
         let index = *self
             .node_indexes
@@ -199,7 +197,6 @@ impl Graph {
             .ok_or(RuntimeError::UnknownNode(node))? as usize;
         Ok(NeighborCursor {
             direction,
-            relationship_types: relationship_types.to_vec(),
             forward_position: self.forward.offsets[index],
             forward_end: self.forward.offsets[index + 1],
             reverse_position: self.reverse.offsets[index],
@@ -209,7 +206,14 @@ impl Graph {
 }
 
 impl NeighborCursor {
-    pub(crate) fn step(&mut self, graph: &Graph) -> NeighborCursorStep {
+    /// The caller supplies `relationship_types` on every step so the cursor
+    /// never has to copy the filter; per-node cursors share the traversal's
+    /// one filter allocation.
+    pub(crate) fn step(
+        &mut self,
+        graph: &Graph,
+        relationship_types: &[RelationshipTypeId],
+    ) -> NeighborCursorStep {
         let edge = match self.direction {
             Direction::Outgoing => {
                 take_edge(&graph.forward, &mut self.forward_position, self.forward_end)
@@ -222,9 +226,7 @@ impl NeighborCursor {
         let Some(edge) = edge else {
             return NeighborCursorStep::Done;
         };
-        if !self.relationship_types.is_empty()
-            && !self.relationship_types.contains(&edge.relationship_type)
-        {
+        if !relationship_types.is_empty() && !relationship_types.contains(&edge.relationship_type) {
             return NeighborCursorStep::Filtered;
         }
         NeighborCursorStep::Neighbor(Neighbor {
