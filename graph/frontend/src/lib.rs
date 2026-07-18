@@ -12,6 +12,7 @@ mod compiler;
 mod graph_expand;
 mod lowering;
 mod mutation;
+mod schema_catalog;
 mod session;
 mod snapshot;
 
@@ -31,6 +32,7 @@ pub use lowering::{
     RelationshipTableLayout,
 };
 pub use mutation::{execute_cypher_mutation, MutationError, MutationParameters, MutationSummary};
+pub use schema_catalog::SchemaCatalog;
 pub use session::{GraphSession, GraphSessionError};
 pub use snapshot::{
     build_traversal_snapshot, build_visible_traversal_snapshot, NodeCoordinate, PublishOutcome,
