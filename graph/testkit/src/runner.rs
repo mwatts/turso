@@ -7,10 +7,9 @@ use std::{
 use thiserror::Error;
 use turso_core::{Connection, Database, MemoryIO, Numeric, SqliteDialect, Value};
 use turso_graph_frontend::{
-    register_graph, CatalogEntity, GraphCatalogSnapshot, GraphCompilationCatalog,
-    GraphRegistration, GraphSession, MutationParameters, NodeSourceRegistration, NodeTableLayout,
-    ParameterTypes, RelationalCatalogSnapshot, RelationshipSourceRegistration,
-    RelationshipTableLayout, ResolvedProperty, SnapshotStore,
+    register_graph, GraphCompilationCatalog, GraphRegistration, GraphSession, MutationParameters,
+    NodeSourceRegistration, ParameterTypes, RelationshipSourceRegistration, SchemaCatalog,
+    SnapshotStore,
 };
 use turso_graph_ir as ir;
 
@@ -26,73 +25,6 @@ pub enum RunnerError {
     Fixture(String),
     #[error("scenario parameter `{name}` has unsupported TOML value {value}")]
     Parameter { name: String, value: toml::Value },
-}
-
-struct Catalog {
-    node_source: ir::SourceTableId,
-    relationship_source: ir::SourceTableId,
-}
-
-impl GraphCatalogSnapshot for Catalog {
-    fn node_source(&self, _graph: ir::GraphId) -> Option<ir::SourceTableId> {
-        Some(self.node_source)
-    }
-    fn relationship_source(&self, _graph: ir::GraphId) -> Option<ir::SourceTableId> {
-        Some(self.relationship_source)
-    }
-    fn label(&self, _graph: ir::GraphId, name: &str) -> Option<ir::LabelId> {
-        (name == "Person").then(|| ir::LabelId::new(1).expect("catalog IDs are nonzero"))
-    }
-    fn relationship_type(&self, _graph: ir::GraphId, name: &str) -> Option<ir::RelationshipTypeId> {
-        (name == "KNOWS").then(|| ir::RelationshipTypeId::new(1).expect("catalog IDs are nonzero"))
-    }
-    fn property(
-        &self,
-        _graph: ir::GraphId,
-        entity: CatalogEntity,
-        name: &str,
-    ) -> Option<ResolvedProperty> {
-        let (id, value_type, nullability) = match (entity, name) {
-            (CatalogEntity::Node, "id") => (1, ir::ValueType::Integer, ir::Nullability::NonNull),
-            (CatalogEntity::Node, "name") => (2, ir::ValueType::Text, ir::Nullability::Nullable),
-            (CatalogEntity::Node, "age") => (3, ir::ValueType::Integer, ir::Nullability::Nullable),
-            _ => return None,
-        };
-        Some(ResolvedProperty {
-            id: ir::PropertyId::new(id).expect("catalog IDs are nonzero"),
-            value_type,
-            nullability,
-        })
-    }
-}
-
-impl RelationalCatalogSnapshot for Catalog {
-    fn node_layout(&self, source: ir::SourceTableId) -> Option<NodeTableLayout> {
-        (source == self.node_source).then(|| NodeTableLayout {
-            table: "people".to_owned(),
-            identity_column: "id".to_owned(),
-        })
-    }
-    fn relationship_layout(&self, source: ir::SourceTableId) -> Option<RelationshipTableLayout> {
-        (source == self.relationship_source).then(|| RelationshipTableLayout {
-            table: "relationships".to_owned(),
-            identity_column: "id".to_owned(),
-            start_column: "src".to_owned(),
-            end_column: "dst".to_owned(),
-        })
-    }
-    fn property_column(
-        &self,
-        source: ir::SourceTableId,
-        property: ir::PropertyId,
-    ) -> Option<String> {
-        match (source, property.get()) {
-            (source, 1) if source == self.node_source => Some("id".to_owned()),
-            (source, 2) if source == self.node_source => Some("name".to_owned()),
-            (source, 3) if source == self.node_source => Some("age".to_owned()),
-            _ => None,
-        }
-    }
 }
 
 pub struct ScenarioRunner {
@@ -228,10 +160,8 @@ fn build_fixture(
         },
     )
     .map_err(|error| RunnerError::Fixture(error.to_string()))?;
-    let catalog: Arc<dyn GraphCompilationCatalog> = Arc::new(Catalog {
-        node_source: registered.node_sources[0].id,
-        relationship_source: registered.relationship_sources[0].id,
-    });
+    let catalog: Arc<dyn GraphCompilationCatalog> =
+        Arc::new(SchemaCatalog::new(connection.clone(), registered.clone()));
     let session = GraphSession::install(
         connection.clone(),
         &registered,
