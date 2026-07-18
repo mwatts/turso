@@ -41,22 +41,10 @@ impl SchemaCatalog {
     }
 }
 
-/// Maps a column's resolved SQLite storage class (`Column::affinity().to_type()`)
-/// to the corresponding graph `ValueType`. `NUMERIC` has no single fixed
-/// runtime representation (it stores whichever of INTEGER/REAL/TEXT best fits
-/// the value), so it maps to `Any` rather than a specific scalar.
-fn sqlite_type_value_type(ty: turso_core::schema::Type) -> ir::ValueType {
-    use turso_core::schema::Type;
-
-    match ty {
-        Type::Integer => ir::ValueType::Integer,
-        Type::Real => ir::ValueType::Real,
-        Type::Text => ir::ValueType::Text,
-        Type::Numeric | Type::Null => ir::ValueType::Any,
-        Type::Blob => ir::ValueType::Bytes,
-    }
-}
-
+/// Maps a column's declared (or resolved custom-type base) primitive type
+/// name to the corresponding graph `ValueType`. `NUMERIC`/`ANY` have no
+/// single fixed runtime representation, so they (and any unrecognized name)
+/// fall back to `Any` rather than a specific scalar.
 fn primitive_value_type(primitive: &str) -> ir::ValueType {
     match primitive.to_ascii_uppercase().as_str() {
         "INTEGER" => ir::ValueType::Integer,
@@ -133,13 +121,31 @@ impl SchemaCatalog {
 
         let info = schema.classify_column(column, is_strict);
         let scalar = match info.kind {
+            // `column.affinity()` is a physical-storage signal: core's
+            // `BTreeTable::resolve_custom_type_affinities` (core/schema.rs)
+            // unconditionally forces array columns to `Blob` affinity for
+            // record-format packing, regardless of their declared element
+            // type. Read the logical type from `classify_column` instead:
+            // `base_type` already carries the resolved primitive for a
+            // `Domain` column's underlying type (`declared_name` there is
+            // the domain's own name, e.g. "posint", not a primitive
+            // keyword); for `Builtin`, `base_type` is `None` and
+            // `declared_name` *is* the primitive keyword directly.
             ColumnTypeKind::Builtin | ColumnTypeKind::Domain => {
-                sqlite_type_value_type(column.affinity().to_type())
+                primitive_value_type(info.base_type.as_deref().unwrap_or(&info.declared_name))
             }
-            ColumnTypeKind::Custom => ir::ValueType::Custom {
-                name: info.declared_name,
-                base: Box::new(sqlite_type_value_type(column.affinity().to_type())),
-            },
+            ColumnTypeKind::Custom => {
+                // Same physical-vs-logical distinction as above: `base_type`
+                // is the custom type's resolved underlying primitive,
+                // unaffected by the array-affinity override.
+                let base = Box::new(primitive_value_type(
+                    info.base_type.as_deref().unwrap_or(&info.declared_name),
+                ));
+                ir::ValueType::Custom {
+                    name: info.declared_name,
+                    base,
+                }
+            }
             ColumnTypeKind::Struct | ColumnTypeKind::Union => {
                 resolve_named_type(schema, &info.declared_name, is_strict)
             }
