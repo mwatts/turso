@@ -108,3 +108,6 @@ dhat-heap.json
 .dolt/
 .beads-credential-key
 .beads/proxieddb/
+
+# Local git worktrees (agent-managed, not tracked)
+.worktrees/
