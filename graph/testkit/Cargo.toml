@@ -1,0 +1,26 @@
+[package]
+name = "turso_graph_testkit"
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Cypher conformance, regression, and lifecycle performance runner"
+
+[lints]
+workspace = true
+
+[dependencies]
+anyhow.workspace = true
+chrono = { workspace = true, features = ["clock"] }
+clap = { workspace = true, features = ["derive"] }
+serde = { workspace = true, features = ["derive"] }
+serde_json.workspace = true
+thiserror.workspace = true
+toml.workspace = true
+turso_core.workspace = true
+turso_graph_frontend.workspace = true
+turso_graph_ir.workspace = true
+
+[dev-dependencies]
+tempfile.workspace = true

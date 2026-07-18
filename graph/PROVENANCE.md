@@ -139,15 +139,17 @@ recorded in `graph/testdata/pggraph-runtime/manifest.toml` and executed by
 
 ### Mixed-source conformance donors
 
-The executable mixed-source slice is recorded in
-`graph/testdata/conformance/manifest.toml` and run by
-`graph/frontend/tests/conformance.rs`. It normalizes, without copying donor
-test bodies, cases from the openCypher TCK copy pinned through Uni, Grafeo, AGE,
-pgGraph, Ladybug, SparrowDB, CQLite, and Samyama. The generated
-`graph/CONFORMANCE.md` report separates supported, failed, and unsupported
-scenarios, and CI fails on zero discovery, stale report output, or a supported
-scenario failure. Required ordering is preserved; unordered results are sorted
-and compared as multisets.
+The executable mixed-source slice is recorded in the typed manifests under
+`graph/testdata/suites/` and run by `graph/testkit`. It normalizes, without
+copying donor test bodies, cases from the openCypher TCK copy pinned through
+Uni, Grafeo, AGE, pgGraph, Ladybug, SparrowDB, CQLite, and Samyama. The stable
+identity, exact source case, pinned revision, license, and adaptation type are
+stored beside every case. `graph/CONFORMANCE.md` describes the current support
+level; intentional baseline runs append per-result records to
+`graph/test-results/history.jsonl` and generate the longitudinal report.
+Required ordering is preserved; unordered results are sorted and compared as
+multisets. The testkit fails on zero discovery, duplicate identities, supported
+scenario failures, or changed unsupported boundaries.
 
 Ladybug's MIT license is copied to
 `licenses/graph/ladybug-mit-license.md`; SparrowDB's to

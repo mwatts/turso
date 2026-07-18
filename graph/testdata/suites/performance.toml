@@ -1,0 +1,11 @@
+version = 1
+
+[[profile]]
+name = "smoke"
+scales = [10, 100]
+iterations = 3
+
+[[profile]]
+name = "deep"
+scales = [100, 1000]
+iterations = 10

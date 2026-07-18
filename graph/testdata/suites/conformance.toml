@@ -1,0 +1,364 @@
+version = 1
+purpose = "Executable mixed-source Cypher conformance matrix"
+
+[[scenario]]
+id = "tck.with.with1.scenario-1"
+tiers = ["smoke", "deep"]
+kind = "conformance"
+area = "scope"
+fixture = "social"
+expectation = "rows"
+action = "query"
+ordering = "ordered"
+query = "MATCH (n:Person {id: 1}) WITH n RETURN n.name"
+expected_rows = [["Ada"]]
+[scenario.source]
+name = "openCypher TCK via Uni"
+repository = "https://github.com/rustic-ai/uni-db"
+revision = "0812a496c62769b67cf688930750ae384e3de68d"
+path = "crates/uni-tck/tck/features/clauses/with/With1.feature"
+case = "Scenario [1]: Forwarding a node variable 1"
+license = "Apache-2.0"
+adaptation = "fixture-adaptation"
+
+[[scenario]]
+id = "grafeo.match.directed-edge"
+tiers = ["smoke", "deep"]
+kind = "conformance"
+area = "match"
+fixture = "social"
+expectation = "rows"
+action = "query"
+ordering = "unordered"
+query = "MATCH (a:Person {id: 1})-[:KNOWS]->(b) RETURN b.name"
+expected_rows = [["Grace"], ["Linus"]]
+[scenario.source]
+name = "Grafeo"
+repository = "https://github.com/GrafeoDB/grafeo"
+revision = "4ebae02f06f8f0cbc57543f74b6ba06f259dbed3"
+path = "tests/spec/lpg/cypher/reading_clauses.gtest"
+case = "match_edge_outgoing"
+license = "Apache-2.0"
+adaptation = "fixture-adaptation"
+
+[[scenario]]
+id = "age.vle.zero-length"
+tiers = ["smoke", "deep"]
+kind = "conformance"
+area = "traversal"
+fixture = "social"
+expectation = "rows"
+action = "query"
+ordering = "ordered"
+query = "MATCH (a:Person {id: 1})-[:KNOWS*0..0]->(b) RETURN b.name"
+expected_rows = [["Ada"]]
+[scenario.source]
+name = "Apache AGE"
+repository = "https://github.com/apache/age"
+revision = "6876abcab0a3281eb65a7e2a91238e0b5abfdea7"
+path = "regress/sql/cypher_vle.sql"
+case = "MATCH (u)-[e*0..0]->(v)"
+license = "Apache-2.0"
+adaptation = "fixture-adaptation"
+
+[[scenario]]
+id = "pggraph.traversal.exact-two-hops"
+tiers = ["smoke", "deep"]
+kind = "conformance"
+area = "traversal"
+fixture = "social"
+expectation = "rows"
+action = "query"
+ordering = "ordered"
+query = "MATCH (a:Person {id: 1})-[:KNOWS*2..2]->(b) RETURN b.name"
+expected_rows = [["Linus"]]
+[scenario.source]
+name = "pgGraph"
+repository = "https://github.com/Evokoa/pgGraph"
+revision = "d689bcf2b3b52d7f878f61718be69ebcb953affc"
+path = "graph/src/bfs.rs"
+case = "bfs_respects_max_depth"
+license = "Apache-2.0"
+adaptation = "fixture-adaptation"
+
+[[scenario]]
+id = "ladybug.match.undirected-edge"
+tiers = ["smoke", "deep"]
+kind = "conformance"
+area = "match"
+fixture = "social"
+expectation = "rows"
+action = "query"
+ordering = "unordered"
+query = "MATCH (a:Person {id: 2})-[:KNOWS]-(b) RETURN b.name"
+expected_rows = [["Ada"], ["Linus"]]
+[scenario.source]
+name = "Ladybug"
+repository = "https://github.com/mwatts/ladybug"
+revision = "7eab431c6becf64f58f7c2ff4c0fb1f160acb492"
+path = "test/test_files/match/undirected.test"
+case = "undirected single relationship"
+license = "MIT"
+adaptation = "fixture-adaptation"
+
+[[scenario]]
+id = "ladybug.optional.null-extension"
+tiers = ["smoke", "deep"]
+kind = "conformance"
+area = "optional-match"
+fixture = "social"
+expectation = "rows"
+action = "query"
+ordering = "ordered"
+query = "MATCH (a:Person {id: 4}) OPTIONAL MATCH (a)-[:KNOWS]->(b) RETURN a.name, b.name"
+expected_rows = [["Edsger", "<null>"]]
+[scenario.source]
+name = "Ladybug"
+repository = "https://github.com/mwatts/ladybug"
+revision = "7eab431c6becf64f58f7c2ff4c0fb1f160acb492"
+path = "test/test_files/optional_match/optional_match.test"
+case = "missing relationship null extension"
+license = "MIT"
+adaptation = "fixture-adaptation"
+
+[[scenario]]
+id = "sparrow.path.two-hop-multiplicity"
+tiers = ["smoke", "deep"]
+kind = "conformance"
+area = "traversal"
+fixture = "social"
+expectation = "rows"
+action = "query"
+ordering = "unordered"
+query = "MATCH (a:Person {id: 1})-[:KNOWS*2..2]->(b) RETURN b.name"
+expected_rows = [["Linus"]]
+[scenario.source]
+name = "SparrowDB"
+repository = "https://github.com/ryaker/SparrowDB"
+revision = "82d85b7a861dfb2e127452ed89eebbcee74bfef0"
+path = "crates/sparrowdb/tests/path_semantics.rs"
+case = "diamond_path_d_appears_twice"
+license = "MIT"
+adaptation = "fixture-adaptation"
+
+[[scenario]]
+id = "sparrow.merge.existing-node"
+tiers = ["smoke", "deep"]
+kind = "conformance"
+area = "mutation"
+fixture = "social"
+expectation = "rows"
+action = "mutation"
+ordering = "ordered"
+query = "MERGE (:Person {id: 1, name: 'Ada', age: 40})"
+verification_query = "MATCH (n:Person {id: 1}) RETURN n.name"
+expected_rows = [["Ada"]]
+[scenario.source]
+name = "SparrowDB"
+repository = "https://github.com/ryaker/SparrowDB"
+revision = "82d85b7a861dfb2e127452ed89eebbcee74bfef0"
+path = "crates/sparrowdb/tests/merge_node.rs"
+case = "merge_node_returns_existing_when_present"
+license = "MIT"
+adaptation = "fixture-adaptation"
+
+[[scenario]]
+id = "cqlite.match.labeled-node-scan"
+tiers = ["smoke", "deep"]
+kind = "conformance"
+area = "match"
+fixture = "social"
+expectation = "rows"
+action = "query"
+ordering = "ordered"
+query = "MATCH (n:Person) RETURN n.name ORDER BY n.name"
+expected_rows = [["Ada"], ["Edsger"], ["Grace"], ["Linus"]]
+[scenario.source]
+name = "CQLite"
+repository = "https://github.com/mwatts/cqlite"
+revision = "e2b677e8429a4cb0ead087ffbd9195f4f3999819"
+path = "tests/match_queries.rs"
+case = "match_labeled_nodes"
+license = "MIT"
+adaptation = "fixture-adaptation"
+
+[[scenario]]
+id = "cqlite.create.properties"
+tiers = ["smoke", "deep"]
+kind = "conformance"
+area = "mutation"
+fixture = "social"
+expectation = "rows"
+action = "mutation"
+ordering = "ordered"
+query = "CREATE (:Person {id: 5, name: 'Margaret', age: 60})"
+verification_query = "MATCH (n:Person {id: 5}) RETURN n.name, n.age"
+expected_rows = [["Margaret", "60"]]
+[scenario.source]
+name = "CQLite"
+repository = "https://github.com/mwatts/cqlite"
+revision = "e2b677e8429a4cb0ead087ffbd9195f4f3999819"
+path = "tests/create_queries.rs"
+case = "create_with_properties"
+license = "MIT"
+adaptation = "fixture-adaptation"
+
+[[scenario]]
+id = "samyama.aggregate.global-count"
+tiers = ["smoke", "deep"]
+kind = "conformance"
+area = "aggregation"
+fixture = "social"
+expectation = "rows"
+action = "query"
+ordering = "ordered"
+query = "MATCH (n:Person) RETURN count(n)"
+expected_rows = [["4"]]
+[scenario.source]
+name = "Samyama"
+repository = "https://github.com/samyama-ai/samyama-graph"
+revision = "4520154a65838d2e17a51b91882a99df816365c3"
+path = "src/query/executor/mod.rs"
+case = "test_execute_collect_aggregate"
+license = "Apache-2.0"
+adaptation = "fixture-adaptation"
+
+[[scenario]]
+id = "age.vle.unbounded-traversal"
+tiers = ["deep"]
+kind = "conformance"
+area = "traversal"
+fixture = "social"
+expectation = "rows"
+action = "query"
+ordering = "unordered"
+query = "MATCH (a:Person {id: 1})-[:KNOWS*]->(b) RETURN b.name"
+expected_rows = [["Grace"], ["Linus"], ["Linus"]]
+[scenario.source]
+name = "Apache AGE"
+repository = "https://github.com/apache/age"
+revision = "6876abcab0a3281eb65a7e2a91238e0b5abfdea7"
+path = "regress/sql/cypher_vle.sql"
+case = "unbounded variable-length edge regressions"
+license = "Apache-2.0"
+adaptation = "fixture-adaptation"
+
+[[scenario]]
+id = "tck.call.subquery-scope"
+tiers = ["deep"]
+kind = "conformance"
+area = "subquery"
+fixture = "social"
+expectation = "unsupported"
+action = "query"
+ordering = "unordered"
+query = "CALL { MATCH (n:Person) RETURN n } RETURN n.name"
+expected_error_contains = "expected clause"
+[scenario.source]
+name = "openCypher TCK via Uni"
+repository = "https://github.com/rustic-ai/uni-db"
+revision = "0812a496c62769b67cf688930750ae384e3de68d"
+path = "crates/uni-tck/tck/features/clauses/call/Call1.feature"
+case = "CALL subquery importing and returning a node"
+license = "Apache-2.0"
+adaptation = "fixture-adaptation"
+
+[[scenario]]
+id = "grafeo.path.all-shortest-paths"
+tiers = ["deep"]
+kind = "conformance"
+area = "shortest-path"
+fixture = "social"
+expectation = "unsupported"
+action = "query"
+ordering = "unordered"
+query = "MATCH (a:Person {id: 1}), (b:Person {id: 3}) RETURN allShortestPaths((a)-[:KNOWS*]->(b))"
+expected_error_contains = "expected primary_expression"
+[scenario.source]
+name = "Grafeo"
+repository = "https://github.com/GrafeoDB/grafeo"
+revision = "4ebae02f06f8f0cbc57543f74b6ba06f259dbed3"
+path = "tests/spec/lpg/cypher/patterns.gtest"
+case = "all_shortest_paths"
+license = "Apache-2.0"
+adaptation = "fixture-adaptation"
+
+[[scenario]]
+id = "pggraph.path.weight-expression"
+tiers = ["deep"]
+kind = "conformance"
+area = "shortest-path"
+fixture = "social"
+expectation = "unsupported"
+action = "query"
+ordering = "unordered"
+query = "MATCH (a:Person {id: 1}), (b:Person {id: 3}) RETURN weightedShortestPath((a)-[:KNOWS*]->(b), 'cost')"
+expected_error_contains = "expected primary_expression"
+[scenario.source]
+name = "pgGraph"
+repository = "https://github.com/Evokoa/pgGraph"
+revision = "d689bcf2b3b52d7f878f61718be69ebcb953affc"
+path = "graph/src/path_finder.rs"
+case = "weighted_shortest_path_prefers_lower_total_cost"
+license = "Apache-2.0"
+adaptation = "fixture-adaptation"
+
+[[scenario]]
+id = "ladybug.path.shortest-keyword"
+tiers = ["deep"]
+kind = "conformance"
+area = "shortest-path"
+fixture = "social"
+expectation = "unsupported"
+action = "query"
+ordering = "unordered"
+query = "MATCH (a:Person)-[:KNOWS* SHORTEST 1..5]->(b:Person) RETURN b.name"
+expected_error_contains = "expected unsigned_integer or map_literal"
+[scenario.source]
+name = "Ladybug"
+repository = "https://github.com/mwatts/ladybug"
+revision = "7eab431c6becf64f58f7c2ff4c0fb1f160acb492"
+path = "test/test_files/shortest_path/shortest_path_tinysnb.test"
+case = "ShortestPath first statement"
+license = "MIT"
+adaptation = "fixture-adaptation"
+
+[[scenario]]
+id = "sparrow.path.shortest-function"
+tiers = ["deep"]
+kind = "conformance"
+area = "shortest-path"
+fixture = "social"
+expectation = "unsupported"
+action = "query"
+ordering = "unordered"
+query = "MATCH (a:Person {id: 1}), (b:Person {id: 3}) RETURN shortestPath((a)-[:KNOWS*]->(b))"
+expected_error_contains = "expected primary_expression"
+[scenario.source]
+name = "SparrowDB"
+repository = "https://github.com/ryaker/SparrowDB"
+revision = "82d85b7a861dfb2e127452ed89eebbcee74bfef0"
+path = "crates/sparrowdb/tests/spa_136_shortest_path.rs"
+case = "shortest_path_2_hops"
+license = "MIT"
+adaptation = "fixture-adaptation"
+
+[[scenario]]
+id = "samyama.planner.independent-patterns"
+tiers = ["deep"]
+kind = "conformance"
+area = "planning"
+fixture = "social"
+expectation = "unsupported"
+action = "query"
+ordering = "unordered"
+query = "MATCH (a:Person), (b:Person) RETURN a.name, b.name"
+expected_error_contains = "multiple path patterns is not supported"
+[scenario.source]
+name = "Samyama"
+repository = "https://github.com/samyama-ai/samyama-graph"
+revision = "4520154a65838d2e17a51b91882a99df816365c3"
+path = "src/query/executor/plan_enumerator.rs"
+case = "test_enumerate_two_nodes_produces_two_plans"
+license = "Apache-2.0"
+adaptation = "fixture-adaptation"

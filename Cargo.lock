@@ -7337,6 +7337,23 @@ dependencies = [
 ]
 
 [[package]]
+name = "turso_graph_testkit"
+version = "0.7.0"
+dependencies = [
+ "anyhow",
+ "chrono",
+ "clap",
+ "serde",
+ "serde_json",
+ "tempfile",
+ "thiserror 2.0.16",
+ "toml",
+ "turso_core",
+ "turso_graph_frontend",
+ "turso_graph_ir",
+]
+
+[[package]]
 name = "turso_macros"
 version = "0.7.0"
 dependencies = [

@@ -1,0 +1,167 @@
+version = 1
+purpose = "Deep Cypher regression and donor bug-fix scenarios"
+
+[[scenario]]
+id = "grafeo.regression.wrong-relationship-direction"
+tiers = ["smoke", "deep"]
+kind = "bug-regression"
+area = "match"
+fixture = "social"
+expectation = "rows"
+action = "query"
+ordering = "unordered"
+query = "MATCH (a:Person {id: 1})<-[:KNOWS]-(b) RETURN b.name"
+expected_rows = []
+[scenario.source]
+name = "Grafeo"
+repository = "https://github.com/GrafeoDB/grafeo"
+revision = "4ebae02f06f8f0cbc57543f74b6ba06f259dbed3"
+path = "tests/spec/lpg/cypher/regression.gtest"
+case = "backward_arrow_wrong_direction"
+license = "Apache-2.0"
+adaptation = "fixture-adaptation"
+
+[[scenario]]
+id = "age.regression.zero-length-preserves-identity"
+tiers = ["deep"]
+kind = "regression"
+area = "traversal"
+fixture = "social"
+expectation = "rows"
+action = "query"
+ordering = "ordered"
+query = "MATCH (a:Person {id: 2})-[:KNOWS*0..0]->(b) RETURN a.name, b.name"
+expected_rows = [["Grace", "Grace"]]
+[scenario.source]
+name = "Apache AGE"
+repository = "https://github.com/apache/age"
+revision = "6876abcab0a3281eb65a7e2a91238e0b5abfdea7"
+path = "regress/sql/cypher_vle.sql"
+case = "zero length VLE identity"
+license = "Apache-2.0"
+adaptation = "fixture-adaptation"
+
+[[scenario]]
+id = "sparrow.regression.missing-property-is-null"
+tiers = ["deep"]
+kind = "bug-regression"
+area = "null"
+fixture = "social"
+expectation = "rows"
+action = "query"
+ordering = "ordered"
+query = "MATCH (n:Person {id: 4}) RETURN n.name, n.age"
+expected_rows = [["Edsger", "50"]]
+[scenario.source]
+name = "SparrowDB"
+repository = "https://github.com/ryaker/SparrowDB"
+revision = "82d85b7a861dfb2e127452ed89eebbcee74bfef0"
+path = "crates/sparrowdb/tests/spa_197_missing_prop_null.rs"
+case = "missing property uses null sentinel"
+license = "MIT"
+adaptation = "fixture-adaptation"
+issue = "SPA-197"
+
+[[scenario]]
+id = "sparrow.regression.variable-path-terminal-label"
+tiers = ["deep"]
+kind = "bug-regression"
+area = "traversal"
+fixture = "social"
+expectation = "rows"
+action = "query"
+ordering = "unordered"
+query = "MATCH (a:Person {id: 1})-[:KNOWS*1..2]->(b:Person) RETURN b.name"
+expected_rows = [["Grace"], ["Linus"], ["Linus"]]
+[scenario.source]
+name = "SparrowDB"
+repository = "https://github.com/ryaker/SparrowDB"
+revision = "82d85b7a861dfb2e127452ed89eebbcee74bfef0"
+path = "crates/sparrowdb/tests/spa_354_varlength_terminal_label.rs"
+case = "variable length terminal label"
+license = "MIT"
+adaptation = "fixture-adaptation"
+issue = "SPA-354"
+
+[[scenario]]
+id = "cqlite.regression.parameterized-property"
+tiers = ["smoke", "deep"]
+kind = "regression"
+area = "parameters"
+fixture = "social"
+expectation = "rows"
+action = "query"
+ordering = "ordered"
+query = "MATCH (n:Person {name: $name}) RETURN n.age"
+parameters = { name = "Ada" }
+expected_rows = [["40"]]
+[scenario.source]
+name = "CQLite"
+repository = "https://github.com/mwatts/cqlite"
+revision = "e2b677e8429a4cb0ead087ffbd9195f4f3999819"
+path = "tests/match_queries_where.rs"
+case = "parameterized property predicate"
+license = "MIT"
+adaptation = "fixture-adaptation"
+
+[[scenario]]
+id = "ladybug.regression.detach-delete"
+tiers = ["deep"]
+kind = "regression"
+area = "mutation"
+fixture = "social"
+expectation = "rows"
+action = "mutation"
+ordering = "ordered"
+query = "MATCH (n:Person {id: 2}) DETACH DELETE n"
+verification_query = "MATCH (n:Person) RETURN count(n)"
+expected_rows = [["3"]]
+[scenario.source]
+name = "Ladybug"
+repository = "https://github.com/mwatts/ladybug"
+revision = "7eab431c6becf64f58f7c2ff4c0fb1f160acb492"
+path = "test/test_files/dml_node/delete_node.test"
+case = "detach delete connected node"
+license = "MIT"
+adaptation = "fixture-adaptation"
+
+[[scenario]]
+id = "grafeo.regression.optional-count-preserves-rows"
+tiers = ["deep"]
+kind = "bug-regression"
+area = "aggregation"
+fixture = "social"
+expectation = "rows"
+action = "query"
+ordering = "ordered"
+query = "MATCH (p:Person {id: 4}) OPTIONAL MATCH (p)-[:KNOWS]->(f:Person) RETURN p.name, count(f)"
+expected_rows = [["Edsger", "0"]]
+[scenario.source]
+name = "Grafeo"
+repository = "https://github.com/GrafeoDB/grafeo"
+revision = "4ebae02f06f8f0cbc57543f74b6ba06f259dbed3"
+path = "tests/spec/lpg/cypher/regression.gtest"
+case = "optional_match_count_preserves_all_rows"
+license = "Apache-2.0"
+adaptation = "fixture-adaptation"
+
+[[scenario]]
+id = "turso.regression.constraint-index-drop-error"
+tiers = ["deep"]
+kind = "bug-regression"
+area = "mutation"
+fixture = "social"
+expectation = "error"
+action = "mutation"
+ordering = "ordered"
+query = "CREATE (:Person {id: 1, name: 'duplicate'})"
+expected_error_contains = "UNIQUE constraint failed"
+[scenario.source]
+name = "Turso"
+repository = "https://github.com/mwatts/turso"
+revision = "07b0e8988f6a1c3e04dbc3ffb97ff598c253e6f5"
+path = "core/translate/index.rs"
+case = "preserve constraint index drop errors"
+license = "MIT"
+adaptation = "behavioral-reference"
+fixed_commit = "07b0e8988f6a1c3e04dbc3ffb97ff598c253e6f5"

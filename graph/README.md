@@ -33,11 +33,21 @@ adaptation, add file-level attribution, and install the required license and
 NOTICE text in the same commit.
 
 The current compatibility result is published in
-[`CONFORMANCE.md`](CONFORMANCE.md) and verified by the executable mixed-source
-manifest. Run it and the representative CSR benchmarks with:
+[`CONFORMANCE.md`](CONFORMANCE.md). The `turso_graph_testkit` crate owns the
+typed mixed-source manifests, smoke/deep execution, append-only JSONL history,
+longitudinal reporting, and lifecycle performance workloads. Run the gates and
+representative CSR benchmarks with:
 
 ```sh
-cargo test -p turso_graph_frontend --test conformance
+cargo run -q -p turso_graph_testkit -- run smoke --no-record
+cargo run -q -p turso_graph_testkit -- run deep --no-record
+cargo run -q -p turso_graph_testkit -- performance smoke --no-record
+cargo test -p turso_graph_testkit
 cargo test -p turso_graph_runtime --test benchmark_shapes
 cargo bench -p turso_graph_runtime --bench graph_shapes
 ```
+
+Omit `--no-record` on an intentional baseline run to append one result per
+stable test identity to `graph/test-results/history.jsonl` and regenerate
+`graph/test-results/REPORT.md`. Use `verify-history` to validate the persisted
+schema and uniqueness contract without running a workload.

@@ -1,0 +1,246 @@
+version = 1
+purpose = "Portable Cypher donor cases adapted to the shared social fixture"
+
+[[scenario]]
+id = "grafeo.match.incoming-edge"
+tiers = ["deep"]
+kind = "conformance"
+area = "match"
+fixture = "social"
+expectation = "rows"
+action = "query"
+ordering = "unordered"
+query = "MATCH (a:Person)<-[:KNOWS]-(b:Person) RETURN a.name, b.name"
+expected_rows = [["Grace", "Ada"], ["Linus", "Ada"], ["Linus", "Grace"]]
+[scenario.source]
+name = "Grafeo"
+repository = "https://github.com/GrafeoDB/grafeo"
+revision = "4ebae02f06f8f0cbc57543f74b6ba06f259dbed3"
+path = "tests/spec/lpg/cypher/reading_clauses.gtest"
+case = "match_edge_incoming"
+license = "Apache-2.0"
+adaptation = "fixture-adaptation"
+
+[[scenario]]
+id = "age.vle.fixed-multi-hop"
+tiers = ["deep"]
+kind = "conformance"
+area = "traversal"
+fixture = "social"
+expectation = "rows"
+action = "query"
+ordering = "unordered"
+query = "MATCH (a:Person {id: 1})-[:KNOWS*1..2]->(b:Person) RETURN b.name"
+expected_rows = [["Grace"], ["Linus"], ["Linus"]]
+[scenario.source]
+name = "Apache AGE"
+repository = "https://github.com/apache/age"
+revision = "6876abcab0a3281eb65a7e2a91238e0b5abfdea7"
+path = "regress/sql/cypher_vle.sql"
+case = "fixed lower and upper bounds"
+license = "Apache-2.0"
+adaptation = "fixture-adaptation"
+
+[[scenario]]
+id = "grafeo.with.projected-expression"
+tiers = ["deep"]
+kind = "conformance"
+area = "scope"
+fixture = "social"
+expectation = "rows"
+action = "query"
+ordering = "ordered"
+query = "MATCH (n:Person {id: 1}) WITH n.name AS name RETURN name"
+expected_rows = [["Ada"]]
+[scenario.source]
+name = "Grafeo"
+repository = "https://github.com/GrafeoDB/grafeo"
+revision = "4ebae02f06f8f0cbc57543f74b6ba06f259dbed3"
+path = "tests/spec/lpg/cypher/reading_clauses.gtest"
+case = "with projected expression"
+license = "Apache-2.0"
+adaptation = "fixture-adaptation"
+
+[[scenario]]
+id = "age.unwind.literal-list"
+tiers = ["deep"]
+kind = "conformance"
+area = "unwind"
+fixture = "social"
+expectation = "rows"
+action = "query"
+ordering = "ordered"
+query = "UNWIND [1, 2, 3] AS value RETURN value"
+expected_rows = [["1"], ["2"], ["3"]]
+[scenario.source]
+name = "Apache AGE"
+repository = "https://github.com/apache/age"
+revision = "6876abcab0a3281eb65a7e2a91238e0b5abfdea7"
+path = "regress/sql/cypher_unwind.sql"
+case = "unwind literal list"
+license = "Apache-2.0"
+adaptation = "fixture-adaptation"
+
+[[scenario]]
+id = "grafeo.order-by.nonprojected-property"
+tiers = ["deep"]
+kind = "conformance"
+area = "ordering"
+fixture = "social"
+expectation = "rows"
+action = "query"
+ordering = "ordered"
+query = "MATCH (n:Person) RETURN n.name ORDER BY n.age"
+expected_rows = [["Linus"], ["Grace"], ["Ada"], ["Edsger"]]
+[scenario.source]
+name = "Grafeo"
+repository = "https://github.com/GrafeoDB/grafeo"
+revision = "4ebae02f06f8f0cbc57543f74b6ba06f259dbed3"
+path = "tests/spec/lpg/cypher/reading_clauses.gtest"
+case = "order by non-projected property"
+license = "Apache-2.0"
+adaptation = "fixture-adaptation"
+
+[[scenario]]
+id = "grafeo.pagination.skip-limit"
+tiers = ["deep"]
+kind = "conformance"
+area = "pagination"
+fixture = "social"
+expectation = "rows"
+action = "query"
+ordering = "ordered"
+query = "MATCH (n:Person) RETURN n.id ORDER BY n.id SKIP 1 LIMIT 2"
+expected_rows = [["2"], ["3"]]
+[scenario.source]
+name = "Grafeo"
+repository = "https://github.com/GrafeoDB/grafeo"
+revision = "4ebae02f06f8f0cbc57543f74b6ba06f259dbed3"
+path = "tests/spec/lpg/cypher/reading_clauses.gtest"
+case = "skip and limit"
+license = "Apache-2.0"
+adaptation = "fixture-adaptation"
+
+[[scenario]]
+id = "grafeo.optional.where-null-extends-pattern"
+tiers = ["deep"]
+kind = "conformance"
+area = "optional-match"
+fixture = "social"
+expectation = "rows"
+action = "query"
+ordering = "ordered"
+query = "MATCH (a:Person {id: 4}) OPTIONAL MATCH (a)-[:KNOWS]->(b:Person) WHERE b.age < 10 RETURN a.name, b.name"
+expected_rows = [["Edsger", "<null>"]]
+[scenario.source]
+name = "Grafeo"
+repository = "https://github.com/GrafeoDB/grafeo"
+revision = "4ebae02f06f8f0cbc57543f74b6ba06f259dbed3"
+path = "tests/spec/lpg/cypher/reading_clauses.gtest"
+case = "optional match predicate null extension"
+license = "Apache-2.0"
+adaptation = "fixture-adaptation"
+
+[[scenario]]
+id = "tck.where.numeric-comparison"
+tiers = ["deep"]
+kind = "conformance"
+area = "filter"
+fixture = "social"
+expectation = "rows"
+action = "query"
+ordering = "ordered"
+query = "MATCH (n:Person) WHERE n.age >= 40 RETURN n.name ORDER BY n.name"
+expected_rows = [["Ada"], ["Edsger"]]
+[scenario.source]
+name = "openCypher TCK via Uni"
+repository = "https://github.com/rustic-ai/uni-db"
+revision = "0812a496c62769b67cf688930750ae384e3de68d"
+path = "crates/uni-tck/tck/features/clauses/match/MatchWhere.feature"
+case = "filter on property comparison"
+license = "Apache-2.0"
+adaptation = "fixture-adaptation"
+
+[[scenario]]
+id = "cqlite.set.property"
+tiers = ["deep"]
+kind = "conformance"
+area = "mutation"
+fixture = "social"
+expectation = "rows"
+action = "mutation"
+ordering = "ordered"
+query = "MATCH (n:Person {id: 3}) SET n.age = 31"
+verification_query = "MATCH (n:Person {id: 3}) RETURN n.age"
+expected_rows = [["31"]]
+[scenario.source]
+name = "CQLite"
+repository = "https://github.com/mwatts/cqlite"
+revision = "e2b677e8429a4cb0ead087ffbd9195f4f3999819"
+path = "tests/set_queries.rs"
+case = "set node property"
+license = "MIT"
+adaptation = "fixture-adaptation"
+
+[[scenario]]
+id = "age.remove.property"
+tiers = ["deep"]
+kind = "conformance"
+area = "mutation"
+fixture = "social"
+expectation = "rows"
+action = "mutation"
+ordering = "ordered"
+query = "MATCH (n:Person {id: 3}) REMOVE n.age"
+verification_query = "MATCH (n:Person {id: 3}) RETURN n.age"
+expected_rows = [["<null>"]]
+[scenario.source]
+name = "Apache AGE"
+repository = "https://github.com/apache/age"
+revision = "6876abcab0a3281eb65a7e2a91238e0b5abfdea7"
+path = "regress/sql/cypher_set.sql"
+case = "remove property"
+license = "Apache-2.0"
+adaptation = "fixture-adaptation"
+
+[[scenario]]
+id = "age.delete.relationship"
+tiers = ["deep"]
+kind = "conformance"
+area = "mutation"
+fixture = "social"
+expectation = "rows"
+action = "mutation"
+ordering = "ordered"
+query = "MATCH (:Person {id: 1})-[r:KNOWS]->(:Person {id: 2}) DELETE r"
+verification_query = "MATCH ()-[r:KNOWS]->() RETURN count(r)"
+expected_rows = [["2"]]
+[scenario.source]
+name = "Apache AGE"
+repository = "https://github.com/apache/age"
+revision = "6876abcab0a3281eb65a7e2a91238e0b5abfdea7"
+path = "regress/sql/cypher_delete.sql"
+case = "delete relationship"
+license = "Apache-2.0"
+adaptation = "fixture-adaptation"
+
+[[scenario]]
+id = "sparrow.merge.absent-node"
+tiers = ["deep"]
+kind = "conformance"
+area = "mutation"
+fixture = "social"
+expectation = "rows"
+action = "mutation"
+ordering = "ordered"
+query = "MERGE (n:Person {id: 5, name: 'Barbara', age: 45})"
+verification_query = "MATCH (n:Person {id: 5}) RETURN n.name, n.age"
+expected_rows = [["Barbara", "45"]]
+[scenario.source]
+name = "SparrowDB"
+repository = "https://github.com/ryaker/SparrowDB"
+revision = "82d85b7a861dfb2e127452ed89eebbcee74bfef0"
+path = "crates/sparrowdb/tests/cypher_merge_test.rs"
+case = "merge absent node"
+license = "MIT"
+adaptation = "fixture-adaptation"
