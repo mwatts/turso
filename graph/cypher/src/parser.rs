@@ -467,7 +467,7 @@ fn walk_expression(pair: Pair<'_, Rule>) -> Result<Spanned<Expression>, ParseErr
         Rule::literal => return walk_expression(only_child(pair)?),
         Rule::integer => Expression::Literal(Literal::Integer(parse_i64(&pair)?)),
         Rule::real => Expression::Literal(Literal::Real(parse_f64(&pair)?)),
-        Rule::string => Expression::Literal(Literal::Text(parse_string(pair.as_str()))),
+        Rule::string => Expression::Literal(Literal::Text(parse_string(&pair)?)),
         Rule::TRUE => Expression::Literal(Literal::Boolean(true)),
         Rule::FALSE => Expression::Literal(Literal::Boolean(false)),
         Rule::NULL => Expression::Literal(Literal::Null),
@@ -629,12 +629,60 @@ fn parse_f64(pair: &Pair<'_, Rule>) -> Result<f64, ParseError> {
         .map_err(|_| ParseError::at(pair_span(pair), "invalid real literal"))
 }
 
-fn parse_string(text: &str) -> String {
+fn parse_string(pair: &Pair<'_, Rule>) -> Result<String, ParseError> {
+    let text = pair.as_str();
     let body = text
         .strip_prefix('\'')
         .and_then(|value| value.strip_suffix('\''))
         .unwrap_or(text);
-    body.replace("''", "'").replace("\\'", "'")
+    let mut out = String::with_capacity(body.len());
+    let mut chars = body.chars();
+    while let Some(c) = chars.next() {
+        match c {
+            // The grammar only admits quotes as `''` pairs; fold to one.
+            '\'' => {
+                chars.next();
+                out.push('\'');
+            }
+            '\\' => {
+                let escape = chars.next().ok_or_else(|| {
+                    ParseError::at(pair_span(pair), "unterminated escape in string literal")
+                })?;
+                match escape {
+                    '\\' | '\'' | '"' => out.push(escape),
+                    'b' => out.push('\u{0008}'),
+                    'f' => out.push('\u{000C}'),
+                    'n' => out.push('\n'),
+                    'r' => out.push('\r'),
+                    't' => out.push('\t'),
+                    'u' => {
+                        let digits: String = chars.by_ref().take(4).collect();
+                        let value = (digits.len() == 4)
+                            .then(|| u32::from_str_radix(&digits, 16).ok())
+                            .flatten()
+                            .and_then(char::from_u32)
+                            .ok_or_else(|| {
+                                ParseError::at(
+                                    pair_span(pair),
+                                    format!(
+                                        "invalid unicode escape `\\u{digits}` in string literal"
+                                    ),
+                                )
+                            })?;
+                        out.push(value);
+                    }
+                    other => {
+                        return Err(ParseError::at(
+                            pair_span(pair),
+                            format!("unsupported escape `\\{other}` in string literal"),
+                        ))
+                    }
+                }
+            }
+            _ => out.push(c),
+        }
+    }
+    Ok(out)
 }
 
 fn only_child(pair: Pair<'_, Rule>) -> Result<Pair<'_, Rule>, ParseError> {
@@ -659,6 +707,40 @@ fn unexpected(pair: &Pair<'_, Rule>, expected: &str, actual: Rule) -> ParseError
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn text_literal(literal: &str) -> String {
+        let query = parse(&format!("RETURN {literal} AS v")).expect("query should parse");
+        let Clause::Return(clause) = &query.clauses[0].value else {
+            panic!("expected RETURN")
+        };
+        let ProjectionItem::Expression { expression, .. } = &clause.items[0] else {
+            panic!("expected expression item")
+        };
+        let Expression::Literal(Literal::Text(text)) = &expression.value else {
+            panic!("expected text literal, got {:?}", expression.value)
+        };
+        text.clone()
+    }
+
+    /// String literals must interpret every escape the grammar accepts;
+    /// unescaping only quotes would leak raw backslash sequences into values.
+    #[test]
+    fn decodes_string_escape_sequences() {
+        assert_eq!(text_literal(r"'line1\nline2'"), "line1\nline2");
+        assert_eq!(text_literal(r"'tab\there'"), "tab\there");
+        assert_eq!(text_literal(r"'a\\b'"), "a\\b");
+        assert_eq!(text_literal(r"'quote\'inner'"), "quote'inner");
+        assert_eq!(text_literal("'doubled''inner'"), "doubled'inner");
+        assert_eq!(text_literal(r#"'say \"hi\"'"#), "say \"hi\"");
+        assert_eq!(text_literal(r"'déjà'"), "déjà");
+        assert_eq!(text_literal(r"'d\u00e9j\u00e0'"), "déjà");
+    }
+
+    #[test]
+    fn rejects_invalid_string_escapes() {
+        parse(r"RETURN 'bad\q' AS v").expect_err("unsupported escape must fail");
+        parse(r"RETURN 'bad\uZZZZ' AS v").expect_err("invalid unicode escape must fail");
+    }
 
     fn relationship(query: &str) -> RelationshipPattern {
         let query = parse(query).expect("query should parse");
