@@ -845,7 +845,7 @@ DOMAIN classification instead of re-deriving it."
 - Test: `graph/frontend/src/catalog.rs` (existing `#[cfg(test)] mod tests`)
 
 **Interfaces:**
-- Consumes: `Schema::classify_column` (Task 1), `Connection::current_schema`,
+- Consumes: `Connection::current_schema`,
   `Connection::experimental_custom_types_enabled`.
 - Produces: `CatalogError::CustomTypesDisabled { table: String, column: String }`,
   called from `register_graph_in_transaction` for every node/relationship
@@ -855,6 +855,37 @@ DOMAIN classification instead of re-deriving it."
   enabled — otherwise `SchemaCatalog` (Task 3) would silently type such a
   column as `Any`/`Bytes` with no signal that richer typing exists but is
   disabled.
+
+**Resolution note (added after Task 4's first implementation attempt was
+BLOCKED, confirmed via `eprintln!` instrumentation and a static read of
+`core`):** the detection mechanism below was originally specified as
+`Schema::classify_column` (Task 1), matching this plan's "reuse before
+duplicate" global constraint. That doesn't work: `core`'s `type_registry` is
+only populated (both `bootstrap_builtin_types` in `Schema::new`,
+`core/schema.rs:927-929`, and persisted `CREATE TYPE`/`CREATE DOMAIN`
+definitions loaded at connect time, `core/lib.rs:1608-1633`) when
+`--experimental-custom-types` is enabled. So on exactly the disabled
+connection this gate exists to check, `classify_column` can only ever
+report `Builtin` — it structurally cannot observe a column that was made
+custom-typed earlier on a different, enabled connection. The human
+(plan owner) chose, when presented with this blocker: detect a foreign type
+name directly, by comparing the column's raw declared type string against
+Turso's fixed STRICT builtin keyword set, instead of calling
+`classify_column`. This is a deliberate, narrow, explicitly-documented
+exception to this plan's "reuse `classify_column`" constraint for this one
+case — not a silent reinterpretation. The exact builtin keyword set to
+mirror is verified from `core/translate/schema.rs:788-791` (the same
+`turso_macros::match_ignore_ascii_case!` set CREATE TABLE's own STRICT
+column-type validator uses): `INT`, `INTEGER`, `REAL`, `TEXT`, `BLOB`, `ANY`.
+That same code path (`core/translate/schema.rs:818-829`) proves the
+soundness of this signal: a STRICT column can only end up with a type name
+outside that set if a type definition was registered for it at `CREATE
+TABLE` time (otherwise CREATE TABLE itself bails with `unknown datatype`) —
+so "STRICT column, non-builtin-keyword type name" is proof of a
+CUSTOM/DOMAIN/STRUCT/UNION column, regardless of whether the registry is
+currently loaded. Non-STRICT tables never enforce this at all (SQLite
+duck-typing accepts any type name loosely), so the gate below only inspects
+STRICT tables.
 
 - [ ] **Step 1: Write the failing test**
 
@@ -979,18 +1010,10 @@ First, add the dev-dependency Step 1's test needs. In
 tempfile = { workspace = true }
 ```
 
-Add to `graph/frontend/src/catalog.rs`'s `use turso_core::{...}` import
-(line 7-13), add `ColumnTypeKind`:
-
-```rust
-use turso_core::{
-    schema::{
-        TURSO_GRAPH_CATALOG_PREFIX, TURSO_GRAPH_GENERATIONS_TABLE_NAME,
-        TURSO_GRAPH_GENERATION_TRIGGER_PREFIX,
-    },
-    ColumnTypeKind, Connection, Numeric, Value,
-};
-```
+No new import is needed in `graph/frontend/src/catalog.rs`'s
+`use turso_core::{...}` block (line 7-13) — the detection below reads
+`column.ty_str` directly, it does not call `Schema::classify_column` (see
+the Resolution note above for why).
 
 Add a new `CatalogError` variant (after `InvalidCatalogValue`, before
 `Database`, ~line 107):
@@ -1009,6 +1032,21 @@ closing brace to keep the two column-validation helpers adjacent):
 /// column but this connection lacks --experimental-custom-types. Without
 /// this, SchemaCatalog would silently type such a column as Any/Bytes with
 /// no signal that richer typing exists but is disabled for this connection.
+///
+/// Deliberately does NOT call `Schema::classify_column`: on a connection
+/// with custom types disabled, `core`'s type_registry is entirely empty
+/// (see `core/schema.rs:927-929`, `core/lib.rs:1608-1633`), so
+/// `classify_column` can only ever report `Builtin` here — it cannot
+/// observe a column that was made custom-typed earlier on a different,
+/// enabled connection. Instead this compares the column's raw declared
+/// type name against the exact builtin keyword set CREATE TABLE's own
+/// STRICT column-type validator uses (`core/translate/schema.rs:788-791`).
+/// That same validator (`core/translate/schema.rs:818-829`) guarantees the
+/// soundness of this signal: a STRICT column can only have a non-builtin
+/// type name if a type definition was registered for it at CREATE TABLE
+/// time, so "STRICT column, non-builtin type name" is proof of a
+/// CUSTOM/DOMAIN/STRUCT/UNION column even when the registry isn't loaded
+/// right now. Non-STRICT tables never enforce this, so they're skipped.
 fn require_custom_types_enabled_for_source(
     connection: &Arc<Connection>,
     table_name: &str,
@@ -1020,19 +1058,18 @@ fn require_custom_types_enabled_for_source(
     let Some(table) = schema.get_table(table_name) else {
         return Err(CatalogError::SourceTableMissing(table_name.to_owned()));
     };
-    let is_strict = table.is_strict();
+    if !table.is_strict() {
+        return Ok(());
+    }
     for column in table.columns() {
         let Some(name) = column.name.as_ref() else {
             continue;
         };
-        let info = schema.classify_column(column, is_strict);
-        if matches!(
-            info.kind,
-            ColumnTypeKind::Custom
-                | ColumnTypeKind::Domain
-                | ColumnTypeKind::Struct
-                | ColumnTypeKind::Union
-        ) {
+        let is_builtin = matches!(
+            column.ty_str.to_ascii_uppercase().as_str(),
+            "INT" | "INTEGER" | "REAL" | "TEXT" | "BLOB" | "ANY"
+        );
+        if !is_builtin {
             return Err(CatalogError::CustomTypesDisabled {
                 table: table_name.to_owned(),
                 column: name.clone(),
