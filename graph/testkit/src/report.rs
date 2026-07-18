@@ -19,6 +19,8 @@ pub fn render(records: &[ResultRecord]) -> String {
         return report;
     }
 
+    append_latest_corpus_histogram(&mut report, records);
+
     for (suite, runs) in &by_suite {
         let (latest_id, latest) = runs.last_key_value().expect("suite has a run");
         let passed = latest
@@ -94,6 +96,108 @@ pub fn render(records: &[ResultRecord]) -> String {
     report
 }
 
+fn append_latest_corpus_histogram(report: &mut String, records: &[ResultRecord]) {
+    let Some(run_id) = records
+        .iter()
+        .filter(|record| record.run_id.ends_with("corpus-deep"))
+        .map(|record| record.run_id.as_str())
+        .max()
+    else {
+        return;
+    };
+    let run = records
+        .iter()
+        .filter(|record| record.run_id == run_id)
+        .collect::<Vec<_>>();
+    let passed = run
+        .iter()
+        .filter(|record| record.outcome == Outcome::Passed)
+        .count();
+    let failures = run
+        .iter()
+        .filter(|record| record.outcome == Outcome::Failed)
+        .collect::<Vec<_>>();
+    let mut histogram = BTreeMap::<String, usize>::new();
+    for record in &failures {
+        *histogram.entry(failure_family(record)).or_default() += 1;
+    }
+    let mut histogram = histogram.into_iter().collect::<Vec<_>>();
+    histogram.sort_by(|left, right| right.1.cmp(&left.1).then_with(|| left.0.cmp(&right.0)));
+
+    report.push_str(&format!(
+        "## Latest complete corpus run\n\n- Run: `{run_id}`\n- Records: {}\n- Passed: {passed}\n- Failed: {}\n\n### Failure-reason histogram\n\n| Failure family | Count |\n|---|---:|\n",
+        run.len(),
+        failures.len()
+    ));
+    for (family, count) in histogram {
+        report.push_str(&format!("| {family} | {count} |\n"));
+    }
+    report.push('\n');
+}
+
+fn failure_family(record: &ResultRecord) -> String {
+    let boundary = record
+        .dimensions
+        .get("execution")
+        .map(String::as_str)
+        .unwrap_or("unknown");
+    let message = record.message.as_deref().unwrap_or_default();
+    let reason = if boundary == "parser" {
+        if message.starts_with("expected clause at byte 0") {
+            "unsupported starting clause"
+        } else if message.contains("comparison_op")
+            || message.contains("additive_op")
+            || message.contains("multiplicative_op")
+            || message.contains("property_suffix")
+        {
+            "expression/operator continuation grammar"
+        } else if message.contains("projection_items")
+            || message.contains("DISTINCT or primary_expression")
+            || message.contains("AS,")
+        {
+            "projection/expression item grammar"
+        } else if message.contains("node_pattern")
+            || message.contains("relationship_body")
+            || message.contains("relationship_pattern")
+        {
+            "graph-pattern grammar"
+        } else if message.contains("map_literal") {
+            "map-literal grammar"
+        } else {
+            "other grammar"
+        }
+    } else if message.contains("unknown label") {
+        "fixture schema missing label"
+    } else if message.contains("unknown relationship type") {
+        "fixture schema missing relationship type"
+    } else if message.contains("unknown property") {
+        "fixture schema missing property"
+    } else if message.contains("unknown parameter")
+        || (message.contains("parameter `") && message.contains("unsupported"))
+    {
+        "parameter binding/declaration"
+    } else if message.contains("no such function") {
+        "runtime scalar function missing"
+    } else if message.contains("query produced no plan") {
+        "standalone projection has no input plan"
+    } else if message.contains("projection clauses in mutation queries is not supported") {
+        "mutation projection unsupported"
+    } else if message.contains("mutation clauses in read queries is not supported") {
+        "mutation operation unsupported"
+    } else if message.contains("no such column") {
+        "generated SQL references missing column"
+    } else if message.contains("side-effect comparison is not implemented") {
+        "side-effect oracle missing"
+    } else if message.contains("result expectation is not representable") {
+        "result oracle missing"
+    } else if message.contains("expected an error but execution succeeded") {
+        "expected-error mismatch"
+    } else {
+        "other"
+    };
+    format!("`{boundary}`: {reason}")
+}
+
 fn append_large_suite_summary(report: &mut String, latest: &[&ResultRecord]) {
     let mut by_area = BTreeMap::<(&str, &'static str), usize>::new();
     let mut by_execution = BTreeMap::<(&str, &'static str), usize>::new();
@@ -131,11 +235,15 @@ fn append_large_suite_summary(report: &mut String, latest: &[&ResultRecord]) {
         report.push_str("- None.\n");
     } else {
         for record in failures {
-            report.push_str(&format!(
-                "- `{}`: {}\n",
-                record.test_id,
-                record.message.as_deref().unwrap_or("no diagnostic")
-            ));
+            let diagnostic = record
+                .message
+                .as_deref()
+                .unwrap_or("no diagnostic")
+                .lines()
+                .map(str::trim_end)
+                .collect::<Vec<_>>()
+                .join("\n");
+            report.push_str(&format!("- `{}`: {}\n", record.test_id, diagnostic));
         }
     }
 }
@@ -212,5 +320,20 @@ mod tests {
         let report = render(&[test_record("run-1"), test_record("run-2")]);
         assert!(report.contains("Latest `smoke` run"));
         assert!(report.contains("Outcome changes from `run-1`"));
+    }
+
+    #[test]
+    fn report_includes_complete_corpus_failure_histogram() {
+        let mut record = test_record("run-corpus-deep");
+        record.outcome = Outcome::Failed;
+        record.message = Some("query produced no plan".to_owned());
+        record
+            .dimensions
+            .insert("execution".to_owned(), "execution".to_owned());
+
+        let report = render(&[record]);
+
+        assert!(report.contains("Latest complete corpus run"));
+        assert!(report.contains("`execution`: standalone projection has no input plan | 1"));
     }
 }

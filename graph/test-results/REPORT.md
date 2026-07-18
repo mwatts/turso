@@ -2,56 +2,297 @@
 
 Generated from `graph/test-results/history.jsonl`. Results are grouped by stable test identity; performance comparisons are meaningful only for matching environment and workload dimensions.
 
+## Latest complete corpus run
+
+- Run: `20260718T231637.678608Z-a633cb698caf-corpus-deep`
+- Records: 10392
+- Passed: 1413
+- Failed: 8979
+
+### Failure-reason histogram
+
+| Failure family | Count |
+|---|---:|
+| `parser`: expression/operator continuation grammar | 2574 |
+| `execution`: mutation operation unsupported | 1778 |
+| `execution`: other | 790 |
+| `execution`: fixture schema missing label | 604 |
+| `execution`: runtime scalar function missing | 578 |
+| `execution`: mutation projection unsupported | 532 |
+| `parser`: other grammar | 496 |
+| `setup-execution`: fixture schema missing label | 467 |
+| `parser`: projection/expression item grammar | 287 |
+| `parser`: unsupported starting clause | 179 |
+| `execution`: fixture schema missing property | 151 |
+| `parser`: graph-pattern grammar | 123 |
+| `execution`: fixture schema missing relationship type | 88 |
+| `setup-execution`: fixture schema missing property | 64 |
+| `execution`: expected-error mismatch | 62 |
+| `setup-execution`: fixture schema missing relationship type | 57 |
+| `parser`: map-literal grammar | 39 |
+| `setup-execution`: other | 35 |
+| `result-comparison`: result oracle missing | 14 |
+| `setup-execution`: mutation projection unsupported | 14 |
+| `execution`: parameter binding/declaration | 13 |
+| `dataset-execution`: fixture schema missing label | 11 |
+| `side-effect-comparison`: side-effect oracle missing | 8 |
+| `execution`: generated SQL references missing column | 6 |
+| `dataset-execution`: fixture schema missing property | 5 |
+| `parameter-binding`: other | 3 |
+| `fixture-execution`: other | 1 |
+
 ## Latest `age-deep` run
 
-- Run: `20260718T231155.877415Z-bc55193ee193-corpus-deep`
-- Commit: `bc55193ee193b27223210afb18b28b8237d02e8f` (dirty)
+- Run: `20260718T231637.678608Z-a633cb698caf-corpus-deep`
+- Commit: `a633cb698caf1d2283e33224323d745dc980c92d` (dirty)
 - Package: `0.7.0`
 - Environment: `macos/aarch64` (`dev`)
 - Records: 3677
-- Passed: 192
+- Passed: 431
 - Unsupported: 0
-- Failed or changed: 3485
+- Failed or changed: 3246
 
-### Outcome changes from `20260718T221245.230902Z-bc55193ee193-corpus-deep`
+### Outcome changes from `20260718T231155.877415Z-bc55193ee193-corpus-deep`
 
-- `age.reserved.keyword.alias.query-22`: Passed
-- `age.reserved.keyword.alias.query-27`: Passed
-- `age.security.query-6`: Passed
-- `age.security.query-7`: Passed
-- `age.security.query-8`: Passed
-- `age.security.query-9`: Passed
-- `age.security.query-10`: Passed
-- `age.security.query-11`: Passed
-- `age.security.query-12`: Passed
-- `age.security.query-18`: Passed
-- `age.security.query-30`: Passed
-- `age.security.query-35`: Passed
-- `age.security.query-42`: Passed
-- `age.security.query-58`: Passed
-- `age.security.query-59`: Passed
-- `age.security.query-60`: Passed
-- `age.security.query-85`: Passed
-- `age.security.query-108`: Passed
-- `age.security.query-114`: Passed
-- `age.security.query-115`: Passed
-- `age.security.query-118`: Passed
-- `age.security.query-123`: Passed
-- `age.security.query-124`: Passed
-- `age.security.query-125`: Passed
-- `age.security.query-126`: Passed
-- `age.subgraph.query-3`: Passed
-- `age.subgraph.query-4`: Passed
-- `age.subgraph.query-5`: Passed
-- `age.subgraph.query-6`: Passed
-- `age.subgraph.query-7`: Passed
-- `age.subgraph.query-8`: Passed
-- `age.subgraph.query-9`: Passed
-- `age.subgraph.query-11`: Passed
-- `age.subgraph.query-13`: Passed
-- `age.subgraph.query-15`: Passed
-- `age.subgraph.query-16`: Passed
-- `age.subgraph.query-18`: Passed
+- `age.cypher.query-1`: Passed
+- `age.cypher.query-2`: Passed
+- `age.cypher.query-3`: Passed
+- `age.cypher.query-4`: Passed
+- `age.cypher.query-5`: Passed
+- `age.cypher.query-6`: Passed
+- `age.cypher.query-7`: Passed
+- `age.cypher.query-8`: Passed
+- `age.cypher.query-9`: Passed
+- `age.cypher.query-10`: Passed
+- `age.cypher.query-11`: Passed
+- `age.cypher.unwind.query-5`: Passed
+- `age.cypher.with.query-5`: Passed
+- `age.direct.field.access.query-1`: Passed
+- `age.direct.field.access.query-2`: Passed
+- `age.direct.field.access.query-3`: Passed
+- `age.direct.field.access.query-4`: Passed
+- `age.direct.field.access.query-5`: Passed
+- `age.direct.field.access.query-6`: Passed
+- `age.direct.field.access.query-7`: Passed
+- `age.direct.field.access.query-8`: Passed
+- `age.direct.field.access.query-24`: Passed
+- `age.direct.field.access.query-25`: Passed
+- `age.direct.field.access.query-37`: Passed
+- `age.direct.field.access.query-39`: Passed
+- `age.direct.field.access.query-40`: Passed
+- `age.direct.field.access.query-41`: Passed
+- `age.expr.query-4`: Passed
+- `age.expr.query-5`: Passed
+- `age.expr.query-6`: Passed
+- `age.expr.query-14`: Passed
+- `age.expr.query-83`: Passed
+- `age.expr.query-84`: Passed
+- `age.expr.query-85`: Passed
+- `age.expr.query-86`: Passed
+- `age.expr.query-87`: Passed
+- `age.expr.query-89`: Passed
+- `age.expr.query-90`: Passed
+- `age.expr.query-91`: Passed
+- `age.expr.query-94`: Passed
+- `age.expr.query-96`: Passed
+- `age.expr.query-112`: Passed
+- `age.expr.query-113`: Passed
+- `age.expr.query-114`: Passed
+- `age.expr.query-115`: Passed
+- `age.expr.query-116`: Passed
+- `age.expr.query-117`: Passed
+- `age.expr.query-118`: Passed
+- `age.expr.query-119`: Passed
+- `age.expr.query-120`: Passed
+- `age.expr.query-121`: Passed
+- `age.expr.query-138`: Passed
+- `age.expr.query-139`: Passed
+- `age.expr.query-140`: Passed
+- `age.expr.query-141`: Passed
+- `age.expr.query-142`: Passed
+- `age.expr.query-143`: Passed
+- `age.expr.query-144`: Passed
+- `age.expr.query-145`: Passed
+- `age.expr.query-146`: Passed
+- `age.expr.query-154`: Passed
+- `age.expr.query-155`: Passed
+- `age.expr.query-156`: Passed
+- `age.expr.query-157`: Passed
+- `age.expr.query-161`: Passed
+- `age.expr.query-162`: Passed
+- `age.expr.query-163`: Passed
+- `age.expr.query-187`: Passed
+- `age.expr.query-188`: Passed
+- `age.expr.query-189`: Passed
+- `age.expr.query-190`: Passed
+- `age.expr.query-191`: Passed
+- `age.expr.query-193`: Passed
+- `age.expr.query-194`: Passed
+- `age.expr.query-195`: Passed
+- `age.expr.query-196`: Passed
+- `age.expr.query-200`: Passed
+- `age.expr.query-201`: Passed
+- `age.expr.query-319`: Passed
+- `age.expr.query-320`: Passed
+- `age.expr.query-321`: Passed
+- `age.expr.query-322`: Passed
+- `age.expr.query-394`: Passed
+- `age.expr.query-395`: Passed
+- `age.expr.query-397`: Passed
+- `age.expr.query-463`: Passed
+- `age.expr.query-464`: Passed
+- `age.expr.query-477`: Passed
+- `age.expr.query-479`: Passed
+- `age.expr.query-480`: Passed
+- `age.expr.query-481`: Passed
+- `age.expr.query-482`: Passed
+- `age.expr.query-483`: Passed
+- `age.expr.query-484`: Passed
+- `age.expr.query-485`: Passed
+- `age.expr.query-490`: Passed
+- `age.expr.query-491`: Passed
+- `age.expr.query-510`: Passed
+- `age.expr.query-511`: Passed
+- `age.expr.query-512`: Passed
+- `age.expr.query-516`: Passed
+- `age.expr.query-517`: Passed
+- `age.expr.query-518`: Passed
+- `age.expr.query-519`: Passed
+- `age.expr.query-520`: Passed
+- `age.expr.query-521`: Passed
+- `age.expr.query-551`: Passed
+- `age.expr.query-552`: Passed
+- `age.expr.query-553`: Passed
+- `age.expr.query-554`: Passed
+- `age.expr.query-555`: Passed
+- `age.expr.query-556`: Passed
+- `age.expr.query-557`: Passed
+- `age.expr.query-558`: Passed
+- `age.expr.query-559`: Passed
+- `age.expr.query-585`: Passed
+- `age.expr.query-593`: Passed
+- `age.expr.query-594`: Passed
+- `age.expr.query-595`: Passed
+- `age.expr.query-597`: Passed
+- `age.expr.query-598`: Passed
+- `age.expr.query-599`: Passed
+- `age.expr.query-609`: Passed
+- `age.expr.query-610`: Passed
+- `age.expr.query-611`: Passed
+- `age.expr.query-612`: Passed
+- `age.expr.query-613`: Passed
+- `age.expr.query-614`: Passed
+- `age.expr.query-615`: Passed
+- `age.expr.query-616`: Passed
+- `age.expr.query-617`: Passed
+- `age.expr.query-618`: Passed
+- `age.expr.query-619`: Passed
+- `age.expr.query-620`: Passed
+- `age.expr.query-621`: Passed
+- `age.expr.query-622`: Passed
+- `age.expr.query-633`: Passed
+- `age.expr.query-634`: Passed
+- `age.expr.query-635`: Passed
+- `age.expr.query-636`: Passed
+- `age.expr.query-637`: Passed
+- `age.expr.query-638`: Passed
+- `age.expr.query-641`: Passed
+- `age.expr.query-642`: Passed
+- `age.expr.query-643`: Passed
+- `age.expr.query-644`: Passed
+- `age.expr.query-645`: Passed
+- `age.expr.query-646`: Passed
+- `age.expr.query-647`: Passed
+- `age.expr.query-648`: Passed
+- `age.expr.query-649`: Passed
+- `age.expr.query-650`: Passed
+- `age.expr.query-655`: Passed
+- `age.expr.query-656`: Passed
+- `age.expr.query-657`: Passed
+- `age.expr.query-658`: Passed
+- `age.expr.query-659`: Passed
+- `age.expr.query-660`: Passed
+- `age.expr.query-661`: Passed
+- `age.expr.query-662`: Passed
+- `age.expr.query-663`: Passed
+- `age.expr.query-664`: Passed
+- `age.expr.query-665`: Passed
+- `age.expr.query-666`: Passed
+- `age.expr.query-667`: Passed
+- `age.expr.query-668`: Passed
+- `age.expr.query-669`: Passed
+- `age.expr.query-670`: Passed
+- `age.expr.query-671`: Passed
+- `age.expr.query-672`: Passed
+- `age.expr.query-673`: Passed
+- `age.expr.query-674`: Passed
+- `age.expr.query-675`: Passed
+- `age.expr.query-676`: Passed
+- `age.expr.query-677`: Passed
+- `age.expr.query-678`: Passed
+- `age.expr.query-679`: Passed
+- `age.expr.query-680`: Passed
+- `age.expr.query-681`: Passed
+- `age.expr.query-682`: Passed
+- `age.expr.query-683`: Passed
+- `age.expr.query-684`: Passed
+- `age.expr.query-685`: Passed
+- `age.expr.query-686`: Passed
+- `age.expr.query-687`: Passed
+- `age.expr.query-701`: Passed
+- `age.expr.query-702`: Passed
+- `age.expr.query-703`: Passed
+- `age.expr.query-704`: Passed
+- `age.expr.query-705`: Passed
+- `age.expr.query-706`: Passed
+- `age.expr.query-707`: Passed
+- `age.expr.query-708`: Passed
+- `age.expr.query-713`: Passed
+- `age.expr.query-714`: Passed
+- `age.expr.query-715`: Passed
+- `age.expr.query-718`: Passed
+- `age.expr.query-719`: Passed
+- `age.expr.query-720`: Passed
+- `age.expr.query-721`: Passed
+- `age.expr.query-722`: Passed
+- `age.expr.query-747`: Passed
+- `age.expr.query-748`: Passed
+- `age.expr.query-749`: Passed
+- `age.expr.query-752`: Passed
+- `age.expr.query-757`: Passed
+- `age.expr.query-758`: Passed
+- `age.pattern.expression.query-13`: Passed
+- `age.reserved.keyword.alias.query-1`: Passed
+- `age.reserved.keyword.alias.query-2`: Passed
+- `age.reserved.keyword.alias.query-3`: Passed
+- `age.reserved.keyword.alias.query-12`: Passed
+- `age.reserved.keyword.alias.query-13`: Passed
+- `age.reserved.keyword.alias.query-14`: Passed
+- `age.reserved.keyword.alias.query-15`: Passed
+- `age.reserved.keyword.alias.query-16`: Passed
+- `age.reserved.keyword.alias.query-17`: Passed
+- `age.reserved.keyword.alias.query-18`: Passed
+- `age.reserved.keyword.alias.query-19`: Passed
+- `age.reserved.keyword.alias.query-21`: Passed
+- `age.reserved.keyword.alias.query-26`: Passed
+- `age.reserved.keyword.alias.query-28`: Passed
+- `age.reserved.keyword.alias.query-29`: Passed
+- `age.reserved.keyword.alias.query-30`: Passed
+- `age.reserved.keyword.alias.query-31`: Passed
+- `age.scan.query-1`: Passed
+- `age.scan.query-3`: Passed
+- `age.scan.query-4`: Passed
+- `age.scan.query-5`: Passed
+- `age.scan.query-6`: Passed
+- `age.scan.query-7`: Passed
+- `age.scan.query-8`: Passed
+- `age.scan.query-9`: Passed
+- `age.scan.query-11`: Passed
+- `age.scan.query-12`: Passed
+- `age.scan.query-30`: Passed
+- `age.scan.query-31`: Passed
+- `age.scan.query-32`: Passed
+- `age.scan.query-33`: Passed
 
 ### Results by source area
 
@@ -68,8 +309,8 @@ Generated from `graph/test-results/history.jsonl`. Results are grouped by stable
 | agtype_jsonb_cast | `passed` | 2 |
 | analyze | `failed` | 2 |
 | catalog | `failed` | 7 |
-| cypher | `failed` | 17 |
-| cypher | `passed` | 3 |
+| cypher | `failed` | 6 |
+| cypher | `passed` | 14 |
 | cypher_call | `failed` | 42 |
 | cypher_create | `failed` | 92 |
 | cypher_create | `passed` | 1 |
@@ -86,16 +327,16 @@ Generated from `graph/test-results/history.jsonl`. Results are grouped by stable
 | cypher_subquery | `failed` | 52 |
 | cypher_subquery | `passed` | 1 |
 | cypher_union | `failed` | 19 |
-| cypher_unwind | `failed` | 13 |
-| cypher_unwind | `passed` | 4 |
+| cypher_unwind | `failed` | 12 |
+| cypher_unwind | `passed` | 5 |
 | cypher_vle | `failed` | 110 |
 | cypher_vle | `passed` | 2 |
-| cypher_with | `failed` | 39 |
-| cypher_with | `passed` | 2 |
-| direct_field_access | `failed` | 30 |
-| direct_field_access | `passed` | 11 |
-| expr | `failed` | 1051 |
-| expr | `passed` | 38 |
+| cypher_with | `failed` | 38 |
+| cypher_with | `passed` | 3 |
+| direct_field_access | `failed` | 16 |
+| direct_field_access | `passed` | 25 |
+| expr | `failed` | 871 |
+| expr | `passed` | 218 |
 | fuzzystrmatch | `failed` | 10 |
 | fuzzystrmatch | `passed` | 1 |
 | generated_columns | `failed` | 10 |
@@ -108,14 +349,15 @@ Generated from `graph/test-results/history.jsonl`. Results are grouped by stable
 | list_comprehension | `passed` | 1 |
 | map_projection | `failed` | 18 |
 | name_validation | `failed` | 10 |
-| pattern_expression | `failed` | 31 |
-| pattern_expression | `passed` | 1 |
+| pattern_expression | `failed` | 30 |
+| pattern_expression | `passed` | 2 |
 | pg_trgm | `failed` | 6 |
 | pgvector | `failed` | 71 |
 | predicate_functions | `failed` | 62 |
-| reserved_keyword_alias | `failed` | 29 |
-| reserved_keyword_alias | `passed` | 2 |
-| scan | `failed` | 57 |
+| reserved_keyword_alias | `failed` | 12 |
+| reserved_keyword_alias | `passed` | 19 |
+| scan | `failed` | 43 |
+| scan | `passed` | 14 |
 | security | `failed` | 110 |
 | security | `passed` | 23 |
 | subgraph | `failed` | 12 |
@@ -125,11 +367,11 @@ Generated from `graph/test-results/history.jsonl`. Results are grouped by stable
 
 | Boundary | Outcome | Count |
 |---|---|---:|
-| `execution` | `failed` | 1961 |
-| `execution` | `passed` | 192 |
+| `execution` | `failed` | 1722 |
+| `execution` | `passed` | 431 |
 | `parser` | `failed` | 1524 |
 
-### Failures (3485)
+### Failures (3246)
 
 - `age.age.global.graph.query-1`: query execution failed: Parse error: mutation clauses in read queries is not supported in the initial graph slice at byte 0..19
 - `age.age.global.graph.query-2`: query execution failed: Parse error: mutation clauses in read queries is not supported in the initial graph slice at byte 0..19
@@ -138,39 +380,39 @@ Generated from `graph/test-results/history.jsonl`. Results are grouped by stable
 - `age.age.global.graph.query-5`: query execution failed: Parse error: no such function: id
 - `age.age.global.graph.query-6`: query execution failed: Parse error: no such function: id
 - `age.age.global.graph.query-7`: query execution failed: Parse error: no such function: id
-- `age.age.global.graph.query-8`: query execution failed: Parse error: query produced no plan
-- `age.age.global.graph.query-9`: query execution failed: Parse error: query produced no plan
-- `age.age.global.graph.query-10`: query execution failed: Parse error: query produced no plan
-- `age.age.global.graph.query-11`: query execution failed: Parse error: query produced no plan
-- `age.age.global.graph.query-12`: query execution failed: Parse error: query produced no plan
-- `age.age.global.graph.query-13`: query execution failed: Parse error: query produced no plan
-- `age.age.global.graph.query-14`: query execution failed: Parse error: query produced no plan
-- `age.age.global.graph.query-15`: query execution failed: Parse error: query produced no plan
+- `age.age.global.graph.query-8`: query execution failed: Parse error: no such function: delete_global_graphs
+- `age.age.global.graph.query-9`: query execution failed: Parse error: no such function: delete_global_graphs
+- `age.age.global.graph.query-10`: query execution failed: Parse error: no such function: delete_global_graphs
+- `age.age.global.graph.query-11`: query execution failed: Parse error: no such function: delete_global_graphs
+- `age.age.global.graph.query-12`: query execution failed: Parse error: no such function: delete_global_graphs
+- `age.age.global.graph.query-13`: query execution failed: Parse error: no such function: delete_global_graphs
+- `age.age.global.graph.query-14`: query execution failed: Parse error: no such function: delete_global_graphs
+- `age.age.global.graph.query-15`: query execution failed: Parse error: no such function: delete_global_graphs
 - `age.age.global.graph.query-16`: query execution failed: Parse error: no such function: id
 - `age.age.global.graph.query-17`: query execution failed: Parse error: no such function: id
 - `age.age.global.graph.query-18`: query execution failed: Parse error: no such function: id
-- `age.age.global.graph.query-19`: query execution failed: Parse error: query produced no plan
-- `age.age.global.graph.query-20`: query execution failed: Parse error: query produced no plan
-- `age.age.global.graph.query-21`: query execution failed: Parse error: query produced no plan
-- `age.age.global.graph.query-22`: query execution failed: Parse error: query produced no plan
+- `age.age.global.graph.query-19`: query execution failed: Parse error: no such function: delete_global_graphs
+- `age.age.global.graph.query-20`: query execution failed: Parse error: no such function: delete_global_graphs
+- `age.age.global.graph.query-21`: query execution failed: Parse error: no such function: delete_global_graphs
+- `age.age.global.graph.query-22`: query execution failed: Parse error: no such function: delete_global_graphs
 - `age.age.global.graph.query-23`: query execution failed: Parse error: mutation clauses in read queries is not supported in the initial graph slice at byte 0..15
 - `age.age.global.graph.query-24`: query execution failed: Parse error: mutation clauses in read queries is not supported in the initial graph slice at byte 0..16
 - `age.age.global.graph.query-25`: query execution failed: Parse error: multiple path patterns is not supported in the initial graph slice at byte 0..116
 - `age.age.global.graph.query-26`: query execution failed: Parse error: no such function: id
 - `age.age.global.graph.query-27`: query execution failed: Parse error: no such function: id
-- `age.age.global.graph.query-28`: query execution failed: Parse error: query produced no plan
-- `age.age.global.graph.query-29`: query execution failed: Parse error: query produced no plan
-- `age.age.global.graph.query-30`: query execution failed: Parse error: query produced no plan
+- `age.age.global.graph.query-28`: query execution failed: Parse error: no such function: graph_stats
+- `age.age.global.graph.query-29`: query execution failed: Parse error: no such function: graph_stats
+- `age.age.global.graph.query-30`: query execution failed: Parse error: no such function: graph_stats
 - `age.age.global.graph.query-31`: query execution failed: Parse error: mutation clauses in read queries is not supported in the initial graph slice at byte 0..22
 - `age.age.global.graph.query-32`: query execution failed: Parse error: mutation clauses in read queries is not supported in the initial graph slice at byte 0..22
 - `age.age.global.graph.query-33`: query execution failed: Parse error: mutation clauses in read queries is not supported in the initial graph slice at byte 0..22
 - `age.age.global.graph.query-34`: query execution failed: Parse error: mutation clauses in read queries is not supported in the initial graph slice at byte 0..22
-- `age.age.global.graph.query-35`: query execution failed: Parse error: query produced no plan
+- `age.age.global.graph.query-35`: query execution failed: Parse error: no such function: graph_stats
 - `age.age.global.graph.query-36`: query execution failed: Parse error: mutation clauses in read queries is not supported in the initial graph slice at byte 18..91
 - `age.age.global.graph.query-37`: query execution failed: Parse error: mutation clauses in read queries is not supported in the initial graph slice at byte 18..42
 - `age.age.global.graph.query-38`: query execution failed: Parse error: no such function: id
-- `age.age.global.graph.query-39`: query execution failed: Parse error: query produced no plan
-- `age.age.global.graph.query-40`: query execution failed: Parse error: query produced no plan
+- `age.age.global.graph.query-39`: query execution failed: Parse error: no such function: graph_stats
+- `age.age.global.graph.query-40`: query execution failed: Parse error: no such function: graph_stats
 - `age.age.global.graph.query-41`: query execution failed: Parse error: mutation clauses in read queries is not supported in the initial graph slice at byte 0..117
 - `age.age.global.graph.query-42`: query execution failed: Parse error: unknown label `Node` at byte 9..13
 - `age.age.global.graph.query-43`: query execution failed: Parse error: unknown label `Node` at byte 9..13
@@ -194,7 +436,7 @@ Generated from `graph/test-results/history.jsonl`. Results are grouped by stable
 - `age.age.load.query-6`: query execution failed: Parse error: unknown label `Country` at byte 8..15
 - `age.age.load.query-7`: query execution failed: Parse error: unknown label `Country2` at byte 8..16
 - `age.age.load.query-8`: expected primary_expression at byte 27..27
-- `age.age.load.query-9`: query execution failed: Parse error: query produced no plan
+- `age.age.load.query-9`: query execution failed: Parse error: no such function: graph_stats
 - `age.age.load.query-10`: query execution failed: Parse error: unknown label `Person1` at byte 9..16
 - `age.age.load.query-11`: query execution failed: Parse error: unknown label `Person2` at byte 9..16
 - `age.age.load.query-12`: query execution failed: Parse error: unknown relationship type `Edges1` at byte 12..18
@@ -273,7 +515,7 @@ Generated from `graph/test-results/history.jsonl`. Results are grouped by stable
 - `age.age.reduce.query-72`: expected AND, OR, comparison_op, additive_op, multiplicative_op, or property_suffix at byte 23..23
 - `age.age.reduce.query-73`: expected AND, OR, comparison_op, additive_op, multiplicative_op, or property_suffix at byte 25..25
 - `age.age.reduce.query-74`: expected AND, OR, comparison_op, additive_op, multiplicative_op, or property_suffix at byte 23..23
-- `age.age.reduce.query-75`: query execution failed: Parse error: query produced no plan
+- `age.age.reduce.query-75`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 7..35
 - `age.age.shortest.path.query-1`: query execution failed: Parse error: mutation clauses in read queries is not supported in the initial graph slice at byte 0..354
 - `age.age.shortest.path.query-2`: query execution failed: Parse error: no such function: id
 - `age.age.shortest.path.query-3`: query execution failed: Parse error: no such function: id
@@ -495,17 +737,6 @@ Generated from `graph/test-results/history.jsonl`. Results are grouped by stable
 - `age.catalog.query-5`: query execution failed: Parse error: mutation clauses in read queries is not supported in the initial graph slice at byte 0..16
 - `age.catalog.query-6`: query execution failed: Parse error: mutation clauses in read queries is not supported in the initial graph slice at byte 0..12
 - `age.catalog.query-7`: query execution failed: Parse error: mutation clauses in read queries is not supported in the initial graph slice at byte 0..1763
-- `age.cypher.query-1`: query execution failed: Parse error: query produced no plan
-- `age.cypher.query-2`: query execution failed: Parse error: query produced no plan
-- `age.cypher.query-3`: query execution failed: Parse error: query produced no plan
-- `age.cypher.query-4`: query execution failed: Parse error: query produced no plan
-- `age.cypher.query-5`: query execution failed: Parse error: query produced no plan
-- `age.cypher.query-6`: query execution failed: Parse error: query produced no plan
-- `age.cypher.query-7`: query execution failed: Parse error: query produced no plan
-- `age.cypher.query-8`: query execution failed: Parse error: query produced no plan
-- `age.cypher.query-9`: query execution failed: Parse error: query produced no plan
-- `age.cypher.query-10`: query execution failed: Parse error: query produced no plan
-- `age.cypher.query-11`: query execution failed: Parse error: query produced no plan
 - `age.cypher.query-12`: query execution failed: Parse error: mutation clauses in read queries is not supported in the initial graph slice at byte 0..22
 - `age.cypher.query-13`: query execution failed: Parse error: mutation clauses in read queries is not supported in the initial graph slice at byte 0..22
 - `age.cypher.query-14`: query execution failed: Parse error: mutation clauses in read queries is not supported in the initial graph slice at byte 0..22
@@ -1297,15 +1528,15 @@ Generated from `graph/test-results/history.jsonl`. Results are grouped by stable
 - `age.cypher.merge.query-175`: query execution failed: Parse error: mutation clauses in read queries is not supported in the initial graph slice at byte 0..16
 - `age.cypher.merge.query-177`: expected AND, OR, comparison_op, additive_op, multiplicative_op, or property_suffix at byte 82..82
 - `age.cypher.merge.query-178`: expected AND, OR, comparison_op, additive_op, multiplicative_op, or property_suffix at byte 82..82
-- `age.cypher.merge.query-180`: query execution failed: Parse error: query produced no plan
-- `age.cypher.merge.query-181`: query execution failed: Parse error: query produced no plan
+- `age.cypher.merge.query-180`: query execution failed: Parse error: mutation clauses in read queries is not supported in the initial graph slice at byte 53..109
+- `age.cypher.merge.query-181`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 5..34
 - `age.cypher.merge.query-182`: expected identifier at byte 16..16
-- `age.cypher.merge.query-183`: query execution failed: Parse error: query produced no plan
+- `age.cypher.merge.query-183`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 5..34
 - `age.cypher.merge.query-184`: expected identifier at byte 16..16
-- `age.cypher.merge.query-185`: query execution failed: Parse error: query produced no plan
-- `age.cypher.merge.query-186`: query execution failed: Parse error: query produced no plan
+- `age.cypher.merge.query-185`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 5..34
+- `age.cypher.merge.query-186`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 5..34
 - `age.cypher.merge.query-187`: expected identifier at byte 16..16
-- `age.cypher.merge.query-188`: query execution failed: Parse error: query produced no plan
+- `age.cypher.merge.query-188`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 5..34
 - `age.cypher.merge.query-190`: expected primary_expression at byte 8..8
 - `age.cypher.merge.query-191`: expected primary_expression at byte 8..8
 - `age.cypher.merge.query-193`: query execution failed: Parse error: mutation clauses in read queries is not supported in the initial graph slice at byte 17..25
@@ -1503,7 +1734,7 @@ Generated from `graph/test-results/history.jsonl`. Results are grouped by stable
 - `age.cypher.set.query-92`: query execution failed: Parse error: mutation clauses in read queries is not supported in the initial graph slice at byte 0..11
 - `age.cypher.set.query-93`: expected property_target at byte 149..149
 - `age.cypher.set.query-94`: expected identifier at byte 17..17
-- `age.cypher.set.query-95`: query execution failed: Parse error: query produced no plan
+- `age.cypher.set.query-95`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 5..34
 - `age.cypher.set.query-96`: expected identifier at byte 17..17
 - `age.cypher.set.query-97`: expected property_target at byte 70..70
 - `age.cypher.set.query-98`: expected identifier at byte 17..17
@@ -1599,7 +1830,6 @@ Generated from `graph/test-results/history.jsonl`. Results are grouped by stable
 - `age.cypher.union.query-19`: expected EOI, ORDER, SKIP, LIMIT, AS, AND, OR, clause, comparison_op, additive_op, multiplicative_op, or property_suffix at byte 10..10
 - `age.cypher.unwind.query-1`: query execution failed: Parse error: mutation clauses in read queries is not supported in the initial graph slice at byte 0..192
 - `age.cypher.unwind.query-4`: query execution failed: Parse error: unknown property `a` at byte 21..22
-- `age.cypher.unwind.query-5`: query execution failed: Parse error: query produced no plan
 - `age.cypher.unwind.query-6`: query execution failed: Parse error: named paths is not supported in the initial graph slice at byte 6..25
 - `age.cypher.unwind.query-7`: query execution failed: Parse error: named paths is not supported in the initial graph slice at byte 6..25
 - `age.cypher.unwind.query-8`: query execution failed: Parse error: named paths is not supported in the initial graph slice at byte 6..25
@@ -1724,7 +1954,6 @@ Generated from `graph/test-results/history.jsonl`. Results are grouped by stable
 - `age.cypher.with.query-2`: query execution failed: Parse error: no such function: id
 - `age.cypher.with.query-3`: query execution failed: Parse error: no such function: id
 - `age.cypher.with.query-4`: expected EOI, WHERE, ORDER, SKIP, LIMIT, or clause at byte 44..44
-- `age.cypher.with.query-5`: query execution failed: Parse error: query produced no plan
 - `age.cypher.with.query-6`: expected EOI, ORDER, SKIP, LIMIT, AND, OR, clause, comparison_op, additive_op, multiplicative_op, or property_suffix at byte 139..139
 - `age.cypher.with.query-7`: expected DISTINCT or primary_expression at byte 79..79
 - `age.cypher.with.query-8`: query execution failed: Parse error: named paths is not supported in the initial graph slice at byte 6..26
@@ -1733,7 +1962,7 @@ Generated from `graph/test-results/history.jsonl`. Results are grouped by stable
 - `age.cypher.with.query-11`: query execution failed: Parse error: no such function: collect
 - `age.cypher.with.query-13`: query execution failed: Parse error: no such function: label
 - `age.cypher.with.query-15`: query execution failed: Parse error: no such function: id
-- `age.cypher.with.query-16`: query execution failed: Parse error: query produced no plan
+- `age.cypher.with.query-16`: query execution failed: Parse error: unknown variable `i` at byte 22..23
 - `age.cypher.with.query-17`: query execution failed: Parse error: unknown variable `m` at byte 44..45
 - `age.cypher.with.query-18`: query execution failed: Parse error: unknown variable `b` at byte 44..45
 - `age.cypher.with.query-19`: query execution failed: Parse error: unknown variable `end_node` at byte 177..185
@@ -1759,22 +1988,12 @@ Generated from `graph/test-results/history.jsonl`. Results are grouped by stable
 - `age.cypher.with.query-39`: expected clause at byte 0..0
 - `age.cypher.with.query-40`: expected clause at byte 0..0
 - `age.cypher.with.query-41`: expected clause at byte 0..0
-- `age.direct.field.access.query-1`: query execution failed: Parse error: query produced no plan
-- `age.direct.field.access.query-2`: query execution failed: Parse error: query produced no plan
-- `age.direct.field.access.query-3`: query execution failed: Parse error: query produced no plan
-- `age.direct.field.access.query-4`: query execution failed: Parse error: query produced no plan
-- `age.direct.field.access.query-5`: query execution failed: Parse error: query produced no plan
-- `age.direct.field.access.query-6`: query execution failed: Parse error: query produced no plan
-- `age.direct.field.access.query-7`: query execution failed: Parse error: query produced no plan
-- `age.direct.field.access.query-8`: query execution failed: Parse error: query produced no plan
 - `age.direct.field.access.query-9`: expected EOI, ORDER, SKIP, LIMIT, AS, AND, OR, clause, comparison_op, additive_op, multiplicative_op, or property_suffix at byte 12..12
 - `age.direct.field.access.query-15`: query execution failed: Parse error: mutation clauses in read queries is not supported in the initial graph slice at byte 0..452
 - `age.direct.field.access.query-22`: query execution failed: Parse error: unknown property `since` at byte 36..41
 - `age.direct.field.access.query-23`: query execution failed: Parse error: multiple path patterns is not supported in the initial graph slice at byte 0..70
-- `age.direct.field.access.query-24`: query execution failed: Parse error: query produced no plan
-- `age.direct.field.access.query-25`: query execution failed: Parse error: query produced no plan
-- `age.direct.field.access.query-26`: query execution failed: Parse error: query produced no plan
-- `age.direct.field.access.query-27`: query execution failed: Parse error: query produced no plan
+- `age.direct.field.access.query-26`: query execution failed: Parse error: no such function: toUpper
+- `age.direct.field.access.query-27`: query execution failed: Parse error: no such function: toInteger
 - `age.direct.field.access.query-28`: query execution failed: Parse error: no such function: id
 - `age.direct.field.access.query-29`: query execution failed: Parse error: no such function: id
 - `age.direct.field.access.query-30`: query execution failed: Parse error: no such function: start_id
@@ -1784,25 +2003,17 @@ Generated from `graph/test-results/history.jsonl`. Results are grouped by stable
 - `age.direct.field.access.query-34`: query execution failed: Parse error: no such function: properties
 - `age.direct.field.access.query-35`: query execution failed: Parse error: no such function: properties
 - `age.direct.field.access.query-36`: query execution failed: Parse error: property access requires a node or relationship at byte 83..96
-- `age.direct.field.access.query-37`: query execution failed: Parse error: query produced no plan
-- `age.direct.field.access.query-38`: query execution failed: Parse error: query produced no plan
-- `age.direct.field.access.query-39`: query execution failed: Parse error: query produced no plan
-- `age.direct.field.access.query-40`: query execution failed: Parse error: query produced no plan
-- `age.direct.field.access.query-41`: query execution failed: Parse error: query produced no plan
-- `age.expr.query-1`: query execution failed: Parse error: query produced no plan
-- `age.expr.query-2`: query execution failed: Parse error: query produced no plan
-- `age.expr.query-3`: query execution failed: Parse error: query produced no plan
-- `age.expr.query-4`: query execution failed: Parse error: query produced no plan
-- `age.expr.query-5`: query execution failed: Parse error: query produced no plan
-- `age.expr.query-6`: query execution failed: Parse error: query produced no plan
-- `age.expr.query-7`: query execution failed: Parse error: query produced no plan
-- `age.expr.query-8`: query execution failed: Parse error: query produced no plan
+- `age.direct.field.access.query-38`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 7..18
+- `age.expr.query-1`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 7..9
+- `age.expr.query-2`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 7..47
+- `age.expr.query-3`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 7..72
+- `age.expr.query-7`: query execution failed: Parse error: unknown parameter `$var` at byte 7..11
+- `age.expr.query-8`: query execution failed: Parse error: property access requires a node or relationship at byte 7..11
 - `age.expr.query-9`: expected EOI, ORDER, SKIP, LIMIT, AS, AND, OR, clause, comparison_op, additive_op, multiplicative_op, or property_suffix at byte 11..11
-- `age.expr.query-10`: query execution failed: Parse error: query produced no plan
-- `age.expr.query-11`: query execution failed: Parse error: query produced no plan
-- `age.expr.query-12`: query execution failed: Parse error: query produced no plan
-- `age.expr.query-13`: query execution failed: Parse error: query produced no plan
-- `age.expr.query-14`: query execution failed: Parse error: query produced no plan
+- `age.expr.query-10`: query execution failed: Parse error: unknown parameter `$var` at byte 7..11
+- `age.expr.query-11`: query execution failed: Parse error: unknown parameter `$var` at byte 7..11
+- `age.expr.query-12`: query execution failed: Parse error: unknown parameter `$var` at byte 7..11
+- `age.expr.query-13`: query execution failed: Parse error: unknown parameter `$var` at byte 7..11
 - `age.expr.query-15`: expected EOI, ORDER, SKIP, LIMIT, AS, AND, OR, clause, comparison_op, additive_op, multiplicative_op, or property_suffix at byte 9..9
 - `age.expr.query-16`: expected EOI, ORDER, SKIP, LIMIT, AS, AND, OR, clause, comparison_op, additive_op, multiplicative_op, or property_suffix at byte 13..13
 - `age.expr.query-17`: expected EOI, ORDER, SKIP, LIMIT, AS, AND, OR, clause, comparison_op, additive_op, multiplicative_op, or property_suffix at byte 11..11
@@ -1871,20 +2082,10 @@ Generated from `graph/test-results/history.jsonl`. Results are grouped by stable
 - `age.expr.query-80`: expected EOI, ORDER, SKIP, LIMIT, AS, AND, OR, clause, comparison_op, additive_op, multiplicative_op, or property_suffix at byte 53..53
 - `age.expr.query-81`: expected EOI, ORDER, SKIP, LIMIT, AS, AND, OR, clause, comparison_op, additive_op, multiplicative_op, or property_suffix at byte 53..53
 - `age.expr.query-82`: expected EOI, ORDER, SKIP, LIMIT, AS, AND, OR, clause, comparison_op, additive_op, multiplicative_op, or property_suffix at byte 53..53
-- `age.expr.query-83`: query execution failed: Parse error: query produced no plan
-- `age.expr.query-84`: query execution failed: Parse error: query produced no plan
-- `age.expr.query-85`: query execution failed: Parse error: query produced no plan
-- `age.expr.query-86`: query execution failed: Parse error: query produced no plan
-- `age.expr.query-87`: query execution failed: Parse error: query produced no plan
 - `age.expr.query-88`: expected primary_expression at byte 8..8
-- `age.expr.query-89`: query execution failed: Parse error: query produced no plan
-- `age.expr.query-90`: query execution failed: Parse error: query produced no plan
-- `age.expr.query-91`: query execution failed: Parse error: query produced no plan
 - `age.expr.query-92`: expected DISTINCT or projection_items at byte 7..7
 - `age.expr.query-93`: expected DISTINCT or projection_items at byte 7..7
-- `age.expr.query-94`: query execution failed: Parse error: query produced no plan
 - `age.expr.query-95`: expected primary_expression at byte 8..8
-- `age.expr.query-96`: query execution failed: Parse error: query produced no plan
 - `age.expr.query-97`: expected AND, OR, comparison_op, additive_op, multiplicative_op, or property_suffix at byte 22..22
 - `age.expr.query-98`: expected primary_expression at byte 23..23
 - `age.expr.query-99`: expected primary_expression at byte 23..23
@@ -1900,16 +2101,6 @@ Generated from `graph/test-results/history.jsonl`. Results are grouped by stable
 - `age.expr.query-109`: query execution failed: Parse error: unknown label `people` at byte 9..15
 - `age.expr.query-110`: query execution failed: Parse error: unknown label `people` at byte 9..15
 - `age.expr.query-111`: expected EOI, AND, OR, clause, comparison_op, additive_op, multiplicative_op, or property_suffix at byte 27..27
-- `age.expr.query-112`: query execution failed: Parse error: query produced no plan
-- `age.expr.query-113`: query execution failed: Parse error: query produced no plan
-- `age.expr.query-114`: query execution failed: Parse error: query produced no plan
-- `age.expr.query-115`: query execution failed: Parse error: query produced no plan
-- `age.expr.query-116`: query execution failed: Parse error: query produced no plan
-- `age.expr.query-117`: query execution failed: Parse error: query produced no plan
-- `age.expr.query-118`: query execution failed: Parse error: query produced no plan
-- `age.expr.query-119`: query execution failed: Parse error: query produced no plan
-- `age.expr.query-120`: query execution failed: Parse error: query produced no plan
-- `age.expr.query-121`: query execution failed: Parse error: query produced no plan
 - `age.expr.query-122`: query execution failed: Parse error: unknown label `people` at byte 9..15
 - `age.expr.query-123`: query execution failed: Parse error: unknown label `people` at byte 9..15
 - `age.expr.query-124`: query execution failed: Parse error: unknown label `people` at byte 9..15
@@ -1926,15 +2117,6 @@ Generated from `graph/test-results/history.jsonl`. Results are grouped by stable
 - `age.expr.query-135`: expected EOI, ORDER, SKIP, LIMIT, AS, AND, OR, clause, comparison_op, additive_op, multiplicative_op, or property_suffix at byte 12..12
 - `age.expr.query-136`: expected EOI, ORDER, SKIP, LIMIT, AS, AND, OR, clause, comparison_op, additive_op, multiplicative_op, or property_suffix at byte 11..11
 - `age.expr.query-137`: expected EOI, ORDER, SKIP, LIMIT, AS, AND, OR, clause, comparison_op, additive_op, multiplicative_op, or property_suffix at byte 11..11
-- `age.expr.query-138`: query execution failed: Parse error: query produced no plan
-- `age.expr.query-139`: query execution failed: Parse error: query produced no plan
-- `age.expr.query-140`: query execution failed: Parse error: query produced no plan
-- `age.expr.query-141`: query execution failed: Parse error: query produced no plan
-- `age.expr.query-142`: query execution failed: Parse error: query produced no plan
-- `age.expr.query-143`: query execution failed: Parse error: query produced no plan
-- `age.expr.query-144`: query execution failed: Parse error: query produced no plan
-- `age.expr.query-145`: query execution failed: Parse error: query produced no plan
-- `age.expr.query-146`: query execution failed: Parse error: query produced no plan
 - `age.expr.query-147`: expected EOI, ORDER, SKIP, LIMIT, AS, AND, OR, clause, comparison_op, additive_op, multiplicative_op, or property_suffix at byte 12..12
 - `age.expr.query-148`: expected EOI, ORDER, SKIP, LIMIT, AS, AND, OR, clause, comparison_op, additive_op, multiplicative_op, or property_suffix at byte 12..12
 - `age.expr.query-149`: expected EOI, ORDER, SKIP, LIMIT, AS, AND, OR, clause, comparison_op, additive_op, multiplicative_op, or property_suffix at byte 13..13
@@ -1942,23 +2124,16 @@ Generated from `graph/test-results/history.jsonl`. Results are grouped by stable
 - `age.expr.query-151`: expected EOI, ORDER, SKIP, LIMIT, AS, AND, OR, clause, comparison_op, additive_op, multiplicative_op, or property_suffix at byte 17..17
 - `age.expr.query-152`: expected EOI, ORDER, SKIP, LIMIT, AS, AND, OR, clause, comparison_op, additive_op, multiplicative_op, or property_suffix at byte 21..21
 - `age.expr.query-153`: expected EOI, ORDER, SKIP, LIMIT, AS, AND, OR, clause, comparison_op, additive_op, multiplicative_op, or property_suffix at byte 11..11
-- `age.expr.query-154`: query execution failed: Parse error: query produced no plan
-- `age.expr.query-155`: query execution failed: Parse error: query produced no plan
-- `age.expr.query-156`: query execution failed: Parse error: query produced no plan
-- `age.expr.query-157`: query execution failed: Parse error: query produced no plan
 - `age.expr.query-158`: expected EOI, ORDER, SKIP, LIMIT, AS, AND, OR, clause, comparison_op, additive_op, multiplicative_op, or property_suffix at byte 11..11
 - `age.expr.query-159`: expected EOI, ORDER, SKIP, LIMIT, AS, AND, OR, clause, comparison_op, additive_op, multiplicative_op, or property_suffix at byte 12..12
 - `age.expr.query-160`: expected EOI, ORDER, SKIP, LIMIT, AS, AND, OR, clause, comparison_op, additive_op, multiplicative_op, or property_suffix at byte 9..9
-- `age.expr.query-161`: query execution failed: Parse error: query produced no plan
-- `age.expr.query-162`: query execution failed: Parse error: query produced no plan
-- `age.expr.query-163`: query execution failed: Parse error: query produced no plan
 - `age.expr.query-164`: expected EOI, ORDER, SKIP, LIMIT, AS, AND, OR, clause, comparison_op, additive_op, multiplicative_op, or property_suffix at byte 13..13
 - `age.expr.query-165`: expected EOI, ORDER, SKIP, LIMIT, AS, AND, OR, clause, comparison_op, additive_op, multiplicative_op, or property_suffix at byte 17..17
 - `age.expr.query-166`: expected EOI, ORDER, SKIP, LIMIT, AS, AND, OR, clause, comparison_op, additive_op, multiplicative_op, or property_suffix at byte 171..171
-- `age.expr.query-167`: query execution failed: Parse error: query produced no plan
-- `age.expr.query-168`: query execution failed: Parse error: query produced no plan
-- `age.expr.query-169`: query execution failed: Parse error: query produced no plan
-- `age.expr.query-170`: query execution failed: Parse error: query produced no plan
+- `age.expr.query-167`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 5..70
+- `age.expr.query-168`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 5..70
+- `age.expr.query-169`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 5..70
+- `age.expr.query-170`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 5..70
 - `age.expr.query-171`: expected DISTINCT or projection_items at byte 7..7
 - `age.expr.query-172`: expected DISTINCT or projection_items at byte 7..7
 - `age.expr.query-173`: expected DISTINCT or projection_items at byte 7..7
@@ -1975,21 +2150,10 @@ Generated from `graph/test-results/history.jsonl`. Results are grouped by stable
 - `age.expr.query-184`: expected primary_expression at byte 31..31
 - `age.expr.query-185`: expected primary_expression at byte 31..31
 - `age.expr.query-186`: expected primary_expression at byte 31..31
-- `age.expr.query-187`: query execution failed: Parse error: query produced no plan
-- `age.expr.query-188`: query execution failed: Parse error: query produced no plan
-- `age.expr.query-189`: query execution failed: Parse error: query produced no plan
-- `age.expr.query-190`: query execution failed: Parse error: query produced no plan
-- `age.expr.query-191`: query execution failed: Parse error: query produced no plan
 - `age.expr.query-192`: expected EOI, ORDER, SKIP, LIMIT, AS, AND, OR, clause, comparison_op, additive_op, multiplicative_op, or property_suffix at byte 10..10
-- `age.expr.query-193`: query execution failed: Parse error: query produced no plan
-- `age.expr.query-194`: query execution failed: Parse error: query produced no plan
-- `age.expr.query-195`: query execution failed: Parse error: query produced no plan
-- `age.expr.query-196`: query execution failed: Parse error: query produced no plan
 - `age.expr.query-197`: integer literal is outside the supported i64 range at byte 7..27
 - `age.expr.query-198`: integer literal is outside the supported i64 range at byte 7..27
-- `age.expr.query-199`: query execution failed: Parse error: query produced no plan
-- `age.expr.query-200`: query execution failed: Parse error: query produced no plan
-- `age.expr.query-201`: query execution failed: Parse error: query produced no plan
+- `age.expr.query-199`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 7..15
 - `age.expr.query-202`: query execution failed: Parse error: mutation clauses in read queries is not supported in the initial graph slice at byte 0..21
 - `age.expr.query-205`: query execution failed: Parse error: named paths is not supported in the initial graph slice at byte 6..16
 - `age.expr.query-206`: expected EOI, ORDER, SKIP, LIMIT, AS, AND, OR, clause, comparison_op, additive_op, multiplicative_op, or property_suffix at byte 10..10
@@ -2101,10 +2265,6 @@ Generated from `graph/test-results/history.jsonl`. Results are grouped by stable
 - `age.expr.query-316`: query execution failed: Parse error: named variable-length relationships is not supported in the initial graph slice at byte 8..16
 - `age.expr.query-317`: query execution failed: Parse error: named paths is not supported in the initial graph slice at byte 6..17
 - `age.expr.query-318`: query execution failed: Parse error: named paths is not supported in the initial graph slice at byte 6..17
-- `age.expr.query-319`: query execution failed: Parse error: query produced no plan
-- `age.expr.query-320`: query execution failed: Parse error: query produced no plan
-- `age.expr.query-321`: query execution failed: Parse error: query produced no plan
-- `age.expr.query-322`: query execution failed: Parse error: query produced no plan
 - `age.expr.query-323`: expected EOI, ORDER, SKIP, LIMIT, AS, AND, OR, clause, comparison_op, additive_op, multiplicative_op, or property_suffix at byte 8..8
 - `age.expr.query-324`: query execution failed: Parse error: mutation clauses in read queries is not supported in the initial graph slice at byte 0..11
 - `age.expr.query-325`: query execution failed: Parse error: mutation clauses in read queries is not supported in the initial graph slice at byte 0..18
@@ -2112,233 +2272,200 @@ Generated from `graph/test-results/history.jsonl`. Results are grouped by stable
 - `age.expr.query-327`: query execution failed: Parse error: mutation clauses in read queries is not supported in the initial graph slice at byte 0..78
 - `age.expr.query-330`: query execution failed: Parse error: no such function: id
 - `age.expr.query-331`: query execution failed: Parse error: no such function: id
-- `age.expr.query-332`: query execution failed: Parse error: query produced no plan
-- `age.expr.query-333`: query execution failed: Parse error: query produced no plan
+- `age.expr.query-332`: query execution failed: Parse error: no such function: id
+- `age.expr.query-333`: query execution failed: Parse error: no such function: id
 - `age.expr.query-334`: query execution failed: Parse error: no such function: start_id
-- `age.expr.query-335`: query execution failed: Parse error: query produced no plan
+- `age.expr.query-335`: query execution failed: Parse error: no such function: start_id
 - `age.expr.query-336`: query execution failed: Parse error: no such function: start_id
-- `age.expr.query-337`: query execution failed: Parse error: query produced no plan
+- `age.expr.query-337`: query execution failed: Parse error: no such function: start_id
 - `age.expr.query-338`: query execution failed: Parse error: no such function: end_id
-- `age.expr.query-339`: query execution failed: Parse error: query produced no plan
+- `age.expr.query-339`: query execution failed: Parse error: no such function: end_id
 - `age.expr.query-340`: query execution failed: Parse error: no such function: end_id
-- `age.expr.query-341`: query execution failed: Parse error: query produced no plan
+- `age.expr.query-341`: query execution failed: Parse error: no such function: end_id
 - `age.expr.query-342`: query execution failed: Parse error: no such function: id
-- `age.expr.query-343`: query execution failed: Parse error: query produced no plan
+- `age.expr.query-343`: query execution failed: Parse error: no such function: startNode
 - `age.expr.query-344`: query execution failed: Parse error: no such function: startNode
-- `age.expr.query-345`: query execution failed: Parse error: query produced no plan
+- `age.expr.query-345`: query execution failed: Parse error: no such function: startNode
 - `age.expr.query-346`: query execution failed: Parse error: no such function: id
-- `age.expr.query-347`: query execution failed: Parse error: query produced no plan
+- `age.expr.query-347`: query execution failed: Parse error: no such function: endNode
 - `age.expr.query-348`: query execution failed: Parse error: no such function: endNode
-- `age.expr.query-349`: query execution failed: Parse error: query produced no plan
+- `age.expr.query-349`: query execution failed: Parse error: no such function: endNode
 - `age.expr.query-350`: query execution failed: Parse error: no such function: type
-- `age.expr.query-351`: query execution failed: Parse error: query produced no plan
+- `age.expr.query-351`: query execution failed: Parse error: no such function: type
 - `age.expr.query-352`: query execution failed: Parse error: no such function: type
-- `age.expr.query-353`: query execution failed: Parse error: query produced no plan
+- `age.expr.query-353`: query execution failed: Parse error: no such function: type
 - `age.expr.query-354`: query execution failed: Parse error: no such function: label
 - `age.expr.query-355`: query execution failed: Parse error: no such function: label
 - `age.expr.query-356`: expected AND, OR, comparison_op, additive_op, multiplicative_op, or property_suffix at byte 55..55
-- `age.expr.query-357`: query execution failed: Parse error: query produced no plan
+- `age.expr.query-357`: query execution failed: Parse error: no such function: label
 - `age.expr.query-358`: query execution failed: Parse error: named paths is not supported in the initial graph slice at byte 6..17
-- `age.expr.query-359`: query execution failed: Parse error: query produced no plan
+- `age.expr.query-359`: query execution failed: Parse error: no such function: label
 - `age.expr.query-360`: query execution failed: Parse error: no such function: label
-- `age.expr.query-361`: query execution failed: Parse error: query produced no plan
-- `age.expr.query-362`: query execution failed: Parse error: query produced no plan
+- `age.expr.query-361`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 13..53
+- `age.expr.query-362`: query execution failed: Parse error: no such function: size
 - `age.expr.query-363`: expected DISTINCT or primary_expression at byte 12..12
-- `age.expr.query-364`: query execution failed: Parse error: query produced no plan
-- `age.expr.query-365`: query execution failed: Parse error: query produced no plan
-- `age.expr.query-366`: query execution failed: Parse error: query produced no plan
-- `age.expr.query-367`: query execution failed: Parse error: query produced no plan
-- `age.expr.query-368`: query execution failed: Parse error: query produced no plan
+- `age.expr.query-364`: query execution failed: Parse error: no such function: size
+- `age.expr.query-365`: query execution failed: Parse error: no such function: size
+- `age.expr.query-366`: query execution failed: Parse error: no such function: size
+- `age.expr.query-367`: query execution failed: Parse error: no such function: size
+- `age.expr.query-368`: query execution failed: Parse error: no such function: size
 - `age.expr.query-369`: expected AND, OR, comparison_op, additive_op, multiplicative_op, or property_suffix at byte 50..50
-- `age.expr.query-370`: query execution failed: Parse error: query produced no plan
-- `age.expr.query-371`: query execution failed: Parse error: query produced no plan
-- `age.expr.query-372`: query execution failed: Parse error: query produced no plan
-- `age.expr.query-373`: query execution failed: Parse error: query produced no plan
-- `age.expr.query-374`: query execution failed: Parse error: query produced no plan
-- `age.expr.query-375`: query execution failed: Parse error: query produced no plan
-- `age.expr.query-376`: query execution failed: Parse error: query produced no plan
-- `age.expr.query-377`: query execution failed: Parse error: query produced no plan
+- `age.expr.query-370`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 12..42
+- `age.expr.query-371`: query execution failed: Parse error: no such function: head
+- `age.expr.query-372`: query execution failed: Parse error: no such function: head
+- `age.expr.query-373`: query execution failed: Parse error: no such function: head
+- `age.expr.query-374`: query execution failed: Parse error: no such function: head
+- `age.expr.query-375`: query execution failed: Parse error: no such function: head
+- `age.expr.query-376`: query execution failed: Parse error: no such function: head
+- `age.expr.query-377`: query execution failed: Parse error: no such function: head
 - `age.expr.query-378`: expected AND, OR, comparison_op, additive_op, multiplicative_op, or property_suffix at byte 51..51
-- `age.expr.query-379`: query execution failed: Parse error: query produced no plan
-- `age.expr.query-380`: query execution failed: Parse error: query produced no plan
-- `age.expr.query-381`: query execution failed: Parse error: query produced no plan
-- `age.expr.query-382`: query execution failed: Parse error: query produced no plan
-- `age.expr.query-383`: query execution failed: Parse error: query produced no plan
-- `age.expr.query-384`: query execution failed: Parse error: query produced no plan
-- `age.expr.query-385`: query execution failed: Parse error: query produced no plan
-- `age.expr.query-386`: query execution failed: Parse error: query produced no plan
+- `age.expr.query-379`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 12..42
+- `age.expr.query-380`: query execution failed: Parse error: no such function: last
+- `age.expr.query-381`: query execution failed: Parse error: no such function: last
+- `age.expr.query-382`: query execution failed: Parse error: no such function: last
+- `age.expr.query-383`: query execution failed: Parse error: no such function: last
+- `age.expr.query-384`: query execution failed: Parse error: no such function: last
+- `age.expr.query-385`: query execution failed: Parse error: no such function: last
+- `age.expr.query-386`: query execution failed: Parse error: no such function: last
 - `age.expr.query-387`: expected AND, OR, comparison_op, additive_op, multiplicative_op, or property_suffix at byte 51..51
-- `age.expr.query-388`: query execution failed: Parse error: query produced no plan
+- `age.expr.query-388`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 12..42
 - `age.expr.query-389`: query execution failed: Parse error: no such function: properties
 - `age.expr.query-390`: query execution failed: Parse error: no such function: properties
-- `age.expr.query-391`: query execution failed: Parse error: query produced no plan
-- `age.expr.query-392`: query execution failed: Parse error: query produced no plan
-- `age.expr.query-393`: query execution failed: Parse error: query produced no plan
-- `age.expr.query-394`: query execution failed: Parse error: query produced no plan
-- `age.expr.query-395`: query execution failed: Parse error: query produced no plan
+- `age.expr.query-391`: query execution failed: Parse error: no such function: properties
+- `age.expr.query-392`: query execution failed: Parse error: no such function: properties
+- `age.expr.query-393`: query execution failed: Parse error: no such function: properties
 - `age.expr.query-396`: expected primary_expression at byte 22..22
-- `age.expr.query-397`: query execution failed: Parse error: query produced no plan
-- `age.expr.query-398`: query execution failed: Parse error: query produced no plan
-- `age.expr.query-399`: query execution failed: Parse error: query produced no plan
-- `age.expr.query-400`: query execution failed: Parse error: query produced no plan
-- `age.expr.query-401`: query execution failed: Parse error: query produced no plan
-- `age.expr.query-402`: query execution failed: Parse error: query produced no plan
-- `age.expr.query-403`: query execution failed: Parse error: query produced no plan
+- `age.expr.query-398`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 34..36
+- `age.expr.query-399`: query execution failed: Parse error: no such function: id
+- `age.expr.query-400`: query execution failed: Parse error: coalesce function with less than 2 arguments
+- `age.expr.query-401`: query execution failed: Parse error: coalesce function with no arguments
+- `age.expr.query-402`: query execution failed: Parse error: no such function: toBoolean
+- `age.expr.query-403`: query execution failed: Parse error: no such function: toBoolean
 - `age.expr.query-404`: expected DISTINCT or primary_expression at byte 17..17
 - `age.expr.query-405`: expected DISTINCT or primary_expression at byte 17..17
 - `age.expr.query-406`: expected DISTINCT or primary_expression at byte 17..17
-- `age.expr.query-407`: query execution failed: Parse error: query produced no plan
-- `age.expr.query-408`: query execution failed: Parse error: query produced no plan
-- `age.expr.query-409`: query execution failed: Parse error: query produced no plan
-- `age.expr.query-410`: query execution failed: Parse error: query produced no plan
-- `age.expr.query-411`: query execution failed: Parse error: query produced no plan
+- `age.expr.query-407`: query execution failed: Parse error: no such function: toBoolean
+- `age.expr.query-408`: query execution failed: Parse error: no such function: toBoolean
+- `age.expr.query-409`: query execution failed: Parse error: no such function: toBoolean
+- `age.expr.query-410`: query execution failed: Parse error: no such function: toBoolean
+- `age.expr.query-411`: query execution failed: Parse error: no such function: toBooleanList
 - `age.expr.query-412`: expected primary_expression at byte 22..22
 - `age.expr.query-413`: expected primary_expression at byte 22..22
-- `age.expr.query-414`: query execution failed: Parse error: query produced no plan
-- `age.expr.query-415`: query execution failed: Parse error: query produced no plan
-- `age.expr.query-416`: query execution failed: Parse error: query produced no plan
+- `age.expr.query-414`: query execution failed: Parse error: no such function: toBooleanList
+- `age.expr.query-415`: query execution failed: Parse error: no such function: toBooleanList
+- `age.expr.query-416`: query execution failed: Parse error: no such function: toBooleanList
 - `age.expr.query-417`: expected primary_expression at byte 22..22
 - `age.expr.query-418`: expected primary_expression at byte 23..23
-- `age.expr.query-419`: query execution failed: Parse error: query produced no plan
+- `age.expr.query-419`: query execution failed: Parse error: unknown variable `fail` at byte 21..25
 - `age.expr.query-420`: expected DISTINCT or primary_expression at byte 21..21
-- `age.expr.query-421`: query execution failed: Parse error: query produced no plan
-- `age.expr.query-422`: query execution failed: Parse error: query produced no plan
-- `age.expr.query-423`: query execution failed: Parse error: query produced no plan
+- `age.expr.query-421`: query execution failed: Parse error: no such function: toBooleanList
+- `age.expr.query-422`: query execution failed: Parse error: no such function: toFloat
+- `age.expr.query-423`: query execution failed: Parse error: no such function: toFloat
 - `age.expr.query-424`: expected DISTINCT or primary_expression at byte 15..15
 - `age.expr.query-425`: expected DISTINCT or primary_expression at byte 15..15
 - `age.expr.query-426`: expected DISTINCT or primary_expression at byte 15..15
 - `age.expr.query-427`: expected DISTINCT or primary_expression at byte 15..15
-- `age.expr.query-428`: query execution failed: Parse error: query produced no plan
-- `age.expr.query-429`: query execution failed: Parse error: query produced no plan
-- `age.expr.query-430`: query execution failed: Parse error: query produced no plan
-- `age.expr.query-431`: query execution failed: Parse error: query produced no plan
-- `age.expr.query-432`: query execution failed: Parse error: query produced no plan
-- `age.expr.query-433`: query execution failed: Parse error: query produced no plan
-- `age.expr.query-434`: query execution failed: Parse error: query produced no plan
-- `age.expr.query-435`: query execution failed: Parse error: query produced no plan
+- `age.expr.query-428`: query execution failed: Parse error: no such function: toFloat
+- `age.expr.query-429`: query execution failed: Parse error: no such function: toFloat
+- `age.expr.query-430`: query execution failed: Parse error: no such function: toFloat
+- `age.expr.query-431`: query execution failed: Parse error: no such function: toFloatList
+- `age.expr.query-432`: query execution failed: Parse error: no such function: toFloatList
+- `age.expr.query-433`: query execution failed: Parse error: no such function: toFloatList
+- `age.expr.query-434`: query execution failed: Parse error: no such function: toFloatList
+- `age.expr.query-435`: query execution failed: Parse error: no such function: toFloatList
 - `age.expr.query-436`: expected AND, OR, comparison_op, additive_op, multiplicative_op, or property_suffix at byte 23..23
-- `age.expr.query-437`: query execution failed: Parse error: query produced no plan
-- `age.expr.query-438`: query execution failed: Parse error: query produced no plan
-- `age.expr.query-439`: query execution failed: Parse error: query produced no plan
-- `age.expr.query-440`: query execution failed: Parse error: query produced no plan
+- `age.expr.query-437`: query execution failed: Parse error: no such function: toFloatList
+- `age.expr.query-438`: query execution failed: Parse error: no such function: toFloatList
+- `age.expr.query-439`: query execution failed: Parse error: no such function: toFloatList
+- `age.expr.query-440`: query execution failed: Parse error: unknown variable `failed` at byte 20..26
 - `age.expr.query-441`: expected DISTINCT or primary_expression at byte 19..19
-- `age.expr.query-442`: query execution failed: Parse error: query produced no plan
-- `age.expr.query-443`: query execution failed: Parse error: query produced no plan
-- `age.expr.query-444`: query execution failed: Parse error: query produced no plan
+- `age.expr.query-442`: query execution failed: Parse error: no such function: toFloatList
+- `age.expr.query-443`: query execution failed: Parse error: no such function: toInteger
+- `age.expr.query-444`: query execution failed: Parse error: no such function: toInteger
 - `age.expr.query-445`: expected DISTINCT or primary_expression at byte 17..17
 - `age.expr.query-446`: expected DISTINCT or primary_expression at byte 17..17
 - `age.expr.query-447`: expected DISTINCT or primary_expression at byte 17..17
 - `age.expr.query-448`: expected DISTINCT or primary_expression at byte 17..17
-- `age.expr.query-449`: query execution failed: Parse error: query produced no plan
-- `age.expr.query-450`: query execution failed: Parse error: query produced no plan
-- `age.expr.query-451`: query execution failed: Parse error: query produced no plan
-- `age.expr.query-452`: query execution failed: Parse error: query produced no plan
-- `age.expr.query-453`: query execution failed: Parse error: query produced no plan
-- `age.expr.query-454`: query execution failed: Parse error: query produced no plan
-- `age.expr.query-455`: query execution failed: Parse error: query produced no plan
-- `age.expr.query-456`: query execution failed: Parse error: query produced no plan
+- `age.expr.query-449`: query execution failed: Parse error: no such function: toInteger
+- `age.expr.query-450`: query execution failed: Parse error: no such function: toInteger
+- `age.expr.query-451`: query execution failed: Parse error: no such function: toInteger
+- `age.expr.query-452`: query execution failed: Parse error: no such function: toIntegerList
+- `age.expr.query-453`: query execution failed: Parse error: no such function: toIntegerList
+- `age.expr.query-454`: query execution failed: Parse error: no such function: toIntegerList
+- `age.expr.query-455`: query execution failed: Parse error: no such function: toIntegerList
+- `age.expr.query-456`: query execution failed: Parse error: no such function: toIntegerList
 - `age.expr.query-457`: expected primary_expression at byte 22..22
-- `age.expr.query-458`: query execution failed: Parse error: query produced no plan
-- `age.expr.query-459`: query execution failed: Parse error: query produced no plan
+- `age.expr.query-458`: query execution failed: Parse error: no such function: toIntegerList
+- `age.expr.query-459`: query execution failed: Parse error: no such function: toIntegerList
 - `age.expr.query-460`: expected AND, OR, comparison_op, additive_op, multiplicative_op, or property_suffix at byte 23..23
 - `age.expr.query-461`: expected primary_expression at byte 30..30
 - `age.expr.query-462`: expected primary_expression at byte 30..30
-- `age.expr.query-463`: query execution failed: Parse error: query produced no plan
-- `age.expr.query-464`: query execution failed: Parse error: query produced no plan
-- `age.expr.query-465`: query execution failed: Parse error: query produced no plan
+- `age.expr.query-465`: query execution failed: Parse error: length function with no arguments
 - `age.expr.query-466`: expected AND, OR, comparison_op, additive_op, multiplicative_op, or property_suffix at byte 20..20
-- `age.expr.query-467`: query execution failed: Parse error: query produced no plan
-- `age.expr.query-468`: query execution failed: Parse error: query produced no plan
-- `age.expr.query-469`: query execution failed: Parse error: query produced no plan
-- `age.expr.query-470`: query execution failed: Parse error: query produced no plan
-- `age.expr.query-471`: query execution failed: Parse error: query produced no plan
-- `age.expr.query-472`: query execution failed: Parse error: query produced no plan
-- `age.expr.query-473`: query execution failed: Parse error: query produced no plan
-- `age.expr.query-474`: query execution failed: Parse error: query produced no plan
-- `age.expr.query-475`: query execution failed: Parse error: query produced no plan
+- `age.expr.query-467`: query execution failed: Parse error: no such function: toString
+- `age.expr.query-468`: query execution failed: Parse error: no such function: toStringList
+- `age.expr.query-469`: query execution failed: Parse error: no such function: toStringList
+- `age.expr.query-470`: query execution failed: Parse error: no such function: toStringList
+- `age.expr.query-471`: query execution failed: Parse error: no such function: toStringList
+- `age.expr.query-472`: query execution failed: Parse error: no such function: toStringList
+- `age.expr.query-473`: query execution failed: Parse error: no such function: toStringList
+- `age.expr.query-474`: query execution failed: Parse error: unknown variable `b` at byte 27..28
+- `age.expr.query-475`: query execution failed: Parse error: unknown variable `test` at byte 21..25
 - `age.expr.query-476`: expected DISTINCT or primary_expression at byte 15..15
-- `age.expr.query-477`: query execution failed: Parse error: query produced no plan
 - `age.expr.query-478`: expected DISTINCT or primary_expression at byte 15..15
-- `age.expr.query-479`: query execution failed: Parse error: query produced no plan
-- `age.expr.query-480`: query execution failed: Parse error: query produced no plan
-- `age.expr.query-481`: query execution failed: Parse error: query produced no plan
-- `age.expr.query-482`: query execution failed: Parse error: query produced no plan
-- `age.expr.query-483`: query execution failed: Parse error: query produced no plan
-- `age.expr.query-484`: query execution failed: Parse error: query produced no plan
-- `age.expr.query-485`: query execution failed: Parse error: query produced no plan
 - `age.expr.query-486`: expected primary_expression at byte 35..35
-- `age.expr.query-487`: query execution failed: Parse error: query produced no plan
+- `age.expr.query-487`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 27..45
 - `age.expr.query-488`: query execution failed: Parse error: mutation clauses in read queries is not supported in the initial graph slice at byte 0..26
 - `age.expr.query-489`: query execution failed: Parse error: unknown property `test` at byte 25..29
-- `age.expr.query-490`: query execution failed: Parse error: query produced no plan
-- `age.expr.query-491`: query execution failed: Parse error: query produced no plan
-- `age.expr.query-492`: query execution failed: Parse error: query produced no plan
-- `age.expr.query-494`: query execution failed: Parse error: query produced no plan
-- `age.expr.query-495`: query execution failed: Parse error: query produced no plan
-- `age.expr.query-496`: query execution failed: Parse error: query produced no plan
-- `age.expr.query-497`: query execution failed: Parse error: query produced no plan
+- `age.expr.query-492`: query execution failed: Internal error: expected 1 argument(s), got 0
+- `age.expr.query-494`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 15..17
+- `age.expr.query-495`: query execution failed: Parse error: no such function: toUpper
+- `age.expr.query-496`: query execution failed: Parse error: no such function: toLower
+- `age.expr.query-497`: query execution failed: Parse error: no such function: toupper
 - `age.expr.query-498`: expected DISTINCT or primary_expression at byte 15..15
-- `age.expr.query-499`: query execution failed: Parse error: query produced no plan
+- `age.expr.query-499`: query execution failed: Parse error: no such function: tolower
 - `age.expr.query-500`: expected DISTINCT or primary_expression at byte 15..15
-- `age.expr.query-501`: query execution failed: Parse error: query produced no plan
-- `age.expr.query-502`: query execution failed: Parse error: query produced no plan
-- `age.expr.query-503`: query execution failed: Parse error: query produced no plan
-- `age.expr.query-504`: query execution failed: Parse error: query produced no plan
-- `age.expr.query-505`: query execution failed: Parse error: query produced no plan
-- `age.expr.query-506`: query execution failed: Parse error: query produced no plan
+- `age.expr.query-501`: query execution failed: Parse error: no such function: toUpper
+- `age.expr.query-502`: query execution failed: Parse error: no such function: toLower
+- `age.expr.query-503`: query execution failed: Parse error: no such function: toUpper
+- `age.expr.query-504`: query execution failed: Parse error: no such function: toUpper
+- `age.expr.query-505`: query execution failed: Parse error: no such function: toLower
+- `age.expr.query-506`: query execution failed: Parse error: no such function: toLower
 - `age.expr.query-507`: expected DISTINCT or primary_expression at byte 13..13
 - `age.expr.query-508`: expected DISTINCT or primary_expression at byte 13..13
 - `age.expr.query-509`: expected DISTINCT or primary_expression at byte 12..12
-- `age.expr.query-510`: query execution failed: Parse error: query produced no plan
-- `age.expr.query-511`: query execution failed: Parse error: query produced no plan
-- `age.expr.query-512`: query execution failed: Parse error: query produced no plan
 - `age.expr.query-513`: expected DISTINCT or primary_expression at byte 13..13
 - `age.expr.query-514`: expected DISTINCT or primary_expression at byte 13..13
 - `age.expr.query-515`: expected DISTINCT or primary_expression at byte 12..12
-- `age.expr.query-516`: query execution failed: Parse error: query produced no plan
-- `age.expr.query-517`: query execution failed: Parse error: query produced no plan
-- `age.expr.query-518`: query execution failed: Parse error: query produced no plan
-- `age.expr.query-519`: query execution failed: Parse error: query produced no plan
-- `age.expr.query-520`: query execution failed: Parse error: query produced no plan
-- `age.expr.query-521`: query execution failed: Parse error: query produced no plan
-- `age.expr.query-522`: query execution failed: Parse error: query produced no plan
-- `age.expr.query-523`: query execution failed: Parse error: query produced no plan
-- `age.expr.query-524`: query execution failed: Parse error: query produced no plan
+- `age.expr.query-522`: query execution failed: Parse error: ltrim function with no arguments
+- `age.expr.query-523`: query execution failed: Parse error: rtrim function with no arguments
+- `age.expr.query-524`: query execution failed: Parse error: trim function with no arguments
 - `age.expr.query-525`: expected DISTINCT or primary_expression at byte 12..12
 - `age.expr.query-526`: expected DISTINCT or primary_expression at byte 12..12
 - `age.expr.query-527`: expected DISTINCT or primary_expression at byte 12..12
-- `age.expr.query-528`: query execution failed: Parse error: query produced no plan
-- `age.expr.query-529`: query execution failed: Parse error: query produced no plan
+- `age.expr.query-528`: query execution failed: Parse error: no such function: left
+- `age.expr.query-529`: query execution failed: Parse error: no such function: left
 - `age.expr.query-530`: expected DISTINCT or primary_expression at byte 12..12
 - `age.expr.query-531`: expected DISTINCT or primary_expression at byte 12..12
-- `age.expr.query-532`: query execution failed: Parse error: query produced no plan
-- `age.expr.query-533`: query execution failed: Parse error: query produced no plan
-- `age.expr.query-534`: query execution failed: Parse error: query produced no plan
-- `age.expr.query-535`: query execution failed: Parse error: query produced no plan
+- `age.expr.query-532`: query execution failed: Parse error: no such function: left
+- `age.expr.query-533`: query execution failed: Parse error: no such function: left
+- `age.expr.query-534`: query execution failed: Parse error: no such function: left
+- `age.expr.query-535`: query execution failed: Parse error: no such function: left
 - `age.expr.query-536`: expected DISTINCT or primary_expression at byte 13..13
 - `age.expr.query-537`: expected DISTINCT or primary_expression at byte 13..13
 - `age.expr.query-538`: expected DISTINCT or primary_expression at byte 13..13
-- `age.expr.query-539`: query execution failed: Parse error: query produced no plan
-- `age.expr.query-540`: query execution failed: Parse error: query produced no plan
+- `age.expr.query-539`: query execution failed: Parse error: no such function: right
+- `age.expr.query-540`: query execution failed: Parse error: no such function: right
 - `age.expr.query-541`: expected DISTINCT or primary_expression at byte 13..13
 - `age.expr.query-542`: expected DISTINCT or primary_expression at byte 13..13
-- `age.expr.query-543`: query execution failed: Parse error: query produced no plan
-- `age.expr.query-544`: query execution failed: Parse error: query produced no plan
-- `age.expr.query-545`: query execution failed: Parse error: query produced no plan
-- `age.expr.query-546`: query execution failed: Parse error: query produced no plan
+- `age.expr.query-543`: query execution failed: Parse error: no such function: right
+- `age.expr.query-544`: query execution failed: Parse error: no such function: right
+- `age.expr.query-545`: query execution failed: Parse error: no such function: right
+- `age.expr.query-546`: query execution failed: Parse error: no such function: right
 - `age.expr.query-547`: expected DISTINCT or primary_expression at byte 17..17
 - `age.expr.query-548`: expected DISTINCT or primary_expression at byte 17..17
 - `age.expr.query-549`: expected DISTINCT or primary_expression at byte 17..17
 - `age.expr.query-550`: expected DISTINCT or primary_expression at byte 17..17
-- `age.expr.query-551`: query execution failed: Parse error: query produced no plan
-- `age.expr.query-552`: query execution failed: Parse error: query produced no plan
-- `age.expr.query-553`: query execution failed: Parse error: query produced no plan
-- `age.expr.query-554`: query execution failed: Parse error: query produced no plan
-- `age.expr.query-555`: query execution failed: Parse error: query produced no plan
-- `age.expr.query-556`: query execution failed: Parse error: query produced no plan
-- `age.expr.query-557`: query execution failed: Parse error: query produced no plan
-- `age.expr.query-558`: query execution failed: Parse error: query produced no plan
-- `age.expr.query-559`: query execution failed: Parse error: query produced no plan
 - `age.expr.query-560`: expected DISTINCT or primary_expression at byte 17..17
 - `age.expr.query-561`: expected DISTINCT or primary_expression at byte 17..17
 - `age.expr.query-562`: expected DISTINCT or primary_expression at byte 17..17
@@ -2349,13 +2476,13 @@ Generated from `graph/test-results/history.jsonl`. Results are grouped by stable
 - `age.expr.query-567`: expected DISTINCT or primary_expression at byte 13..13
 - `age.expr.query-568`: expected DISTINCT or primary_expression at byte 13..13
 - `age.expr.query-569`: expected DISTINCT or primary_expression at byte 13..13
-- `age.expr.query-570`: query execution failed: Parse error: query produced no plan
+- `age.expr.query-570`: query execution failed: Parse error: no such function: split
 - `age.expr.query-571`: expected DISTINCT or primary_expression at byte 13..13
 - `age.expr.query-572`: expected primary_expression at byte 19..19
 - `age.expr.query-573`: expected primary_expression at byte 24..24
 - `age.expr.query-574`: expected DISTINCT or primary_expression at byte 13..13
 - `age.expr.query-575`: expected DISTINCT or primary_expression at byte 13..13
-- `age.expr.query-576`: query execution failed: Parse error: query produced no plan
+- `age.expr.query-576`: query execution failed: Parse error: no such function: split
 - `age.expr.query-577`: expected DISTINCT or primary_expression at byte 15..15
 - `age.expr.query-578`: expected DISTINCT or primary_expression at byte 15..15
 - `age.expr.query-579`: expected DISTINCT or primary_expression at byte 15..15
@@ -2364,145 +2491,59 @@ Generated from `graph/test-results/history.jsonl`. Results are grouped by stable
 - `age.expr.query-582`: expected DISTINCT or primary_expression at byte 15..15
 - `age.expr.query-583`: expected DISTINCT or primary_expression at byte 15..15
 - `age.expr.query-584`: expected DISTINCT or primary_expression at byte 15..15
-- `age.expr.query-585`: query execution failed: Parse error: query produced no plan
 - `age.expr.query-586`: expected DISTINCT or primary_expression at byte 15..15
 - `age.expr.query-587`: expected DISTINCT or primary_expression at byte 15..15
-- `age.expr.query-588`: query execution failed: Parse error: query produced no plan
+- `age.expr.query-588`: query execution failed: Parse error: wrong number of arguments to function replace()
 - `age.expr.query-589`: expected DISTINCT or primary_expression at byte 15..15
 - `age.expr.query-590`: expected DISTINCT or primary_expression at byte 15..15
 - `age.expr.query-591`: expected DISTINCT or primary_expression at byte 15..15
 - `age.expr.query-592`: expected DISTINCT or primary_expression at byte 15..15
-- `age.expr.query-593`: query execution failed: Parse error: query produced no plan
-- `age.expr.query-594`: query execution failed: Parse error: query produced no plan
-- `age.expr.query-595`: query execution failed: Parse error: query produced no plan
-- `age.expr.query-596`: query execution failed: Parse error: query produced no plan
-- `age.expr.query-597`: query execution failed: Parse error: query produced no plan
-- `age.expr.query-598`: query execution failed: Parse error: query produced no plan
-- `age.expr.query-599`: query execution failed: Parse error: query produced no plan
-- `age.expr.query-600`: query execution failed: Parse error: query produced no plan
+- `age.expr.query-596`: query execution failed: Parse error: no such function: cot
+- `age.expr.query-600`: query execution failed: Parse error: no such function: cot
 - `age.expr.query-601`: expected DISTINCT or primary_expression at byte 11..11
 - `age.expr.query-602`: expected DISTINCT or primary_expression at byte 11..11
 - `age.expr.query-603`: expected DISTINCT or primary_expression at byte 11..11
 - `age.expr.query-604`: expected DISTINCT or primary_expression at byte 11..11
-- `age.expr.query-605`: query execution failed: Parse error: query produced no plan
-- `age.expr.query-606`: query execution failed: Parse error: query produced no plan
-- `age.expr.query-607`: query execution failed: Parse error: query produced no plan
-- `age.expr.query-608`: query execution failed: Parse error: query produced no plan
-- `age.expr.query-609`: query execution failed: Parse error: query produced no plan
-- `age.expr.query-610`: query execution failed: Parse error: query produced no plan
-- `age.expr.query-611`: query execution failed: Parse error: query produced no plan
-- `age.expr.query-612`: query execution failed: Parse error: query produced no plan
-- `age.expr.query-613`: query execution failed: Parse error: query produced no plan
-- `age.expr.query-614`: query execution failed: Parse error: query produced no plan
-- `age.expr.query-615`: query execution failed: Parse error: query produced no plan
-- `age.expr.query-616`: query execution failed: Parse error: query produced no plan
-- `age.expr.query-617`: query execution failed: Parse error: query produced no plan
-- `age.expr.query-618`: query execution failed: Parse error: query produced no plan
-- `age.expr.query-619`: query execution failed: Parse error: query produced no plan
-- `age.expr.query-620`: query execution failed: Parse error: query produced no plan
-- `age.expr.query-621`: query execution failed: Parse error: query produced no plan
-- `age.expr.query-622`: query execution failed: Parse error: query produced no plan
+- `age.expr.query-605`: query execution failed: Parse error: sin function with no arguments
+- `age.expr.query-606`: query execution failed: Parse error: cos function with no arguments
+- `age.expr.query-607`: query execution failed: Parse error: tan function with no arguments
+- `age.expr.query-608`: query execution failed: Parse error: no such function: cot
 - `age.expr.query-623`: expected DISTINCT or primary_expression at byte 12..12
 - `age.expr.query-624`: expected DISTINCT or primary_expression at byte 12..12
 - `age.expr.query-625`: expected DISTINCT or primary_expression at byte 12..12
 - `age.expr.query-626`: expected DISTINCT or primary_expression at byte 13..13
 - `age.expr.query-627`: expected primary_expression at byte 16..16
-- `age.expr.query-628`: query execution failed: Parse error: query produced no plan
-- `age.expr.query-629`: query execution failed: Parse error: query produced no plan
-- `age.expr.query-630`: query execution failed: Parse error: query produced no plan
-- `age.expr.query-631`: query execution failed: Parse error: query produced no plan
-- `age.expr.query-632`: query execution failed: Parse error: query produced no plan
-- `age.expr.query-633`: query execution failed: Parse error: query produced no plan
-- `age.expr.query-634`: query execution failed: Parse error: query produced no plan
-- `age.expr.query-635`: query execution failed: Parse error: query produced no plan
-- `age.expr.query-636`: query execution failed: Parse error: query produced no plan
-- `age.expr.query-637`: query execution failed: Parse error: query produced no plan
-- `age.expr.query-638`: query execution failed: Parse error: query produced no plan
-- `age.expr.query-639`: query execution failed: Parse error: query produced no plan
-- `age.expr.query-640`: query execution failed: Parse error: query produced no plan
-- `age.expr.query-641`: query execution failed: Parse error: query produced no plan
-- `age.expr.query-642`: query execution failed: Parse error: query produced no plan
-- `age.expr.query-643`: query execution failed: Parse error: query produced no plan
-- `age.expr.query-644`: query execution failed: Parse error: query produced no plan
-- `age.expr.query-645`: query execution failed: Parse error: query produced no plan
-- `age.expr.query-646`: query execution failed: Parse error: query produced no plan
-- `age.expr.query-647`: query execution failed: Parse error: query produced no plan
-- `age.expr.query-648`: query execution failed: Parse error: query produced no plan
-- `age.expr.query-649`: query execution failed: Parse error: query produced no plan
-- `age.expr.query-650`: query execution failed: Parse error: query produced no plan
-- `age.expr.query-651`: query execution failed: Parse error: query produced no plan
-- `age.expr.query-652`: query execution failed: Parse error: query produced no plan
+- `age.expr.query-628`: query execution failed: Parse error: asin function with no arguments
+- `age.expr.query-629`: query execution failed: Parse error: acos function with no arguments
+- `age.expr.query-630`: query execution failed: Parse error: atan function with no arguments
+- `age.expr.query-631`: query execution failed: Parse error: atan2 function with no arguments
+- `age.expr.query-632`: query execution failed: Parse error: atan2 function called with not exactly 2 arguments
+- `age.expr.query-639`: query execution failed: Parse error: pi function with arguments
+- `age.expr.query-640`: query execution failed: Parse error: pi function with arguments
+- `age.expr.query-651`: query execution failed: Parse error: radians function with no arguments
+- `age.expr.query-652`: query execution failed: Parse error: degrees function with no arguments
 - `age.expr.query-653`: expected DISTINCT or primary_expression at byte 15..15
 - `age.expr.query-654`: expected DISTINCT or primary_expression at byte 15..15
-- `age.expr.query-655`: query execution failed: Parse error: query produced no plan
-- `age.expr.query-656`: query execution failed: Parse error: query produced no plan
-- `age.expr.query-657`: query execution failed: Parse error: query produced no plan
-- `age.expr.query-658`: query execution failed: Parse error: query produced no plan
-- `age.expr.query-659`: query execution failed: Parse error: query produced no plan
-- `age.expr.query-660`: query execution failed: Parse error: query produced no plan
-- `age.expr.query-661`: query execution failed: Parse error: query produced no plan
-- `age.expr.query-662`: query execution failed: Parse error: query produced no plan
-- `age.expr.query-663`: query execution failed: Parse error: query produced no plan
-- `age.expr.query-664`: query execution failed: Parse error: query produced no plan
-- `age.expr.query-665`: query execution failed: Parse error: query produced no plan
-- `age.expr.query-666`: query execution failed: Parse error: query produced no plan
-- `age.expr.query-667`: query execution failed: Parse error: query produced no plan
-- `age.expr.query-668`: query execution failed: Parse error: query produced no plan
-- `age.expr.query-669`: query execution failed: Parse error: query produced no plan
-- `age.expr.query-670`: query execution failed: Parse error: query produced no plan
-- `age.expr.query-671`: query execution failed: Parse error: query produced no plan
-- `age.expr.query-672`: query execution failed: Parse error: query produced no plan
-- `age.expr.query-673`: query execution failed: Parse error: query produced no plan
-- `age.expr.query-674`: query execution failed: Parse error: query produced no plan
-- `age.expr.query-675`: query execution failed: Parse error: query produced no plan
-- `age.expr.query-676`: query execution failed: Parse error: query produced no plan
-- `age.expr.query-677`: query execution failed: Parse error: query produced no plan
-- `age.expr.query-678`: query execution failed: Parse error: query produced no plan
-- `age.expr.query-679`: query execution failed: Parse error: query produced no plan
-- `age.expr.query-680`: query execution failed: Parse error: query produced no plan
-- `age.expr.query-681`: query execution failed: Parse error: query produced no plan
-- `age.expr.query-682`: query execution failed: Parse error: query produced no plan
-- `age.expr.query-683`: query execution failed: Parse error: query produced no plan
-- `age.expr.query-684`: query execution failed: Parse error: query produced no plan
-- `age.expr.query-685`: query execution failed: Parse error: query produced no plan
-- `age.expr.query-686`: query execution failed: Parse error: query produced no plan
-- `age.expr.query-687`: query execution failed: Parse error: query produced no plan
-- `age.expr.query-688`: query execution failed: Parse error: query produced no plan
-- `age.expr.query-689`: query execution failed: Parse error: query produced no plan
-- `age.expr.query-690`: query execution failed: Parse error: query produced no plan
-- `age.expr.query-691`: query execution failed: Parse error: query produced no plan
-- `age.expr.query-692`: query execution failed: Parse error: query produced no plan
+- `age.expr.query-688`: query execution failed: Parse error: abs function with no arguments
+- `age.expr.query-689`: query execution failed: Parse error: ceil function with no arguments
+- `age.expr.query-690`: query execution failed: Parse error: floor function with no arguments
+- `age.expr.query-691`: query execution failed: Parse error: round function with no arguments
+- `age.expr.query-692`: query execution failed: Parse error: sign function with no arguments
 - `age.expr.query-693`: expected DISTINCT or primary_expression at byte 11..11
 - `age.expr.query-694`: expected DISTINCT or primary_expression at byte 12..12
 - `age.expr.query-695`: expected DISTINCT or primary_expression at byte 13..13
 - `age.expr.query-696`: expected DISTINCT or primary_expression at byte 13..13
 - `age.expr.query-697`: expected DISTINCT or primary_expression at byte 12..12
-- `age.expr.query-698`: query execution failed: Parse error: query produced no plan
-- `age.expr.query-699`: query execution failed: Parse error: query produced no plan
-- `age.expr.query-700`: query execution failed: Parse error: query produced no plan
-- `age.expr.query-701`: query execution failed: Parse error: query produced no plan
-- `age.expr.query-702`: query execution failed: Parse error: query produced no plan
-- `age.expr.query-703`: query execution failed: Parse error: query produced no plan
-- `age.expr.query-704`: query execution failed: Parse error: query produced no plan
-- `age.expr.query-705`: query execution failed: Parse error: query produced no plan
-- `age.expr.query-706`: query execution failed: Parse error: query produced no plan
-- `age.expr.query-707`: query execution failed: Parse error: query produced no plan
-- `age.expr.query-708`: query execution failed: Parse error: query produced no plan
-- `age.expr.query-709`: query execution failed: Parse error: query produced no plan
-- `age.expr.query-710`: query execution failed: Parse error: query produced no plan
-- `age.expr.query-711`: query execution failed: Parse error: query produced no plan
-- `age.expr.query-712`: query execution failed: Parse error: query produced no plan
-- `age.expr.query-713`: query execution failed: Parse error: query produced no plan
-- `age.expr.query-714`: query execution failed: Parse error: query produced no plan
-- `age.expr.query-715`: query execution failed: Parse error: query produced no plan
-- `age.expr.query-716`: query execution failed: Parse error: query produced no plan
+- `age.expr.query-698`: query execution failed: Parse error: no such function: rand
+- `age.expr.query-699`: query execution failed: Parse error: no such function: rand
+- `age.expr.query-700`: query execution failed: Parse error: no such function: rand
+- `age.expr.query-709`: query execution failed: Parse error: log function with no arguments
+- `age.expr.query-710`: query execution failed: Parse error: log10 function with no arguments
+- `age.expr.query-711`: query execution failed: Parse error: no such function: e
+- `age.expr.query-712`: query execution failed: Parse error: no such function: e
+- `age.expr.query-716`: query execution failed: Parse error: exp function with no arguments
 - `age.expr.query-717`: expected DISTINCT or primary_expression at byte 11..11
-- `age.expr.query-718`: query execution failed: Parse error: query produced no plan
-- `age.expr.query-719`: query execution failed: Parse error: query produced no plan
-- `age.expr.query-720`: query execution failed: Parse error: query produced no plan
-- `age.expr.query-721`: query execution failed: Parse error: query produced no plan
-- `age.expr.query-722`: query execution failed: Parse error: query produced no plan
-- `age.expr.query-723`: query execution failed: Parse error: query produced no plan
+- `age.expr.query-723`: query execution failed: Parse error: sqrt function with no arguments
 - `age.expr.query-724`: expected DISTINCT or primary_expression at byte 12..12
 - `age.expr.query-725`: expected EOI, ORDER, SKIP, LIMIT, AS, AND, OR, clause, comparison_op, additive_op, multiplicative_op, or property_suffix at byte 22..22
 - `age.expr.query-726`: expected EOI, ORDER, SKIP, LIMIT, AS, AND, OR, clause, comparison_op, additive_op, multiplicative_op, or property_suffix at byte 22..22
@@ -2524,25 +2565,19 @@ Generated from `graph/test-results/history.jsonl`. Results are grouped by stable
 - `age.expr.query-743`: expected primary_expression at byte 25..25
 - `age.expr.query-744`: expected primary_expression at byte 25..25
 - `age.expr.query-746`: expected DISTINCT or primary_expression at byte 86..86
-- `age.expr.query-747`: query execution failed: Parse error: query produced no plan
-- `age.expr.query-748`: query execution failed: Parse error: query produced no plan
-- `age.expr.query-749`: query execution failed: Parse error: query produced no plan
-- `age.expr.query-750`: query execution failed: Parse error: query produced no plan
-- `age.expr.query-751`: query execution failed: Parse error: query produced no plan
-- `age.expr.query-752`: query execution failed: Parse error: query produced no plan
+- `age.expr.query-750`: query execution failed: Parse error: wrong number of arguments to function avg()
+- `age.expr.query-751`: query execution failed: Parse error: wrong number of arguments to function sum()
 - `age.expr.query-753`: expected DISTINCT or primary_expression at byte 61..61
 - `age.expr.query-754`: expected DISTINCT or primary_expression at byte 61..61
 - `age.expr.query-755`: expected DISTINCT or primary_expression at byte 64..64
 - `age.expr.query-756`: expected DISTINCT or primary_expression at byte 61..61
-- `age.expr.query-757`: query execution failed: Parse error: query produced no plan
-- `age.expr.query-758`: query execution failed: Parse error: query produced no plan
-- `age.expr.query-759`: query execution failed: Parse error: query produced no plan
-- `age.expr.query-760`: query execution failed: Parse error: query produced no plan
+- `age.expr.query-759`: query execution failed: Parse error: wrong number of arguments to function min()
+- `age.expr.query-760`: query execution failed: Parse error: wrong number of arguments to function max()
 - `age.expr.query-761`: query execution failed: Parse error: unknown property `gpa` at byte 25..28
-- `age.expr.query-762`: query execution failed: Parse error: query produced no plan
-- `age.expr.query-763`: query execution failed: Parse error: query produced no plan
-- `age.expr.query-764`: query execution failed: Parse error: query produced no plan
-- `age.expr.query-765`: query execution failed: Parse error: query produced no plan
+- `age.expr.query-762`: query execution failed: Parse error: no such function: stDev
+- `age.expr.query-763`: query execution failed: Parse error: no such function: stDevP
+- `age.expr.query-764`: query execution failed: Parse error: no such function: stDev
+- `age.expr.query-765`: query execution failed: Parse error: no such function: stDevP
 - `age.expr.query-766`: expected primary_expression at byte 39..39
 - `age.expr.query-767`: expected primary_expression at byte 39..39
 - `age.expr.query-768`: expected primary_expression at byte 39..39
@@ -2553,10 +2588,10 @@ Generated from `graph/test-results/history.jsonl`. Results are grouped by stable
 - `age.expr.query-773`: query execution failed: Parse error: unknown property `gpa` at byte 60..63
 - `age.expr.query-774`: query execution failed: Parse error: unknown property `gpa` at byte 27..30
 - `age.expr.query-775`: query execution failed: Parse error: unknown property `zip` at byte 27..30
-- `age.expr.query-776`: query execution failed: Parse error: query produced no plan
-- `age.expr.query-777`: query execution failed: Parse error: query produced no plan
+- `age.expr.query-776`: query execution failed: Parse error: no such function: collect
+- `age.expr.query-777`: query execution failed: Parse error: no such function: collect
 - `age.expr.query-778`: expected primary_expression at byte 24..24
-- `age.expr.query-779`: query execution failed: Parse error: query produced no plan
+- `age.expr.query-779`: query execution failed: Parse error: no such function: collect
 - `age.expr.query-780`: expected primary_expression at byte 25..25
 - `age.expr.query-782`: query execution failed: Parse error: unknown property `zip` at byte 25..28
 - `age.expr.query-783`: query execution failed: Parse error: DISTINCT function arguments is not supported in the initial graph slice at byte 31..52
@@ -2654,10 +2689,10 @@ Generated from `graph/test-results/history.jsonl`. Results are grouped by stable
 - `age.expr.query-882`: query execution failed: Parse error: multiple path patterns is not supported in the initial graph slice at byte 0..94
 - `age.expr.query-883`: query execution failed: Parse error: no such function: keys
 - `age.expr.query-884`: query execution failed: Parse error: no such function: keys
-- `age.expr.query-885`: query execution failed: Parse error: query produced no plan
-- `age.expr.query-886`: query execution failed: Parse error: query produced no plan
-- `age.expr.query-887`: query execution failed: Parse error: query produced no plan
-- `age.expr.query-888`: query execution failed: Parse error: query produced no plan
+- `age.expr.query-885`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 12..35
+- `age.expr.query-886`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 12..14
+- `age.expr.query-887`: query execution failed: Parse error: no such function: keys
+- `age.expr.query-888`: query execution failed: Parse error: no such function: keys
 - `age.expr.query-889`: expected DISTINCT or primary_expression at byte 12..12
 - `age.expr.query-890`: query execution failed: Parse error: named paths is not supported in the initial graph slice at byte 6..16
 - `age.expr.query-891`: expected primary_expression at byte 16..16
@@ -2665,7 +2700,7 @@ Generated from `graph/test-results/history.jsonl`. Results are grouped by stable
 - `age.expr.query-893`: query execution failed: Parse error: named paths is not supported in the initial graph slice at byte 6..17
 - `age.expr.query-894`: query execution failed: Parse error: named paths is not supported in the initial graph slice at byte 6..24
 - `age.expr.query-895`: query execution failed: Parse error: named paths is not supported in the initial graph slice at byte 6..31
-- `age.expr.query-896`: query execution failed: Parse error: query produced no plan
+- `age.expr.query-896`: query execution failed: Parse error: no such function: nodes
 - `age.expr.query-897`: query execution failed: Parse error: no such function: nodes
 - `age.expr.query-898`: expected DISTINCT or primary_expression at byte 23..23
 - `age.expr.query-899`: query execution failed: Parse error: no such function: nodes
@@ -2673,38 +2708,38 @@ Generated from `graph/test-results/history.jsonl`. Results are grouped by stable
 - `age.expr.query-901`: query execution failed: Parse error: named paths is not supported in the initial graph slice at byte 6..17
 - `age.expr.query-902`: query execution failed: Parse error: named paths is not supported in the initial graph slice at byte 6..24
 - `age.expr.query-903`: query execution failed: Parse error: named paths is not supported in the initial graph slice at byte 6..31
-- `age.expr.query-904`: query execution failed: Parse error: query produced no plan
+- `age.expr.query-904`: query execution failed: Parse error: no such function: relationships
 - `age.expr.query-905`: query execution failed: Parse error: no such function: relationships
 - `age.expr.query-906`: expected DISTINCT or primary_expression at byte 31..31
 - `age.expr.query-907`: query execution failed: Parse error: no such function: relationships
 - `age.expr.query-908`: query execution failed: Parse error: no such function: relationships
-- `age.expr.query-909`: query execution failed: Parse error: query produced no plan
-- `age.expr.query-910`: query execution failed: Parse error: query produced no plan
-- `age.expr.query-911`: query execution failed: Parse error: query produced no plan
-- `age.expr.query-912`: query execution failed: Parse error: query produced no plan
-- `age.expr.query-913`: query execution failed: Parse error: query produced no plan
-- `age.expr.query-914`: query execution failed: Parse error: query produced no plan
-- `age.expr.query-915`: query execution failed: Parse error: query produced no plan
-- `age.expr.query-916`: query execution failed: Parse error: query produced no plan
-- `age.expr.query-917`: query execution failed: Parse error: query produced no plan
-- `age.expr.query-918`: query execution failed: Parse error: query produced no plan
-- `age.expr.query-919`: query execution failed: Parse error: query produced no plan
-- `age.expr.query-920`: query execution failed: Parse error: query produced no plan
-- `age.expr.query-921`: query execution failed: Parse error: query produced no plan
-- `age.expr.query-922`: query execution failed: Parse error: query produced no plan
-- `age.expr.query-923`: query execution failed: Parse error: query produced no plan
+- `age.expr.query-909`: query execution failed: Parse error: no such function: range
+- `age.expr.query-910`: query execution failed: Parse error: no such function: range
+- `age.expr.query-911`: query execution failed: Parse error: no such function: range
+- `age.expr.query-912`: query execution failed: Parse error: no such function: range
+- `age.expr.query-913`: query execution failed: Parse error: no such function: range
+- `age.expr.query-914`: query execution failed: Parse error: no such function: range
+- `age.expr.query-915`: query execution failed: Parse error: no such function: range
+- `age.expr.query-916`: query execution failed: Parse error: no such function: range
+- `age.expr.query-917`: query execution failed: Parse error: no such function: range
+- `age.expr.query-918`: query execution failed: Parse error: no such function: range
+- `age.expr.query-919`: query execution failed: Parse error: no such function: range
+- `age.expr.query-920`: query execution failed: Parse error: no such function: range
+- `age.expr.query-921`: query execution failed: Parse error: no such function: range
+- `age.expr.query-922`: query execution failed: Parse error: no such function: range
+- `age.expr.query-923`: query execution failed: Parse error: no such function: tail
 - `age.expr.query-924`: expected primary_expression at byte 13..13
-- `age.expr.query-925`: query execution failed: Parse error: query produced no plan
-- `age.expr.query-926`: query execution failed: Parse error: query produced no plan
-- `age.expr.query-927`: query execution failed: Parse error: query produced no plan
-- `age.expr.query-928`: query execution failed: Parse error: query produced no plan
-- `age.expr.query-929`: query execution failed: Parse error: query produced no plan
+- `age.expr.query-925`: query execution failed: Parse error: no such function: tail
+- `age.expr.query-926`: query execution failed: Parse error: no such function: tail
+- `age.expr.query-927`: query execution failed: Parse error: no such function: tail
+- `age.expr.query-928`: query execution failed: Parse error: unknown variable `abc` at byte 12..15
+- `age.expr.query-929`: query execution failed: Parse error: no such function: tail
 - `age.expr.query-930`: expected primary_expression at byte 24..24
 - `age.expr.query-931`: expected primary_expression at byte 24..24
 - `age.expr.query-932`: expected primary_expression at byte 22..22
 - `age.expr.query-933`: expected primary_expression at byte 22..22
 - `age.expr.query-934`: query execution failed: Parse error: no such function: labels
-- `age.expr.query-935`: query execution failed: Parse error: query produced no plan
+- `age.expr.query-935`: query execution failed: Parse error: no such function: labels
 - `age.expr.query-936`: expected DISTINCT or primary_expression at byte 14..14
 - `age.expr.query-937`: query execution failed: Parse error: mutation clauses in read queries is not supported in the initial graph slice at byte 0..53
 - `age.expr.query-938`: query execution failed: Parse error: mutation clauses in read queries is not supported in the initial graph slice at byte 0..54
@@ -2828,13 +2863,13 @@ Generated from `graph/test-results/history.jsonl`. Results are grouped by stable
 - `age.expr.query-1071`: query execution failed: Parse error: multiple path patterns is not supported in the initial graph slice at byte 0..62
 - `age.expr.query-1072`: query execution failed: Parse error: multiple path patterns is not supported in the initial graph slice at byte 0..78
 - `age.expr.query-1073`: query execution failed: Parse error: multiple path patterns is not supported in the initial graph slice at byte 0..78
-- `age.expr.query-1078`: query execution failed: Parse error: query produced no plan
-- `age.expr.query-1079`: query execution failed: Parse error: query produced no plan
-- `age.expr.query-1080`: query execution failed: Parse error: query produced no plan
-- `age.expr.query-1081`: query execution failed: Parse error: query produced no plan
-- `age.expr.query-1082`: query execution failed: Parse error: query produced no plan
-- `age.expr.query-1083`: query execution failed: Parse error: query produced no plan
-- `age.expr.query-1084`: query execution failed: Parse error: query produced no plan
+- `age.expr.query-1078`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 7..17
+- `age.expr.query-1079`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 7..44
+- `age.expr.query-1080`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 12..21
+- `age.expr.query-1081`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 16..25
+- `age.expr.query-1082`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 7..39
+- `age.expr.query-1083`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 7..31
+- `age.expr.query-1084`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 7..10
 - `age.expr.query-1085`: query execution failed: Parse error: mutation clauses in read queries is not supported in the initial graph slice at byte 0..38
 - `age.expr.query-1086`: query execution failed: Parse error: unknown label `Item` at byte 9..13
 - `age.expr.query-1087`: query execution failed: Parse error: mutation clauses in read queries is not supported in the initial graph slice at byte 0..33
@@ -3147,7 +3182,7 @@ Generated from `graph/test-results/history.jsonl`. Results are grouped by stable
 - `age.list.comprehension.query-61`: expected AND, OR, comparison_op, additive_op, multiplicative_op, or property_suffix at byte 36..36
 - `age.list.comprehension.query-62`: expected AND, OR, comparison_op, additive_op, multiplicative_op, or property_suffix at byte 10..10
 - `age.list.comprehension.query-63`: expected AND, OR, comparison_op, additive_op, multiplicative_op, or property_suffix at byte 10..10
-- `age.list.comprehension.query-64`: query execution failed: Parse error: query produced no plan
+- `age.list.comprehension.query-64`: query execution failed: Parse error: no such function: collect
 - `age.list.comprehension.query-65`: expected AND, OR, comparison_op, additive_op, multiplicative_op, or property_suffix at byte 54..54
 - `age.list.comprehension.query-66`: expected AND, OR, comparison_op, additive_op, multiplicative_op, or property_suffix at byte 54..54
 - `age.list.comprehension.query-67`: expected property_target at byte 45..45
@@ -3190,7 +3225,7 @@ Generated from `graph/test-results/history.jsonl`. Results are grouped by stable
 - `age.list.comprehension.query-104`: expected node_labels or map_literal at byte 9..9
 - `age.list.comprehension.query-105`: expected node_labels or map_literal at byte 9..9
 - `age.list.comprehension.query-106`: query execution failed: Parse error: mutation clauses in read queries is not supported in the initial graph slice at byte 0..42
-- `age.list.comprehension.query-107`: query execution failed: Parse error: query produced no plan
+- `age.list.comprehension.query-107`: query execution failed: Parse error: no such function: collect
 - `age.list.comprehension.query-108`: expected property_target at byte 75..75
 - `age.list.comprehension.query-109`: query execution failed: Parse error: unknown property `list` at byte 10..14
 - `age.list.comprehension.query-110`: expected AND, OR, comparison_op, additive_op, multiplicative_op, or property_suffix at byte 60..60
@@ -3232,12 +3267,12 @@ Generated from `graph/test-results/history.jsonl`. Results are grouped by stable
 - `age.name.validation.query-2`: query execution failed: Parse error: mutation clauses in read queries is not supported in the initial graph slice at byte 0..32
 - `age.name.validation.query-3`: query execution failed: Parse error: mutation clauses in read queries is not supported in the initial graph slice at byte 0..20
 - `age.name.validation.query-4`: query execution failed: Parse error: mutation clauses in read queries is not supported in the initial graph slice at byte 0..31
-- `age.name.validation.query-5`: query execution failed: Parse error: query produced no plan
-- `age.name.validation.query-6`: query execution failed: Parse error: query produced no plan
-- `age.name.validation.query-7`: query execution failed: Parse error: query produced no plan
-- `age.name.validation.query-8`: query execution failed: Parse error: query produced no plan
-- `age.name.validation.query-9`: query execution failed: Parse error: query produced no plan
-- `age.name.validation.query-10`: query execution failed: Parse error: query produced no plan
+- `age.name.validation.query-5`: query execution failed: Parse error: no such function: is_valid_label_name
+- `age.name.validation.query-6`: query execution failed: Parse error: no such function: is_valid_label_name
+- `age.name.validation.query-7`: query execution failed: Parse error: no such function: is_valid_label_name
+- `age.name.validation.query-8`: query execution failed: Parse error: no such function: is_valid_label_name
+- `age.name.validation.query-9`: query execution failed: Parse error: no such function: is_valid_label_name
+- `age.name.validation.query-10`: query execution failed: Parse error: no such function: is_valid_label_name
 - `age.pattern.expression.query-1`: query execution failed: Parse error: mutation clauses in read queries is not supported in the initial graph slice at byte 0..185
 - `age.pattern.expression.query-2`: expected primary_expression at byte 44..44
 - `age.pattern.expression.query-3`: expected primary_expression at byte 36..36
@@ -3250,7 +3285,6 @@ Generated from `graph/test-results/history.jsonl`. Results are grouped by stable
 - `age.pattern.expression.query-10`: expected primary_expression at byte 51..51
 - `age.pattern.expression.query-11`: expected primary_expression at byte 32..32
 - `age.pattern.expression.query-12`: expected primary_expression at byte 39..39
-- `age.pattern.expression.query-13`: query execution failed: Parse error: query produced no plan
 - `age.pattern.expression.query-15`: expected primary_expression at byte 41..41
 - `age.pattern.expression.query-16`: expected primary_expression at byte 41..41
 - `age.pattern.expression.query-17`: expected EOI, ORDER, SKIP, LIMIT, AS, AND, OR, clause, comparison_op, additive_op, multiplicative_op, or property_suffix at byte 52..52
@@ -3407,10 +3441,7 @@ Generated from `graph/test-results/history.jsonl`. Results are grouped by stable
 - `age.predicate.functions.query-59`: expected AND, OR, comparison_op, additive_op, multiplicative_op, or property_suffix at byte 13..13
 - `age.predicate.functions.query-60`: expected AND, OR, comparison_op, additive_op, multiplicative_op, or property_suffix at byte 14..14
 - `age.predicate.functions.query-61`: expected AND, OR, comparison_op, additive_op, multiplicative_op, or property_suffix at byte 13..13
-- `age.predicate.functions.query-62`: query execution failed: Parse error: query produced no plan
-- `age.reserved.keyword.alias.query-1`: query execution failed: Parse error: query produced no plan
-- `age.reserved.keyword.alias.query-2`: query execution failed: Parse error: query produced no plan
-- `age.reserved.keyword.alias.query-3`: query execution failed: Parse error: query produced no plan
+- `age.predicate.functions.query-62`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 7..35
 - `age.reserved.keyword.alias.query-4`: expected identifier at byte 12..12
 - `age.reserved.keyword.alias.query-5`: expected identifier at byte 12..12
 - `age.reserved.keyword.alias.query-6`: expected identifier at byte 12..12
@@ -3419,36 +3450,12 @@ Generated from `graph/test-results/history.jsonl`. Results are grouped by stable
 - `age.reserved.keyword.alias.query-9`: expected identifier at byte 12..12
 - `age.reserved.keyword.alias.query-10`: expected identifier at byte 12..12
 - `age.reserved.keyword.alias.query-11`: expected identifier at byte 12..12
-- `age.reserved.keyword.alias.query-12`: query execution failed: Parse error: query produced no plan
-- `age.reserved.keyword.alias.query-13`: query execution failed: Parse error: query produced no plan
-- `age.reserved.keyword.alias.query-14`: query execution failed: Parse error: query produced no plan
-- `age.reserved.keyword.alias.query-15`: query execution failed: Parse error: query produced no plan
-- `age.reserved.keyword.alias.query-16`: query execution failed: Parse error: query produced no plan
-- `age.reserved.keyword.alias.query-17`: query execution failed: Parse error: query produced no plan
-- `age.reserved.keyword.alias.query-18`: query execution failed: Parse error: query produced no plan
-- `age.reserved.keyword.alias.query-19`: query execution failed: Parse error: query produced no plan
 - `age.reserved.keyword.alias.query-20`: expected identifier at byte 37..37
-- `age.reserved.keyword.alias.query-21`: query execution failed: Parse error: query produced no plan
 - `age.reserved.keyword.alias.query-23`: expected identifier at byte 12..12
 - `age.reserved.keyword.alias.query-24`: expected identifier at byte 12..12
 - `age.reserved.keyword.alias.query-25`: expected identifier at byte 12..12
-- `age.reserved.keyword.alias.query-26`: query execution failed: Parse error: query produced no plan
-- `age.reserved.keyword.alias.query-28`: query execution failed: Parse error: query produced no plan
-- `age.reserved.keyword.alias.query-29`: query execution failed: Parse error: query produced no plan
-- `age.reserved.keyword.alias.query-30`: query execution failed: Parse error: query produced no plan
-- `age.reserved.keyword.alias.query-31`: query execution failed: Parse error: query produced no plan
-- `age.scan.query-1`: query execution failed: Parse error: query produced no plan
 - `age.scan.query-2`: expected clause at byte 0..0
-- `age.scan.query-3`: query execution failed: Parse error: query produced no plan
-- `age.scan.query-4`: query execution failed: Parse error: query produced no plan
-- `age.scan.query-5`: query execution failed: Parse error: query produced no plan
-- `age.scan.query-6`: query execution failed: Parse error: query produced no plan
-- `age.scan.query-7`: query execution failed: Parse error: query produced no plan
-- `age.scan.query-8`: query execution failed: Parse error: query produced no plan
-- `age.scan.query-9`: query execution failed: Parse error: query produced no plan
 - `age.scan.query-10`: integer literal is outside the supported i64 range at byte 7..28
-- `age.scan.query-11`: query execution failed: Parse error: query produced no plan
-- `age.scan.query-12`: query execution failed: Parse error: query produced no plan
 - `age.scan.query-13`: expected EOI, ORDER, SKIP, LIMIT, AS, AND, OR, clause, comparison_op, additive_op, multiplicative_op, or property_suffix at byte 8..8
 - `age.scan.query-14`: expected EOI, ORDER, SKIP, LIMIT, AS, AND, OR, clause, comparison_op, additive_op, multiplicative_op, or property_suffix at byte 8..8
 - `age.scan.query-15`: expected EOI, ORDER, SKIP, LIMIT, AS, AND, OR, clause, comparison_op, additive_op, multiplicative_op, or property_suffix at byte 8..8
@@ -3466,10 +3473,6 @@ Generated from `graph/test-results/history.jsonl`. Results are grouped by stable
 - `age.scan.query-27`: expected DISTINCT or projection_items at byte 7..7
 - `age.scan.query-28`: expected DISTINCT or projection_items at byte 7..7
 - `age.scan.query-29`: expected DISTINCT or projection_items at byte 7..7
-- `age.scan.query-30`: query execution failed: Parse error: query produced no plan
-- `age.scan.query-31`: query execution failed: Parse error: query produced no plan
-- `age.scan.query-32`: query execution failed: Parse error: query produced no plan
-- `age.scan.query-33`: query execution failed: Parse error: query produced no plan
 - `age.scan.query-34`: expected DISTINCT or projection_items at byte 7..7
 - `age.scan.query-35`: expected DISTINCT or projection_items at byte 7..7
 - `age.scan.query-36`: expected DISTINCT or projection_items at byte 7..7
@@ -3486,14 +3489,14 @@ Generated from `graph/test-results/history.jsonl`. Results are grouped by stable
 - `age.scan.query-47`: expected DISTINCT or projection_items at byte 7..7
 - `age.scan.query-48`: expected DISTINCT or projection_items at byte 7..7
 - `age.scan.query-49`: expected EOI, ORDER, SKIP, LIMIT, AS, AND, OR, clause, comparison_op, additive_op, multiplicative_op, or property_suffix at byte 8..8
-- `age.scan.query-50`: query execution failed: Parse error: query produced no plan
-- `age.scan.query-51`: query execution failed: Parse error: query produced no plan
-- `age.scan.query-52`: query execution failed: Parse error: query produced no plan
-- `age.scan.query-53`: query execution failed: Parse error: query produced no plan
+- `age.scan.query-50`: query execution failed: Parse error: unknown variable `A` at byte 7..8
+- `age.scan.query-51`: query execution failed: Parse error: unknown variable `z` at byte 7..8
+- `age.scan.query-52`: query execution failed: Parse error: unknown variable `$` at byte 7..10
+- `age.scan.query-53`: query execution failed: Parse error: unknown variable `0` at byte 7..10
 - `age.scan.query-54`: expected EOI, ORDER, SKIP, LIMIT, AS, AND, OR, clause, comparison_op, additive_op, multiplicative_op, or property_suffix at byte 9..9
-- `age.scan.query-55`: query execution failed: Parse error: query produced no plan
+- `age.scan.query-55`: query execution failed: Parse error: unknown variable `` at byte 7..9
 - `age.scan.query-56`: expected DISTINCT or projection_items at byte 7..7
-- `age.scan.query-57`: query execution failed: Parse error: query produced no plan
+- `age.scan.query-57`: query execution failed: Parse error: unknown parameter `$0` at byte 7..9
 - `age.security.query-1`: query execution failed: Parse error: mutation clauses in read queries is not supported in the initial graph slice at byte 0..41
 - `age.security.query-2`: query execution failed: Parse error: mutation clauses in read queries is not supported in the initial graph slice at byte 0..39
 - `age.security.query-3`: query execution failed: Parse error: mutation clauses in read queries is not supported in the initial graph slice at byte 0..59
@@ -3619,161 +3622,159 @@ Generated from `graph/test-results/history.jsonl`. Results are grouped by stable
 
 ## Latest `cqlite-deep` run
 
-- Run: `20260718T231155.877415Z-bc55193ee193-corpus-deep`
-- Commit: `bc55193ee193b27223210afb18b28b8237d02e8f` (dirty)
+- Run: `20260718T231637.678608Z-a633cb698caf-corpus-deep`
+- Commit: `a633cb698caf1d2283e33224323d745dc980c92d` (dirty)
 - Package: `0.7.0`
 - Environment: `macos/aarch64` (`dev`)
 - Records: 137
-- Passed: 6
+- Passed: 10
 - Unsupported: 0
-- Failed or changed: 131
+- Failed or changed: 127
 
-### Outcome changes from `20260718T221245.230902Z-bc55193ee193-corpus-deep`
+### Outcome changes from `20260718T231155.877415Z-bc55193ee193-corpus-deep`
 
-- `cqlite.match-queries.match-multiple-nodes.query-2`: Passed
-- `cqlite.return-queries.create-and-return.query-2`: Passed
-- `cqlite.set-queries.set-once.query-3`: Passed
-- `cqlite.set-queries.set-after-create.query-2`: Passed
-- `cqlite.set-queries.set-multiple-times.query-2`: Passed
-- `cqlite.set-queries.delete-property.query-3`: Passed
+- `cqlite.basic-queries.match-return-count.query-1`: Passed
+- `cqlite.basic-queries.match-return-count.query-2`: Passed
+- `cqlite.basic-queries.match-return-count.query-3`: Passed
+- `cqlite.return-queries.return-out-of-bounds.query-1`: Passed
 
 | Test | Kind | Area | Outcome | Duration |
 |---|---|---|---|---:|
-| `cqlite.basic-queries.run-a-to-b.query-1` | `Conformance` | basic_queries | `Failed` | 6.029 ms |
-| `cqlite.basic-queries.run-a-to-b.query-2` | `Conformance` | basic_queries | `Failed` | 9.464 ms |
-| `cqlite.basic-queries.run-a-to-b.query-3` | `Conformance` | basic_queries | `Failed` | 7.250 ms |
-| `cqlite.basic-queries.run-a-edge-b.query-1` | `Conformance` | basic_queries | `Failed` | 6.172 ms |
-| `cqlite.basic-queries.run-a-edge-b.query-2` | `Conformance` | basic_queries | `Failed` | 6.503 ms |
-| `cqlite.basic-queries.run-a-to-a.query-1` | `Conformance` | basic_queries | `Failed` | 5.940 ms |
-| `cqlite.basic-queries.run-a-to-a.query-2` | `Conformance` | basic_queries | `Failed` | 6.032 ms |
-| `cqlite.basic-queries.run-a-edge-a.query-1` | `Conformance` | basic_queries | `Failed` | 6.177 ms |
-| `cqlite.basic-queries.run-a-edge-a.query-2` | `Conformance` | basic_queries | `Failed` | 12.788 ms |
-| `cqlite.basic-queries.run-a-knows-b.query-1` | `Conformance` | basic_queries | `Failed` | 7.657 ms |
-| `cqlite.basic-queries.run-a-knows-b.query-2` | `Conformance` | basic_queries | `Failed` | 6.914 ms |
-| `cqlite.basic-queries.run-a-edge-b-with-where-property.query-1` | `Conformance` | basic_queries | `Failed` | 6.478 ms |
-| `cqlite.basic-queries.run-a-edge-b-with-where-property.query-2` | `Conformance` | basic_queries | `Failed` | 6.565 ms |
-| `cqlite.basic-queries.run-a-edge-b-with-property-map.query-1` | `Conformance` | basic_queries | `Failed` | 6.413 ms |
-| `cqlite.basic-queries.run-a-edge-b-with-property-map.query-2` | `Conformance` | basic_queries | `Failed` | 6.316 ms |
-| `cqlite.basic-queries.run-a-edge-b-with-where-id.query-1` | `Conformance` | basic_queries | `Failed` | 6.822 ms |
-| `cqlite.basic-queries.run-a-edge-b-with-where-id.query-2` | `Conformance` | basic_queries | `Failed` | 7.297 ms |
-| `cqlite.basic-queries.run-a-where-with-parameters.query-1` | `Conformance` | basic_queries | `Failed` | 6.940 ms |
-| `cqlite.basic-queries.run-a-where-with-parameters.query-2` | `Conformance` | basic_queries | `Failed` | 6.551 ms |
-| `cqlite.basic-queries.run-set.query-1` | `Conformance` | basic_queries | `Failed` | 6.299 ms |
-| `cqlite.basic-queries.run-set.query-2` | `Conformance` | basic_queries | `Failed` | 5.806 ms |
-| `cqlite.basic-queries.run-set.query-3` | `Conformance` | basic_queries | `Failed` | 5.865 ms |
-| `cqlite.basic-queries.return-from-set.query-1` | `Conformance` | basic_queries | `Failed` | 5.924 ms |
-| `cqlite.basic-queries.return-from-set.query-2` | `Conformance` | basic_queries | `Failed` | 5.643 ms |
-| `cqlite.basic-queries.return-from-set.query-3` | `Conformance` | basic_queries | `Failed` | 5.894 ms |
-| `cqlite.basic-queries.run-delete-node.query-1` | `Conformance` | basic_queries | `Failed` | 5.805 ms |
-| `cqlite.basic-queries.run-delete-node.query-2` | `Conformance` | basic_queries | `Failed` | 5.623 ms |
-| `cqlite.basic-queries.run-delete-node.query-3` | `Conformance` | basic_queries | `Failed` | 5.648 ms |
-| `cqlite.basic-queries.run-delete-edge.query-1` | `Conformance` | basic_queries | `Failed` | 5.782 ms |
-| `cqlite.basic-queries.run-delete-edge.query-2` | `Conformance` | basic_queries | `Failed` | 6.310 ms |
-| `cqlite.basic-queries.run-delete-edge.query-3` | `Conformance` | basic_queries | `Failed` | 7.030 ms |
-| `cqlite.basic-queries.run-bad-delete.query-1` | `Conformance` | basic_queries | `Failed` | 6.070 ms |
-| `cqlite.basic-queries.run-bad-delete.query-2` | `Conformance` | basic_queries | `Failed` | 5.485 ms |
-| `cqlite.basic-queries.run-return-label.query-1` | `Conformance` | basic_queries | `Failed` | 5.678 ms |
-| `cqlite.basic-queries.run-return-label.query-2` | `Conformance` | basic_queries | `Failed` | 5.746 ms |
-| `cqlite.basic-queries.match-return-count.query-1` | `Conformance` | basic_queries | `Failed` | 5.431 ms |
-| `cqlite.basic-queries.match-return-count.query-2` | `Conformance` | basic_queries | `Failed` | 5.698 ms |
-| `cqlite.basic-queries.match-return-count.query-3` | `Conformance` | basic_queries | `Failed` | 5.236 ms |
-| `cqlite.basic-queries.match-multiple-edges.query-1` | `Conformance` | basic_queries | `Failed` | 5.364 ms |
-| `cqlite.basic-queries.match-multiple-edges.query-2` | `Conformance` | basic_queries | `Failed` | 0.031 ms |
-| `cqlite.create-queries.create-label-only.query-1` | `Conformance` | create_queries | `Failed` | 5.272 ms |
-| `cqlite.create-queries.create-label-only.query-2` | `Conformance` | create_queries | `Failed` | 5.275 ms |
-| `cqlite.create-queries.create-with-properties.query-1` | `Conformance` | create_queries | `Failed` | 5.453 ms |
-| `cqlite.create-queries.create-with-properties.query-2` | `Conformance` | create_queries | `Failed` | 5.177 ms |
-| `cqlite.create-queries.create-with-properties-from-parameters.query-1` | `Conformance` | create_queries | `Failed` | 5.378 ms |
-| `cqlite.create-queries.create-with-properties-from-parameters.query-2` | `Conformance` | create_queries | `Failed` | 5.280 ms |
-| `cqlite.create-queries.create-edges-with-label.query-1` | `Conformance` | create_queries | `Failed` | 5.312 ms |
-| `cqlite.create-queries.create-edges-with-label.query-2` | `Conformance` | create_queries | `Failed` | 5.714 ms |
-| `cqlite.delete-queries.delete-node.query-1` | `Conformance` | delete_queries | `Failed` | 5.270 ms |
-| `cqlite.delete-queries.delete-node.query-2` | `Conformance` | delete_queries | `Failed` | 5.315 ms |
-| `cqlite.delete-queries.delete-node.query-3` | `Conformance` | delete_queries | `Failed` | 5.151 ms |
-| `cqlite.delete-queries.delete-node.query-4` | `Conformance` | delete_queries | `Failed` | 5.304 ms |
-| `cqlite.delete-queries.double-delete-node.query-1` | `Conformance` | delete_queries | `Failed` | 5.115 ms |
-| `cqlite.delete-queries.double-delete-node.query-2` | `Conformance` | delete_queries | `Failed` | 5.261 ms |
-| `cqlite.delete-queries.double-delete-node.query-3` | `Conformance` | delete_queries | `Failed` | 5.224 ms |
-| `cqlite.delete-queries.double-delete-node.query-4` | `Conformance` | delete_queries | `Failed` | 5.520 ms |
-| `cqlite.delete-queries.delete-edge.query-1` | `Conformance` | delete_queries | `Failed` | 5.343 ms |
-| `cqlite.delete-queries.delete-edge.query-2` | `Conformance` | delete_queries | `Failed` | 0.035 ms |
-| `cqlite.delete-queries.delete-edge.query-3` | `Conformance` | delete_queries | `Failed` | 5.470 ms |
-| `cqlite.delete-queries.delete-edge.query-4` | `Conformance` | delete_queries | `Failed` | 0.005 ms |
-| `cqlite.delete-queries.connected-delete-fails.query-1` | `Conformance` | delete_queries | `Failed` | 5.300 ms |
-| `cqlite.delete-queries.connected-delete-fails.query-2` | `Conformance` | delete_queries | `Failed` | 5.461 ms |
-| `cqlite.delete-queries.connected-delete-fails.query-3` | `Conformance` | delete_queries | `Failed` | 5.615 ms |
-| `cqlite.delete-queries.connected-delete-fails.query-4` | `Conformance` | delete_queries | `Failed` | 5.415 ms |
-| `cqlite.match-queries.create-test-graph.query-1` | `Conformance` | match_queries | `Failed` | 5.855 ms |
-| `cqlite.match-queries.match-all-nodes.query-1` | `Conformance` | match_queries | `Failed` | 5.662 ms |
-| `cqlite.match-queries.match-multiple-nodes.query-1` | `Conformance` | match_queries | `Failed` | 5.444 ms |
-| `cqlite.match-queries.match-multiple-nodes.query-2` | `Conformance` | match_queries | `Passed` | 5.298 ms |
-| `cqlite.match-queries.match-single-directed-edge.query-1` | `Conformance` | match_queries | `Failed` | 5.652 ms |
-| `cqlite.match-queries.match-single-undirected-edge.query-1` | `Conformance` | match_queries | `Failed` | 5.813 ms |
-| `cqlite.match-queries.match-single-path.query-1` | `Conformance` | match_queries | `Failed` | 0.035 ms |
-| `cqlite.match-queries.match-path-with-multiple-clauses.query-1` | `Conformance` | match_queries | `Failed` | 0.028 ms |
-| `cqlite.match-queries.match-long-path.query-1` | `Conformance` | match_queries | `Failed` | 0.026 ms |
-| `cqlite.match-queries.match-labeled-nodes.query-1` | `Conformance` | match_queries | `Failed` | 5.160 ms |
-| `cqlite.match-queries.match-labeled-nodes.query-2` | `Conformance` | match_queries | `Failed` | 5.233 ms |
-| `cqlite.match-queries.match-labeled-nodes.query-3` | `Conformance` | match_queries | `Failed` | 5.376 ms |
-| `cqlite.match-queries.match-labeled-edges.query-1` | `Conformance` | match_queries | `Failed` | 5.186 ms |
-| `cqlite.match-queries.match-labeled-edges.query-2` | `Conformance` | match_queries | `Failed` | 5.442 ms |
-| `cqlite.match-queries.match-nodes-with-properties.query-1` | `Conformance` | match_queries | `Failed` | 5.409 ms |
-| `cqlite.match-queries.match-nodes-with-properties.query-2` | `Conformance` | match_queries | `Failed` | 5.430 ms |
-| `cqlite.match-queries.match-nodes-with-properties.query-3` | `Conformance` | match_queries | `Failed` | 5.295 ms |
-| `cqlite.match-queries.match-edges-with-properties.query-1` | `Conformance` | match_queries | `Failed` | 5.206 ms |
-| `cqlite.match-queries.match-nodes-with-label.query-1` | `Conformance` | match_queries | `Failed` | 5.350 ms |
-| `cqlite.match-queries-where.create-test-graph.query-1` | `Conformance` | match_queries_where | `Failed` | 6.491 ms |
-| `cqlite.match-queries-where.match-where-node-id-eq.query-1` | `Conformance` | match_queries_where | `Failed` | 5.294 ms |
-| `cqlite.match-queries-where.match-where-node-id-eq.query-2` | `Conformance` | match_queries_where | `Failed` | 5.503 ms |
-| `cqlite.match-queries-where.match-where-node-id-eq-non-id.query-1` | `Conformance` | match_queries_where | `Failed` | 5.562 ms |
-| `cqlite.match-queries-where.match-where-node-label-eq.query-1` | `Conformance` | match_queries_where | `Failed` | 5.359 ms |
-| `cqlite.match-queries-where.match-where-node-label-eq.query-2` | `Conformance` | match_queries_where | `Failed` | 5.753 ms |
-| `cqlite.match-queries-where.match-where-node-prop-eq.query-1` | `Conformance` | match_queries_where | `Failed` | 5.443 ms |
-| `cqlite.match-queries-where.match-where-node-prop.query-1` | `Conformance` | match_queries_where | `Failed` | 5.370 ms |
-| `cqlite.match-queries-where.match-where-not-node-prop.query-1` | `Conformance` | match_queries_where | `Failed` | 0.047 ms |
-| `cqlite.match-queries-where.match-where-node-prop-eq-true-false.query-1` | `Conformance` | match_queries_where | `Failed` | 6.031 ms |
-| `cqlite.match-queries-where.match-where-node-prop-eq-true-false.query-2` | `Conformance` | match_queries_where | `Failed` | 5.446 ms |
-| `cqlite.match-queries-where.match-where-node-prop-ne-null.query-1` | `Conformance` | match_queries_where | `Failed` | 5.548 ms |
-| `cqlite.match-queries-where.match-where-node-prop-lt-or-gt.query-1` | `Conformance` | match_queries_where | `Failed` | 5.565 ms |
-| `cqlite.match-queries-where.match-where-node-prop-lt-or-gt.query-2` | `Conformance` | match_queries_where | `Failed` | 6.016 ms |
-| `cqlite.match-queries-where.match-where-node-prop-lt-or-gt.query-3` | `Conformance` | match_queries_where | `Failed` | 5.676 ms |
-| `cqlite.match-queries-where.match-where-edge-id-eq.query-1` | `Conformance` | match_queries_where | `Failed` | 5.554 ms |
-| `cqlite.match-queries-where.match-where-edge-id-eq.query-2` | `Conformance` | match_queries_where | `Failed` | 5.677 ms |
-| `cqlite.match-queries-where.match-where-edge-prop-eq.query-1` | `Conformance` | match_queries_where | `Failed` | 5.873 ms |
-| `cqlite.match-queries-where.match-where-edge-prop-gt.query-1` | `Conformance` | match_queries_where | `Failed` | 5.501 ms |
-| `cqlite.match-queries-where.match-where-a-or-b.query-1` | `Conformance` | match_queries_where | `Failed` | 5.882 ms |
-| `cqlite.match-queries-where.match-long-path-with-id-constraint.query-1` | `Conformance` | match_queries_where | `Failed` | 0.038 ms |
+| `cqlite.basic-queries.run-a-to-b.query-1` | `Conformance` | basic_queries | `Failed` | 5.164 ms |
+| `cqlite.basic-queries.run-a-to-b.query-2` | `Conformance` | basic_queries | `Failed` | 5.328 ms |
+| `cqlite.basic-queries.run-a-to-b.query-3` | `Conformance` | basic_queries | `Failed` | 5.892 ms |
+| `cqlite.basic-queries.run-a-edge-b.query-1` | `Conformance` | basic_queries | `Failed` | 5.311 ms |
+| `cqlite.basic-queries.run-a-edge-b.query-2` | `Conformance` | basic_queries | `Failed` | 5.917 ms |
+| `cqlite.basic-queries.run-a-to-a.query-1` | `Conformance` | basic_queries | `Failed` | 5.678 ms |
+| `cqlite.basic-queries.run-a-to-a.query-2` | `Conformance` | basic_queries | `Failed` | 5.350 ms |
+| `cqlite.basic-queries.run-a-edge-a.query-1` | `Conformance` | basic_queries | `Failed` | 5.621 ms |
+| `cqlite.basic-queries.run-a-edge-a.query-2` | `Conformance` | basic_queries | `Failed` | 5.372 ms |
+| `cqlite.basic-queries.run-a-knows-b.query-1` | `Conformance` | basic_queries | `Failed` | 5.501 ms |
+| `cqlite.basic-queries.run-a-knows-b.query-2` | `Conformance` | basic_queries | `Failed` | 5.779 ms |
+| `cqlite.basic-queries.run-a-edge-b-with-where-property.query-1` | `Conformance` | basic_queries | `Failed` | 5.330 ms |
+| `cqlite.basic-queries.run-a-edge-b-with-where-property.query-2` | `Conformance` | basic_queries | `Failed` | 5.753 ms |
+| `cqlite.basic-queries.run-a-edge-b-with-property-map.query-1` | `Conformance` | basic_queries | `Failed` | 5.290 ms |
+| `cqlite.basic-queries.run-a-edge-b-with-property-map.query-2` | `Conformance` | basic_queries | `Failed` | 5.477 ms |
+| `cqlite.basic-queries.run-a-edge-b-with-where-id.query-1` | `Conformance` | basic_queries | `Failed` | 5.503 ms |
+| `cqlite.basic-queries.run-a-edge-b-with-where-id.query-2` | `Conformance` | basic_queries | `Failed` | 5.413 ms |
+| `cqlite.basic-queries.run-a-where-with-parameters.query-1` | `Conformance` | basic_queries | `Failed` | 5.299 ms |
+| `cqlite.basic-queries.run-a-where-with-parameters.query-2` | `Conformance` | basic_queries | `Failed` | 5.633 ms |
+| `cqlite.basic-queries.run-set.query-1` | `Conformance` | basic_queries | `Failed` | 5.189 ms |
+| `cqlite.basic-queries.run-set.query-2` | `Conformance` | basic_queries | `Failed` | 5.160 ms |
+| `cqlite.basic-queries.run-set.query-3` | `Conformance` | basic_queries | `Failed` | 5.443 ms |
+| `cqlite.basic-queries.return-from-set.query-1` | `Conformance` | basic_queries | `Failed` | 5.442 ms |
+| `cqlite.basic-queries.return-from-set.query-2` | `Conformance` | basic_queries | `Failed` | 5.300 ms |
+| `cqlite.basic-queries.return-from-set.query-3` | `Conformance` | basic_queries | `Failed` | 5.213 ms |
+| `cqlite.basic-queries.run-delete-node.query-1` | `Conformance` | basic_queries | `Failed` | 5.368 ms |
+| `cqlite.basic-queries.run-delete-node.query-2` | `Conformance` | basic_queries | `Failed` | 5.398 ms |
+| `cqlite.basic-queries.run-delete-node.query-3` | `Conformance` | basic_queries | `Failed` | 5.466 ms |
+| `cqlite.basic-queries.run-delete-edge.query-1` | `Conformance` | basic_queries | `Failed` | 5.388 ms |
+| `cqlite.basic-queries.run-delete-edge.query-2` | `Conformance` | basic_queries | `Failed` | 5.635 ms |
+| `cqlite.basic-queries.run-delete-edge.query-3` | `Conformance` | basic_queries | `Failed` | 5.468 ms |
+| `cqlite.basic-queries.run-bad-delete.query-1` | `Conformance` | basic_queries | `Failed` | 5.306 ms |
+| `cqlite.basic-queries.run-bad-delete.query-2` | `Conformance` | basic_queries | `Failed` | 5.152 ms |
+| `cqlite.basic-queries.run-return-label.query-1` | `Conformance` | basic_queries | `Failed` | 5.263 ms |
+| `cqlite.basic-queries.run-return-label.query-2` | `Conformance` | basic_queries | `Failed` | 5.378 ms |
+| `cqlite.basic-queries.match-return-count.query-1` | `Conformance` | basic_queries | `Passed` | 5.290 ms |
+| `cqlite.basic-queries.match-return-count.query-2` | `Conformance` | basic_queries | `Passed` | 5.405 ms |
+| `cqlite.basic-queries.match-return-count.query-3` | `Conformance` | basic_queries | `Passed` | 5.235 ms |
+| `cqlite.basic-queries.match-multiple-edges.query-1` | `Conformance` | basic_queries | `Failed` | 5.297 ms |
+| `cqlite.basic-queries.match-multiple-edges.query-2` | `Conformance` | basic_queries | `Failed` | 0.030 ms |
+| `cqlite.create-queries.create-label-only.query-1` | `Conformance` | create_queries | `Failed` | 5.179 ms |
+| `cqlite.create-queries.create-label-only.query-2` | `Conformance` | create_queries | `Failed` | 5.319 ms |
+| `cqlite.create-queries.create-with-properties.query-1` | `Conformance` | create_queries | `Failed` | 5.378 ms |
+| `cqlite.create-queries.create-with-properties.query-2` | `Conformance` | create_queries | `Failed` | 5.224 ms |
+| `cqlite.create-queries.create-with-properties-from-parameters.query-1` | `Conformance` | create_queries | `Failed` | 5.386 ms |
+| `cqlite.create-queries.create-with-properties-from-parameters.query-2` | `Conformance` | create_queries | `Failed` | 5.211 ms |
+| `cqlite.create-queries.create-edges-with-label.query-1` | `Conformance` | create_queries | `Failed` | 5.490 ms |
+| `cqlite.create-queries.create-edges-with-label.query-2` | `Conformance` | create_queries | `Failed` | 5.742 ms |
+| `cqlite.delete-queries.delete-node.query-1` | `Conformance` | delete_queries | `Failed` | 5.602 ms |
+| `cqlite.delete-queries.delete-node.query-2` | `Conformance` | delete_queries | `Failed` | 5.721 ms |
+| `cqlite.delete-queries.delete-node.query-3` | `Conformance` | delete_queries | `Failed` | 5.405 ms |
+| `cqlite.delete-queries.delete-node.query-4` | `Conformance` | delete_queries | `Failed` | 5.660 ms |
+| `cqlite.delete-queries.double-delete-node.query-1` | `Conformance` | delete_queries | `Failed` | 5.346 ms |
+| `cqlite.delete-queries.double-delete-node.query-2` | `Conformance` | delete_queries | `Failed` | 5.572 ms |
+| `cqlite.delete-queries.double-delete-node.query-3` | `Conformance` | delete_queries | `Failed` | 5.412 ms |
+| `cqlite.delete-queries.double-delete-node.query-4` | `Conformance` | delete_queries | `Failed` | 5.397 ms |
+| `cqlite.delete-queries.delete-edge.query-1` | `Conformance` | delete_queries | `Failed` | 5.248 ms |
+| `cqlite.delete-queries.delete-edge.query-2` | `Conformance` | delete_queries | `Failed` | 0.032 ms |
+| `cqlite.delete-queries.delete-edge.query-3` | `Conformance` | delete_queries | `Failed` | 5.141 ms |
+| `cqlite.delete-queries.delete-edge.query-4` | `Conformance` | delete_queries | `Failed` | 0.004 ms |
+| `cqlite.delete-queries.connected-delete-fails.query-1` | `Conformance` | delete_queries | `Failed` | 5.223 ms |
+| `cqlite.delete-queries.connected-delete-fails.query-2` | `Conformance` | delete_queries | `Failed` | 5.545 ms |
+| `cqlite.delete-queries.connected-delete-fails.query-3` | `Conformance` | delete_queries | `Failed` | 5.475 ms |
+| `cqlite.delete-queries.connected-delete-fails.query-4` | `Conformance` | delete_queries | `Failed` | 5.970 ms |
+| `cqlite.match-queries.create-test-graph.query-1` | `Conformance` | match_queries | `Failed` | 6.084 ms |
+| `cqlite.match-queries.match-all-nodes.query-1` | `Conformance` | match_queries | `Failed` | 7.163 ms |
+| `cqlite.match-queries.match-multiple-nodes.query-1` | `Conformance` | match_queries | `Failed` | 5.990 ms |
+| `cqlite.match-queries.match-multiple-nodes.query-2` | `Conformance` | match_queries | `Passed` | 5.410 ms |
+| `cqlite.match-queries.match-single-directed-edge.query-1` | `Conformance` | match_queries | `Failed` | 5.628 ms |
+| `cqlite.match-queries.match-single-undirected-edge.query-1` | `Conformance` | match_queries | `Failed` | 5.751 ms |
+| `cqlite.match-queries.match-single-path.query-1` | `Conformance` | match_queries | `Failed` | 0.036 ms |
+| `cqlite.match-queries.match-path-with-multiple-clauses.query-1` | `Conformance` | match_queries | `Failed` | 0.027 ms |
+| `cqlite.match-queries.match-long-path.query-1` | `Conformance` | match_queries | `Failed` | 0.025 ms |
+| `cqlite.match-queries.match-labeled-nodes.query-1` | `Conformance` | match_queries | `Failed` | 5.587 ms |
+| `cqlite.match-queries.match-labeled-nodes.query-2` | `Conformance` | match_queries | `Failed` | 5.290 ms |
+| `cqlite.match-queries.match-labeled-nodes.query-3` | `Conformance` | match_queries | `Failed` | 5.319 ms |
+| `cqlite.match-queries.match-labeled-edges.query-1` | `Conformance` | match_queries | `Failed` | 5.408 ms |
+| `cqlite.match-queries.match-labeled-edges.query-2` | `Conformance` | match_queries | `Failed` | 6.046 ms |
+| `cqlite.match-queries.match-nodes-with-properties.query-1` | `Conformance` | match_queries | `Failed` | 5.651 ms |
+| `cqlite.match-queries.match-nodes-with-properties.query-2` | `Conformance` | match_queries | `Failed` | 5.565 ms |
+| `cqlite.match-queries.match-nodes-with-properties.query-3` | `Conformance` | match_queries | `Failed` | 5.737 ms |
+| `cqlite.match-queries.match-edges-with-properties.query-1` | `Conformance` | match_queries | `Failed` | 5.425 ms |
+| `cqlite.match-queries.match-nodes-with-label.query-1` | `Conformance` | match_queries | `Failed` | 5.499 ms |
+| `cqlite.match-queries-where.create-test-graph.query-1` | `Conformance` | match_queries_where | `Failed` | 7.835 ms |
+| `cqlite.match-queries-where.match-where-node-id-eq.query-1` | `Conformance` | match_queries_where | `Failed` | 9.548 ms |
+| `cqlite.match-queries-where.match-where-node-id-eq.query-2` | `Conformance` | match_queries_where | `Failed` | 5.239 ms |
+| `cqlite.match-queries-where.match-where-node-id-eq-non-id.query-1` | `Conformance` | match_queries_where | `Failed` | 5.433 ms |
+| `cqlite.match-queries-where.match-where-node-label-eq.query-1` | `Conformance` | match_queries_where | `Failed` | 5.372 ms |
+| `cqlite.match-queries-where.match-where-node-label-eq.query-2` | `Conformance` | match_queries_where | `Failed` | 5.477 ms |
+| `cqlite.match-queries-where.match-where-node-prop-eq.query-1` | `Conformance` | match_queries_where | `Failed` | 5.359 ms |
+| `cqlite.match-queries-where.match-where-node-prop.query-1` | `Conformance` | match_queries_where | `Failed` | 5.244 ms |
+| `cqlite.match-queries-where.match-where-not-node-prop.query-1` | `Conformance` | match_queries_where | `Failed` | 0.046 ms |
+| `cqlite.match-queries-where.match-where-node-prop-eq-true-false.query-1` | `Conformance` | match_queries_where | `Failed` | 5.224 ms |
+| `cqlite.match-queries-where.match-where-node-prop-eq-true-false.query-2` | `Conformance` | match_queries_where | `Failed` | 5.238 ms |
+| `cqlite.match-queries-where.match-where-node-prop-ne-null.query-1` | `Conformance` | match_queries_where | `Failed` | 5.598 ms |
+| `cqlite.match-queries-where.match-where-node-prop-lt-or-gt.query-1` | `Conformance` | match_queries_where | `Failed` | 5.255 ms |
+| `cqlite.match-queries-where.match-where-node-prop-lt-or-gt.query-2` | `Conformance` | match_queries_where | `Failed` | 5.204 ms |
+| `cqlite.match-queries-where.match-where-node-prop-lt-or-gt.query-3` | `Conformance` | match_queries_where | `Failed` | 5.236 ms |
+| `cqlite.match-queries-where.match-where-edge-id-eq.query-1` | `Conformance` | match_queries_where | `Failed` | 5.482 ms |
+| `cqlite.match-queries-where.match-where-edge-id-eq.query-2` | `Conformance` | match_queries_where | `Failed` | 5.460 ms |
+| `cqlite.match-queries-where.match-where-edge-prop-eq.query-1` | `Conformance` | match_queries_where | `Failed` | 5.462 ms |
+| `cqlite.match-queries-where.match-where-edge-prop-gt.query-1` | `Conformance` | match_queries_where | `Failed` | 5.569 ms |
+| `cqlite.match-queries-where.match-where-a-or-b.query-1` | `Conformance` | match_queries_where | `Failed` | 5.524 ms |
+| `cqlite.match-queries-where.match-long-path-with-id-constraint.query-1` | `Conformance` | match_queries_where | `Failed` | 0.036 ms |
 | `cqlite.match-queries-where.match-long-path-with-id-constraint.query-2` | `Conformance` | match_queries_where | `Failed` | 0.029 ms |
-| `cqlite.match-queries-where.match-short-path-with-id-constraint.query-1` | `Conformance` | match_queries_where | `Failed` | 0.025 ms |
-| `cqlite.return-queries.return-parameter.query-1` | `Conformance` | return_queries | `Failed` | 5.262 ms |
-| `cqlite.return-queries.return-id-of.query-1` | `Conformance` | return_queries | `Failed` | 5.708 ms |
-| `cqlite.return-queries.return-id-of.query-2` | `Conformance` | return_queries | `Failed` | 5.654 ms |
-| `cqlite.return-queries.return-label-of.query-1` | `Conformance` | return_queries | `Failed` | 5.651 ms |
-| `cqlite.return-queries.return-label-of.query-2` | `Conformance` | return_queries | `Failed` | 5.896 ms |
-| `cqlite.return-queries.create-and-return.query-1` | `Conformance` | return_queries | `Failed` | 5.726 ms |
-| `cqlite.return-queries.create-and-return.query-2` | `Conformance` | return_queries | `Passed` | 5.759 ms |
-| `cqlite.return-queries.set-and-return.query-1` | `Conformance` | return_queries | `Failed` | 5.536 ms |
-| `cqlite.return-queries.set-and-return.query-2` | `Conformance` | return_queries | `Failed` | 5.726 ms |
-| `cqlite.return-queries.delete-and-return.query-1` | `Conformance` | return_queries | `Failed` | 5.693 ms |
-| `cqlite.return-queries.delete-and-return.query-2` | `Conformance` | return_queries | `Failed` | 5.719 ms |
-| `cqlite.return-queries.return-out-of-bounds.query-1` | `Conformance` | return_queries | `Failed` | 5.630 ms |
-| `cqlite.set-queries.set-once.query-1` | `Conformance` | set_queries | `Failed` | 5.601 ms |
-| `cqlite.set-queries.set-once.query-2` | `Conformance` | set_queries | `Failed` | 5.672 ms |
-| `cqlite.set-queries.set-once.query-3` | `Conformance` | set_queries | `Passed` | 5.603 ms |
-| `cqlite.set-queries.set-after-create.query-1` | `Conformance` | set_queries | `Failed` | 5.712 ms |
-| `cqlite.set-queries.set-after-create.query-2` | `Conformance` | set_queries | `Passed` | 5.706 ms |
-| `cqlite.set-queries.set-multiple-times.query-1` | `Conformance` | set_queries | `Failed` | 5.816 ms |
-| `cqlite.set-queries.set-multiple-times.query-2` | `Conformance` | set_queries | `Passed` | 5.647 ms |
-| `cqlite.set-queries.delete-property.query-1` | `Conformance` | set_queries | `Failed` | 5.538 ms |
-| `cqlite.set-queries.delete-property.query-2` | `Conformance` | set_queries | `Failed` | 5.596 ms |
-| `cqlite.set-queries.delete-property.query-3` | `Conformance` | set_queries | `Passed` | 5.693 ms |
-| `cqlite.txn-semantics.concurrent-reader-and-writer.query-1` | `Conformance` | txn_semantics | `Failed` | 5.499 ms |
-| `cqlite.txn-semantics.concurrent-reader-and-writer.query-2` | `Conformance` | txn_semantics | `Failed` | 5.492 ms |
-| `cqlite.txn-semantics.concurrent-reader-and-writer.query-3` | `Conformance` | txn_semantics | `Failed` | 5.532 ms |
-| `cqlite.txn-semantics.concurrent-reader-and-writer.query-4` | `Conformance` | txn_semantics | `Failed` | 5.492 ms |
-| `cqlite.txn-semantics.concurrent-reader-and-writer.query-5` | `Conformance` | txn_semantics | `Failed` | 5.467 ms |
+| `cqlite.match-queries-where.match-short-path-with-id-constraint.query-1` | `Conformance` | match_queries_where | `Failed` | 0.024 ms |
+| `cqlite.return-queries.return-parameter.query-1` | `Conformance` | return_queries | `Failed` | 5.167 ms |
+| `cqlite.return-queries.return-id-of.query-1` | `Conformance` | return_queries | `Failed` | 5.308 ms |
+| `cqlite.return-queries.return-id-of.query-2` | `Conformance` | return_queries | `Failed` | 5.608 ms |
+| `cqlite.return-queries.return-label-of.query-1` | `Conformance` | return_queries | `Failed` | 5.297 ms |
+| `cqlite.return-queries.return-label-of.query-2` | `Conformance` | return_queries | `Failed` | 5.480 ms |
+| `cqlite.return-queries.create-and-return.query-1` | `Conformance` | return_queries | `Failed` | 5.306 ms |
+| `cqlite.return-queries.create-and-return.query-2` | `Conformance` | return_queries | `Passed` | 5.604 ms |
+| `cqlite.return-queries.set-and-return.query-1` | `Conformance` | return_queries | `Failed` | 5.147 ms |
+| `cqlite.return-queries.set-and-return.query-2` | `Conformance` | return_queries | `Failed` | 5.236 ms |
+| `cqlite.return-queries.delete-and-return.query-1` | `Conformance` | return_queries | `Failed` | 5.123 ms |
+| `cqlite.return-queries.delete-and-return.query-2` | `Conformance` | return_queries | `Failed` | 5.469 ms |
+| `cqlite.return-queries.return-out-of-bounds.query-1` | `Conformance` | return_queries | `Passed` | 5.191 ms |
+| `cqlite.set-queries.set-once.query-1` | `Conformance` | set_queries | `Failed` | 5.210 ms |
+| `cqlite.set-queries.set-once.query-2` | `Conformance` | set_queries | `Failed` | 5.175 ms |
+| `cqlite.set-queries.set-once.query-3` | `Conformance` | set_queries | `Passed` | 5.286 ms |
+| `cqlite.set-queries.set-after-create.query-1` | `Conformance` | set_queries | `Failed` | 5.281 ms |
+| `cqlite.set-queries.set-after-create.query-2` | `Conformance` | set_queries | `Passed` | 5.266 ms |
+| `cqlite.set-queries.set-multiple-times.query-1` | `Conformance` | set_queries | `Failed` | 5.442 ms |
+| `cqlite.set-queries.set-multiple-times.query-2` | `Conformance` | set_queries | `Passed` | 5.480 ms |
+| `cqlite.set-queries.delete-property.query-1` | `Conformance` | set_queries | `Failed` | 5.230 ms |
+| `cqlite.set-queries.delete-property.query-2` | `Conformance` | set_queries | `Failed` | 5.213 ms |
+| `cqlite.set-queries.delete-property.query-3` | `Conformance` | set_queries | `Passed` | 5.224 ms |
+| `cqlite.txn-semantics.concurrent-reader-and-writer.query-1` | `Conformance` | txn_semantics | `Failed` | 5.369 ms |
+| `cqlite.txn-semantics.concurrent-reader-and-writer.query-2` | `Conformance` | txn_semantics | `Failed` | 5.261 ms |
+| `cqlite.txn-semantics.concurrent-reader-and-writer.query-3` | `Conformance` | txn_semantics | `Failed` | 5.170 ms |
+| `cqlite.txn-semantics.concurrent-reader-and-writer.query-4` | `Conformance` | txn_semantics | `Failed` | 5.309 ms |
+| `cqlite.txn-semantics.concurrent-reader-and-writer.query-5` | `Conformance` | txn_semantics | `Failed` | 5.614 ms |
 | `cqlite.where-conditions.where-a-and-b.query-1` | `Conformance` | where_conditions | `Failed` | 0.018 ms |
-| `cqlite.where-conditions.where-a-or-b.query-1` | `Conformance` | where_conditions | `Failed` | 0.011 ms |
+| `cqlite.where-conditions.where-a-or-b.query-1` | `Conformance` | where_conditions | `Failed` | 0.010 ms |
 | `cqlite.where-conditions.where-a.query-1` | `Conformance` | where_conditions | `Failed` | 0.009 ms |
 | `cqlite.where-conditions.where-not-a.query-1` | `Conformance` | where_conditions | `Failed` | 0.009 ms |
 
@@ -3827,8 +3828,8 @@ Generated from `graph/test-results/history.jsonl`. Results are grouped by stable
 
 ## Latest `grafeo-deep` run
 
-- Run: `20260718T231155.877415Z-bc55193ee193-corpus-deep`
-- Commit: `bc55193ee193b27223210afb18b28b8237d02e8f` (dirty)
+- Run: `20260718T231637.678608Z-a633cb698caf-corpus-deep`
+- Commit: `a633cb698caf1d2283e33224323d745dc980c92d` (dirty)
 - Package: `0.7.0`
 - Environment: `macos/aarch64` (`dev`)
 - Records: 399
@@ -3836,411 +3837,411 @@ Generated from `graph/test-results/history.jsonl`. Results are grouped by stable
 - Unsupported: 0
 - Failed or changed: 366
 
-### Outcome changes from `20260718T221245.230902Z-bc55193ee193-corpus-deep`
+### Outcome changes from `20260718T231155.877415Z-bc55193ee193-corpus-deep`
 
 - No outcome changes.
 
 | Test | Kind | Area | Outcome | Duration |
 |---|---|---|---|---:|
-| `grafeo.spec.common.index.correctness.create.index.then.query` | `Conformance` | common | `Failed` | 0.021 ms |
+| `grafeo.spec.common.index.correctness.create.index.then.query` | `Conformance` | common | `Failed` | 0.019 ms |
 | `grafeo.spec.common.index.correctness.index.query.no.match` | `Conformance` | common | `Failed` | 0.017 ms |
-| `grafeo.spec.common.index.correctness.index.multiple.matches` | `Conformance` | common | `Failed` | 0.016 ms |
-| `grafeo.spec.common.index.correctness.index.with.null.property` | `Conformance` | common | `Failed` | 0.016 ms |
+| `grafeo.spec.common.index.correctness.index.multiple.matches` | `Conformance` | common | `Failed` | 0.017 ms |
+| `grafeo.spec.common.index.correctness.index.with.null.property` | `Conformance` | common | `Failed` | 0.017 ms |
 | `grafeo.spec.common.index.correctness.index.after.property.update` | `Conformance` | common | `Failed` | 0.003 ms |
 | `grafeo.spec.common.index.correctness.index.old.value.gone.after.update` | `Conformance` | common | `Failed` | 0.003 ms |
 | `grafeo.spec.common.index.correctness.index.after.delete` | `Conformance` | common | `Failed` | 0.003 ms |
 | `grafeo.spec.common.index.correctness.index.remaining.after.delete` | `Conformance` | common | `Failed` | 0.003 ms |
 | `grafeo.spec.common.index.correctness.index.reinsert.after.delete` | `Conformance` | common | `Failed` | 0.003 ms |
-| `grafeo.spec.common.index.correctness.numeric.index.exact.lookup` | `Conformance` | common | `Failed` | 0.015 ms |
+| `grafeo.spec.common.index.correctness.numeric.index.exact.lookup` | `Conformance` | common | `Failed` | 0.016 ms |
 | `grafeo.spec.common.index.correctness.numeric.index.range.query` | `Conformance` | common | `Failed` | 0.003 ms |
-| `grafeo.spec.common.index.correctness.bulk.insert.then.index` | `Conformance` | common | `Failed` | 0.279 ms |
+| `grafeo.spec.common.index.correctness.bulk.insert.then.index` | `Conformance` | common | `Failed` | 0.269 ms |
 | `grafeo.spec.common.index.correctness.index.count.all` | `Conformance` | common | `Failed` | 0.015 ms |
 | `grafeo.spec.common.index.correctness.drop.index.query.still.works` | `Conformance` | common | `Failed` | 0.003 ms |
-| `grafeo.spec.common.null.semantics.negative.limit.returns.empty.cypher.cypher-variant` | `Conformance` | common | `Failed` | 5.607 ms |
-| `grafeo.spec.common.numeric.edge.cases.min.int64.cypher.cypher-variant` | `Conformance` | common | `Failed` | 5.240 ms |
-| `grafeo.spec.common.numeric.edge.cases.nan.literal.keyword.cypher.cypher-variant` | `Conformance` | common | `Failed` | 5.267 ms |
-| `grafeo.spec.common.numeric.edge.cases.inf.literal.keyword.cypher.cypher-variant` | `Conformance` | common | `Failed` | 5.126 ms |
-| `grafeo.spec.lpg.cypher.admin.create.index.on.label.property` | `Conformance` | lpg | `Failed` | 0.005 ms |
-| `grafeo.spec.lpg.cypher.admin.create.index.and.query` | `Conformance` | lpg | `Failed` | 0.023 ms |
+| `grafeo.spec.common.null.semantics.negative.limit.returns.empty.cypher.cypher-variant` | `Conformance` | common | `Failed` | 6.089 ms |
+| `grafeo.spec.common.numeric.edge.cases.min.int64.cypher.cypher-variant` | `Conformance` | common | `Failed` | 5.629 ms |
+| `grafeo.spec.common.numeric.edge.cases.nan.literal.keyword.cypher.cypher-variant` | `Conformance` | common | `Failed` | 5.720 ms |
+| `grafeo.spec.common.numeric.edge.cases.inf.literal.keyword.cypher.cypher-variant` | `Conformance` | common | `Failed` | 5.655 ms |
+| `grafeo.spec.lpg.cypher.admin.create.index.on.label.property` | `Conformance` | lpg | `Failed` | 0.007 ms |
+| `grafeo.spec.lpg.cypher.admin.create.index.and.query` | `Conformance` | lpg | `Failed` | 0.025 ms |
 | `grafeo.spec.lpg.cypher.admin.drop.index` | `Conformance` | lpg | `Failed` | 0.003 ms |
-| `grafeo.spec.lpg.cypher.admin.show.indexes.empty` | `Conformance` | lpg | `Failed` | 0.008 ms |
+| `grafeo.spec.lpg.cypher.admin.show.indexes.empty` | `Conformance` | lpg | `Failed` | 0.009 ms |
 | `grafeo.spec.lpg.cypher.admin.show.indexes.after.create` | `Conformance` | lpg | `Failed` | 0.003 ms |
 | `grafeo.spec.lpg.cypher.admin.explain.match` | `Conformance` | lpg | `Failed` | 0.011 ms |
-| `grafeo.spec.lpg.cypher.admin.profile.match` | `Conformance` | lpg | `Failed` | 0.010 ms |
-| `grafeo.spec.lpg.cypher.comprehensions.advanced.pattern.comprehension.basic` | `Conformance` | lpg | `Failed` | 0.098 ms |
-| `grafeo.spec.lpg.cypher.comprehensions.advanced.pattern.comprehension.with.filter` | `Conformance` | lpg | `Failed` | 0.092 ms |
-| `grafeo.spec.lpg.cypher.comprehensions.advanced.pattern.comprehension.size` | `Conformance` | lpg | `Failed` | 0.100 ms |
-| `grafeo.spec.lpg.cypher.comprehensions.advanced.pattern.comprehension.with.property.extraction` | `Conformance` | lpg | `Failed` | 0.086 ms |
-| `grafeo.spec.lpg.cypher.comprehensions.advanced.list.comprehension.basic` | `Conformance` | lpg | `Failed` | 0.080 ms |
-| `grafeo.spec.lpg.cypher.comprehensions.advanced.list.comprehension.transform` | `Conformance` | lpg | `Failed` | 0.077 ms |
-| `grafeo.spec.lpg.cypher.comprehensions.advanced.list.comprehension.filter.and.transform` | `Conformance` | lpg | `Failed` | 0.075 ms |
-| `grafeo.spec.lpg.cypher.comprehensions.advanced.list.comprehension.nested` | `Conformance` | lpg | `Failed` | 0.083 ms |
-| `grafeo.spec.lpg.cypher.comprehensions.advanced.exists.subquery.actors.with.action.movies` | `Conformance` | lpg | `Failed` | 0.041 ms |
-| `grafeo.spec.lpg.cypher.comprehensions.advanced.not.exists.subquery` | `Conformance` | lpg | `Failed` | 0.039 ms |
-| `grafeo.spec.lpg.cypher.comprehensions.advanced.count.subquery.movies.per.actor` | `Conformance` | lpg | `Failed` | 0.039 ms |
-| `grafeo.spec.lpg.cypher.comprehensions.advanced.count.subquery.prolific.directors` | `Conformance` | lpg | `Failed` | 0.039 ms |
-| `grafeo.spec.lpg.cypher.comprehensions.advanced.call.subquery.basic` | `Conformance` | lpg | `Failed` | 0.030 ms |
-| `grafeo.spec.lpg.cypher.comprehensions.advanced.call.subquery.with.aggregation` | `Conformance` | lpg | `Failed` | 0.029 ms |
-| `grafeo.spec.lpg.cypher.comprehensions.advanced.foreach.set.property` | `Conformance` | lpg | `Failed` | 0.056 ms |
-| `grafeo.spec.lpg.cypher.comprehensions.advanced.foreach.create.relationships` | `Conformance` | lpg | `Failed` | 0.079 ms |
-| `grafeo.spec.lpg.cypher.comprehensions.advanced.actor.collaboration.via.comprehension` | `Conformance` | lpg | `Failed` | 0.102 ms |
-| `grafeo.spec.lpg.cypher.comprehensions.advanced.genre.diversity.per.actor` | `Conformance` | lpg | `Failed` | 0.102 ms |
-| `grafeo.spec.lpg.cypher.constraints.create.unique.constraint` | `Conformance` | lpg | `Failed` | 0.020 ms |
-| `grafeo.spec.lpg.cypher.constraints.unique.constraint.allows.distinct.values` | `Conformance` | lpg | `Failed` | 0.071 ms |
-| `grafeo.spec.lpg.cypher.constraints.unique.constraint.violation` | `Conformance` | lpg | `Failed` | 5.246 ms |
-| `grafeo.spec.lpg.cypher.constraints.unique.constraint.null.allowed` | `Conformance` | lpg | `Failed` | 0.076 ms |
+| `grafeo.spec.lpg.cypher.admin.profile.match` | `Conformance` | lpg | `Failed` | 0.011 ms |
+| `grafeo.spec.lpg.cypher.comprehensions.advanced.pattern.comprehension.basic` | `Conformance` | lpg | `Failed` | 0.102 ms |
+| `grafeo.spec.lpg.cypher.comprehensions.advanced.pattern.comprehension.with.filter` | `Conformance` | lpg | `Failed` | 0.097 ms |
+| `grafeo.spec.lpg.cypher.comprehensions.advanced.pattern.comprehension.size` | `Conformance` | lpg | `Failed` | 0.103 ms |
+| `grafeo.spec.lpg.cypher.comprehensions.advanced.pattern.comprehension.with.property.extraction` | `Conformance` | lpg | `Failed` | 0.089 ms |
+| `grafeo.spec.lpg.cypher.comprehensions.advanced.list.comprehension.basic` | `Conformance` | lpg | `Failed` | 0.086 ms |
+| `grafeo.spec.lpg.cypher.comprehensions.advanced.list.comprehension.transform` | `Conformance` | lpg | `Failed` | 0.082 ms |
+| `grafeo.spec.lpg.cypher.comprehensions.advanced.list.comprehension.filter.and.transform` | `Conformance` | lpg | `Failed` | 0.080 ms |
+| `grafeo.spec.lpg.cypher.comprehensions.advanced.list.comprehension.nested` | `Conformance` | lpg | `Failed` | 0.090 ms |
+| `grafeo.spec.lpg.cypher.comprehensions.advanced.exists.subquery.actors.with.action.movies` | `Conformance` | lpg | `Failed` | 0.044 ms |
+| `grafeo.spec.lpg.cypher.comprehensions.advanced.not.exists.subquery` | `Conformance` | lpg | `Failed` | 0.042 ms |
+| `grafeo.spec.lpg.cypher.comprehensions.advanced.count.subquery.movies.per.actor` | `Conformance` | lpg | `Failed` | 0.044 ms |
+| `grafeo.spec.lpg.cypher.comprehensions.advanced.count.subquery.prolific.directors` | `Conformance` | lpg | `Failed` | 0.042 ms |
+| `grafeo.spec.lpg.cypher.comprehensions.advanced.call.subquery.basic` | `Conformance` | lpg | `Failed` | 0.031 ms |
+| `grafeo.spec.lpg.cypher.comprehensions.advanced.call.subquery.with.aggregation` | `Conformance` | lpg | `Failed` | 0.031 ms |
+| `grafeo.spec.lpg.cypher.comprehensions.advanced.foreach.set.property` | `Conformance` | lpg | `Failed` | 0.059 ms |
+| `grafeo.spec.lpg.cypher.comprehensions.advanced.foreach.create.relationships` | `Conformance` | lpg | `Failed` | 0.084 ms |
+| `grafeo.spec.lpg.cypher.comprehensions.advanced.actor.collaboration.via.comprehension` | `Conformance` | lpg | `Failed` | 0.109 ms |
+| `grafeo.spec.lpg.cypher.comprehensions.advanced.genre.diversity.per.actor` | `Conformance` | lpg | `Failed` | 0.109 ms |
+| `grafeo.spec.lpg.cypher.constraints.create.unique.constraint` | `Conformance` | lpg | `Failed` | 0.021 ms |
+| `grafeo.spec.lpg.cypher.constraints.unique.constraint.allows.distinct.values` | `Conformance` | lpg | `Failed` | 0.076 ms |
+| `grafeo.spec.lpg.cypher.constraints.unique.constraint.violation` | `Conformance` | lpg | `Failed` | 5.766 ms |
+| `grafeo.spec.lpg.cypher.constraints.unique.constraint.null.allowed` | `Conformance` | lpg | `Failed` | 0.084 ms |
 | `grafeo.spec.lpg.cypher.constraints.create.not.null.constraint` | `Conformance` | lpg | `Failed` | 0.022 ms |
-| `grafeo.spec.lpg.cypher.constraints.not.null.constraint.satisfied` | `Conformance` | lpg | `Failed` | 0.073 ms |
-| `grafeo.spec.lpg.cypher.constraints.not.null.constraint.violation` | `Conformance` | lpg | `Failed` | 5.171 ms |
-| `grafeo.spec.lpg.cypher.constraints.not.null.constraint.violation.on.set` | `Conformance` | lpg | `Failed` | 5.198 ms |
-| `grafeo.spec.lpg.cypher.constraints.create.node.key.constraint` | `Conformance` | lpg | `Failed` | 0.024 ms |
-| `grafeo.spec.lpg.cypher.constraints.node.key.allows.different.combinations` | `Conformance` | lpg | `Failed` | 0.085 ms |
-| `grafeo.spec.lpg.cypher.constraints.node.key.violation.duplicate` | `Conformance` | lpg | `Failed` | 5.096 ms |
-| `grafeo.spec.lpg.cypher.constraints.node.key.violation.missing.property` | `Conformance` | lpg | `Failed` | 5.425 ms |
-| `grafeo.spec.lpg.cypher.constraints.drop.constraint` | `Conformance` | lpg | `Failed` | 0.014 ms |
-| `grafeo.spec.lpg.cypher.constraints.drop.nonexistent.constraint` | `Conformance` | lpg | `Passed` | 0.010 ms |
-| `grafeo.spec.lpg.cypher.constraints.drop.constraint.if.exists` | `Conformance` | lpg | `Failed` | 0.011 ms |
-| `grafeo.spec.lpg.cypher.constraints.show.constraints.after.create` | `Conformance` | lpg | `Failed` | 0.013 ms |
-| `grafeo.spec.lpg.cypher.constraints.show.constraints.empty` | `Conformance` | lpg | `Failed` | 0.002 ms |
-| `grafeo.spec.lpg.cypher.expressions.addition` | `Conformance` | lpg | `Failed` | 5.317 ms |
-| `grafeo.spec.lpg.cypher.expressions.subtraction` | `Conformance` | lpg | `Failed` | 5.399 ms |
-| `grafeo.spec.lpg.cypher.expressions.multiplication` | `Conformance` | lpg | `Failed` | 5.300 ms |
-| `grafeo.spec.lpg.cypher.expressions.division` | `Conformance` | lpg | `Failed` | 5.381 ms |
-| `grafeo.spec.lpg.cypher.expressions.modulo` | `Conformance` | lpg | `Failed` | 0.059 ms |
-| `grafeo.spec.lpg.cypher.expressions.power` | `Conformance` | lpg | `Failed` | 0.048 ms |
+| `grafeo.spec.lpg.cypher.constraints.not.null.constraint.satisfied` | `Conformance` | lpg | `Failed` | 0.074 ms |
+| `grafeo.spec.lpg.cypher.constraints.not.null.constraint.violation` | `Conformance` | lpg | `Failed` | 5.768 ms |
+| `grafeo.spec.lpg.cypher.constraints.not.null.constraint.violation.on.set` | `Conformance` | lpg | `Failed` | 5.800 ms |
+| `grafeo.spec.lpg.cypher.constraints.create.node.key.constraint` | `Conformance` | lpg | `Failed` | 0.029 ms |
+| `grafeo.spec.lpg.cypher.constraints.node.key.allows.different.combinations` | `Conformance` | lpg | `Failed` | 0.096 ms |
+| `grafeo.spec.lpg.cypher.constraints.node.key.violation.duplicate` | `Conformance` | lpg | `Failed` | 5.886 ms |
+| `grafeo.spec.lpg.cypher.constraints.node.key.violation.missing.property` | `Conformance` | lpg | `Failed` | 5.696 ms |
+| `grafeo.spec.lpg.cypher.constraints.drop.constraint` | `Conformance` | lpg | `Failed` | 0.015 ms |
+| `grafeo.spec.lpg.cypher.constraints.drop.nonexistent.constraint` | `Conformance` | lpg | `Passed` | 0.011 ms |
+| `grafeo.spec.lpg.cypher.constraints.drop.constraint.if.exists` | `Conformance` | lpg | `Failed` | 0.012 ms |
+| `grafeo.spec.lpg.cypher.constraints.show.constraints.after.create` | `Conformance` | lpg | `Failed` | 0.007 ms |
+| `grafeo.spec.lpg.cypher.constraints.show.constraints.empty` | `Conformance` | lpg | `Failed` | 0.001 ms |
+| `grafeo.spec.lpg.cypher.expressions.addition` | `Conformance` | lpg | `Failed` | 5.794 ms |
+| `grafeo.spec.lpg.cypher.expressions.subtraction` | `Conformance` | lpg | `Failed` | 5.788 ms |
+| `grafeo.spec.lpg.cypher.expressions.multiplication` | `Conformance` | lpg | `Failed` | 5.922 ms |
+| `grafeo.spec.lpg.cypher.expressions.division` | `Conformance` | lpg | `Failed` | 5.341 ms |
+| `grafeo.spec.lpg.cypher.expressions.modulo` | `Conformance` | lpg | `Failed` | 0.063 ms |
+| `grafeo.spec.lpg.cypher.expressions.power` | `Conformance` | lpg | `Failed` | 0.049 ms |
 | `grafeo.spec.lpg.cypher.expressions.unary.minus` | `Conformance` | lpg | `Failed` | 0.034 ms |
-| `grafeo.spec.lpg.cypher.expressions.string.concat` | `Conformance` | lpg | `Failed` | 5.272 ms |
-| `grafeo.spec.lpg.cypher.expressions.equals` | `Conformance` | lpg | `Failed` | 5.264 ms |
-| `grafeo.spec.lpg.cypher.expressions.not.equals` | `Conformance` | lpg | `Failed` | 5.255 ms |
-| `grafeo.spec.lpg.cypher.expressions.less.than` | `Conformance` | lpg | `Failed` | 5.197 ms |
-| `grafeo.spec.lpg.cypher.expressions.greater.equal` | `Conformance` | lpg | `Failed` | 5.186 ms |
-| `grafeo.spec.lpg.cypher.expressions.starts.with` | `Conformance` | lpg | `Failed` | 0.048 ms |
-| `grafeo.spec.lpg.cypher.expressions.ends.with` | `Conformance` | lpg | `Failed` | 0.044 ms |
+| `grafeo.spec.lpg.cypher.expressions.string.concat` | `Conformance` | lpg | `Failed` | 5.594 ms |
+| `grafeo.spec.lpg.cypher.expressions.equals` | `Conformance` | lpg | `Failed` | 5.753 ms |
+| `grafeo.spec.lpg.cypher.expressions.not.equals` | `Conformance` | lpg | `Failed` | 5.297 ms |
+| `grafeo.spec.lpg.cypher.expressions.less.than` | `Conformance` | lpg | `Failed` | 5.312 ms |
+| `grafeo.spec.lpg.cypher.expressions.greater.equal` | `Conformance` | lpg | `Failed` | 5.572 ms |
+| `grafeo.spec.lpg.cypher.expressions.starts.with` | `Conformance` | lpg | `Failed` | 0.057 ms |
+| `grafeo.spec.lpg.cypher.expressions.ends.with` | `Conformance` | lpg | `Failed` | 0.042 ms |
 | `grafeo.spec.lpg.cypher.expressions.contains` | `Conformance` | lpg | `Failed` | 0.040 ms |
 | `grafeo.spec.lpg.cypher.expressions.in.list` | `Conformance` | lpg | `Failed` | 0.039 ms |
-| `grafeo.spec.lpg.cypher.expressions.regex.match` | `Conformance` | lpg | `Failed` | 0.045 ms |
-| `grafeo.spec.lpg.cypher.expressions.is.null` | `Conformance` | lpg | `Failed` | 0.039 ms |
+| `grafeo.spec.lpg.cypher.expressions.regex.match` | `Conformance` | lpg | `Failed` | 0.044 ms |
+| `grafeo.spec.lpg.cypher.expressions.is.null` | `Conformance` | lpg | `Failed` | 0.040 ms |
 | `grafeo.spec.lpg.cypher.expressions.is.not.null` | `Conformance` | lpg | `Failed` | 0.038 ms |
-| `grafeo.spec.lpg.cypher.expressions.case.simple` | `Conformance` | lpg | `Failed` | 0.050 ms |
+| `grafeo.spec.lpg.cypher.expressions.case.simple` | `Conformance` | lpg | `Failed` | 0.052 ms |
 | `grafeo.spec.lpg.cypher.expressions.case.searched` | `Conformance` | lpg | `Failed` | 0.047 ms |
-| `grafeo.spec.lpg.cypher.expressions.list.literal` | `Conformance` | lpg | `Failed` | 5.190 ms |
+| `grafeo.spec.lpg.cypher.expressions.list.literal` | `Conformance` | lpg | `Failed` | 5.301 ms |
 | `grafeo.spec.lpg.cypher.expressions.list.comprehension` | `Conformance` | lpg | `Failed` | 0.057 ms |
 | `grafeo.spec.lpg.cypher.expressions.list.comprehension.filter.only` | `Conformance` | lpg | `Failed` | 0.048 ms |
-| `grafeo.spec.lpg.cypher.expressions.list.slice` | `Conformance` | lpg | `Failed` | 0.075 ms |
-| `grafeo.spec.lpg.cypher.expressions.index.access` | `Conformance` | lpg | `Failed` | 0.065 ms |
-| `grafeo.spec.lpg.cypher.expressions.coalesce` | `Conformance` | lpg | `Failed` | 5.187 ms |
-| `grafeo.spec.lpg.cypher.expressions.reduce` | `Conformance` | lpg | `Failed` | 0.080 ms |
+| `grafeo.spec.lpg.cypher.expressions.list.slice` | `Conformance` | lpg | `Failed` | 0.074 ms |
+| `grafeo.spec.lpg.cypher.expressions.index.access` | `Conformance` | lpg | `Failed` | 0.058 ms |
+| `grafeo.spec.lpg.cypher.expressions.coalesce` | `Conformance` | lpg | `Failed` | 5.273 ms |
+| `grafeo.spec.lpg.cypher.expressions.reduce` | `Conformance` | lpg | `Failed` | 0.081 ms |
 | `grafeo.spec.lpg.cypher.expressions.all.predicate` | `Conformance` | lpg | `Failed` | 0.057 ms |
-| `grafeo.spec.lpg.cypher.expressions.any.predicate` | `Conformance` | lpg | `Failed` | 0.057 ms |
-| `grafeo.spec.lpg.cypher.expressions.none.predicate` | `Conformance` | lpg | `Failed` | 0.054 ms |
+| `grafeo.spec.lpg.cypher.expressions.any.predicate` | `Conformance` | lpg | `Failed` | 0.054 ms |
+| `grafeo.spec.lpg.cypher.expressions.none.predicate` | `Conformance` | lpg | `Failed` | 0.053 ms |
 | `grafeo.spec.lpg.cypher.expressions.single.predicate` | `Conformance` | lpg | `Failed` | 0.053 ms |
 | `grafeo.spec.lpg.cypher.expressions.any.with.labels.in.where` | `Conformance` | lpg | `Failed` | 0.048 ms |
-| `grafeo.spec.lpg.cypher.expressions.comparison.in.return` | `Conformance` | lpg | `Failed` | 5.316 ms |
-| `grafeo.spec.lpg.cypher.expressions.aggregate.comparison.in.return` | `Conformance` | lpg | `Failed` | 5.244 ms |
-| `grafeo.spec.lpg.cypher.functions.id.of.node` | `Conformance` | lpg | `Failed` | 0.080 ms |
-| `grafeo.spec.lpg.cypher.functions.labels.single` | `Conformance` | lpg | `Failed` | 5.988 ms |
-| `grafeo.spec.lpg.cypher.functions.labels.multiple` | `Conformance` | lpg | `Failed` | 5.469 ms |
-| `grafeo.spec.lpg.cypher.functions.type.of.relationship` | `Conformance` | lpg | `Failed` | 6.973 ms |
-| `grafeo.spec.lpg.cypher.functions.keys.of.node` | `Conformance` | lpg | `Failed` | 6.160 ms |
-| `grafeo.spec.lpg.cypher.functions.properties.of.node` | `Conformance` | lpg | `Failed` | 0.076 ms |
-| `grafeo.spec.lpg.cypher.functions.exists.property.true` | `Conformance` | lpg | `Failed` | 6.003 ms |
-| `grafeo.spec.lpg.cypher.functions.exists.property.false` | `Conformance` | lpg | `Failed` | 5.893 ms |
-| `grafeo.spec.lpg.cypher.functions.head.of.list` | `Conformance` | lpg | `Failed` | 5.203 ms |
-| `grafeo.spec.lpg.cypher.functions.last.of.list` | `Conformance` | lpg | `Failed` | 5.455 ms |
-| `grafeo.spec.lpg.cypher.functions.tail.of.list` | `Conformance` | lpg | `Failed` | 5.361 ms |
-| `grafeo.spec.lpg.cypher.functions.range.default.step` | `Conformance` | lpg | `Failed` | 5.250 ms |
-| `grafeo.spec.lpg.cypher.functions.range.with.step` | `Conformance` | lpg | `Failed` | 5.359 ms |
-| `grafeo.spec.lpg.cypher.functions.size.of.list` | `Conformance` | lpg | `Failed` | 5.298 ms |
-| `grafeo.spec.lpg.cypher.functions.size.of.string` | `Conformance` | lpg | `Failed` | 5.111 ms |
-| `grafeo.spec.lpg.cypher.functions.to.lower` | `Conformance` | lpg | `Failed` | 5.302 ms |
-| `grafeo.spec.lpg.cypher.functions.to.upper` | `Conformance` | lpg | `Failed` | 5.273 ms |
-| `grafeo.spec.lpg.cypher.functions.trim.whitespace` | `Conformance` | lpg | `Failed` | 5.202 ms |
-| `grafeo.spec.lpg.cypher.functions.replace.substring` | `Conformance` | lpg | `Failed` | 5.271 ms |
-| `grafeo.spec.lpg.cypher.functions.substring.from.start` | `Conformance` | lpg | `Failed` | 5.399 ms |
-| `grafeo.spec.lpg.cypher.functions.substring.to.end` | `Conformance` | lpg | `Failed` | 5.198 ms |
-| `grafeo.spec.lpg.cypher.functions.split.string` | `Conformance` | lpg | `Failed` | 5.192 ms |
-| `grafeo.spec.lpg.cypher.functions.left.string` | `Conformance` | lpg | `Failed` | 5.215 ms |
-| `grafeo.spec.lpg.cypher.functions.right.string` | `Conformance` | lpg | `Failed` | 5.686 ms |
-| `grafeo.spec.lpg.cypher.functions.reverse.string` | `Conformance` | lpg | `Failed` | 6.026 ms |
-| `grafeo.spec.lpg.cypher.functions.abs.positive` | `Conformance` | lpg | `Failed` | 6.008 ms |
-| `grafeo.spec.lpg.cypher.functions.ceil.float` | `Conformance` | lpg | `Failed` | 6.143 ms |
-| `grafeo.spec.lpg.cypher.functions.floor.float` | `Conformance` | lpg | `Failed` | 5.895 ms |
-| `grafeo.spec.lpg.cypher.functions.round.float` | `Conformance` | lpg | `Failed` | 6.316 ms |
-| `grafeo.spec.lpg.cypher.functions.sign.positive` | `Conformance` | lpg | `Failed` | 6.209 ms |
-| `grafeo.spec.lpg.cypher.functions.sign.negative` | `Conformance` | lpg | `Failed` | 6.304 ms |
-| `grafeo.spec.lpg.cypher.functions.sign.zero` | `Conformance` | lpg | `Failed` | 6.369 ms |
-| `grafeo.spec.lpg.cypher.functions.sqrt.perfect.square` | `Conformance` | lpg | `Failed` | 5.858 ms |
-| `grafeo.spec.lpg.cypher.functions.to.integer.from.string` | `Conformance` | lpg | `Failed` | 6.104 ms |
-| `grafeo.spec.lpg.cypher.functions.to.integer.from.float` | `Conformance` | lpg | `Failed` | 6.086 ms |
-| `grafeo.spec.lpg.cypher.functions.to.float.from.string` | `Conformance` | lpg | `Failed` | 5.715 ms |
-| `grafeo.spec.lpg.cypher.functions.to.float.from.integer` | `Conformance` | lpg | `Failed` | 5.711 ms |
-| `grafeo.spec.lpg.cypher.functions.to.string.from.integer` | `Conformance` | lpg | `Failed` | 6.135 ms |
-| `grafeo.spec.lpg.cypher.functions.to.boolean.from.string.true` | `Conformance` | lpg | `Failed` | 5.835 ms |
-| `grafeo.spec.lpg.cypher.functions.to.boolean.from.string.false` | `Conformance` | lpg | `Failed` | 5.635 ms |
-| `grafeo.spec.lpg.cypher.functions.date.from.string` | `Conformance` | lpg | `Failed` | 5.779 ms |
-| `grafeo.spec.lpg.cypher.functions.date.from.map` | `Conformance` | lpg | `Failed` | 5.641 ms |
-| `grafeo.spec.lpg.cypher.functions.datetime.from.string` | `Conformance` | lpg | `Failed` | 5.527 ms |
-| `grafeo.spec.lpg.cypher.functions.duration.from.string` | `Conformance` | lpg | `Failed` | 5.619 ms |
-| `grafeo.spec.lpg.cypher.functions.path.length` | `Conformance` | lpg | `Failed` | 5.968 ms |
-| `grafeo.spec.lpg.cypher.functions.path.length.single.hop` | `Conformance` | lpg | `Failed` | 7.217 ms |
-| `grafeo.spec.lpg.cypher.functions.collect.names` | `Conformance` | lpg | `Failed` | 6.862 ms |
-| `grafeo.spec.lpg.cypher.functions.collect.distinct` | `Conformance` | lpg | `Failed` | 5.819 ms |
-| `grafeo.spec.lpg.cypher.functions.count.with.distinct` | `Conformance` | lpg | `Failed` | 5.916 ms |
-| `grafeo.spec.lpg.cypher.functions.sum.values` | `Conformance` | lpg | `Failed` | 5.601 ms |
-| `grafeo.spec.lpg.cypher.functions.avg.values` | `Conformance` | lpg | `Failed` | 5.866 ms |
-| `grafeo.spec.lpg.cypher.functions.min.values` | `Conformance` | lpg | `Failed` | 5.917 ms |
-| `grafeo.spec.lpg.cypher.functions.max.values` | `Conformance` | lpg | `Failed` | 5.841 ms |
-| `grafeo.spec.lpg.cypher.functions.chained.string.functions` | `Conformance` | lpg | `Failed` | 5.760 ms |
-| `grafeo.spec.lpg.cypher.functions.nested.list.functions` | `Conformance` | lpg | `Failed` | 5.700 ms |
-| `grafeo.spec.lpg.cypher.functions.extended.log.of.e` | `Conformance` | lpg | `Failed` | 5.514 ms |
-| `grafeo.spec.lpg.cypher.functions.extended.log10.of.100` | `Conformance` | lpg | `Failed` | 5.619 ms |
-| `grafeo.spec.lpg.cypher.functions.extended.exp.of.zero` | `Conformance` | lpg | `Failed` | 5.545 ms |
-| `grafeo.spec.lpg.cypher.functions.extended.e.constant` | `Conformance` | lpg | `Failed` | 5.639 ms |
-| `grafeo.spec.lpg.cypher.functions.extended.pi.constant` | `Conformance` | lpg | `Failed` | 5.521 ms |
-| `grafeo.spec.lpg.cypher.functions.extended.rand.in.range` | `Conformance` | lpg | `Failed` | 5.704 ms |
-| `grafeo.spec.lpg.cypher.functions.extended.sin.of.zero` | `Conformance` | lpg | `Failed` | 5.668 ms |
-| `grafeo.spec.lpg.cypher.functions.extended.cos.of.zero` | `Conformance` | lpg | `Failed` | 5.668 ms |
-| `grafeo.spec.lpg.cypher.functions.extended.tan.of.zero` | `Conformance` | lpg | `Failed` | 5.808 ms |
-| `grafeo.spec.lpg.cypher.functions.extended.asin.of.one` | `Conformance` | lpg | `Failed` | 5.533 ms |
-| `grafeo.spec.lpg.cypher.functions.extended.acos.of.one` | `Conformance` | lpg | `Failed` | 5.483 ms |
-| `grafeo.spec.lpg.cypher.functions.extended.atan.of.one` | `Conformance` | lpg | `Failed` | 5.751 ms |
-| `grafeo.spec.lpg.cypher.functions.extended.atan2.unit` | `Conformance` | lpg | `Failed` | 5.832 ms |
-| `grafeo.spec.lpg.cypher.functions.extended.degrees.from.pi` | `Conformance` | lpg | `Failed` | 5.838 ms |
-| `grafeo.spec.lpg.cypher.functions.extended.radians.from.180` | `Conformance` | lpg | `Failed` | 5.922 ms |
-| `grafeo.spec.lpg.cypher.functions.extended.ltrim.whitespace` | `Conformance` | lpg | `Failed` | 5.821 ms |
-| `grafeo.spec.lpg.cypher.functions.extended.rtrim.whitespace` | `Conformance` | lpg | `Failed` | 5.754 ms |
-| `grafeo.spec.lpg.cypher.functions.extended.char.length.string` | `Conformance` | lpg | `Failed` | 6.008 ms |
-| `grafeo.spec.lpg.cypher.functions.extended.length.of.string` | `Conformance` | lpg | `Failed` | 5.646 ms |
-| `grafeo.spec.lpg.cypher.functions.extended.reverse.list` | `Conformance` | lpg | `Failed` | 8.596 ms |
-| `grafeo.spec.lpg.cypher.functions.extended.keys.of.map` | `Conformance` | lpg | `Failed` | 7.367 ms |
-| `grafeo.spec.lpg.cypher.functions.extended.stdev.sample` | `Conformance` | lpg | `Failed` | 5.856 ms |
-| `grafeo.spec.lpg.cypher.functions.extended.stdevp.population` | `Conformance` | lpg | `Failed` | 5.391 ms |
-| `grafeo.spec.lpg.cypher.functions.extended.percentile.cont.median` | `Conformance` | lpg | `Failed` | 5.352 ms |
-| `grafeo.spec.lpg.cypher.functions.extended.percentile.disc.median` | `Conformance` | lpg | `Failed` | 5.304 ms |
-| `grafeo.spec.lpg.cypher.functions.extended.element.id.not.null` | `Conformance` | lpg | `Failed` | 0.071 ms |
-| `grafeo.spec.lpg.cypher.functions.extended.count.star` | `Conformance` | lpg | `Failed` | 0.056 ms |
-| `grafeo.spec.lpg.cypher.functions.extended.count.expr` | `Conformance` | lpg | `Failed` | 5.305 ms |
-| `grafeo.spec.lpg.cypher.functions.extended.nodes.of.path` | `Conformance` | lpg | `Failed` | 5.332 ms |
-| `grafeo.spec.lpg.cypher.functions.extended.relationships.of.path` | `Conformance` | lpg | `Failed` | 5.374 ms |
-| `grafeo.spec.lpg.cypher.functions.extended.nodes.of.multi.hop.path` | `Conformance` | lpg | `Failed` | 5.513 ms |
-| `grafeo.spec.lpg.cypher.functions.extended.relationships.of.multi.hop.path` | `Conformance` | lpg | `Failed` | 5.573 ms |
-| `grafeo.spec.lpg.cypher.functions.extended.date.no.args` | `Conformance` | lpg | `Failed` | 0.070 ms |
-| `grafeo.spec.lpg.cypher.functions.extended.now.returns.value` | `Conformance` | lpg | `Failed` | 0.053 ms |
-| `grafeo.spec.lpg.cypher.functions.extended.year.accessor` | `Conformance` | lpg | `Failed` | 5.326 ms |
-| `grafeo.spec.lpg.cypher.functions.extended.month.accessor` | `Conformance` | lpg | `Failed` | 5.383 ms |
-| `grafeo.spec.lpg.cypher.functions.extended.day.accessor` | `Conformance` | lpg | `Failed` | 5.197 ms |
-| `grafeo.spec.lpg.cypher.functions.extended.time.from.string` | `Conformance` | lpg | `Failed` | 0.068 ms |
-| `grafeo.spec.lpg.cypher.functions.extended.duration.from.map` | `Conformance` | lpg | `Failed` | 0.077 ms |
-| `grafeo.spec.lpg.cypher.patterns.anonymous.node` | `Conformance` | lpg | `Failed` | 0.049 ms |
-| `grafeo.spec.lpg.cypher.patterns.variable.binding` | `Conformance` | lpg | `Passed` | 5.911 ms |
-| `grafeo.spec.lpg.cypher.patterns.single.label` | `Conformance` | lpg | `Failed` | 5.747 ms |
-| `grafeo.spec.lpg.cypher.patterns.multiple.labels` | `Conformance` | lpg | `Failed` | 5.412 ms |
-| `grafeo.spec.lpg.cypher.patterns.property.filter` | `Conformance` | lpg | `Passed` | 6.458 ms |
-| `grafeo.spec.lpg.cypher.patterns.outgoing.relationship` | `Conformance` | lpg | `Passed` | 6.900 ms |
-| `grafeo.spec.lpg.cypher.patterns.incoming.relationship` | `Conformance` | lpg | `Passed` | 6.807 ms |
-| `grafeo.spec.lpg.cypher.patterns.undirected.relationship` | `Conformance` | lpg | `Passed` | 7.125 ms |
-| `grafeo.spec.lpg.cypher.patterns.multiple.relationship.types` | `Conformance` | lpg | `Failed` | 6.925 ms |
-| `grafeo.spec.lpg.cypher.patterns.relationship.properties` | `Conformance` | lpg | `Failed` | 5.570 ms |
-| `grafeo.spec.lpg.cypher.patterns.untyped.relationship` | `Conformance` | lpg | `Failed` | 6.801 ms |
-| `grafeo.spec.lpg.cypher.patterns.anonymous.relationship` | `Conformance` | lpg | `Passed` | 7.328 ms |
-| `grafeo.spec.lpg.cypher.patterns.variable.length.unbounded` | `Conformance` | lpg | `Passed` | 9.435 ms |
-| `grafeo.spec.lpg.cypher.patterns.variable.length.exact` | `Conformance` | lpg | `Failed` | 5.894 ms |
-| `grafeo.spec.lpg.cypher.patterns.variable.length.range` | `Conformance` | lpg | `Failed` | 5.966 ms |
-| `grafeo.spec.lpg.cypher.patterns.variable.length.max.only` | `Conformance` | lpg | `Failed` | 6.009 ms |
-| `grafeo.spec.lpg.cypher.patterns.variable.length.min.only` | `Conformance` | lpg | `Failed` | 6.160 ms |
-| `grafeo.spec.lpg.cypher.patterns.path.alias` | `Conformance` | lpg | `Failed` | 7.410 ms |
-| `grafeo.spec.lpg.cypher.patterns.shortest.path` | `Conformance` | lpg | `Failed` | 0.033 ms |
+| `grafeo.spec.lpg.cypher.expressions.comparison.in.return` | `Conformance` | lpg | `Failed` | 5.196 ms |
+| `grafeo.spec.lpg.cypher.expressions.aggregate.comparison.in.return` | `Conformance` | lpg | `Failed` | 5.228 ms |
+| `grafeo.spec.lpg.cypher.functions.id.of.node` | `Conformance` | lpg | `Failed` | 0.074 ms |
+| `grafeo.spec.lpg.cypher.functions.labels.single` | `Conformance` | lpg | `Failed` | 6.017 ms |
+| `grafeo.spec.lpg.cypher.functions.labels.multiple` | `Conformance` | lpg | `Failed` | 5.363 ms |
+| `grafeo.spec.lpg.cypher.functions.type.of.relationship` | `Conformance` | lpg | `Failed` | 6.771 ms |
+| `grafeo.spec.lpg.cypher.functions.keys.of.node` | `Conformance` | lpg | `Failed` | 6.081 ms |
+| `grafeo.spec.lpg.cypher.functions.properties.of.node` | `Conformance` | lpg | `Failed` | 0.074 ms |
+| `grafeo.spec.lpg.cypher.functions.exists.property.true` | `Conformance` | lpg | `Failed` | 5.939 ms |
+| `grafeo.spec.lpg.cypher.functions.exists.property.false` | `Conformance` | lpg | `Failed` | 5.710 ms |
+| `grafeo.spec.lpg.cypher.functions.head.of.list` | `Conformance` | lpg | `Failed` | 5.209 ms |
+| `grafeo.spec.lpg.cypher.functions.last.of.list` | `Conformance` | lpg | `Failed` | 5.194 ms |
+| `grafeo.spec.lpg.cypher.functions.tail.of.list` | `Conformance` | lpg | `Failed` | 5.407 ms |
+| `grafeo.spec.lpg.cypher.functions.range.default.step` | `Conformance` | lpg | `Failed` | 5.129 ms |
+| `grafeo.spec.lpg.cypher.functions.range.with.step` | `Conformance` | lpg | `Failed` | 5.427 ms |
+| `grafeo.spec.lpg.cypher.functions.size.of.list` | `Conformance` | lpg | `Failed` | 5.272 ms |
+| `grafeo.spec.lpg.cypher.functions.size.of.string` | `Conformance` | lpg | `Failed` | 5.229 ms |
+| `grafeo.spec.lpg.cypher.functions.to.lower` | `Conformance` | lpg | `Failed` | 5.211 ms |
+| `grafeo.spec.lpg.cypher.functions.to.upper` | `Conformance` | lpg | `Failed` | 5.135 ms |
+| `grafeo.spec.lpg.cypher.functions.trim.whitespace` | `Conformance` | lpg | `Failed` | 5.134 ms |
+| `grafeo.spec.lpg.cypher.functions.replace.substring` | `Conformance` | lpg | `Failed` | 5.192 ms |
+| `grafeo.spec.lpg.cypher.functions.substring.from.start` | `Conformance` | lpg | `Failed` | 5.352 ms |
+| `grafeo.spec.lpg.cypher.functions.substring.to.end` | `Conformance` | lpg | `Failed` | 5.195 ms |
+| `grafeo.spec.lpg.cypher.functions.split.string` | `Conformance` | lpg | `Failed` | 5.240 ms |
+| `grafeo.spec.lpg.cypher.functions.left.string` | `Conformance` | lpg | `Failed` | 5.223 ms |
+| `grafeo.spec.lpg.cypher.functions.right.string` | `Conformance` | lpg | `Failed` | 5.158 ms |
+| `grafeo.spec.lpg.cypher.functions.reverse.string` | `Conformance` | lpg | `Failed` | 5.336 ms |
+| `grafeo.spec.lpg.cypher.functions.abs.positive` | `Conformance` | lpg | `Failed` | 5.578 ms |
+| `grafeo.spec.lpg.cypher.functions.ceil.float` | `Conformance` | lpg | `Failed` | 5.237 ms |
+| `grafeo.spec.lpg.cypher.functions.floor.float` | `Conformance` | lpg | `Failed` | 5.321 ms |
+| `grafeo.spec.lpg.cypher.functions.round.float` | `Conformance` | lpg | `Failed` | 5.251 ms |
+| `grafeo.spec.lpg.cypher.functions.sign.positive` | `Conformance` | lpg | `Failed` | 5.189 ms |
+| `grafeo.spec.lpg.cypher.functions.sign.negative` | `Conformance` | lpg | `Failed` | 8.163 ms |
+| `grafeo.spec.lpg.cypher.functions.sign.zero` | `Conformance` | lpg | `Failed` | 10.113 ms |
+| `grafeo.spec.lpg.cypher.functions.sqrt.perfect.square` | `Conformance` | lpg | `Failed` | 5.764 ms |
+| `grafeo.spec.lpg.cypher.functions.to.integer.from.string` | `Conformance` | lpg | `Failed` | 5.094 ms |
+| `grafeo.spec.lpg.cypher.functions.to.integer.from.float` | `Conformance` | lpg | `Failed` | 5.324 ms |
+| `grafeo.spec.lpg.cypher.functions.to.float.from.string` | `Conformance` | lpg | `Failed` | 5.186 ms |
+| `grafeo.spec.lpg.cypher.functions.to.float.from.integer` | `Conformance` | lpg | `Failed` | 5.098 ms |
+| `grafeo.spec.lpg.cypher.functions.to.string.from.integer` | `Conformance` | lpg | `Failed` | 5.250 ms |
+| `grafeo.spec.lpg.cypher.functions.to.boolean.from.string.true` | `Conformance` | lpg | `Failed` | 5.326 ms |
+| `grafeo.spec.lpg.cypher.functions.to.boolean.from.string.false` | `Conformance` | lpg | `Failed` | 5.586 ms |
+| `grafeo.spec.lpg.cypher.functions.date.from.string` | `Conformance` | lpg | `Failed` | 5.633 ms |
+| `grafeo.spec.lpg.cypher.functions.date.from.map` | `Conformance` | lpg | `Failed` | 5.761 ms |
+| `grafeo.spec.lpg.cypher.functions.datetime.from.string` | `Conformance` | lpg | `Failed` | 5.663 ms |
+| `grafeo.spec.lpg.cypher.functions.duration.from.string` | `Conformance` | lpg | `Failed` | 5.630 ms |
+| `grafeo.spec.lpg.cypher.functions.path.length` | `Conformance` | lpg | `Failed` | 5.911 ms |
+| `grafeo.spec.lpg.cypher.functions.path.length.single.hop` | `Conformance` | lpg | `Failed` | 7.222 ms |
+| `grafeo.spec.lpg.cypher.functions.collect.names` | `Conformance` | lpg | `Failed` | 7.086 ms |
+| `grafeo.spec.lpg.cypher.functions.collect.distinct` | `Conformance` | lpg | `Failed` | 5.870 ms |
+| `grafeo.spec.lpg.cypher.functions.count.with.distinct` | `Conformance` | lpg | `Failed` | 5.589 ms |
+| `grafeo.spec.lpg.cypher.functions.sum.values` | `Conformance` | lpg | `Failed` | 5.729 ms |
+| `grafeo.spec.lpg.cypher.functions.avg.values` | `Conformance` | lpg | `Failed` | 5.809 ms |
+| `grafeo.spec.lpg.cypher.functions.min.values` | `Conformance` | lpg | `Failed` | 6.158 ms |
+| `grafeo.spec.lpg.cypher.functions.max.values` | `Conformance` | lpg | `Failed` | 5.954 ms |
+| `grafeo.spec.lpg.cypher.functions.chained.string.functions` | `Conformance` | lpg | `Failed` | 5.773 ms |
+| `grafeo.spec.lpg.cypher.functions.nested.list.functions` | `Conformance` | lpg | `Failed` | 5.713 ms |
+| `grafeo.spec.lpg.cypher.functions.extended.log.of.e` | `Conformance` | lpg | `Failed` | 5.572 ms |
+| `grafeo.spec.lpg.cypher.functions.extended.log10.of.100` | `Conformance` | lpg | `Failed` | 5.368 ms |
+| `grafeo.spec.lpg.cypher.functions.extended.exp.of.zero` | `Conformance` | lpg | `Failed` | 5.363 ms |
+| `grafeo.spec.lpg.cypher.functions.extended.e.constant` | `Conformance` | lpg | `Failed` | 5.258 ms |
+| `grafeo.spec.lpg.cypher.functions.extended.pi.constant` | `Conformance` | lpg | `Failed` | 5.310 ms |
+| `grafeo.spec.lpg.cypher.functions.extended.rand.in.range` | `Conformance` | lpg | `Failed` | 5.410 ms |
+| `grafeo.spec.lpg.cypher.functions.extended.sin.of.zero` | `Conformance` | lpg | `Failed` | 5.847 ms |
+| `grafeo.spec.lpg.cypher.functions.extended.cos.of.zero` | `Conformance` | lpg | `Failed` | 5.461 ms |
+| `grafeo.spec.lpg.cypher.functions.extended.tan.of.zero` | `Conformance` | lpg | `Failed` | 5.434 ms |
+| `grafeo.spec.lpg.cypher.functions.extended.asin.of.one` | `Conformance` | lpg | `Failed` | 5.278 ms |
+| `grafeo.spec.lpg.cypher.functions.extended.acos.of.one` | `Conformance` | lpg | `Failed` | 5.480 ms |
+| `grafeo.spec.lpg.cypher.functions.extended.atan.of.one` | `Conformance` | lpg | `Failed` | 5.295 ms |
+| `grafeo.spec.lpg.cypher.functions.extended.atan2.unit` | `Conformance` | lpg | `Failed` | 5.250 ms |
+| `grafeo.spec.lpg.cypher.functions.extended.degrees.from.pi` | `Conformance` | lpg | `Failed` | 5.568 ms |
+| `grafeo.spec.lpg.cypher.functions.extended.radians.from.180` | `Conformance` | lpg | `Failed` | 5.298 ms |
+| `grafeo.spec.lpg.cypher.functions.extended.ltrim.whitespace` | `Conformance` | lpg | `Failed` | 5.140 ms |
+| `grafeo.spec.lpg.cypher.functions.extended.rtrim.whitespace` | `Conformance` | lpg | `Failed` | 5.418 ms |
+| `grafeo.spec.lpg.cypher.functions.extended.char.length.string` | `Conformance` | lpg | `Failed` | 5.504 ms |
+| `grafeo.spec.lpg.cypher.functions.extended.length.of.string` | `Conformance` | lpg | `Failed` | 5.256 ms |
+| `grafeo.spec.lpg.cypher.functions.extended.reverse.list` | `Conformance` | lpg | `Failed` | 5.175 ms |
+| `grafeo.spec.lpg.cypher.functions.extended.keys.of.map` | `Conformance` | lpg | `Failed` | 5.326 ms |
+| `grafeo.spec.lpg.cypher.functions.extended.stdev.sample` | `Conformance` | lpg | `Failed` | 5.233 ms |
+| `grafeo.spec.lpg.cypher.functions.extended.stdevp.population` | `Conformance` | lpg | `Failed` | 5.148 ms |
+| `grafeo.spec.lpg.cypher.functions.extended.percentile.cont.median` | `Conformance` | lpg | `Failed` | 5.129 ms |
+| `grafeo.spec.lpg.cypher.functions.extended.percentile.disc.median` | `Conformance` | lpg | `Failed` | 5.481 ms |
+| `grafeo.spec.lpg.cypher.functions.extended.element.id.not.null` | `Conformance` | lpg | `Failed` | 0.070 ms |
+| `grafeo.spec.lpg.cypher.functions.extended.count.star` | `Conformance` | lpg | `Failed` | 0.053 ms |
+| `grafeo.spec.lpg.cypher.functions.extended.count.expr` | `Conformance` | lpg | `Failed` | 5.321 ms |
+| `grafeo.spec.lpg.cypher.functions.extended.nodes.of.path` | `Conformance` | lpg | `Failed` | 5.417 ms |
+| `grafeo.spec.lpg.cypher.functions.extended.relationships.of.path` | `Conformance` | lpg | `Failed` | 5.307 ms |
+| `grafeo.spec.lpg.cypher.functions.extended.nodes.of.multi.hop.path` | `Conformance` | lpg | `Failed` | 5.649 ms |
+| `grafeo.spec.lpg.cypher.functions.extended.relationships.of.multi.hop.path` | `Conformance` | lpg | `Failed` | 5.853 ms |
+| `grafeo.spec.lpg.cypher.functions.extended.date.no.args` | `Conformance` | lpg | `Failed` | 0.063 ms |
+| `grafeo.spec.lpg.cypher.functions.extended.now.returns.value` | `Conformance` | lpg | `Failed` | 0.050 ms |
+| `grafeo.spec.lpg.cypher.functions.extended.year.accessor` | `Conformance` | lpg | `Failed` | 5.346 ms |
+| `grafeo.spec.lpg.cypher.functions.extended.month.accessor` | `Conformance` | lpg | `Failed` | 5.427 ms |
+| `grafeo.spec.lpg.cypher.functions.extended.day.accessor` | `Conformance` | lpg | `Failed` | 5.522 ms |
+| `grafeo.spec.lpg.cypher.functions.extended.time.from.string` | `Conformance` | lpg | `Failed` | 0.064 ms |
+| `grafeo.spec.lpg.cypher.functions.extended.duration.from.map` | `Conformance` | lpg | `Failed` | 0.073 ms |
+| `grafeo.spec.lpg.cypher.patterns.anonymous.node` | `Conformance` | lpg | `Failed` | 0.052 ms |
+| `grafeo.spec.lpg.cypher.patterns.variable.binding` | `Conformance` | lpg | `Passed` | 5.894 ms |
+| `grafeo.spec.lpg.cypher.patterns.single.label` | `Conformance` | lpg | `Failed` | 5.741 ms |
+| `grafeo.spec.lpg.cypher.patterns.multiple.labels` | `Conformance` | lpg | `Failed` | 5.513 ms |
+| `grafeo.spec.lpg.cypher.patterns.property.filter` | `Conformance` | lpg | `Passed` | 6.640 ms |
+| `grafeo.spec.lpg.cypher.patterns.outgoing.relationship` | `Conformance` | lpg | `Passed` | 6.824 ms |
+| `grafeo.spec.lpg.cypher.patterns.incoming.relationship` | `Conformance` | lpg | `Passed` | 6.623 ms |
+| `grafeo.spec.lpg.cypher.patterns.undirected.relationship` | `Conformance` | lpg | `Passed` | 6.834 ms |
+| `grafeo.spec.lpg.cypher.patterns.multiple.relationship.types` | `Conformance` | lpg | `Failed` | 6.775 ms |
+| `grafeo.spec.lpg.cypher.patterns.relationship.properties` | `Conformance` | lpg | `Failed` | 5.612 ms |
+| `grafeo.spec.lpg.cypher.patterns.untyped.relationship` | `Conformance` | lpg | `Failed` | 7.013 ms |
+| `grafeo.spec.lpg.cypher.patterns.anonymous.relationship` | `Conformance` | lpg | `Passed` | 6.866 ms |
+| `grafeo.spec.lpg.cypher.patterns.variable.length.unbounded` | `Conformance` | lpg | `Passed` | 8.739 ms |
+| `grafeo.spec.lpg.cypher.patterns.variable.length.exact` | `Conformance` | lpg | `Failed` | 5.511 ms |
+| `grafeo.spec.lpg.cypher.patterns.variable.length.range` | `Conformance` | lpg | `Failed` | 5.418 ms |
+| `grafeo.spec.lpg.cypher.patterns.variable.length.max.only` | `Conformance` | lpg | `Failed` | 5.766 ms |
+| `grafeo.spec.lpg.cypher.patterns.variable.length.min.only` | `Conformance` | lpg | `Failed` | 6.036 ms |
+| `grafeo.spec.lpg.cypher.patterns.path.alias` | `Conformance` | lpg | `Failed` | 7.007 ms |
+| `grafeo.spec.lpg.cypher.patterns.shortest.path` | `Conformance` | lpg | `Failed` | 0.032 ms |
 | `grafeo.spec.lpg.cypher.patterns.all.shortest.paths` | `Conformance` | lpg | `Failed` | 0.023 ms |
-| `grafeo.spec.lpg.cypher.patterns.pattern.comprehension` | `Conformance` | lpg | `Failed` | 0.089 ms |
-| `grafeo.spec.lpg.cypher.patterns.exists.subquery` | `Conformance` | lpg | `Failed` | 0.045 ms |
-| `grafeo.spec.lpg.cypher.patterns.not.exists` | `Conformance` | lpg | `Failed` | 0.042 ms |
+| `grafeo.spec.lpg.cypher.patterns.pattern.comprehension` | `Conformance` | lpg | `Failed` | 0.093 ms |
+| `grafeo.spec.lpg.cypher.patterns.exists.subquery` | `Conformance` | lpg | `Failed` | 0.044 ms |
+| `grafeo.spec.lpg.cypher.patterns.not.exists` | `Conformance` | lpg | `Failed` | 0.041 ms |
 | `grafeo.spec.lpg.cypher.patterns.count.subquery` | `Conformance` | lpg | `Failed` | 0.041 ms |
-| `grafeo.spec.lpg.cypher.reading.clauses.match.single.node` | `Conformance` | lpg | `Passed` | 9.170 ms |
-| `grafeo.spec.lpg.cypher.reading.clauses.match.by.label` | `Conformance` | lpg | `Failed` | 7.038 ms |
-| `grafeo.spec.lpg.cypher.reading.clauses.match.by.property` | `Conformance` | lpg | `Passed` | 7.185 ms |
-| `grafeo.spec.lpg.cypher.reading.clauses.match.multi.label` | `Conformance` | lpg | `Failed` | 5.701 ms |
-| `grafeo.spec.lpg.cypher.reading.clauses.match.comma.patterns` | `Conformance` | lpg | `Failed` | 6.252 ms |
-| `grafeo.spec.lpg.cypher.reading.clauses.match.multiple.clauses` | `Conformance` | lpg | `Failed` | 6.196 ms |
-| `grafeo.spec.lpg.cypher.reading.clauses.match.edge.outgoing` | `Conformance` | lpg | `Passed` | 7.124 ms |
-| `grafeo.spec.lpg.cypher.reading.clauses.match.edge.incoming` | `Conformance` | lpg | `Passed` | 7.004 ms |
-| `grafeo.spec.lpg.cypher.reading.clauses.match.edge.undirected` | `Conformance` | lpg | `Passed` | 6.985 ms |
-| `grafeo.spec.lpg.cypher.reading.clauses.optional.match.with.result` | `Conformance` | lpg | `Passed` | 6.987 ms |
-| `grafeo.spec.lpg.cypher.reading.clauses.optional.match.null` | `Conformance` | lpg | `Failed` | 6.274 ms |
-| `grafeo.spec.lpg.cypher.reading.clauses.where.comparison` | `Conformance` | lpg | `Passed` | 6.469 ms |
-| `grafeo.spec.lpg.cypher.reading.clauses.where.and` | `Conformance` | lpg | `Failed` | 5.391 ms |
-| `grafeo.spec.lpg.cypher.reading.clauses.where.or` | `Conformance` | lpg | `Passed` | 6.842 ms |
-| `grafeo.spec.lpg.cypher.reading.clauses.where.not` | `Conformance` | lpg | `Failed` | 0.050 ms |
-| `grafeo.spec.lpg.cypher.reading.clauses.where.xor` | `Conformance` | lpg | `Failed` | 0.043 ms |
-| `grafeo.spec.lpg.cypher.reading.clauses.with.projection` | `Conformance` | lpg | `Passed` | 6.127 ms |
-| `grafeo.spec.lpg.cypher.reading.clauses.with.distinct` | `Conformance` | lpg | `Failed` | 5.274 ms |
-| `grafeo.spec.lpg.cypher.reading.clauses.with.where` | `Conformance` | lpg | `Passed` | 6.673 ms |
-| `grafeo.spec.lpg.cypher.reading.clauses.with.star` | `Conformance` | lpg | `Passed` | 5.896 ms |
-| `grafeo.spec.lpg.cypher.reading.clauses.unwind.list` | `Conformance` | lpg | `Passed` | 5.352 ms |
-| `grafeo.spec.lpg.cypher.reading.clauses.unwind.with.match` | `Conformance` | lpg | `Failed` | 6.313 ms |
-| `grafeo.spec.lpg.cypher.reading.clauses.union` | `Conformance` | lpg | `Failed` | 0.061 ms |
+| `grafeo.spec.lpg.cypher.reading.clauses.match.single.node` | `Conformance` | lpg | `Passed` | 7.006 ms |
+| `grafeo.spec.lpg.cypher.reading.clauses.match.by.label` | `Conformance` | lpg | `Failed` | 6.251 ms |
+| `grafeo.spec.lpg.cypher.reading.clauses.match.by.property` | `Conformance` | lpg | `Passed` | 7.084 ms |
+| `grafeo.spec.lpg.cypher.reading.clauses.match.multi.label` | `Conformance` | lpg | `Failed` | 6.083 ms |
+| `grafeo.spec.lpg.cypher.reading.clauses.match.comma.patterns` | `Conformance` | lpg | `Failed` | 6.495 ms |
+| `grafeo.spec.lpg.cypher.reading.clauses.match.multiple.clauses` | `Conformance` | lpg | `Failed` | 6.954 ms |
+| `grafeo.spec.lpg.cypher.reading.clauses.match.edge.outgoing` | `Conformance` | lpg | `Passed` | 7.636 ms |
+| `grafeo.spec.lpg.cypher.reading.clauses.match.edge.incoming` | `Conformance` | lpg | `Passed` | 7.774 ms |
+| `grafeo.spec.lpg.cypher.reading.clauses.match.edge.undirected` | `Conformance` | lpg | `Passed` | 7.880 ms |
+| `grafeo.spec.lpg.cypher.reading.clauses.optional.match.with.result` | `Conformance` | lpg | `Passed` | 7.724 ms |
+| `grafeo.spec.lpg.cypher.reading.clauses.optional.match.null` | `Conformance` | lpg | `Failed` | 6.304 ms |
+| `grafeo.spec.lpg.cypher.reading.clauses.where.comparison` | `Conformance` | lpg | `Passed` | 6.942 ms |
+| `grafeo.spec.lpg.cypher.reading.clauses.where.and` | `Conformance` | lpg | `Failed` | 5.849 ms |
+| `grafeo.spec.lpg.cypher.reading.clauses.where.or` | `Conformance` | lpg | `Passed` | 7.398 ms |
+| `grafeo.spec.lpg.cypher.reading.clauses.where.not` | `Conformance` | lpg | `Failed` | 0.063 ms |
+| `grafeo.spec.lpg.cypher.reading.clauses.where.xor` | `Conformance` | lpg | `Failed` | 0.044 ms |
+| `grafeo.spec.lpg.cypher.reading.clauses.with.projection` | `Conformance` | lpg | `Passed` | 6.343 ms |
+| `grafeo.spec.lpg.cypher.reading.clauses.with.distinct` | `Conformance` | lpg | `Failed` | 5.635 ms |
+| `grafeo.spec.lpg.cypher.reading.clauses.with.where` | `Conformance` | lpg | `Passed` | 7.627 ms |
+| `grafeo.spec.lpg.cypher.reading.clauses.with.star` | `Conformance` | lpg | `Passed` | 6.198 ms |
+| `grafeo.spec.lpg.cypher.reading.clauses.unwind.list` | `Conformance` | lpg | `Passed` | 5.685 ms |
+| `grafeo.spec.lpg.cypher.reading.clauses.unwind.with.match` | `Conformance` | lpg | `Failed` | 7.206 ms |
+| `grafeo.spec.lpg.cypher.reading.clauses.union` | `Conformance` | lpg | `Failed` | 0.066 ms |
 | `grafeo.spec.lpg.cypher.reading.clauses.union.all` | `Conformance` | lpg | `Failed` | 0.055 ms |
 | `grafeo.spec.lpg.cypher.reading.clauses.call.db.labels` | `Conformance` | lpg | `Failed` | 0.010 ms |
-| `grafeo.spec.lpg.cypher.reading.clauses.call.db.relationship.types` | `Conformance` | lpg | `Failed` | 0.012 ms |
+| `grafeo.spec.lpg.cypher.reading.clauses.call.db.relationship.types` | `Conformance` | lpg | `Failed` | 0.011 ms |
 | `grafeo.spec.lpg.cypher.reading.clauses.call.db.property.keys` | `Conformance` | lpg | `Failed` | 0.010 ms |
 | `grafeo.spec.lpg.cypher.reading.clauses.call.subquery.basic` | `Conformance` | lpg | `Failed` | 0.013 ms |
-| `grafeo.spec.lpg.cypher.reading.clauses.call.subquery.with.outer.scope` | `Conformance` | lpg | `Failed` | 0.047 ms |
-| `grafeo.spec.lpg.cypher.regression.not.exists.with.type.filter` | `Conformance` | lpg | `Failed` | 0.078 ms |
-| `grafeo.spec.lpg.cypher.regression.sum.case.when` | `Conformance` | lpg | `Failed` | 0.136 ms |
-| `grafeo.spec.lpg.cypher.regression.any.labels.in.list.matches` | `Conformance` | lpg | `Failed` | 0.049 ms |
-| `grafeo.spec.lpg.cypher.regression.any.labels.in.list.no.match` | `Conformance` | lpg | `Failed` | 0.048 ms |
-| `grafeo.spec.lpg.cypher.regression.any.with.single.match` | `Conformance` | lpg | `Failed` | 0.048 ms |
-| `grafeo.spec.lpg.cypher.regression.reduce.with.case.max` | `Conformance` | lpg | `Failed` | 0.113 ms |
-| `grafeo.spec.lpg.cypher.regression.reduce.with.case.min` | `Conformance` | lpg | `Failed` | 0.108 ms |
-| `grafeo.spec.lpg.cypher.regression.reduce.with.case.conditional.sum` | `Conformance` | lpg | `Failed` | 0.105 ms |
-| `grafeo.spec.lpg.cypher.regression.outgoing.target.property.filter` | `Conformance` | lpg | `Failed` | 6.506 ms |
-| `grafeo.spec.lpg.cypher.regression.target.property.filter.count` | `Conformance` | lpg | `Failed` | 6.567 ms |
-| `grafeo.spec.lpg.cypher.regression.target.property.filter.no.match` | `Conformance` | lpg | `Passed` | 7.372 ms |
-| `grafeo.spec.lpg.cypher.regression.edge.property.filter` | `Conformance` | lpg | `Failed` | 7.107 ms |
-| `grafeo.spec.lpg.cypher.regression.optional.match.count.preserves.all.rows` | `Conformance` | lpg | `Failed` | 5.550 ms |
-| `grafeo.spec.lpg.cypher.regression.union.deduplicates` | `Conformance` | lpg | `Failed` | 0.039 ms |
+| `grafeo.spec.lpg.cypher.reading.clauses.call.subquery.with.outer.scope` | `Conformance` | lpg | `Failed` | 0.043 ms |
+| `grafeo.spec.lpg.cypher.regression.not.exists.with.type.filter` | `Conformance` | lpg | `Failed` | 0.068 ms |
+| `grafeo.spec.lpg.cypher.regression.sum.case.when` | `Conformance` | lpg | `Failed` | 0.127 ms |
+| `grafeo.spec.lpg.cypher.regression.any.labels.in.list.matches` | `Conformance` | lpg | `Failed` | 0.048 ms |
+| `grafeo.spec.lpg.cypher.regression.any.labels.in.list.no.match` | `Conformance` | lpg | `Failed` | 0.047 ms |
+| `grafeo.spec.lpg.cypher.regression.any.with.single.match` | `Conformance` | lpg | `Failed` | 0.055 ms |
+| `grafeo.spec.lpg.cypher.regression.reduce.with.case.max` | `Conformance` | lpg | `Failed` | 0.108 ms |
+| `grafeo.spec.lpg.cypher.regression.reduce.with.case.min` | `Conformance` | lpg | `Failed` | 0.105 ms |
+| `grafeo.spec.lpg.cypher.regression.reduce.with.case.conditional.sum` | `Conformance` | lpg | `Failed` | 0.104 ms |
+| `grafeo.spec.lpg.cypher.regression.outgoing.target.property.filter` | `Conformance` | lpg | `Failed` | 7.069 ms |
+| `grafeo.spec.lpg.cypher.regression.target.property.filter.count` | `Conformance` | lpg | `Failed` | 6.632 ms |
+| `grafeo.spec.lpg.cypher.regression.target.property.filter.no.match` | `Conformance` | lpg | `Passed` | 7.007 ms |
+| `grafeo.spec.lpg.cypher.regression.edge.property.filter` | `Conformance` | lpg | `Failed` | 6.830 ms |
+| `grafeo.spec.lpg.cypher.regression.optional.match.count.preserves.all.rows` | `Conformance` | lpg | `Failed` | 5.592 ms |
+| `grafeo.spec.lpg.cypher.regression.union.deduplicates` | `Conformance` | lpg | `Failed` | 0.042 ms |
 | `grafeo.spec.lpg.cypher.regression.union.all.preserves` | `Conformance` | lpg | `Failed` | 0.031 ms |
-| `grafeo.spec.lpg.cypher.regression.two.hop.equivalence` | `Conformance` | lpg | `Failed` | 0.087 ms |
-| `grafeo.spec.lpg.cypher.regression.merge.creates.new.after.delete` | `Conformance` | lpg | `Failed` | 5.408 ms |
-| `grafeo.spec.lpg.cypher.regression.replace.edge` | `Conformance` | lpg | `Failed` | 5.608 ms |
-| `grafeo.spec.lpg.cypher.regression.backward.arrow.forward` | `Conformance` | lpg | `Failed` | 5.311 ms |
-| `grafeo.spec.lpg.cypher.regression.backward.arrow.reverse` | `Conformance` | lpg | `Failed` | 5.506 ms |
-| `grafeo.spec.lpg.cypher.regression.backward.arrow.wrong.direction` | `Conformance` | lpg | `Failed` | 5.613 ms |
-| `grafeo.spec.lpg.cypher.regression.null.equals.null.is.unknown` | `Conformance` | lpg | `Failed` | 5.288 ms |
-| `grafeo.spec.lpg.cypher.regression.null.is.null.is.true` | `Conformance` | lpg | `Failed` | 0.045 ms |
-| `grafeo.spec.lpg.cypher.regression.bool.to.string` | `Conformance` | lpg | `Failed` | 5.541 ms |
-| `grafeo.spec.lpg.cypher.regression.int.to.string` | `Conformance` | lpg | `Failed` | 5.309 ms |
-| `grafeo.spec.lpg.cypher.regression.string.false.ne.bool.false` | `Conformance` | lpg | `Failed` | 5.367 ms |
-| `grafeo.spec.lpg.cypher.regression.neq.excludes.null` | `Conformance` | lpg | `Passed` | 7.008 ms |
-| `grafeo.spec.lpg.cypher.regression.skip.plus.limit` | `Conformance` | lpg | `Failed` | 5.570 ms |
-| `grafeo.spec.lpg.cypher.regression.distinct.values` | `Conformance` | lpg | `Failed` | 5.355 ms |
-| `grafeo.spec.lpg.cypher.regression.distinct.collapses.nulls` | `Conformance` | lpg | `Failed` | 5.276 ms |
-| `grafeo.spec.lpg.cypher.regression.order.by.property.matching.return.alias.with.edge` | `Conformance` | lpg | `Failed` | 5.366 ms |
-| `grafeo.spec.lpg.cypher.regression.order.by.desc.with.relationship.traversal` | `Conformance` | lpg | `Failed` | 5.441 ms |
-| `grafeo.spec.lpg.cypher.return.ordering.return.expression` | `Conformance` | lpg | `Passed` | 6.086 ms |
-| `grafeo.spec.lpg.cypher.return.ordering.return.alias` | `Conformance` | lpg | `Passed` | 5.885 ms |
-| `grafeo.spec.lpg.cypher.return.ordering.return.distinct` | `Conformance` | lpg | `Failed` | 5.260 ms |
-| `grafeo.spec.lpg.cypher.return.ordering.return.star` | `Conformance` | lpg | `Passed` | 5.864 ms |
-| `grafeo.spec.lpg.cypher.return.ordering.return.count.star` | `Conformance` | lpg | `Failed` | 0.070 ms |
-| `grafeo.spec.lpg.cypher.return.ordering.return.arithmetic` | `Conformance` | lpg | `Failed` | 5.174 ms |
-| `grafeo.spec.lpg.cypher.return.ordering.return.boolean.expression` | `Conformance` | lpg | `Failed` | 5.133 ms |
-| `grafeo.spec.lpg.cypher.return.ordering.order.by.asc` | `Conformance` | lpg | `Passed` | 6.439 ms |
-| `grafeo.spec.lpg.cypher.return.ordering.order.by.desc` | `Conformance` | lpg | `Passed` | 6.274 ms |
-| `grafeo.spec.lpg.cypher.return.ordering.order.by.multiple.keys` | `Conformance` | lpg | `Failed` | 5.339 ms |
-| `grafeo.spec.lpg.cypher.return.ordering.limit` | `Conformance` | lpg | `Failed` | 5.358 ms |
-| `grafeo.spec.lpg.cypher.return.ordering.skip` | `Conformance` | lpg | `Failed` | 5.230 ms |
-| `grafeo.spec.lpg.cypher.return.ordering.skip.and.limit` | `Conformance` | lpg | `Failed` | 5.189 ms |
-| `grafeo.spec.lpg.cypher.types.integer.decimal` | `Conformance` | lpg | `Failed` | 5.460 ms |
-| `grafeo.spec.lpg.cypher.types.integer.negative` | `Conformance` | lpg | `Failed` | 5.420 ms |
-| `grafeo.spec.lpg.cypher.types.integer.zero` | `Conformance` | lpg | `Failed` | 5.260 ms |
-| `grafeo.spec.lpg.cypher.types.integer.hex` | `Conformance` | lpg | `Failed` | 0.060 ms |
+| `grafeo.spec.lpg.cypher.regression.two.hop.equivalence` | `Conformance` | lpg | `Failed` | 0.079 ms |
+| `grafeo.spec.lpg.cypher.regression.merge.creates.new.after.delete` | `Conformance` | lpg | `Failed` | 5.771 ms |
+| `grafeo.spec.lpg.cypher.regression.replace.edge` | `Conformance` | lpg | `Failed` | 6.008 ms |
+| `grafeo.spec.lpg.cypher.regression.backward.arrow.forward` | `Conformance` | lpg | `Failed` | 5.716 ms |
+| `grafeo.spec.lpg.cypher.regression.backward.arrow.reverse` | `Conformance` | lpg | `Failed` | 5.627 ms |
+| `grafeo.spec.lpg.cypher.regression.backward.arrow.wrong.direction` | `Conformance` | lpg | `Failed` | 5.729 ms |
+| `grafeo.spec.lpg.cypher.regression.null.equals.null.is.unknown` | `Conformance` | lpg | `Failed` | 5.716 ms |
+| `grafeo.spec.lpg.cypher.regression.null.is.null.is.true` | `Conformance` | lpg | `Failed` | 0.050 ms |
+| `grafeo.spec.lpg.cypher.regression.bool.to.string` | `Conformance` | lpg | `Failed` | 5.788 ms |
+| `grafeo.spec.lpg.cypher.regression.int.to.string` | `Conformance` | lpg | `Failed` | 5.854 ms |
+| `grafeo.spec.lpg.cypher.regression.string.false.ne.bool.false` | `Conformance` | lpg | `Failed` | 5.976 ms |
+| `grafeo.spec.lpg.cypher.regression.neq.excludes.null` | `Conformance` | lpg | `Passed` | 9.086 ms |
+| `grafeo.spec.lpg.cypher.regression.skip.plus.limit` | `Conformance` | lpg | `Failed` | 5.908 ms |
+| `grafeo.spec.lpg.cypher.regression.distinct.values` | `Conformance` | lpg | `Failed` | 5.771 ms |
+| `grafeo.spec.lpg.cypher.regression.distinct.collapses.nulls` | `Conformance` | lpg | `Failed` | 6.029 ms |
+| `grafeo.spec.lpg.cypher.regression.order.by.property.matching.return.alias.with.edge` | `Conformance` | lpg | `Failed` | 6.580 ms |
+| `grafeo.spec.lpg.cypher.regression.order.by.desc.with.relationship.traversal` | `Conformance` | lpg | `Failed` | 6.227 ms |
+| `grafeo.spec.lpg.cypher.return.ordering.return.expression` | `Conformance` | lpg | `Passed` | 7.405 ms |
+| `grafeo.spec.lpg.cypher.return.ordering.return.alias` | `Conformance` | lpg | `Passed` | 6.900 ms |
+| `grafeo.spec.lpg.cypher.return.ordering.return.distinct` | `Conformance` | lpg | `Failed` | 5.966 ms |
+| `grafeo.spec.lpg.cypher.return.ordering.return.star` | `Conformance` | lpg | `Passed` | 6.467 ms |
+| `grafeo.spec.lpg.cypher.return.ordering.return.count.star` | `Conformance` | lpg | `Failed` | 0.077 ms |
+| `grafeo.spec.lpg.cypher.return.ordering.return.arithmetic` | `Conformance` | lpg | `Failed` | 5.776 ms |
+| `grafeo.spec.lpg.cypher.return.ordering.return.boolean.expression` | `Conformance` | lpg | `Failed` | 5.641 ms |
+| `grafeo.spec.lpg.cypher.return.ordering.order.by.asc` | `Conformance` | lpg | `Passed` | 6.661 ms |
+| `grafeo.spec.lpg.cypher.return.ordering.order.by.desc` | `Conformance` | lpg | `Passed` | 16.608 ms |
+| `grafeo.spec.lpg.cypher.return.ordering.order.by.multiple.keys` | `Conformance` | lpg | `Failed` | 5.512 ms |
+| `grafeo.spec.lpg.cypher.return.ordering.limit` | `Conformance` | lpg | `Failed` | 5.301 ms |
+| `grafeo.spec.lpg.cypher.return.ordering.skip` | `Conformance` | lpg | `Failed` | 5.468 ms |
+| `grafeo.spec.lpg.cypher.return.ordering.skip.and.limit` | `Conformance` | lpg | `Failed` | 5.425 ms |
+| `grafeo.spec.lpg.cypher.types.integer.decimal` | `Conformance` | lpg | `Failed` | 5.289 ms |
+| `grafeo.spec.lpg.cypher.types.integer.negative` | `Conformance` | lpg | `Failed` | 5.171 ms |
+| `grafeo.spec.lpg.cypher.types.integer.zero` | `Conformance` | lpg | `Failed` | 5.470 ms |
+| `grafeo.spec.lpg.cypher.types.integer.hex` | `Conformance` | lpg | `Failed` | 0.055 ms |
 | `grafeo.spec.lpg.cypher.types.integer.octal` | `Conformance` | lpg | `Failed` | 0.041 ms |
-| `grafeo.spec.lpg.cypher.types.float.decimal` | `Conformance` | lpg | `Failed` | 5.447 ms |
-| `grafeo.spec.lpg.cypher.types.float.scientific` | `Conformance` | lpg | `Failed` | 0.064 ms |
-| `grafeo.spec.lpg.cypher.types.float.negative` | `Conformance` | lpg | `Failed` | 5.565 ms |
-| `grafeo.spec.lpg.cypher.types.string.single.quoted` | `Conformance` | lpg | `Failed` | 5.603 ms |
-| `grafeo.spec.lpg.cypher.types.string.double.quoted` | `Conformance` | lpg | `Failed` | 0.052 ms |
-| `grafeo.spec.lpg.cypher.types.string.empty` | `Conformance` | lpg | `Failed` | 5.703 ms |
-| `grafeo.spec.lpg.cypher.types.boolean.true` | `Conformance` | lpg | `Failed` | 5.627 ms |
-| `grafeo.spec.lpg.cypher.types.boolean.false` | `Conformance` | lpg | `Failed` | 5.618 ms |
-| `grafeo.spec.lpg.cypher.types.null.literal` | `Conformance` | lpg | `Failed` | 5.899 ms |
-| `grafeo.spec.lpg.cypher.types.null.comparison.is.null` | `Conformance` | lpg | `Failed` | 0.057 ms |
-| `grafeo.spec.lpg.cypher.types.null.comparison.is.not.null` | `Conformance` | lpg | `Failed` | 0.045 ms |
-| `grafeo.spec.lpg.cypher.types.null.equality.returns.null` | `Conformance` | lpg | `Failed` | 0.050 ms |
-| `grafeo.spec.lpg.cypher.types.missing.property.is.null` | `Conformance` | lpg | `Failed` | 0.049 ms |
-| `grafeo.spec.lpg.cypher.types.list.of.integers` | `Conformance` | lpg | `Failed` | 5.805 ms |
-| `grafeo.spec.lpg.cypher.types.list.empty` | `Conformance` | lpg | `Failed` | 5.668 ms |
-| `grafeo.spec.lpg.cypher.types.list.nested` | `Conformance` | lpg | `Failed` | 5.911 ms |
-| `grafeo.spec.lpg.cypher.types.list.size` | `Conformance` | lpg | `Failed` | 6.220 ms |
-| `grafeo.spec.lpg.cypher.types.map.literal` | `Conformance` | lpg | `Failed` | 6.015 ms |
-| `grafeo.spec.lpg.cypher.types.map.key.count` | `Conformance` | lpg | `Failed` | 5.971 ms |
-| `grafeo.spec.lpg.cypher.types.node.return` | `Conformance` | lpg | `Passed` | 6.661 ms |
-| `grafeo.spec.lpg.cypher.types.relationship.return` | `Conformance` | lpg | `Failed` | 5.808 ms |
-| `grafeo.spec.lpg.cypher.types.path.return` | `Conformance` | lpg | `Failed` | 7.039 ms |
-| `grafeo.spec.lpg.cypher.types.date.from.string` | `Conformance` | lpg | `Failed` | 5.608 ms |
-| `grafeo.spec.lpg.cypher.types.time.from.string` | `Conformance` | lpg | `Failed` | 5.424 ms |
-| `grafeo.spec.lpg.cypher.types.datetime.from.string` | `Conformance` | lpg | `Failed` | 5.461 ms |
-| `grafeo.spec.lpg.cypher.types.duration.from.string` | `Conformance` | lpg | `Failed` | 5.595 ms |
-| `grafeo.spec.lpg.cypher.types.date.stored.as.property` | `Conformance` | lpg | `Failed` | 5.551 ms |
-| `grafeo.spec.lpg.cypher.types.integer.to.float.arithmetic` | `Conformance` | lpg | `Failed` | 5.278 ms |
-| `grafeo.spec.lpg.cypher.types.to.integer.truncation` | `Conformance` | lpg | `Failed` | 5.269 ms |
-| `grafeo.spec.lpg.cypher.types.to.float.from.integer` | `Conformance` | lpg | `Failed` | 5.369 ms |
-| `grafeo.spec.lpg.cypher.types.to.string.from.boolean` | `Conformance` | lpg | `Failed` | 5.268 ms |
-| `grafeo.spec.lpg.cypher.types.to.boolean.from.string.false` | `Conformance` | lpg | `Failed` | 5.147 ms |
-| `grafeo.spec.lpg.cypher.writing.clauses.create.node` | `Conformance` | lpg | `Failed` | 5.268 ms |
-| `grafeo.spec.lpg.cypher.writing.clauses.create.node.multi.label` | `Conformance` | lpg | `Failed` | 5.392 ms |
-| `grafeo.spec.lpg.cypher.writing.clauses.create.relationship` | `Conformance` | lpg | `Failed` | 6.463 ms |
-| `grafeo.spec.lpg.cypher.writing.clauses.create.relationship.with.properties` | `Conformance` | lpg | `Failed` | 6.559 ms |
-| `grafeo.spec.lpg.cypher.writing.clauses.create.path.pattern` | `Conformance` | lpg | `Failed` | 9.517 ms |
-| `grafeo.spec.lpg.cypher.writing.clauses.delete.node` | `Conformance` | lpg | `Failed` | 5.416 ms |
-| `grafeo.spec.lpg.cypher.writing.clauses.delete.multiple` | `Conformance` | lpg | `Failed` | 5.306 ms |
-| `grafeo.spec.lpg.cypher.writing.clauses.detach.delete` | `Conformance` | lpg | `Passed` | 7.415 ms |
-| `grafeo.spec.lpg.cypher.writing.clauses.detach.delete.with.return` | `Conformance` | lpg | `Failed` | 6.715 ms |
-| `grafeo.spec.lpg.cypher.writing.clauses.set.property` | `Conformance` | lpg | `Passed` | 7.164 ms |
-| `grafeo.spec.lpg.cypher.writing.clauses.set.multiple.properties` | `Conformance` | lpg | `Failed` | 6.617 ms |
-| `grafeo.spec.lpg.cypher.writing.clauses.set.replace.all` | `Conformance` | lpg | `Failed` | 0.111 ms |
-| `grafeo.spec.lpg.cypher.writing.clauses.set.merge.map` | `Conformance` | lpg | `Failed` | 0.048 ms |
-| `grafeo.spec.lpg.cypher.writing.clauses.set.label` | `Conformance` | lpg | `Failed` | 0.044 ms |
-| `grafeo.spec.lpg.cypher.writing.clauses.set.multiple.labels` | `Conformance` | lpg | `Failed` | 0.044 ms |
-| `grafeo.spec.lpg.cypher.writing.clauses.set.label.preserves.variable.binding` | `Conformance` | lpg | `Failed` | 0.042 ms |
-| `grafeo.spec.lpg.cypher.writing.clauses.count.star.after.set.label` | `Conformance` | lpg | `Failed` | 0.029 ms |
-| `grafeo.spec.lpg.cypher.writing.clauses.count.var.after.set.label` | `Conformance` | lpg | `Failed` | 0.029 ms |
-| `grafeo.spec.lpg.cypher.writing.clauses.remove.property` | `Conformance` | lpg | `Passed` | 7.589 ms |
-| `grafeo.spec.lpg.cypher.writing.clauses.remove.label` | `Conformance` | lpg | `Failed` | 0.099 ms |
-| `grafeo.spec.lpg.cypher.writing.clauses.remove.label.preserves.variable.binding` | `Conformance` | lpg | `Failed` | 0.045 ms |
-| `grafeo.spec.lpg.cypher.writing.clauses.match.create.edge.no.phantoms` | `Conformance` | lpg | `Failed` | 7.225 ms |
-| `grafeo.spec.lpg.cypher.writing.clauses.match.create.edge.correct.endpoints` | `Conformance` | lpg | `Failed` | 7.133 ms |
-| `grafeo.spec.lpg.cypher.writing.clauses.merge.create` | `Conformance` | lpg | `Passed` | 6.452 ms |
-| `grafeo.spec.lpg.cypher.writing.clauses.merge.match` | `Conformance` | lpg | `Passed` | 6.677 ms |
+| `grafeo.spec.lpg.cypher.types.float.decimal` | `Conformance` | lpg | `Failed` | 5.570 ms |
+| `grafeo.spec.lpg.cypher.types.float.scientific` | `Conformance` | lpg | `Failed` | 0.056 ms |
+| `grafeo.spec.lpg.cypher.types.float.negative` | `Conformance` | lpg | `Failed` | 5.525 ms |
+| `grafeo.spec.lpg.cypher.types.string.single.quoted` | `Conformance` | lpg | `Failed` | 5.778 ms |
+| `grafeo.spec.lpg.cypher.types.string.double.quoted` | `Conformance` | lpg | `Failed` | 0.049 ms |
+| `grafeo.spec.lpg.cypher.types.string.empty` | `Conformance` | lpg | `Failed` | 5.624 ms |
+| `grafeo.spec.lpg.cypher.types.boolean.true` | `Conformance` | lpg | `Failed` | 5.636 ms |
+| `grafeo.spec.lpg.cypher.types.boolean.false` | `Conformance` | lpg | `Failed` | 5.487 ms |
+| `grafeo.spec.lpg.cypher.types.null.literal` | `Conformance` | lpg | `Failed` | 5.238 ms |
+| `grafeo.spec.lpg.cypher.types.null.comparison.is.null` | `Conformance` | lpg | `Failed` | 0.054 ms |
+| `grafeo.spec.lpg.cypher.types.null.comparison.is.not.null` | `Conformance` | lpg | `Failed` | 0.044 ms |
+| `grafeo.spec.lpg.cypher.types.null.equality.returns.null` | `Conformance` | lpg | `Failed` | 0.055 ms |
+| `grafeo.spec.lpg.cypher.types.missing.property.is.null` | `Conformance` | lpg | `Failed` | 0.048 ms |
+| `grafeo.spec.lpg.cypher.types.list.of.integers` | `Conformance` | lpg | `Failed` | 5.255 ms |
+| `grafeo.spec.lpg.cypher.types.list.empty` | `Conformance` | lpg | `Failed` | 5.640 ms |
+| `grafeo.spec.lpg.cypher.types.list.nested` | `Conformance` | lpg | `Failed` | 5.333 ms |
+| `grafeo.spec.lpg.cypher.types.list.size` | `Conformance` | lpg | `Failed` | 5.432 ms |
+| `grafeo.spec.lpg.cypher.types.map.literal` | `Conformance` | lpg | `Failed` | 5.187 ms |
+| `grafeo.spec.lpg.cypher.types.map.key.count` | `Conformance` | lpg | `Failed` | 5.195 ms |
+| `grafeo.spec.lpg.cypher.types.node.return` | `Conformance` | lpg | `Passed` | 5.828 ms |
+| `grafeo.spec.lpg.cypher.types.relationship.return` | `Conformance` | lpg | `Failed` | 5.379 ms |
+| `grafeo.spec.lpg.cypher.types.path.return` | `Conformance` | lpg | `Failed` | 6.323 ms |
+| `grafeo.spec.lpg.cypher.types.date.from.string` | `Conformance` | lpg | `Failed` | 5.260 ms |
+| `grafeo.spec.lpg.cypher.types.time.from.string` | `Conformance` | lpg | `Failed` | 5.255 ms |
+| `grafeo.spec.lpg.cypher.types.datetime.from.string` | `Conformance` | lpg | `Failed` | 5.128 ms |
+| `grafeo.spec.lpg.cypher.types.duration.from.string` | `Conformance` | lpg | `Failed` | 5.069 ms |
+| `grafeo.spec.lpg.cypher.types.date.stored.as.property` | `Conformance` | lpg | `Failed` | 5.320 ms |
+| `grafeo.spec.lpg.cypher.types.integer.to.float.arithmetic` | `Conformance` | lpg | `Failed` | 5.201 ms |
+| `grafeo.spec.lpg.cypher.types.to.integer.truncation` | `Conformance` | lpg | `Failed` | 5.481 ms |
+| `grafeo.spec.lpg.cypher.types.to.float.from.integer` | `Conformance` | lpg | `Failed` | 5.215 ms |
+| `grafeo.spec.lpg.cypher.types.to.string.from.boolean` | `Conformance` | lpg | `Failed` | 5.117 ms |
+| `grafeo.spec.lpg.cypher.types.to.boolean.from.string.false` | `Conformance` | lpg | `Failed` | 5.388 ms |
+| `grafeo.spec.lpg.cypher.writing.clauses.create.node` | `Conformance` | lpg | `Failed` | 7.096 ms |
+| `grafeo.spec.lpg.cypher.writing.clauses.create.node.multi.label` | `Conformance` | lpg | `Failed` | 5.315 ms |
+| `grafeo.spec.lpg.cypher.writing.clauses.create.relationship` | `Conformance` | lpg | `Failed` | 6.824 ms |
+| `grafeo.spec.lpg.cypher.writing.clauses.create.relationship.with.properties` | `Conformance` | lpg | `Failed` | 7.410 ms |
+| `grafeo.spec.lpg.cypher.writing.clauses.create.path.pattern` | `Conformance` | lpg | `Failed` | 5.849 ms |
+| `grafeo.spec.lpg.cypher.writing.clauses.delete.node` | `Conformance` | lpg | `Failed` | 5.433 ms |
+| `grafeo.spec.lpg.cypher.writing.clauses.delete.multiple` | `Conformance` | lpg | `Failed` | 5.410 ms |
+| `grafeo.spec.lpg.cypher.writing.clauses.detach.delete` | `Conformance` | lpg | `Passed` | 7.284 ms |
+| `grafeo.spec.lpg.cypher.writing.clauses.detach.delete.with.return` | `Conformance` | lpg | `Failed` | 6.884 ms |
+| `grafeo.spec.lpg.cypher.writing.clauses.set.property` | `Conformance` | lpg | `Passed` | 7.369 ms |
+| `grafeo.spec.lpg.cypher.writing.clauses.set.multiple.properties` | `Conformance` | lpg | `Failed` | 6.311 ms |
+| `grafeo.spec.lpg.cypher.writing.clauses.set.replace.all` | `Conformance` | lpg | `Failed` | 0.105 ms |
+| `grafeo.spec.lpg.cypher.writing.clauses.set.merge.map` | `Conformance` | lpg | `Failed` | 0.045 ms |
+| `grafeo.spec.lpg.cypher.writing.clauses.set.label` | `Conformance` | lpg | `Failed` | 0.041 ms |
+| `grafeo.spec.lpg.cypher.writing.clauses.set.multiple.labels` | `Conformance` | lpg | `Failed` | 0.042 ms |
+| `grafeo.spec.lpg.cypher.writing.clauses.set.label.preserves.variable.binding` | `Conformance` | lpg | `Failed` | 0.040 ms |
+| `grafeo.spec.lpg.cypher.writing.clauses.count.star.after.set.label` | `Conformance` | lpg | `Failed` | 0.028 ms |
+| `grafeo.spec.lpg.cypher.writing.clauses.count.var.after.set.label` | `Conformance` | lpg | `Failed` | 0.027 ms |
+| `grafeo.spec.lpg.cypher.writing.clauses.remove.property` | `Conformance` | lpg | `Passed` | 6.883 ms |
+| `grafeo.spec.lpg.cypher.writing.clauses.remove.label` | `Conformance` | lpg | `Failed` | 0.094 ms |
+| `grafeo.spec.lpg.cypher.writing.clauses.remove.label.preserves.variable.binding` | `Conformance` | lpg | `Failed` | 0.043 ms |
+| `grafeo.spec.lpg.cypher.writing.clauses.match.create.edge.no.phantoms` | `Conformance` | lpg | `Failed` | 6.590 ms |
+| `grafeo.spec.lpg.cypher.writing.clauses.match.create.edge.correct.endpoints` | `Conformance` | lpg | `Failed` | 6.287 ms |
+| `grafeo.spec.lpg.cypher.writing.clauses.merge.create` | `Conformance` | lpg | `Passed` | 5.842 ms |
+| `grafeo.spec.lpg.cypher.writing.clauses.merge.match` | `Conformance` | lpg | `Passed` | 5.924 ms |
 | `grafeo.spec.lpg.cypher.writing.clauses.merge.on.create.set` | `Conformance` | lpg | `Failed` | 0.053 ms |
-| `grafeo.spec.lpg.cypher.writing.clauses.merge.on.match.set` | `Conformance` | lpg | `Failed` | 0.095 ms |
-| `grafeo.spec.lpg.cypher.writing.clauses.merge.on.match.set.self.reference.increment` | `Conformance` | lpg | `Failed` | 0.044 ms |
+| `grafeo.spec.lpg.cypher.writing.clauses.merge.on.match.set` | `Conformance` | lpg | `Failed` | 0.092 ms |
+| `grafeo.spec.lpg.cypher.writing.clauses.merge.on.match.set.self.reference.increment` | `Conformance` | lpg | `Failed` | 0.042 ms |
 | `grafeo.spec.lpg.cypher.writing.clauses.merge.on.create.set.self.reference.coalesce` | `Conformance` | lpg | `Failed` | 0.042 ms |
-| `grafeo.spec.lpg.cypher.writing.clauses.merge.relationship` | `Conformance` | lpg | `Failed` | 6.821 ms |
-| `grafeo.spec.lpg.cypher.writing.clauses.merge.relationship.set` | `Conformance` | lpg | `Failed` | 7.002 ms |
-| `grafeo.spec.lpg.cypher.writing.clauses.foreach.create` | `Conformance` | lpg | `Failed` | 0.086 ms |
-| `grafeo.spec.regression.edge.cases.cyclic.vlp.same.source.and.target.variable.cypher-variant` | `Conformance` | regression | `Failed` | 5.783 ms |
-| `grafeo.spec.regression.edge.cases.cyclic.vlp.no.cycle.returns.empty.cypher-variant` | `Conformance` | regression | `Failed` | 5.324 ms |
-| `grafeo.spec.rosetta.aggregation.count.products.cypher-variant` | `Conformance` | rosetta | `Failed` | 5.497 ms |
-| `grafeo.spec.rosetta.aggregation.sum.order.totals.cypher.cypher-variant` | `Conformance` | rosetta | `Failed` | 0.034 ms |
-| `grafeo.spec.rosetta.aggregation.avg.product.price.cypher-variant` | `Conformance` | rosetta | `Failed` | 5.958 ms |
-| `grafeo.spec.rosetta.aggregation.min.max.price.cypher.cypher-variant` | `Conformance` | rosetta | `Failed` | 5.857 ms |
-| `grafeo.spec.rosetta.aggregation.count.by.status.cypher.cypher-variant` | `Conformance` | rosetta | `Failed` | 0.039 ms |
-| `grafeo.spec.rosetta.aggregation.orders.per.customer.cypher.cypher-variant` | `Conformance` | rosetta | `Failed` | 0.053 ms |
-| `grafeo.spec.rosetta.aggregation.total.spend.per.customer.cypher.cypher-variant` | `Conformance` | rosetta | `Failed` | 0.044 ms |
-| `grafeo.spec.rosetta.aggregation.customers.with.multiple.orders.cypher.cypher-variant` | `Conformance` | rosetta | `Failed` | 0.041 ms |
-| `grafeo.spec.rosetta.aggregation.avg.review.rating.cypher-variant` | `Conformance` | rosetta | `Failed` | 5.948 ms |
+| `grafeo.spec.lpg.cypher.writing.clauses.merge.relationship` | `Conformance` | lpg | `Failed` | 6.339 ms |
+| `grafeo.spec.lpg.cypher.writing.clauses.merge.relationship.set` | `Conformance` | lpg | `Failed` | 6.565 ms |
+| `grafeo.spec.lpg.cypher.writing.clauses.foreach.create` | `Conformance` | lpg | `Failed` | 0.079 ms |
+| `grafeo.spec.regression.edge.cases.cyclic.vlp.same.source.and.target.variable.cypher-variant` | `Conformance` | regression | `Failed` | 5.169 ms |
+| `grafeo.spec.regression.edge.cases.cyclic.vlp.no.cycle.returns.empty.cypher-variant` | `Conformance` | regression | `Failed` | 5.359 ms |
+| `grafeo.spec.rosetta.aggregation.count.products.cypher-variant` | `Conformance` | rosetta | `Failed` | 6.270 ms |
+| `grafeo.spec.rosetta.aggregation.sum.order.totals.cypher.cypher-variant` | `Conformance` | rosetta | `Failed` | 0.030 ms |
+| `grafeo.spec.rosetta.aggregation.avg.product.price.cypher-variant` | `Conformance` | rosetta | `Failed` | 5.418 ms |
+| `grafeo.spec.rosetta.aggregation.min.max.price.cypher.cypher-variant` | `Conformance` | rosetta | `Failed` | 5.388 ms |
+| `grafeo.spec.rosetta.aggregation.count.by.status.cypher.cypher-variant` | `Conformance` | rosetta | `Failed` | 0.028 ms |
+| `grafeo.spec.rosetta.aggregation.orders.per.customer.cypher.cypher-variant` | `Conformance` | rosetta | `Failed` | 0.044 ms |
+| `grafeo.spec.rosetta.aggregation.total.spend.per.customer.cypher.cypher-variant` | `Conformance` | rosetta | `Failed` | 0.042 ms |
+| `grafeo.spec.rosetta.aggregation.customers.with.multiple.orders.cypher.cypher-variant` | `Conformance` | rosetta | `Failed` | 0.040 ms |
+| `grafeo.spec.rosetta.aggregation.avg.review.rating.cypher-variant` | `Conformance` | rosetta | `Failed` | 5.887 ms |
 | `grafeo.spec.rosetta.basic.queries.count.all.nodes.cypher-variant` | `Conformance` | rosetta | `Failed` | 0.063 ms |
-| `grafeo.spec.rosetta.basic.queries.match.by.label.cypher-variant` | `Conformance` | rosetta | `Failed` | 5.632 ms |
-| `grafeo.spec.rosetta.basic.queries.filter.by.age.cypher-variant` | `Conformance` | rosetta | `Failed` | 5.640 ms |
-| `grafeo.spec.rosetta.basic.queries.edge.traversal.cypher-variant` | `Conformance` | rosetta | `Failed` | 5.817 ms |
-| `grafeo.spec.rosetta.basic.queries.two.hop.path.cypher-variant` | `Conformance` | rosetta | `Failed` | 6.075 ms |
-| `grafeo.spec.rosetta.basic.queries.aggregation.group.by.cypher-variant` | `Conformance` | rosetta | `Failed` | 5.759 ms |
-| `grafeo.spec.rosetta.crud.operations.create.node.and.count.cypher-variant` | `Conformance` | rosetta | `Failed` | 5.531 ms |
-| `grafeo.spec.rosetta.crud.operations.create.node.read.properties.cypher-variant` | `Conformance` | rosetta | `Failed` | 5.849 ms |
-| `grafeo.spec.rosetta.crud.operations.create.edge.and.traverse.cypher-variant` | `Conformance` | rosetta | `Failed` | 5.774 ms |
-| `grafeo.spec.rosetta.crud.operations.match.count.multiple.nodes.cypher-variant` | `Conformance` | rosetta | `Failed` | 5.557 ms |
-| `grafeo.spec.rosetta.crud.operations.set.property.and.read.cypher-variant` | `Conformance` | rosetta | `Failed` | 5.589 ms |
-| `grafeo.spec.rosetta.crud.operations.delete.node.and.count.cypher-variant` | `Conformance` | rosetta | `Failed` | 5.646 ms |
-| `grafeo.spec.rosetta.crud.operations.aggregate.sum.cypher-variant` | `Conformance` | rosetta | `Failed` | 5.912 ms |
-| `grafeo.spec.rosetta.crud.operations.aggregate.count.cypher-variant` | `Conformance` | rosetta | `Failed` | 5.888 ms |
-| `grafeo.spec.rosetta.crud.operations.aggregate.avg.cypher-variant` | `Conformance` | rosetta | `Failed` | 6.558 ms |
-| `grafeo.spec.rosetta.data.fidelity.gql.insert.cypher.read.name.cypher-variant` | `Conformance` | rosetta | `Failed` | 6.111 ms |
-| `grafeo.spec.rosetta.data.fidelity.gql.insert.cypher.read.count.cypher-variant` | `Conformance` | rosetta | `Failed` | 5.958 ms |
-| `grafeo.spec.rosetta.data.fidelity.gql.insert.cypher.read.edge.cypher-variant` | `Conformance` | rosetta | `Failed` | 5.763 ms |
-| `grafeo.spec.rosetta.data.fidelity.int.property.preserved.in.cypher.cypher-variant` | `Conformance` | rosetta | `Failed` | 6.060 ms |
-| `grafeo.spec.rosetta.data.fidelity.bool.property.preserved.in.cypher.cypher-variant` | `Conformance` | rosetta | `Failed` | 5.735 ms |
-| `grafeo.spec.rosetta.data.fidelity.string.property.preserved.in.cypher.cypher-variant` | `Conformance` | rosetta | `Failed` | 5.586 ms |
-| `grafeo.spec.rosetta.data.fidelity.missing.property.null.in.cypher.cypher-variant` | `Conformance` | rosetta | `Failed` | 5.811 ms |
-| `grafeo.spec.rosetta.data.fidelity.multi.label.visible.in.cypher.cypher-variant` | `Conformance` | rosetta | `Failed` | 5.765 ms |
-| `grafeo.spec.rosetta.data.fidelity.edge.type.in.cypher.cypher-variant` | `Conformance` | rosetta | `Failed` | 6.420 ms |
-| `grafeo.spec.rosetta.data.fidelity.gql.insert.all.read.count.cypher-variant` | `Conformance` | rosetta | `Failed` | 6.370 ms |
-| `grafeo.spec.rosetta.pattern.matching.count.actors.cypher-variant` | `Conformance` | rosetta | `Failed` | 6.989 ms |
-| `grafeo.spec.rosetta.pattern.matching.find.actor.by.name.cypher-variant` | `Conformance` | rosetta | `Failed` | 6.401 ms |
-| `grafeo.spec.rosetta.pattern.matching.actors.in.heist.cypher-variant` | `Conformance` | rosetta | `Failed` | 6.900 ms |
-| `grafeo.spec.rosetta.pattern.matching.genres.of.vincent.cypher-variant` | `Conformance` | rosetta | `Failed` | 6.936 ms |
-| `grafeo.spec.rosetta.pattern.matching.movies.per.director.cypher.cypher-variant` | `Conformance` | rosetta | `Failed` | 6.761 ms |
-| `grafeo.spec.rosetta.pattern.matching.actor.roles.in.movie.cypher-variant` | `Conformance` | rosetta | `Failed` | 8.000 ms |
-| `grafeo.spec.rosetta.pattern.matching.high.rated.movies.cypher-variant` | `Conformance` | rosetta | `Failed` | 6.147 ms |
+| `grafeo.spec.rosetta.basic.queries.match.by.label.cypher-variant` | `Conformance` | rosetta | `Failed` | 5.547 ms |
+| `grafeo.spec.rosetta.basic.queries.filter.by.age.cypher-variant` | `Conformance` | rosetta | `Failed` | 5.264 ms |
+| `grafeo.spec.rosetta.basic.queries.edge.traversal.cypher-variant` | `Conformance` | rosetta | `Failed` | 5.607 ms |
+| `grafeo.spec.rosetta.basic.queries.two.hop.path.cypher-variant` | `Conformance` | rosetta | `Failed` | 5.338 ms |
+| `grafeo.spec.rosetta.basic.queries.aggregation.group.by.cypher-variant` | `Conformance` | rosetta | `Failed` | 5.311 ms |
+| `grafeo.spec.rosetta.crud.operations.create.node.and.count.cypher-variant` | `Conformance` | rosetta | `Failed` | 5.363 ms |
+| `grafeo.spec.rosetta.crud.operations.create.node.read.properties.cypher-variant` | `Conformance` | rosetta | `Failed` | 8.945 ms |
+| `grafeo.spec.rosetta.crud.operations.create.edge.and.traverse.cypher-variant` | `Conformance` | rosetta | `Failed` | 5.146 ms |
+| `grafeo.spec.rosetta.crud.operations.match.count.multiple.nodes.cypher-variant` | `Conformance` | rosetta | `Failed` | 5.009 ms |
+| `grafeo.spec.rosetta.crud.operations.set.property.and.read.cypher-variant` | `Conformance` | rosetta | `Failed` | 5.031 ms |
+| `grafeo.spec.rosetta.crud.operations.delete.node.and.count.cypher-variant` | `Conformance` | rosetta | `Failed` | 5.002 ms |
+| `grafeo.spec.rosetta.crud.operations.aggregate.sum.cypher-variant` | `Conformance` | rosetta | `Failed` | 5.102 ms |
+| `grafeo.spec.rosetta.crud.operations.aggregate.count.cypher-variant` | `Conformance` | rosetta | `Failed` | 5.048 ms |
+| `grafeo.spec.rosetta.crud.operations.aggregate.avg.cypher-variant` | `Conformance` | rosetta | `Failed` | 5.054 ms |
+| `grafeo.spec.rosetta.data.fidelity.gql.insert.cypher.read.name.cypher-variant` | `Conformance` | rosetta | `Failed` | 5.066 ms |
+| `grafeo.spec.rosetta.data.fidelity.gql.insert.cypher.read.count.cypher-variant` | `Conformance` | rosetta | `Failed` | 5.044 ms |
+| `grafeo.spec.rosetta.data.fidelity.gql.insert.cypher.read.edge.cypher-variant` | `Conformance` | rosetta | `Failed` | 4.994 ms |
+| `grafeo.spec.rosetta.data.fidelity.int.property.preserved.in.cypher.cypher-variant` | `Conformance` | rosetta | `Failed` | 5.053 ms |
+| `grafeo.spec.rosetta.data.fidelity.bool.property.preserved.in.cypher.cypher-variant` | `Conformance` | rosetta | `Failed` | 5.256 ms |
+| `grafeo.spec.rosetta.data.fidelity.string.property.preserved.in.cypher.cypher-variant` | `Conformance` | rosetta | `Failed` | 6.450 ms |
+| `grafeo.spec.rosetta.data.fidelity.missing.property.null.in.cypher.cypher-variant` | `Conformance` | rosetta | `Failed` | 7.675 ms |
+| `grafeo.spec.rosetta.data.fidelity.multi.label.visible.in.cypher.cypher-variant` | `Conformance` | rosetta | `Failed` | 5.844 ms |
+| `grafeo.spec.rosetta.data.fidelity.edge.type.in.cypher.cypher-variant` | `Conformance` | rosetta | `Failed` | 5.203 ms |
+| `grafeo.spec.rosetta.data.fidelity.gql.insert.all.read.count.cypher-variant` | `Conformance` | rosetta | `Failed` | 4.987 ms |
+| `grafeo.spec.rosetta.pattern.matching.count.actors.cypher-variant` | `Conformance` | rosetta | `Failed` | 5.872 ms |
+| `grafeo.spec.rosetta.pattern.matching.find.actor.by.name.cypher-variant` | `Conformance` | rosetta | `Failed` | 5.299 ms |
+| `grafeo.spec.rosetta.pattern.matching.actors.in.heist.cypher-variant` | `Conformance` | rosetta | `Failed` | 5.314 ms |
+| `grafeo.spec.rosetta.pattern.matching.genres.of.vincent.cypher-variant` | `Conformance` | rosetta | `Failed` | 5.540 ms |
+| `grafeo.spec.rosetta.pattern.matching.movies.per.director.cypher.cypher-variant` | `Conformance` | rosetta | `Failed` | 5.335 ms |
+| `grafeo.spec.rosetta.pattern.matching.actor.roles.in.movie.cypher-variant` | `Conformance` | rosetta | `Failed` | 5.263 ms |
+| `grafeo.spec.rosetta.pattern.matching.high.rated.movies.cypher-variant` | `Conformance` | rosetta | `Failed` | 5.510 ms |
 
 ## Latest `performance-deep` run
 
@@ -4317,216 +4318,33 @@ Generated from `graph/test-results/history.jsonl`. Results are grouped by stable
 
 ## Latest `sparrowdb-deep` run
 
-- Run: `20260718T231155.877415Z-bc55193ee193-corpus-deep`
-- Commit: `bc55193ee193b27223210afb18b28b8237d02e8f` (dirty)
+- Run: `20260718T231637.678608Z-a633cb698caf-corpus-deep`
+- Commit: `a633cb698caf1d2283e33224323d745dc980c92d` (dirty)
 - Package: `0.7.0`
 - Environment: `macos/aarch64` (`dev`)
 - Records: 2253
-- Passed: 199
+- Passed: 215
 - Unsupported: 0
-- Failed or changed: 2054
+- Failed or changed: 2038
 
-### Outcome changes from `20260718T221245.230902Z-bc55193ee193-corpus-deep`
+### Outcome changes from `20260718T231155.877415Z-bc55193ee193-corpus-deep`
 
-- `sparrowdb.acceptance.check-1-one-hop-scan.query-4`: Passed
-- `sparrowdb.acceptance.check-2-two-hop-asp-join.query-6`: Passed
-- `sparrowdb.acceptance.check-10-mutation-round-trip.query-9`: Passed
-- `sparrowdb.acceptance.check-12-unwind-list-expansion.query-1`: Passed
-- `sparrowdb.acceptance.check-12-unwind-list-expansion.query-2`: Passed
-- `sparrowdb.acceptance.check-12-unwind-list-expansion.query-3`: Passed
-- `sparrowdb.debug-case-when.debug-case-when.query-2`: Passed
-- `sparrowdb.debug-case-when.debug-case-when.query-3`: Passed
-- `sparrowdb.export-import.round-trip-export-import.query-6`: Passed
-- `sparrowdb.export-import.round-trip-export-import.query-9`: Passed
-- `sparrowdb.gap-10-parameterized-queries.plain-execute-still-works.query-3`: Passed
-- `sparrowdb.gap-10-parameterized-queries.parameterized-merge-creates-node.query-1`: Passed
-- `sparrowdb.gap-10-parameterized-queries.parameterized-merge-is-idempotent.query-1`: Passed
-- `sparrowdb.gap-10-parameterized-queries.parameterized-set-updates-property.query-2`: Passed
-- `sparrowdb.mcp-cypher-templates.mcp-template-create-entity-with-string-prop-parses-and-executes.query-1`: Passed
-- `sparrowdb.property-range-index.range-gt-upper-slice.query-1`: Passed
-- `sparrowdb.property-range-index.range-lt-lower-slice.query-1`: Passed
-- `sparrowdb.property-range-index.range-between-inclusive.query-1`: Passed
-- `sparrowdb.property-range-index.range-empty-result.query-1`: Passed
-- `sparrowdb.property-range-index.range-gte-full-population.query-1`: Passed
-- `sparrowdb.property-range-index.range-scan-completes-within-time-budget.query-1`: Passed
-- `sparrowdb.readtx-query.readtx-query-basic.query-3`: Passed
-- `sparrowdb.readtx-query.readtx-opened-after-commit-sees-new-data.query-3`: Passed
-- `sparrowdb.readtx-query.readtx-query-value-types.query-2`: Passed
-- `sparrowdb.readtx-query.readtx-query-empty-db.query-1`: Passed
-- `sparrowdb.readtx-query.readtx-query-concurrent-readers.query-2`: Passed
-- `sparrowdb.readtx-query.readtx-query-concurrent-readers.query-3`: Passed
-- `sparrowdb.readtx-query.readtx-query-concurrent-readers.query-4`: Passed
-- `sparrowdb.readtx-query.readtx-query-reusable.query-2`: Passed
-- `sparrowdb.readtx-query.readtx-query-reusable.query-3`: Passed
-- `sparrowdb.readtx-query.readtx-query-coexists-with-open-writetx.query-2`: Passed
-- `sparrowdb.regression-355.regression-355-match-with-node-var-match-hop-returns-results.query-1`: Passed
-- `sparrowdb.regression-355.regression-355-with-node-alias-then-hop.query-1`: Passed
-- `sparrowdb.regression-355.regression-355-match-where-with-node-var-match-hop.query-1`: Passed
-- `sparrowdb.regression-368.create-two-nodes-in-one-statement.query-2`: Passed
-- `sparrowdb.regression-368.create-inline-path-with-edge.query-2`: Passed
-- `sparrowdb.regression-368.create-inline-path-without-edge-props.query-2`: Passed
-- `sparrowdb.regression-369.one-hop-alias-column-names.query-1`: Passed
-- `sparrowdb.regression-373.set-updates-existing-property.query-3`: Passed
-- `sparrowdb.regression-373.set-multiple-properties-comma-separated.query-3`: Passed
-- `sparrowdb.regression-373.set-with-where-clause.query-4`: Passed
-- `sparrowdb.regression-373.set-with-where-clause.query-5`: Passed
-- `sparrowdb.regression-406.anonymous-rel-count-directed.query-4`: Passed
-- `sparrowdb.regression-406.anonymous-rel-count-undirected.query-4`: Passed
-- `sparrowdb.regression-406.mixed-anonymous-rel-patterns.query-4`: Passed
-- `sparrowdb.regression-real-world.social-graph-person-count.query-1`: Passed
-- `sparrowdb.regression-real-world.social-graph-knows-edges-traversable.query-1`: Passed
-- `sparrowdb.regression-real-world.social-graph-persist-across-reopen.query-1`: Passed
-- `sparrowdb.regression-real-world.social-graph-limit-clause-at-scale.query-1`: Passed
-- `sparrowdb.spa191-rel-type-persistence.spa191-rel-type-persists-across-sessions.query-4`: Passed
-- `sparrowdb.spa191-rel-type-persistence.spa191-rel-type-persists-without-checkpoint.query-4`: Passed
-- `sparrowdb.spa191-rel-type-persistence.spa191-multiple-rel-types-all-persist.query-5`: Passed
-- `sparrowdb.spa-100-order-by-spill.order-by-string-property.query-1`: Passed
-- `sparrowdb.spa-111-ldbc-snb.spa-111-loader-smoke.query-1`: Passed
-- `sparrowdb.spa-119-compat-fixture.check-13-compat-v1-fixture-opens-without-error.query-1`: Passed
-- `sparrowdb.spa-119-compat-fixture.check-13-compat-v1-fixture-opens-without-error.query-2`: Passed
-- `sparrowdb.spa-119-compat-fixture.check-13-compat-integer-properties-survive-reopen.query-1`: Passed
-- `sparrowdb.spa-130-with-clause.spa130-with-basic-projection-rename.query-1`: Passed
-- `sparrowdb.spa-130-with-clause.spa130-with-where-string-filter.query-1`: Passed
-- `sparrowdb.spa-130-with-clause.spa130-with-where-numeric-gt.query-1`: Passed
-- `sparrowdb.spa-130-with-clause.spa130-with-no-where-passthrough.query-1`: Passed
-- `sparrowdb.spa-130-with-clause.spa130-with-on-empty-result-set.query-1`: Passed
-- `sparrowdb.spa-130-with-clause.spa130-with-where-numeric-eq.query-1`: Passed
-- `sparrowdb.spa-131-optional-match.setup-person-graph-with-edge.query-4`: Passed
-- `sparrowdb.spa-131-optional-match.match-optional-match-with-edges.query-1`: Passed
-- `sparrowdb.spa-131-optional-match.match-optional-match-with-edges.query-2`: Passed
-- `sparrowdb.spa-131-optional-match.optional-match-no-rel-yields-null.query-2`: Passed
-- `sparrowdb.spa-131-optional-match.optional-match-with-rel-yields-value.query-1`: Passed
-- `sparrowdb.spa-131-optional-match.optional-match-no-base-node.query-1`: Passed
-- `sparrowdb.spa-134-multi-clause.spa134-match-with-where-return.query-1`: Passed
-- `sparrowdb.spa-134-multi-clause.spa134-unwind-with-transform-return.query-1`: Passed
-- `sparrowdb.spa-134-multi-clause.spa134-match-with-order-by-limit-return.query-1`: Passed
-- `sparrowdb.spa-134-multi-clause.spa134-match-with-where-empty-result.query-1`: Passed
-- `sparrowdb.spa-140-143-functions.spa140-toupper-in-match-return.query-1`: Passed
-- `sparrowdb.spa-140-143-functions.spa140-tolower-in-where.query-1`: Passed
-- `sparrowdb.spa-148-import-bridge.import-integer-properties.query-1`: Passed
-- `sparrowdb.spa-151-kms-query-validation.kms-q13-entity-candidates-by-label.query-1`: Passed
-- `sparrowdb.spa-151-kms-query-validation.kms-q27b-coalesce-with-present-properties.query-2`: Passed
-- `sparrowdb.spa-151-kms-query-validation.kms-q36b-unwind-literal-list-return-only.query-1`: Passed
-- `sparrowdb.spa-151-kms-query-validation.kms-q38-unlabeled-match-by-id.query-1`: Passed
-- `sparrowdb.spa-156-161.spa156-create-then-match-returns-node.query-2`: Passed
-- `sparrowdb.spa-156-161.spa156-multiple-creates-all-visible.query-4`: Passed
-- `sparrowdb.spa-156-161.spa161-where-string-filter-returns-correct-rows.query-4`: Passed
-- `sparrowdb.spa-156-161.spa161-where-string-no-match-returns-empty.query-2`: Passed
-- `sparrowdb.spa-156-161.spa161-inline-prop-filter-string-match.query-3`: Passed
-- `sparrowdb.spa-168-match-create.match-create-edge-persists.query-4`: Passed
-- `sparrowdb.spa-169-string-props.string-prop-round-trips.query-2`: Passed
-- `sparrowdb.spa-169-string-props.int-prop-round-trips.query-2`: Passed
-- `sparrowdb.spa-169-string-props.mixed-props-round-trips.query-2`: Passed
-- `sparrowdb.spa-169-string-props.mixed-props-round-trips.query-3`: Passed
-- `sparrowdb.spa-169-string-props.multiple-string-nodes-round-trip.query-4`: Passed
-- `sparrowdb.spa-169-string-props.string-prop-where-and-return.query-3`: Passed
-- `sparrowdb.spa-169-string-props.int-prop-where-and-return.query-3`: Passed
-- `sparrowdb.spa-169-string-props.string-prop-survives-reopen.query-2`: Passed
-- `sparrowdb.spa-172-count-distinct.count-variable-parses-and-returns-total.query-4`: Passed
-- `sparrowdb.spa-172-count-distinct.distinct-deduplicates-node-scan.query-6`: Passed
-- `sparrowdb.spa-182-create-path-rhs.create-path-both-nodes-and-edge-persisted.query-2`: Passed
-- `sparrowdb.spa-182-create-path-rhs.create-path-rhs-node-is-queryable.query-2`: Passed
-- `sparrowdb.spa-183-match-create-bindings.match-create-exactly-one-edge-with-props.query-4`: Passed
-- `sparrowdb.spa-183-match-create-bindings.match-create-correct-endpoints.query-4`: Passed
-- `sparrowdb.spa-183-match-create-bindings.match-create-no-cartesian-product-with-extra-nodes.query-6`: Passed
-- `sparrowdb.spa-185-rel-table-id.spa185-distinct-rel-types-no-cross-contamination.query-6`: Passed
-- `sparrowdb.spa-185-rel-table-id.spa185-distinct-rel-types-after-checkpoint.query-6`: Passed
-- `sparrowdb.spa-185-rel-table-id.spa185-three-rel-types-independent-filters.query-8`: Passed
-- `sparrowdb.spa-186-csr-nodeid.checkpoint-one-hop-traversal-returns-correct-node.query-2`: Passed
-- `sparrowdb.spa-186-csr-nodeid.optimize-one-hop-traversal-returns-correct-node.query-2`: Passed
-- `sparrowdb.spa-186-csr-nodeid.checkpoint-multi-edge-traversal-correct.query-3`: Passed
-- `sparrowdb.spa-186-csr-nodeid.checkpoint-fan-out-all-neighbors-correct.query-4`: Passed
-- `sparrowdb.spa-186-csr-nodeid.double-checkpoint-idempotent.query-2`: Passed
-- `sparrowdb.spa-187-column-slot-alignment.mixed-props-return-correct-values-per-slot.query-4`: Passed
-- `sparrowdb.spa-188-two-hop-where.two-hop-where-filters-fof-by-name.query-8`: Passed
-- `sparrowdb.spa-188-two-hop-where.two-hop-where-no-match-returns-empty.query-6`: Passed
-- `sparrowdb.spa-188-two-hop-where.two-hop-without-where-returns-all-paths.query-8`: Passed
-- `sparrowdb.spa-188-two-hop-where.two-hop-where-filters-by-src-and-fof.query-10`: Passed
-- `sparrowdb.spa-189-checkpoint-optimize.checkpoint-command-runs-after-writes.query-4`: Passed
-- `sparrowdb.spa-189-checkpoint-optimize.optimize-command-runs-after-writes.query-4`: Passed
-- `sparrowdb.spa-192-match-no-label.match-without-label-returns-all-nodes.query-4`: Passed
-- `sparrowdb.spa-192-match-no-label.match-without-label-with-limit.query-5`: Passed
-- `sparrowdb.spa-192-match-no-label.match-without-label-empty-db-returns-zero-rows.query-1`: Passed
-- `sparrowdb.spa-192-match-no-label.match-without-label-single-label-in-catalog.query-3`: Passed
-- `sparrowdb.spa-193-undirected-pattern.undirected-returns-both-directions.query-4`: Passed
-- `sparrowdb.spa-193-undirected-pattern.undirected-with-src-prop-filter.query-4`: Passed
-- `sparrowdb.spa-193-undirected-pattern.undirected-from-destination-side.query-4`: Passed
-- `sparrowdb.spa-194-count-node-var.count-node-var-lowercase-with-label.query-4`: Passed
-- `sparrowdb.spa-194-count-node-var.count-node-var-no-label-full-scan.query-4`: Passed
-- `sparrowdb.spa-194-count-node-var.count-node-var-grouped-by-property.query-4`: Passed
-- `sparrowdb.spa-197-count-label-fastpath.count-no-label-falls-through.query-3`: Passed
-- `sparrowdb.spa-211-unlabeled-match-create.unlabeled-match-return-finds-node.query-3`: Passed
-- `sparrowdb.spa-211-unlabeled-match-create.unlabeled-match-no-match-no-edge-no-error.query-3`: Passed
-- `sparrowdb.spa-213-return-node-var.return-bare-node-variable-yields-map.query-3`: Passed
-- `sparrowdb.spa-213-return-node-var.return-bare-node-variable-distinct-per-node.query-3`: Passed
-- `sparrowdb.spa-213-return-node-var.return-bare-node-variable-empty-label.query-3`: Passed
-- `sparrowdb.spa-214-skip-clause.skip-zero-returns-all-rows.query-1`: Passed
-- `sparrowdb.spa-214-skip-clause.skip-2-limit-3-returns-correct-slice.query-1`: Passed
-- `sparrowdb.spa-214-skip-clause.skip-without-limit-works.query-1`: Passed
-- `sparrowdb.spa-214-skip-clause.bug-report-query-does-not-error.query-1`: Passed
-- `sparrowdb.spa-216-delete-node.delete-node-with-prop-filter.query-2`: Passed
-- `sparrowdb.spa-216-delete-node.delete-node-with-prop-filter.query-4`: Passed
-- `sparrowdb.spa-216-delete-node.delete-all-nodes-of-label.query-4`: Passed
-- `sparrowdb.spa-216-delete-node.delete-all-nodes-of-label.query-6`: Passed
-- `sparrowdb.spa-216-delete-node.delete-nonexistent-node-is-noop.query-3`: Passed
-- `sparrowdb.spa-216-delete-node.deleted-node-invisible-to-future-queries.query-4`: Passed
-- `sparrowdb.spa-216-delete-node.deleted-node-invisible-to-future-queries.query-5`: Passed
-- `sparrowdb.spa-216-delete-node.deleted-node-invisible-to-future-queries.query-6`: Passed
-- `sparrowdb.spa-222-csr-lazy-load.spa222-mmap-open-and-traverse.query-1`: Passed
-- `sparrowdb.spa-224-regression-no-so-label.varpath-dst-prop-filter-non-so-label.query-4`: Passed
-- `sparrowdb.spa-224-varpath-reserved-label.varpath-normal-label-still-works.query-6`: Passed
-- `sparrowdb.spa-224-varpath-reserved-label.varpath-normal-label-still-works.query-7`: Passed
-- `sparrowdb.spa-229-add-property.add-property-returns-zero-when-no-match.query-3`: Passed
-- `sparrowdb.spa-240-coalesce.coalesce-with-two-props-returns-second.query-2`: Passed
-- `sparrowdb.spa-242-count-rel-var.count-rel-var-returns-edge-count.query-6`: Passed
-- `sparrowdb.spa-242-count-rel-var.count-rel-var-with-filter.query-6`: Passed
-- `sparrowdb.spa-242-count-rel-var.count-rel-var-zero-when-no-edges-match-filter.query-4`: Passed
-- `sparrowdb.spa-243-create-entity.spa243-created-entity-is-retrievable.query-2`: Passed
-- `sparrowdb.spa-243-create-entity.spa243-multiple-entities-retrievable.query-4`: Passed
-- `sparrowdb.spa-245-unknown-label-returns-empty.match-existing-label-still-returns-rows.query-3`: Passed
-- `sparrowdb.spa-249-property-index.index-lookup-returns-correct-nodes.query-4`: Passed
-- `sparrowdb.spa-249-property-index.index-coexists-with-where-clause.query-4`: Passed
-- `sparrowdb.spa-249-property-index.where-clause-equality-uses-index.query-1`: Passed
-- `sparrowdb.spa-249-property-index.where-clause-equality-no-match.query-3`: Passed
-- `sparrowdb.spa-249-property-index.where-range-gt.query-1`: Passed
-- `sparrowdb.spa-249-property-index.where-range-ge.query-1`: Passed
-- `sparrowdb.spa-249-property-index.where-range-lt.query-1`: Passed
-- `sparrowdb.spa-249-property-index.where-range-le.query-1`: Passed
-- `sparrowdb.spa-249-property-index.where-range-both-bounds.query-1`: Passed
-- `sparrowdb.spa-249-property-index.where-range-negative-integers.query-1`: Passed
-- `sparrowdb.spa-249-property-index.where-range-returns-empty-when-no-match.query-1`: Passed
-- `sparrowdb.spa-252-three-hop-binding.three-hop-all-vars-distinct.query-1`: Passed
-- `sparrowdb.spa-252-three-hop-binding.two-hop-still-works-after-spa252-fix.query-1`: Passed
-- `sparrowdb.spa-252-three-hop-binding.one-hop-still-works-after-spa252-fix.query-1`: Passed
-- `sparrowdb.spa-252-three-hop-binding.three-hop-where-on-intermediate-node.query-5`: Passed
-- `sparrowdb.spa-261-edge-props-perf.test-hop-without-edge-props.query-2`: Passed
-- `sparrowdb.spa-263-two-hop-null.two-hop-same-label-still-works.query-6`: Passed
-- `sparrowdb.spa-273-planner-stats.high-selectivity-predicate-returns-correct-results.query-2`: Passed
-- `sparrowdb.spa-289-multi-label.single-label-behaviour-unchanged.query-3`: Passed
-- `sparrowdb.spa-299-phase2-parity.chunked-pipeline-returns-null-for-absent-property.query-6`: Passed
-- `sparrowdb.spa-299-phase3-parity.two-hop-limit-parity.query-2`: Passed
-- `sparrowdb.spa-299-phase3-parity.two-hop-limit-parity.query-3`: Passed
-- `sparrowdb.spa-299-phase3-parity.two-hop-tombstoned-src-node-parity.query-8`: Passed
-- `sparrowdb.spa-299-phase3-parity.two-hop-memory-limit-enforced.query-6`: Passed
-- `sparrowdb.spa-354-varlength-terminal-label.varpath-unlabeled-source-labeled-destination.query-4`: Passed
-- `sparrowdb.spa-354-varlength-terminal-label.varpath-same-label-src-dst-unaffected.query-4`: Passed
-- `sparrowdb.spa-98-wal-encryption.spa-98-wrong-key-fails.query-2`: Passed
-- `sparrowdb.spa-aggregation.count-grouped.query-7`: Passed
-- `sparrowdb.spa-aggregation.sum-property.query-4`: Passed
-- `sparrowdb.spa-aggregation.avg-property.query-4`: Passed
-- `sparrowdb.spa-aggregation.min-max.query-5`: Passed
-- `sparrowdb.spa-variable-paths.var-path-star-one-hop.query-4`: Passed
-- `sparrowdb.spa-variable-paths.var-path-star-two-hops.query-6`: Passed
-- `sparrowdb.spa-variable-paths.var-path-range.query-6`: Passed
-- `sparrowdb.spa-variable-paths.var-path-exact.query-6`: Passed
-- `sparrowdb.spa-variable-paths.var-path-unbounded.query-8`: Passed
-- `sparrowdb.test-pole.pole-loads-expected-node-counts.query-1`: Passed
-- `sparrowdb.test-pole.pole-knows-edges-present.query-1`: Passed
-- `sparrowdb.uc7-unwind.unwind-integer-list-returns-one-row-per-element.query-1`: Passed
-- `sparrowdb.uc7-unwind.unwind-string-list-returns-one-row-per-element.query-1`: Passed
-- `sparrowdb.uc7-unwind.unwind-empty-list-returns-no-rows.query-1`: Passed
-- `sparrowdb.uc7-unwind.unwind-single-element-list.query-1`: Passed
-- `sparrowdb.uc7-unwind.unwind-float-list.query-1`: Passed
+- `sparrowdb.spa-140-143-functions.spa140-trim-in-return.query-1`: Passed
+- `sparrowdb.spa-140-143-functions.spa140-replace-in-return.query-1`: Passed
+- `sparrowdb.spa-140-143-functions.spa140-substring-in-return.query-1`: Passed
+- `sparrowdb.spa-140-143-functions.spa141-abs-in-return.query-1`: Passed
+- `sparrowdb.spa-140-143-functions.spa141-ceil-in-return.query-1`: Passed
+- `sparrowdb.spa-140-143-functions.spa141-floor-in-return.query-1`: Passed
+- `sparrowdb.spa-140-143-functions.spa141-sqrt-in-return.query-1`: Passed
+- `sparrowdb.spa-140-143-functions.spa141-sign-in-return.query-1`: Passed
+- `sparrowdb.spa-140-143-functions.spa142-reverse-string-in-return.query-1`: Passed
+- `sparrowdb.spa-140-143-functions.spa143-coalesce-returns-first-nonnull.query-1`: Passed
+- `sparrowdb.spa-140-143-functions.spa143-coalesce-all-null-returns-null.query-1`: Passed
+- `sparrowdb.spa-140-143-functions.spa141-abs-in-standalone-return.query-1`: Passed
+- `sparrowdb.spa-151-kms-query-validation.kms-q01-connection-ping.query-1`: Passed
+- `sparrowdb.spa-240-coalesce.coalesce-scalar-return.query-1`: Passed
+- `sparrowdb.spa-datetime-fns.datetime-returns-positive-epoch.query-1`: Passed
+- `sparrowdb.spa-datetime-fns.date-returns-days.query-1`: Passed
 
 ### Results by source area
 
@@ -4596,13 +4414,13 @@ Generated from `graph/test-results/history.jsonl`. Results are grouped by stable
 | spa_137_exists_subquery | `failed` | 12 |
 | spa_138_case_when | `failed` | 9 |
 | spa_139_phase9_path_acceptance | `failed` | 40 |
-| spa_140_143_functions | `failed` | 26 |
-| spa_140_143_functions | `passed` | 2 |
+| spa_140_143_functions | `failed` | 14 |
+| spa_140_143_functions | `passed` | 14 |
 | spa_148_import_bridge | `failed` | 10 |
 | spa_148_import_bridge | `passed` | 1 |
 | spa_149_visualizer | `failed` | 14 |
-| spa_151_kms_query_validation | `failed` | 86 |
-| spa_151_kms_query_validation | `passed` | 4 |
+| spa_151_kms_query_validation | `failed` | 85 |
+| spa_151_kms_query_validation | `passed` | 5 |
 | spa_155_unwind_param | `failed` | 3 |
 | spa_156_161 | `failed` | 11 |
 | spa_156_161 | `passed` | 5 |
@@ -4675,8 +4493,8 @@ Generated from `graph/test-results/history.jsonl`. Results are grouped by stable
 | spa_235_234_create_index_constraint | `failed` | 21 |
 | spa_236_labels_predicate | `failed` | 19 |
 | spa_237_unwind_match | `failed` | 19 |
-| spa_240_coalesce | `failed` | 10 |
-| spa_240_coalesce | `passed` | 1 |
+| spa_240_coalesce | `failed` | 9 |
+| spa_240_coalesce | `passed` | 2 |
 | spa_241_multihop_props | `failed` | 15 |
 | spa_242_count_rel_var | `failed` | 13 |
 | spa_242_count_rel_var | `passed` | 3 |
@@ -4725,7 +4543,8 @@ Generated from `graph/test-results/history.jsonl`. Results are grouped by stable
 | spa_aggregation | `failed` | 22 |
 | spa_aggregation | `passed` | 4 |
 | spa_collect_agg | `failed` | 16 |
-| spa_datetime_fns | `failed` | 7 |
+| spa_datetime_fns | `failed` | 5 |
+| spa_datetime_fns | `passed` | 2 |
 | spa_fulltext | `failed` | 7 |
 | spa_in_operator | `failed` | 16 |
 | spa_is_null | `failed` | 15 |
@@ -4746,11 +4565,11 @@ Generated from `graph/test-results/history.jsonl`. Results are grouped by stable
 
 | Boundary | Outcome | Count |
 |---|---|---:|
-| `execution` | `failed` | 1841 |
-| `execution` | `passed` | 199 |
+| `execution` | `failed` | 1825 |
+| `execution` | `passed` | 215 |
 | `parser` | `failed` | 213 |
 
-### Failures (2054)
+### Failures (2038)
 
 - `sparrowdb.acceptance.check-1-one-hop-scan.query-1`: query execution failed: Parse error: mutation clauses in read queries is not supported in the initial graph slice at byte 0..33
 - `sparrowdb.acceptance.check-1-one-hop-scan.query-2`: query execution failed: Parse error: mutation clauses in read queries is not supported in the initial graph slice at byte 0..31
@@ -4802,8 +4621,8 @@ Generated from `graph/test-results/history.jsonl`. Results are grouped by stable
 - `sparrowdb.call-subquery.correlated-subquery-collects-friend-names.query-4`: query execution failed: Parse error: multiple path patterns is not supported in the initial graph slice at byte 0..83
 - `sparrowdb.call-subquery.correlated-subquery-collects-friend-names.query-5`: query execution failed: Parse error: multiple path patterns is not supported in the initial graph slice at byte 0..85
 - `sparrowdb.call-subquery.correlated-subquery-collects-friend-names.query-6`: expected EOI, WHERE, clause, or relationship_pattern at byte 33..33
-- `sparrowdb.cypher-range-function-test.test-range-basic.query-1`: query execution failed: Parse error: query produced no plan
-- `sparrowdb.cypher-range-function-test.test-range-with-step.query-1`: query execution failed: Parse error: query produced no plan
+- `sparrowdb.cypher-range-function-test.test-range-basic.query-1`: query execution failed: Parse error: no such function: range
+- `sparrowdb.cypher-range-function-test.test-range-with-step.query-1`: query execution failed: Parse error: no such function: range
 - `sparrowdb.cypher-range-function-test.test-range-in-unwind.query-1`: query execution failed: Parse error: no such function: range
 - `sparrowdb.debug-case-when.debug-case-when.query-1`: query execution failed: Parse error: mutation clauses in read queries is not supported in the initial graph slice at byte 0..42
 - `sparrowdb.debug-case-when.debug-case-when.query-4`: expected EOI, ORDER, SKIP, LIMIT, AS, AND, OR, clause, comparison_op, additive_op, multiplicative_op, or property_suffix at byte 29..29
@@ -4856,11 +4675,11 @@ Generated from `graph/test-results/history.jsonl`. Results are grouped by stable
 - `sparrowdb.gap-10-parameterized-queries.plain-execute-still-works.query-2`: query execution failed: Parse error: mutation clauses in read queries is not supported in the initial graph slice at byte 0..30
 - `sparrowdb.gap-10-parameterized-queries.parameterized-merge-with-integer-param.query-1`: query execution failed: Parse error: unknown label `Counter` at byte 9..16
 - `sparrowdb.gap-10-parameterized-queries.parameterized-set-updates-property.query-1`: query execution failed: Parse error: mutation clauses in read queries is not supported in the initial graph slice at byte 0..40
-- `sparrowdb.hybrid-search.hybrid-search-20-nodes-rrf.query-1`: query execution failed: Parse error: query produced no plan
-- `sparrowdb.hybrid-search.hybrid-search-weighted-fusion-alpha.query-1`: query execution failed: Parse error: query produced no plan
-- `sparrowdb.hybrid-search.hybrid-search-weighted-fusion-alpha.query-2`: query execution failed: Parse error: query produced no plan
-- `sparrowdb.hybrid-search.hybrid-search-missing-fts-falls-back.query-1`: query execution failed: Parse error: query produced no plan
-- `sparrowdb.hybrid-search.hybrid-search-k-zero-returns-null.query-1`: query execution failed: Parse error: query produced no plan
+- `sparrowdb.hybrid-search.hybrid-search-20-nodes-rrf.query-1`: query execution failed: Parse error: no such function: hybrid_search
+- `sparrowdb.hybrid-search.hybrid-search-weighted-fusion-alpha.query-1`: query execution failed: Parse error: no such function: hybrid_search
+- `sparrowdb.hybrid-search.hybrid-search-weighted-fusion-alpha.query-2`: query execution failed: Parse error: no such function: hybrid_search
+- `sparrowdb.hybrid-search.hybrid-search-missing-fts-falls-back.query-1`: query execution failed: Parse error: no such function: hybrid_search
+- `sparrowdb.hybrid-search.hybrid-search-k-zero-returns-null.query-1`: query execution failed: Parse error: no such function: hybrid_search
 - `sparrowdb.match-after-create.match-finds-all-nodes-after-wal-only-creates.query-1`: expected clause at byte 0..0
 - `sparrowdb.match-after-create.match-finds-node-after-second-create.query-1`: query execution failed: Parse error: mutation clauses in read queries is not supported in the initial graph slice at byte 0..24
 - `sparrowdb.match-after-create.match-finds-node-after-second-create.query-2`: query execution failed: Parse error: unknown label `User` at byte 9..13
@@ -5237,31 +5056,19 @@ Generated from `graph/test-results/history.jsonl`. Results are grouped by stable
 - `sparrowdb.spa-139-phase9-path-acceptance.three-hop-inline-chain.query-1`: query execution failed: Parse error: unknown label `Step` at byte 9..13
 - `sparrowdb.spa-139-phase9-path-acceptance.varpath-lower-bound-excludes-shallow-nodes.query-1`: query execution failed: Parse error: unknown label `Hop` at byte 9..12
 - `sparrowdb.spa-140-143-functions.engine-with-person.query-1`: query execution failed: Parse error: mutation clauses in read queries is not supported in the initial graph slice at byte 0..42
-- `sparrowdb.spa-140-143-functions.spa140-tostring-in-return.query-1`: query execution failed: Parse error: query produced no plan
-- `sparrowdb.spa-140-143-functions.spa140-toupper-in-return.query-1`: query execution failed: Parse error: query produced no plan
-- `sparrowdb.spa-140-143-functions.spa140-tolower-in-return.query-1`: query execution failed: Parse error: query produced no plan
-- `sparrowdb.spa-140-143-functions.spa140-trim-in-return.query-1`: query execution failed: Parse error: query produced no plan
-- `sparrowdb.spa-140-143-functions.spa140-size-in-return.query-1`: query execution failed: Parse error: query produced no plan
-- `sparrowdb.spa-140-143-functions.spa140-replace-in-return.query-1`: query execution failed: Parse error: query produced no plan
-- `sparrowdb.spa-140-143-functions.spa140-substring-in-return.query-1`: query execution failed: Parse error: query produced no plan
-- `sparrowdb.spa-140-143-functions.spa141-abs-in-return.query-1`: query execution failed: Parse error: query produced no plan
-- `sparrowdb.spa-140-143-functions.spa141-ceil-in-return.query-1`: query execution failed: Parse error: query produced no plan
-- `sparrowdb.spa-140-143-functions.spa141-floor-in-return.query-1`: query execution failed: Parse error: query produced no plan
-- `sparrowdb.spa-140-143-functions.spa141-sqrt-in-return.query-1`: query execution failed: Parse error: query produced no plan
-- `sparrowdb.spa-140-143-functions.spa141-sign-in-return.query-1`: query execution failed: Parse error: query produced no plan
+- `sparrowdb.spa-140-143-functions.spa140-tostring-in-return.query-1`: query execution failed: Parse error: no such function: toString
+- `sparrowdb.spa-140-143-functions.spa140-toupper-in-return.query-1`: query execution failed: Parse error: no such function: toUpper
+- `sparrowdb.spa-140-143-functions.spa140-tolower-in-return.query-1`: query execution failed: Parse error: no such function: toLower
+- `sparrowdb.spa-140-143-functions.spa140-size-in-return.query-1`: query execution failed: Parse error: no such function: size
 - `sparrowdb.spa-140-143-functions.spa142-range-unwind-return.query-1`: query execution failed: Parse error: no such function: range
 - `sparrowdb.spa-140-143-functions.spa142-range-with-step-unwind.query-1`: query execution failed: Parse error: no such function: range
-- `sparrowdb.spa-140-143-functions.spa142-reverse-string-in-return.query-1`: query execution failed: Parse error: query produced no plan
-- `sparrowdb.spa-140-143-functions.spa143-tostring-int.query-1`: query execution failed: Parse error: query produced no plan
-- `sparrowdb.spa-140-143-functions.spa143-tointeger-string.query-1`: query execution failed: Parse error: query produced no plan
-- `sparrowdb.spa-140-143-functions.spa143-tofloat-int.query-1`: query execution failed: Parse error: query produced no plan
-- `sparrowdb.spa-140-143-functions.spa143-toboolean-string.query-1`: query execution failed: Parse error: query produced no plan
-- `sparrowdb.spa-140-143-functions.spa143-coalesce-returns-first-nonnull.query-1`: query execution failed: Parse error: query produced no plan
-- `sparrowdb.spa-140-143-functions.spa143-coalesce-all-null-returns-null.query-1`: query execution failed: Parse error: query produced no plan
-- `sparrowdb.spa-140-143-functions.spa143-isnull-true.query-1`: query execution failed: Parse error: query produced no plan
-- `sparrowdb.spa-140-143-functions.spa143-isnotnull-true.query-1`: query execution failed: Parse error: query produced no plan
-- `sparrowdb.spa-140-143-functions.spa141-abs-in-standalone-return.query-1`: query execution failed: Parse error: query produced no plan
-- `sparrowdb.spa-140-143-functions.spa143-id-function-in-match-return.query-1`: query execution failed: Parse error: query produced no plan
+- `sparrowdb.spa-140-143-functions.spa143-tostring-int.query-1`: query execution failed: Parse error: no such function: toString
+- `sparrowdb.spa-140-143-functions.spa143-tointeger-string.query-1`: query execution failed: Parse error: no such function: toInteger
+- `sparrowdb.spa-140-143-functions.spa143-tofloat-int.query-1`: query execution failed: Parse error: no such function: toFloat
+- `sparrowdb.spa-140-143-functions.spa143-toboolean-string.query-1`: query execution failed: Parse error: no such function: toBoolean
+- `sparrowdb.spa-140-143-functions.spa143-isnull-true.query-1`: query execution failed: Parse error: generated relational SQL did not parse: near "isNull": syntax error
+- `sparrowdb.spa-140-143-functions.spa143-isnotnull-true.query-1`: query execution failed: Parse error: no such function: isNotNull
+- `sparrowdb.spa-140-143-functions.spa143-id-function-in-match-return.query-1`: query execution failed: Parse error: generated relational SQL did not parse: near "isNull": syntax error
 - `sparrowdb.spa-148-import-bridge.import-nodes-csv.query-1`: expected DISTINCT or primary_expression at byte 30..30
 - `sparrowdb.spa-148-import-bridge.import-nodes-csv.query-2`: expected DISTINCT or primary_expression at byte 36..36
 - `sparrowdb.spa-148-import-bridge.import-nodes-csv.query-3`: expected DISTINCT or primary_expression at byte 33..33
@@ -5301,7 +5108,6 @@ Generated from `graph/test-results/history.jsonl`. Results are grouped by stable
 - `sparrowdb.spa-151-kms-query-validation.setup-kms-graph.query-13`: query execution failed: Parse error: multiple path patterns is not supported in the initial graph slice at byte 0..92
 - `sparrowdb.spa-151-kms-query-validation.setup-kms-graph.query-14`: query execution failed: Parse error: multiple path patterns is not supported in the initial graph slice at byte 0..98
 - `sparrowdb.spa-151-kms-query-validation.setup-kms-graph.query-15`: query execution failed: Parse error: multiple path patterns is not supported in the initial graph slice at byte 0..98
-- `sparrowdb.spa-151-kms-query-validation.kms-q01-connection-ping.query-1`: query execution failed: Parse error: query produced no plan
 - `sparrowdb.spa-151-kms-query-validation.kms-q02-create-knowledge-node.query-1`: query execution failed: Parse error: mutation clauses in read queries is not supported in the initial graph slice at byte 0..123
 - `sparrowdb.spa-151-kms-query-validation.kms-q02-create-knowledge-node.query-2`: query execution failed: Parse error: unknown label `Knowledge` at byte 9..18
 - `sparrowdb.spa-151-kms-query-validation.kms-q03-delete-knowledge-node.query-1`: query execution failed: Parse error: mutation clauses in read queries is not supported in the initial graph slice at byte 0..104
@@ -5993,7 +5799,6 @@ Generated from `graph/test-results/history.jsonl`. Results are grouped by stable
 - `sparrowdb.spa-240-coalesce.coalesce-literal-fallback.query-2`: query execution failed: Parse error: unknown property `nickname` at byte 35..43
 - `sparrowdb.spa-240-coalesce.coalesce-short-circuits-on-first-non-null.query-1`: query execution failed: Parse error: mutation clauses in read queries is not supported in the initial graph slice at byte 0..50
 - `sparrowdb.spa-240-coalesce.coalesce-short-circuits-on-first-non-null.query-2`: query execution failed: Parse error: unknown property `nickname` at byte 43..51
-- `sparrowdb.spa-240-coalesce.coalesce-scalar-return.query-1`: query execution failed: Parse error: query produced no plan
 - `sparrowdb.spa-241-multihop-props.setup-simple-chain.query-1`: query execution failed: Parse error: mutation clauses in read queries is not supported in the initial graph slice at byte 0..39
 - `sparrowdb.spa-241-multihop-props.setup-simple-chain.query-2`: query execution failed: Parse error: mutation clauses in read queries is not supported in the initial graph slice at byte 0..37
 - `sparrowdb.spa-241-multihop-props.setup-simple-chain.query-3`: query execution failed: Parse error: mutation clauses in read queries is not supported in the initial graph slice at byte 0..37
@@ -6644,13 +6449,11 @@ Generated from `graph/test-results/history.jsonl`. Results are grouped by stable
 - `sparrowdb.spa-collect-agg.collect-integers.query-2`: query execution failed: Parse error: mutation clauses in read queries is not supported in the initial graph slice at byte 0..27
 - `sparrowdb.spa-collect-agg.collect-integers.query-3`: query execution failed: Parse error: mutation clauses in read queries is not supported in the initial graph slice at byte 0..27
 - `sparrowdb.spa-collect-agg.collect-integers.query-4`: query execution failed: Parse error: no such function: collect
-- `sparrowdb.spa-datetime-fns.datetime-returns-positive-epoch.query-1`: query execution failed: Parse error: query produced no plan
-- `sparrowdb.spa-datetime-fns.timestamp-alias.query-1`: query execution failed: Parse error: query produced no plan
+- `sparrowdb.spa-datetime-fns.timestamp-alias.query-1`: query execution failed: Parse error: no such function: timestamp
 - `sparrowdb.spa-datetime-fns.datetime-in-create.query-1`: query execution failed: Parse error: mutation clauses in read queries is not supported in the initial graph slice at byte 0..33
 - `sparrowdb.spa-datetime-fns.datetime-in-create.query-2`: query execution failed: Parse error: unknown label `Event` at byte 9..14
-- `sparrowdb.spa-datetime-fns.date-returns-days.query-1`: query execution failed: Parse error: query produced no plan
-- `sparrowdb.spa-datetime-fns.duration-one-day.query-1`: query execution failed: Parse error: query produced no plan
-- `sparrowdb.spa-datetime-fns.duration-complex.query-1`: query execution failed: Parse error: query produced no plan
+- `sparrowdb.spa-datetime-fns.duration-one-day.query-1`: query execution failed: Parse error: no such function: duration
+- `sparrowdb.spa-datetime-fns.duration-complex.query-1`: query execution failed: Parse error: no such function: duration
 - `sparrowdb.spa-fulltext.create-index-and-search.query-1`: expected clause at byte 0..0
 - `sparrowdb.spa-fulltext.search-partial-match.query-1`: expected clause at byte 0..0
 - `sparrowdb.spa-fulltext.search-partial-match.query-2`: expected clause at byte 0..0
@@ -6797,10 +6600,10 @@ Generated from `graph/test-results/history.jsonl`. Results are grouped by stable
 - `sparrowdb.vector-index.create-vector-index-ddl.query-2`: expected node_pattern at byte 7..7
 - `sparrowdb.vector-index.vector-similarity-function.query-1`: query execution failed: Parse error: mutation clauses in read queries is not supported in the initial graph slice at byte 0..46
 - `sparrowdb.vector-index.vector-similarity-function.query-2`: query execution failed: Parse error: mutation clauses in read queries is not supported in the initial graph slice at byte 0..46
-- `sparrowdb.vector-index.vector-similarity-function.query-3`: query execution failed: Parse error: query produced no plan
-- `sparrowdb.vector-index.vector-similarity-orthogonal-is-zero.query-1`: query execution failed: Parse error: query produced no plan
-- `sparrowdb.vector-index.vector-distance-function.query-1`: query execution failed: Parse error: query produced no plan
-- `sparrowdb.vector-index.vector-dot-function.query-1`: query execution failed: Parse error: query produced no plan
+- `sparrowdb.vector-index.vector-similarity-function.query-3`: query execution failed: Parse error: no such function: vector_similarity
+- `sparrowdb.vector-index.vector-similarity-orthogonal-is-zero.query-1`: query execution failed: Parse error: no such function: vector_similarity
+- `sparrowdb.vector-index.vector-distance-function.query-1`: query execution failed: Parse error: no such function: vector_distance
+- `sparrowdb.vector-index.vector-dot-function.query-1`: query execution failed: Parse error: no such function: vector_dot
 - `sparrowdb.vector-index.set-vector-param-populates-hnsw.query-1`: query execution failed: Parse error: mutation clauses in read queries is not supported in the initial graph slice at byte 0..28
 - `sparrowdb.vector-index.set-vector-param-hnsw-roundtrip-survives-reopen.query-1`: query execution failed: Parse error: mutation clauses in read queries is not supported in the initial graph slice at byte 0..27
 - `sparrowdb.vector-index.anonymous-match-set-vector-populates-hnsw.query-1`: query execution failed: Parse error: mutation clauses in read queries is not supported in the initial graph slice at byte 0..32
@@ -6809,35 +6612,126 @@ Generated from `graph/test-results/history.jsonl`. Results are grouped by stable
 
 ## Latest `tck-deep` run
 
-- Run: `20260718T231155.877415Z-bc55193ee193-corpus-deep`
-- Commit: `bc55193ee193b27223210afb18b28b8237d02e8f` (dirty)
+- Run: `20260718T231637.678608Z-a633cb698caf-corpus-deep`
+- Commit: `a633cb698caf1d2283e33224323d745dc980c92d` (dirty)
 - Package: `0.7.0`
 - Environment: `macos/aarch64` (`dev`)
 - Records: 3926
-- Passed: 712
+- Passed: 724
 - Unsupported: 0
-- Failed or changed: 3214
+- Failed or changed: 3202
 
-### Outcome changes from `20260718T221245.230902Z-bc55193ee193-corpus-deep`
+### Outcome changes from `20260718T231155.877415Z-bc55193ee193-corpus-deep`
 
-- No outcome changes.
+- `tck.clauses.match.match1.scenario-11.examples-1-row-1`: Failed
+- `tck.clauses.match.match1.scenario-11.examples-1-row-2`: Failed
+- `tck.clauses.match.match1.scenario-11.examples-1-row-3`: Failed
+- `tck.clauses.match.match1.scenario-11.examples-1-row-4`: Failed
+- `tck.clauses.match.match1.scenario-11.examples-1-row-5`: Failed
+- `tck.clauses.match.match1.scenario-11.examples-1-row-6`: Failed
+- `tck.clauses.unwind.unwind1.scenario-7`: Passed
+- `tck.clauses.unwind.unwind1.scenario-11`: Passed
+- `tck.expressions.boolean.boolean1.scenario-8.examples-1-row-1`: Failed
+- `tck.expressions.boolean.boolean1.scenario-8.examples-1-row-2`: Failed
+- `tck.expressions.boolean.boolean1.scenario-8.examples-1-row-3`: Failed
+- `tck.expressions.boolean.boolean1.scenario-8.examples-1-row-4`: Failed
+- `tck.expressions.boolean.boolean1.scenario-8.examples-1-row-5`: Failed
+- `tck.expressions.boolean.boolean1.scenario-8.examples-1-row-6`: Failed
+- `tck.expressions.boolean.boolean1.scenario-8.examples-1-row-7`: Failed
+- `tck.expressions.boolean.boolean1.scenario-8.examples-1-row-10`: Failed
+- `tck.expressions.boolean.boolean1.scenario-8.examples-1-row-11`: Failed
+- `tck.expressions.boolean.boolean1.scenario-8.examples-1-row-12`: Failed
+- `tck.expressions.boolean.boolean1.scenario-8.examples-1-row-13`: Failed
+- `tck.expressions.boolean.boolean1.scenario-8.examples-1-row-14`: Failed
+- `tck.expressions.boolean.boolean1.scenario-8.examples-1-row-15`: Failed
+- `tck.expressions.boolean.boolean1.scenario-8.examples-1-row-16`: Failed
+- `tck.expressions.boolean.boolean1.scenario-8.examples-1-row-19`: Failed
+- `tck.expressions.boolean.boolean1.scenario-8.examples-1-row-20`: Failed
+- `tck.expressions.boolean.boolean1.scenario-8.examples-1-row-22`: Failed
+- `tck.expressions.boolean.boolean2.scenario-8.examples-1-row-1`: Failed
+- `tck.expressions.boolean.boolean2.scenario-8.examples-1-row-2`: Failed
+- `tck.expressions.boolean.boolean2.scenario-8.examples-1-row-3`: Failed
+- `tck.expressions.boolean.boolean2.scenario-8.examples-1-row-4`: Failed
+- `tck.expressions.boolean.boolean2.scenario-8.examples-1-row-5`: Failed
+- `tck.expressions.boolean.boolean2.scenario-8.examples-1-row-6`: Failed
+- `tck.expressions.boolean.boolean2.scenario-8.examples-1-row-7`: Failed
+- `tck.expressions.boolean.boolean2.scenario-8.examples-1-row-10`: Failed
+- `tck.expressions.boolean.boolean2.scenario-8.examples-1-row-11`: Failed
+- `tck.expressions.boolean.boolean2.scenario-8.examples-1-row-12`: Failed
+- `tck.expressions.boolean.boolean2.scenario-8.examples-1-row-13`: Failed
+- `tck.expressions.boolean.boolean2.scenario-8.examples-1-row-14`: Failed
+- `tck.expressions.boolean.boolean2.scenario-8.examples-1-row-15`: Failed
+- `tck.expressions.boolean.boolean2.scenario-8.examples-1-row-16`: Failed
+- `tck.expressions.boolean.boolean2.scenario-8.examples-1-row-19`: Failed
+- `tck.expressions.boolean.boolean2.scenario-8.examples-1-row-20`: Failed
+- `tck.expressions.boolean.boolean2.scenario-8.examples-1-row-22`: Failed
+- `tck.expressions.comparison.comparison1.scenario-15`: Passed
+- `tck.expressions.comparison.comparison1.scenario-16`: Passed
+- `tck.expressions.comparison.comparison2.scenario-5.examples-1-row-4`: Passed
+- `tck.expressions.literals.literals1.scenario-5`: Passed
+- `tck.expressions.literals.literals1.scenario-6`: Passed
+- `tck.expressions.literals.literals2.scenario-1`: Passed
+- `tck.expressions.literals.literals2.scenario-2`: Passed
+- `tck.expressions.literals.literals2.scenario-3`: Passed
+- `tck.expressions.literals.literals2.scenario-4`: Passed
+- `tck.expressions.literals.literals2.scenario-5`: Passed
+- `tck.expressions.literals.literals2.scenario-6`: Passed
+- `tck.expressions.literals.literals2.scenario-7`: Passed
+- `tck.expressions.literals.literals2.scenario-8`: Passed
+- `tck.expressions.literals.literals5.scenario-3`: Passed
+- `tck.expressions.literals.literals6.scenario-1`: Passed
+- `tck.expressions.literals.literals6.scenario-2`: Passed
+- `tck.expressions.literals.literals6.scenario-3`: Passed
+- `tck.expressions.literals.literals6.scenario-4`: Passed
+- `tck.expressions.literals.literals6.scenario-6`: Passed
+- `tck.expressions.literals.literals6.scenario-7`: Passed
+- `tck.expressions.literals.literals6.scenario-8`: Passed
+- `tck.expressions.literals.literals6.scenario-10`: Passed
+- `tck.expressions.literals.literals7.scenario-1`: Passed
+- `tck.expressions.literals.literals7.scenario-3`: Passed
+- `tck.expressions.literals.literals7.scenario-4`: Passed
+- `tck.expressions.literals.literals7.scenario-8`: Passed
+- `tck.expressions.literals.literals7.scenario-9`: Passed
+- `tck.expressions.literals.literals7.scenario-10`: Passed
+- `tck.expressions.literals.literals7.scenario-11`: Passed
+- `tck.expressions.literals.literals7.scenario-12`: Passed
+- `tck.expressions.literals.literals7.scenario-17`: Passed
+- `tck.expressions.mathematical.mathematical11.scenario-1`: Passed
+- `tck.expressions.mathematical.mathematical13.scenario-1`: Passed
+- `tck.expressions.mathematical.mathematical8.scenario-1`: Passed
+- `tck.expressions.mathematical.mathematical8.scenario-2`: Passed
+- `tck.expressions.null.null3.scenario-2`: Passed
+- `tck.expressions.null.null3.scenario-3`: Passed
+- `tck.expressions.precedence.precedence2.scenario-1.examples-1-row-1`: Passed
+- `tck.expressions.precedence.precedence2.scenario-1.examples-1-row-2`: Passed
+- `tck.expressions.precedence.precedence2.scenario-1.examples-1-row-4`: Passed
+- `tck.expressions.precedence.precedence2.scenario-1.examples-1-row-5`: Passed
+- `tck.expressions.precedence.precedence2.scenario-1.examples-1-row-7`: Passed
+- `tck.expressions.precedence.precedence2.scenario-1.examples-1-row-8`: Passed
+- `tck.expressions.precedence.precedence2.scenario-1.examples-1-row-10`: Passed
+- `tck.expressions.precedence.precedence2.scenario-1.examples-1-row-11`: Passed
+- `tck.expressions.string.string3.scenario-1`: Passed
+- `tck.expressions.temporal.temporal2.scenario-1.examples-1-row-1`: Passed
+- `tck.expressions.temporal.temporal4.scenario-13.examples-1-row-1`: Passed
+- `tck.expressions.temporal.temporal4.scenario-13.examples-1-row-9`: Passed
+- `tck.expressions.temporal.temporal4.scenario-13.examples-1-row-17`: Passed
 
 ### Results by source area
 
 | Area | Outcome | Count |
 |---|---|---:|
-| clauses | `failed` | 831 |
-| clauses | `passed` | 420 |
-| expressions | `failed` | 2353 |
-| expressions | `passed` | 292 |
+| clauses | `failed` | 835 |
+| clauses | `passed` | 416 |
+| expressions | `failed` | 2337 |
+| expressions | `passed` | 308 |
 | useCases | `failed` | 30 |
 
 ### Results by execution boundary
 
 | Boundary | Outcome | Count |
 |---|---|---:|
-| `execution` | `failed` | 923 |
-| `execution` | `passed` | 473 |
+| `execution` | `failed` | 911 |
+| `execution` | `passed` | 485 |
 | `fixture-execution` | `failed` | 1 |
 | `parameter-binding` | `failed` | 3 |
 | `parser` | `failed` | 1810 |
@@ -6846,7 +6740,7 @@ Generated from `graph/test-results/history.jsonl`. Results are grouped by stable
 | `setup-execution` | `failed` | 455 |
 | `side-effect-comparison` | `failed` | 8 |
 
-### Failures (3214)
+### Failures (3202)
 
 - `tck.clauses.call.call1.scenario-1`: expected clause at byte 0..0
 - `tck.clauses.call.call1.scenario-2`: expected clause at byte 0..0
@@ -8170,6 +8064,12 @@ CREATE ({num: 1}),
 - `tck.clauses.match.match1.scenario-7.examples-1-row-2`: expected an error but execution succeeded
 - `tck.clauses.match.match1.scenario-7.examples-1-row-3`: expected an error but execution succeeded
 - `tck.clauses.match.match1.scenario-7.examples-1-row-7`: expected an error but execution succeeded
+- `tck.clauses.match.match1.scenario-11.examples-1-row-1`: expected an error but execution succeeded
+- `tck.clauses.match.match1.scenario-11.examples-1-row-2`: expected an error but execution succeeded
+- `tck.clauses.match.match1.scenario-11.examples-1-row-3`: expected an error but execution succeeded
+- `tck.clauses.match.match1.scenario-11.examples-1-row-4`: expected an error but execution succeeded
+- `tck.clauses.match.match1.scenario-11.examples-1-row-5`: expected an error but execution succeeded
+- `tck.clauses.match.match1.scenario-11.examples-1-row-6`: expected an error but execution succeeded
 - `tck.clauses.match.match2.scenario-2`: TCK setup query failed: query execution failed: Parse error: mutation clauses in read queries is not supported in the initial graph slice at byte 1..99; mutation execution failed: Cypher mutation binding failed: unknown label `A` at byte 10..11; query: 
 CREATE (:A)-[:T1]->(:B),
        (:B)-[:T2]->(:A),
@@ -11885,11 +11785,7 @@ CREATE ()-[:R {num: 5}]->()
 UNWIND range(1, 3) AS x
 RETURN x
 
-- `tck.clauses.unwind.unwind1.scenario-3`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..46; query: 
-WITH [1, 2, 3] AS first, [4, 5, 6] AS second
-UNWIND (first + second) AS x
-RETURN x
-
+- `tck.clauses.unwind.unwind1.scenario-3`: expected [["1"], ["2"], ["3"], ["4"], ["5"], ["6"]], observed [["0"]]
 - `tck.clauses.unwind.unwind1.scenario-4`: query execution failed: Parse error: no such function: RANGE; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..26; query: 
 UNWIND RANGE(1, 2) AS row
 WITH collect(row) AS rows
@@ -11903,17 +11799,6 @@ UNWIND rows AS node
 RETURN node.id
 
 - `tck.clauses.unwind.unwind1.scenario-6`: TCK parameter value is not representable by the generic adapter
-- `tck.clauses.unwind.unwind1.scenario-7`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..36; query: 
-WITH [[1, 2, 3], [4, 5, 6]] AS lol
-UNWIND lol AS x
-UNWIND x AS y
-RETURN y
-
-- `tck.clauses.unwind.unwind1.scenario-11`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..24; query: 
-WITH [1, 2, 3] AS list
-UNWIND list AS x
-RETURN *
-
 - `tck.clauses.unwind.unwind1.scenario-12`: TCK setup query failed: query execution failed: Parse error: mutation clauses in read queries is not supported in the initial graph slice at byte 1..80; mutation execution failed: Cypher mutation binding failed: unknown label `S` at byte 11..12; query: 
 CREATE (s:S),
   (n),
@@ -11929,13 +11814,7 @@ CREATE (s:S),
   (s)-[:Y]->(e),
   (n)-[:Y]->(e)
 
-- `tck.clauses.unwind.unwind1.scenario-13`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..47; query: 
-WITH [1, 2] AS xs, [3, 4] AS ys, [5, 6] AS zs
-UNWIND xs AS x
-UNWIND ys AS y
-UNWIND zs AS z
-RETURN *
-
+- `tck.clauses.unwind.unwind1.scenario-13`: expected [["1", "[1,2]", "3", "[3,4]", "5", "[5,6]"], ["1", "[1,2]", "3", "[3,4]", "6", "[5,6]"], ["1", "[1,2]", "4", "[3,4]", "5", "[5,6]"], ["1", "[1,2]", "4", "[3,4]", "6", "[5,6]"], ["2", "[1,2]", "3", "[3,4]", "5", "[5,6]"], ["2", "[1,2]", "3", "[3,4]", "6", "[5,6]"], ["2", "[1,2]", "4", "[3,4]", "5", "[5,6]"], ["2", "[1,2]", "4", "[3,4]", "6", "[5,6]"]], observed [["[1,2]", "[3,4]", "[5,6]", "1", "3", "5"], ["[1,2]", "[3,4]", "[5,6]", "1", "3", "6"], ["[1,2]", "[3,4]", "[5,6]", "1", "4", "5"], ["[1,2]", "[3,4]", "[5,6]", "1", "4", "6"], ["[1,2]", "[3,4]", "[5,6]", "2", "3", "5"], ["[1,2]", "[3,4]", "[5,6]", "2", "3", "6"], ["[1,2]", "[3,4]", "[5,6]", "2", "4", "5"], ["[1,2]", "[3,4]", "[5,6]", "2", "4", "6"]]
 - `tck.clauses.unwind.unwind1.scenario-14`: TCK parameter value is not representable by the generic adapter
 - `tck.clauses.with.with1.scenario-1`: TCK setup query failed: query execution failed: Parse error: mutation clauses in read queries is not supported in the initial graph slice at byte 1..26; mutation execution failed: Cypher mutation binding failed: unknown label `A` at byte 10..11; query: 
 CREATE (:A)-[:REL]->(:B)
@@ -11993,7 +11872,7 @@ CREATE (a:End {num: 42, id: 0}),
        (:End {num: 3}),
        (:Begin {num: a.id})
 
-- `tck.clauses.with.with2.scenario-2`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..42; query: 
+- `tck.clauses.with.with2.scenario-2`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 6..29; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..42; query: 
 WITH {name: {name2: 'baz'}} AS nestedMap
 RETURN nestedMap.name.name2
 
@@ -13578,122 +13457,54 @@ RETURN collect(DISTINCT x) AS c
 UNWIND [null, 1, null] AS x
 RETURN collect(DISTINCT x) AS c
 
-- `tck.expressions.boolean.boolean1.scenario-1`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..258; query: 
-RETURN true AND true AS tt,
-       true AND false AS tf,
-       true AND null AS tn,
-       false AND true AS ft,
-       false AND false AS ff,
-       false AND null AS fn,
-       null AND true AS nt,
-       null AND false AS nf,
-       null AND null AS nn
-
-- `tck.expressions.boolean.boolean1.scenario-2`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..1053; query: 
-RETURN true AND true AND true AS ttt,
-       true AND true AND false AS ttf,
-       true AND true AND null AS ttn,
-       true AND false AND true AS tft,
-       true AND false AND false AS tff,
-       true AND false AND null AS tfn,
-       true AND null AND true AS tnt,
-       true AND null AND false AS tnf,
-       true AND null AND null AS tnn,
-       false AND true AND true AS ftt,
-       false AND true AND false AS ftf,
-       false AND true AND null AS ftn,
-       false AND false AND true AS fft,
-       false AND false AND false AS fff,
-       false AND false AND null AS ffn,
-       false AND null AND true AS fnt,
-       false AND null AND false AS fnf,
-       false AND null AND null AS fnn,
-       null AND true AND true AS ntt,
-       null AND true AND false AS ntf,
-       null AND true AND null AS ntn,
-       null AND false AND true AS nft,
-       null AND false AND false AS nff,
-       null AND false AND null AS nfn,
-       null AND null AND true AS nnt,
-       null AND null AND false AS nnf,
-       null AND null AND null AS nnn
-
-- `tck.expressions.boolean.boolean1.scenario-3`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..1359; query: 
-RETURN true AND true AND true AND true AND true AND true AND true AND true AND true AND true AND true AS t,
-       true AND true AND true AND false AND true AND true AND true AND true AND true AND true AND true AS tsf,
-       true AND true AND true AND null AND true AND true AND true AND true AND true AND true AND true AS tsn,
-       false AND false AND false AND false AND false AND false AND false AND false AND false AND false AND false AS f,
-       false AND false AND false AND false AND true AND false AND false AND false AND false AND false AND false AS fst,
-       false AND false AND false AND false AND false AND false AND null AND false AND false AND false AND false AS fsn,
-       null AND null AND null AND null AND null AND null AND null AND null AND null AND null AND null AS n,
-       null AND null AND null AND null AND true AND null AND null AND null AND null AND null AND null AS nst,
-       null AND null AND null AND null AND false AND null AND null AND null AND null AND null AND null AS nsf,
-       true AND false AND false AND false AND true AND false AND false AND true AND true AND true AND false AS m1,
-       true AND true AND false AND false AND true AND false AND false AND true AND true AND true AND false AS m2,
-       true AND true AND false AND false AND true AND null AND false AND true AND true AND null AND false AS m3
-
+- `tck.expressions.boolean.boolean1.scenario-1`: expected [["true", "false", "<null>", "false", "false", "false", "<null>", "false", "<null>"]], observed [["1", "0", "<null>", "0", "0", "0", "<null>", "0", "<null>"]]
+- `tck.expressions.boolean.boolean1.scenario-2`: expected [["true", "false", "<null>", "false", "false", "false", "<null>", "false", "<null>", "false", "false", "false", "false", "false", "false", "false", "false", "false", "<null>", "false", "<null>", "false", "false", "false", "<null>", "false", "<null>"]], observed [["1", "0", "<null>", "0", "0", "0", "<null>", "0", "<null>", "0", "0", "0", "0", "0", "0", "0", "0", "0", "<null>", "0", "<null>", "0", "0", "0", "<null>", "0", "<null>"]]
+- `tck.expressions.boolean.boolean1.scenario-3`: expected [["true", "false", "<null>", "false", "false", "false", "<null>", "<null>", "false", "false", "false", "false"]], observed [["1", "0", "<null>", "0", "0", "0", "<null>", "<null>", "0", "0", "0", "0"]]
 - `tck.expressions.boolean.boolean1.scenario-4`: expected [["false", "false", "true"], ["false", "true", "true"], ["true", "false", "true"], ["true", "true", "true"]], observed [["0", "0", "1"], ["0", "1", "1"], ["1", "0", "1"], ["1", "1", "1"]]
 - `tck.expressions.boolean.boolean1.scenario-5`: expected EOI, ORDER, SKIP, LIMIT, AND, OR, clause, comparison_op, additive_op, multiplicative_op, or property_suffix at byte 82..82
 - `tck.expressions.boolean.boolean1.scenario-6`: expected [["false", "false", "false", "true"], ["false", "false", "true", "true"], ["false", "true", "false", "true"], ["false", "true", "true", "true"], ["true", "false", "false", "true"], ["true", "false", "true", "true"], ["true", "true", "false", "true"], ["true", "true", "true", "true"]], observed [["0", "0", "0", "1"], ["0", "0", "1", "1"], ["0", "1", "0", "1"], ["0", "1", "1", "1"], ["1", "0", "0", "1"], ["1", "0", "1", "1"], ["1", "1", "0", "1"], ["1", "1", "1", "1"]]
 - `tck.expressions.boolean.boolean1.scenario-7`: expected EOI, ORDER, SKIP, LIMIT, AND, OR, clause, comparison_op, additive_op, multiplicative_op, or property_suffix at byte 117..117
-- `tck.expressions.boolean.boolean2.scenario-1`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..249; query: 
-RETURN true OR true AS tt,
-       true OR false AS tf,
-       true OR null AS tn,
-       false OR true AS ft,
-       false OR false AS ff,
-       false OR null AS fn,
-       null OR true AS nt,
-       null OR false AS nf,
-       null OR null AS nn
-
-- `tck.expressions.boolean.boolean2.scenario-2`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..999; query: 
-RETURN true OR true OR true AS ttt,
-       true OR true OR false AS ttf,
-       true OR true OR null AS ttn,
-       true OR false OR true AS tft,
-       true OR false OR false AS tff,
-       true OR false OR null AS tfn,
-       true OR null OR true AS tnt,
-       true OR null OR false AS tnf,
-       true OR null OR null AS tnn,
-       false OR true OR true AS ftt,
-       false OR true OR false AS ftf,
-       false OR true OR null AS ftn,
-       false OR false OR true AS fft,
-       false OR false OR false AS fff,
-       false OR false OR null AS ffn,
-       false OR null OR true AS fnt,
-       false OR null OR false AS fnf,
-       false OR null OR null AS fnn,
-       null OR true OR true AS ntt,
-       null OR true OR false AS ntf,
-       null OR true OR null AS ntn,
-       null OR false OR true AS nft,
-       null OR false OR false AS nff,
-       null OR false OR null AS nfn,
-       null OR null OR true AS nnt,
-       null OR null OR false AS nnf,
-       null OR null OR null AS nnn
-
-- `tck.expressions.boolean.boolean2.scenario-3`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..1239; query: 
-RETURN true OR true OR true OR true OR true OR true OR true OR true OR true OR true OR true AS t,
-       true OR true OR true OR false OR true OR true OR true OR true OR true OR true OR true AS tsf,
-       true OR true OR true OR null OR true OR true OR true OR true OR true OR true OR true AS tsn,
-       false OR false OR false OR false OR false OR false OR false OR false OR false OR false OR false AS f,
-       false OR false OR false OR false OR true OR false OR false OR false OR false OR false OR false AS fst,
-       false OR false OR false OR false OR false OR false OR null OR false OR false OR false OR false AS fsn,
-       null OR null OR null OR null OR null OR null OR null OR null OR null OR null OR null AS n,
-       null OR null OR null OR null OR true OR null OR null OR null OR null OR null OR null AS nst,
-       null OR null OR null OR null OR false OR null OR null OR null OR null OR null OR null AS nsf,
-       true OR false OR false OR false OR true OR false OR false OR true OR true OR true OR false AS m1,
-       true OR true OR false OR false OR true OR false OR false OR true OR true OR true OR false AS m2,
-       true OR true OR false OR false OR true OR null OR false OR true OR true OR null OR false AS m3
-
+- `tck.expressions.boolean.boolean1.scenario-8.examples-1-row-1`: expected an error but execution succeeded
+- `tck.expressions.boolean.boolean1.scenario-8.examples-1-row-2`: expected an error but execution succeeded
+- `tck.expressions.boolean.boolean1.scenario-8.examples-1-row-3`: expected an error but execution succeeded
+- `tck.expressions.boolean.boolean1.scenario-8.examples-1-row-4`: expected an error but execution succeeded
+- `tck.expressions.boolean.boolean1.scenario-8.examples-1-row-5`: expected an error but execution succeeded
+- `tck.expressions.boolean.boolean1.scenario-8.examples-1-row-6`: expected an error but execution succeeded
+- `tck.expressions.boolean.boolean1.scenario-8.examples-1-row-7`: expected an error but execution succeeded
+- `tck.expressions.boolean.boolean1.scenario-8.examples-1-row-10`: expected an error but execution succeeded
+- `tck.expressions.boolean.boolean1.scenario-8.examples-1-row-11`: expected an error but execution succeeded
+- `tck.expressions.boolean.boolean1.scenario-8.examples-1-row-12`: expected an error but execution succeeded
+- `tck.expressions.boolean.boolean1.scenario-8.examples-1-row-13`: expected an error but execution succeeded
+- `tck.expressions.boolean.boolean1.scenario-8.examples-1-row-14`: expected an error but execution succeeded
+- `tck.expressions.boolean.boolean1.scenario-8.examples-1-row-15`: expected an error but execution succeeded
+- `tck.expressions.boolean.boolean1.scenario-8.examples-1-row-16`: expected an error but execution succeeded
+- `tck.expressions.boolean.boolean1.scenario-8.examples-1-row-19`: expected an error but execution succeeded
+- `tck.expressions.boolean.boolean1.scenario-8.examples-1-row-20`: expected an error but execution succeeded
+- `tck.expressions.boolean.boolean1.scenario-8.examples-1-row-22`: expected an error but execution succeeded
+- `tck.expressions.boolean.boolean2.scenario-1`: expected [["true", "true", "true", "true", "false", "<null>", "true", "<null>", "<null>"]], observed [["1", "1", "1", "1", "0", "<null>", "1", "<null>", "<null>"]]
+- `tck.expressions.boolean.boolean2.scenario-2`: expected [["true", "true", "true", "true", "true", "true", "true", "true", "true", "true", "true", "true", "true", "false", "<null>", "true", "<null>", "<null>", "true", "true", "true", "true", "<null>", "<null>", "true", "<null>", "<null>"]], observed [["1", "1", "1", "1", "1", "1", "1", "1", "1", "1", "1", "1", "1", "0", "<null>", "1", "<null>", "<null>", "1", "1", "1", "1", "<null>", "<null>", "1", "<null>", "<null>"]]
+- `tck.expressions.boolean.boolean2.scenario-3`: expected [["true", "true", "true", "false", "true", "<null>", "<null>", "true", "<null>", "true", "true", "true"]], observed [["1", "1", "1", "0", "1", "<null>", "<null>", "1", "<null>", "1", "1", "1"]]
 - `tck.expressions.boolean.boolean2.scenario-4`: expected [["false", "false", "true"], ["false", "true", "true"], ["true", "false", "true"], ["true", "true", "true"]], observed [["0", "0", "1"], ["0", "1", "1"], ["1", "0", "1"], ["1", "1", "1"]]
 - `tck.expressions.boolean.boolean2.scenario-5`: expected EOI, ORDER, SKIP, LIMIT, AND, OR, clause, comparison_op, additive_op, multiplicative_op, or property_suffix at byte 82..82
 - `tck.expressions.boolean.boolean2.scenario-6`: expected [["false", "false", "false", "true"], ["false", "false", "true", "true"], ["false", "true", "false", "true"], ["false", "true", "true", "true"], ["true", "false", "false", "true"], ["true", "false", "true", "true"], ["true", "true", "false", "true"], ["true", "true", "true", "true"]], observed [["0", "0", "0", "1"], ["0", "0", "1", "1"], ["0", "1", "0", "1"], ["0", "1", "1", "1"], ["1", "0", "0", "1"], ["1", "0", "1", "1"], ["1", "1", "0", "1"], ["1", "1", "1", "1"]]
 - `tck.expressions.boolean.boolean2.scenario-7`: expected EOI, ORDER, SKIP, LIMIT, AND, OR, clause, comparison_op, additive_op, multiplicative_op, or property_suffix at byte 117..117
+- `tck.expressions.boolean.boolean2.scenario-8.examples-1-row-1`: expected an error but execution succeeded
+- `tck.expressions.boolean.boolean2.scenario-8.examples-1-row-2`: expected an error but execution succeeded
+- `tck.expressions.boolean.boolean2.scenario-8.examples-1-row-3`: expected an error but execution succeeded
+- `tck.expressions.boolean.boolean2.scenario-8.examples-1-row-4`: expected an error but execution succeeded
+- `tck.expressions.boolean.boolean2.scenario-8.examples-1-row-5`: expected an error but execution succeeded
+- `tck.expressions.boolean.boolean2.scenario-8.examples-1-row-6`: expected an error but execution succeeded
+- `tck.expressions.boolean.boolean2.scenario-8.examples-1-row-7`: expected an error but execution succeeded
+- `tck.expressions.boolean.boolean2.scenario-8.examples-1-row-10`: expected an error but execution succeeded
+- `tck.expressions.boolean.boolean2.scenario-8.examples-1-row-11`: expected an error but execution succeeded
+- `tck.expressions.boolean.boolean2.scenario-8.examples-1-row-12`: expected an error but execution succeeded
+- `tck.expressions.boolean.boolean2.scenario-8.examples-1-row-13`: expected an error but execution succeeded
+- `tck.expressions.boolean.boolean2.scenario-8.examples-1-row-14`: expected an error but execution succeeded
+- `tck.expressions.boolean.boolean2.scenario-8.examples-1-row-15`: expected an error but execution succeeded
+- `tck.expressions.boolean.boolean2.scenario-8.examples-1-row-16`: expected an error but execution succeeded
+- `tck.expressions.boolean.boolean2.scenario-8.examples-1-row-19`: expected an error but execution succeeded
+- `tck.expressions.boolean.boolean2.scenario-8.examples-1-row-20`: expected an error but execution succeeded
+- `tck.expressions.boolean.boolean2.scenario-8.examples-1-row-22`: expected an error but execution succeeded
 - `tck.expressions.boolean.boolean3.scenario-1`: expected EOI, ORDER, SKIP, LIMIT, AS, AND, OR, clause, comparison_op, additive_op, multiplicative_op, or property_suffix at byte 12..12
 - `tck.expressions.boolean.boolean3.scenario-2`: expected EOI, ORDER, SKIP, LIMIT, AS, AND, OR, clause, comparison_op, additive_op, multiplicative_op, or property_suffix at byte 12..12
 - `tck.expressions.boolean.boolean3.scenario-3`: expected EOI, ORDER, SKIP, LIMIT, AS, AND, OR, clause, comparison_op, additive_op, multiplicative_op, or property_suffix at byte 12..12
@@ -13712,73 +13523,73 @@ RETURN true OR true OR true OR true OR true OR true OR true OR true OR true OR t
 - `tck.expressions.boolean.boolean5.scenario-6`: expected EOI, ORDER, SKIP, LIMIT, AND, OR, clause, comparison_op, additive_op, multiplicative_op, or property_suffix at byte 117..117
 - `tck.expressions.boolean.boolean5.scenario-7`: expected [["false", "false", "true"], ["false", "true", "true"], ["true", "false", "true"], ["true", "true", "true"]], observed [["0", "0", "1"], ["0", "1", "1"], ["1", "0", "1"], ["1", "1", "1"]]
 - `tck.expressions.boolean.boolean5.scenario-8`: expected [["false", "false", "true"], ["false", "true", "true"], ["true", "false", "true"], ["true", "true", "true"]], observed [["0", "0", "1"], ["0", "1", "1"], ["1", "0", "1"], ["1", "1", "1"]]
-- `tck.expressions.btic.btic1.scenario-1.examples-1-row-1`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..26; query: 
+- `tck.expressions.btic.btic1.scenario-1.examples-1-row-1`: query execution failed: Parse error: no such function: btic; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..26; query: 
 RETURN btic('1985') AS b
 
-- `tck.expressions.btic.btic1.scenario-1.examples-1-row-2`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..29; query: 
+- `tck.expressions.btic.btic1.scenario-1.examples-1-row-2`: query execution failed: Parse error: no such function: btic; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..29; query: 
 RETURN btic('1985-03') AS b
 
-- `tck.expressions.btic.btic1.scenario-1.examples-1-row-3`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..32; query: 
+- `tck.expressions.btic.btic1.scenario-1.examples-1-row-3`: query execution failed: Parse error: no such function: btic; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..32; query: 
 RETURN btic('1985-03-15') AS b
 
-- `tck.expressions.btic.btic1.scenario-2`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..31; query: 
+- `tck.expressions.btic.btic1.scenario-2`: query execution failed: Parse error: no such function: btic; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..31; query: 
 RETURN btic('1985/1990') AS b
 
-- `tck.expressions.btic.btic1.scenario-3`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..30; query: 
+- `tck.expressions.btic.btic1.scenario-3`: query execution failed: Parse error: no such function: btic; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..30; query: 
 RETURN btic('2020-03/') AS b
 
-- `tck.expressions.btic.btic1.scenario-4`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..27; query: 
+- `tck.expressions.btic.btic1.scenario-4`: query execution failed: Parse error: no such function: btic; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..27; query: 
 RETURN btic('~1985') AS b
 
-- `tck.expressions.btic.btic1.scenario-5`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..24; query: 
+- `tck.expressions.btic.btic1.scenario-5`: query execution failed: Parse error: no such function: btic; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..24; query: 
 RETURN btic(null) AS b
 
-- `tck.expressions.btic.btic1.scenario-6`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..46; query: 
+- `tck.expressions.btic.btic1.scenario-6`: query execution failed: Parse error: no such function: toString; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..46; query: 
 RETURN toString(btic_lo(btic('1985'))) AS lo
 
-- `tck.expressions.btic.btic1.scenario-7`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..46; query: 
+- `tck.expressions.btic.btic1.scenario-7`: query execution failed: Parse error: no such function: toString; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..46; query: 
 RETURN toString(btic_hi(btic('1985'))) AS hi
 
-- `tck.expressions.btic.btic1.scenario-8`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..43; query: 
+- `tck.expressions.btic.btic1.scenario-8`: query execution failed: Parse error: no such function: btic_duration; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..43; query: 
 RETURN btic_duration(btic('1985')) AS dur
 
-- `tck.expressions.btic.btic1.scenario-9`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..44; query: 
+- `tck.expressions.btic.btic1.scenario-9`: query execution failed: Parse error: no such function: btic_granularity; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..44; query: 
 RETURN btic_granularity(btic('1985')) AS g
 
-- `tck.expressions.btic.btic1.scenario-10`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..43; query: 
+- `tck.expressions.btic.btic1.scenario-10`: query execution failed: Parse error: no such function: btic_certainty; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..43; query: 
 RETURN btic_certainty(btic('~1985')) AS c
 
-- `tck.expressions.btic.btic1.scenario-11`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..93; query: 
+- `tck.expressions.btic.btic1.scenario-11`: query execution failed: Parse error: no such function: btic_is_finite; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..93; query: 
 RETURN btic_is_finite(btic('1985')) AS finite,
        btic_is_finite(btic('/')) AS infinite
 
-- `tck.expressions.btic.btic1.scenario-12`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..108; query: 
+- `tck.expressions.btic.btic1.scenario-12`: query execution failed: Parse error: no such function: btic_is_unbounded; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..108; query: 
 RETURN btic_is_unbounded(btic('2020-03/')) AS unbounded,
        btic_is_unbounded(btic('1985')) AS bounded
 
-- `tck.expressions.btic.btic1.scenario-13`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..135; query: 
+- `tck.expressions.btic.btic1.scenario-13`: query execution failed: Parse error: no such function: btic_overlaps; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..135; query: 
 RETURN btic_overlaps(btic('1985'), btic('1985-06/1986-06')) AS overlaps,
        btic_overlaps(btic('1985'), btic('1990')) AS disjoint
 
-- `tck.expressions.btic.btic1.scenario-14`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..122; query: 
+- `tck.expressions.btic.btic1.scenario-14`: query execution failed: Parse error: no such function: btic_contains_point; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..122; query: 
 RETURN btic_contains_point(btic('1985'), 486000000000) AS inside,
        btic_contains_point(btic('1985'), 0) AS outside
 
-- `tck.expressions.btic.btic1.scenario-15`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..128; query: 
+- `tck.expressions.btic.btic1.scenario-15`: query execution failed: Parse error: no such function: btic_before; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..128; query: 
 RETURN btic_before(btic('1985'), btic('1990')) AS before_result,
        btic_after(btic('1990'), btic('1985')) AS after_result
 
-- `tck.expressions.btic.btic1.scenario-16`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..109; query: 
+- `tck.expressions.btic.btic1.scenario-16`: query execution failed: Parse error: no such function: btic_equals; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..109; query: 
 RETURN btic_equals(btic('1985'), btic('1985')) AS eq,
        btic_equals(btic('1985'), btic('1990')) AS neq
 
-- `tck.expressions.btic.btic1.scenario-17`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..54; query: 
+- `tck.expressions.btic.btic1.scenario-17`: query execution failed: Parse error: no such function: btic_span; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..54; query: 
 RETURN btic_span(btic('1985'), btic('1990')) AS span
 
-- `tck.expressions.btic.btic1.scenario-18`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..74; query: 
+- `tck.expressions.btic.btic1.scenario-18`: query execution failed: Parse error: no such function: btic_intersection; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..74; query: 
 RETURN btic_intersection(btic('1985'), btic('1985-06/1986-06')) AS inter
 
-- `tck.expressions.btic.btic1.scenario-19`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..52; query: 
+- `tck.expressions.btic.btic1.scenario-19`: query execution failed: Parse error: no such function: btic_gap; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..52; query: 
 RETURN btic_gap(btic('1985'), btic('1990')) AS gap
 
 - `tck.expressions.btic.btic1.scenario-20`: query execution failed: Parse error: mutation clauses in read queries is not supported in the initial graph slice at byte 1..33; mutation execution failed: Cypher mutation binding failed: unknown property `period` at byte 10..16; query: 
@@ -13789,20 +13600,20 @@ CREATE ({name: 'test', period: btic('1985')})
 ; query: 
 CREATE ({name: 'test', period: btic('1985')})
 
-- `tck.expressions.btic.btic1.scenario-22`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..110; query: 
+- `tck.expressions.btic.btic1.scenario-22`: query execution failed: Parse error: no such function: btic_meets; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..110; query: 
 RETURN btic_meets(btic('1985'), btic('1986')) AS meets,
        btic_meets(btic('1985'), btic('1990')) AS gap
 
-- `tck.expressions.btic.btic1.scenario-23`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..171; query: 
+- `tck.expressions.btic.btic1.scenario-23`: query execution failed: Parse error: no such function: btic_adjacent; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..171; query: 
 RETURN btic_adjacent(btic('1985'), btic('1986')) AS fwd,
        btic_adjacent(btic('1986'), btic('1985')) AS rev,
        btic_adjacent(btic('1985'), btic('2020')) AS gap
 
-- `tck.expressions.btic.btic1.scenario-24`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..138; query: 
+- `tck.expressions.btic.btic1.scenario-24`: query execution failed: Parse error: no such function: btic_disjoint; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..138; query: 
 RETURN btic_disjoint(btic('1985'), btic('2020')) AS disjoint,
        btic_disjoint(btic('1985'), btic('1985-06/1986-06')) AS overlapping
 
-- `tck.expressions.btic.btic1.scenario-25`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..260; query: 
+- `tck.expressions.btic.btic1.scenario-25`: query execution failed: Parse error: no such function: btic; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..260; query: 
 RETURN btic('1985') < btic('2000') AS lt,
        btic('2000') > btic('1985') AS gt,
        btic('1985') = btic('1985') AS eq,
@@ -13810,7 +13621,7 @@ RETURN btic('1985') < btic('2000') AS lt,
        btic('1985') <= btic('1985') AS lteq,
        btic('1985') >= btic('1985') AS gteq
 
-- `tck.expressions.btic.btic1.scenario-26`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..211; query: 
+- `tck.expressions.btic.btic1.scenario-26`: query execution failed: Parse error: no such function: btic_starts; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..211; query: 
 RETURN btic_starts(btic('1985-01/1985-06'), btic('1985')) AS starts,
        btic_during(btic('1985-03/1985-09'), btic('1985')) AS during,
        btic_finishes(btic('1985-06/1985-12'), btic('1985')) AS finishes
@@ -13830,96 +13641,68 @@ CREATE ()-[:T]->()
 ; query: 
 CREATE ()-[:T]->()
 
-- `tck.expressions.comparison.comparison1.scenario-6.examples-1-row-1`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..31; query: 
-RETURN [1, 2] = [1] AS result
-
-- `tck.expressions.comparison.comparison1.scenario-6.examples-1-row-2`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..31; query: 
-RETURN [null] = [1] AS result
-
-- `tck.expressions.comparison.comparison1.scenario-6.examples-1-row-3`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..30; query: 
-RETURN ['a'] = [1] AS result
-
-- `tck.expressions.comparison.comparison1.scenario-6.examples-1-row-4`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..40; query: 
-RETURN [[1]] = [[1], [null]] AS result
-
-- `tck.expressions.comparison.comparison1.scenario-6.examples-1-row-5`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..45; query: 
-RETURN [[1], [2]] = [[1], [null]] AS result
-
-- `tck.expressions.comparison.comparison1.scenario-6.examples-1-row-6`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..48; query: 
-RETURN [[1], [2, 3]] = [[1], [null]] AS result
-
-- `tck.expressions.comparison.comparison1.scenario-7.examples-1-row-1`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..26; query: 
+- `tck.expressions.comparison.comparison1.scenario-6.examples-1-row-1`: expected [["false"]], observed [["0"]]
+- `tck.expressions.comparison.comparison1.scenario-6.examples-1-row-2`: expected [["<null>"]], observed [["0"]]
+- `tck.expressions.comparison.comparison1.scenario-6.examples-1-row-3`: expected [["false"]], observed [["0"]]
+- `tck.expressions.comparison.comparison1.scenario-6.examples-1-row-4`: expected [["false"]], observed [["0"]]
+- `tck.expressions.comparison.comparison1.scenario-6.examples-1-row-5`: expected [["<null>"]], observed [["0"]]
+- `tck.expressions.comparison.comparison1.scenario-6.examples-1-row-6`: expected [["false"]], observed [["0"]]
+- `tck.expressions.comparison.comparison1.scenario-7.examples-1-row-1`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 8..11; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..26; query: 
 RETURN {} = {} AS result
 
-- `tck.expressions.comparison.comparison1.scenario-7.examples-1-row-2`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..40; query: 
+- `tck.expressions.comparison.comparison1.scenario-7.examples-1-row-2`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 8..18; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..40; query: 
 RETURN {k: true} = {k: true} AS result
 
-- `tck.expressions.comparison.comparison1.scenario-7.examples-1-row-3`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..34; query: 
+- `tck.expressions.comparison.comparison1.scenario-7.examples-1-row-3`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 8..15; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..34; query: 
 RETURN {k: 1} = {k: 1} AS result
 
-- `tck.expressions.comparison.comparison1.scenario-7.examples-1-row-4`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..38; query: 
+- `tck.expressions.comparison.comparison1.scenario-7.examples-1-row-4`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 8..17; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..38; query: 
 RETURN {k: 1.0} = {k: 1.0} AS result
 
-- `tck.expressions.comparison.comparison1.scenario-7.examples-1-row-5`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..42; query: 
+- `tck.expressions.comparison.comparison1.scenario-7.examples-1-row-5`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 8..19; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..42; query: 
 RETURN {k: 'abc'} = {k: 'abc'} AS result
 
-- `tck.expressions.comparison.comparison1.scenario-7.examples-1-row-6`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..50; query: 
+- `tck.expressions.comparison.comparison1.scenario-7.examples-1-row-6`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 8..23; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..50; query: 
 RETURN {k: 'a', l: 2} = {k: 'a', l: 2} AS result
 
-- `tck.expressions.comparison.comparison1.scenario-7.examples-1-row-7`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..33; query: 
+- `tck.expressions.comparison.comparison1.scenario-7.examples-1-row-7`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 8..11; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..33; query: 
 RETURN {} = {k: null} AS result
 
-- `tck.expressions.comparison.comparison1.scenario-7.examples-1-row-8`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..33; query: 
+- `tck.expressions.comparison.comparison1.scenario-7.examples-1-row-8`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 8..18; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..33; query: 
 RETURN {k: null} = {} AS result
 
-- `tck.expressions.comparison.comparison1.scenario-7.examples-1-row-9`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..43; query: 
+- `tck.expressions.comparison.comparison1.scenario-7.examples-1-row-9`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 8..15; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..43; query: 
 RETURN {k: 1} = {k: 1, l: null} AS result
 
-- `tck.expressions.comparison.comparison1.scenario-7.examples-1-row-10`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..43; query: 
+- `tck.expressions.comparison.comparison1.scenario-7.examples-1-row-10`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 8..24; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..43; query: 
 RETURN {k: null, l: 1} = {l: 1} AS result
 
-- `tck.expressions.comparison.comparison1.scenario-7.examples-1-row-11`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..49; query: 
+- `tck.expressions.comparison.comparison1.scenario-7.examples-1-row-11`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 8..18; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..49; query: 
 RETURN {k: null} = {k: null, l: null} AS result
 
-- `tck.expressions.comparison.comparison1.scenario-7.examples-1-row-12`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..40; query: 
+- `tck.expressions.comparison.comparison1.scenario-7.examples-1-row-12`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 8..18; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..40; query: 
 RETURN {k: null} = {k: null} AS result
 
-- `tck.expressions.comparison.comparison1.scenario-7.examples-1-row-13`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..37; query: 
+- `tck.expressions.comparison.comparison1.scenario-7.examples-1-row-13`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 8..15; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..37; query: 
 RETURN {k: 1} = {k: null} AS result
 
-- `tck.expressions.comparison.comparison1.scenario-7.examples-1-row-14`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..55; query: 
+- `tck.expressions.comparison.comparison1.scenario-7.examples-1-row-14`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 8..24; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..55; query: 
 RETURN {k: 1, l: null} = {k: null, l: null} AS result
 
-- `tck.expressions.comparison.comparison1.scenario-7.examples-1-row-15`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..52; query: 
+- `tck.expressions.comparison.comparison1.scenario-7.examples-1-row-15`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 8..24; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..52; query: 
 RETURN {k: 1, l: null} = {k: null, l: 1} AS result
 
-- `tck.expressions.comparison.comparison1.scenario-7.examples-1-row-16`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..49; query: 
+- `tck.expressions.comparison.comparison1.scenario-7.examples-1-row-16`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 8..24; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..49; query: 
 RETURN {k: 1, l: null} = {k: 1, l: 1} AS result
 
-- `tck.expressions.comparison.comparison1.scenario-8.examples-1-row-1`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..63; query: 
-RETURN 0.0 / 0.0 = 1 AS isEqual, 0.0 / 0.0 <> 1 AS isNotEqual
-
-- `tck.expressions.comparison.comparison1.scenario-8.examples-1-row-2`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..67; query: 
-RETURN 0.0 / 0.0 = 1.0 AS isEqual, 0.0 / 0.0 <> 1.0 AS isNotEqual
-
-- `tck.expressions.comparison.comparison1.scenario-8.examples-1-row-3`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..79; query: 
-RETURN 0.0 / 0.0 = 0.0 / 0.0 AS isEqual, 0.0 / 0.0 <> 0.0 / 0.0 AS isNotEqual
-
-- `tck.expressions.comparison.comparison1.scenario-8.examples-1-row-4`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..67; query: 
-RETURN 0.0 / 0.0 = 'a' AS isEqual, 0.0 / 0.0 <> 'a' AS isNotEqual
-
-- `tck.expressions.comparison.comparison1.scenario-9.examples-1-row-1`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..28; query: 
-RETURN 1.0 = 1.0 AS result
-
-- `tck.expressions.comparison.comparison1.scenario-9.examples-1-row-2`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..26; query: 
-RETURN 1 = 1.0 AS result
-
-- `tck.expressions.comparison.comparison1.scenario-9.examples-1-row-3`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..30; query: 
-RETURN '1.0' = 1.0 AS result
-
-- `tck.expressions.comparison.comparison1.scenario-9.examples-1-row-4`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..26; query: 
-RETURN '1' = 1 AS result
-
+- `tck.expressions.comparison.comparison1.scenario-8.examples-1-row-1`: expected [["false", "true"]], observed [["<null>", "<null>"]]
+- `tck.expressions.comparison.comparison1.scenario-8.examples-1-row-2`: expected [["false", "true"]], observed [["<null>", "<null>"]]
+- `tck.expressions.comparison.comparison1.scenario-8.examples-1-row-3`: expected [["false", "true"]], observed [["<null>", "<null>"]]
+- `tck.expressions.comparison.comparison1.scenario-8.examples-1-row-4`: expected [["false", "true"]], observed [["<null>", "<null>"]]
+- `tck.expressions.comparison.comparison1.scenario-9.examples-1-row-1`: expected [["true"]], observed [["1"]]
+- `tck.expressions.comparison.comparison1.scenario-9.examples-1-row-2`: expected [["true"]], observed [["1"]]
+- `tck.expressions.comparison.comparison1.scenario-9.examples-1-row-3`: expected [["false"]], observed [["0"]]
+- `tck.expressions.comparison.comparison1.scenario-9.examples-1-row-4`: expected [["false"]], observed [["0"]]
 - `tck.expressions.comparison.comparison1.scenario-10`: TCK setup query failed: query execution failed: Parse error: mutation clauses in read queries is not supported in the initial graph slice at byte 1..46; mutation execution failed: Cypher mutation binding failed: unknown label `TheLabel` at byte 10..18; query: 
 CREATE (:TheLabel {id: 4611686018427387905})
 ; query: 
@@ -13945,57 +13728,24 @@ CREATE (n:A)-[:LOOP]->(n)
 ; query: 
 CREATE (n:A)-[:LOOP]->(n)
 
-- `tck.expressions.comparison.comparison1.scenario-15`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..29; query: 
-RETURN null = null AS value
-
-- `tck.expressions.comparison.comparison1.scenario-16`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..30; query: 
-RETURN null <> null AS value
-
 - `tck.expressions.comparison.comparison2.scenario-1`: expected EOI, AND, OR, clause, comparison_op, additive_op, multiplicative_op, or property_suffix at byte 38..38
 - `tck.expressions.comparison.comparison2.scenario-2`: expected EOI, AND, OR, clause, comparison_op, additive_op, multiplicative_op, or property_suffix at byte 38..38
 - `tck.expressions.comparison.comparison2.scenario-3.examples-1-row-1`: expected EOI, WHERE, ORDER, SKIP, LIMIT, AS, AND, OR, clause, comparison_op, additive_op, multiplicative_op, or property_suffix at byte 165..165
 - `tck.expressions.comparison.comparison2.scenario-3.examples-1-row-2`: expected EOI, WHERE, ORDER, SKIP, LIMIT, AS, AND, OR, clause, comparison_op, additive_op, multiplicative_op, or property_suffix at byte 165..165
 - `tck.expressions.comparison.comparison2.scenario-3.examples-1-row-3`: expected EOI, WHERE, ORDER, SKIP, LIMIT, AS, AND, OR, clause, comparison_op, additive_op, multiplicative_op, or property_suffix at byte 165..165
 - `tck.expressions.comparison.comparison2.scenario-3.examples-1-row-4`: expected EOI, WHERE, ORDER, SKIP, LIMIT, AS, AND, OR, clause, comparison_op, additive_op, multiplicative_op, or property_suffix at byte 165..165
-- `tck.expressions.comparison.comparison2.scenario-4.examples-1-row-1`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..32; query: 
-RETURN [1, 0] >= [1] AS result
-
-- `tck.expressions.comparison.comparison2.scenario-4.examples-1-row-2`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..35; query: 
-RETURN [1, null] >= [1] AS result
-
-- `tck.expressions.comparison.comparison2.scenario-4.examples-1-row-3`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..38; query: 
-RETURN [1, 2] >= [1, null] AS result
-
-- `tck.expressions.comparison.comparison2.scenario-4.examples-1-row-4`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..40; query: 
-RETURN [1, 'a'] >= [1, null] AS result
-
-- `tck.expressions.comparison.comparison2.scenario-4.examples-1-row-5`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..38; query: 
-RETURN [1, 2] >= [3, null] AS result
-
-- `tck.expressions.comparison.comparison2.scenario-5.examples-1-row-1`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..95; query: 
-RETURN 0.0 / 0.0 > 1 AS gt, 0.0 / 0.0 >= 1 AS gtE, 0.0 / 0.0 < 1 AS lt, 0.0 / 0.0 <= 1 AS ltE
-
-- `tck.expressions.comparison.comparison2.scenario-5.examples-1-row-2`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..103; query: 
-RETURN 0.0 / 0.0 > 1.0 AS gt, 0.0 / 0.0 >= 1.0 AS gtE, 0.0 / 0.0 < 1.0 AS lt, 0.0 / 0.0 <= 1.0 AS ltE
-
-- `tck.expressions.comparison.comparison2.scenario-5.examples-1-row-3`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..127; query: 
-RETURN 0.0 / 0.0 > 0.0 / 0.0 AS gt, 0.0 / 0.0 >= 0.0 / 0.0 AS gtE, 0.0 / 0.0 < 0.0 / 0.0 AS lt, 0.0 / 0.0 <= 0.0 / 0.0 AS ltE
-
-- `tck.expressions.comparison.comparison2.scenario-5.examples-1-row-4`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..103; query: 
-RETURN 0.0 / 0.0 > 'a' AS gt, 0.0 / 0.0 >= 'a' AS gtE, 0.0 / 0.0 < 'a' AS lt, 0.0 / 0.0 <= 'a' AS ltE
-
-- `tck.expressions.comparison.comparison2.scenario-6.examples-1-row-1`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..28; query: 
-RETURN 1.0 < 1.0 AS result
-
-- `tck.expressions.comparison.comparison2.scenario-6.examples-1-row-2`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..26; query: 
-RETURN 1 < 1.0 AS result
-
-- `tck.expressions.comparison.comparison2.scenario-6.examples-1-row-3`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..30; query: 
-RETURN '1.0' < 1.0 AS result
-
-- `tck.expressions.comparison.comparison2.scenario-6.examples-1-row-4`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..26; query: 
-RETURN '1' < 1 AS result
-
+- `tck.expressions.comparison.comparison2.scenario-4.examples-1-row-1`: expected [["true"]], observed [["0"]]
+- `tck.expressions.comparison.comparison2.scenario-4.examples-1-row-2`: expected [["true"]], observed [["0"]]
+- `tck.expressions.comparison.comparison2.scenario-4.examples-1-row-3`: expected [["<null>"]], observed [["0"]]
+- `tck.expressions.comparison.comparison2.scenario-4.examples-1-row-4`: expected [["<null>"]], observed [["0"]]
+- `tck.expressions.comparison.comparison2.scenario-4.examples-1-row-5`: expected [["false"]], observed [["0"]]
+- `tck.expressions.comparison.comparison2.scenario-5.examples-1-row-1`: expected [["false", "false", "false", "false"]], observed [["<null>", "<null>", "<null>", "<null>"]]
+- `tck.expressions.comparison.comparison2.scenario-5.examples-1-row-2`: expected [["false", "false", "false", "false"]], observed [["<null>", "<null>", "<null>", "<null>"]]
+- `tck.expressions.comparison.comparison2.scenario-5.examples-1-row-3`: expected [["false", "false", "false", "false"]], observed [["<null>", "<null>", "<null>", "<null>"]]
+- `tck.expressions.comparison.comparison2.scenario-6.examples-1-row-1`: expected [["false"]], observed [["0"]]
+- `tck.expressions.comparison.comparison2.scenario-6.examples-1-row-2`: expected [["false"]], observed [["0"]]
+- `tck.expressions.comparison.comparison2.scenario-6.examples-1-row-3`: expected [["<null>"]], observed [["0"]]
+- `tck.expressions.comparison.comparison2.scenario-6.examples-1-row-4`: expected [["<null>"]], observed [["0"]]
 - `tck.expressions.comparison.comparison3.scenario-1`: TCK setup query failed: query execution failed: Parse error: mutation clauses in read queries is not supported in the initial graph slice at byte 23..41; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..22; query: 
 UNWIND [1, 2, 3] AS i
 CREATE ({num: i})
@@ -14244,7 +13994,7 @@ OPTIONAL MATCH (n:DoesNotExist)
 OPTIONAL MATCH (n)-[r:NOT_THERE]->()
 RETURN properties(n), properties(r), properties(null)
 
-- `tck.expressions.graph.graph9.scenario-4`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..55; query: 
+- `tck.expressions.graph.graph9.scenario-4`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 19..48; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..55; query: 
 RETURN properties({name: 'Popeye', level: 9001}) AS m
 
 - `tck.expressions.list.list1.scenario-1`: expected EOI, ORDER, SKIP, LIMIT, AS, AND, OR, clause, comparison_op, additive_op, multiplicative_op, or property_suffix at byte 16..16
@@ -14252,124 +14002,124 @@ RETURN properties({name: 'Popeye', level: 9001}) AS m
 - `tck.expressions.list.list1.scenario-3`: expected EOI, ORDER, SKIP, LIMIT, AS, AND, OR, clause, comparison_op, additive_op, multiplicative_op, or property_suffix at byte 43..43
 - `tck.expressions.list.list1.scenario-4`: expected EOI, ORDER, SKIP, LIMIT, AS, AND, OR, clause, comparison_op, additive_op, multiplicative_op, or property_suffix at byte 32..32
 - `tck.expressions.list.list1.scenario-5`: expected EOI, ORDER, SKIP, LIMIT, AS, AND, OR, clause, comparison_op, additive_op, multiplicative_op, or property_suffix at byte 43..43
-- `tck.expressions.list.list11.scenario-1.examples-1-row-1`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..36; query: 
+- `tck.expressions.list.list11.scenario-1.examples-1-row-1`: query execution failed: Parse error: no such function: range; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..36; query: 
 RETURN range(-1236, -1234) AS list
 
-- `tck.expressions.list.list11.scenario-1.examples-1-row-2`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..36; query: 
+- `tck.expressions.list.list11.scenario-1.examples-1-row-2`: query execution failed: Parse error: no such function: range; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..36; query: 
 RETURN range(-1234, -1234) AS list
 
-- `tck.expressions.list.list11.scenario-1.examples-1-row-3`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..31; query: 
+- `tck.expressions.list.list11.scenario-1.examples-1-row-3`: query execution failed: Parse error: no such function: range; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..31; query: 
 RETURN range(-10, -3) AS list
 
-- `tck.expressions.list.list11.scenario-1.examples-1-row-4`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..30; query: 
+- `tck.expressions.list.list11.scenario-1.examples-1-row-4`: query execution failed: Parse error: no such function: range; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..30; query: 
 RETURN range(-10, 0) AS list
 
-- `tck.expressions.list.list11.scenario-1.examples-1-row-5`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..29; query: 
+- `tck.expressions.list.list11.scenario-1.examples-1-row-5`: query execution failed: Parse error: no such function: range; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..29; query: 
 RETURN range(-1, 0) AS list
 
-- `tck.expressions.list.list11.scenario-1.examples-1-row-6`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..31; query: 
+- `tck.expressions.list.list11.scenario-1.examples-1-row-6`: query execution failed: Parse error: no such function: range; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..31; query: 
 RETURN range(0, -123) AS list
 
-- `tck.expressions.list.list11.scenario-1.examples-1-row-7`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..29; query: 
+- `tck.expressions.list.list11.scenario-1.examples-1-row-7`: query execution failed: Parse error: no such function: range; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..29; query: 
 RETURN range(0, -1) AS list
 
-- `tck.expressions.list.list11.scenario-1.examples-1-row-8`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..29; query: 
+- `tck.expressions.list.list11.scenario-1.examples-1-row-8`: query execution failed: Parse error: no such function: range; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..29; query: 
 RETURN range(-1, 1) AS list
 
-- `tck.expressions.list.list11.scenario-1.examples-1-row-9`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..28; query: 
+- `tck.expressions.list.list11.scenario-1.examples-1-row-9`: query execution failed: Parse error: no such function: range; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..28; query: 
 RETURN range(0, 0) AS list
 
-- `tck.expressions.list.list11.scenario-1.examples-1-row-10`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..28; query: 
+- `tck.expressions.list.list11.scenario-1.examples-1-row-10`: query execution failed: Parse error: no such function: range; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..28; query: 
 RETURN range(0, 1) AS list
 
-- `tck.expressions.list.list11.scenario-1.examples-1-row-11`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..29; query: 
+- `tck.expressions.list.list11.scenario-1.examples-1-row-11`: query execution failed: Parse error: no such function: range; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..29; query: 
 RETURN range(0, 10) AS list
 
-- `tck.expressions.list.list11.scenario-1.examples-1-row-12`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..29; query: 
+- `tck.expressions.list.list11.scenario-1.examples-1-row-12`: query execution failed: Parse error: no such function: range; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..29; query: 
 RETURN range(6, 10) AS list
 
-- `tck.expressions.list.list11.scenario-1.examples-1-row-13`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..34; query: 
+- `tck.expressions.list.list11.scenario-1.examples-1-row-13`: query execution failed: Parse error: no such function: range; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..34; query: 
 RETURN range(1234, 1234) AS list
 
-- `tck.expressions.list.list11.scenario-1.examples-1-row-14`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..34; query: 
+- `tck.expressions.list.list11.scenario-1.examples-1-row-14`: query execution failed: Parse error: no such function: range; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..34; query: 
 RETURN range(1234, 1236) AS list
 
-- `tck.expressions.list.list11.scenario-2.examples-1-row-1`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..42; query: 
+- `tck.expressions.list.list11.scenario-2.examples-1-row-1`: query execution failed: Parse error: no such function: range; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..42; query: 
 RETURN range(1381, -3412, -1298) AS list
 
-- `tck.expressions.list.list11.scenario-2.examples-1-row-2`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..39; query: 
+- `tck.expressions.list.list11.scenario-2.examples-1-row-2`: query execution failed: Parse error: no such function: range; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..39; query: 
 RETURN range(0, -2000, -1298) AS list
 
-- `tck.expressions.list.list11.scenario-2.examples-1-row-3`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..35; query: 
+- `tck.expressions.list.list11.scenario-2.examples-1-row-3`: query execution failed: Parse error: no such function: range; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..35; query: 
 RETURN range(10, -10, -3) AS list
 
-- `tck.expressions.list.list11.scenario-2.examples-1-row-4`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..34; query: 
+- `tck.expressions.list.list11.scenario-2.examples-1-row-4`: query execution failed: Parse error: no such function: range; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..34; query: 
 RETURN range(0, -10, -3) AS list
 
-- `tck.expressions.list.list11.scenario-2.examples-1-row-5`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..34; query: 
+- `tck.expressions.list.list11.scenario-2.examples-1-row-5`: query execution failed: Parse error: no such function: range; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..34; query: 
 RETURN range(0, -20, -2) AS list
 
-- `tck.expressions.list.list11.scenario-2.examples-1-row-6`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..34; query: 
+- `tck.expressions.list.list11.scenario-2.examples-1-row-6`: query execution failed: Parse error: no such function: range; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..34; query: 
 RETURN range(0, -10, -1) AS list
 
-- `tck.expressions.list.list11.scenario-2.examples-1-row-7`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..33; query: 
+- `tck.expressions.list.list11.scenario-2.examples-1-row-7`: query execution failed: Parse error: no such function: range; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..33; query: 
 RETURN range(0, -1, -1) AS list
 
-- `tck.expressions.list.list11.scenario-2.examples-1-row-8`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..39; query: 
+- `tck.expressions.list.list11.scenario-2.examples-1-row-8`: query execution failed: Parse error: no such function: range; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..39; query: 
 RETURN range(-1236, -1234, 1) AS list
 
-- `tck.expressions.list.list11.scenario-2.examples-1-row-9`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..33; query: 
+- `tck.expressions.list.list11.scenario-2.examples-1-row-9`: query execution failed: Parse error: no such function: range; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..33; query: 
 RETURN range(-10, 0, 1) AS list
 
-- `tck.expressions.list.list11.scenario-2.examples-1-row-10`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..32; query: 
+- `tck.expressions.list.list11.scenario-2.examples-1-row-10`: query execution failed: Parse error: no such function: range; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..32; query: 
 RETURN range(-1, 0, 1) AS list
 
-- `tck.expressions.list.list11.scenario-2.examples-1-row-11`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..34; query: 
+- `tck.expressions.list.list11.scenario-2.examples-1-row-11`: query execution failed: Parse error: no such function: range; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..34; query: 
 RETURN range(0, 1, -123) AS list
 
-- `tck.expressions.list.list11.scenario-2.examples-1-row-12`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..32; query: 
+- `tck.expressions.list.list11.scenario-2.examples-1-row-12`: query execution failed: Parse error: no such function: range; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..32; query: 
 RETURN range(0, 1, -1) AS list
 
-- `tck.expressions.list.list11.scenario-2.examples-1-row-13`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..34; query: 
+- `tck.expressions.list.list11.scenario-2.examples-1-row-13`: query execution failed: Parse error: no such function: range; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..34; query: 
 RETURN range(0, -123, 1) AS list
 
-- `tck.expressions.list.list11.scenario-2.examples-1-row-14`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..32; query: 
+- `tck.expressions.list.list11.scenario-2.examples-1-row-14`: query execution failed: Parse error: no such function: range; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..32; query: 
 RETURN range(0, -1, 1) AS list
 
-- `tck.expressions.list.list11.scenario-2.examples-1-row-15`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..32; query: 
+- `tck.expressions.list.list11.scenario-2.examples-1-row-15`: query execution failed: Parse error: no such function: range; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..32; query: 
 RETURN range(0, 0, -1) AS list
 
-- `tck.expressions.list.list11.scenario-2.examples-1-row-16`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..31; query: 
+- `tck.expressions.list.list11.scenario-2.examples-1-row-16`: query execution failed: Parse error: no such function: range; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..31; query: 
 RETURN range(0, 0, 1) AS list
 
-- `tck.expressions.list.list11.scenario-2.examples-1-row-17`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..31; query: 
+- `tck.expressions.list.list11.scenario-2.examples-1-row-17`: query execution failed: Parse error: no such function: range; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..31; query: 
 RETURN range(0, 1, 2) AS list
 
-- `tck.expressions.list.list11.scenario-2.examples-1-row-18`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..31; query: 
+- `tck.expressions.list.list11.scenario-2.examples-1-row-18`: query execution failed: Parse error: no such function: range; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..31; query: 
 RETURN range(0, 1, 1) AS list
 
-- `tck.expressions.list.list11.scenario-2.examples-1-row-19`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..32; query: 
+- `tck.expressions.list.list11.scenario-2.examples-1-row-19`: query execution failed: Parse error: no such function: range; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..32; query: 
 RETURN range(0, 10, 1) AS list
 
-- `tck.expressions.list.list11.scenario-2.examples-1-row-20`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..32; query: 
+- `tck.expressions.list.list11.scenario-2.examples-1-row-20`: query execution failed: Parse error: no such function: range; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..32; query: 
 RETURN range(6, 10, 1) AS list
 
-- `tck.expressions.list.list11.scenario-2.examples-1-row-21`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..37; query: 
+- `tck.expressions.list.list11.scenario-2.examples-1-row-21`: query execution failed: Parse error: no such function: range; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..37; query: 
 RETURN range(1234, 1234, 1) AS list
 
-- `tck.expressions.list.list11.scenario-2.examples-1-row-22`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..37; query: 
+- `tck.expressions.list.list11.scenario-2.examples-1-row-22`: query execution failed: Parse error: no such function: range; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..37; query: 
 RETURN range(1234, 1236, 1) AS list
 
-- `tck.expressions.list.list11.scenario-2.examples-1-row-23`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..33; query: 
+- `tck.expressions.list.list11.scenario-2.examples-1-row-23`: query execution failed: Parse error: no such function: range; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..33; query: 
 RETURN range(-10, 0, 3) AS list
 
-- `tck.expressions.list.list11.scenario-2.examples-1-row-24`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..34; query: 
+- `tck.expressions.list.list11.scenario-2.examples-1-row-24`: query execution failed: Parse error: no such function: range; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..34; query: 
 RETURN range(-10, 10, 3) AS list
 
-- `tck.expressions.list.list11.scenario-2.examples-1-row-25`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..38; query: 
+- `tck.expressions.list.list11.scenario-2.examples-1-row-25`: query execution failed: Parse error: no such function: range; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..38; query: 
 RETURN range(-2000, 0, 1298) AS list
 
-- `tck.expressions.list.list11.scenario-2.examples-1-row-26`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..41; query: 
+- `tck.expressions.list.list11.scenario-2.examples-1-row-26`: query execution failed: Parse error: no such function: range; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..41; query: 
 RETURN range(-3412, 1381, 1298) AS list
 
 - `tck.expressions.list.list11.scenario-3`: expected AND, OR, comparison_op, additive_op, multiplicative_op, or property_suffix at byte 290..290
@@ -14394,33 +14144,15 @@ RETURN range(-3412, 1381, 1298) AS list
 - `tck.expressions.list.list2.scenario-9.examples-1-row-5`: expected EOI, ORDER, SKIP, LIMIT, AS, AND, OR, clause, comparison_op, additive_op, multiplicative_op, or property_suffix at byte 34..34
 - `tck.expressions.list.list2.scenario-10`: expected EOI, ORDER, SKIP, LIMIT, AS, AND, OR, clause, comparison_op, additive_op, multiplicative_op, or property_suffix at byte 34..34
 - `tck.expressions.list.list2.scenario-11`: expected EOI, ORDER, SKIP, LIMIT, AS, AND, OR, clause, comparison_op, additive_op, multiplicative_op, or property_suffix at byte 34..34
-- `tck.expressions.list.list3.scenario-1`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..30; query: 
-RETURN [1, 2] = 'foo' AS res
-
-- `tck.expressions.list.list3.scenario-2`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..31; query: 
-RETURN [1] = [1, null] AS res
-
-- `tck.expressions.list.list3.scenario-3`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..38; query: 
-RETURN [1, 2] = [null, 'foo'] AS res
-
-- `tck.expressions.list.list3.scenario-4`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..34; query: 
-RETURN [1, 2] = [null, 2] AS res
-
-- `tck.expressions.list.list3.scenario-5`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..37; query: 
-RETURN [[1]] = [[1], [null]] AS res
-
-- `tck.expressions.list.list3.scenario-6`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..58; query: 
-RETURN [[1, 2], [1, 3]] = [[1, 2], [null, 'foo']] AS res
-
-- `tck.expressions.list.list3.scenario-7`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..66; query: 
-RETURN [[1, 2], ['foo', 'bar']] = [[1, 2], [null, 'bar']] AS res
-
-- `tck.expressions.list.list4.scenario-1`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..37; query: 
-RETURN [1, 10, 100] + [4, 5] AS foo
-
-- `tck.expressions.list.list4.scenario-2`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..37; query: 
-RETURN [false, true] + false AS foo
-
+- `tck.expressions.list.list3.scenario-1`: expected [["false"]], observed [["0"]]
+- `tck.expressions.list.list3.scenario-2`: expected [["false"]], observed [["0"]]
+- `tck.expressions.list.list3.scenario-3`: expected [["false"]], observed [["0"]]
+- `tck.expressions.list.list3.scenario-4`: expected [["<null>"]], observed [["0"]]
+- `tck.expressions.list.list3.scenario-5`: expected [["false"]], observed [["0"]]
+- `tck.expressions.list.list3.scenario-6`: expected [["false"]], observed [["0"]]
+- `tck.expressions.list.list3.scenario-7`: expected [["<null>"]], observed [["0"]]
+- `tck.expressions.list.list4.scenario-1`: expected [["[1,10,100,4,5]"]], observed [["0"]]
+- `tck.expressions.list.list4.scenario-2`: expected [["[false,true,false]"]], observed [["0"]]
 - `tck.expressions.list.list5.scenario-1`: expected EOI, ORDER, SKIP, LIMIT, AS, AND, OR, clause, comparison_op, additive_op, multiplicative_op, or property_suffix at byte 34..34
 - `tck.expressions.list.list5.scenario-2`: expected EOI, ORDER, SKIP, LIMIT, AS, AND, OR, clause, comparison_op, additive_op, multiplicative_op, or property_suffix at byte 9..9
 - `tck.expressions.list.list5.scenario-3`: expected EOI, ORDER, SKIP, LIMIT, AS, AND, OR, clause, comparison_op, additive_op, multiplicative_op, or property_suffix at byte 32..32
@@ -14462,7 +14194,7 @@ RETURN [false, true] + false AS foo
 - `tck.expressions.list.list5.scenario-39`: expected EOI, ORDER, SKIP, LIMIT, AS, AND, OR, clause, comparison_op, additive_op, multiplicative_op, or property_suffix at byte 12..12
 - `tck.expressions.list.list5.scenario-40`: expected EOI, ORDER, SKIP, LIMIT, AS, AND, OR, clause, comparison_op, additive_op, multiplicative_op, or property_suffix at byte 10..10
 - `tck.expressions.list.list5.scenario-41`: expected EOI, ORDER, SKIP, LIMIT, AS, AND, OR, clause, comparison_op, additive_op, multiplicative_op, or property_suffix at byte 16..16
-- `tck.expressions.list.list6.scenario-1`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..29; query: 
+- `tck.expressions.list.list6.scenario-1`: query execution failed: Parse error: no such function: size; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..29; query: 
 RETURN size([1, 2, 3]) AS n
 
 - `tck.expressions.list.list6.scenario-2`: TCK setup query failed: query execution failed: Parse error: mutation clauses in read queries is not supported in the initial graph slice at byte 1..20; mutation execution failed: Cypher mutation binding failed: unknown label `TheLabel` at byte 10..18; query: 
@@ -14470,10 +14202,10 @@ CREATE (:TheLabel)
 ; query: 
 CREATE (:TheLabel)
 
-- `tck.expressions.list.list6.scenario-3`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..35; query: 
+- `tck.expressions.list.list6.scenario-3`: query execution failed: Parse error: no such function: size; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..35; query: 
 RETURN size([[], []] + [[]]) AS l
 
-- `tck.expressions.list.list6.scenario-4`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..16; query: 
+- `tck.expressions.list.list6.scenario-4`: query execution failed: Parse error: no such function: size; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..16; query: 
 WITH null AS l
 RETURN size(l), size(null)
 
@@ -14486,48 +14218,10 @@ CREATE (:TheLabel)
 ; query: 
 CREATE (:TheLabel)
 
-- `tck.expressions.literals.literals1.scenario-1`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..24; query: 
-RETURN true AS literal
-
-- `tck.expressions.literals.literals1.scenario-2`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..24; query: 
-RETURN TRUE AS literal
-
-- `tck.expressions.literals.literals1.scenario-3`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..25; query: 
-RETURN false AS literal
-
-- `tck.expressions.literals.literals1.scenario-4`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..25; query: 
-RETURN FALSE AS literal
-
-- `tck.expressions.literals.literals1.scenario-5`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..24; query: 
-RETURN null AS literal
-
-- `tck.expressions.literals.literals1.scenario-6`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..24; query: 
-RETURN NULL AS literal
-
-- `tck.expressions.literals.literals2.scenario-1`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..21; query: 
-RETURN 1 AS literal
-
-- `tck.expressions.literals.literals2.scenario-2`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..29; query: 
-RETURN 372036854 AS literal
-
-- `tck.expressions.literals.literals2.scenario-3`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..39; query: 
-RETURN 9223372036854775807 AS literal
-
-- `tck.expressions.literals.literals2.scenario-4`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..21; query: 
-RETURN 0 AS literal
-
-- `tck.expressions.literals.literals2.scenario-5`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..22; query: 
-RETURN -0 AS literal
-
-- `tck.expressions.literals.literals2.scenario-6`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..22; query: 
-RETURN -1 AS literal
-
-- `tck.expressions.literals.literals2.scenario-7`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..30; query: 
-RETURN -372036854 AS literal
-
-- `tck.expressions.literals.literals2.scenario-8`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..40; query: 
-RETURN -9223372036854775808 AS literal
-
+- `tck.expressions.literals.literals1.scenario-1`: expected [["true"]], observed [["1"]]
+- `tck.expressions.literals.literals1.scenario-2`: expected [["true"]], observed [["1"]]
+- `tck.expressions.literals.literals1.scenario-3`: expected [["false"]], observed [["0"]]
+- `tck.expressions.literals.literals1.scenario-4`: expected [["false"]], observed [["0"]]
 - `tck.expressions.literals.literals3.scenario-1`: expected EOI, ORDER, SKIP, LIMIT, AS, AND, OR, clause, comparison_op, additive_op, multiplicative_op, or property_suffix at byte 8..8
 - `tck.expressions.literals.literals3.scenario-2`: expected EOI, ORDER, SKIP, LIMIT, AS, AND, OR, clause, comparison_op, additive_op, multiplicative_op, or property_suffix at byte 8..8
 - `tck.expressions.literals.literals3.scenario-3`: expected EOI, ORDER, SKIP, LIMIT, AS, AND, OR, clause, comparison_op, additive_op, multiplicative_op, or property_suffix at byte 8..8
@@ -14547,29 +14241,16 @@ RETURN -9223372036854775808 AS literal
 - `tck.expressions.literals.literals4.scenario-6`: expected EOI, ORDER, SKIP, LIMIT, AS, AND, OR, clause, comparison_op, additive_op, multiplicative_op, or property_suffix at byte 9..9
 - `tck.expressions.literals.literals4.scenario-7`: expected EOI, ORDER, SKIP, LIMIT, AS, AND, OR, clause, comparison_op, additive_op, multiplicative_op, or property_suffix at byte 9..9
 - `tck.expressions.literals.literals4.scenario-8`: expected EOI, ORDER, SKIP, LIMIT, AS, AND, OR, clause, comparison_op, additive_op, multiplicative_op, or property_suffix at byte 9..9
-- `tck.expressions.literals.literals5.scenario-1`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..23; query: 
-RETURN 1.0 AS literal
-
+- `tck.expressions.literals.literals5.scenario-1`: expected [["1.0"]], observed [["1"]]
 - `tck.expressions.literals.literals5.scenario-2`: expected DISTINCT or projection_items at byte 7..7
-- `tck.expressions.literals.literals5.scenario-3`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..38; query: 
-RETURN 3985764.3405892687 AS literal
-
 - `tck.expressions.literals.literals5.scenario-4`: expected DISTINCT or projection_items at byte 7..7
-- `tck.expressions.literals.literals5.scenario-5`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..328; query: 
-RETURN 126354186523812635418263552340512384016094862983471987543918591348961093487896783409268730945879405123840160948812635418265234051238401609486298347198754391859134896109348789678340926873094587962983471812635265234051238401609486298348126354182652340512384016094862983471987543918591348961093487896783409218.0 AS literal
-
+- `tck.expressions.literals.literals5.scenario-5`: expected [["1.2635418652381264e305"]], observed [["126354186523812637083265300874972409152306344844529887549280826072773391668220596519840562718295208487895546677575070099382084697423587658029812212044105366779846072573635712245818261999842901642900582100199277717544304856592188574754249157767617334086173213808419907747092679556434770033100573931636523008.0"]]
 - `tck.expressions.literals.literals5.scenario-6`: expected DISTINCT or projection_items at byte 7..7
-- `tck.expressions.literals.literals5.scenario-7`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..23; query: 
-RETURN 0.0 AS literal
-
+- `tck.expressions.literals.literals5.scenario-7`: expected [["0.0"]], observed [["0"]]
 - `tck.expressions.literals.literals5.scenario-8`: expected DISTINCT or projection_items at byte 7..7
-- `tck.expressions.literals.literals5.scenario-9`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..24; query: 
-RETURN -0.0 AS literal
-
+- `tck.expressions.literals.literals5.scenario-9`: expected [["0.0"]], observed [["0"]]
 - `tck.expressions.literals.literals5.scenario-10`: expected DISTINCT or projection_items at byte 7..7
-- `tck.expressions.literals.literals5.scenario-11`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..329; query: 
-RETURN -126354186523812635418263552340512384016094862983471987543918591348961093487896783409268730945879405123840160948812635418265234051238401609486298347198754391859134896109348789678340926873094587962983471812635265234051238401609486298348126354182652340512384016094862983471987543918591348961093487896783409218.0 AS literal
-
+- `tck.expressions.literals.literals5.scenario-11`: expected [["-1.2635418652381264e305"]], observed [["-126354186523812637083265300874972409152306344844529887549280826072773391668220596519840562718295208487895546677575070099382084697423587658029812212044105366779846072573635712245818261999842901642900582100199277717544304856592188574754249157767617334086173213808419907747092679556434770033100573931636523008.0"]]
 - `tck.expressions.literals.literals5.scenario-12`: expected DISTINCT or projection_items at byte 7..7
 - `tck.expressions.literals.literals5.scenario-13`: expected EOI, ORDER, SKIP, LIMIT, AS, AND, OR, clause, comparison_op, additive_op, multiplicative_op, or property_suffix at byte 8..8
 - `tck.expressions.literals.literals5.scenario-14`: expected EOI, ORDER, SKIP, LIMIT, AS, AND, OR, clause, comparison_op, additive_op, multiplicative_op, or property_suffix at byte 8..8
@@ -14585,75 +14266,20 @@ RETURN -126354186523812635418263552340512384016094862983471987543918591348961093
 - `tck.expressions.literals.literals5.scenario-24`: expected DISTINCT or projection_items at byte 7..7
 - `tck.expressions.literals.literals5.scenario-25`: expected EOI, ORDER, SKIP, LIMIT, AS, AND, OR, clause, comparison_op, additive_op, multiplicative_op, or property_suffix at byte 8..8
 - `tck.expressions.literals.literals5.scenario-26`: expected EOI, ORDER, SKIP, LIMIT, AS, AND, OR, clause, comparison_op, additive_op, multiplicative_op, or property_suffix at byte 16..16
-- `tck.expressions.literals.literals6.scenario-1`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..22; query: 
-RETURN '' AS literal
-
-- `tck.expressions.literals.literals6.scenario-2`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..23; query: 
-RETURN 'a' AS literal
-
-- `tck.expressions.literals.literals6.scenario-3`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..39; query: 
-RETURN '🧐🍌❖⋙⚐' AS literal
-
-- `tck.expressions.literals.literals6.scenario-4`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..24; query: 
-RETURN '\'' AS literal
-
-- `tck.expressions.literals.literals6.scenario-5`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..42; query: 
-RETURN 'a\\bcn5t\'"\\//\\"\'' AS literal
-
-- `tck.expressions.literals.literals6.scenario-6`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..122; query: 
-RETURN 'zvhg02LrjXbeIWUue4CzFT1baQ5ZA uP0ur4suuufFWZu3MGLlMUDYdhya1WcV8GcpEa4Pi03YjPieg2hJY3rt4OAQIeBKhpasUd' AS literal
-
-- `tck.expressions.literals.literals6.scenario-7`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..1022; query: 
-RETURN '92WeD0wBWj GWB1Y pUd6ZiCalZR5VJzIxXt6C74 4bfhdEAkXIHccJ4Avce2aWXTBj v22FvYQ4F0R GfPsbTyQYaL6DEHMbKR HlnP3BrpNBSO427Tsayra 950dNriiiRPbfLhV5oNHZl1Lbs44oAl40hU4LTkZkzIzNhwDtnOunSXwHH4FWpoqSP7B8VHz88z7X8BoSCECUIVs T4z5UFT9oPUCIsdTjzOocn8nT0dD7PVwRzsO2a4R5sNyYe6R4TdBqIWELcIiKhTpaMQsfuEPuzFnwCV1L g zZhhR7yNIo14oupUUD0V0oIHIRvtM0MITOkSiTTmO68ROtezWPfdJQq9pQ6gdcPsy YAU0wMs dVFBTyTzPml55k VOgY4dEuHUC5BkDGwCm8BTvls07JdY4cwm1zsLq1xGuQfVYmr62WF7VeVVIKFX3FuAIOyFqIshJxA8rTnEtzL1eSxrVcabZ0j24i1Zv2D6SDvsbs45pPHNollnZJmKUkLfrldZzlNEuy4JkJa2ahzizZW72f5m2xiwDKgM3 g7nrbYLgIKUtXOdoJeKgUl2cN7j4Xd30dajZpcIDBqsZ LwmRYQlvRXFafWBMD3yQfU4GEzbWQlxV6iBidK83UVdyyvMKaqPvdqovPVQzhIK Xfs yVwnSHDXpjUonwsOFeykee9TcixuxkbYp3Md EBk4LcBDn4zFR3JSmz3FGfP1llIGL ZYWHrzjugMbxPXU02OrqExStd X1ALxTJq2W6mO4kQig4ZQFKHIs66EVWf6HG3SKAxzPAmmf4DZmlZGawG agiO2PrNnWyifOau4em ozqdkAbxu6mCbMEjMri7dkzpjtYFwkxUGpgSjfDm481Eby3SKvwNybwvqfj5CXHWSjGpk8YtJV0T3jzNd731Wb3SWQrVyIy2Wz1UntzYJ33O W9cFnumIVZK1Sj0pQwWoxktNdyknjXiL5COyZiZDBJOcNtIXoklXdBDy' AS literal
-
-- `tck.expressions.literals.literals6.scenario-8`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..10022; query: 
-RETURN 'Qu7cFy732T2KJBCJzyY2xP7fWr4bhg7mdQALjUcVNa2nW2vIfAYMDxd4 ZGSe8g52kVWAiYI5K9SnVH2lMc7Uvh4M9hrvBUs5CPrAIjq9OwgxbVtZcfSrQgRe7hbkx162n0SNvY3KvqBBT5gyhTe4cG2BwJjFx8y11zpf0zyLpnYeQtd6V5maSx9tBigoLnjWdu9pjZ3aycAY8ZpzzOoBniPWThl1ydWyA8E4blXlzkeXnR9GY2UCpHpdmsg5u0GkF4phyqPt61 QRUiJBFXIHDx0zljppa vNLVbIaz8AqM7CGXU5796XKbiCX6uM9WRJXtUooJBJv0uHowr1tey4GQEL4t7j0tE4MznU9X7gRx7BMQGREyCBl5yR6qstIuMKug95TsVxUK3uE1oE5VsS68GlnL6IBAeNhsNMTA4kEflKNI2XKYGf4aDBLABvRa5Qbm12JpccslBbaILFQgQkPBy5nPRfh9Brjpyif1fPPkFB1rJIn 2z4G4irjFafOMuB 4JFTJnvj3 65yEbX7bNtgEF4oB7b7On8DVUAfFQfSz6T1SAFnOatwsNTts6dcH5JewU3jkS4TihfDUvAvw sjo0qoNxowKCoOtOUybt31Xg2mpeV5y5lyxZCSBkqjADNwLglwVcFa08Go3gU qP xs Hrw7ZmQ6vcy6oS6UH R3cJBUKWslkZKEYhXct3duSSWsnn8QFzKm6B4U6dmYXttjjVED0tqPXQ2vwp9eN8jJPebjZfT453810lZM9cQlfOhLdgsSaNaszT8t9pbPC5SrPPPIaXKF2IwRY3uMqAtTJD03bW o8dA3ZqT9igCrKRRfVo5j82HfUzjm2kBh4VT3UXfLGyTnnWqBqQ5WUbmdQQNfiMqGpBIcktEhov1XlJ6DyAzrn 1s yDyQS4Pjqg6y7NHl09nnJ3aMOxdDE7BHv4HVethC3Db32LHv6ZW9zotdOZ8tSH2AGKwhND6cfum67hSXu5OsAGeLZxrrMIn9ml9VWZj8Qxar 3lw3OM2jeUB62REWg7lxTJp3zVuaCQgejCGh40wOPR4vYtyzLdFxsxZ2qwn3XvnO2Xw25KckV8dstFfv4w9NFe03VTBWhoYkuSl0j3eCB1absxURBvss7ReatCgqonoVtkwD5RgknklJg12R56ikPOa9akQwEY ri5X8xDrKyqo2FXrj Np8AmXc4nx0yxydL4yF6WVk J9HmgHjGP0M3dMFOl0n15BUPyTAQNQhAHhDcGjt3jvTqKDW A4GG6gK2xn7hfdgAuoDj4h1lMZsSyYIGTnV6Zig8Nlmtwtss9kjCx 234UQbVuBD96JXbrjmY5jHd7c10KRvUFFzlGcdTscUUi38q6f0czcpoeT8MFBgEbrAw2b50fzz5tLhBGJGeKE0ndK64LOWP0olrS0voljEXYRiLMEArn1bkNUcaOgtQHzoV1Pqp6CR4suZxza66QcNOPH CoSuReOfjYOs1f0hWQ2RU2BUg1vJ5OyRPxAZ81195eJg82WgMFxIo 3EwNLUH6j3D41mu9G2L4ckbETdQRy8PEeM1KSIIjEBLD7xJdXFneolAbsv81mKzrWYRXw0pA8hTI4aIFFQSE8aaUkPUmCE0hzUENcHeNNHMK2UqsClOAdxRiz58hrzdUROac 7UM97kncRVWBSuW4GtISDrgBoEAJQqR2IFIh93W9wKCrESYtjf5uGLzEsGn3l0b2B0jXBoTkbd05jweOTk9LUOgpeNGBNWlpinKda9ny3OfjjCIZx3NnVqsxYiFeV0r4EgE4Vd5QypPNSoQN7rNx2aGufdT52tf1tGeK2d9uVgjDKIjJjZsDJhmnaOUbT5KPYb7fDJ4FJUcl22SMtXAkmQZTbXxGAkyve2SD6pyNB6ShBJ9LkeJPKDWQybSdRD tlQnHVqboE9iYdYOQSblltZwiQHMZcy4eiUHqW7uJ3Mve7bwRZLXYgJEoHeR7E8MXc0SpbVLpbEKEItiqFoi0XEhPGrRvE1PUhphlwiTJBXoLdGO02G97kpy2E8AZtFwboyuW0TXMyEg3bgAP TvGBrbtHyuYfbX6TC1meqTQOGTEMUBjz2VzRB ouL nUpSH7DojvQdxGi8F13xP12K 3IDVZX3UkPAsDgdChHvG5mFiSAaOWBZzUGbGTBkW52NtUQCMkzwYoCNwooNh5Ewk9rNafQQCsrmwaZQGrV pl4u9dBgedBtOeVF7SbxDdOewY uOb1TxLPn9CLwY7KY7igUGZ1prFMUqQ6IsmDLebpOIlG uKI7Xkar6hoRj1Xm8yWPf9o5qkGk agGuD4HrZOA2CtNVsWKiWnV09NLSBd5LdVkhjDbCFGRevIHO1aPCHTPpkml0EStzJdDHVtmGt6EYkbTXUZz7UZs8gKxNs950gEG 4Vtj98io9N0xNbO8FjLL lIqo4LunkmUs0otjT3gmshVAVTwQ0SjCRhqBs10NqVHAT9jCv J3s4mRSoirWeWw7UtzqRc bYtZrpvzmKvP 9lVvuOlEvWhcufv2VUQniDZFYE2EDtNCWrAqiodSAeX5eHEbfbQ5CwJjDjpBHJwoa7lPcZpt43nsXDLvZoIJZPzRPWOzDbt5u3loDI8aYrF2HOmpZ1Lrei XVV3DGYok8M5cWFgfaDILw8sa3kmDDJ2erUPblmMJZZB9eEOLnvEl5O9ALYbBBpnVTnLJvedw9uPVr1HXDmNWgAVpUFYXxKeQVReEFkHT29vENZGi3g7Bv2VUgEx5BxTlHGa13Kmge9QliYARWNfhBPjWQoP2ZRoKCDalsOCeohq2pNOKvkgZOy3AwfpFykBoUjtsvI7NAg6zVhCtCSo6PHcryDgAYYRF737e82qLpjkbCpMozebQRoGrZ7deTFTy TZCiOP2nGOKWiMnGq1daw3uAOx3ntthuZR1viQ8qmyXiIaBwJF5REqFJbZdPvRTpXns8vsG9PsXu DkPiWh3LieaiMGM3zyBsdFheatoBnj0ccBSsiKSDH SmVyBPw8K5vAeVA5WQy8LXX27mzhA7rlrXdWH8kMmtK15lR2AHE7XmSrzGaUbqWGRzmfrTDM vJPKZ8y73x8jhCvVK34nqFZbvlIRdYaUfWjQIGhdJ60V0JMJsh3bvYMDOlDnviPgT5MoAP6LszNwTp4O4yzdxgmq7CY48bQigcLRYEmg8ZWBU6ekc0Gk8Uuj3qC2Oy4DviJoC5Sy68xnl762KjXseDWuO0US6k5NCcztEWuB41AhFLjT Xlfv7dJNvDvyrTwYbnapgnqRTq2fD0NlkKq 0Wmjgv8HRMAUOU4Sfh2PNem 4BK4fBQKbzZWjK8Mjh4quPQr23P4K3qfVfyqGU9Y7HWPRiaz 86zjtl0Gu6DGo92GqPEGNBs RVMTebDPNWQWZju4bqF01z9jnsyzLbG1PD5bqdZccxHK9E bD9AM0KjsT3bSvhG4wCqIUOH9VBFKARnrscsgtF7sbmiBwtt3RfX9cddLMWn8lxh6swaE1pFyN8sg4qRhjVBHv0viacoxg7glAHAowSaqJXKRUWO0wBLz7esMhv9H44d6ztNLrgfays65REWjKWuMe4RsSP7VLGrQRvG6QKZ2GyI5K3WdQRRsPl2QrSxzCEHR1feQLSkngRpWAi4Gwt0ZUHzTGLMZeDQpG9fYWjSRfuPBWm4rHYyI0ny6WmqZa3yi3zeaHXKsNMMxV5RhI3wcY3UdgRBNTG1 yogATPH JYM5tSqE3M6tPgUumwH3qba 7a9XZcAJF7MYjb214yDndl8CYcQiJ9xUnyta9DToaXdLDFMOxIWdv4Oc Ae 092ASura8P5qig9RUZAwUpWiJTnCz6fSEkb1XHzAgW4HwrczuFFGsRNAUY5cReitkmwpFhf4Jz8KHHbUj8fbDROSfdsmjInlHnwLsB1sjfvZG6vk3LffL78GSIZ5fPfDnFm3rc2A0AWP0Abu539HMhSFd967byWCgpKqWCyMBjW1b6ool1XPus5gM0hx10WdSbMsEpYRR2SwicTxN18oIR4pJaQkE6or9TX6rz9vV6ZEyb4 ud wHyp1I227JdmFLT79kilRqj9K9xWnDR7SlCYSrIVavAnAa1vp4OF4fIQv5ER0Yj61PgmVQQWorwnGK4B9ArBshfyu CTzvR2isHgEpXVRg q2c4c4u7S19M 2PlDrcryc1M0HR1oBmdAsy mIV0E8BR 5E4xi5ZmrKMCXnpH7jURkiDLcu6bsOBufpLbEhKCaFJoC5r3nKY59nohuSWOigeOkEIcdCJt3VaQdwL1doyWzdpG0lUsCP9ZzzIB5oOp5RGgkoGiAh 5WSB5gHlpeK7lDPm2JEulXLeh97fRmSxe4nOVgyGscjoFfi9PgFqDuntZZwsNLiiMfsX8W 97fDeOT0TWvHw7JuioLjxDtOOOBrnZlKkUZQ7CRy7ch38tA1DzJOcCb178efuhtH91QrhoHJn6csVBRrg0DL98BGshITV Rojhsgq7j4NSLircpRgENiVRh49HigUtgwH5AK7xIAjMpD1ky gLFMqpfp4l9vlNrBhTpPDCI1R9UQMeCpiSXnJ9UjtL4uoXfmraI9xY4yVxVZFBXyhhk BaCRXp92qhUege4cIsMfK47FVJLIXzqn3Nu1TPmVyxQmmqXw7NLvVVu12x3DRrsi8ouiedz1KwDXmDhR4cLlnnHSei62MXC0elxELoUAooeyWnLPj6irfATHZ2BvdHUHNXLMq0xqqwzWDsQPklXiI5UPrCi6LfKDvwa38SAyF460vkacS92lPRdrh9S7xjhUOVN7mvjRYdnCU5I5sNiBsQqiuo8aA3GjQkXO0zBnddviQinlSjDEqB97aqZlviAgLTYtM8nbN1tWUH8gayIEPcpC4GyC37WCRiRg0hgyeXbs9sA1nHm5pIZ6sWY33A849nLfYF28C1TB27YPGTlrbCGIZEB4j62BvYUUAxmVo8VXS3hqegl2NPEKX8viEqv qwJZn1YBNjXRlJ1CHd6kqi48 udquQQT4XJTCMpfzbS9HOpXq4SRZmJDrqgXSsY4HPGc xk8p2ZRBodSSpKH3z6YOJ6tdOJ8BRqrymXoIsE1YK63BLSSyD437qwJedJzpHUMiLRZWJ 5FTcYrdWUIh4d I98rGjwjmlAdzEKMtXl0aimE 3hQ2T14pGWF2BlIKQPiX Q2FlSssswVhXtfdUdaBSlBXSk1e2JXVh4a2X5F ENUoTSbAgRHm 0jeYe9Mgw7BAOv1IXWzqfEpBgca0DnbIaDhYGojuvYb3ZKygKzsEXWF9ybgSNdMXARHYfNru2MoI9EKQHEcAHwwBWWKevcr92SnF83UyNyoyATmfb76bqggDHg0e4OD7FYyQ16VhLFowFGew7OhN16urh5 SU9JxECvjmbpe3mY83MOtZR65FRq3FaxYSsEDgI41Ce3wsNgkUXaxmiUw8M6FUFwihz8ZEihfxMb41EAnafjOUo66tfs1bzzWFvGuuEXfLeHOs07YF7YSmwhs6smrP3SkWXJCQfEjr9kn8sGB2VBpmO7aTiIdGHBa2u hyjkJrTu64n54dknHBPMl2Yc nyEoHucwalDRjPBhPNTAenytix29MsVEFvnaEqgxkB1DbdbifGvkWAt9t86BWvbgE2hIPAGA6zcm43Wzg8ENZCLqVoGSAFe ZjpptB4c84l a1XxUUxo7fmmDdkFNaTZP6UFmkzFnhDt3NB Dzom5Px h5CEHIvdgRSbdBr9tlLkm9gBTbS3fTYjPTPBnnGyUZnOhLMS8CExBvaAdxh6lmprWxyfaLOfi4uqmDQ5VGmjexWZin2Q7QQBSDZaLoSImoZ0TytdMvwpdIHQysLtvdLUJ9Jmklz4C cwZM538cCfD97iMjkZ sGB95sShsGhgNCUwR35cmjMJfVuFtppu4iU3AZkXs0OyKFUxBMhLEHQYBM0U9H rV0rHJDW0LirrncRqtLBOvcj bC4jKiSN3slzd v2XbmKBd4tWKKLcgMZmtF99WcteKyYMCWkF62nBVTyZZsyxUWETHOB9O2B7dukuQuGFz28pQhR Qsf7xKo8cwjc66YYWj61OFt4qFO9miVOojp8MR2qhCXdl1tVVHoUPh8WnrEnPWT C9u5co4NUhSAUHwyPuMKbr jhx9u34vJNaAScYvGDKy3wmxB3ogzfWE7n yqN1RvxJl9 mc0vk3ObjaGUYidas4nK2fQaVeNvwebbr dHeLJF0f qHWUoJmBKg6d7owotrQ7beZcYO7J7vZRZv0P26JuM3he8Q hl2Lak9ViLes59a4zfOn rzS9swYagFbPhwll44Q7lfRQzbjs7OO6viaC3aCYPv5BAPB8F9k W6sKpfuY52rpez5W4LoBBmjYMz8j 9Sc5WPXj32Zic fCaM65d eFACBAwnQeJKohksmmx9GPBKEZScTHe0gVqOfKklUv7OITLOVFIXD311e8KoWg2L7RZgiWz1JHNPI1BL9jkY3aQW52b6OGDX LR HQf7WoT3lQF85ICLNVKbjzWUDEL2AOIWK0jxvTnFiDBH7y2b4MpfmAfWBXtUsJJfgUGG2VW3pTFOqQS6rWir6jfvQs43ohSyt68RiZ1CfbR0Y9xY04fWPVsLKRlo9KM4JllXAwwKuSbvRpT4amOtbdkdKEKDPvmA6FQ61cSWayEADwjN8lbpUELdl150T9MjcDDdWZxv7nZ XAj493l8tUZlVGNXZ7OxOyoTf3PyIDCdtN9ut7TDBzpIFlDQhSBAHDY5cs5ct9nLzA6s1DGqdBj4NJPeRiKsPYGHnyqK5CE8S9IAJ 0XIfiJR so8fY9iySAKKECppnRk4hcdoVQhevjFBqAbSG02X1zkaKRXpvGxdWryFYL6TA9fVvRNpwi3JVSnhLslULMTcsnZeIkwN7QHWLDWh29DPXX31g7lLYdYnkiA53ZCCN0EKuwEpToy84vh3Gu8sO6Kv k6tHynKAVz0SentHsh 0LV387w8PQHYdYn7PzsQJ1sNmqIOyTn4Te7z1ElCSgqU0I0ImflD ilxsSUrsqaqhofXMyDkb5ZAaYGtFrhn Ea6 qw5ZCkbws8N8aY4gW90e90k9Rhhg0vE5nD74Rg5awiOA7vtmjn9LOKdLF67j1nVrpIZU4ADStXLwHWX0yCRFdw sfEKYuIrnFOc1sSjOKx fvHOSVGlYqaBv1yKqRBheU hsYupfxA3zzrlsYD71qZ4TmlqayGtK8p5SELT1mD0YG0v9VYPQrSqkrk V4kcPKckonY7zPZKkYbf6b5e22XVE0AWokBiYQwNuyIqEifpkhlc9PrUp13cwWncTlnMWyRDQrlW2i6oRJbMZJoE2Bcy72YMzbqvbcrmXnemI9tUDiHRZi0V1gbtxxvEjw 0 Z5UjDGk0jua35FOBRL4DdYRIawvkbzo7Lr 4PymJ0DrUu3k5IvBhQthdDJG7Dpf8Q4AiyUsZKkied3d7CFLKcpAmZ7up8J0pOcGEN3q0HsIUJ m1oW3acBCBXiYJ2 n JKAteFJPTgCqQzDhNOootC6BJXq4Ju4VUSdfD8poERjuadKYrInUCTKqRgU6H7N8B2lILyF GKnUT4mrxGxDduPrMIKE1wIdCOwAlD7H5V BYKZDF3GGwxsRU9Ktctq3tgatYQyB40VkWSftduesDqH118 2MhhZqYFwq8stqRqhFpYsjHwqY1owy yPnApsBOt7F7P9Y2NPCBziPywkY7nZiRhf2UtSLpWGPWlegIlkMCYtOB fNnPpxotXpOyUiNWcF TpwXxXrUG2PTnHouO2vtQOSS5OkbpDYPMgCNZI Pvc6WAV8H61FnNOaGJHYY8zmKGMNaqZg4XRpbDZKCd34aFJDmu6rXwzOf4LqagfuR6S3shK82phsJvJXpho6pkugIfCiai0Xw9qkUW2NT4DMiomcJmWEwUCnTEsZCUSN0Lxlz6Cm49 Jc8OBtlCYqGwOtQkK2Uqz0CYGxX9zUcu BYH2I00luXU6seC2vcn2ouX3oBmOkfg5GW4whSQJd0ahBvsRAvHMj2YAixGkZM9XE FgJqJYl98YoIUQtH7aOXkZfcgWsojqGo0v8DdZNjYuXJzUEgDzIbD xWwxjf2S1LeLieYDcqgnu6I6WpMlwaCAtReo tY7mLd5r2oxLABi7epYW6oZZrYxwhjZZNw1FgOo1OEWfwKn ApeXjiXDrQZb5rhwEjKGOE5uzI6Qohv3LIQgbBUL8rFU3g9FmkmmfdVtMGPpolkueiFzm4maKb8X4LLGiZ PeQfMGFQBW7UzH9PJFsVHecq96W6MVn6xbIiRItnuce61JXf7YWslpM1ktrFVzEF2hyEJSoMAec1Z3z2rEm33CBtOF9snfBky2ePmnioOm1yE8FpkyK7DVXGQEER2Zpz4nBGUalgPCNTQcOf34D4IY2Ucbn5 qMJzF5ibH0ogr6QmeSyRMQ3gWRp92RVpxD5sWQwKoCIagfhxevuLhz5k59zJqW5p82zcGiC3hcf3mMuJJ0IVibzNgepksfKRz19wGpOnnCKJW10jI7eW8EpF1pWdhTdcxZ7IGhMCFwj7ZHCmqNZLArfBI2gZYcKqR6hBDZYyzFj6SZ6J2X74JtFtIdWVasiyZ8gKviEAajZXIO2dn7cwwk17BWuFsP5NZ8l v07haNR0dcYwa9V4Nt3t8o7ZJSlXwELzODYA3WPsq4pUaof2dz8bsB1Fv2Hbe0VarRC9uqkthty1MImPBG5tDNbXZlTU4dh9Ph WIPtudfX3BRmptNHhJ5vPn2NJN41UIj70c0tgwNALFOgzk8NynQ5cGdz7CD8sQufqZPtlaDBV4ndTAgRpIg79DSA8SxN8eDQP4YrT6wDxJMxA9Aaerojes3EiQFc PVjqyqJ0oUDQvNK9rJ1ANrgJrcF jyk8BZtH Dipxg6HXKlDdLB5Tb8NObOnOBesJYHMY2iPQWKHhJc7g1hxJy9aUfdo5J4d9AyNDo83kPbNgqhsJO5tu7ZBaZVsJsV19H26SkHY8Z1vZOlQac7uKnqBZpp5OFwyHMOqIfw2Nf B6pmiF2lE1AlkMdICL2Nqh N8I54R918QZNNXDNtHnZWeLaGRqmS9DZBIwGkMm2COY3naU1IoF6yQY1MccPmebAdTNAmey1ArqvZCek5EXCJOoasrRE3qBIUSZXlU87odvxNCKJ78pZeP7U8Ed7RrnN3SbiDyEiY c7eDjdF4AAzcEr2 UlGGznQxBDriVuWBRWugpdIufzu5rk9KUe13Sa 5fPTAoHNXyjRIDObArGnjBHjPHPFM4nxyhk6mm2JCCYfNhKUmL5CBEf9jImdwRpu3KxQ1mv7bH9vKUWPcLMpVoX5P5gXvN1eOI0ZYyPoMDLd7UvcOrnjXL  2t4E0GG8TBRqLfbCLqyuBaePrnA0lIPHGQLMDoPe3IBidztyAhR KwoCWrwt2QbmvYs3KRaidfYuvMQ2 IlxUazVSZgJnc4PIpg cZkIWaTuQakpDyvJozz3yL2F4RIv14GovVvTq9QTpYkOvqHZxolngw0qpGbMeALhwFlWGpot5jgqeQjA VYA72jb2fxoWBl45AnqdW1czHYXG46kdRnUzrCenkF0mAkDuV0gRPY222BC7uWHAn6PTEWgDB3HyoBqPvanbc6s2ccdzSHJ4YJQWfAX td7UqFApODVkTbW6G7mjzuCeSpMoULyouH q1s0LjyECDXokV1Kri KhWGJUugEuxquue vh9AVw09QW fhya0F8ZmKVqD78G9EFbpMQjvOvgPlmCcvUmnxi3PXFDNkJG8WRPzocUVe3PTw0E3eEHghOKiEB4u0Xvt2Hb2esODlsJ5Uajn7B46Bq0w3W55MDUw0U5i8CP6QDrizWsQOYQOCF3vpLGOCVIyeleOWkVPz51u30XZCD7jKlRYvYOw2Rxocfq2YdbPZcvhPN7iRT ToHlNUY' AS literal
-
+- `tck.expressions.literals.literals6.scenario-5`: expected [["a\\\\bcn5t'\"\\\\//\\\\\"'"]], observed [["a\\bcn5t'\"\\//\\\"'"]]
 - `tck.expressions.literals.literals6.scenario-9`: expected DISTINCT or projection_items at byte 7..7
-- `tck.expressions.literals.literals6.scenario-10`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..22; query: 
-RETURN '\u01FF' AS a
-
 - `tck.expressions.literals.literals6.scenario-11`: expected DISTINCT or projection_items at byte 7..7
 - `tck.expressions.literals.literals6.scenario-12`: expected DISTINCT or projection_items at byte 7..7
-- `tck.expressions.literals.literals7.scenario-1`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..22; query: 
-RETURN [] AS literal
-
-- `tck.expressions.literals.literals7.scenario-2`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..27; query: 
-RETURN [false] AS literal
-
-- `tck.expressions.literals.literals7.scenario-3`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..26; query: 
-RETURN [null] AS literal
-
-- `tck.expressions.literals.literals7.scenario-4`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..23; query: 
-RETURN [1] AS literal
-
+- `tck.expressions.literals.literals7.scenario-2`: expected [["[false]"]], observed [["[0]"]]
 - `tck.expressions.literals.literals7.scenario-5`: expected AND, OR, comparison_op, additive_op, multiplicative_op, or property_suffix at byte 10..10
 - `tck.expressions.literals.literals7.scenario-6`: expected AND, OR, comparison_op, additive_op, multiplicative_op, or property_suffix at byte 9..9
 - `tck.expressions.literals.literals7.scenario-7`: expected primary_expression at byte 8..8
-- `tck.expressions.literals.literals7.scenario-8`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..39; query: 
-RETURN ['abc, as#?lßdj '] AS literal
-
-- `tck.expressions.literals.literals7.scenario-9`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..24; query: 
-RETURN [[]] AS literal
-
-- `tck.expressions.literals.literals7.scenario-10`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..34; query: 
-RETURN [[[[[[[]]]]]]] AS literal
-
-- `tck.expressions.literals.literals7.scenario-11`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..60; query: 
-RETURN [[[[[[[[[[[[[[[[[[[[]]]]]]]]]]]]]]]]]]]] AS literal
-
-- `tck.expressions.literals.literals7.scenario-12`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..100; query: 
-RETURN [[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]] AS literal
-
-- `tck.expressions.literals.literals7.scenario-13`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..24; query: 
+- `tck.expressions.literals.literals7.scenario-13`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 9..11; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..24; query: 
 RETURN [{}] AS literal
 
 - `tck.expressions.literals.literals7.scenario-14`: expected AND, OR, comparison_op, additive_op, multiplicative_op, or property_suffix at byte 16..16
 - `tck.expressions.literals.literals7.scenario-16`: expected AND, OR, comparison_op, additive_op, multiplicative_op, or property_suffix at byte 9..9
-- `tck.expressions.literals.literals7.scenario-17`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..87; query: 
-RETURN [null, [ ' a ', ' ' ], ' [ a ', ' [ ], ] ', ' [ ', [ ' ' ], ' ] ' ] AS literal
-
-- `tck.expressions.literals.literals7.scenario-18`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..2255; query: 
+- `tck.expressions.literals.literals7.scenario-18`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 10..950; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..2255; query: 
 RETURN [ {
             id: '0001',
             type: 'donut',
@@ -14723,52 +14349,52 @@ RETURN [ {
                 ]
         } ] AS literal
 
-- `tck.expressions.literals.literals8.scenario-1`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..22; query: 
+- `tck.expressions.literals.literals8.scenario-1`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 8..11; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..22; query: 
 RETURN {} AS literal
 
-- `tck.expressions.literals.literals8.scenario-2`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..28; query: 
+- `tck.expressions.literals.literals8.scenario-2`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 8..17; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..28; query: 
 RETURN {abc: 1} AS literal
 
-- `tck.expressions.literals.literals8.scenario-3`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..28; query: 
+- `tck.expressions.literals.literals8.scenario-3`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 8..17; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..28; query: 
 RETURN {ABC: 1} AS literal
 
-- `tck.expressions.literals.literals8.scenario-4`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..31; query: 
+- `tck.expressions.literals.literals8.scenario-4`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 8..20; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..31; query: 
 RETURN {aBCdeF: 1} AS literal
 
-- `tck.expressions.literals.literals8.scenario-5`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..34; query: 
+- `tck.expressions.literals.literals8.scenario-5`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 8..23; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..34; query: 
 RETURN {a1B2c3e67: 1} AS literal
 
-- `tck.expressions.literals.literals8.scenario-6`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..30; query: 
+- `tck.expressions.literals.literals8.scenario-6`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 8..19; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..30; query: 
 RETURN {k: false} AS literal
 
-- `tck.expressions.literals.literals8.scenario-7`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..29; query: 
+- `tck.expressions.literals.literals8.scenario-7`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 8..18; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..29; query: 
 RETURN {k: null} AS literal
 
-- `tck.expressions.literals.literals8.scenario-8`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..26; query: 
+- `tck.expressions.literals.literals8.scenario-8`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 8..15; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..26; query: 
 RETURN {k: 1} AS literal
 
 - `tck.expressions.literals.literals8.scenario-9`: expected AND, OR, comparison_op, additive_op, multiplicative_op, or property_suffix at byte 13..13
 - `tck.expressions.literals.literals8.scenario-10`: expected AND, OR, comparison_op, additive_op, multiplicative_op, or property_suffix at byte 12..12
 - `tck.expressions.literals.literals8.scenario-11`: expected primary_expression at byte 11..11
-- `tck.expressions.literals.literals8.scenario-12`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..44; query: 
+- `tck.expressions.literals.literals8.scenario-12`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 8..33; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..44; query: 
 RETURN {k: 'ab: c, as#?lßdj '} AS literal
 
-- `tck.expressions.literals.literals8.scenario-13`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..27; query: 
+- `tck.expressions.literals.literals8.scenario-13`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 8..16; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..27; query: 
 RETURN {a: {}} AS literal
 
-- `tck.expressions.literals.literals8.scenario-14`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..58; query: 
+- `tck.expressions.literals.literals8.scenario-14`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 8..47; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..58; query: 
 RETURN {a1: {a2: {a3: {a4: {a5: {a6: {}}}}}}} AS literal
 
-- `tck.expressions.literals.literals8.scenario-15`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..146; query: 
+- `tck.expressions.literals.literals8.scenario-15`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 8..135; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..146; query: 
 RETURN {a1: {a2: {a3: {a4: {a5: {a6: {a7: {a8: {a9: {a10: {a11: {a12: {a13: {a14: {a15: {a16: {a17: {a18: {a19: {}}}}}}}}}}}}}}}}}}}} AS literal
 
-- `tck.expressions.literals.literals8.scenario-16`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..286; query: 
+- `tck.expressions.literals.literals8.scenario-16`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 8..275; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..286; query: 
 RETURN {a1: {a2: {a3: {a4: {a5: {a6: {a7: {a8: {a9: {a10: {a11: {a12: {a13: {a14: {a15: {a16: {a17: {a18: {a19: {a20: {a21: {a22: {a23: {a24: {a25: {a26: {a27: {a28: {a29: {a30: {a31: {a32: {a33: {a34: {a35: {a36: {a37: {a38: {a39: {}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}} AS literal
 
-- `tck.expressions.literals.literals8.scenario-17`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..67; query: 
+- `tck.expressions.literals.literals8.scenario-17`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 8..56; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..67; query: 
 RETURN { a : ' { b : ' , c : { d : ' ' } , d : ' } ' } AS literal
 
-- `tck.expressions.literals.literals8.scenario-18`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..2266; query: 
+- `tck.expressions.literals.literals8.scenario-18`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 9..2255; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..2266; query: 
 RETURN  { data: [ {
             id: '0001',
             type: 'donut',
@@ -14838,44 +14464,44 @@ RETURN  { data: [ {
                 ]
         } ] } AS literal
 
-- `tck.expressions.map.map1.scenario-1`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..44; query: 
+- `tck.expressions.map.map1.scenario-1`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 6..39; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..44; query: 
 WITH {existing: 42, notMissing: null} AS m
 RETURN m.missing, m.notMissing, m.existing
 
-- `tck.expressions.map.map1.scenario-2`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..16; query: 
+- `tck.expressions.map.map1.scenario-2`: query execution failed: Parse error: property access requires a node or relationship at byte 23..24; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..16; query: 
 WITH null AS m
 RETURN m.missing
 
 - `tck.expressions.map.map1.scenario-3`: expected AND, OR, comparison_op, additive_op, multiplicative_op, or property_suffix at byte 65..65
-- `tck.expressions.map.map1.scenario-4.examples-1-row-1`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..44; query: 
+- `tck.expressions.map.map1.scenario-4.examples-1-row-1`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 6..37; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..44; query: 
 WITH {name: 'Mats', nome: 'Pontus'} AS map
 RETURN map.name AS result
 
-- `tck.expressions.map.map1.scenario-4.examples-1-row-2`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..44; query: 
+- `tck.expressions.map.map1.scenario-4.examples-1-row-2`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 6..37; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..44; query: 
 WITH {name: 'Mats', Name: 'Pontus'} AS map
 RETURN map.name AS result
 
-- `tck.expressions.map.map1.scenario-4.examples-1-row-3`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..44; query: 
+- `tck.expressions.map.map1.scenario-4.examples-1-row-3`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 6..37; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..44; query: 
 WITH {name: 'Mats', Name: 'Pontus'} AS map
 RETURN map.Name AS result
 
-- `tck.expressions.map.map1.scenario-4.examples-1-row-4`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..44; query: 
+- `tck.expressions.map.map1.scenario-4.examples-1-row-4`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 6..37; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..44; query: 
 WITH {name: 'Mats', Name: 'Pontus'} AS map
 RETURN map.nAMe AS result
 
-- `tck.expressions.map.map1.scenario-5.examples-1-row-1`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..44; query: 
+- `tck.expressions.map.map1.scenario-5.examples-1-row-1`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 6..37; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..44; query: 
 WITH {name: 'Mats', nome: 'Pontus'} AS map
 RETURN map.`name` AS result
 
-- `tck.expressions.map.map1.scenario-5.examples-1-row-2`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..44; query: 
+- `tck.expressions.map.map1.scenario-5.examples-1-row-2`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 6..37; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..44; query: 
 WITH {name: 'Mats', nome: 'Pontus'} AS map
 RETURN map.`nome` AS result
 
-- `tck.expressions.map.map1.scenario-5.examples-1-row-3`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..44; query: 
+- `tck.expressions.map.map1.scenario-5.examples-1-row-3`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 6..37; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..44; query: 
 WITH {name: 'Mats', nome: 'Pontus'} AS map
 RETURN map.`Mats` AS result
 
-- `tck.expressions.map.map1.scenario-5.examples-1-row-4`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..44; query: 
+- `tck.expressions.map.map1.scenario-5.examples-1-row-4`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 6..37; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..44; query: 
 WITH {name: 'Mats', nome: 'Pontus'} AS map
 RETURN map.`null` AS result
 
@@ -14892,52 +14518,40 @@ RETURN map.`null` AS result
 - `tck.expressions.map.map2.scenario-5.examples-1-row-5`: expected EOI, ORDER, SKIP, LIMIT, AS, AND, OR, clause, comparison_op, additive_op, multiplicative_op, or property_suffix at byte 53..53
 - `tck.expressions.map.map2.scenario-5.examples-1-row-6`: expected identifier at byte 6..6
 - `tck.expressions.map.map2.scenario-5.examples-1-row-7`: expected identifier at byte 6..6
-- `tck.expressions.map.map3.scenario-1`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..90; query: 
+- `tck.expressions.map.map3.scenario-1`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 13..83; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..90; query: 
 RETURN keys({name: 'Alice', age: 38, address: {city: 'London', residential: true}}) AS k
 
 - `tck.expressions.map.map3.scenario-2`: TCK parameter value is not representable by the generic adapter
-- `tck.expressions.map.map3.scenario-3`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..16; query: 
+- `tck.expressions.map.map3.scenario-3`: query execution failed: Parse error: no such function: keys; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..16; query: 
 WITH null AS m
 RETURN keys(m), keys(null)
 
-- `tck.expressions.map.map3.scenario-4.examples-1-row-1`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..25; query: 
+- `tck.expressions.map.map3.scenario-4.examples-1-row-1`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 13..15; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..25; query: 
 RETURN keys({}) AS keys
 
-- `tck.expressions.map.map3.scenario-4.examples-1-row-2`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..29; query: 
+- `tck.expressions.map.map3.scenario-4.examples-1-row-2`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 13..19; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..29; query: 
 RETURN keys({k: 1}) AS keys
 
-- `tck.expressions.map.map3.scenario-4.examples-1-row-3`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..32; query: 
+- `tck.expressions.map.map3.scenario-4.examples-1-row-3`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 13..22; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..32; query: 
 RETURN keys({k: null}) AS keys
 
-- `tck.expressions.map.map3.scenario-4.examples-1-row-4`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..38; query: 
+- `tck.expressions.map.map3.scenario-4.examples-1-row-4`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 13..28; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..38; query: 
 RETURN keys({k: null, l: 1}) AS keys
 
-- `tck.expressions.map.map3.scenario-4.examples-1-row-5`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..38; query: 
+- `tck.expressions.map.map3.scenario-4.examples-1-row-5`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 13..28; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..38; query: 
 RETURN keys({k: 1, l: null}) AS keys
 
-- `tck.expressions.map.map3.scenario-4.examples-1-row-6`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..41; query: 
+- `tck.expressions.map.map3.scenario-4.examples-1-row-6`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 13..31; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..41; query: 
 RETURN keys({k: null, l: null}) AS keys
 
-- `tck.expressions.map.map3.scenario-4.examples-1-row-7`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..44; query: 
+- `tck.expressions.map.map3.scenario-4.examples-1-row-7`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 13..34; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..44; query: 
 RETURN keys({k: 1, l: null, m: 1}) AS keys
 
 - `tck.expressions.map.map3.scenario-5`: expected EOI, ORDER, SKIP, LIMIT, AS, AND, OR, clause, comparison_op, additive_op, multiplicative_op, or property_suffix at byte 59..59
-- `tck.expressions.mathematical.mathematical11.scenario-1`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..16; query: 
-RETURN abs(-1)
-
-- `tck.expressions.mathematical.mathematical13.scenario-1`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..20; query: 
-RETURN sqrt(12.96)
-
 - `tck.expressions.mathematical.mathematical2.scenario-1`: TCK setup query failed: query execution failed: Parse error: mutation clauses in read queries is not supported in the initial graph slice at byte 1..34; mutation execution failed: Cypher mutation binding failed: unknown property `version` at byte 20..27; query: 
 CREATE ({id: 1337, version: 99})
 ; query: 
 CREATE ({id: 1337, version: 99})
-
-- `tck.expressions.mathematical.mathematical8.scenario-1`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..27; query: 
-RETURN 12 / 4 * 3 - 2 * 4
-
-- `tck.expressions.mathematical.mathematical8.scenario-2`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..29; query: 
-RETURN 12 / 4 * (3 - 2 * 4)
 
 - `tck.expressions.null.null1.scenario-1`: expected EOI, ORDER, SKIP, LIMIT, AS, AND, OR, clause, comparison_op, additive_op, multiplicative_op, or property_suffix at byte 27..27
 - `tck.expressions.null.null1.scenario-2`: expected EOI, ORDER, SKIP, LIMIT, AS, AND, OR, clause, comparison_op, additive_op, multiplicative_op, or property_suffix at byte 36..36
@@ -14974,12 +14588,6 @@ RETURN 12 / 4 * (3 - 2 * 4)
 - `tck.expressions.null.null2.scenario-5.examples-1-row-12`: expected EOI, ORDER, SKIP, LIMIT, AS, AND, OR, clause, comparison_op, additive_op, multiplicative_op, or property_suffix at byte 33..33
 - `tck.expressions.null.null2.scenario-6`: expected EOI, ORDER, SKIP, LIMIT, AS, AND, OR, clause, comparison_op, additive_op, multiplicative_op, or property_suffix at byte 29..29
 - `tck.expressions.null.null3.scenario-1`: expected EOI, ORDER, SKIP, LIMIT, AS, AND, OR, clause, comparison_op, additive_op, multiplicative_op, or property_suffix at byte 11..11
-- `tck.expressions.null.null3.scenario-2`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..29; query: 
-RETURN null = null AS value
-
-- `tck.expressions.null.null3.scenario-3`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..30; query: 
-RETURN null <> null AS value
-
 - `tck.expressions.null.null3.scenario-4.examples-1-row-1`: expected EOI, ORDER, SKIP, LIMIT, AS, AND, OR, clause, comparison_op, additive_op, multiplicative_op, or property_suffix at byte 12..12
 - `tck.expressions.null.null3.scenario-4.examples-1-row-2`: expected EOI, ORDER, SKIP, LIMIT, AS, AND, OR, clause, comparison_op, additive_op, multiplicative_op, or property_suffix at byte 12..12
 - `tck.expressions.null.null3.scenario-4.examples-1-row-3`: expected EOI, ORDER, SKIP, LIMIT, AS, AND, OR, clause, comparison_op, additive_op, multiplicative_op, or property_suffix at byte 12..12
@@ -14987,7 +14595,7 @@ RETURN null <> null AS value
 - `tck.expressions.null.null3.scenario-4.examples-1-row-5`: expected EOI, ORDER, SKIP, LIMIT, AS, AND, OR, clause, comparison_op, additive_op, multiplicative_op, or property_suffix at byte 12..12
 - `tck.expressions.null.null3.scenario-4.examples-1-row-6`: expected EOI, ORDER, SKIP, LIMIT, AS, AND, OR, clause, comparison_op, additive_op, multiplicative_op, or property_suffix at byte 12..12
 - `tck.expressions.null.null3.scenario-4.examples-1-row-7`: expected EOI, ORDER, SKIP, LIMIT, AS, AND, OR, clause, comparison_op, additive_op, multiplicative_op, or property_suffix at byte 12..12
-- `tck.expressions.path.path1.scenario-1`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..16; query: 
+- `tck.expressions.path.path1.scenario-1`: query execution failed: Parse error: named paths is not supported in the initial graph slice at byte 31..46; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..16; query: 
 WITH null AS a
 OPTIONAL MATCH p = (a)-[r]->()
 RETURN nodes(p), nodes(null)
@@ -15002,7 +14610,7 @@ CREATE (a:A)-[:REL {num: 1}]->(b:B)-[:REL {num: 2}]->(e:End)
 ; query: 
 CREATE (a:A)-[:REL {num: 1}]->(b:B)-[:REL {num: 2}]->(e:End)
 
-- `tck.expressions.path.path2.scenario-3`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..16; query: 
+- `tck.expressions.path.path2.scenario-3`: query execution failed: Parse error: named paths is not supported in the initial graph slice at byte 31..46; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..16; query: 
 WITH null AS a
 OPTIONAL MATCH p = (a)-[r]->()
 RETURN relationships(p), relationships(null)
@@ -15048,19 +14656,11 @@ CREATE (a:A)-[:REL]->(b:B)
 - `tck.expressions.pattern.pattern2.scenario-11`: expected primary_expression at byte 34..34
 - `tck.expressions.precedence.precedence1.scenario-1`: expected EOI, ORDER, SKIP, LIMIT, AS, AND, OR, clause, comparison_op, additive_op, multiplicative_op, or property_suffix at byte 20..20
 - `tck.expressions.precedence.precedence1.scenario-2`: expected EOI, ORDER, SKIP, LIMIT, AS, AND, OR, clause, comparison_op, additive_op, multiplicative_op, or property_suffix at byte 12..12
-- `tck.expressions.precedence.precedence1.scenario-3`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..115; query: 
-RETURN true OR false AND false AS a,
-       true OR (false AND false) AS b,
-       (true OR false) AND false AS c
-
+- `tck.expressions.precedence.precedence1.scenario-3`: expected [["true", "true", "false"]], observed [["1", "1", "0"]]
 - `tck.expressions.precedence.precedence1.scenario-4`: expected EOI, ORDER, SKIP, LIMIT, AS, AND, OR, clause, comparison_op, additive_op, multiplicative_op, or property_suffix at byte 11..11
 - `tck.expressions.precedence.precedence1.scenario-5`: expected EOI, ORDER, SKIP, LIMIT, AS, AND, OR, clause, comparison_op, additive_op, multiplicative_op, or property_suffix at byte 11..11
 - `tck.expressions.precedence.precedence1.scenario-6`: expected EOI, ORDER, SKIP, LIMIT, AS, AND, OR, clause, comparison_op, additive_op, multiplicative_op, or property_suffix at byte 11..11
-- `tck.expressions.precedence.precedence1.scenario-7`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..109; query: 
-RETURN true OR false = false AS a,
-       true OR (false = false) AS b,
-       (true OR false) = false AS c
-
+- `tck.expressions.precedence.precedence1.scenario-7`: expected [["true", "true", "false"]], observed [["1", "1", "0"]]
 - `tck.expressions.precedence.precedence1.scenario-8`: expected EOI, ORDER, SKIP, LIMIT, AS, AND, OR, clause, comparison_op, additive_op, multiplicative_op, or property_suffix at byte 20..20
 - `tck.expressions.precedence.precedence1.scenario-9`: expected EOI, ORDER, SKIP, LIMIT, AS, AND, OR, clause, comparison_op, additive_op, multiplicative_op, or property_suffix at byte 11..11
 - `tck.expressions.precedence.precedence1.scenario-10`: expected EOI, ORDER, SKIP, LIMIT, AS, AND, OR, clause, comparison_op, additive_op, multiplicative_op, or property_suffix at byte 21..21
@@ -15126,49 +14726,9 @@ RETURN true OR false = false AS a,
 - `tck.expressions.precedence.precedence1.scenario-28.examples-1-row-1`: expected AND, OR, comparison_op, additive_op, multiplicative_op, or property_suffix at byte 163..163
 - `tck.expressions.precedence.precedence1.scenario-28.examples-1-row-2`: expected AND, OR, comparison_op, additive_op, multiplicative_op, or property_suffix at byte 158..158
 - `tck.expressions.precedence.precedence1.scenario-28.examples-1-row-3`: expected AND, OR, comparison_op, additive_op, multiplicative_op, or property_suffix at byte 164..164
-- `tck.expressions.precedence.precedence2.scenario-1.examples-1-row-1`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..85; query: 
-RETURN 4 * 2 + 3 * 2 AS a,
-       4 * 2 + (3 * 2) AS b,
-       4 * (2 + 3) * 2 AS c
-
-- `tck.expressions.precedence.precedence2.scenario-1.examples-1-row-2`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..85; query: 
-RETURN 4 * 2 + 3 / 2 AS a,
-       4 * 2 + (3 / 2) AS b,
-       4 * (2 + 3) / 2 AS c
-
 - `tck.expressions.precedence.precedence2.scenario-1.examples-1-row-3`: expected EOI, ORDER, SKIP, LIMIT, AS, AND, OR, clause, comparison_op, additive_op, multiplicative_op, or property_suffix at byte 17..17
-- `tck.expressions.precedence.precedence2.scenario-1.examples-1-row-4`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..85; query: 
-RETURN 4 * 2 - 3 * 2 AS a,
-       4 * 2 - (3 * 2) AS b,
-       4 * (2 - 3) * 2 AS c
-
-- `tck.expressions.precedence.precedence2.scenario-1.examples-1-row-5`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..85; query: 
-RETURN 4 * 2 - 3 / 2 AS a,
-       4 * 2 - (3 / 2) AS b,
-       4 * (2 - 3) / 2 AS c
-
 - `tck.expressions.precedence.precedence2.scenario-1.examples-1-row-6`: expected EOI, ORDER, SKIP, LIMIT, AS, AND, OR, clause, comparison_op, additive_op, multiplicative_op, or property_suffix at byte 17..17
-- `tck.expressions.precedence.precedence2.scenario-1.examples-1-row-7`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..85; query: 
-RETURN 4 / 2 + 3 * 2 AS a,
-       4 / 2 + (3 * 2) AS b,
-       4 / (2 + 3) * 2 AS c
-
-- `tck.expressions.precedence.precedence2.scenario-1.examples-1-row-8`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..85; query: 
-RETURN 4 / 2 + 3 / 2 AS a,
-       4 / 2 + (3 / 2) AS b,
-       4 / (2 + 3) / 2 AS c
-
 - `tck.expressions.precedence.precedence2.scenario-1.examples-1-row-9`: expected EOI, ORDER, SKIP, LIMIT, AS, AND, OR, clause, comparison_op, additive_op, multiplicative_op, or property_suffix at byte 17..17
-- `tck.expressions.precedence.precedence2.scenario-1.examples-1-row-10`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..85; query: 
-RETURN 4 / 2 - 3 * 2 AS a,
-       4 / 2 - (3 * 2) AS b,
-       4 / (2 - 3) * 2 AS c
-
-- `tck.expressions.precedence.precedence2.scenario-1.examples-1-row-11`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..85; query: 
-RETURN 4 / 2 - 3 / 2 AS a,
-       4 / 2 - (3 / 2) AS b,
-       4 / (2 - 3) / 2 AS c
-
 - `tck.expressions.precedence.precedence2.scenario-1.examples-1-row-12`: expected EOI, ORDER, SKIP, LIMIT, AS, AND, OR, clause, comparison_op, additive_op, multiplicative_op, or property_suffix at byte 17..17
 - `tck.expressions.precedence.precedence2.scenario-1.examples-1-row-13`: expected EOI, ORDER, SKIP, LIMIT, AS, AND, OR, clause, comparison_op, additive_op, multiplicative_op, or property_suffix at byte 9..9
 - `tck.expressions.precedence.precedence2.scenario-1.examples-1-row-14`: expected EOI, ORDER, SKIP, LIMIT, AS, AND, OR, clause, comparison_op, additive_op, multiplicative_op, or property_suffix at byte 9..9
@@ -15799,9 +15359,7 @@ RETURN 4 / 2 - 3 / 2 AS a,
 - `tck.expressions.quantifier.quantifier9.scenario-5.examples-1-row-3`: expected EOI, WHERE, ORDER, SKIP, LIMIT, AS, AND, OR, clause, comparison_op, additive_op, multiplicative_op, or property_suffix at byte 180..180
 - `tck.expressions.quantifier.quantifier9.scenario-5.examples-1-row-4`: expected EOI, WHERE, ORDER, SKIP, LIMIT, AS, AND, OR, clause, comparison_op, additive_op, multiplicative_op, or property_suffix at byte 180..180
 - `tck.expressions.quantifier.quantifier9.scenario-5.examples-1-row-5`: expected EOI, WHERE, ORDER, SKIP, LIMIT, AS, AND, OR, clause, comparison_op, additive_op, multiplicative_op, or property_suffix at byte 180..180
-- `tck.expressions.string.string1.scenario-1`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..40; query: 
-RETURN substring('0123456789', 1) AS s
-
+- `tck.expressions.string.string1.scenario-1`: expected [["123456789"]], observed [["0123456789"]]
 - `tck.expressions.string.string10.scenario-1`: expected EOI, AND, OR, clause, comparison_op, additive_op, multiplicative_op, or property_suffix at byte 23..23
 - `tck.expressions.string.string10.scenario-2`: expected EOI, AND, OR, clause, comparison_op, additive_op, multiplicative_op, or property_suffix at byte 23..23
 - `tck.expressions.string.string10.scenario-3`: expected EOI, AND, OR, clause, comparison_op, additive_op, multiplicative_op, or property_suffix at byte 23..23
@@ -15813,9 +15371,6 @@ RETURN substring('0123456789', 1) AS s
 - `tck.expressions.string.string10.scenario-9`: expected EOI, AND, OR, clause, comparison_op, additive_op, multiplicative_op, or property_suffix at byte 20..20
 - `tck.expressions.string.string11.scenario-1`: expected EOI, AND, OR, clause, comparison_op, additive_op, multiplicative_op, or property_suffix at byte 23..23
 - `tck.expressions.string.string11.scenario-2`: expected EOI, AND, OR, clause, comparison_op, additive_op, multiplicative_op, or property_suffix at byte 23..23
-- `tck.expressions.string.string3.scenario-1`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..25; query: 
-RETURN reverse('raksO')
-
 - `tck.expressions.string.string4.scenario-1`: query execution failed: Parse error: no such function: split; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..37; query: 
 UNWIND split('one1two', '1') AS item
 RETURN count(item) AS item
@@ -15838,623 +15393,623 @@ RETURN count(item) AS item
 - `tck.expressions.string.string9.scenario-7`: expected EOI, AND, OR, clause, comparison_op, additive_op, multiplicative_op, or property_suffix at byte 20..20
 - `tck.expressions.string.string9.scenario-8`: expected EOI, WHERE, ORDER, SKIP, LIMIT, AS, AND, OR, clause, comparison_op, additive_op, multiplicative_op, or property_suffix at byte 102..102
 - `tck.expressions.string.string9.scenario-9`: expected EOI, AND, OR, clause, comparison_op, additive_op, multiplicative_op, or property_suffix at byte 20..20
-- `tck.expressions.temporal.temporal1.scenario-1.examples-1-row-1`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..41; query: 
+- `tck.expressions.temporal.temporal1.scenario-1.examples-1-row-1`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 13..34; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..41; query: 
 RETURN date({year: 1816, week: 1}) AS d
 
-- `tck.expressions.temporal.temporal1.scenario-1.examples-1-row-2`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..42; query: 
+- `tck.expressions.temporal.temporal1.scenario-1.examples-1-row-2`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 13..35; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..42; query: 
 RETURN date({year: 1816, week: 52}) AS d
 
-- `tck.expressions.temporal.temporal1.scenario-1.examples-1-row-3`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..41; query: 
+- `tck.expressions.temporal.temporal1.scenario-1.examples-1-row-3`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 13..34; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..41; query: 
 RETURN date({year: 1817, week: 1}) AS d
 
-- `tck.expressions.temporal.temporal1.scenario-1.examples-1-row-4`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..42; query: 
+- `tck.expressions.temporal.temporal1.scenario-1.examples-1-row-4`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 13..35; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..42; query: 
 RETURN date({year: 1817, week: 10}) AS d
 
-- `tck.expressions.temporal.temporal1.scenario-1.examples-1-row-5`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..42; query: 
+- `tck.expressions.temporal.temporal1.scenario-1.examples-1-row-5`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 13..35; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..42; query: 
 RETURN date({year: 1817, week: 30}) AS d
 
-- `tck.expressions.temporal.temporal1.scenario-1.examples-1-row-6`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..42; query: 
+- `tck.expressions.temporal.temporal1.scenario-1.examples-1-row-6`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 13..35; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..42; query: 
 RETURN date({year: 1817, week: 52}) AS d
 
-- `tck.expressions.temporal.temporal1.scenario-1.examples-1-row-7`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..41; query: 
+- `tck.expressions.temporal.temporal1.scenario-1.examples-1-row-7`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 13..34; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..41; query: 
 RETURN date({year: 1818, week: 1}) AS d
 
-- `tck.expressions.temporal.temporal1.scenario-1.examples-1-row-8`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..42; query: 
+- `tck.expressions.temporal.temporal1.scenario-1.examples-1-row-8`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 13..35; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..42; query: 
 RETURN date({year: 1818, week: 52}) AS d
 
-- `tck.expressions.temporal.temporal1.scenario-1.examples-1-row-9`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..42; query: 
+- `tck.expressions.temporal.temporal1.scenario-1.examples-1-row-9`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 13..35; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..42; query: 
 RETURN date({year: 1818, week: 53}) AS d
 
-- `tck.expressions.temporal.temporal1.scenario-1.examples-1-row-10`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..41; query: 
+- `tck.expressions.temporal.temporal1.scenario-1.examples-1-row-10`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 13..34; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..41; query: 
 RETURN date({year: 1819, week: 1}) AS d
 
-- `tck.expressions.temporal.temporal1.scenario-1.examples-1-row-11`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..42; query: 
+- `tck.expressions.temporal.temporal1.scenario-1.examples-1-row-11`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 13..35; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..42; query: 
 RETURN date({year: 1819, week: 52}) AS d
 
-- `tck.expressions.temporal.temporal1.scenario-1.examples-1-row-12`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..55; query: 
+- `tck.expressions.temporal.temporal1.scenario-1.examples-1-row-12`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 13..48; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..55; query: 
 RETURN date({dayOfWeek: 2, year: 1817, week: 1}) AS d
 
-- `tck.expressions.temporal.temporal1.scenario-1.examples-1-row-13`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..69; query: 
+- `tck.expressions.temporal.temporal1.scenario-1.examples-1-row-13`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 13..62; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..69; query: 
 RETURN date({date: date('1816-12-30'), week: 2, dayOfWeek: 3}) AS d
 
-- `tck.expressions.temporal.temporal1.scenario-1.examples-1-row-14`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..55; query: 
+- `tck.expressions.temporal.temporal1.scenario-1.examples-1-row-14`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 13..48; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..55; query: 
 RETURN date({date: date('1816-12-31'), week: 2}) AS d
 
-- `tck.expressions.temporal.temporal1.scenario-1.examples-1-row-15`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..67; query: 
+- `tck.expressions.temporal.temporal1.scenario-1.examples-1-row-15`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 13..60; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..67; query: 
 RETURN date({date: date('1816-12-31'), year: 1817, week: 2}) AS d
 
-- `tck.expressions.temporal.temporal1.scenario-2.examples-1-row-1`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..50; query: 
+- `tck.expressions.temporal.temporal1.scenario-2.examples-1-row-1`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 22..43; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..50; query: 
 RETURN localdatetime({year: 1816, week: 1}) AS d
 
-- `tck.expressions.temporal.temporal1.scenario-2.examples-1-row-2`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..51; query: 
+- `tck.expressions.temporal.temporal1.scenario-2.examples-1-row-2`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 22..44; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..51; query: 
 RETURN localdatetime({year: 1816, week: 52}) AS d
 
-- `tck.expressions.temporal.temporal1.scenario-2.examples-1-row-3`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..50; query: 
+- `tck.expressions.temporal.temporal1.scenario-2.examples-1-row-3`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 22..43; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..50; query: 
 RETURN localdatetime({year: 1817, week: 1}) AS d
 
-- `tck.expressions.temporal.temporal1.scenario-2.examples-1-row-4`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..51; query: 
+- `tck.expressions.temporal.temporal1.scenario-2.examples-1-row-4`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 22..44; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..51; query: 
 RETURN localdatetime({year: 1817, week: 10}) AS d
 
-- `tck.expressions.temporal.temporal1.scenario-2.examples-1-row-5`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..51; query: 
+- `tck.expressions.temporal.temporal1.scenario-2.examples-1-row-5`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 22..44; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..51; query: 
 RETURN localdatetime({year: 1817, week: 30}) AS d
 
-- `tck.expressions.temporal.temporal1.scenario-2.examples-1-row-6`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..51; query: 
+- `tck.expressions.temporal.temporal1.scenario-2.examples-1-row-6`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 22..44; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..51; query: 
 RETURN localdatetime({year: 1817, week: 52}) AS d
 
-- `tck.expressions.temporal.temporal1.scenario-2.examples-1-row-7`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..50; query: 
+- `tck.expressions.temporal.temporal1.scenario-2.examples-1-row-7`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 22..43; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..50; query: 
 RETURN localdatetime({year: 1818, week: 1}) AS d
 
-- `tck.expressions.temporal.temporal1.scenario-2.examples-1-row-8`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..51; query: 
+- `tck.expressions.temporal.temporal1.scenario-2.examples-1-row-8`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 22..44; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..51; query: 
 RETURN localdatetime({year: 1818, week: 52}) AS d
 
-- `tck.expressions.temporal.temporal1.scenario-2.examples-1-row-9`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..51; query: 
+- `tck.expressions.temporal.temporal1.scenario-2.examples-1-row-9`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 22..44; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..51; query: 
 RETURN localdatetime({year: 1818, week: 53}) AS d
 
-- `tck.expressions.temporal.temporal1.scenario-2.examples-1-row-10`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..50; query: 
+- `tck.expressions.temporal.temporal1.scenario-2.examples-1-row-10`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 22..43; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..50; query: 
 RETURN localdatetime({year: 1819, week: 1}) AS d
 
-- `tck.expressions.temporal.temporal1.scenario-2.examples-1-row-11`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..51; query: 
+- `tck.expressions.temporal.temporal1.scenario-2.examples-1-row-11`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 22..44; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..51; query: 
 RETURN localdatetime({year: 1819, week: 52}) AS d
 
-- `tck.expressions.temporal.temporal1.scenario-2.examples-1-row-12`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..64; query: 
+- `tck.expressions.temporal.temporal1.scenario-2.examples-1-row-12`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 22..57; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..64; query: 
 RETURN localdatetime({dayOfWeek: 2, year: 1817, week: 1}) AS d
 
-- `tck.expressions.temporal.temporal1.scenario-2.examples-1-row-13`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..78; query: 
+- `tck.expressions.temporal.temporal1.scenario-2.examples-1-row-13`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 22..71; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..78; query: 
 RETURN localdatetime({date: date('1816-12-30'), week: 2, dayOfWeek: 3}) AS d
 
-- `tck.expressions.temporal.temporal1.scenario-2.examples-1-row-14`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..64; query: 
+- `tck.expressions.temporal.temporal1.scenario-2.examples-1-row-14`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 22..57; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..64; query: 
 RETURN localdatetime({date: date('1816-12-31'), week: 2}) AS d
 
-- `tck.expressions.temporal.temporal1.scenario-2.examples-1-row-15`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..76; query: 
+- `tck.expressions.temporal.temporal1.scenario-2.examples-1-row-15`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 22..69; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..76; query: 
 RETURN localdatetime({date: date('1816-12-31'), year: 1817, week: 2}) AS d
 
-- `tck.expressions.temporal.temporal1.scenario-3.examples-1-row-1`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..45; query: 
+- `tck.expressions.temporal.temporal1.scenario-3.examples-1-row-1`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 17..38; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..45; query: 
 RETURN datetime({year: 1816, week: 1}) AS d
 
-- `tck.expressions.temporal.temporal1.scenario-3.examples-1-row-2`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..46; query: 
+- `tck.expressions.temporal.temporal1.scenario-3.examples-1-row-2`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 17..39; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..46; query: 
 RETURN datetime({year: 1816, week: 52}) AS d
 
-- `tck.expressions.temporal.temporal1.scenario-3.examples-1-row-3`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..45; query: 
+- `tck.expressions.temporal.temporal1.scenario-3.examples-1-row-3`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 17..38; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..45; query: 
 RETURN datetime({year: 1817, week: 1}) AS d
 
-- `tck.expressions.temporal.temporal1.scenario-3.examples-1-row-4`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..46; query: 
+- `tck.expressions.temporal.temporal1.scenario-3.examples-1-row-4`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 17..39; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..46; query: 
 RETURN datetime({year: 1817, week: 10}) AS d
 
-- `tck.expressions.temporal.temporal1.scenario-3.examples-1-row-5`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..46; query: 
+- `tck.expressions.temporal.temporal1.scenario-3.examples-1-row-5`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 17..39; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..46; query: 
 RETURN datetime({year: 1817, week: 30}) AS d
 
-- `tck.expressions.temporal.temporal1.scenario-3.examples-1-row-6`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..46; query: 
+- `tck.expressions.temporal.temporal1.scenario-3.examples-1-row-6`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 17..39; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..46; query: 
 RETURN datetime({year: 1817, week: 52}) AS d
 
-- `tck.expressions.temporal.temporal1.scenario-3.examples-1-row-7`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..45; query: 
+- `tck.expressions.temporal.temporal1.scenario-3.examples-1-row-7`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 17..38; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..45; query: 
 RETURN datetime({year: 1818, week: 1}) AS d
 
-- `tck.expressions.temporal.temporal1.scenario-3.examples-1-row-8`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..46; query: 
+- `tck.expressions.temporal.temporal1.scenario-3.examples-1-row-8`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 17..39; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..46; query: 
 RETURN datetime({year: 1818, week: 52}) AS d
 
-- `tck.expressions.temporal.temporal1.scenario-3.examples-1-row-9`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..46; query: 
+- `tck.expressions.temporal.temporal1.scenario-3.examples-1-row-9`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 17..39; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..46; query: 
 RETURN datetime({year: 1818, week: 53}) AS d
 
-- `tck.expressions.temporal.temporal1.scenario-3.examples-1-row-10`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..45; query: 
+- `tck.expressions.temporal.temporal1.scenario-3.examples-1-row-10`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 17..38; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..45; query: 
 RETURN datetime({year: 1819, week: 1}) AS d
 
-- `tck.expressions.temporal.temporal1.scenario-3.examples-1-row-11`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..46; query: 
+- `tck.expressions.temporal.temporal1.scenario-3.examples-1-row-11`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 17..39; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..46; query: 
 RETURN datetime({year: 1819, week: 52}) AS d
 
-- `tck.expressions.temporal.temporal1.scenario-3.examples-1-row-12`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..59; query: 
+- `tck.expressions.temporal.temporal1.scenario-3.examples-1-row-12`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 17..52; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..59; query: 
 RETURN datetime({dayOfWeek: 2, year: 1817, week: 1}) AS d
 
-- `tck.expressions.temporal.temporal1.scenario-3.examples-1-row-13`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..73; query: 
+- `tck.expressions.temporal.temporal1.scenario-3.examples-1-row-13`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 17..66; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..73; query: 
 RETURN datetime({date: date('1816-12-30'), week: 2, dayOfWeek: 3}) AS d
 
-- `tck.expressions.temporal.temporal1.scenario-3.examples-1-row-14`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..59; query: 
+- `tck.expressions.temporal.temporal1.scenario-3.examples-1-row-14`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 17..52; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..59; query: 
 RETURN datetime({date: date('1816-12-31'), week: 2}) AS d
 
-- `tck.expressions.temporal.temporal1.scenario-3.examples-1-row-15`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..71; query: 
+- `tck.expressions.temporal.temporal1.scenario-3.examples-1-row-15`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 17..64; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..71; query: 
 RETURN datetime({date: date('1816-12-31'), year: 1817, week: 2}) AS d
 
-- `tck.expressions.temporal.temporal1.scenario-4.examples-1-row-1`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..57; query: 
+- `tck.expressions.temporal.temporal1.scenario-4.examples-1-row-1`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 13..45; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..57; query: 
 RETURN date({year: 1984, month: 10, day: 11}) AS result
 
-- `tck.expressions.temporal.temporal1.scenario-4.examples-1-row-2`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..48; query: 
+- `tck.expressions.temporal.temporal1.scenario-4.examples-1-row-2`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 13..36; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..48; query: 
 RETURN date({year: 1984, month: 10}) AS result
 
-- `tck.expressions.temporal.temporal1.scenario-4.examples-1-row-3`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..61; query: 
+- `tck.expressions.temporal.temporal1.scenario-4.examples-1-row-3`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 13..49; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..61; query: 
 RETURN date({year: 1984, week: 10, dayOfWeek: 3}) AS result
 
-- `tck.expressions.temporal.temporal1.scenario-4.examples-1-row-4`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..47; query: 
+- `tck.expressions.temporal.temporal1.scenario-4.examples-1-row-4`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 13..35; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..47; query: 
 RETURN date({year: 1984, week: 10}) AS result
 
-- `tck.expressions.temporal.temporal1.scenario-4.examples-1-row-5`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..37; query: 
+- `tck.expressions.temporal.temporal1.scenario-4.examples-1-row-5`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 13..25; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..37; query: 
 RETURN date({year: 1984}) AS result
 
-- `tck.expressions.temporal.temporal1.scenario-4.examples-1-row-6`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..54; query: 
+- `tck.expressions.temporal.temporal1.scenario-4.examples-1-row-6`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 13..42; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..54; query: 
 RETURN date({year: 1984, ordinalDay: 202}) AS result
 
-- `tck.expressions.temporal.temporal1.scenario-4.examples-1-row-7`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..67; query: 
+- `tck.expressions.temporal.temporal1.scenario-4.examples-1-row-7`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 13..55; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..67; query: 
 RETURN date({year: 1984, quarter: 3, dayOfQuarter: 45}) AS result
 
-- `tck.expressions.temporal.temporal1.scenario-4.examples-1-row-8`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..49; query: 
+- `tck.expressions.temporal.temporal1.scenario-4.examples-1-row-8`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 13..37; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..49; query: 
 RETURN date({year: 1984, quarter: 3}) AS result
 
-- `tck.expressions.temporal.temporal1.scenario-5.examples-1-row-1`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..117; query: 
+- `tck.expressions.temporal.temporal1.scenario-5.examples-1-row-1`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 18..105; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..117; query: 
 RETURN localtime({hour: 12, minute: 31, second: 14, nanosecond: 789, millisecond: 123, microsecond: 456}) AS result
 
-- `tck.expressions.temporal.temporal1.scenario-5.examples-1-row-2`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..87; query: 
+- `tck.expressions.temporal.temporal1.scenario-5.examples-1-row-2`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 18..75; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..87; query: 
 RETURN localtime({hour: 12, minute: 31, second: 14, nanosecond: 645876123}) AS result
 
-- `tck.expressions.temporal.temporal1.scenario-5.examples-1-row-3`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..85; query: 
+- `tck.expressions.temporal.temporal1.scenario-5.examples-1-row-3`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 18..73; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..85; query: 
 RETURN localtime({hour: 12, minute: 31, second: 14, microsecond: 645876}) AS result
 
-- `tck.expressions.temporal.temporal1.scenario-5.examples-1-row-4`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..82; query: 
+- `tck.expressions.temporal.temporal1.scenario-5.examples-1-row-4`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 18..70; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..82; query: 
 RETURN localtime({hour: 12, minute: 31, second: 14, millisecond: 645}) AS result
 
-- `tck.expressions.temporal.temporal1.scenario-5.examples-1-row-5`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..64; query: 
+- `tck.expressions.temporal.temporal1.scenario-5.examples-1-row-5`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 18..52; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..64; query: 
 RETURN localtime({hour: 12, minute: 31, second: 14}) AS result
 
-- `tck.expressions.temporal.temporal1.scenario-5.examples-1-row-6`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..52; query: 
+- `tck.expressions.temporal.temporal1.scenario-5.examples-1-row-6`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 18..40; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..52; query: 
 RETURN localtime({hour: 12, minute: 31}) AS result
 
-- `tck.expressions.temporal.temporal1.scenario-5.examples-1-row-7`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..40; query: 
+- `tck.expressions.temporal.temporal1.scenario-5.examples-1-row-7`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 18..28; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..40; query: 
 RETURN localtime({hour: 12}) AS result
 
-- `tck.expressions.temporal.temporal1.scenario-6.examples-1-row-1`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..112; query: 
+- `tck.expressions.temporal.temporal1.scenario-6.examples-1-row-1`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 13..100; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..112; query: 
 RETURN time({hour: 12, minute: 31, second: 14, nanosecond: 789, millisecond: 123, microsecond: 456}) AS result
 
-- `tck.expressions.temporal.temporal1.scenario-6.examples-1-row-2`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..82; query: 
+- `tck.expressions.temporal.temporal1.scenario-6.examples-1-row-2`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 13..70; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..82; query: 
 RETURN time({hour: 12, minute: 31, second: 14, nanosecond: 645876123}) AS result
 
-- `tck.expressions.temporal.temporal1.scenario-6.examples-1-row-3`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..74; query: 
+- `tck.expressions.temporal.temporal1.scenario-6.examples-1-row-3`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 13..62; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..74; query: 
 RETURN time({hour: 12, minute: 31, second: 14, nanosecond: 3}) AS result
 
-- `tck.expressions.temporal.temporal1.scenario-6.examples-1-row-4`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..80; query: 
+- `tck.expressions.temporal.temporal1.scenario-6.examples-1-row-4`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 13..68; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..80; query: 
 RETURN time({hour: 12, minute: 31, second: 14, microsecond: 645876}) AS result
 
-- `tck.expressions.temporal.temporal1.scenario-6.examples-1-row-5`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..77; query: 
+- `tck.expressions.temporal.temporal1.scenario-6.examples-1-row-5`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 13..65; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..77; query: 
 RETURN time({hour: 12, minute: 31, second: 14, millisecond: 645}) AS result
 
-- `tck.expressions.temporal.temporal1.scenario-6.examples-1-row-6`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..59; query: 
+- `tck.expressions.temporal.temporal1.scenario-6.examples-1-row-6`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 13..47; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..59; query: 
 RETURN time({hour: 12, minute: 31, second: 14}) AS result
 
-- `tck.expressions.temporal.temporal1.scenario-6.examples-1-row-7`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..47; query: 
+- `tck.expressions.temporal.temporal1.scenario-6.examples-1-row-7`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 13..35; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..47; query: 
 RETURN time({hour: 12, minute: 31}) AS result
 
-- `tck.expressions.temporal.temporal1.scenario-6.examples-1-row-8`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..35; query: 
+- `tck.expressions.temporal.temporal1.scenario-6.examples-1-row-8`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 13..23; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..35; query: 
 RETURN time({hour: 12}) AS result
 
-- `tck.expressions.temporal.temporal1.scenario-6.examples-1-row-9`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..102; query: 
+- `tck.expressions.temporal.temporal1.scenario-6.examples-1-row-9`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 13..90; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..102; query: 
 RETURN time({hour: 12, minute: 31, second: 14, nanosecond: 645876123, timezone: '+01:00'}) AS result
 
-- `tck.expressions.temporal.temporal1.scenario-6.examples-1-row-10`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..100; query: 
+- `tck.expressions.temporal.temporal1.scenario-6.examples-1-row-10`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 13..88; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..100; query: 
 RETURN time({hour: 12, minute: 31, second: 14, microsecond: 645876, timezone: '+01:00'}) AS result
 
-- `tck.expressions.temporal.temporal1.scenario-6.examples-1-row-11`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..97; query: 
+- `tck.expressions.temporal.temporal1.scenario-6.examples-1-row-11`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 13..85; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..97; query: 
 RETURN time({hour: 12, minute: 31, second: 14, millisecond: 645, timezone: '+01:00'}) AS result
 
-- `tck.expressions.temporal.temporal1.scenario-6.examples-1-row-12`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..79; query: 
+- `tck.expressions.temporal.temporal1.scenario-6.examples-1-row-12`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 13..67; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..79; query: 
 RETURN time({hour: 12, minute: 31, second: 14, timezone: '+01:00'}) AS result
 
-- `tck.expressions.temporal.temporal1.scenario-6.examples-1-row-13`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..67; query: 
+- `tck.expressions.temporal.temporal1.scenario-6.examples-1-row-13`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 13..55; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..67; query: 
 RETURN time({hour: 12, minute: 31, timezone: '+01:00'}) AS result
 
-- `tck.expressions.temporal.temporal1.scenario-6.examples-1-row-14`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..55; query: 
+- `tck.expressions.temporal.temporal1.scenario-6.examples-1-row-14`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 13..43; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..55; query: 
 RETURN time({hour: 12, timezone: '+01:00'}) AS result
 
-- `tck.expressions.temporal.temporal1.scenario-7.examples-1-row-1`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..153; query: 
+- `tck.expressions.temporal.temporal1.scenario-7.examples-1-row-1`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 22..141; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..153; query: 
 RETURN localdatetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 789, millisecond: 123, microsecond: 456}) AS result
 
-- `tck.expressions.temporal.temporal1.scenario-7.examples-1-row-2`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..123; query: 
+- `tck.expressions.temporal.temporal1.scenario-7.examples-1-row-2`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 22..111; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..123; query: 
 RETURN localdatetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123}) AS result
 
-- `tck.expressions.temporal.temporal1.scenario-7.examples-1-row-3`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..115; query: 
+- `tck.expressions.temporal.temporal1.scenario-7.examples-1-row-3`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 22..103; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..115; query: 
 RETURN localdatetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 3}) AS result
 
-- `tck.expressions.temporal.temporal1.scenario-7.examples-1-row-4`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..121; query: 
+- `tck.expressions.temporal.temporal1.scenario-7.examples-1-row-4`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 22..109; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..121; query: 
 RETURN localdatetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, microsecond: 645876}) AS result
 
-- `tck.expressions.temporal.temporal1.scenario-7.examples-1-row-5`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..118; query: 
+- `tck.expressions.temporal.temporal1.scenario-7.examples-1-row-5`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 22..106; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..118; query: 
 RETURN localdatetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, millisecond: 645}) AS result
 
-- `tck.expressions.temporal.temporal1.scenario-7.examples-1-row-6`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..100; query: 
+- `tck.expressions.temporal.temporal1.scenario-7.examples-1-row-6`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 22..88; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..100; query: 
 RETURN localdatetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14}) AS result
 
-- `tck.expressions.temporal.temporal1.scenario-7.examples-1-row-7`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..88; query: 
+- `tck.expressions.temporal.temporal1.scenario-7.examples-1-row-7`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 22..76; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..88; query: 
 RETURN localdatetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31}) AS result
 
-- `tck.expressions.temporal.temporal1.scenario-7.examples-1-row-8`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..76; query: 
+- `tck.expressions.temporal.temporal1.scenario-7.examples-1-row-8`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 22..64; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..76; query: 
 RETURN localdatetime({year: 1984, month: 10, day: 11, hour: 12}) AS result
 
-- `tck.expressions.temporal.temporal1.scenario-7.examples-1-row-9`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..66; query: 
+- `tck.expressions.temporal.temporal1.scenario-7.examples-1-row-9`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 22..54; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..66; query: 
 RETURN localdatetime({year: 1984, month: 10, day: 11}) AS result
 
-- `tck.expressions.temporal.temporal1.scenario-7.examples-1-row-10`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..127; query: 
+- `tck.expressions.temporal.temporal1.scenario-7.examples-1-row-10`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 22..115; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..127; query: 
 RETURN localdatetime({year: 1984, week: 10, dayOfWeek: 3, hour: 12, minute: 31, second: 14, nanosecond: 645876123}) AS result
 
-- `tck.expressions.temporal.temporal1.scenario-7.examples-1-row-11`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..125; query: 
+- `tck.expressions.temporal.temporal1.scenario-7.examples-1-row-11`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 22..113; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..125; query: 
 RETURN localdatetime({year: 1984, week: 10, dayOfWeek: 3, hour: 12, minute: 31, second: 14, microsecond: 645876}) AS result
 
-- `tck.expressions.temporal.temporal1.scenario-7.examples-1-row-12`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..122; query: 
+- `tck.expressions.temporal.temporal1.scenario-7.examples-1-row-12`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 22..110; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..122; query: 
 RETURN localdatetime({year: 1984, week: 10, dayOfWeek: 3, hour: 12, minute: 31, second: 14, millisecond: 645}) AS result
 
-- `tck.expressions.temporal.temporal1.scenario-7.examples-1-row-13`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..104; query: 
+- `tck.expressions.temporal.temporal1.scenario-7.examples-1-row-13`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 22..92; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..104; query: 
 RETURN localdatetime({year: 1984, week: 10, dayOfWeek: 3, hour: 12, minute: 31, second: 14}) AS result
 
-- `tck.expressions.temporal.temporal1.scenario-7.examples-1-row-14`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..92; query: 
+- `tck.expressions.temporal.temporal1.scenario-7.examples-1-row-14`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 22..80; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..92; query: 
 RETURN localdatetime({year: 1984, week: 10, dayOfWeek: 3, hour: 12, minute: 31}) AS result
 
-- `tck.expressions.temporal.temporal1.scenario-7.examples-1-row-15`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..80; query: 
+- `tck.expressions.temporal.temporal1.scenario-7.examples-1-row-15`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 22..68; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..80; query: 
 RETURN localdatetime({year: 1984, week: 10, dayOfWeek: 3, hour: 12}) AS result
 
-- `tck.expressions.temporal.temporal1.scenario-7.examples-1-row-16`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..70; query: 
+- `tck.expressions.temporal.temporal1.scenario-7.examples-1-row-16`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 22..58; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..70; query: 
 RETURN localdatetime({year: 1984, week: 10, dayOfWeek: 3}) AS result
 
-- `tck.expressions.temporal.temporal1.scenario-7.examples-1-row-17`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..120; query: 
+- `tck.expressions.temporal.temporal1.scenario-7.examples-1-row-17`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 22..108; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..120; query: 
 RETURN localdatetime({year: 1984, ordinalDay: 202, hour: 12, minute: 31, second: 14, nanosecond: 645876123}) AS result
 
-- `tck.expressions.temporal.temporal1.scenario-7.examples-1-row-18`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..118; query: 
+- `tck.expressions.temporal.temporal1.scenario-7.examples-1-row-18`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 22..106; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..118; query: 
 RETURN localdatetime({year: 1984, ordinalDay: 202, hour: 12, minute: 31, second: 14, microsecond: 645876}) AS result
 
-- `tck.expressions.temporal.temporal1.scenario-7.examples-1-row-19`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..115; query: 
+- `tck.expressions.temporal.temporal1.scenario-7.examples-1-row-19`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 22..103; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..115; query: 
 RETURN localdatetime({year: 1984, ordinalDay: 202, hour: 12, minute: 31, second: 14, millisecond: 645}) AS result
 
-- `tck.expressions.temporal.temporal1.scenario-7.examples-1-row-20`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..97; query: 
+- `tck.expressions.temporal.temporal1.scenario-7.examples-1-row-20`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 22..85; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..97; query: 
 RETURN localdatetime({year: 1984, ordinalDay: 202, hour: 12, minute: 31, second: 14}) AS result
 
-- `tck.expressions.temporal.temporal1.scenario-7.examples-1-row-21`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..85; query: 
+- `tck.expressions.temporal.temporal1.scenario-7.examples-1-row-21`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 22..73; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..85; query: 
 RETURN localdatetime({year: 1984, ordinalDay: 202, hour: 12, minute: 31}) AS result
 
-- `tck.expressions.temporal.temporal1.scenario-7.examples-1-row-22`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..73; query: 
+- `tck.expressions.temporal.temporal1.scenario-7.examples-1-row-22`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 22..61; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..73; query: 
 RETURN localdatetime({year: 1984, ordinalDay: 202, hour: 12}) AS result
 
-- `tck.expressions.temporal.temporal1.scenario-7.examples-1-row-23`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..63; query: 
+- `tck.expressions.temporal.temporal1.scenario-7.examples-1-row-23`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 22..51; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..63; query: 
 RETURN localdatetime({year: 1984, ordinalDay: 202}) AS result
 
-- `tck.expressions.temporal.temporal1.scenario-7.examples-1-row-24`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..133; query: 
+- `tck.expressions.temporal.temporal1.scenario-7.examples-1-row-24`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 22..121; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..133; query: 
 RETURN localdatetime({year: 1984, quarter: 3, dayOfQuarter: 45, hour: 12, minute: 31, second: 14, nanosecond: 645876123}) AS result
 
-- `tck.expressions.temporal.temporal1.scenario-7.examples-1-row-25`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..131; query: 
+- `tck.expressions.temporal.temporal1.scenario-7.examples-1-row-25`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 22..119; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..131; query: 
 RETURN localdatetime({year: 1984, quarter: 3, dayOfQuarter: 45, hour: 12, minute: 31, second: 14, microsecond: 645876}) AS result
 
-- `tck.expressions.temporal.temporal1.scenario-7.examples-1-row-26`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..128; query: 
+- `tck.expressions.temporal.temporal1.scenario-7.examples-1-row-26`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 22..116; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..128; query: 
 RETURN localdatetime({year: 1984, quarter: 3, dayOfQuarter: 45, hour: 12, minute: 31, second: 14, millisecond: 645}) AS result
 
-- `tck.expressions.temporal.temporal1.scenario-7.examples-1-row-27`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..110; query: 
+- `tck.expressions.temporal.temporal1.scenario-7.examples-1-row-27`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 22..98; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..110; query: 
 RETURN localdatetime({year: 1984, quarter: 3, dayOfQuarter: 45, hour: 12, minute: 31, second: 14}) AS result
 
-- `tck.expressions.temporal.temporal1.scenario-7.examples-1-row-28`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..98; query: 
+- `tck.expressions.temporal.temporal1.scenario-7.examples-1-row-28`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 22..86; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..98; query: 
 RETURN localdatetime({year: 1984, quarter: 3, dayOfQuarter: 45, hour: 12, minute: 31}) AS result
 
-- `tck.expressions.temporal.temporal1.scenario-7.examples-1-row-29`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..86; query: 
+- `tck.expressions.temporal.temporal1.scenario-7.examples-1-row-29`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 22..74; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..86; query: 
 RETURN localdatetime({year: 1984, quarter: 3, dayOfQuarter: 45, hour: 12}) AS result
 
-- `tck.expressions.temporal.temporal1.scenario-7.examples-1-row-30`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..76; query: 
+- `tck.expressions.temporal.temporal1.scenario-7.examples-1-row-30`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 22..64; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..76; query: 
 RETURN localdatetime({year: 1984, quarter: 3, dayOfQuarter: 45}) AS result
 
-- `tck.expressions.temporal.temporal1.scenario-7.examples-1-row-31`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..46; query: 
+- `tck.expressions.temporal.temporal1.scenario-7.examples-1-row-31`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 22..34; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..46; query: 
 RETURN localdatetime({year: 1984}) AS result
 
-- `tck.expressions.temporal.temporal1.scenario-8.examples-1-row-1`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..148; query: 
+- `tck.expressions.temporal.temporal1.scenario-8.examples-1-row-1`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 17..136; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..148; query: 
 RETURN datetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 789, millisecond: 123, microsecond: 456}) AS result
 
-- `tck.expressions.temporal.temporal1.scenario-8.examples-1-row-2`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..118; query: 
+- `tck.expressions.temporal.temporal1.scenario-8.examples-1-row-2`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 17..106; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..118; query: 
 RETURN datetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123}) AS result
 
-- `tck.expressions.temporal.temporal1.scenario-8.examples-1-row-3`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..116; query: 
+- `tck.expressions.temporal.temporal1.scenario-8.examples-1-row-3`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 17..104; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..116; query: 
 RETURN datetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, microsecond: 645876}) AS result
 
-- `tck.expressions.temporal.temporal1.scenario-8.examples-1-row-4`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..113; query: 
+- `tck.expressions.temporal.temporal1.scenario-8.examples-1-row-4`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 17..101; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..113; query: 
 RETURN datetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, millisecond: 645}) AS result
 
-- `tck.expressions.temporal.temporal1.scenario-8.examples-1-row-5`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..95; query: 
+- `tck.expressions.temporal.temporal1.scenario-8.examples-1-row-5`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 17..83; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..95; query: 
 RETURN datetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14}) AS result
 
-- `tck.expressions.temporal.temporal1.scenario-8.examples-1-row-6`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..83; query: 
+- `tck.expressions.temporal.temporal1.scenario-8.examples-1-row-6`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 17..71; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..83; query: 
 RETURN datetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31}) AS result
 
-- `tck.expressions.temporal.temporal1.scenario-8.examples-1-row-7`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..71; query: 
+- `tck.expressions.temporal.temporal1.scenario-8.examples-1-row-7`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 17..59; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..71; query: 
 RETURN datetime({year: 1984, month: 10, day: 11, hour: 12}) AS result
 
-- `tck.expressions.temporal.temporal1.scenario-8.examples-1-row-8`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..61; query: 
+- `tck.expressions.temporal.temporal1.scenario-8.examples-1-row-8`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 17..49; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..61; query: 
 RETURN datetime({year: 1984, month: 10, day: 11}) AS result
 
-- `tck.expressions.temporal.temporal1.scenario-8.examples-1-row-9`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..122; query: 
+- `tck.expressions.temporal.temporal1.scenario-8.examples-1-row-9`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 17..110; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..122; query: 
 RETURN datetime({year: 1984, week: 10, dayOfWeek: 3, hour: 12, minute: 31, second: 14, nanosecond: 645876123}) AS result
 
-- `tck.expressions.temporal.temporal1.scenario-8.examples-1-row-10`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..120; query: 
+- `tck.expressions.temporal.temporal1.scenario-8.examples-1-row-10`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 17..108; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..120; query: 
 RETURN datetime({year: 1984, week: 10, dayOfWeek: 3, hour: 12, minute: 31, second: 14, microsecond: 645876}) AS result
 
-- `tck.expressions.temporal.temporal1.scenario-8.examples-1-row-11`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..117; query: 
+- `tck.expressions.temporal.temporal1.scenario-8.examples-1-row-11`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 17..105; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..117; query: 
 RETURN datetime({year: 1984, week: 10, dayOfWeek: 3, hour: 12, minute: 31, second: 14, millisecond: 645}) AS result
 
-- `tck.expressions.temporal.temporal1.scenario-8.examples-1-row-12`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..99; query: 
+- `tck.expressions.temporal.temporal1.scenario-8.examples-1-row-12`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 17..87; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..99; query: 
 RETURN datetime({year: 1984, week: 10, dayOfWeek: 3, hour: 12, minute: 31, second: 14}) AS result
 
-- `tck.expressions.temporal.temporal1.scenario-8.examples-1-row-13`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..87; query: 
+- `tck.expressions.temporal.temporal1.scenario-8.examples-1-row-13`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 17..75; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..87; query: 
 RETURN datetime({year: 1984, week: 10, dayOfWeek: 3, hour: 12, minute: 31}) AS result
 
-- `tck.expressions.temporal.temporal1.scenario-8.examples-1-row-14`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..75; query: 
+- `tck.expressions.temporal.temporal1.scenario-8.examples-1-row-14`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 17..63; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..75; query: 
 RETURN datetime({year: 1984, week: 10, dayOfWeek: 3, hour: 12}) AS result
 
-- `tck.expressions.temporal.temporal1.scenario-8.examples-1-row-15`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..65; query: 
+- `tck.expressions.temporal.temporal1.scenario-8.examples-1-row-15`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 17..53; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..65; query: 
 RETURN datetime({year: 1984, week: 10, dayOfWeek: 3}) AS result
 
-- `tck.expressions.temporal.temporal1.scenario-8.examples-1-row-16`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..115; query: 
+- `tck.expressions.temporal.temporal1.scenario-8.examples-1-row-16`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 17..103; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..115; query: 
 RETURN datetime({year: 1984, ordinalDay: 202, hour: 12, minute: 31, second: 14, nanosecond: 645876123}) AS result
 
-- `tck.expressions.temporal.temporal1.scenario-8.examples-1-row-17`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..113; query: 
+- `tck.expressions.temporal.temporal1.scenario-8.examples-1-row-17`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 17..101; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..113; query: 
 RETURN datetime({year: 1984, ordinalDay: 202, hour: 12, minute: 31, second: 14, microsecond: 645876}) AS result
 
-- `tck.expressions.temporal.temporal1.scenario-8.examples-1-row-18`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..110; query: 
+- `tck.expressions.temporal.temporal1.scenario-8.examples-1-row-18`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 17..98; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..110; query: 
 RETURN datetime({year: 1984, ordinalDay: 202, hour: 12, minute: 31, second: 14, millisecond: 645}) AS result
 
-- `tck.expressions.temporal.temporal1.scenario-8.examples-1-row-19`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..92; query: 
+- `tck.expressions.temporal.temporal1.scenario-8.examples-1-row-19`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 17..80; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..92; query: 
 RETURN datetime({year: 1984, ordinalDay: 202, hour: 12, minute: 31, second: 14}) AS result
 
-- `tck.expressions.temporal.temporal1.scenario-8.examples-1-row-20`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..80; query: 
+- `tck.expressions.temporal.temporal1.scenario-8.examples-1-row-20`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 17..68; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..80; query: 
 RETURN datetime({year: 1984, ordinalDay: 202, hour: 12, minute: 31}) AS result
 
-- `tck.expressions.temporal.temporal1.scenario-8.examples-1-row-21`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..68; query: 
+- `tck.expressions.temporal.temporal1.scenario-8.examples-1-row-21`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 17..56; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..68; query: 
 RETURN datetime({year: 1984, ordinalDay: 202, hour: 12}) AS result
 
-- `tck.expressions.temporal.temporal1.scenario-8.examples-1-row-22`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..58; query: 
+- `tck.expressions.temporal.temporal1.scenario-8.examples-1-row-22`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 17..46; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..58; query: 
 RETURN datetime({year: 1984, ordinalDay: 202}) AS result
 
-- `tck.expressions.temporal.temporal1.scenario-8.examples-1-row-23`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..128; query: 
+- `tck.expressions.temporal.temporal1.scenario-8.examples-1-row-23`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 17..116; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..128; query: 
 RETURN datetime({year: 1984, quarter: 3, dayOfQuarter: 45, hour: 12, minute: 31, second: 14, nanosecond: 645876123}) AS result
 
-- `tck.expressions.temporal.temporal1.scenario-8.examples-1-row-24`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..126; query: 
+- `tck.expressions.temporal.temporal1.scenario-8.examples-1-row-24`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 17..114; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..126; query: 
 RETURN datetime({year: 1984, quarter: 3, dayOfQuarter: 45, hour: 12, minute: 31, second: 14, microsecond: 645876}) AS result
 
-- `tck.expressions.temporal.temporal1.scenario-8.examples-1-row-25`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..123; query: 
+- `tck.expressions.temporal.temporal1.scenario-8.examples-1-row-25`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 17..111; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..123; query: 
 RETURN datetime({year: 1984, quarter: 3, dayOfQuarter: 45, hour: 12, minute: 31, second: 14, millisecond: 645}) AS result
 
-- `tck.expressions.temporal.temporal1.scenario-8.examples-1-row-26`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..105; query: 
+- `tck.expressions.temporal.temporal1.scenario-8.examples-1-row-26`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 17..93; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..105; query: 
 RETURN datetime({year: 1984, quarter: 3, dayOfQuarter: 45, hour: 12, minute: 31, second: 14}) AS result
 
-- `tck.expressions.temporal.temporal1.scenario-8.examples-1-row-27`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..93; query: 
+- `tck.expressions.temporal.temporal1.scenario-8.examples-1-row-27`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 17..81; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..93; query: 
 RETURN datetime({year: 1984, quarter: 3, dayOfQuarter: 45, hour: 12, minute: 31}) AS result
 
-- `tck.expressions.temporal.temporal1.scenario-8.examples-1-row-28`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..81; query: 
+- `tck.expressions.temporal.temporal1.scenario-8.examples-1-row-28`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 17..69; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..81; query: 
 RETURN datetime({year: 1984, quarter: 3, dayOfQuarter: 45, hour: 12}) AS result
 
-- `tck.expressions.temporal.temporal1.scenario-8.examples-1-row-29`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..71; query: 
+- `tck.expressions.temporal.temporal1.scenario-8.examples-1-row-29`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 17..59; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..71; query: 
 RETURN datetime({year: 1984, quarter: 3, dayOfQuarter: 45}) AS result
 
-- `tck.expressions.temporal.temporal1.scenario-8.examples-1-row-30`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..41; query: 
+- `tck.expressions.temporal.temporal1.scenario-8.examples-1-row-30`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 17..29; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..41; query: 
 RETURN datetime({year: 1984}) AS result
 
-- `tck.expressions.temporal.temporal1.scenario-9.examples-1-row-1`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..138; query: 
+- `tck.expressions.temporal.temporal1.scenario-9.examples-1-row-1`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 17..126; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..138; query: 
 RETURN datetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123, timezone: '+01:00'}) AS result
 
-- `tck.expressions.temporal.temporal1.scenario-9.examples-1-row-2`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..136; query: 
+- `tck.expressions.temporal.temporal1.scenario-9.examples-1-row-2`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 17..124; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..136; query: 
 RETURN datetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, microsecond: 645876, timezone: '+01:00'}) AS result
 
-- `tck.expressions.temporal.temporal1.scenario-9.examples-1-row-3`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..133; query: 
+- `tck.expressions.temporal.temporal1.scenario-9.examples-1-row-3`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 17..121; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..133; query: 
 RETURN datetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, millisecond: 645, timezone: '+01:00'}) AS result
 
-- `tck.expressions.temporal.temporal1.scenario-9.examples-1-row-4`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..115; query: 
+- `tck.expressions.temporal.temporal1.scenario-9.examples-1-row-4`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 17..103; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..115; query: 
 RETURN datetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, timezone: '+01:00'}) AS result
 
-- `tck.expressions.temporal.temporal1.scenario-9.examples-1-row-5`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..103; query: 
+- `tck.expressions.temporal.temporal1.scenario-9.examples-1-row-5`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 17..91; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..103; query: 
 RETURN datetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, timezone: '+01:00'}) AS result
 
-- `tck.expressions.temporal.temporal1.scenario-9.examples-1-row-6`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..91; query: 
+- `tck.expressions.temporal.temporal1.scenario-9.examples-1-row-6`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 17..79; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..91; query: 
 RETURN datetime({year: 1984, month: 10, day: 11, hour: 12, timezone: '+01:00'}) AS result
 
-- `tck.expressions.temporal.temporal1.scenario-9.examples-1-row-7`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..81; query: 
+- `tck.expressions.temporal.temporal1.scenario-9.examples-1-row-7`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 17..69; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..81; query: 
 RETURN datetime({year: 1984, month: 10, day: 11, timezone: '+01:00'}) AS result
 
-- `tck.expressions.temporal.temporal1.scenario-9.examples-1-row-8`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..142; query: 
+- `tck.expressions.temporal.temporal1.scenario-9.examples-1-row-8`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 17..130; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..142; query: 
 RETURN datetime({year: 1984, week: 10, dayOfWeek: 3, hour: 12, minute: 31, second: 14, nanosecond: 645876123, timezone: '+01:00'}) AS result
 
-- `tck.expressions.temporal.temporal1.scenario-9.examples-1-row-9`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..140; query: 
+- `tck.expressions.temporal.temporal1.scenario-9.examples-1-row-9`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 17..128; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..140; query: 
 RETURN datetime({year: 1984, week: 10, dayOfWeek: 3, hour: 12, minute: 31, second: 14, microsecond: 645876, timezone: '+01:00'}) AS result
 
-- `tck.expressions.temporal.temporal1.scenario-9.examples-1-row-10`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..137; query: 
+- `tck.expressions.temporal.temporal1.scenario-9.examples-1-row-10`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 17..125; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..137; query: 
 RETURN datetime({year: 1984, week: 10, dayOfWeek: 3, hour: 12, minute: 31, second: 14, millisecond: 645, timezone: '+01:00'}) AS result
 
-- `tck.expressions.temporal.temporal1.scenario-9.examples-1-row-11`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..119; query: 
+- `tck.expressions.temporal.temporal1.scenario-9.examples-1-row-11`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 17..107; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..119; query: 
 RETURN datetime({year: 1984, week: 10, dayOfWeek: 3, hour: 12, minute: 31, second: 14, timezone: '+01:00'}) AS result
 
-- `tck.expressions.temporal.temporal1.scenario-9.examples-1-row-12`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..107; query: 
+- `tck.expressions.temporal.temporal1.scenario-9.examples-1-row-12`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 17..95; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..107; query: 
 RETURN datetime({year: 1984, week: 10, dayOfWeek: 3, hour: 12, minute: 31, timezone: '+01:00'}) AS result
 
-- `tck.expressions.temporal.temporal1.scenario-9.examples-1-row-13`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..95; query: 
+- `tck.expressions.temporal.temporal1.scenario-9.examples-1-row-13`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 17..83; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..95; query: 
 RETURN datetime({year: 1984, week: 10, dayOfWeek: 3, hour: 12, timezone: '+01:00'}) AS result
 
-- `tck.expressions.temporal.temporal1.scenario-9.examples-1-row-14`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..85; query: 
+- `tck.expressions.temporal.temporal1.scenario-9.examples-1-row-14`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 17..73; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..85; query: 
 RETURN datetime({year: 1984, week: 10, dayOfWeek: 3, timezone: '+01:00'}) AS result
 
-- `tck.expressions.temporal.temporal1.scenario-9.examples-1-row-15`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..135; query: 
+- `tck.expressions.temporal.temporal1.scenario-9.examples-1-row-15`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 17..123; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..135; query: 
 RETURN datetime({year: 1984, ordinalDay: 202, hour: 12, minute: 31, second: 14, nanosecond: 645876123, timezone: '+01:00'}) AS result
 
-- `tck.expressions.temporal.temporal1.scenario-9.examples-1-row-16`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..133; query: 
+- `tck.expressions.temporal.temporal1.scenario-9.examples-1-row-16`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 17..121; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..133; query: 
 RETURN datetime({year: 1984, ordinalDay: 202, hour: 12, minute: 31, second: 14, microsecond: 645876, timezone: '+01:00'}) AS result
 
-- `tck.expressions.temporal.temporal1.scenario-9.examples-1-row-17`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..130; query: 
+- `tck.expressions.temporal.temporal1.scenario-9.examples-1-row-17`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 17..118; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..130; query: 
 RETURN datetime({year: 1984, ordinalDay: 202, hour: 12, minute: 31, second: 14, millisecond: 645, timezone: '+01:00'}) AS result
 
-- `tck.expressions.temporal.temporal1.scenario-9.examples-1-row-18`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..112; query: 
+- `tck.expressions.temporal.temporal1.scenario-9.examples-1-row-18`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 17..100; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..112; query: 
 RETURN datetime({year: 1984, ordinalDay: 202, hour: 12, minute: 31, second: 14, timezone: '+01:00'}) AS result
 
-- `tck.expressions.temporal.temporal1.scenario-9.examples-1-row-19`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..100; query: 
+- `tck.expressions.temporal.temporal1.scenario-9.examples-1-row-19`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 17..88; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..100; query: 
 RETURN datetime({year: 1984, ordinalDay: 202, hour: 12, minute: 31, timezone: '+01:00'}) AS result
 
-- `tck.expressions.temporal.temporal1.scenario-9.examples-1-row-20`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..88; query: 
+- `tck.expressions.temporal.temporal1.scenario-9.examples-1-row-20`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 17..76; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..88; query: 
 RETURN datetime({year: 1984, ordinalDay: 202, hour: 12, timezone: '+01:00'}) AS result
 
-- `tck.expressions.temporal.temporal1.scenario-9.examples-1-row-21`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..78; query: 
+- `tck.expressions.temporal.temporal1.scenario-9.examples-1-row-21`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 17..66; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..78; query: 
 RETURN datetime({year: 1984, ordinalDay: 202, timezone: '+01:00'}) AS result
 
-- `tck.expressions.temporal.temporal1.scenario-9.examples-1-row-22`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..148; query: 
+- `tck.expressions.temporal.temporal1.scenario-9.examples-1-row-22`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 17..136; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..148; query: 
 RETURN datetime({year: 1984, quarter: 3, dayOfQuarter: 45, hour: 12, minute: 31, second: 14, nanosecond: 645876123, timezone: '+01:00'}) AS result
 
-- `tck.expressions.temporal.temporal1.scenario-9.examples-1-row-23`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..146; query: 
+- `tck.expressions.temporal.temporal1.scenario-9.examples-1-row-23`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 17..134; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..146; query: 
 RETURN datetime({year: 1984, quarter: 3, dayOfQuarter: 45, hour: 12, minute: 31, second: 14, microsecond: 645876, timezone: '+01:00'}) AS result
 
-- `tck.expressions.temporal.temporal1.scenario-9.examples-1-row-24`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..143; query: 
+- `tck.expressions.temporal.temporal1.scenario-9.examples-1-row-24`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 17..131; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..143; query: 
 RETURN datetime({year: 1984, quarter: 3, dayOfQuarter: 45, hour: 12, minute: 31, second: 14, millisecond: 645, timezone: '+01:00'}) AS result
 
-- `tck.expressions.temporal.temporal1.scenario-9.examples-1-row-25`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..125; query: 
+- `tck.expressions.temporal.temporal1.scenario-9.examples-1-row-25`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 17..113; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..125; query: 
 RETURN datetime({year: 1984, quarter: 3, dayOfQuarter: 45, hour: 12, minute: 31, second: 14, timezone: '+01:00'}) AS result
 
-- `tck.expressions.temporal.temporal1.scenario-9.examples-1-row-26`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..113; query: 
+- `tck.expressions.temporal.temporal1.scenario-9.examples-1-row-26`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 17..101; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..113; query: 
 RETURN datetime({year: 1984, quarter: 3, dayOfQuarter: 45, hour: 12, minute: 31, timezone: '+01:00'}) AS result
 
-- `tck.expressions.temporal.temporal1.scenario-9.examples-1-row-27`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..101; query: 
+- `tck.expressions.temporal.temporal1.scenario-9.examples-1-row-27`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 17..89; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..101; query: 
 RETURN datetime({year: 1984, quarter: 3, dayOfQuarter: 45, hour: 12, timezone: '+01:00'}) AS result
 
-- `tck.expressions.temporal.temporal1.scenario-9.examples-1-row-28`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..91; query: 
+- `tck.expressions.temporal.temporal1.scenario-9.examples-1-row-28`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 17..79; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..91; query: 
 RETURN datetime({year: 1984, quarter: 3, dayOfQuarter: 45, timezone: '+01:00'}) AS result
 
-- `tck.expressions.temporal.temporal1.scenario-9.examples-1-row-29`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..61; query: 
+- `tck.expressions.temporal.temporal1.scenario-9.examples-1-row-29`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 17..49; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..61; query: 
 RETURN datetime({year: 1984, timezone: '+01:00'}) AS result
 
-- `tck.expressions.temporal.temporal1.scenario-10.examples-1-row-1`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..148; query: 
+- `tck.expressions.temporal.temporal1.scenario-10.examples-1-row-1`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 17..136; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..148; query: 
 RETURN datetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123, timezone: 'Europe/Stockholm'}) AS result
 
-- `tck.expressions.temporal.temporal1.scenario-10.examples-1-row-2`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..146; query: 
+- `tck.expressions.temporal.temporal1.scenario-10.examples-1-row-2`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 17..134; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..146; query: 
 RETURN datetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, microsecond: 645876, timezone: 'Europe/Stockholm'}) AS result
 
-- `tck.expressions.temporal.temporal1.scenario-10.examples-1-row-3`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..143; query: 
+- `tck.expressions.temporal.temporal1.scenario-10.examples-1-row-3`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 17..131; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..143; query: 
 RETURN datetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, millisecond: 645, timezone: 'Europe/Stockholm'}) AS result
 
-- `tck.expressions.temporal.temporal1.scenario-10.examples-1-row-4`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..125; query: 
+- `tck.expressions.temporal.temporal1.scenario-10.examples-1-row-4`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 17..113; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..125; query: 
 RETURN datetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, timezone: 'Europe/Stockholm'}) AS result
 
-- `tck.expressions.temporal.temporal1.scenario-10.examples-1-row-5`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..113; query: 
+- `tck.expressions.temporal.temporal1.scenario-10.examples-1-row-5`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 17..101; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..113; query: 
 RETURN datetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, timezone: 'Europe/Stockholm'}) AS result
 
-- `tck.expressions.temporal.temporal1.scenario-10.examples-1-row-6`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..101; query: 
+- `tck.expressions.temporal.temporal1.scenario-10.examples-1-row-6`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 17..89; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..101; query: 
 RETURN datetime({year: 1984, month: 10, day: 11, hour: 12, timezone: 'Europe/Stockholm'}) AS result
 
-- `tck.expressions.temporal.temporal1.scenario-10.examples-1-row-7`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..91; query: 
+- `tck.expressions.temporal.temporal1.scenario-10.examples-1-row-7`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 17..79; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..91; query: 
 RETURN datetime({year: 1984, month: 10, day: 11, timezone: 'Europe/Stockholm'}) AS result
 
-- `tck.expressions.temporal.temporal1.scenario-10.examples-1-row-8`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..152; query: 
+- `tck.expressions.temporal.temporal1.scenario-10.examples-1-row-8`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 17..140; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..152; query: 
 RETURN datetime({year: 1984, week: 10, dayOfWeek: 3, hour: 12, minute: 31, second: 14, nanosecond: 645876123, timezone: 'Europe/Stockholm'}) AS result
 
-- `tck.expressions.temporal.temporal1.scenario-10.examples-1-row-9`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..150; query: 
+- `tck.expressions.temporal.temporal1.scenario-10.examples-1-row-9`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 17..138; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..150; query: 
 RETURN datetime({year: 1984, week: 10, dayOfWeek: 3, hour: 12, minute: 31, second: 14, microsecond: 645876, timezone: 'Europe/Stockholm'}) AS result
 
-- `tck.expressions.temporal.temporal1.scenario-10.examples-1-row-10`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..147; query: 
+- `tck.expressions.temporal.temporal1.scenario-10.examples-1-row-10`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 17..135; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..147; query: 
 RETURN datetime({year: 1984, week: 10, dayOfWeek: 3, hour: 12, minute: 31, second: 14, millisecond: 645, timezone: 'Europe/Stockholm'}) AS result
 
-- `tck.expressions.temporal.temporal1.scenario-10.examples-1-row-11`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..129; query: 
+- `tck.expressions.temporal.temporal1.scenario-10.examples-1-row-11`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 17..117; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..129; query: 
 RETURN datetime({year: 1984, week: 10, dayOfWeek: 3, hour: 12, minute: 31, second: 14, timezone: 'Europe/Stockholm'}) AS result
 
-- `tck.expressions.temporal.temporal1.scenario-10.examples-1-row-12`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..117; query: 
+- `tck.expressions.temporal.temporal1.scenario-10.examples-1-row-12`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 17..105; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..117; query: 
 RETURN datetime({year: 1984, week: 10, dayOfWeek: 3, hour: 12, minute: 31, timezone: 'Europe/Stockholm'}) AS result
 
-- `tck.expressions.temporal.temporal1.scenario-10.examples-1-row-13`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..105; query: 
+- `tck.expressions.temporal.temporal1.scenario-10.examples-1-row-13`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 17..93; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..105; query: 
 RETURN datetime({year: 1984, week: 10, dayOfWeek: 3, hour: 12, timezone: 'Europe/Stockholm'}) AS result
 
-- `tck.expressions.temporal.temporal1.scenario-10.examples-1-row-14`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..95; query: 
+- `tck.expressions.temporal.temporal1.scenario-10.examples-1-row-14`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 17..83; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..95; query: 
 RETURN datetime({year: 1984, week: 10, dayOfWeek: 3, timezone: 'Europe/Stockholm'}) AS result
 
-- `tck.expressions.temporal.temporal1.scenario-10.examples-1-row-15`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..145; query: 
+- `tck.expressions.temporal.temporal1.scenario-10.examples-1-row-15`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 17..133; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..145; query: 
 RETURN datetime({year: 1984, ordinalDay: 202, hour: 12, minute: 31, second: 14, nanosecond: 645876123, timezone: 'Europe/Stockholm'}) AS result
 
-- `tck.expressions.temporal.temporal1.scenario-10.examples-1-row-16`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..143; query: 
+- `tck.expressions.temporal.temporal1.scenario-10.examples-1-row-16`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 17..131; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..143; query: 
 RETURN datetime({year: 1984, ordinalDay: 202, hour: 12, minute: 31, second: 14, microsecond: 645876, timezone: 'Europe/Stockholm'}) AS result
 
-- `tck.expressions.temporal.temporal1.scenario-10.examples-1-row-17`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..140; query: 
+- `tck.expressions.temporal.temporal1.scenario-10.examples-1-row-17`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 17..128; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..140; query: 
 RETURN datetime({year: 1984, ordinalDay: 202, hour: 12, minute: 31, second: 14, millisecond: 645, timezone: 'Europe/Stockholm'}) AS result
 
-- `tck.expressions.temporal.temporal1.scenario-10.examples-1-row-18`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..122; query: 
+- `tck.expressions.temporal.temporal1.scenario-10.examples-1-row-18`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 17..110; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..122; query: 
 RETURN datetime({year: 1984, ordinalDay: 202, hour: 12, minute: 31, second: 14, timezone: 'Europe/Stockholm'}) AS result
 
-- `tck.expressions.temporal.temporal1.scenario-10.examples-1-row-19`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..110; query: 
+- `tck.expressions.temporal.temporal1.scenario-10.examples-1-row-19`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 17..98; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..110; query: 
 RETURN datetime({year: 1984, ordinalDay: 202, hour: 12, minute: 31, timezone: 'Europe/Stockholm'}) AS result
 
-- `tck.expressions.temporal.temporal1.scenario-10.examples-1-row-20`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..98; query: 
+- `tck.expressions.temporal.temporal1.scenario-10.examples-1-row-20`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 17..86; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..98; query: 
 RETURN datetime({year: 1984, ordinalDay: 202, hour: 12, timezone: 'Europe/Stockholm'}) AS result
 
-- `tck.expressions.temporal.temporal1.scenario-10.examples-1-row-21`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..88; query: 
+- `tck.expressions.temporal.temporal1.scenario-10.examples-1-row-21`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 17..76; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..88; query: 
 RETURN datetime({year: 1984, ordinalDay: 202, timezone: 'Europe/Stockholm'}) AS result
 
-- `tck.expressions.temporal.temporal1.scenario-10.examples-1-row-22`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..158; query: 
+- `tck.expressions.temporal.temporal1.scenario-10.examples-1-row-22`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 17..146; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..158; query: 
 RETURN datetime({year: 1984, quarter: 3, dayOfQuarter: 45, hour: 12, minute: 31, second: 14, nanosecond: 645876123, timezone: 'Europe/Stockholm'}) AS result
 
-- `tck.expressions.temporal.temporal1.scenario-10.examples-1-row-23`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..156; query: 
+- `tck.expressions.temporal.temporal1.scenario-10.examples-1-row-23`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 17..144; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..156; query: 
 RETURN datetime({year: 1984, quarter: 3, dayOfQuarter: 45, hour: 12, minute: 31, second: 14, microsecond: 645876, timezone: 'Europe/Stockholm'}) AS result
 
-- `tck.expressions.temporal.temporal1.scenario-10.examples-1-row-24`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..153; query: 
+- `tck.expressions.temporal.temporal1.scenario-10.examples-1-row-24`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 17..141; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..153; query: 
 RETURN datetime({year: 1984, quarter: 3, dayOfQuarter: 45, hour: 12, minute: 31, second: 14, millisecond: 645, timezone: 'Europe/Stockholm'}) AS result
 
-- `tck.expressions.temporal.temporal1.scenario-10.examples-1-row-25`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..135; query: 
+- `tck.expressions.temporal.temporal1.scenario-10.examples-1-row-25`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 17..123; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..135; query: 
 RETURN datetime({year: 1984, quarter: 3, dayOfQuarter: 45, hour: 12, minute: 31, second: 14, timezone: 'Europe/Stockholm'}) AS result
 
-- `tck.expressions.temporal.temporal1.scenario-10.examples-1-row-26`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..123; query: 
+- `tck.expressions.temporal.temporal1.scenario-10.examples-1-row-26`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 17..111; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..123; query: 
 RETURN datetime({year: 1984, quarter: 3, dayOfQuarter: 45, hour: 12, minute: 31, timezone: 'Europe/Stockholm'}) AS result
 
-- `tck.expressions.temporal.temporal1.scenario-10.examples-1-row-27`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..111; query: 
+- `tck.expressions.temporal.temporal1.scenario-10.examples-1-row-27`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 17..99; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..111; query: 
 RETURN datetime({year: 1984, quarter: 3, dayOfQuarter: 45, hour: 12, timezone: 'Europe/Stockholm'}) AS result
 
-- `tck.expressions.temporal.temporal1.scenario-10.examples-1-row-28`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..101; query: 
+- `tck.expressions.temporal.temporal1.scenario-10.examples-1-row-28`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 17..89; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..101; query: 
 RETURN datetime({year: 1984, quarter: 3, dayOfQuarter: 45, timezone: 'Europe/Stockholm'}) AS result
 
-- `tck.expressions.temporal.temporal1.scenario-10.examples-1-row-29`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..71; query: 
+- `tck.expressions.temporal.temporal1.scenario-10.examples-1-row-29`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 17..59; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..71; query: 
 RETURN datetime({year: 1984, timezone: 'Europe/Stockholm'}) AS result
 
 - `tck.expressions.temporal.temporal1.scenario-11`: expected EOI, ORDER, SKIP, LIMIT, AS, AND, OR, clause, comparison_op, additive_op, multiplicative_op, or property_suffix at byte 25..25
-- `tck.expressions.temporal.temporal1.scenario-12.examples-1-row-1`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..63; query: 
+- `tck.expressions.temporal.temporal1.scenario-12.examples-1-row-1`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 17..51; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..63; query: 
 RETURN duration({days: 14, hours: 16, minutes: 12}) AS result
 
-- `tck.expressions.temporal.temporal1.scenario-12.examples-1-row-2`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..51; query: 
+- `tck.expressions.temporal.temporal1.scenario-12.examples-1-row-2`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 17..39; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..51; query: 
 RETURN duration({months: 5, days: 1.5}) AS result
 
-- `tck.expressions.temporal.temporal1.scenario-12.examples-1-row-3`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..43; query: 
+- `tck.expressions.temporal.temporal1.scenario-12.examples-1-row-3`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 17..31; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..43; query: 
 RETURN duration({months: 0.75}) AS result
 
-- `tck.expressions.temporal.temporal1.scenario-12.examples-1-row-4`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..41; query: 
+- `tck.expressions.temporal.temporal1.scenario-12.examples-1-row-4`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 17..29; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..41; query: 
 RETURN duration({weeks: 2.5}) AS result
 
-- `tck.expressions.temporal.temporal1.scenario-12.examples-1-row-5`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..98; query: 
+- `tck.expressions.temporal.temporal1.scenario-12.examples-1-row-5`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 17..86; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..98; query: 
 RETURN duration({years: 12, months: 5, days: 14, hours: 16, minutes: 12, seconds: 70}) AS result
 
-- `tck.expressions.temporal.temporal1.scenario-12.examples-1-row-6`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..69; query: 
+- `tck.expressions.temporal.temporal1.scenario-12.examples-1-row-6`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 17..57; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..69; query: 
 RETURN duration({days: 14, seconds: 70, milliseconds: 1}) AS result
 
-- `tck.expressions.temporal.temporal1.scenario-12.examples-1-row-7`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..69; query: 
+- `tck.expressions.temporal.temporal1.scenario-12.examples-1-row-7`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 17..57; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..69; query: 
 RETURN duration({days: 14, seconds: 70, microseconds: 1}) AS result
 
-- `tck.expressions.temporal.temporal1.scenario-12.examples-1-row-8`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..68; query: 
+- `tck.expressions.temporal.temporal1.scenario-12.examples-1-row-8`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 17..56; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..68; query: 
 RETURN duration({days: 14, seconds: 70, nanoseconds: 1}) AS result
 
-- `tck.expressions.temporal.temporal1.scenario-12.examples-1-row-9`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..55; query: 
+- `tck.expressions.temporal.temporal1.scenario-12.examples-1-row-9`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 17..43; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..55; query: 
 RETURN duration({minutes: 1.5, seconds: 1}) AS result
 
-- `tck.expressions.temporal.temporal1.scenario-13.examples-1-row-1`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..82; query: 
+- `tck.expressions.temporal.temporal1.scenario-13.examples-1-row-1`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 13..70; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..82; query: 
 RETURN time({hour: 12, minute: 34, second: 56, timezone: '+02:05:00'}) AS result
 
-- `tck.expressions.temporal.temporal1.scenario-13.examples-1-row-2`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..82; query: 
+- `tck.expressions.temporal.temporal1.scenario-13.examples-1-row-2`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 13..70; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..82; query: 
 RETURN time({hour: 12, minute: 34, second: 56, timezone: '+02:05:59'}) AS result
 
-- `tck.expressions.temporal.temporal1.scenario-13.examples-1-row-3`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..82; query: 
+- `tck.expressions.temporal.temporal1.scenario-13.examples-1-row-3`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 13..70; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..82; query: 
 RETURN time({hour: 12, minute: 34, second: 56, timezone: '-02:05:07'}) AS result
 
-- `tck.expressions.temporal.temporal1.scenario-13.examples-1-row-4`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..118; query: 
+- `tck.expressions.temporal.temporal1.scenario-13.examples-1-row-4`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 17..106; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..118; query: 
 RETURN datetime({year: 1984, month: 10, day: 11, hour: 12, minute: 34, second: 56, timezone: '+02:05:59'}) AS result
 
 - `tck.expressions.temporal.temporal10.scenario-1.examples-1-row-1`: expected EOI, WHERE, ORDER, SKIP, LIMIT, AS, AND, OR, clause, comparison_op, additive_op, multiplicative_op, or property_suffix at byte 21..21
@@ -16588,894 +16143,829 @@ RETURN datetime({year: 1984, month: 10, day: 11, hour: 12, minute: 34, second: 5
 - `tck.expressions.temporal.temporal10.scenario-13.examples-1-row-2`: expected EOI, ORDER, SKIP, LIMIT, AS, AND, OR, clause, comparison_op, additive_op, multiplicative_op, or property_suffix at byte 24..24
 - `tck.expressions.temporal.temporal10.scenario-13.examples-1-row-3`: expected EOI, ORDER, SKIP, LIMIT, AS, AND, OR, clause, comparison_op, additive_op, multiplicative_op, or property_suffix at byte 22..22
 - `tck.expressions.temporal.temporal10.scenario-13.examples-1-row-4`: expected EOI, ORDER, SKIP, LIMIT, AS, AND, OR, clause, comparison_op, additive_op, multiplicative_op, or property_suffix at byte 25..25
-- `tck.expressions.temporal.temporal2.scenario-1.examples-1-row-1`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..37; query: 
-RETURN date('2015-07-21') AS result
-
-- `tck.expressions.temporal.temporal2.scenario-1.examples-1-row-2`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..35; query: 
-RETURN date('20150721') AS result
-
-- `tck.expressions.temporal.temporal2.scenario-1.examples-1-row-3`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..34; query: 
-RETURN date('2015-07') AS result
-
-- `tck.expressions.temporal.temporal2.scenario-1.examples-1-row-4`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..33; query: 
-RETURN date('201507') AS result
-
-- `tck.expressions.temporal.temporal2.scenario-1.examples-1-row-5`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..37; query: 
-RETURN date('2015-W30-2') AS result
-
-- `tck.expressions.temporal.temporal2.scenario-1.examples-1-row-6`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..35; query: 
-RETURN date('2015W302') AS result
-
-- `tck.expressions.temporal.temporal2.scenario-1.examples-1-row-7`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..35; query: 
-RETURN date('2015-W30') AS result
-
-- `tck.expressions.temporal.temporal2.scenario-1.examples-1-row-8`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..34; query: 
-RETURN date('2015W30') AS result
-
-- `tck.expressions.temporal.temporal2.scenario-1.examples-1-row-9`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..35; query: 
-RETURN date('2015-202') AS result
-
-- `tck.expressions.temporal.temporal2.scenario-1.examples-1-row-10`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..34; query: 
-RETURN date('2015202') AS result
-
-- `tck.expressions.temporal.temporal2.scenario-1.examples-1-row-11`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..31; query: 
-RETURN date('2015') AS result
-
-- `tck.expressions.temporal.temporal2.scenario-2.examples-1-row-1`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..44; query: 
+- `tck.expressions.temporal.temporal2.scenario-1.examples-1-row-2`: expected [["2015-07-21"]], observed [["<null>"]]
+- `tck.expressions.temporal.temporal2.scenario-1.examples-1-row-3`: expected [["2015-07-01"]], observed [["<null>"]]
+- `tck.expressions.temporal.temporal2.scenario-1.examples-1-row-4`: expected [["2015-07-01"]], observed [["-4161-08-10"]]
+- `tck.expressions.temporal.temporal2.scenario-1.examples-1-row-5`: expected [["2015-07-21"]], observed [["<null>"]]
+- `tck.expressions.temporal.temporal2.scenario-1.examples-1-row-6`: expected [["2015-07-21"]], observed [["<null>"]]
+- `tck.expressions.temporal.temporal2.scenario-1.examples-1-row-7`: expected [["2015-07-20"]], observed [["<null>"]]
+- `tck.expressions.temporal.temporal2.scenario-1.examples-1-row-8`: expected [["2015-07-20"]], observed [["<null>"]]
+- `tck.expressions.temporal.temporal2.scenario-1.examples-1-row-9`: expected [["2015-07-21"]], observed [["<null>"]]
+- `tck.expressions.temporal.temporal2.scenario-1.examples-1-row-10`: expected [["2015-07-21"]], observed [["0805-05-02"]]
+- `tck.expressions.temporal.temporal2.scenario-1.examples-1-row-11`: expected [["2015-01-01"]], observed [["-4707-05-31"]]
+- `tck.expressions.temporal.temporal2.scenario-2.examples-1-row-1`: query execution failed: Parse error: no such function: localtime; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..44; query: 
 RETURN localtime('21:40:32.142') AS result
 
-- `tck.expressions.temporal.temporal2.scenario-2.examples-1-row-2`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..42; query: 
+- `tck.expressions.temporal.temporal2.scenario-2.examples-1-row-2`: query execution failed: Parse error: no such function: localtime; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..42; query: 
 RETURN localtime('214032.142') AS result
 
-- `tck.expressions.temporal.temporal2.scenario-2.examples-1-row-3`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..40; query: 
+- `tck.expressions.temporal.temporal2.scenario-2.examples-1-row-3`: query execution failed: Parse error: no such function: localtime; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..40; query: 
 RETURN localtime('21:40:32') AS result
 
-- `tck.expressions.temporal.temporal2.scenario-2.examples-1-row-4`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..38; query: 
+- `tck.expressions.temporal.temporal2.scenario-2.examples-1-row-4`: query execution failed: Parse error: no such function: localtime; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..38; query: 
 RETURN localtime('214032') AS result
 
-- `tck.expressions.temporal.temporal2.scenario-2.examples-1-row-5`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..37; query: 
+- `tck.expressions.temporal.temporal2.scenario-2.examples-1-row-5`: query execution failed: Parse error: no such function: localtime; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..37; query: 
 RETURN localtime('21:40') AS result
 
-- `tck.expressions.temporal.temporal2.scenario-2.examples-1-row-6`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..36; query: 
+- `tck.expressions.temporal.temporal2.scenario-2.examples-1-row-6`: query execution failed: Parse error: no such function: localtime; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..36; query: 
 RETURN localtime('2140') AS result
 
-- `tck.expressions.temporal.temporal2.scenario-2.examples-1-row-7`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..34; query: 
+- `tck.expressions.temporal.temporal2.scenario-2.examples-1-row-7`: query execution failed: Parse error: no such function: localtime; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..34; query: 
 RETURN localtime('21') AS result
 
-- `tck.expressions.temporal.temporal2.scenario-3.examples-1-row-1`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..44; query: 
-RETURN time('21:40:32.142+0100') AS result
-
-- `tck.expressions.temporal.temporal2.scenario-3.examples-1-row-2`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..38; query: 
-RETURN time('214032.142Z') AS result
-
-- `tck.expressions.temporal.temporal2.scenario-3.examples-1-row-3`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..41; query: 
-RETURN time('21:40:32+01:00') AS result
-
-- `tck.expressions.temporal.temporal2.scenario-3.examples-1-row-4`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..38; query: 
-RETURN time('214032-0100') AS result
-
-- `tck.expressions.temporal.temporal2.scenario-3.examples-1-row-5`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..38; query: 
-RETURN time('21:40-01:30') AS result
-
-- `tck.expressions.temporal.temporal2.scenario-3.examples-1-row-6`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..37; query: 
-RETURN time('2140-00:00') AS result
-
-- `tck.expressions.temporal.temporal2.scenario-3.examples-1-row-7`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..34; query: 
-RETURN time('2140-02') AS result
-
-- `tck.expressions.temporal.temporal2.scenario-3.examples-1-row-8`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..35; query: 
-RETURN time('22+18:00') AS result
-
-- `tck.expressions.temporal.temporal2.scenario-4.examples-1-row-1`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..59; query: 
+- `tck.expressions.temporal.temporal2.scenario-3.examples-1-row-1`: expected [["21:40:32.142+01:00"]], observed [["<null>"]]
+- `tck.expressions.temporal.temporal2.scenario-3.examples-1-row-2`: expected [["21:40:32.142Z"]], observed [["<null>"]]
+- `tck.expressions.temporal.temporal2.scenario-3.examples-1-row-3`: expected [["21:40:32+01:00"]], observed [["20:40:32"]]
+- `tck.expressions.temporal.temporal2.scenario-3.examples-1-row-4`: expected [["21:40:32-01:00"]], observed [["<null>"]]
+- `tck.expressions.temporal.temporal2.scenario-3.examples-1-row-5`: expected [["21:40-01:30"]], observed [["23:10:00"]]
+- `tck.expressions.temporal.temporal2.scenario-3.examples-1-row-6`: expected [["21:40Z"]], observed [["<null>"]]
+- `tck.expressions.temporal.temporal2.scenario-3.examples-1-row-7`: expected [["21:40-02:00"]], observed [["<null>"]]
+- `tck.expressions.temporal.temporal2.scenario-3.examples-1-row-8`: expected [["22:00+18:00"]], observed [["<null>"]]
+- `tck.expressions.temporal.temporal2.scenario-4.examples-1-row-1`: query execution failed: Parse error: no such function: localdatetime; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..59; query: 
 RETURN localdatetime('2015-07-21T21:40:32.142') AS result
 
-- `tck.expressions.temporal.temporal2.scenario-4.examples-1-row-2`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..57; query: 
+- `tck.expressions.temporal.temporal2.scenario-4.examples-1-row-2`: query execution failed: Parse error: no such function: localdatetime; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..57; query: 
 RETURN localdatetime('2015-W30-2T214032.142') AS result
 
-- `tck.expressions.temporal.temporal2.scenario-4.examples-1-row-3`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..53; query: 
+- `tck.expressions.temporal.temporal2.scenario-4.examples-1-row-3`: query execution failed: Parse error: no such function: localdatetime; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..53; query: 
 RETURN localdatetime('2015-202T21:40:32') AS result
 
-- `tck.expressions.temporal.temporal2.scenario-4.examples-1-row-4`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..47; query: 
+- `tck.expressions.temporal.temporal2.scenario-4.examples-1-row-4`: query execution failed: Parse error: no such function: localdatetime; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..47; query: 
 RETURN localdatetime('2015T214032') AS result
 
-- `tck.expressions.temporal.temporal2.scenario-4.examples-1-row-5`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..50; query: 
+- `tck.expressions.temporal.temporal2.scenario-4.examples-1-row-5`: query execution failed: Parse error: no such function: localdatetime; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..50; query: 
 RETURN localdatetime('20150721T21:40') AS result
 
-- `tck.expressions.temporal.temporal2.scenario-4.examples-1-row-6`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..49; query: 
+- `tck.expressions.temporal.temporal2.scenario-4.examples-1-row-6`: query execution failed: Parse error: no such function: localdatetime; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..49; query: 
 RETURN localdatetime('2015-W30T2140') AS result
 
-- `tck.expressions.temporal.temporal2.scenario-4.examples-1-row-7`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..46; query: 
+- `tck.expressions.temporal.temporal2.scenario-4.examples-1-row-7`: query execution failed: Parse error: no such function: localdatetime; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..46; query: 
 RETURN localdatetime('2015202T21') AS result
 
-- `tck.expressions.temporal.temporal2.scenario-5.examples-1-row-1`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..59; query: 
-RETURN datetime('2015-07-21T21:40:32.142+0100') AS result
-
-- `tck.expressions.temporal.temporal2.scenario-5.examples-1-row-2`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..53; query: 
-RETURN datetime('2015-W30-2T214032.142Z') AS result
-
-- `tck.expressions.temporal.temporal2.scenario-5.examples-1-row-3`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..54; query: 
-RETURN datetime('2015-202T21:40:32+01:00') AS result
-
-- `tck.expressions.temporal.temporal2.scenario-5.examples-1-row-4`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..47; query: 
-RETURN datetime('2015T214032-0100') AS result
-
-- `tck.expressions.temporal.temporal2.scenario-5.examples-1-row-5`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..51; query: 
-RETURN datetime('20150721T21:40-01:30') AS result
-
-- `tck.expressions.temporal.temporal2.scenario-5.examples-1-row-6`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..50; query: 
-RETURN datetime('2015-W30T2140-00:00') AS result
-
-- `tck.expressions.temporal.temporal2.scenario-5.examples-1-row-7`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..47; query: 
-RETURN datetime('2015-W30T2140-02') AS result
-
-- `tck.expressions.temporal.temporal2.scenario-5.examples-1-row-8`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..47; query: 
-RETURN datetime('2015202T21+18:00') AS result
-
-- `tck.expressions.temporal.temporal2.scenario-6.examples-1-row-1`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..78; query: 
-RETURN datetime('2015-07-21T21:40:32.142+02:00[Europe/Stockholm]') AS result
-
-- `tck.expressions.temporal.temporal2.scenario-6.examples-1-row-2`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..76; query: 
-RETURN datetime('2015-07-21T21:40:32.142+0845[Australia/Eucla]') AS result
-
-- `tck.expressions.temporal.temporal2.scenario-6.examples-1-row-3`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..75; query: 
-RETURN datetime('2015-07-21T21:40:32.142-04[America/New_York]') AS result
-
-- `tck.expressions.temporal.temporal2.scenario-6.examples-1-row-4`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..69; query: 
-RETURN datetime('2015-07-21T21:40:32.142[Europe/London]') AS result
-
-- `tck.expressions.temporal.temporal2.scenario-6.examples-1-row-5`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..72; query: 
-RETURN datetime('1818-07-21T21:40:32.142[Europe/Stockholm]') AS result
-
-- `tck.expressions.temporal.temporal2.scenario-7.examples-1-row-1`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..42; query: 
+- `tck.expressions.temporal.temporal2.scenario-5.examples-1-row-1`: expected [["2015-07-21T21:40:32.142+01:00"]], observed [["<null>"]]
+- `tck.expressions.temporal.temporal2.scenario-5.examples-1-row-2`: expected [["2015-07-21T21:40:32.142Z"]], observed [["<null>"]]
+- `tck.expressions.temporal.temporal2.scenario-5.examples-1-row-3`: expected [["2015-07-21T21:40:32+01:00"]], observed [["<null>"]]
+- `tck.expressions.temporal.temporal2.scenario-5.examples-1-row-4`: expected [["2015-01-01T21:40:32-01:00"]], observed [["<null>"]]
+- `tck.expressions.temporal.temporal2.scenario-5.examples-1-row-5`: expected [["2015-07-21T21:40-01:30"]], observed [["<null>"]]
+- `tck.expressions.temporal.temporal2.scenario-5.examples-1-row-6`: expected [["2015-07-20T21:40Z"]], observed [["<null>"]]
+- `tck.expressions.temporal.temporal2.scenario-5.examples-1-row-7`: expected [["2015-07-20T21:40-02:00"]], observed [["<null>"]]
+- `tck.expressions.temporal.temporal2.scenario-5.examples-1-row-8`: expected [["2015-07-21T21:00+18:00"]], observed [["<null>"]]
+- `tck.expressions.temporal.temporal2.scenario-6.examples-1-row-1`: expected [["2015-07-21T21:40:32.142+02:00[Europe/Stockholm]"]], observed [["<null>"]]
+- `tck.expressions.temporal.temporal2.scenario-6.examples-1-row-2`: expected [["2015-07-21T21:40:32.142+08:45[Australia/Eucla]"]], observed [["<null>"]]
+- `tck.expressions.temporal.temporal2.scenario-6.examples-1-row-3`: expected [["2015-07-21T21:40:32.142-04:00[America/New_York]"]], observed [["<null>"]]
+- `tck.expressions.temporal.temporal2.scenario-6.examples-1-row-4`: expected [["2015-07-21T21:40:32.142+01:00[Europe/London]"]], observed [["<null>"]]
+- `tck.expressions.temporal.temporal2.scenario-6.examples-1-row-5`: expected [["1818-07-21T21:40:32.142+00:53:28[Europe/Stockholm]"]], observed [["<null>"]]
+- `tck.expressions.temporal.temporal2.scenario-7.examples-1-row-1`: query execution failed: Parse error: no such function: duration; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..42; query: 
 RETURN duration('P14DT16H12M') AS result
 
-- `tck.expressions.temporal.temporal2.scenario-7.examples-1-row-2`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..38; query: 
+- `tck.expressions.temporal.temporal2.scenario-7.examples-1-row-2`: query execution failed: Parse error: no such function: duration; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..38; query: 
 RETURN duration('P5M1.5D') AS result
 
-- `tck.expressions.temporal.temporal2.scenario-7.examples-1-row-3`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..37; query: 
+- `tck.expressions.temporal.temporal2.scenario-7.examples-1-row-3`: query execution failed: Parse error: no such function: duration; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..37; query: 
 RETURN duration('P0.75M') AS result
 
-- `tck.expressions.temporal.temporal2.scenario-7.examples-1-row-4`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..38; query: 
+- `tck.expressions.temporal.temporal2.scenario-7.examples-1-row-4`: query execution failed: Parse error: no such function: duration; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..38; query: 
 RETURN duration('PT0.75M') AS result
 
-- `tck.expressions.temporal.temporal2.scenario-7.examples-1-row-5`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..36; query: 
+- `tck.expressions.temporal.temporal2.scenario-7.examples-1-row-5`: query execution failed: Parse error: no such function: duration; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..36; query: 
 RETURN duration('P2.5W') AS result
 
-- `tck.expressions.temporal.temporal2.scenario-7.examples-1-row-6`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..50; query: 
+- `tck.expressions.temporal.temporal2.scenario-7.examples-1-row-6`: query execution failed: Parse error: no such function: duration; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..50; query: 
 RETURN duration('P12Y5M14DT16H12M70S') AS result
 
-- `tck.expressions.temporal.temporal2.scenario-7.examples-1-row-7`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..55; query: 
+- `tck.expressions.temporal.temporal2.scenario-7.examples-1-row-7`: query execution failed: Parse error: no such function: duration; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..55; query: 
 RETURN duration('P2012-02-02T14:37:21.545') AS result
 
-- `tck.expressions.temporal.temporal3.scenario-1.examples-1-row-1`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..54; query: 
+- `tck.expressions.temporal.temporal3.scenario-1.examples-1-row-1`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 11..43; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..54; query: 
 WITH date({year: 1984, month: 11, day: 11}) AS other
 RETURN date(other) AS result
 
-- `tck.expressions.temporal.temporal3.scenario-1.examples-1-row-2`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..54; query: 
+- `tck.expressions.temporal.temporal3.scenario-1.examples-1-row-2`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 11..43; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..54; query: 
 WITH date({year: 1984, month: 11, day: 11}) AS other
 RETURN date({date: other}) AS result
 
-- `tck.expressions.temporal.temporal3.scenario-1.examples-1-row-3`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..54; query: 
+- `tck.expressions.temporal.temporal3.scenario-1.examples-1-row-3`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 11..43; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..54; query: 
 WITH date({year: 1984, month: 11, day: 11}) AS other
 RETURN date({date: other, year: 28}) AS result
 
-- `tck.expressions.temporal.temporal3.scenario-1.examples-1-row-4`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..54; query: 
+- `tck.expressions.temporal.temporal3.scenario-1.examples-1-row-4`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 11..43; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..54; query: 
 WITH date({year: 1984, month: 11, day: 11}) AS other
 RETURN date({date: other, day: 28}) AS result
 
-- `tck.expressions.temporal.temporal3.scenario-1.examples-1-row-5`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..54; query: 
+- `tck.expressions.temporal.temporal3.scenario-1.examples-1-row-5`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 11..43; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..54; query: 
 WITH date({year: 1984, month: 11, day: 11}) AS other
 RETURN date({date: other, week: 1}) AS result
 
-- `tck.expressions.temporal.temporal3.scenario-1.examples-1-row-6`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..54; query: 
+- `tck.expressions.temporal.temporal3.scenario-1.examples-1-row-6`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 11..43; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..54; query: 
 WITH date({year: 1984, month: 11, day: 11}) AS other
 RETURN date({date: other, ordinalDay: 28}) AS result
 
-- `tck.expressions.temporal.temporal3.scenario-1.examples-1-row-7`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..54; query: 
+- `tck.expressions.temporal.temporal3.scenario-1.examples-1-row-7`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 11..43; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..54; query: 
 WITH date({year: 1984, month: 11, day: 11}) AS other
 RETURN date({date: other, quarter: 3}) AS result
 
-- `tck.expressions.temporal.temporal3.scenario-1.examples-1-row-8`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..120; query: 
+- `tck.expressions.temporal.temporal3.scenario-1.examples-1-row-8`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 20..109; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..120; query: 
 WITH localdatetime({year: 1984, month: 11, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123}) AS other
 RETURN date(other) AS result
 
-- `tck.expressions.temporal.temporal3.scenario-1.examples-1-row-9`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..120; query: 
+- `tck.expressions.temporal.temporal3.scenario-1.examples-1-row-9`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 20..109; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..120; query: 
 WITH localdatetime({year: 1984, month: 11, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123}) AS other
 RETURN date({date: other}) AS result
 
-- `tck.expressions.temporal.temporal3.scenario-1.examples-1-row-10`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..120; query: 
+- `tck.expressions.temporal.temporal3.scenario-1.examples-1-row-10`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 20..109; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..120; query: 
 WITH localdatetime({year: 1984, month: 11, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123}) AS other
 RETURN date({date: other, year: 28}) AS result
 
-- `tck.expressions.temporal.temporal3.scenario-1.examples-1-row-11`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..120; query: 
+- `tck.expressions.temporal.temporal3.scenario-1.examples-1-row-11`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 20..109; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..120; query: 
 WITH localdatetime({year: 1984, month: 11, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123}) AS other
 RETURN date({date: other, day: 28}) AS result
 
-- `tck.expressions.temporal.temporal3.scenario-1.examples-1-row-12`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..120; query: 
+- `tck.expressions.temporal.temporal3.scenario-1.examples-1-row-12`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 20..109; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..120; query: 
 WITH localdatetime({year: 1984, month: 11, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123}) AS other
 RETURN date({date: other, week: 1}) AS result
 
-- `tck.expressions.temporal.temporal3.scenario-1.examples-1-row-13`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..120; query: 
+- `tck.expressions.temporal.temporal3.scenario-1.examples-1-row-13`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 20..109; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..120; query: 
 WITH localdatetime({year: 1984, month: 11, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123}) AS other
 RETURN date({date: other, ordinalDay: 28}) AS result
 
-- `tck.expressions.temporal.temporal3.scenario-1.examples-1-row-14`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..120; query: 
+- `tck.expressions.temporal.temporal3.scenario-1.examples-1-row-14`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 20..109; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..120; query: 
 WITH localdatetime({year: 1984, month: 11, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123}) AS other
 RETURN date({date: other, quarter: 3}) AS result
 
-- `tck.expressions.temporal.temporal3.scenario-1.examples-1-row-15`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..88; query: 
+- `tck.expressions.temporal.temporal3.scenario-1.examples-1-row-15`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 15..77; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..88; query: 
 WITH datetime({year: 1984, month: 11, day: 11, hour: 12, timezone: '+01:00'}) AS other
 RETURN date(other) AS result
 
-- `tck.expressions.temporal.temporal3.scenario-1.examples-1-row-16`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..88; query: 
+- `tck.expressions.temporal.temporal3.scenario-1.examples-1-row-16`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 15..77; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..88; query: 
 WITH datetime({year: 1984, month: 11, day: 11, hour: 12, timezone: '+01:00'}) AS other
 RETURN date({date: other}) AS result
 
-- `tck.expressions.temporal.temporal3.scenario-1.examples-1-row-17`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..88; query: 
+- `tck.expressions.temporal.temporal3.scenario-1.examples-1-row-17`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 15..77; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..88; query: 
 WITH datetime({year: 1984, month: 11, day: 11, hour: 12, timezone: '+01:00'}) AS other
 RETURN date({date: other, year: 28}) AS result
 
-- `tck.expressions.temporal.temporal3.scenario-1.examples-1-row-18`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..88; query: 
+- `tck.expressions.temporal.temporal3.scenario-1.examples-1-row-18`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 15..77; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..88; query: 
 WITH datetime({year: 1984, month: 11, day: 11, hour: 12, timezone: '+01:00'}) AS other
 RETURN date({date: other, day: 28}) AS result
 
-- `tck.expressions.temporal.temporal3.scenario-1.examples-1-row-19`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..88; query: 
+- `tck.expressions.temporal.temporal3.scenario-1.examples-1-row-19`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 15..77; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..88; query: 
 WITH datetime({year: 1984, month: 11, day: 11, hour: 12, timezone: '+01:00'}) AS other
 RETURN date({date: other, week: 1}) AS result
 
-- `tck.expressions.temporal.temporal3.scenario-1.examples-1-row-20`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..88; query: 
+- `tck.expressions.temporal.temporal3.scenario-1.examples-1-row-20`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 15..77; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..88; query: 
 WITH datetime({year: 1984, month: 11, day: 11, hour: 12, timezone: '+01:00'}) AS other
 RETURN date({date: other, ordinalDay: 28}) AS result
 
-- `tck.expressions.temporal.temporal3.scenario-1.examples-1-row-21`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..88; query: 
+- `tck.expressions.temporal.temporal3.scenario-1.examples-1-row-21`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 15..77; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..88; query: 
 WITH datetime({year: 1984, month: 11, day: 11, hour: 12, timezone: '+01:00'}) AS other
 RETURN date({date: other, quarter: 3}) AS result
 
-- `tck.expressions.temporal.temporal3.scenario-2.examples-1-row-1`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..84; query: 
+- `tck.expressions.temporal.temporal3.scenario-2.examples-1-row-1`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 16..73; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..84; query: 
 WITH localtime({hour: 12, minute: 31, second: 14, nanosecond: 645876123}) AS other
 RETURN localtime(other) AS result
 
-- `tck.expressions.temporal.temporal3.scenario-2.examples-1-row-2`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..84; query: 
+- `tck.expressions.temporal.temporal3.scenario-2.examples-1-row-2`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 16..73; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..84; query: 
 WITH localtime({hour: 12, minute: 31, second: 14, nanosecond: 645876123}) AS other
 RETURN localtime({time: other}) AS result
 
-- `tck.expressions.temporal.temporal3.scenario-2.examples-1-row-3`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..84; query: 
+- `tck.expressions.temporal.temporal3.scenario-2.examples-1-row-3`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 16..73; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..84; query: 
 WITH localtime({hour: 12, minute: 31, second: 14, nanosecond: 645876123}) AS other
 RETURN localtime({time: other, second: 42}) AS result
 
-- `tck.expressions.temporal.temporal3.scenario-2.examples-1-row-4`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..97; query: 
+- `tck.expressions.temporal.temporal3.scenario-2.examples-1-row-4`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 11..86; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..97; query: 
 WITH time({hour: 12, minute: 31, second: 14, microsecond: 645876, timezone: '+01:00'}) AS other
 RETURN localtime(other) AS result
 
-- `tck.expressions.temporal.temporal3.scenario-2.examples-1-row-5`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..97; query: 
+- `tck.expressions.temporal.temporal3.scenario-2.examples-1-row-5`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 11..86; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..97; query: 
 WITH time({hour: 12, minute: 31, second: 14, microsecond: 645876, timezone: '+01:00'}) AS other
 RETURN localtime({time: other}) AS result
 
-- `tck.expressions.temporal.temporal3.scenario-2.examples-1-row-6`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..97; query: 
+- `tck.expressions.temporal.temporal3.scenario-2.examples-1-row-6`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 11..86; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..97; query: 
 WITH time({hour: 12, minute: 31, second: 14, microsecond: 645876, timezone: '+01:00'}) AS other
 RETURN localtime({time: other, second: 42}) AS result
 
-- `tck.expressions.temporal.temporal3.scenario-2.examples-1-row-7`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..119; query: 
+- `tck.expressions.temporal.temporal3.scenario-2.examples-1-row-7`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 20..108; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..119; query: 
 WITH localdatetime({year: 1984, week: 10, dayOfWeek: 3, hour: 12, minute: 31, second: 14, millisecond: 645}) AS other
 RETURN localtime(other) AS result
 
-- `tck.expressions.temporal.temporal3.scenario-2.examples-1-row-8`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..119; query: 
+- `tck.expressions.temporal.temporal3.scenario-2.examples-1-row-8`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 20..108; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..119; query: 
 WITH localdatetime({year: 1984, week: 10, dayOfWeek: 3, hour: 12, minute: 31, second: 14, millisecond: 645}) AS other
 RETURN localtime({time: other}) AS result
 
-- `tck.expressions.temporal.temporal3.scenario-2.examples-1-row-9`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..119; query: 
+- `tck.expressions.temporal.temporal3.scenario-2.examples-1-row-9`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 20..108; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..119; query: 
 WITH localdatetime({year: 1984, week: 10, dayOfWeek: 3, hour: 12, minute: 31, second: 14, millisecond: 645}) AS other
 RETURN localtime({time: other, second: 42}) AS result
 
-- `tck.expressions.temporal.temporal3.scenario-2.examples-1-row-10`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..88; query: 
+- `tck.expressions.temporal.temporal3.scenario-2.examples-1-row-10`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 15..77; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..88; query: 
 WITH datetime({year: 1984, month: 10, day: 11, hour: 12, timezone: '+01:00'}) AS other
 RETURN localtime(other) AS result
 
-- `tck.expressions.temporal.temporal3.scenario-2.examples-1-row-11`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..88; query: 
+- `tck.expressions.temporal.temporal3.scenario-2.examples-1-row-11`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 15..77; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..88; query: 
 WITH datetime({year: 1984, month: 10, day: 11, hour: 12, timezone: '+01:00'}) AS other
 RETURN localtime({time: other}) AS result
 
-- `tck.expressions.temporal.temporal3.scenario-2.examples-1-row-12`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..88; query: 
+- `tck.expressions.temporal.temporal3.scenario-2.examples-1-row-12`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 15..77; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..88; query: 
 WITH datetime({year: 1984, month: 10, day: 11, hour: 12, timezone: '+01:00'}) AS other
 RETURN localtime({time: other, second: 42}) AS result
 
-- `tck.expressions.temporal.temporal3.scenario-3.examples-1-row-1`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..84; query: 
+- `tck.expressions.temporal.temporal3.scenario-3.examples-1-row-1`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 16..73; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..84; query: 
 WITH localtime({hour: 12, minute: 31, second: 14, nanosecond: 645876123}) AS other
 RETURN time(other) AS result
 
-- `tck.expressions.temporal.temporal3.scenario-3.examples-1-row-2`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..84; query: 
+- `tck.expressions.temporal.temporal3.scenario-3.examples-1-row-2`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 16..73; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..84; query: 
 WITH localtime({hour: 12, minute: 31, second: 14, nanosecond: 645876123}) AS other
 RETURN time({time: other}) AS result
 
-- `tck.expressions.temporal.temporal3.scenario-3.examples-1-row-3`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..84; query: 
+- `tck.expressions.temporal.temporal3.scenario-3.examples-1-row-3`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 16..73; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..84; query: 
 WITH localtime({hour: 12, minute: 31, second: 14, nanosecond: 645876123}) AS other
 RETURN time({time: other, timezone: '+05:00'}) AS result
 
-- `tck.expressions.temporal.temporal3.scenario-3.examples-1-row-4`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..84; query: 
+- `tck.expressions.temporal.temporal3.scenario-3.examples-1-row-4`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 16..73; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..84; query: 
 WITH localtime({hour: 12, minute: 31, second: 14, nanosecond: 645876123}) AS other
 RETURN time({time: other, second: 42}) AS result
 
-- `tck.expressions.temporal.temporal3.scenario-3.examples-1-row-5`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..84; query: 
+- `tck.expressions.temporal.temporal3.scenario-3.examples-1-row-5`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 16..73; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..84; query: 
 WITH localtime({hour: 12, minute: 31, second: 14, nanosecond: 645876123}) AS other
 RETURN time({time: other, second: 42, timezone: '+05:00'}) AS result
 
-- `tck.expressions.temporal.temporal3.scenario-3.examples-1-row-6`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..97; query: 
+- `tck.expressions.temporal.temporal3.scenario-3.examples-1-row-6`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 11..86; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..97; query: 
 WITH time({hour: 12, minute: 31, second: 14, microsecond: 645876, timezone: '+01:00'}) AS other
 RETURN time(other) AS result
 
-- `tck.expressions.temporal.temporal3.scenario-3.examples-1-row-7`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..97; query: 
+- `tck.expressions.temporal.temporal3.scenario-3.examples-1-row-7`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 11..86; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..97; query: 
 WITH time({hour: 12, minute: 31, second: 14, microsecond: 645876, timezone: '+01:00'}) AS other
 RETURN time({time: other}) AS result
 
-- `tck.expressions.temporal.temporal3.scenario-3.examples-1-row-8`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..97; query: 
+- `tck.expressions.temporal.temporal3.scenario-3.examples-1-row-8`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 11..86; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..97; query: 
 WITH time({hour: 12, minute: 31, second: 14, microsecond: 645876, timezone: '+01:00'}) AS other
 RETURN time({time: other, timezone: '+05:00'}) AS result
 
-- `tck.expressions.temporal.temporal3.scenario-3.examples-1-row-9`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..97; query: 
+- `tck.expressions.temporal.temporal3.scenario-3.examples-1-row-9`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 11..86; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..97; query: 
 WITH time({hour: 12, minute: 31, second: 14, microsecond: 645876, timezone: '+01:00'}) AS other
 RETURN time({time: other, second: 42}) AS result
 
-- `tck.expressions.temporal.temporal3.scenario-3.examples-1-row-10`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..97; query: 
+- `tck.expressions.temporal.temporal3.scenario-3.examples-1-row-10`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 11..86; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..97; query: 
 WITH time({hour: 12, minute: 31, second: 14, microsecond: 645876, timezone: '+01:00'}) AS other
 RETURN time({time: other, second: 42, timezone: '+05:00'}) AS result
 
-- `tck.expressions.temporal.temporal3.scenario-3.examples-1-row-11`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..119; query: 
+- `tck.expressions.temporal.temporal3.scenario-3.examples-1-row-11`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 20..108; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..119; query: 
 WITH localdatetime({year: 1984, week: 10, dayOfWeek: 3, hour: 12, minute: 31, second: 14, millisecond: 645}) AS other
 RETURN time(other) AS result
 
-- `tck.expressions.temporal.temporal3.scenario-3.examples-1-row-12`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..119; query: 
+- `tck.expressions.temporal.temporal3.scenario-3.examples-1-row-12`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 20..108; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..119; query: 
 WITH localdatetime({year: 1984, week: 10, dayOfWeek: 3, hour: 12, minute: 31, second: 14, millisecond: 645}) AS other
 RETURN time({time: other}) AS result
 
-- `tck.expressions.temporal.temporal3.scenario-3.examples-1-row-13`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..119; query: 
+- `tck.expressions.temporal.temporal3.scenario-3.examples-1-row-13`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 20..108; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..119; query: 
 WITH localdatetime({year: 1984, week: 10, dayOfWeek: 3, hour: 12, minute: 31, second: 14, millisecond: 645}) AS other
 RETURN time({time: other, timezone: '+05:00'}) AS result
 
-- `tck.expressions.temporal.temporal3.scenario-3.examples-1-row-14`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..119; query: 
+- `tck.expressions.temporal.temporal3.scenario-3.examples-1-row-14`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 20..108; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..119; query: 
 WITH localdatetime({year: 1984, week: 10, dayOfWeek: 3, hour: 12, minute: 31, second: 14, millisecond: 645}) AS other
 RETURN time({time: other, second: 42}) AS result
 
-- `tck.expressions.temporal.temporal3.scenario-3.examples-1-row-15`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..119; query: 
+- `tck.expressions.temporal.temporal3.scenario-3.examples-1-row-15`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 20..108; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..119; query: 
 WITH localdatetime({year: 1984, week: 10, dayOfWeek: 3, hour: 12, minute: 31, second: 14, millisecond: 645}) AS other
 RETURN time({time: other, second: 42, timezone: '+05:00'}) AS result
 
-- `tck.expressions.temporal.temporal3.scenario-3.examples-1-row-16`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..98; query: 
+- `tck.expressions.temporal.temporal3.scenario-3.examples-1-row-16`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 15..87; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..98; query: 
 WITH datetime({year: 1984, month: 10, day: 11, hour: 12, timezone: 'Europe/Stockholm'}) AS other
 RETURN time(other) AS result
 
-- `tck.expressions.temporal.temporal3.scenario-3.examples-1-row-17`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..98; query: 
+- `tck.expressions.temporal.temporal3.scenario-3.examples-1-row-17`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 15..87; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..98; query: 
 WITH datetime({year: 1984, month: 10, day: 11, hour: 12, timezone: 'Europe/Stockholm'}) AS other
 RETURN time({time: other}) AS result
 
-- `tck.expressions.temporal.temporal3.scenario-3.examples-1-row-18`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..98; query: 
+- `tck.expressions.temporal.temporal3.scenario-3.examples-1-row-18`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 15..87; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..98; query: 
 WITH datetime({year: 1984, month: 10, day: 11, hour: 12, timezone: 'Europe/Stockholm'}) AS other
 RETURN time({time: other, timezone: '+05:00'}) AS result
 
-- `tck.expressions.temporal.temporal3.scenario-3.examples-1-row-19`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..98; query: 
+- `tck.expressions.temporal.temporal3.scenario-3.examples-1-row-19`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 15..87; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..98; query: 
 WITH datetime({year: 1984, month: 10, day: 11, hour: 12, timezone: 'Europe/Stockholm'}) AS other
 RETURN time({time: other, second: 42}) AS result
 
-- `tck.expressions.temporal.temporal3.scenario-3.examples-1-row-20`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..98; query: 
+- `tck.expressions.temporal.temporal3.scenario-3.examples-1-row-20`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 15..87; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..98; query: 
 WITH datetime({year: 1984, month: 10, day: 11, hour: 12, timezone: 'Europe/Stockholm'}) AS other
 RETURN time({time: other, second: 42, timezone: '+05:00'}) AS result
 
-- `tck.expressions.temporal.temporal3.scenario-4.examples-1-row-1`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..54; query: 
+- `tck.expressions.temporal.temporal3.scenario-4.examples-1-row-1`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 11..43; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..54; query: 
 WITH date({year: 1984, month: 10, day: 11}) AS other
 RETURN localdatetime({date: other, hour: 10, minute: 10, second: 10}) AS result
 
-- `tck.expressions.temporal.temporal3.scenario-4.examples-1-row-2`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..54; query: 
+- `tck.expressions.temporal.temporal3.scenario-4.examples-1-row-2`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 11..43; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..54; query: 
 WITH date({year: 1984, month: 10, day: 11}) AS other
 RETURN localdatetime({date: other, day: 28, hour: 10, minute: 10, second: 10}) AS result
 
-- `tck.expressions.temporal.temporal3.scenario-4.examples-1-row-3`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..119; query: 
+- `tck.expressions.temporal.temporal3.scenario-4.examples-1-row-3`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 20..108; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..119; query: 
 WITH localdatetime({year: 1984, week: 10, dayOfWeek: 3, hour: 12, minute: 31, second: 14, millisecond: 645}) AS other
 RETURN localdatetime({date: other, hour: 10, minute: 10, second: 10}) AS result
 
-- `tck.expressions.temporal.temporal3.scenario-4.examples-1-row-4`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..119; query: 
+- `tck.expressions.temporal.temporal3.scenario-4.examples-1-row-4`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 20..108; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..119; query: 
 WITH localdatetime({year: 1984, week: 10, dayOfWeek: 3, hour: 12, minute: 31, second: 14, millisecond: 645}) AS other
 RETURN localdatetime({date: other, day: 28, hour: 10, minute: 10, second: 10}) AS result
 
-- `tck.expressions.temporal.temporal3.scenario-4.examples-1-row-5`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..88; query: 
+- `tck.expressions.temporal.temporal3.scenario-4.examples-1-row-5`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 15..77; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..88; query: 
 WITH datetime({year: 1984, month: 10, day: 11, hour: 12, timezone: '+01:00'}) AS other
 RETURN localdatetime({date: other, hour: 10, minute: 10, second: 10}) AS result
 
-- `tck.expressions.temporal.temporal3.scenario-4.examples-1-row-6`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..88; query: 
+- `tck.expressions.temporal.temporal3.scenario-4.examples-1-row-6`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 15..77; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..88; query: 
 WITH datetime({year: 1984, month: 10, day: 11, hour: 12, timezone: '+01:00'}) AS other
 RETURN localdatetime({date: other, day: 28, hour: 10, minute: 10, second: 10}) AS result
 
-- `tck.expressions.temporal.temporal3.scenario-5.examples-1-row-1`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..84; query: 
+- `tck.expressions.temporal.temporal3.scenario-5.examples-1-row-1`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 16..73; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..84; query: 
 WITH localtime({hour: 12, minute: 31, second: 14, nanosecond: 645876123}) AS other
 RETURN localdatetime({year: 1984, month: 10, day: 11, time: other}) AS result
 
-- `tck.expressions.temporal.temporal3.scenario-5.examples-1-row-2`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..84; query: 
+- `tck.expressions.temporal.temporal3.scenario-5.examples-1-row-2`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 16..73; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..84; query: 
 WITH localtime({hour: 12, minute: 31, second: 14, nanosecond: 645876123}) AS other
 RETURN localdatetime({year: 1984, month: 10, day: 11, time: other, second: 42}) AS result
 
-- `tck.expressions.temporal.temporal3.scenario-5.examples-1-row-3`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..97; query: 
+- `tck.expressions.temporal.temporal3.scenario-5.examples-1-row-3`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 11..86; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..97; query: 
 WITH time({hour: 12, minute: 31, second: 14, microsecond: 645876, timezone: '+01:00'}) AS other
 RETURN localdatetime({year: 1984, month: 10, day: 11, time: other}) AS result
 
-- `tck.expressions.temporal.temporal3.scenario-5.examples-1-row-4`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..97; query: 
+- `tck.expressions.temporal.temporal3.scenario-5.examples-1-row-4`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 11..86; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..97; query: 
 WITH time({hour: 12, minute: 31, second: 14, microsecond: 645876, timezone: '+01:00'}) AS other
 RETURN localdatetime({year: 1984, month: 10, day: 11, time: other, second: 42}) AS result
 
-- `tck.expressions.temporal.temporal3.scenario-5.examples-1-row-5`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..119; query: 
+- `tck.expressions.temporal.temporal3.scenario-5.examples-1-row-5`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 20..108; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..119; query: 
 WITH localdatetime({year: 1984, week: 10, dayOfWeek: 3, hour: 12, minute: 31, second: 14, millisecond: 645}) AS other
 RETURN localdatetime({year: 1984, month: 10, day: 11, time: other}) AS result
 
-- `tck.expressions.temporal.temporal3.scenario-5.examples-1-row-6`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..119; query: 
+- `tck.expressions.temporal.temporal3.scenario-5.examples-1-row-6`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 20..108; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..119; query: 
 WITH localdatetime({year: 1984, week: 10, dayOfWeek: 3, hour: 12, minute: 31, second: 14, millisecond: 645}) AS other
 RETURN localdatetime({year: 1984, month: 10, day: 11, time: other, second: 42}) AS result
 
-- `tck.expressions.temporal.temporal3.scenario-5.examples-1-row-7`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..88; query: 
+- `tck.expressions.temporal.temporal3.scenario-5.examples-1-row-7`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 15..77; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..88; query: 
 WITH datetime({year: 1984, month: 10, day: 11, hour: 12, timezone: '+01:00'}) AS other
 RETURN localdatetime({year: 1984, month: 10, day: 11, time: other}) AS result
 
-- `tck.expressions.temporal.temporal3.scenario-5.examples-1-row-8`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..88; query: 
+- `tck.expressions.temporal.temporal3.scenario-5.examples-1-row-8`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 15..77; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..88; query: 
 WITH datetime({year: 1984, month: 10, day: 11, hour: 12, timezone: '+01:00'}) AS other
 RETURN localdatetime({year: 1984, month: 10, day: 11, time: other, second: 42}) AS result
 
-- `tck.expressions.temporal.temporal3.scenario-6.examples-1-row-1`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..141; query: 
+- `tck.expressions.temporal.temporal3.scenario-6.examples-1-row-1`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 11..43; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..141; query: 
 WITH date({year: 1984, month: 10, day: 11}) AS otherDate, localtime({hour: 12, minute: 31, second: 14, nanosecond: 645876123}) AS otherTime
 RETURN localdatetime({date: otherDate, time: otherTime}) AS result
 
-- `tck.expressions.temporal.temporal3.scenario-6.examples-1-row-2`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..141; query: 
+- `tck.expressions.temporal.temporal3.scenario-6.examples-1-row-2`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 11..43; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..141; query: 
 WITH date({year: 1984, month: 10, day: 11}) AS otherDate, localtime({hour: 12, minute: 31, second: 14, nanosecond: 645876123}) AS otherTime
 RETURN localdatetime({date: otherDate, time: otherTime, day: 28, second: 42}) AS result
 
-- `tck.expressions.temporal.temporal3.scenario-6.examples-1-row-3`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..154; query: 
+- `tck.expressions.temporal.temporal3.scenario-6.examples-1-row-3`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 11..43; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..154; query: 
 WITH date({year: 1984, month: 10, day: 11}) AS otherDate, time({hour: 12, minute: 31, second: 14, microsecond: 645876, timezone: '+01:00'}) AS otherTime
 RETURN localdatetime({date: otherDate, time: otherTime}) AS result
 
-- `tck.expressions.temporal.temporal3.scenario-6.examples-1-row-4`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..154; query: 
+- `tck.expressions.temporal.temporal3.scenario-6.examples-1-row-4`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 11..43; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..154; query: 
 WITH date({year: 1984, month: 10, day: 11}) AS otherDate, time({hour: 12, minute: 31, second: 14, microsecond: 645876, timezone: '+01:00'}) AS otherTime
 RETURN localdatetime({date: otherDate, time: otherTime, day: 28, second: 42}) AS result
 
-- `tck.expressions.temporal.temporal3.scenario-6.examples-1-row-5`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..176; query: 
+- `tck.expressions.temporal.temporal3.scenario-6.examples-1-row-5`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 11..43; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..176; query: 
 WITH date({year: 1984, month: 10, day: 11}) AS otherDate, localdatetime({year: 1984, week: 10, dayOfWeek: 3, hour: 12, minute: 31, second: 14, millisecond: 645}) AS otherTime
 RETURN localdatetime({date: otherDate, time: otherTime}) AS result
 
-- `tck.expressions.temporal.temporal3.scenario-6.examples-1-row-6`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..176; query: 
+- `tck.expressions.temporal.temporal3.scenario-6.examples-1-row-6`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 11..43; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..176; query: 
 WITH date({year: 1984, month: 10, day: 11}) AS otherDate, localdatetime({year: 1984, week: 10, dayOfWeek: 3, hour: 12, minute: 31, second: 14, millisecond: 645}) AS otherTime
 RETURN localdatetime({date: otherDate, time: otherTime, day: 28, second: 42}) AS result
 
-- `tck.expressions.temporal.temporal3.scenario-6.examples-1-row-7`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..145; query: 
+- `tck.expressions.temporal.temporal3.scenario-6.examples-1-row-7`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 11..43; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..145; query: 
 WITH date({year: 1984, month: 10, day: 11}) AS otherDate, datetime({year: 1984, month: 10, day: 11, hour: 12, timezone: '+01:00'}) AS otherTime
 RETURN localdatetime({date: otherDate, time: otherTime}) AS result
 
-- `tck.expressions.temporal.temporal3.scenario-6.examples-1-row-8`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..145; query: 
+- `tck.expressions.temporal.temporal3.scenario-6.examples-1-row-8`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 11..43; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..145; query: 
 WITH date({year: 1984, month: 10, day: 11}) AS otherDate, datetime({year: 1984, month: 10, day: 11, hour: 12, timezone: '+01:00'}) AS otherTime
 RETURN localdatetime({date: otherDate, time: otherTime, day: 28, second: 42}) AS result
 
-- `tck.expressions.temporal.temporal3.scenario-6.examples-1-row-9`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..206; query: 
+- `tck.expressions.temporal.temporal3.scenario-6.examples-1-row-9`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 20..108; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..206; query: 
 WITH localdatetime({year: 1984, week: 10, dayOfWeek: 3, hour: 12, minute: 31, second: 14, millisecond: 645}) AS otherDate, localtime({hour: 12, minute: 31, second: 14, nanosecond: 645876123}) AS otherTime
 RETURN localdatetime({date: otherDate, time: otherTime}) AS result
 
-- `tck.expressions.temporal.temporal3.scenario-6.examples-1-row-10`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..206; query: 
+- `tck.expressions.temporal.temporal3.scenario-6.examples-1-row-10`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 20..108; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..206; query: 
 WITH localdatetime({year: 1984, week: 10, dayOfWeek: 3, hour: 12, minute: 31, second: 14, millisecond: 645}) AS otherDate, localtime({hour: 12, minute: 31, second: 14, nanosecond: 645876123}) AS otherTime
 RETURN localdatetime({date: otherDate, time: otherTime, day: 28, second: 42}) AS result
 
-- `tck.expressions.temporal.temporal3.scenario-6.examples-1-row-11`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..219; query: 
+- `tck.expressions.temporal.temporal3.scenario-6.examples-1-row-11`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 20..108; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..219; query: 
 WITH localdatetime({year: 1984, week: 10, dayOfWeek: 3, hour: 12, minute: 31, second: 14, millisecond: 645}) AS otherDate, time({hour: 12, minute: 31, second: 14, microsecond: 645876, timezone: '+01:00'}) AS otherTime
 RETURN localdatetime({date: otherDate, time: otherTime}) AS result
 
-- `tck.expressions.temporal.temporal3.scenario-6.examples-1-row-12`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..219; query: 
+- `tck.expressions.temporal.temporal3.scenario-6.examples-1-row-12`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 20..108; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..219; query: 
 WITH localdatetime({year: 1984, week: 10, dayOfWeek: 3, hour: 12, minute: 31, second: 14, millisecond: 645}) AS otherDate, time({hour: 12, minute: 31, second: 14, microsecond: 645876, timezone: '+01:00'}) AS otherTime
 RETURN localdatetime({date: otherDate, time: otherTime, day: 28, second: 42}) AS result
 
-- `tck.expressions.temporal.temporal3.scenario-6.examples-1-row-13`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..241; query: 
+- `tck.expressions.temporal.temporal3.scenario-6.examples-1-row-13`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 20..108; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..241; query: 
 WITH localdatetime({year: 1984, week: 10, dayOfWeek: 3, hour: 12, minute: 31, second: 14, millisecond: 645}) AS otherDate, localdatetime({year: 1984, week: 10, dayOfWeek: 3, hour: 12, minute: 31, second: 14, millisecond: 645}) AS otherTime
 RETURN localdatetime({date: otherDate, time: otherTime}) AS result
 
-- `tck.expressions.temporal.temporal3.scenario-6.examples-1-row-14`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..241; query: 
+- `tck.expressions.temporal.temporal3.scenario-6.examples-1-row-14`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 20..108; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..241; query: 
 WITH localdatetime({year: 1984, week: 10, dayOfWeek: 3, hour: 12, minute: 31, second: 14, millisecond: 645}) AS otherDate, localdatetime({year: 1984, week: 10, dayOfWeek: 3, hour: 12, minute: 31, second: 14, millisecond: 645}) AS otherTime
 RETURN localdatetime({date: otherDate, time: otherTime, day: 28, second: 42}) AS result
 
-- `tck.expressions.temporal.temporal3.scenario-6.examples-1-row-15`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..210; query: 
+- `tck.expressions.temporal.temporal3.scenario-6.examples-1-row-15`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 20..108; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..210; query: 
 WITH localdatetime({year: 1984, week: 10, dayOfWeek: 3, hour: 12, minute: 31, second: 14, millisecond: 645}) AS otherDate, datetime({year: 1984, month: 10, day: 11, hour: 12, timezone: '+01:00'}) AS otherTime
 RETURN localdatetime({date: otherDate, time: otherTime}) AS result
 
-- `tck.expressions.temporal.temporal3.scenario-6.examples-1-row-16`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..210; query: 
+- `tck.expressions.temporal.temporal3.scenario-6.examples-1-row-16`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 20..108; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..210; query: 
 WITH localdatetime({year: 1984, week: 10, dayOfWeek: 3, hour: 12, minute: 31, second: 14, millisecond: 645}) AS otherDate, datetime({year: 1984, month: 10, day: 11, hour: 12, timezone: '+01:00'}) AS otherTime
 RETURN localdatetime({date: otherDate, time: otherTime, day: 28, second: 42}) AS result
 
-- `tck.expressions.temporal.temporal3.scenario-6.examples-1-row-17`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..175; query: 
+- `tck.expressions.temporal.temporal3.scenario-6.examples-1-row-17`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 15..77; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..175; query: 
 WITH datetime({year: 1984, month: 10, day: 11, hour: 12, timezone: '+01:00'}) AS otherDate, localtime({hour: 12, minute: 31, second: 14, nanosecond: 645876123}) AS otherTime
 RETURN localdatetime({date: otherDate, time: otherTime}) AS result
 
-- `tck.expressions.temporal.temporal3.scenario-6.examples-1-row-18`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..175; query: 
+- `tck.expressions.temporal.temporal3.scenario-6.examples-1-row-18`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 15..77; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..175; query: 
 WITH datetime({year: 1984, month: 10, day: 11, hour: 12, timezone: '+01:00'}) AS otherDate, localtime({hour: 12, minute: 31, second: 14, nanosecond: 645876123}) AS otherTime
 RETURN localdatetime({date: otherDate, time: otherTime, day: 28, second: 42}) AS result
 
-- `tck.expressions.temporal.temporal3.scenario-6.examples-1-row-19`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..188; query: 
+- `tck.expressions.temporal.temporal3.scenario-6.examples-1-row-19`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 15..77; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..188; query: 
 WITH datetime({year: 1984, month: 10, day: 11, hour: 12, timezone: '+01:00'}) AS otherDate, time({hour: 12, minute: 31, second: 14, microsecond: 645876, timezone: '+01:00'}) AS otherTime
 RETURN localdatetime({date: otherDate, time: otherTime}) AS result
 
-- `tck.expressions.temporal.temporal3.scenario-6.examples-1-row-20`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..188; query: 
+- `tck.expressions.temporal.temporal3.scenario-6.examples-1-row-20`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 15..77; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..188; query: 
 WITH datetime({year: 1984, month: 10, day: 11, hour: 12, timezone: '+01:00'}) AS otherDate, time({hour: 12, minute: 31, second: 14, microsecond: 645876, timezone: '+01:00'}) AS otherTime
 RETURN localdatetime({date: otherDate, time: otherTime, day: 28, second: 42}) AS result
 
-- `tck.expressions.temporal.temporal3.scenario-6.examples-1-row-21`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..210; query: 
+- `tck.expressions.temporal.temporal3.scenario-6.examples-1-row-21`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 15..77; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..210; query: 
 WITH datetime({year: 1984, month: 10, day: 11, hour: 12, timezone: '+01:00'}) AS otherDate, localdatetime({year: 1984, week: 10, dayOfWeek: 3, hour: 12, minute: 31, second: 14, millisecond: 645}) AS otherTime
 RETURN localdatetime({date: otherDate, time: otherTime}) AS result
 
-- `tck.expressions.temporal.temporal3.scenario-6.examples-1-row-22`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..210; query: 
+- `tck.expressions.temporal.temporal3.scenario-6.examples-1-row-22`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 15..77; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..210; query: 
 WITH datetime({year: 1984, month: 10, day: 11, hour: 12, timezone: '+01:00'}) AS otherDate, localdatetime({year: 1984, week: 10, dayOfWeek: 3, hour: 12, minute: 31, second: 14, millisecond: 645}) AS otherTime
 RETURN localdatetime({date: otherDate, time: otherTime, day: 28, second: 42}) AS result
 
-- `tck.expressions.temporal.temporal3.scenario-6.examples-1-row-23`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..179; query: 
+- `tck.expressions.temporal.temporal3.scenario-6.examples-1-row-23`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 15..77; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..179; query: 
 WITH datetime({year: 1984, month: 10, day: 11, hour: 12, timezone: '+01:00'}) AS otherDate, datetime({year: 1984, month: 10, day: 11, hour: 12, timezone: '+01:00'}) AS otherTime
 RETURN localdatetime({date: otherDate, time: otherTime}) AS result
 
-- `tck.expressions.temporal.temporal3.scenario-6.examples-1-row-24`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..179; query: 
+- `tck.expressions.temporal.temporal3.scenario-6.examples-1-row-24`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 15..77; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..179; query: 
 WITH datetime({year: 1984, month: 10, day: 11, hour: 12, timezone: '+01:00'}) AS otherDate, datetime({year: 1984, month: 10, day: 11, hour: 12, timezone: '+01:00'}) AS otherTime
 RETURN localdatetime({date: otherDate, time: otherTime, day: 28, second: 42}) AS result
 
-- `tck.expressions.temporal.temporal3.scenario-7.examples-1-row-1`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..119; query: 
+- `tck.expressions.temporal.temporal3.scenario-7.examples-1-row-1`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 20..108; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..119; query: 
 WITH localdatetime({year: 1984, week: 10, dayOfWeek: 3, hour: 12, minute: 31, second: 14, millisecond: 645}) AS other
 RETURN localdatetime(other) AS result
 
-- `tck.expressions.temporal.temporal3.scenario-7.examples-1-row-2`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..119; query: 
+- `tck.expressions.temporal.temporal3.scenario-7.examples-1-row-2`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 20..108; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..119; query: 
 WITH localdatetime({year: 1984, week: 10, dayOfWeek: 3, hour: 12, minute: 31, second: 14, millisecond: 645}) AS other
 RETURN localdatetime({datetime: other}) AS result
 
-- `tck.expressions.temporal.temporal3.scenario-7.examples-1-row-3`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..119; query: 
+- `tck.expressions.temporal.temporal3.scenario-7.examples-1-row-3`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 20..108; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..119; query: 
 WITH localdatetime({year: 1984, week: 10, dayOfWeek: 3, hour: 12, minute: 31, second: 14, millisecond: 645}) AS other
 RETURN localdatetime({datetime: other, day: 28, second: 42}) AS result
 
-- `tck.expressions.temporal.temporal3.scenario-7.examples-1-row-4`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..88; query: 
+- `tck.expressions.temporal.temporal3.scenario-7.examples-1-row-4`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 15..77; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..88; query: 
 WITH datetime({year: 1984, month: 10, day: 11, hour: 12, timezone: '+01:00'}) AS other
 RETURN localdatetime(other) AS result
 
-- `tck.expressions.temporal.temporal3.scenario-7.examples-1-row-5`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..88; query: 
+- `tck.expressions.temporal.temporal3.scenario-7.examples-1-row-5`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 15..77; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..88; query: 
 WITH datetime({year: 1984, month: 10, day: 11, hour: 12, timezone: '+01:00'}) AS other
 RETURN localdatetime({datetime: other}) AS result
 
-- `tck.expressions.temporal.temporal3.scenario-7.examples-1-row-6`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..88; query: 
+- `tck.expressions.temporal.temporal3.scenario-7.examples-1-row-6`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 15..77; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..88; query: 
 WITH datetime({year: 1984, month: 10, day: 11, hour: 12, timezone: '+01:00'}) AS other
 RETURN localdatetime({datetime: other, day: 28, second: 42}) AS result
 
-- `tck.expressions.temporal.temporal3.scenario-8.examples-1-row-1`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..54; query: 
+- `tck.expressions.temporal.temporal3.scenario-8.examples-1-row-1`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 11..43; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..54; query: 
 WITH date({year: 1984, month: 10, day: 11}) AS other
 RETURN datetime({date: other, hour: 10, minute: 10, second: 10}) AS result
 
-- `tck.expressions.temporal.temporal3.scenario-8.examples-1-row-2`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..54; query: 
+- `tck.expressions.temporal.temporal3.scenario-8.examples-1-row-2`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 11..43; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..54; query: 
 WITH date({year: 1984, month: 10, day: 11}) AS other
 RETURN datetime({date: other, hour: 10, minute: 10, second: 10, timezone: '+05:00'}) AS result
 
-- `tck.expressions.temporal.temporal3.scenario-8.examples-1-row-3`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..54; query: 
+- `tck.expressions.temporal.temporal3.scenario-8.examples-1-row-3`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 11..43; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..54; query: 
 WITH date({year: 1984, month: 10, day: 11}) AS other
 RETURN datetime({date: other, day: 28, hour: 10, minute: 10, second: 10}) AS result
 
-- `tck.expressions.temporal.temporal3.scenario-8.examples-1-row-4`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..54; query: 
+- `tck.expressions.temporal.temporal3.scenario-8.examples-1-row-4`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 11..43; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..54; query: 
 WITH date({year: 1984, month: 10, day: 11}) AS other
 RETURN datetime({date: other, day: 28, hour: 10, minute: 10, second: 10, timezone: 'Pacific/Honolulu'}) AS result
 
-- `tck.expressions.temporal.temporal3.scenario-8.examples-1-row-5`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..119; query: 
+- `tck.expressions.temporal.temporal3.scenario-8.examples-1-row-5`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 20..108; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..119; query: 
 WITH localdatetime({year: 1984, week: 10, dayOfWeek: 3, hour: 12, minute: 31, second: 14, millisecond: 645}) AS other
 RETURN datetime({date: other, hour: 10, minute: 10, second: 10}) AS result
 
-- `tck.expressions.temporal.temporal3.scenario-8.examples-1-row-6`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..119; query: 
+- `tck.expressions.temporal.temporal3.scenario-8.examples-1-row-6`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 20..108; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..119; query: 
 WITH localdatetime({year: 1984, week: 10, dayOfWeek: 3, hour: 12, minute: 31, second: 14, millisecond: 645}) AS other
 RETURN datetime({date: other, hour: 10, minute: 10, second: 10, timezone: '+05:00'}) AS result
 
-- `tck.expressions.temporal.temporal3.scenario-8.examples-1-row-7`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..119; query: 
+- `tck.expressions.temporal.temporal3.scenario-8.examples-1-row-7`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 20..108; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..119; query: 
 WITH localdatetime({year: 1984, week: 10, dayOfWeek: 3, hour: 12, minute: 31, second: 14, millisecond: 645}) AS other
 RETURN datetime({date: other, day: 28, hour: 10, minute: 10, second: 10}) AS result
 
-- `tck.expressions.temporal.temporal3.scenario-8.examples-1-row-8`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..119; query: 
+- `tck.expressions.temporal.temporal3.scenario-8.examples-1-row-8`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 20..108; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..119; query: 
 WITH localdatetime({year: 1984, week: 10, dayOfWeek: 3, hour: 12, minute: 31, second: 14, millisecond: 645}) AS other
 RETURN datetime({date: other, day: 28, hour: 10, minute: 10, second: 10, timezone: 'Pacific/Honolulu'}) AS result
 
-- `tck.expressions.temporal.temporal3.scenario-8.examples-1-row-9`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..88; query: 
+- `tck.expressions.temporal.temporal3.scenario-8.examples-1-row-9`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 15..77; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..88; query: 
 WITH datetime({year: 1984, month: 10, day: 11, hour: 12, timezone: '+01:00'}) AS other
 RETURN datetime({date: other, hour: 10, minute: 10, second: 10}) AS result
 
-- `tck.expressions.temporal.temporal3.scenario-8.examples-1-row-10`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..88; query: 
+- `tck.expressions.temporal.temporal3.scenario-8.examples-1-row-10`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 15..77; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..88; query: 
 WITH datetime({year: 1984, month: 10, day: 11, hour: 12, timezone: '+01:00'}) AS other
 RETURN datetime({date: other, hour: 10, minute: 10, second: 10, timezone: '+05:00'}) AS result
 
-- `tck.expressions.temporal.temporal3.scenario-8.examples-1-row-11`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..88; query: 
+- `tck.expressions.temporal.temporal3.scenario-8.examples-1-row-11`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 15..77; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..88; query: 
 WITH datetime({year: 1984, month: 10, day: 11, hour: 12, timezone: '+01:00'}) AS other
 RETURN datetime({date: other, day: 28, hour: 10, minute: 10, second: 10}) AS result
 
-- `tck.expressions.temporal.temporal3.scenario-8.examples-1-row-12`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..88; query: 
+- `tck.expressions.temporal.temporal3.scenario-8.examples-1-row-12`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 15..77; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..88; query: 
 WITH datetime({year: 1984, month: 10, day: 11, hour: 12, timezone: '+01:00'}) AS other
 RETURN datetime({date: other, day: 28, hour: 10, minute: 10, second: 10, timezone: 'Pacific/Honolulu'}) AS result
 
-- `tck.expressions.temporal.temporal3.scenario-9.examples-1-row-1`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..84; query: 
+- `tck.expressions.temporal.temporal3.scenario-9.examples-1-row-1`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 16..73; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..84; query: 
 WITH localtime({hour: 12, minute: 31, second: 14, nanosecond: 645876123}) AS other
 RETURN datetime({year: 1984, month: 10, day: 11, time: other}) AS result
 
-- `tck.expressions.temporal.temporal3.scenario-9.examples-1-row-2`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..84; query: 
+- `tck.expressions.temporal.temporal3.scenario-9.examples-1-row-2`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 16..73; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..84; query: 
 WITH localtime({hour: 12, minute: 31, second: 14, nanosecond: 645876123}) AS other
 RETURN datetime({year: 1984, month: 10, day: 11, time: other, timezone: '+05:00'}) AS result
 
-- `tck.expressions.temporal.temporal3.scenario-9.examples-1-row-3`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..84; query: 
+- `tck.expressions.temporal.temporal3.scenario-9.examples-1-row-3`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 16..73; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..84; query: 
 WITH localtime({hour: 12, minute: 31, second: 14, nanosecond: 645876123}) AS other
 RETURN datetime({year: 1984, month: 10, day: 11, time: other, second: 42}) AS result
 
-- `tck.expressions.temporal.temporal3.scenario-9.examples-1-row-4`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..84; query: 
+- `tck.expressions.temporal.temporal3.scenario-9.examples-1-row-4`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 16..73; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..84; query: 
 WITH localtime({hour: 12, minute: 31, second: 14, nanosecond: 645876123}) AS other
 RETURN datetime({year: 1984, month: 10, day: 11, time: other, second: 42, timezone: 'Pacific/Honolulu'}) AS result
 
-- `tck.expressions.temporal.temporal3.scenario-9.examples-1-row-5`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..97; query: 
+- `tck.expressions.temporal.temporal3.scenario-9.examples-1-row-5`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 11..86; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..97; query: 
 WITH time({hour: 12, minute: 31, second: 14, microsecond: 645876, timezone: '+01:00'}) AS other
 RETURN datetime({year: 1984, month: 10, day: 11, time: other}) AS result
 
-- `tck.expressions.temporal.temporal3.scenario-9.examples-1-row-6`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..97; query: 
+- `tck.expressions.temporal.temporal3.scenario-9.examples-1-row-6`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 11..86; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..97; query: 
 WITH time({hour: 12, minute: 31, second: 14, microsecond: 645876, timezone: '+01:00'}) AS other
 RETURN datetime({year: 1984, month: 10, day: 11, time: other, timezone: '+05:00'}) AS result
 
-- `tck.expressions.temporal.temporal3.scenario-9.examples-1-row-7`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..97; query: 
+- `tck.expressions.temporal.temporal3.scenario-9.examples-1-row-7`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 11..86; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..97; query: 
 WITH time({hour: 12, minute: 31, second: 14, microsecond: 645876, timezone: '+01:00'}) AS other
 RETURN datetime({year: 1984, month: 10, day: 11, time: other, second: 42}) AS result
 
-- `tck.expressions.temporal.temporal3.scenario-9.examples-1-row-8`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..97; query: 
+- `tck.expressions.temporal.temporal3.scenario-9.examples-1-row-8`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 11..86; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..97; query: 
 WITH time({hour: 12, minute: 31, second: 14, microsecond: 645876, timezone: '+01:00'}) AS other
 RETURN datetime({year: 1984, month: 10, day: 11, time: other, second: 42, timezone: 'Pacific/Honolulu'}) AS result
 
-- `tck.expressions.temporal.temporal3.scenario-9.examples-1-row-9`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..119; query: 
+- `tck.expressions.temporal.temporal3.scenario-9.examples-1-row-9`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 20..108; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..119; query: 
 WITH localdatetime({year: 1984, week: 10, dayOfWeek: 3, hour: 12, minute: 31, second: 14, millisecond: 645}) AS other
 RETURN datetime({year: 1984, month: 10, day: 11, time: other}) AS result
 
-- `tck.expressions.temporal.temporal3.scenario-9.examples-1-row-10`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..119; query: 
+- `tck.expressions.temporal.temporal3.scenario-9.examples-1-row-10`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 20..108; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..119; query: 
 WITH localdatetime({year: 1984, week: 10, dayOfWeek: 3, hour: 12, minute: 31, second: 14, millisecond: 645}) AS other
 RETURN datetime({year: 1984, month: 10, day: 11, time: other, timezone: '+05:00'}) AS result
 
-- `tck.expressions.temporal.temporal3.scenario-9.examples-1-row-11`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..119; query: 
+- `tck.expressions.temporal.temporal3.scenario-9.examples-1-row-11`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 20..108; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..119; query: 
 WITH localdatetime({year: 1984, week: 10, dayOfWeek: 3, hour: 12, minute: 31, second: 14, millisecond: 645}) AS other
 RETURN datetime({year: 1984, month: 10, day: 11, time: other, second: 42}) AS result
 
-- `tck.expressions.temporal.temporal3.scenario-9.examples-1-row-12`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..119; query: 
+- `tck.expressions.temporal.temporal3.scenario-9.examples-1-row-12`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 20..108; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..119; query: 
 WITH localdatetime({year: 1984, week: 10, dayOfWeek: 3, hour: 12, minute: 31, second: 14, millisecond: 645}) AS other
 RETURN datetime({year: 1984, month: 10, day: 11, time: other, second: 42, timezone: 'Pacific/Honolulu'}) AS result
 
-- `tck.expressions.temporal.temporal3.scenario-9.examples-1-row-13`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..98; query: 
+- `tck.expressions.temporal.temporal3.scenario-9.examples-1-row-13`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 15..87; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..98; query: 
 WITH datetime({year: 1984, month: 10, day: 11, hour: 12, timezone: 'Europe/Stockholm'}) AS other
 RETURN datetime({year: 1984, month: 10, day: 11, time: other}) AS result
 
-- `tck.expressions.temporal.temporal3.scenario-9.examples-1-row-14`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..98; query: 
+- `tck.expressions.temporal.temporal3.scenario-9.examples-1-row-14`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 15..87; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..98; query: 
 WITH datetime({year: 1984, month: 10, day: 11, hour: 12, timezone: 'Europe/Stockholm'}) AS other
 RETURN datetime({year: 1984, month: 10, day: 11, time: other, timezone: '+05:00'}) AS result
 
-- `tck.expressions.temporal.temporal3.scenario-9.examples-1-row-15`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..98; query: 
+- `tck.expressions.temporal.temporal3.scenario-9.examples-1-row-15`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 15..87; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..98; query: 
 WITH datetime({year: 1984, month: 10, day: 11, hour: 12, timezone: 'Europe/Stockholm'}) AS other
 RETURN datetime({year: 1984, month: 10, day: 11, time: other, second: 42}) AS result
 
-- `tck.expressions.temporal.temporal3.scenario-9.examples-1-row-16`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..98; query: 
+- `tck.expressions.temporal.temporal3.scenario-9.examples-1-row-16`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 15..87; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..98; query: 
 WITH datetime({year: 1984, month: 10, day: 11, hour: 12, timezone: 'Europe/Stockholm'}) AS other
 RETURN datetime({year: 1984, month: 10, day: 11, time: other, second: 42, timezone: 'Pacific/Honolulu'}) AS result
 
-- `tck.expressions.temporal.temporal3.scenario-10.examples-1-row-1`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..141; query: 
+- `tck.expressions.temporal.temporal3.scenario-10.examples-1-row-1`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 11..43; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..141; query: 
 WITH date({year: 1984, month: 10, day: 11}) AS otherDate, localtime({hour: 12, minute: 31, second: 14, nanosecond: 645876123}) AS otherTime
 RETURN datetime({date: otherDate, time: otherTime}) AS result
 
-- `tck.expressions.temporal.temporal3.scenario-10.examples-1-row-2`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..141; query: 
+- `tck.expressions.temporal.temporal3.scenario-10.examples-1-row-2`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 11..43; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..141; query: 
 WITH date({year: 1984, month: 10, day: 11}) AS otherDate, localtime({hour: 12, minute: 31, second: 14, nanosecond: 645876123}) AS otherTime
 RETURN datetime({date: otherDate, time: otherTime, timezone: '+05:00'}) AS result
 
-- `tck.expressions.temporal.temporal3.scenario-10.examples-1-row-3`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..141; query: 
+- `tck.expressions.temporal.temporal3.scenario-10.examples-1-row-3`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 11..43; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..141; query: 
 WITH date({year: 1984, month: 10, day: 11}) AS otherDate, localtime({hour: 12, minute: 31, second: 14, nanosecond: 645876123}) AS otherTime
 RETURN datetime({date: otherDate, time: otherTime, day: 28, second: 42}) AS result
 
-- `tck.expressions.temporal.temporal3.scenario-10.examples-1-row-4`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..141; query: 
+- `tck.expressions.temporal.temporal3.scenario-10.examples-1-row-4`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 11..43; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..141; query: 
 WITH date({year: 1984, month: 10, day: 11}) AS otherDate, localtime({hour: 12, minute: 31, second: 14, nanosecond: 645876123}) AS otherTime
 RETURN datetime({date: otherDate, time: otherTime, day: 28, second: 42, timezone: 'Pacific/Honolulu'}) AS result
 
-- `tck.expressions.temporal.temporal3.scenario-10.examples-1-row-5`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..154; query: 
+- `tck.expressions.temporal.temporal3.scenario-10.examples-1-row-5`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 11..43; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..154; query: 
 WITH date({year: 1984, month: 10, day: 11}) AS otherDate, time({hour: 12, minute: 31, second: 14, microsecond: 645876, timezone: '+01:00'}) AS otherTime
 RETURN datetime({date: otherDate, time: otherTime}) AS result
 
-- `tck.expressions.temporal.temporal3.scenario-10.examples-1-row-6`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..154; query: 
+- `tck.expressions.temporal.temporal3.scenario-10.examples-1-row-6`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 11..43; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..154; query: 
 WITH date({year: 1984, month: 10, day: 11}) AS otherDate, time({hour: 12, minute: 31, second: 14, microsecond: 645876, timezone: '+01:00'}) AS otherTime
 RETURN datetime({date: otherDate, time: otherTime, timezone: '+05:00'}) AS result
 
-- `tck.expressions.temporal.temporal3.scenario-10.examples-1-row-7`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..154; query: 
+- `tck.expressions.temporal.temporal3.scenario-10.examples-1-row-7`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 11..43; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..154; query: 
 WITH date({year: 1984, month: 10, day: 11}) AS otherDate, time({hour: 12, minute: 31, second: 14, microsecond: 645876, timezone: '+01:00'}) AS otherTime
 RETURN datetime({date: otherDate, time: otherTime, day: 28, second: 42}) AS result
 
-- `tck.expressions.temporal.temporal3.scenario-10.examples-1-row-8`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..154; query: 
+- `tck.expressions.temporal.temporal3.scenario-10.examples-1-row-8`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 11..43; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..154; query: 
 WITH date({year: 1984, month: 10, day: 11}) AS otherDate, time({hour: 12, minute: 31, second: 14, microsecond: 645876, timezone: '+01:00'}) AS otherTime
 RETURN datetime({date: otherDate, time: otherTime, day: 28, second: 42, timezone: 'Pacific/Honolulu'}) AS result
 
-- `tck.expressions.temporal.temporal3.scenario-10.examples-1-row-9`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..176; query: 
+- `tck.expressions.temporal.temporal3.scenario-10.examples-1-row-9`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 11..43; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..176; query: 
 WITH date({year: 1984, month: 10, day: 11}) AS otherDate, localdatetime({year: 1984, week: 10, dayOfWeek: 3, hour: 12, minute: 31, second: 14, millisecond: 645}) AS otherTime
 RETURN datetime({date: otherDate, time: otherTime}) AS result
 
-- `tck.expressions.temporal.temporal3.scenario-10.examples-1-row-10`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..176; query: 
+- `tck.expressions.temporal.temporal3.scenario-10.examples-1-row-10`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 11..43; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..176; query: 
 WITH date({year: 1984, month: 10, day: 11}) AS otherDate, localdatetime({year: 1984, week: 10, dayOfWeek: 3, hour: 12, minute: 31, second: 14, millisecond: 645}) AS otherTime
 RETURN datetime({date: otherDate, time: otherTime, timezone: '+05:00'}) AS result
 
-- `tck.expressions.temporal.temporal3.scenario-10.examples-1-row-11`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..176; query: 
+- `tck.expressions.temporal.temporal3.scenario-10.examples-1-row-11`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 11..43; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..176; query: 
 WITH date({year: 1984, month: 10, day: 11}) AS otherDate, localdatetime({year: 1984, week: 10, dayOfWeek: 3, hour: 12, minute: 31, second: 14, millisecond: 645}) AS otherTime
 RETURN datetime({date: otherDate, time: otherTime, day: 28, second: 42}) AS result
 
-- `tck.expressions.temporal.temporal3.scenario-10.examples-1-row-12`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..176; query: 
+- `tck.expressions.temporal.temporal3.scenario-10.examples-1-row-12`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 11..43; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..176; query: 
 WITH date({year: 1984, month: 10, day: 11}) AS otherDate, localdatetime({year: 1984, week: 10, dayOfWeek: 3, hour: 12, minute: 31, second: 14, millisecond: 645}) AS otherTime
 RETURN datetime({date: otherDate, time: otherTime, day: 28, second: 42, timezone: 'Pacific/Honolulu'}) AS result
 
-- `tck.expressions.temporal.temporal3.scenario-10.examples-1-row-13`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..155; query: 
+- `tck.expressions.temporal.temporal3.scenario-10.examples-1-row-13`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 11..43; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..155; query: 
 WITH date({year: 1984, month: 10, day: 11}) AS otherDate, datetime({year: 1984, month: 10, day: 11, hour: 12, timezone: 'Europe/Stockholm'}) AS otherTime
 RETURN datetime({date: otherDate, time: otherTime}) AS result
 
-- `tck.expressions.temporal.temporal3.scenario-10.examples-1-row-14`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..155; query: 
+- `tck.expressions.temporal.temporal3.scenario-10.examples-1-row-14`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 11..43; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..155; query: 
 WITH date({year: 1984, month: 10, day: 11}) AS otherDate, datetime({year: 1984, month: 10, day: 11, hour: 12, timezone: 'Europe/Stockholm'}) AS otherTime
 RETURN datetime({date: otherDate, time: otherTime, timezone: '+05:00'}) AS result
 
-- `tck.expressions.temporal.temporal3.scenario-10.examples-1-row-15`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..155; query: 
+- `tck.expressions.temporal.temporal3.scenario-10.examples-1-row-15`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 11..43; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..155; query: 
 WITH date({year: 1984, month: 10, day: 11}) AS otherDate, datetime({year: 1984, month: 10, day: 11, hour: 12, timezone: 'Europe/Stockholm'}) AS otherTime
 RETURN datetime({date: otherDate, time: otherTime, day: 28, second: 42}) AS result
 
-- `tck.expressions.temporal.temporal3.scenario-10.examples-1-row-16`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..155; query: 
+- `tck.expressions.temporal.temporal3.scenario-10.examples-1-row-16`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 11..43; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..155; query: 
 WITH date({year: 1984, month: 10, day: 11}) AS otherDate, datetime({year: 1984, month: 10, day: 11, hour: 12, timezone: 'Europe/Stockholm'}) AS otherTime
 RETURN datetime({date: otherDate, time: otherTime, day: 28, second: 42, timezone: 'Pacific/Honolulu'}) AS result
 
-- `tck.expressions.temporal.temporal3.scenario-10.examples-1-row-17`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..206; query: 
+- `tck.expressions.temporal.temporal3.scenario-10.examples-1-row-17`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 20..108; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..206; query: 
 WITH localdatetime({year: 1984, week: 10, dayOfWeek: 3, hour: 12, minute: 31, second: 14, millisecond: 645}) AS otherDate, localtime({hour: 12, minute: 31, second: 14, nanosecond: 645876123}) AS otherTime
 RETURN datetime({date: otherDate, time: otherTime}) AS result
 
-- `tck.expressions.temporal.temporal3.scenario-10.examples-1-row-18`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..206; query: 
+- `tck.expressions.temporal.temporal3.scenario-10.examples-1-row-18`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 20..108; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..206; query: 
 WITH localdatetime({year: 1984, week: 10, dayOfWeek: 3, hour: 12, minute: 31, second: 14, millisecond: 645}) AS otherDate, localtime({hour: 12, minute: 31, second: 14, nanosecond: 645876123}) AS otherTime
 RETURN datetime({date: otherDate, time: otherTime, timezone: '+05:00'}) AS result
 
-- `tck.expressions.temporal.temporal3.scenario-10.examples-1-row-19`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..206; query: 
+- `tck.expressions.temporal.temporal3.scenario-10.examples-1-row-19`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 20..108; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..206; query: 
 WITH localdatetime({year: 1984, week: 10, dayOfWeek: 3, hour: 12, minute: 31, second: 14, millisecond: 645}) AS otherDate, localtime({hour: 12, minute: 31, second: 14, nanosecond: 645876123}) AS otherTime
 RETURN datetime({date: otherDate, time: otherTime, day: 28, second: 42}) AS result
 
-- `tck.expressions.temporal.temporal3.scenario-10.examples-1-row-20`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..206; query: 
+- `tck.expressions.temporal.temporal3.scenario-10.examples-1-row-20`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 20..108; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..206; query: 
 WITH localdatetime({year: 1984, week: 10, dayOfWeek: 3, hour: 12, minute: 31, second: 14, millisecond: 645}) AS otherDate, localtime({hour: 12, minute: 31, second: 14, nanosecond: 645876123}) AS otherTime
 RETURN datetime({date: otherDate, time: otherTime, day: 28, second: 42, timezone: 'Pacific/Honolulu'}) AS result
 
-- `tck.expressions.temporal.temporal3.scenario-10.examples-1-row-21`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..219; query: 
+- `tck.expressions.temporal.temporal3.scenario-10.examples-1-row-21`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 20..108; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..219; query: 
 WITH localdatetime({year: 1984, week: 10, dayOfWeek: 3, hour: 12, minute: 31, second: 14, millisecond: 645}) AS otherDate, time({hour: 12, minute: 31, second: 14, microsecond: 645876, timezone: '+01:00'}) AS otherTime
 RETURN datetime({date: otherDate, time: otherTime}) AS result
 
-- `tck.expressions.temporal.temporal3.scenario-10.examples-1-row-22`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..219; query: 
+- `tck.expressions.temporal.temporal3.scenario-10.examples-1-row-22`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 20..108; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..219; query: 
 WITH localdatetime({year: 1984, week: 10, dayOfWeek: 3, hour: 12, minute: 31, second: 14, millisecond: 645}) AS otherDate, time({hour: 12, minute: 31, second: 14, microsecond: 645876, timezone: '+01:00'}) AS otherTime
 RETURN datetime({date: otherDate, time: otherTime, timezone: '+05:00'}) AS result
 
-- `tck.expressions.temporal.temporal3.scenario-10.examples-1-row-23`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..219; query: 
+- `tck.expressions.temporal.temporal3.scenario-10.examples-1-row-23`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 20..108; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..219; query: 
 WITH localdatetime({year: 1984, week: 10, dayOfWeek: 3, hour: 12, minute: 31, second: 14, millisecond: 645}) AS otherDate, time({hour: 12, minute: 31, second: 14, microsecond: 645876, timezone: '+01:00'}) AS otherTime
 RETURN datetime({date: otherDate, time: otherTime, day: 28, second: 42}) AS result
 
-- `tck.expressions.temporal.temporal3.scenario-10.examples-1-row-24`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..219; query: 
+- `tck.expressions.temporal.temporal3.scenario-10.examples-1-row-24`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 20..108; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..219; query: 
 WITH localdatetime({year: 1984, week: 10, dayOfWeek: 3, hour: 12, minute: 31, second: 14, millisecond: 645}) AS otherDate, time({hour: 12, minute: 31, second: 14, microsecond: 645876, timezone: '+01:00'}) AS otherTime
 RETURN datetime({date: otherDate, time: otherTime, day: 28, second: 42, timezone: 'Pacific/Honolulu'}) AS result
 
-- `tck.expressions.temporal.temporal3.scenario-10.examples-1-row-25`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..241; query: 
+- `tck.expressions.temporal.temporal3.scenario-10.examples-1-row-25`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 20..108; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..241; query: 
 WITH localdatetime({year: 1984, week: 10, dayOfWeek: 3, hour: 12, minute: 31, second: 14, millisecond: 645}) AS otherDate, localdatetime({year: 1984, week: 10, dayOfWeek: 3, hour: 12, minute: 31, second: 14, millisecond: 645}) AS otherTime
 RETURN datetime({date: otherDate, time: otherTime}) AS result
 
-- `tck.expressions.temporal.temporal3.scenario-10.examples-1-row-26`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..241; query: 
+- `tck.expressions.temporal.temporal3.scenario-10.examples-1-row-26`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 20..108; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..241; query: 
 WITH localdatetime({year: 1984, week: 10, dayOfWeek: 3, hour: 12, minute: 31, second: 14, millisecond: 645}) AS otherDate, localdatetime({year: 1984, week: 10, dayOfWeek: 3, hour: 12, minute: 31, second: 14, millisecond: 645}) AS otherTime
 RETURN datetime({date: otherDate, time: otherTime, timezone: '+05:00'}) AS result
 
-- `tck.expressions.temporal.temporal3.scenario-10.examples-1-row-27`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..241; query: 
+- `tck.expressions.temporal.temporal3.scenario-10.examples-1-row-27`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 20..108; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..241; query: 
 WITH localdatetime({year: 1984, week: 10, dayOfWeek: 3, hour: 12, minute: 31, second: 14, millisecond: 645}) AS otherDate, localdatetime({year: 1984, week: 10, dayOfWeek: 3, hour: 12, minute: 31, second: 14, millisecond: 645}) AS otherTime
 RETURN datetime({date: otherDate, time: otherTime, day: 28, second: 42}) AS result
 
-- `tck.expressions.temporal.temporal3.scenario-10.examples-1-row-28`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..241; query: 
+- `tck.expressions.temporal.temporal3.scenario-10.examples-1-row-28`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 20..108; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..241; query: 
 WITH localdatetime({year: 1984, week: 10, dayOfWeek: 3, hour: 12, minute: 31, second: 14, millisecond: 645}) AS otherDate, localdatetime({year: 1984, week: 10, dayOfWeek: 3, hour: 12, minute: 31, second: 14, millisecond: 645}) AS otherTime
 RETURN datetime({date: otherDate, time: otherTime, day: 28, second: 42, timezone: 'Pacific/Honolulu'}) AS result
 
-- `tck.expressions.temporal.temporal3.scenario-10.examples-1-row-29`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..220; query: 
+- `tck.expressions.temporal.temporal3.scenario-10.examples-1-row-29`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 20..108; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..220; query: 
 WITH localdatetime({year: 1984, week: 10, dayOfWeek: 3, hour: 12, minute: 31, second: 14, millisecond: 645}) AS otherDate, datetime({year: 1984, month: 10, day: 11, hour: 12, timezone: 'Europe/Stockholm'}) AS otherTime
 RETURN datetime({date: otherDate, time: otherTime}) AS result
 
-- `tck.expressions.temporal.temporal3.scenario-10.examples-1-row-30`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..220; query: 
+- `tck.expressions.temporal.temporal3.scenario-10.examples-1-row-30`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 20..108; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..220; query: 
 WITH localdatetime({year: 1984, week: 10, dayOfWeek: 3, hour: 12, minute: 31, second: 14, millisecond: 645}) AS otherDate, datetime({year: 1984, month: 10, day: 11, hour: 12, timezone: 'Europe/Stockholm'}) AS otherTime
 RETURN datetime({date: otherDate, time: otherTime, timezone: '+05:00'}) AS result
 
-- `tck.expressions.temporal.temporal3.scenario-10.examples-1-row-31`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..220; query: 
+- `tck.expressions.temporal.temporal3.scenario-10.examples-1-row-31`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 20..108; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..220; query: 
 WITH localdatetime({year: 1984, week: 10, dayOfWeek: 3, hour: 12, minute: 31, second: 14, millisecond: 645}) AS otherDate, datetime({year: 1984, month: 10, day: 11, hour: 12, timezone: 'Europe/Stockholm'}) AS otherTime
 RETURN datetime({date: otherDate, time: otherTime, day: 28, second: 42}) AS result
 
-- `tck.expressions.temporal.temporal3.scenario-10.examples-1-row-32`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..220; query: 
+- `tck.expressions.temporal.temporal3.scenario-10.examples-1-row-32`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 20..108; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..220; query: 
 WITH localdatetime({year: 1984, week: 10, dayOfWeek: 3, hour: 12, minute: 31, second: 14, millisecond: 645}) AS otherDate, datetime({year: 1984, month: 10, day: 11, hour: 12, timezone: 'Europe/Stockholm'}) AS otherTime
 RETURN datetime({date: otherDate, time: otherTime, day: 28, second: 42, timezone: 'Pacific/Honolulu'}) AS result
 
-- `tck.expressions.temporal.temporal3.scenario-10.examples-1-row-33`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..175; query: 
+- `tck.expressions.temporal.temporal3.scenario-10.examples-1-row-33`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 15..77; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..175; query: 
 WITH datetime({year: 1984, month: 10, day: 11, hour: 12, timezone: '+01:00'}) AS otherDate, localtime({hour: 12, minute: 31, second: 14, nanosecond: 645876123}) AS otherTime
 RETURN datetime({date: otherDate, time: otherTime}) AS result
 
-- `tck.expressions.temporal.temporal3.scenario-10.examples-1-row-34`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..175; query: 
+- `tck.expressions.temporal.temporal3.scenario-10.examples-1-row-34`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 15..77; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..175; query: 
 WITH datetime({year: 1984, month: 10, day: 11, hour: 12, timezone: '+01:00'}) AS otherDate, localtime({hour: 12, minute: 31, second: 14, nanosecond: 645876123}) AS otherTime
 RETURN datetime({date: otherDate, time: otherTime, timezone: '+05:00'}) AS result
 
-- `tck.expressions.temporal.temporal3.scenario-10.examples-1-row-35`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..175; query: 
+- `tck.expressions.temporal.temporal3.scenario-10.examples-1-row-35`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 15..77; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..175; query: 
 WITH datetime({year: 1984, month: 10, day: 11, hour: 12, timezone: '+01:00'}) AS otherDate, localtime({hour: 12, minute: 31, second: 14, nanosecond: 645876123}) AS otherTime
 RETURN datetime({date: otherDate, time: otherTime, day: 28, second: 42}) AS result
 
-- `tck.expressions.temporal.temporal3.scenario-10.examples-1-row-36`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..175; query: 
+- `tck.expressions.temporal.temporal3.scenario-10.examples-1-row-36`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 15..77; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..175; query: 
 WITH datetime({year: 1984, month: 10, day: 11, hour: 12, timezone: '+01:00'}) AS otherDate, localtime({hour: 12, minute: 31, second: 14, nanosecond: 645876123}) AS otherTime
 RETURN datetime({date: otherDate, time: otherTime, day: 28, second: 42, timezone: 'Pacific/Honolulu'}) AS result
 
-- `tck.expressions.temporal.temporal3.scenario-10.examples-1-row-37`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..188; query: 
+- `tck.expressions.temporal.temporal3.scenario-10.examples-1-row-37`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 15..77; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..188; query: 
 WITH datetime({year: 1984, month: 10, day: 11, hour: 12, timezone: '+01:00'}) AS otherDate, time({hour: 12, minute: 31, second: 14, microsecond: 645876, timezone: '+01:00'}) AS otherTime
 RETURN datetime({date: otherDate, time: otherTime}) AS result
 
-- `tck.expressions.temporal.temporal3.scenario-10.examples-1-row-38`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..188; query: 
+- `tck.expressions.temporal.temporal3.scenario-10.examples-1-row-38`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 15..77; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..188; query: 
 WITH datetime({year: 1984, month: 10, day: 11, hour: 12, timezone: '+01:00'}) AS otherDate, time({hour: 12, minute: 31, second: 14, microsecond: 645876, timezone: '+01:00'}) AS otherTime
 RETURN datetime({date: otherDate, time: otherTime, timezone: '+05:00'}) AS result
 
-- `tck.expressions.temporal.temporal3.scenario-10.examples-1-row-39`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..188; query: 
+- `tck.expressions.temporal.temporal3.scenario-10.examples-1-row-39`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 15..77; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..188; query: 
 WITH datetime({year: 1984, month: 10, day: 11, hour: 12, timezone: '+01:00'}) AS otherDate, time({hour: 12, minute: 31, second: 14, microsecond: 645876, timezone: '+01:00'}) AS otherTime
 RETURN datetime({date: otherDate, time: otherTime, day: 28, second: 42}) AS result
 
-- `tck.expressions.temporal.temporal3.scenario-10.examples-1-row-40`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..188; query: 
+- `tck.expressions.temporal.temporal3.scenario-10.examples-1-row-40`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 15..77; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..188; query: 
 WITH datetime({year: 1984, month: 10, day: 11, hour: 12, timezone: '+01:00'}) AS otherDate, time({hour: 12, minute: 31, second: 14, microsecond: 645876, timezone: '+01:00'}) AS otherTime
 RETURN datetime({date: otherDate, time: otherTime, day: 28, second: 42, timezone: 'Pacific/Honolulu'}) AS result
 
-- `tck.expressions.temporal.temporal3.scenario-10.examples-1-row-41`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..210; query: 
+- `tck.expressions.temporal.temporal3.scenario-10.examples-1-row-41`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 15..77; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..210; query: 
 WITH datetime({year: 1984, month: 10, day: 11, hour: 12, timezone: '+01:00'}) AS otherDate, localdatetime({year: 1984, week: 10, dayOfWeek: 3, hour: 12, minute: 31, second: 14, millisecond: 645}) AS otherTime
 RETURN datetime({date: otherDate, time: otherTime}) AS result
 
-- `tck.expressions.temporal.temporal3.scenario-10.examples-1-row-42`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..210; query: 
+- `tck.expressions.temporal.temporal3.scenario-10.examples-1-row-42`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 15..77; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..210; query: 
 WITH datetime({year: 1984, month: 10, day: 11, hour: 12, timezone: '+01:00'}) AS otherDate, localdatetime({year: 1984, week: 10, dayOfWeek: 3, hour: 12, minute: 31, second: 14, millisecond: 645}) AS otherTime
 RETURN datetime({date: otherDate, time: otherTime, timezone: '+05:00'}) AS result
 
-- `tck.expressions.temporal.temporal3.scenario-10.examples-1-row-43`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..210; query: 
+- `tck.expressions.temporal.temporal3.scenario-10.examples-1-row-43`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 15..77; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..210; query: 
 WITH datetime({year: 1984, month: 10, day: 11, hour: 12, timezone: '+01:00'}) AS otherDate, localdatetime({year: 1984, week: 10, dayOfWeek: 3, hour: 12, minute: 31, second: 14, millisecond: 645}) AS otherTime
 RETURN datetime({date: otherDate, time: otherTime, day: 28, second: 42}) AS result
 
-- `tck.expressions.temporal.temporal3.scenario-10.examples-1-row-44`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..210; query: 
+- `tck.expressions.temporal.temporal3.scenario-10.examples-1-row-44`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 15..77; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..210; query: 
 WITH datetime({year: 1984, month: 10, day: 11, hour: 12, timezone: '+01:00'}) AS otherDate, localdatetime({year: 1984, week: 10, dayOfWeek: 3, hour: 12, minute: 31, second: 14, millisecond: 645}) AS otherTime
 RETURN datetime({date: otherDate, time: otherTime, day: 28, second: 42, timezone: 'Pacific/Honolulu'}) AS result
 
-- `tck.expressions.temporal.temporal3.scenario-10.examples-1-row-45`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..189; query: 
+- `tck.expressions.temporal.temporal3.scenario-10.examples-1-row-45`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 15..77; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..189; query: 
 WITH datetime({year: 1984, month: 10, day: 11, hour: 12, timezone: '+01:00'}) AS otherDate, datetime({year: 1984, month: 10, day: 11, hour: 12, timezone: 'Europe/Stockholm'}) AS otherTime
 RETURN datetime({date: otherDate, time: otherTime}) AS result
 
-- `tck.expressions.temporal.temporal3.scenario-10.examples-1-row-46`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..189; query: 
+- `tck.expressions.temporal.temporal3.scenario-10.examples-1-row-46`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 15..77; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..189; query: 
 WITH datetime({year: 1984, month: 10, day: 11, hour: 12, timezone: '+01:00'}) AS otherDate, datetime({year: 1984, month: 10, day: 11, hour: 12, timezone: 'Europe/Stockholm'}) AS otherTime
 RETURN datetime({date: otherDate, time: otherTime, timezone: '+05:00'}) AS result
 
-- `tck.expressions.temporal.temporal3.scenario-10.examples-1-row-47`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..189; query: 
+- `tck.expressions.temporal.temporal3.scenario-10.examples-1-row-47`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 15..77; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..189; query: 
 WITH datetime({year: 1984, month: 10, day: 11, hour: 12, timezone: '+01:00'}) AS otherDate, datetime({year: 1984, month: 10, day: 11, hour: 12, timezone: 'Europe/Stockholm'}) AS otherTime
 RETURN datetime({date: otherDate, time: otherTime, day: 28, second: 42}) AS result
 
-- `tck.expressions.temporal.temporal3.scenario-10.examples-1-row-48`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..189; query: 
+- `tck.expressions.temporal.temporal3.scenario-10.examples-1-row-48`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 15..77; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..189; query: 
 WITH datetime({year: 1984, month: 10, day: 11, hour: 12, timezone: '+01:00'}) AS otherDate, datetime({year: 1984, month: 10, day: 11, hour: 12, timezone: 'Europe/Stockholm'}) AS otherTime
 RETURN datetime({date: otherDate, time: otherTime, day: 28, second: 42, timezone: 'Pacific/Honolulu'}) AS result
 
-- `tck.expressions.temporal.temporal3.scenario-11.examples-1-row-1`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..119; query: 
+- `tck.expressions.temporal.temporal3.scenario-11.examples-1-row-1`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 20..108; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..119; query: 
 WITH localdatetime({year: 1984, week: 10, dayOfWeek: 3, hour: 12, minute: 31, second: 14, millisecond: 645}) AS other
 RETURN datetime(other) AS result
 
-- `tck.expressions.temporal.temporal3.scenario-11.examples-1-row-2`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..119; query: 
+- `tck.expressions.temporal.temporal3.scenario-11.examples-1-row-2`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 20..108; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..119; query: 
 WITH localdatetime({year: 1984, week: 10, dayOfWeek: 3, hour: 12, minute: 31, second: 14, millisecond: 645}) AS other
 RETURN datetime({datetime: other}) AS result
 
-- `tck.expressions.temporal.temporal3.scenario-11.examples-1-row-3`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..119; query: 
+- `tck.expressions.temporal.temporal3.scenario-11.examples-1-row-3`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 20..108; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..119; query: 
 WITH localdatetime({year: 1984, week: 10, dayOfWeek: 3, hour: 12, minute: 31, second: 14, millisecond: 645}) AS other
 RETURN datetime({datetime: other, timezone: '+05:00'}) AS result
 
-- `tck.expressions.temporal.temporal3.scenario-11.examples-1-row-4`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..119; query: 
+- `tck.expressions.temporal.temporal3.scenario-11.examples-1-row-4`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 20..108; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..119; query: 
 WITH localdatetime({year: 1984, week: 10, dayOfWeek: 3, hour: 12, minute: 31, second: 14, millisecond: 645}) AS other
 RETURN datetime({datetime: other, day: 28, second: 42}) AS result
 
-- `tck.expressions.temporal.temporal3.scenario-11.examples-1-row-5`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..119; query: 
+- `tck.expressions.temporal.temporal3.scenario-11.examples-1-row-5`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 20..108; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..119; query: 
 WITH localdatetime({year: 1984, week: 10, dayOfWeek: 3, hour: 12, minute: 31, second: 14, millisecond: 645}) AS other
 RETURN datetime({datetime: other, day: 28, second: 42, timezone: 'Pacific/Honolulu'}) AS result
 
-- `tck.expressions.temporal.temporal3.scenario-11.examples-1-row-6`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..98; query: 
+- `tck.expressions.temporal.temporal3.scenario-11.examples-1-row-6`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 15..87; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..98; query: 
 WITH datetime({year: 1984, month: 10, day: 11, hour: 12, timezone: 'Europe/Stockholm'}) AS other
 RETURN datetime(other) AS result
 
-- `tck.expressions.temporal.temporal3.scenario-11.examples-1-row-7`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..98; query: 
+- `tck.expressions.temporal.temporal3.scenario-11.examples-1-row-7`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 15..87; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..98; query: 
 WITH datetime({year: 1984, month: 10, day: 11, hour: 12, timezone: 'Europe/Stockholm'}) AS other
 RETURN datetime({datetime: other}) AS result
 
-- `tck.expressions.temporal.temporal3.scenario-11.examples-1-row-8`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..98; query: 
+- `tck.expressions.temporal.temporal3.scenario-11.examples-1-row-8`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 15..87; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..98; query: 
 WITH datetime({year: 1984, month: 10, day: 11, hour: 12, timezone: 'Europe/Stockholm'}) AS other
 RETURN datetime({datetime: other, timezone: '+05:00'}) AS result
 
-- `tck.expressions.temporal.temporal3.scenario-11.examples-1-row-9`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..98; query: 
+- `tck.expressions.temporal.temporal3.scenario-11.examples-1-row-9`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 15..87; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..98; query: 
 WITH datetime({year: 1984, month: 10, day: 11, hour: 12, timezone: 'Europe/Stockholm'}) AS other
 RETURN datetime({datetime: other, day: 28, second: 42}) AS result
 
-- `tck.expressions.temporal.temporal3.scenario-11.examples-1-row-10`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..98; query: 
+- `tck.expressions.temporal.temporal3.scenario-11.examples-1-row-10`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 15..87; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..98; query: 
 WITH datetime({year: 1984, month: 10, day: 11, hour: 12, timezone: 'Europe/Stockholm'}) AS other
 RETURN datetime({datetime: other, day: 28, second: 42, timezone: 'Pacific/Honolulu'}) AS result
 
@@ -17533,37 +17023,28 @@ CREATE ({dates: [duration({seconds: 13})]})
 - `tck.expressions.temporal.temporal4.scenario-12.examples-1-row-2`: query execution failed: Parse error: mutation clauses in read queries is not supported in the initial graph slice at byte 1..95; mutation execution failed: Cypher mutation binding failed: unknown property `dates` at byte 10..15; query: 
 CREATE ({dates: [duration({seconds: 14}), duration({seconds: 15}), duration({seconds: 16})]})
 
-- `tck.expressions.temporal.temporal4.scenario-13.examples-1-row-1`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..24; query: 
-RETURN date(null) AS t
-
 - `tck.expressions.temporal.temporal4.scenario-13.examples-1-row-2`: expected EOI, ORDER, SKIP, LIMIT, AS, AND, OR, clause, comparison_op, additive_op, multiplicative_op, or property_suffix at byte 23..23
 - `tck.expressions.temporal.temporal4.scenario-13.examples-1-row-3`: expected EOI, ORDER, SKIP, LIMIT, AS, AND, OR, clause, comparison_op, additive_op, multiplicative_op, or property_suffix at byte 21..21
 - `tck.expressions.temporal.temporal4.scenario-13.examples-1-row-4`: expected EOI, ORDER, SKIP, LIMIT, AS, AND, OR, clause, comparison_op, additive_op, multiplicative_op, or property_suffix at byte 20..20
-- `tck.expressions.temporal.temporal4.scenario-13.examples-1-row-5`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..29; query: 
+- `tck.expressions.temporal.temporal4.scenario-13.examples-1-row-5`: query execution failed: Parse error: no such function: localtime; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..29; query: 
 RETURN localtime(null) AS t
 
 - `tck.expressions.temporal.temporal4.scenario-13.examples-1-row-6`: expected EOI, ORDER, SKIP, LIMIT, AS, AND, OR, clause, comparison_op, additive_op, multiplicative_op, or property_suffix at byte 28..28
 - `tck.expressions.temporal.temporal4.scenario-13.examples-1-row-7`: expected EOI, ORDER, SKIP, LIMIT, AS, AND, OR, clause, comparison_op, additive_op, multiplicative_op, or property_suffix at byte 26..26
 - `tck.expressions.temporal.temporal4.scenario-13.examples-1-row-8`: expected EOI, ORDER, SKIP, LIMIT, AS, AND, OR, clause, comparison_op, additive_op, multiplicative_op, or property_suffix at byte 25..25
-- `tck.expressions.temporal.temporal4.scenario-13.examples-1-row-9`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..24; query: 
-RETURN time(null) AS t
-
 - `tck.expressions.temporal.temporal4.scenario-13.examples-1-row-10`: expected EOI, ORDER, SKIP, LIMIT, AS, AND, OR, clause, comparison_op, additive_op, multiplicative_op, or property_suffix at byte 23..23
 - `tck.expressions.temporal.temporal4.scenario-13.examples-1-row-11`: expected EOI, ORDER, SKIP, LIMIT, AS, AND, OR, clause, comparison_op, additive_op, multiplicative_op, or property_suffix at byte 21..21
 - `tck.expressions.temporal.temporal4.scenario-13.examples-1-row-12`: expected EOI, ORDER, SKIP, LIMIT, AS, AND, OR, clause, comparison_op, additive_op, multiplicative_op, or property_suffix at byte 20..20
-- `tck.expressions.temporal.temporal4.scenario-13.examples-1-row-13`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..33; query: 
+- `tck.expressions.temporal.temporal4.scenario-13.examples-1-row-13`: query execution failed: Parse error: no such function: localdatetime; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..33; query: 
 RETURN localdatetime(null) AS t
 
 - `tck.expressions.temporal.temporal4.scenario-13.examples-1-row-14`: expected EOI, ORDER, SKIP, LIMIT, AS, AND, OR, clause, comparison_op, additive_op, multiplicative_op, or property_suffix at byte 32..32
 - `tck.expressions.temporal.temporal4.scenario-13.examples-1-row-15`: expected EOI, ORDER, SKIP, LIMIT, AS, AND, OR, clause, comparison_op, additive_op, multiplicative_op, or property_suffix at byte 30..30
 - `tck.expressions.temporal.temporal4.scenario-13.examples-1-row-16`: expected EOI, ORDER, SKIP, LIMIT, AS, AND, OR, clause, comparison_op, additive_op, multiplicative_op, or property_suffix at byte 29..29
-- `tck.expressions.temporal.temporal4.scenario-13.examples-1-row-17`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..28; query: 
-RETURN datetime(null) AS t
-
 - `tck.expressions.temporal.temporal4.scenario-13.examples-1-row-18`: expected EOI, ORDER, SKIP, LIMIT, AS, AND, OR, clause, comparison_op, additive_op, multiplicative_op, or property_suffix at byte 27..27
 - `tck.expressions.temporal.temporal4.scenario-13.examples-1-row-19`: expected EOI, ORDER, SKIP, LIMIT, AS, AND, OR, clause, comparison_op, additive_op, multiplicative_op, or property_suffix at byte 25..25
 - `tck.expressions.temporal.temporal4.scenario-13.examples-1-row-20`: expected EOI, ORDER, SKIP, LIMIT, AS, AND, OR, clause, comparison_op, additive_op, multiplicative_op, or property_suffix at byte 24..24
-- `tck.expressions.temporal.temporal4.scenario-13.examples-1-row-21`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..28; query: 
+- `tck.expressions.temporal.temporal4.scenario-13.examples-1-row-21`: query execution failed: Parse error: no such function: duration; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..28; query: 
 RETURN duration(null) AS t
 
 - `tck.expressions.temporal.temporal5.scenario-1`: TCK setup query failed: query execution failed: Parse error: mutation clauses in read queries is not supported in the initial graph slice at byte 1..62; mutation execution failed: Cypher mutation binding failed: unknown label `Val` at byte 10..13; query: 
@@ -17601,143 +17082,143 @@ CREATE (:Val {date: duration({years: 1, months: 4, days: 10, hours: 1, minutes: 
 ; query: 
 CREATE (:Val {date: duration({years: 1, months: 4, days: 10, hours: 1, minutes: 1, seconds: 1, nanoseconds: 111111111})})
 
-- `tck.expressions.temporal.temporal6.scenario-1`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..50; query: 
+- `tck.expressions.temporal.temporal6.scenario-1`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 11..43; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..50; query: 
 WITH date({year: 1984, month: 10, day: 11}) AS d
 RETURN toString(d) AS ts, date(toString(d)) = d AS b
 
-- `tck.expressions.temporal.temporal6.scenario-2`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..80; query: 
+- `tck.expressions.temporal.temporal6.scenario-2`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 16..73; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..80; query: 
 WITH localtime({hour: 12, minute: 31, second: 14, nanosecond: 645876123}) AS d
 RETURN toString(d) AS ts, localtime(toString(d)) = d AS b
 
-- `tck.expressions.temporal.temporal6.scenario-3`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..95; query: 
+- `tck.expressions.temporal.temporal6.scenario-3`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 11..88; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..95; query: 
 WITH time({hour: 12, minute: 31, second: 14, nanosecond: 645876123, timezone: '+01:00'}) AS d
 RETURN toString(d) AS ts, time(toString(d)) = d AS b
 
-- `tck.expressions.temporal.temporal6.scenario-4`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..116; query: 
+- `tck.expressions.temporal.temporal6.scenario-4`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 20..109; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..116; query: 
 WITH localdatetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123}) AS d
 RETURN toString(d) AS ts, localdatetime(toString(d)) = d AS b
 
-- `tck.expressions.temporal.temporal6.scenario-5`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..131; query: 
+- `tck.expressions.temporal.temporal6.scenario-5`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 15..124; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..131; query: 
 WITH datetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123, timezone: '+01:00'}) AS d
 RETURN toString(d) AS ts, datetime(toString(d)) = d AS b
 
-- `tck.expressions.temporal.temporal6.scenario-6.examples-1-row-1`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..107; query: 
+- `tck.expressions.temporal.temporal6.scenario-6.examples-1-row-1`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 15..100; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..107; query: 
 WITH duration({years: 12, months: 5, days: 14, hours: 16, minutes: 12, seconds: 70, nanoseconds: 1}) AS d
 RETURN toString(d) AS ts, duration(toString(d)) = d AS b
 
-- `tck.expressions.temporal.temporal6.scenario-6.examples-1-row-2`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..66; query: 
+- `tck.expressions.temporal.temporal6.scenario-6.examples-1-row-2`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 15..59; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..66; query: 
 WITH duration({years: 12, months: 5, days: -14, hours: 16}) AS d
 RETURN toString(d) AS ts, duration(toString(d)) = d AS b
 
-- `tck.expressions.temporal.temporal6.scenario-6.examples-1-row-3`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..49; query: 
+- `tck.expressions.temporal.temporal6.scenario-6.examples-1-row-3`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 15..42; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..49; query: 
 WITH duration({minutes: 12, seconds: -60}) AS d
 RETURN toString(d) AS ts, duration(toString(d)) = d AS b
 
-- `tck.expressions.temporal.temporal6.scenario-6.examples-1-row-4`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..52; query: 
+- `tck.expressions.temporal.temporal6.scenario-6.examples-1-row-4`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 15..45; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..52; query: 
 WITH duration({seconds: 2, milliseconds: -1}) AS d
 RETURN toString(d) AS ts, duration(toString(d)) = d AS b
 
-- `tck.expressions.temporal.temporal6.scenario-6.examples-1-row-5`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..52; query: 
+- `tck.expressions.temporal.temporal6.scenario-6.examples-1-row-5`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 15..45; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..52; query: 
 WITH duration({seconds: -2, milliseconds: 1}) AS d
 RETURN toString(d) AS ts, duration(toString(d)) = d AS b
 
-- `tck.expressions.temporal.temporal6.scenario-6.examples-1-row-6`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..53; query: 
+- `tck.expressions.temporal.temporal6.scenario-6.examples-1-row-6`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 15..46; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..53; query: 
 WITH duration({seconds: -2, milliseconds: -1}) AS d
 RETURN toString(d) AS ts, duration(toString(d)) = d AS b
 
-- `tck.expressions.temporal.temporal6.scenario-6.examples-1-row-7`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..48; query: 
+- `tck.expressions.temporal.temporal6.scenario-6.examples-1-row-7`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 15..41; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..48; query: 
 WITH duration({days: 1, milliseconds: 1}) AS d
 RETURN toString(d) AS ts, duration(toString(d)) = d AS b
 
-- `tck.expressions.temporal.temporal6.scenario-6.examples-1-row-8`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..49; query: 
+- `tck.expressions.temporal.temporal6.scenario-6.examples-1-row-8`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 15..42; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..49; query: 
 WITH duration({days: 1, milliseconds: -1}) AS d
 RETURN toString(d) AS ts, duration(toString(d)) = d AS b
 
-- `tck.expressions.temporal.temporal6.scenario-6.examples-1-row-9`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..53; query: 
+- `tck.expressions.temporal.temporal6.scenario-6.examples-1-row-9`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 15..46; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..53; query: 
 WITH duration({seconds: 60, milliseconds: -1}) AS d
 RETURN toString(d) AS ts, duration(toString(d)) = d AS b
 
-- `tck.expressions.temporal.temporal6.scenario-6.examples-1-row-10`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..53; query: 
+- `tck.expressions.temporal.temporal6.scenario-6.examples-1-row-10`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 15..46; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..53; query: 
 WITH duration({seconds: -60, milliseconds: 1}) AS d
 RETURN toString(d) AS ts, duration(toString(d)) = d AS b
 
-- `tck.expressions.temporal.temporal6.scenario-6.examples-1-row-11`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..54; query: 
+- `tck.expressions.temporal.temporal6.scenario-6.examples-1-row-11`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 15..47; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..54; query: 
 WITH duration({seconds: -60, milliseconds: -1}) AS d
 RETURN toString(d) AS ts, duration(toString(d)) = d AS b
 
-- `tck.expressions.temporal.temporal6.scenario-7`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..139; query: 
+- `tck.expressions.temporal.temporal6.scenario-7`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 15..132; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..139; query: 
 WITH datetime({year: 2017, month: 8, day: 8, hour: 12, minute: 31, second: 14, nanosecond: 645876123, timezone: 'Europe/Stockholm'}) AS d
 RETURN toString(d) AS ts
 
-- `tck.expressions.temporal.temporal7.scenario-1.examples-1-row-1`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..95; query: 
+- `tck.expressions.temporal.temporal7.scenario-1.examples-1-row-1`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 11..43; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..95; query: 
 WITH date({year: 1980, month: 12, day: 24}) AS x, date({year: 1984, month: 10, day: 11}) AS d
 RETURN x > d, x < d, x >= d, x <= d, x = d
 
-- `tck.expressions.temporal.temporal7.scenario-1.examples-1-row-2`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..95; query: 
+- `tck.expressions.temporal.temporal7.scenario-1.examples-1-row-2`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 11..43; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..95; query: 
 WITH date({year: 1984, month: 10, day: 11}) AS x, date({year: 1984, month: 10, day: 11}) AS d
 RETURN x > d, x < d, x >= d, x <= d, x = d
 
-- `tck.expressions.temporal.temporal7.scenario-2.examples-1-row-1`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..120; query: 
+- `tck.expressions.temporal.temporal7.scenario-2.examples-1-row-1`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 16..38; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..120; query: 
 WITH localtime({hour: 10, minute: 35}) AS x, localtime({hour: 12, minute: 31, second: 14, nanosecond: 645876123}) AS d
 RETURN x > d, x < d, x >= d, x <= d, x = d
 
-- `tck.expressions.temporal.temporal7.scenario-2.examples-1-row-2`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..155; query: 
+- `tck.expressions.temporal.temporal7.scenario-2.examples-1-row-2`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 16..73; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..155; query: 
 WITH localtime({hour: 12, minute: 31, second: 14, nanosecond: 645876123}) AS x, localtime({hour: 12, minute: 31, second: 14, nanosecond: 645876123}) AS d
 RETURN x > d, x < d, x >= d, x <= d, x = d
 
-- `tck.expressions.temporal.temporal7.scenario-3.examples-1-row-1`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..148; query: 
+- `tck.expressions.temporal.temporal7.scenario-3.examples-1-row-1`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 11..52; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..148; query: 
 WITH time({hour: 10, minute: 0, timezone: '+01:00'}) AS x, time({hour: 9, minute: 35, second: 14, nanosecond: 645876123, timezone: '+00:00'}) AS d
 RETURN x > d, x < d, x >= d, x <= d, x = d
 
-- `tck.expressions.temporal.temporal7.scenario-3.examples-1-row-2`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..183; query: 
+- `tck.expressions.temporal.temporal7.scenario-3.examples-1-row-2`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 11..87; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..183; query: 
 WITH time({hour: 9, minute: 35, second: 14, nanosecond: 645876123, timezone: '+00:00'}) AS x, time({hour: 9, minute: 35, second: 14, nanosecond: 645876123, timezone: '+00:00'}) AS d
 RETURN x > d, x < d, x >= d, x <= d, x = d
 
-- `tck.expressions.temporal.temporal7.scenario-4.examples-1-row-1`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..204; query: 
+- `tck.expressions.temporal.temporal7.scenario-4.examples-1-row-1`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 20..86; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..204; query: 
 WITH localdatetime({year: 1980, month: 12, day: 11, hour: 12, minute: 31, second: 14}) AS x, localdatetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123}) AS d
 RETURN x > d, x < d, x >= d, x <= d, x = d
 
-- `tck.expressions.temporal.temporal7.scenario-4.examples-1-row-2`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..227; query: 
+- `tck.expressions.temporal.temporal7.scenario-4.examples-1-row-2`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 20..109; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..227; query: 
 WITH localdatetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123}) AS x, localdatetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123}) AS d
 RETURN x > d, x < d, x >= d, x <= d, x = d
 
-- `tck.expressions.temporal.temporal7.scenario-5.examples-1-row-1`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..211; query: 
+- `tck.expressions.temporal.temporal7.scenario-5.examples-1-row-1`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 15..101; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..211; query: 
 WITH datetime({year: 1980, month: 12, day: 11, hour: 12, minute: 31, second: 14, timezone: '+00:00'}) AS x, datetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, timezone: '+05:00'}) AS d
 RETURN x > d, x < d, x >= d, x <= d, x = d
 
-- `tck.expressions.temporal.temporal7.scenario-5.examples-1-row-2`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..211; query: 
+- `tck.expressions.temporal.temporal7.scenario-5.examples-1-row-2`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 15..101; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..211; query: 
 WITH datetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, timezone: '+05:00'}) AS x, datetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, timezone: '+05:00'}) AS d
 RETURN x > d, x < d, x >= d, x <= d, x = d
 
-- `tck.expressions.temporal.temporal7.scenario-6.examples-1-row-1`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..136; query: 
+- `tck.expressions.temporal.temporal7.scenario-6.examples-1-row-1`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 15..84; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..136; query: 
 WITH duration({years: 12, months: 5, days: 14, hours: 16, minutes: 12, seconds: 70}) AS x, date({year: 1984, month: 10, day: 11}) AS d
 RETURN x = d
 
-- `tck.expressions.temporal.temporal7.scenario-6.examples-1-row-2`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..166; query: 
+- `tck.expressions.temporal.temporal7.scenario-6.examples-1-row-2`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 15..84; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..166; query: 
 WITH duration({years: 12, months: 5, days: 14, hours: 16, minutes: 12, seconds: 70}) AS x, localtime({hour: 12, minute: 31, second: 14, nanosecond: 645876123}) AS d
 RETURN x = d
 
-- `tck.expressions.temporal.temporal7.scenario-6.examples-1-row-3`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..180; query: 
+- `tck.expressions.temporal.temporal7.scenario-6.examples-1-row-3`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 15..84; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..180; query: 
 WITH duration({years: 12, months: 5, days: 14, hours: 16, minutes: 12, seconds: 70}) AS x, time({hour: 9, minute: 35, second: 14, nanosecond: 645876123, timezone: '+00:00'}) AS d
 RETURN x = d
 
-- `tck.expressions.temporal.temporal7.scenario-6.examples-1-row-4`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..202; query: 
+- `tck.expressions.temporal.temporal7.scenario-6.examples-1-row-4`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 15..84; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..202; query: 
 WITH duration({years: 12, months: 5, days: 14, hours: 16, minutes: 12, seconds: 70}) AS x, localdatetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123}) AS d
 RETURN x = d
 
-- `tck.expressions.temporal.temporal7.scenario-6.examples-1-row-5`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..194; query: 
+- `tck.expressions.temporal.temporal7.scenario-6.examples-1-row-5`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 15..84; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..194; query: 
 WITH duration({years: 12, months: 5, days: 14, hours: 16, minutes: 12, seconds: 70}) AS x, datetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, timezone: '+05:00'}) AS d
 RETURN x = d
 
-- `tck.expressions.temporal.temporal7.scenario-6.examples-1-row-6`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..177; query: 
+- `tck.expressions.temporal.temporal7.scenario-6.examples-1-row-6`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 15..84; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..177; query: 
 WITH duration({years: 12, months: 5, days: 14, hours: 16, minutes: 12, seconds: 70}) AS x, duration({years: 12, months: 5, days: 14, hours: 16, minutes: 12, seconds: 70}) AS d
 RETURN x = d
 
-- `tck.expressions.temporal.temporal7.scenario-6.examples-1-row-7`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..177; query: 
+- `tck.expressions.temporal.temporal7.scenario-6.examples-1-row-7`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 15..84; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..177; query: 
 WITH duration({years: 12, months: 5, days: 14, hours: 16, minutes: 12, seconds: 70}) AS x, duration({years: 12, months: 5, days: 14, hours: 16, minutes: 13, seconds: 10}) AS d
 RETURN x = d
 
-- `tck.expressions.temporal.temporal7.scenario-6.examples-1-row-8`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..177; query: 
+- `tck.expressions.temporal.temporal7.scenario-6.examples-1-row-8`: query execution failed: Parse error: map literal outside a property assignment is not supported in the initial graph slice at byte 15..84; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..177; query: 
 WITH duration({years: 12, months: 5, days: 14, hours: 16, minutes: 12, seconds: 70}) AS x, duration({years: 12, months: 5, days: 13, hours: 40, minutes: 13, seconds: 10}) AS d
 RETURN x = d
 
@@ -18220,7 +17701,7 @@ CREATE (:Duration {date: duration({years: 12, months: 5, days: 14, hours: 16, mi
 UNWIND [true, false] AS b
 RETURN toBoolean(b) AS b
 
-- `tck.expressions.typeconversion.typeconversion1.scenario-2`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..31; query: 
+- `tck.expressions.typeconversion.typeconversion1.scenario-2`: query execution failed: Parse error: no such function: toBoolean; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..31; query: 
 RETURN toBoolean('true') AS b
 
 - `tck.expressions.typeconversion.typeconversion1.scenario-3`: query execution failed: Parse error: no such function: toBoolean; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..30; query: 
@@ -18231,18 +17712,18 @@ RETURN toBoolean(s) AS b
 UNWIND [null, '', ' tru ', 'f alse'] AS things
 RETURN toBoolean(things) AS b
 
-- `tck.expressions.typeconversion.typeconversion2.scenario-1`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..21; query: 
+- `tck.expressions.typeconversion.typeconversion2.scenario-1`: query execution failed: Parse error: no such function: toInteger; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..21; query: 
 WITH 82.9 AS weight
 RETURN toInteger(weight)
 
-- `tck.expressions.typeconversion.typeconversion2.scenario-2`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..46; query: 
+- `tck.expressions.typeconversion.typeconversion2.scenario-2`: query execution failed: Parse error: no such function: toInteger; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..46; query: 
 WITH 'foo' AS foo_string, '' AS empty_string
 RETURN toInteger(foo_string) AS foo, toInteger(empty_string) AS empty
 
 - `tck.expressions.typeconversion.typeconversion2.scenario-3`: expected AND, OR, comparison_op, additive_op, multiplicative_op, or property_suffix at byte 35..35
 - `tck.expressions.typeconversion.typeconversion2.scenario-4`: expected AND, OR, comparison_op, additive_op, multiplicative_op, or property_suffix at byte 41..41
 - `tck.expressions.typeconversion.typeconversion2.scenario-5`: expected AND, OR, comparison_op, additive_op, multiplicative_op, or property_suffix at byte 46..46
-- `tck.expressions.typeconversion.typeconversion2.scenario-6`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..40; query: 
+- `tck.expressions.typeconversion.typeconversion2.scenario-6`: query execution failed: Parse error: no such function: toInteger; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..40; query: 
 RETURN toInteger(1 - $param) AS result
 
 - `tck.expressions.typeconversion.typeconversion2.scenario-7`: query execution failed: Parse error: no such function: toInteger; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 33..40; query: 
@@ -18252,7 +17733,7 @@ MATCH (n)
 RETURN toInteger(n.name) AS name
 
 - `tck.expressions.typeconversion.typeconversion3.scenario-1`: expected AND, OR, comparison_op, additive_op, multiplicative_op, or property_suffix at byte 35..35
-- `tck.expressions.typeconversion.typeconversion3.scenario-2`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..46; query: 
+- `tck.expressions.typeconversion.typeconversion3.scenario-2`: query execution failed: Parse error: no such function: toFloat; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..46; query: 
 WITH 'foo' AS foo_string, '' AS empty_string
 RETURN toFloat(foo_string) AS foo, toFloat(empty_string) AS empty
 
@@ -18263,13 +17744,13 @@ CREATE (:Movie {rating: 4})
 ; query: 
 CREATE (:Movie {rating: 4})
 
-- `tck.expressions.typeconversion.typeconversion4.scenario-1`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..29; query: 
+- `tck.expressions.typeconversion.typeconversion4.scenario-1`: query execution failed: Parse error: no such function: toString; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..29; query: 
 RETURN toString(42) AS bool
 
-- `tck.expressions.typeconversion.typeconversion4.scenario-2`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..31; query: 
+- `tck.expressions.typeconversion.typeconversion4.scenario-2`: query execution failed: Parse error: no such function: toString; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..31; query: 
 RETURN toString(true) AS bool
 
-- `tck.expressions.typeconversion.typeconversion4.scenario-3`: query execution failed: Parse error: query produced no plan; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..32; query: 
+- `tck.expressions.typeconversion.typeconversion4.scenario-3`: query execution failed: Parse error: no such function: toString; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..32; query: 
 RETURN toString(1 < 0) AS bool
 
 - `tck.expressions.typeconversion.typeconversion4.scenario-4`: TCK setup query failed: query execution failed: Parse error: mutation clauses in read queries is not supported in the initial graph slice at byte 1..33; mutation execution failed: Cypher mutation binding failed: unknown label `Movie` at byte 10..15; query: 
@@ -18368,6 +17849,6 @@ CREATE (b1)-[:FRIEND]->(b2),
 
 ## Longitudinal inventory
 
-- Runs: 19
-- Result records: 31241
+- Runs: 24
+- Result records: 41633
 - Unique test identities: 10441

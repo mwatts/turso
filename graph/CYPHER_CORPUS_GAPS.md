@@ -2,8 +2,8 @@
 
 This analysis describes the five-source corpus after removing the complete
 LadybugDB/Kuzu donor suite and its curated fixture adaptations. The current
-corpus run contains 10,392 independently executed identities: 900 passed and
-9,492 failed with a recorded reason. No identity is skipped, classified as
+corpus run contains 10,392 independently executed identities: 1,413 passed and
+8,979 failed with a recorded reason. No identity is skipped, classified as
 unsupported, or satisfied by copying another identity's result.
 
 ## Failure boundaries
@@ -11,14 +11,14 @@ unsupported, or satisfied by copying another identity's result.
 | Boundary | Source identities | Meaning |
 | --- | ---: | --- |
 | Parser | 3,698 | The identity ran and parsing failed. |
-| Query or mutation execution | 5,115 | Parsing succeeded and binding, lowering, or execution failed. |
+| Query or mutation execution | 4,602 | Parsing succeeded and binding, lowering, or execution failed. |
 | Scenario setup execution | 637 | The test's own setup statement ran and failed. |
 | Named donor dataset execution | 16 | The pinned dataset setup ran and failed. |
 | Named TCK fixture execution | 1 | The pinned named-graph setup ran and failed. |
 | Parameter binding | 3 | The test parameter cannot yet be represented by the frontend value boundary. |
 | Result comparison | 14 | Execution completed but the graph/scalar result contract is not representable or did not match. |
 | Side-effect comparison | 8 | The mutation ran, but complete TCK side-effect accounting is not implemented. |
-| **Total** | **9,492** | |
+| **Total** | **8,979** | |
 
 These numbers are source identities, not distinct implementation tasks.
 Normalized queries share cached parse results, but every identity initializes
@@ -70,10 +70,12 @@ are shown to match that contract.
 
 ## Scalar execution gaps
 
-The largest known scalar limitation is direct `RETURN` projection without an
-input plan. Adding an IR `Unit` input will move those cases to their next real
-binding or execution boundary; it will not make every case pass. Missing
-Cypher function aliases and `DISTINCT` function arguments form smaller groups.
+Direct `RETURN` and `WITH` projections now use the existing single-row IR
+`Unit` input when no preceding clause supplies rows. That change moved 271
+source identities to pass; other standalone projections now expose their next
+real parameter, function, expression, or result boundary instead of failing
+with `query produced no plan`. Missing Cypher function aliases and `DISTINCT`
+function arguments remain separate execution and grammar groups.
 
 ## The 20 TCK result mismatches
 

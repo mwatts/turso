@@ -27,8 +27,8 @@ would still allow vendor semantics to leak into Turso's conformance contract.
 
 A strict binary-outcome corpus run classified all 10,392 identities:
 
-- 900 passed;
-- 9,492 failed with a non-empty reason; and
+- 1,413 passed;
+- 8,979 failed with a non-empty reason; and
 - 0 were skipped, unsupported, or satisfied through a canonical-result alias.
 
 Every source identity runs independently, including the 1,569 identities whose
@@ -39,14 +39,14 @@ intersections. Failures by their recorded boundary were:
 | Boundary | Identities |
 | --- | ---: |
 | Parser | 3,698 |
-| Query or mutation execution | 5,115 |
+| Query or mutation execution | 4,602 |
 | Scenario setup execution | 637 |
 | Named donor dataset execution | 16 |
 | Named TCK fixture execution | 1 |
 | Parameter binding | 3 |
 | Scalar or graph result comparison | 14 |
 | Side-effect comparison | 8 |
-| **Total** | **9,492** |
+| **Total** | **8,979** |
 
 This is broad regression and parser-compatibility coverage, not a claim of
 full openCypher conformance. The runner attempts parsed read and mutation
