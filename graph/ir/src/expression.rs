@@ -119,6 +119,10 @@ pub enum Expression {
         arguments: Vec<TypedExpression>,
     },
     List(Vec<TypedExpression>),
+    /// A `{field: value}` literal bound against a resolved STRUCT/UNION
+    /// property target. Field order matches the target's declared field/
+    /// variant order (established at bind time), not source order.
+    Map(Vec<(String, TypedExpression)>),
 }
 
 /// Expression plus the type/nullability established by the binder.
@@ -173,5 +177,21 @@ mod value_type_tests {
         let unknown_dims = ValueType::Vector(VectorKind::Float32Dense, None);
         assert_ne!(dense, unknown_dims);
         assert_eq!(VectorKind::Float32Dense, VectorKind::Float32Dense);
+    }
+
+    #[test]
+    fn map_expression_holds_ordered_field_bindings() {
+        let map = Expression::Map(vec![(
+            "x".to_owned(),
+            TypedExpression {
+                expression: Expression::Literal(Literal::Integer(1)),
+                value_type: ValueType::Integer,
+                nullability: Nullability::NonNull,
+            },
+        )]);
+        match map {
+            Expression::Map(entries) => assert_eq!(entries.len(), 1),
+            _ => panic!("expected Map"),
+        }
     }
 }

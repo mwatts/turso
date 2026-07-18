@@ -682,6 +682,44 @@ fn lower_expression_with_references(
                 .join(", ");
             Ok(format!("json_array({values})"))
         }
+        ir::Expression::Map(entries) => match &expression.value_type {
+            ir::ValueType::Struct(fields) => {
+                let mut ordered = Vec::with_capacity(fields.len());
+                for (field_name, _) in fields {
+                    let (_, value) = entries
+                        .iter()
+                        .find(|(name, _)| name == field_name)
+                        .ok_or_else(|| LowerError::InvalidName(field_name.clone()))?;
+                    ordered.push(lower_expression_with_references(
+                        value,
+                        bindings,
+                        catalog,
+                        input_alias,
+                        references,
+                    )?);
+                }
+                Ok(format!("struct_pack({})", ordered.join(", ")))
+            }
+            ir::ValueType::Union(_) => {
+                // Invariant: bind_map_property (graph/frontend/src/binder.rs)
+                // only ever constructs a Union-typed Map with exactly one entry.
+                let (tag, value) = &entries[0];
+                let value_sql = lower_expression_with_references(
+                    value,
+                    bindings,
+                    catalog,
+                    input_alias,
+                    references,
+                )?;
+                Ok(format!(
+                    "union_value('{}', {value_sql})",
+                    tag.replace('\'', "''")
+                ))
+            }
+            _ => Err(LowerError::UnsupportedOperator(
+                "map literal outside a struct or union property",
+            )),
+        },
     }
 }
 
