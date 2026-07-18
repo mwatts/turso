@@ -49,7 +49,9 @@ pub fn render(records: &[ResultRecord]) -> String {
             }
         }
 
-        if suite.starts_with("performance-") {
+        if latest.len() > 500 {
+            append_large_suite_summary(&mut report, latest);
+        } else if suite.starts_with("performance-") {
             report.push_str("| Test | Operation | Scale | Outcome | Duration | Throughput/s |\n|---|---|---:|---|---:|---:|\n");
             for record in latest {
                 report.push_str(&format!(
@@ -90,6 +92,62 @@ pub fn render(records: &[ResultRecord]) -> String {
             .len()
     ));
     report
+}
+
+fn append_large_suite_summary(report: &mut String, latest: &[&ResultRecord]) {
+    let mut by_area = BTreeMap::<(&str, &'static str), usize>::new();
+    let mut by_execution = BTreeMap::<(&str, &'static str), usize>::new();
+    for record in latest {
+        let outcome = outcome_name(record.outcome);
+        *by_area.entry((&record.area, outcome)).or_default() += 1;
+        let execution = record
+            .dimensions
+            .get("execution")
+            .map(String::as_str)
+            .unwrap_or("unknown");
+        *by_execution.entry((execution, outcome)).or_default() += 1;
+    }
+    report.push_str("### Results by source area\n\n| Area | Outcome | Count |\n|---|---|---:|\n");
+    for ((area, outcome), count) in by_area {
+        report.push_str(&format!("| {area} | `{outcome}` | {count} |\n"));
+    }
+    report.push_str(
+        "\n### Results by execution boundary\n\n| Boundary | Outcome | Count |\n|---|---|---:|\n",
+    );
+    for ((execution, outcome), count) in by_execution {
+        report.push_str(&format!("| `{execution}` | `{outcome}` | {count} |\n"));
+    }
+    let failures = latest
+        .iter()
+        .filter(|record| {
+            matches!(
+                record.outcome,
+                Outcome::Failed | Outcome::UnexpectedlySupported
+            )
+        })
+        .collect::<Vec<_>>();
+    report.push_str(&format!("\n### Failures ({})\n\n", failures.len()));
+    if failures.is_empty() {
+        report.push_str("- None.\n");
+    } else {
+        for record in failures {
+            report.push_str(&format!(
+                "- `{}`: {}\n",
+                record.test_id,
+                record.message.as_deref().unwrap_or("no diagnostic")
+            ));
+        }
+    }
+}
+
+fn outcome_name(outcome: Outcome) -> &'static str {
+    match outcome {
+        Outcome::Passed => "passed",
+        Outcome::Failed => "failed",
+        Outcome::Unsupported => "unsupported",
+        Outcome::UnexpectedlySupported => "unexpectedly-supported",
+        Outcome::ResourceExhausted => "resource-exhausted",
+    }
 }
 
 fn append_changes(

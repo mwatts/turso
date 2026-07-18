@@ -41,6 +41,8 @@ representative CSR benchmarks with:
 ```sh
 cargo run -q -p turso_graph_testkit -- run smoke --no-record
 cargo run -q -p turso_graph_testkit -- run deep --no-record
+cargo run -q -p turso_graph_testkit -- corpus-stats
+cargo run -q -p turso_graph_testkit -- corpus --no-record
 cargo run -q -p turso_graph_testkit -- performance smoke --no-record
 cargo test -p turso_graph_testkit
 cargo test -p turso_graph_runtime --test benchmark_shapes
@@ -51,3 +53,8 @@ Omit `--no-record` on an intentional baseline run to append one result per
 stable test identity to `graph/test-results/history.jsonl` and regenerate
 `graph/test-results/REPORT.md`. Use `verify-history` to validate the persisted
 schema and uniqueness contract without running a workload.
+
+The corpus commands cover all 26,332 imported source identities from the
+openCypher TCK, Grafeo, LadybugDB/Kuzu, Apache AGE, SparrowDB, and CQLite.
+Canonical execution and cross-source parser caches remove duplicate work while
+preserving every source identity in the result stream.

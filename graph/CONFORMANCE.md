@@ -1,57 +1,54 @@
-# Turso graph conformance report
+# Turso graph Cypher conformance
 
-Generated from the typed manifests under `graph/testdata/suites/`. Supported
-scenarios execute end-to-end; unordered results compare as multisets.
-Unsupported scenarios must fail at their declared diagnostic boundary. A
-supported scenario that errors or returns different rows fails the suite, as
-does an unsupported scenario that unexpectedly succeeds. This curated
-mixed-source slice is evidence of the listed behavior, not a claim of full
-openCypher TCK conformance.
+The corpus-scale baseline imports **26,332 source test identities** from six
+pinned upstream suites. It does not curate a small representative slice.
+Every discovered identity is retained in history; exact duplicate contracts
+are aliases of one canonical execution, and normalized queries share one
+parser result across sources.
 
-## Supported (32)
+## Corpus inventory
 
-- `tck.with.with1.scenario-1`
-- `grafeo.match.directed-edge`
-- `age.vle.zero-length`
-- `pggraph.traversal.exact-two-hops`
-- `ladybug.match.undirected-edge`
-- `ladybug.optional.null-extension`
-- `sparrow.path.two-hop-multiplicity`
-- `sparrow.merge.existing-node`
-- `cqlite.match.labeled-node-scan`
-- `cqlite.create.properties`
-- `samyama.aggregate.global-count`
-- `age.vle.unbounded-traversal`
-- `grafeo.match.incoming-edge`
-- `age.vle.fixed-multi-hop`
-- `grafeo.with.projected-expression`
-- `age.unwind.literal-list`
-- `grafeo.order-by.nonprojected-property`
-- `grafeo.pagination.skip-limit`
-- `grafeo.optional.where-null-extends-pattern`
-- `tck.where.numeric-comparison`
-- `cqlite.set.property`
-- `age.remove.property`
-- `age.delete.relationship`
-- `sparrow.merge.absent-node`
-- `grafeo.regression.wrong-relationship-direction`
-- `age.regression.zero-length-preserves-identity`
-- `sparrow.regression.missing-property-is-null`
-- `sparrow.regression.variable-path-terminal-label`
-- `cqlite.regression.parameterized-property`
-- `ladybug.regression.detach-delete`
-- `grafeo.regression.optional-count-preserves-rows`
-- `turso.regression.constraint-index-drop-error`
+| Source | Imported identities | Canonical within source | Exact duplicates |
+| --- | ---: | ---: | ---: |
+| openCypher TCK M23 (through Uni) | 3,926 | 3,914 | 12 |
+| Grafeo `.gtest` suite | 399 | 390 | 9 |
+| LadybugDB/Kuzu `.test` suite | 15,940 | 10,589 | 5,351 |
+| Apache AGE regression SQL | 3,677 | 3,057 | 620 |
+| SparrowDB Rust tests | 2,253 | 1,347 | 906 |
+| CQLite Rust tests | 137 | 115 | 22 |
+| **Total** | **26,332** | **19,412** | **6,920** |
 
-## Failed (0)
+The full run made 19,466 canonical parse requests. Cross-source query
+intersection reduced those to 17,636 unique parser executions, avoiding 1,830
+additional duplicate parses beyond the 6,920 within-source duplicate
+contracts.
 
-- None.
+## Current result
 
-## Unsupported (6)
+The 2026-07-17 corpus run classified all 26,332 identities:
 
-- `tck.call.subquery-scope` — CALL introduces a nested scope and execution boundary.
-- `grafeo.path.all-shortest-paths` — all-shortest result multiplicity and memory limits need a separate contract.
-- `pggraph.path.weight-expression` — Cypher weight-expression semantics are not yet bound into graph IR.
-- `ladybug.path.shortest-keyword` — SHORTEST syntax is not part of the current parser slice.
-- `sparrow.path.shortest-function` — shortestPath source syntax is not yet lowered into the shared shortest-path IR.
-- `samyama.planner.independent-patterns` — multiple path patterns require join enumeration beyond the current single-pattern binder.
+- 1,470 passed;
+- 24,842 are explicitly unsupported at a recorded parser, scalar-execution,
+  or adapter boundary; and
+- 20 openCypher TCK scalar scenarios failed their expected result contract.
+
+The failures are concentrated in boolean value representation, heterogeneous
+list ordering, floating-point preservation, and mixed-type aggregation. They
+remain failures rather than being hidden as unsupported.
+
+This is broad regression and parser-compatibility coverage, not a claim of
+full openCypher conformance. The generic adapter currently executes scalar
+`RETURN`/`UNWIND` TCK scenarios. Tests requiring named graphs, donor-specific
+fixtures, setup/side-effect assertions, parameters, graph values, PostgreSQL
+AGE wrappers, or donor engine APIs remain visible but unsupported until those
+adapters exist.
+
+## Running it
+
+```sh
+cargo run -q -p turso_graph_testkit -- corpus-stats
+cargo run -q -p turso_graph_testkit -- corpus --no-record
+```
+
+The second command returns failure while any conformance contract fails. Omit
+`--no-record` only for an intentional append-only baseline run.

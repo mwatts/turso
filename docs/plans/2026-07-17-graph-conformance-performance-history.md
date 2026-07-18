@@ -139,10 +139,13 @@ Gate: framework unit tests, migrated scenario parity, append/read/report round
 trip, duplicate detection, zero discovery failure, formatting, and strict
 Clippy.
 
-### Phase 2: valuable corpus expansion
+### Phase 2: corpus-scale expansion
 
 - Add a quick smoke tag to critical supported behaviors.
-- Normalize high-value Uni, Grafeo, AGE, Ladybug, SparrowDB, and CQLite cases.
+- Import every discoverable Uni TCK, Grafeo, AGE, Ladybug, SparrowDB, and
+  CQLite source test identity; do not curate a representative subset.
+- Intersect exact contracts within each source and normalized queries across
+  sources so duplicate provenance is retained without duplicate execution.
 - Include positive results, precise errors, side effects, multiplicity,
   bug regressions, and unsupported feature identities.
 - Reuse a named social graph fixture across the portable corpus.
@@ -185,3 +188,14 @@ Completed on 2026-07-17:
   clean commit `e1d73880b74901c879c5bcf4cc96b1006f2d16b5` and passes
   `verify-history`.
 - Strict Clippy, all testkit tests, and all graph-frontend tests pass.
+
+Corpus-scale corrective expansion:
+
+- 26,332 source identities are imported from six pinned corpora; 19,412 are
+  canonical within their source and 6,920 exact duplicates are retained as
+  zero-execution aliases.
+- The shared query cache intersects another 1,830 parser requests across
+  sources, leaving 17,636 unique queries.
+- The current run has 1,470 passes, 24,842 explicitly unsupported identities,
+  and 20 visible TCK result failures. Full adapter execution and those failures
+  remain open work; no source identities are silently skipped.

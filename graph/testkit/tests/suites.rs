@@ -1,14 +1,46 @@
 use std::{collections::HashSet, path::PathBuf};
 
 use turso_graph_testkit::{
+    age::AgeCorpus,
+    grafeo::GrafeoCorpus,
+    ladybug::LadybugCorpus,
     manifest::ScenarioManifest,
     model::{Outcome, RunEnvironment},
     performance::PerformanceManifest,
     runner::ScenarioRunner,
+    rust_donor::{RustDonorCorpus, CQLITE, SPARROWDB},
+    tck::TckCorpus,
 };
 
 fn repository_root() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../..")
+}
+
+#[test]
+fn vendored_corpus_has_all_source_identities() {
+    let root = repository_root();
+    let tck = TckCorpus::load(root.join("graph/testdata/tck/opencypher/features")).unwrap();
+    let grafeo = GrafeoCorpus::load(root.join("graph/testdata/donors/grafeo/tests")).unwrap();
+    let ladybug =
+        LadybugCorpus::load(root.join("graph/testdata/donors/ladybug/test_files")).unwrap();
+    let age = AgeCorpus::load(root.join("graph/testdata/donors/age/sql")).unwrap();
+    let sparrowdb = RustDonorCorpus::load(
+        root.join("graph/testdata/donors/sparrowdb/tests"),
+        SPARROWDB,
+    )
+    .unwrap();
+    let cqlite =
+        RustDonorCorpus::load(root.join("graph/testdata/donors/cqlite/tests"), CQLITE).unwrap();
+
+    assert_eq!(
+        tck.stats().expanded
+            + grafeo.stats().cypher_cases
+            + ladybug.stats().statements
+            + age.stats().queries
+            + sparrowdb.stats().queries
+            + cqlite.stats().queries,
+        26_332
+    );
 }
 
 fn environment() -> RunEnvironment {

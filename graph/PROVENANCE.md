@@ -15,8 +15,8 @@ material as MIT-only code.
 
 | Source | Repository | Revision | License | Intended use |
 | --- | --- | --- | --- | --- |
-| Uni | <https://github.com/rustic-ai/uni-db> | `0812a496c62769b67cf688930750ae384e3de68d` | Apache-2.0 | Structurally adapt the Cypher parser and adapt selected parser/TCK fixtures. Do not import Uni storage, execution, or catalog types. |
-| Grafeo | <https://github.com/GrafeoDB/grafeo> | `4ebae02f06f8f0cbc57543f74b6ba06f259dbed3` | Apache-2.0; NOTICE copyright 2025-2026 S.T. Grond | Use its graph plans and Cypher tests as design and behavioral references for a Turso-owned graph IR. Adapt selected fixtures. |
+| Uni | <https://github.com/rustic-ai/uni-db> | `0812a496c62769b67cf688930750ae384e3de68d` | Apache-2.0 | Structurally adapt the Cypher parser and import the complete pinned TCK feature corpus. Do not import Uni storage, execution, or catalog types. |
+| Grafeo | <https://github.com/GrafeoDB/grafeo> | `4ebae02f06f8f0cbc57543f74b6ba06f259dbed3` | Apache-2.0; NOTICE copyright 2025-2026 S.T. Grond | Use its graph plans as references and import its complete `.gtest` corpus. |
 | Apache AGE | <https://github.com/apache/age> | `6876abcab0a3281eb65a7e2a91238e0b5abfdea7` | Apache-2.0; Apache Software Foundation and Bitnine NOTICE | Use parser transforms and regression tests as semantic references for relational lowering. Implement lowering in Turso Rust rather than translating PostgreSQL internals. |
 | pgGraph | <https://github.com/Evokoa/pgGraph> | `d689bcf2b3b52d7f878f61718be69ebcb953affc` | Apache-2.0; NOTICE copyright 2026 Evokoa Pte. Ltd. | Translate portable CSR, traversal, path, and safety logic to Turso-owned interfaces. Exclude PostgreSQL/pgrx catalog, SPI, SQL facade, and extension lifecycle code. |
 | Ladybug | <https://github.com/mwatts/ladybug> | `7eab431c6becf64f58f7c2ff4c0fb1f160acb492` | MIT; copyright 2022-2025 Kùzu Inc. | Adapt focused undirected, optional-match, recursive-range, shortest-path, mutation, and error test intent. Exclude the C++ engine, storage, and test harness. |
@@ -139,12 +139,14 @@ recorded in `graph/testdata/pggraph-runtime/manifest.toml` and executed by
 
 ### Mixed-source conformance donors
 
-The executable mixed-source slice is recorded in the typed manifests under
-`graph/testdata/suites/` and run by `graph/testkit`. It normalizes, without
-copying donor test bodies, cases from the openCypher TCK copy pinned through
-Uni, Grafeo, AGE, pgGraph, Ladybug, SparrowDB, CQLite, and Samyama. The stable
+The original executable mixed-source slice remains in the typed manifests
+under `graph/testdata/suites/`. The corpus-scale runner additionally vendors
+the complete available test directories from the openCypher TCK copy pinned
+through Uni, Grafeo, AGE, Ladybug, SparrowDB, and CQLite. The stable
 identity, exact source case, pinned revision, license, and adaptation type are
-stored beside every case. `graph/CONFORMANCE.md` describes the current support
+stored beside every result. Exact duplicate contracts and cross-source query
+intersections are executed once but retain aliases for provenance.
+`graph/CONFORMANCE.md` describes the current support
 level; intentional baseline runs append per-result records to
 `graph/test-results/history.jsonl` and generate the longitudinal report.
 Required ordering is preserved; unordered results are sorted and compared as

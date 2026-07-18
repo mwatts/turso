@@ -1,0 +1,369 @@
+# SPARQL Query Forms and PREFIX resolution
+#
+# Covers: ASK (Section 16.3), CONSTRUCT (Section 16.2), DESCRIBE (Section 16.4),
+# PREFIX resolution, the `a` shorthand for rdf:type, and subqueries (Section 12).
+# Based on W3C SPARQL 1.1 Query Language specification.
+
+meta:
+  language: sparql
+  model: rdf
+  section: "16"
+  title: Query Forms and PREFIX
+  dataset: empty
+  requires: [sparql, rdf]
+
+tests:
+
+  # ---------------------------------------------------------------------------
+  # ASK (Section 16.3)
+  # ---------------------------------------------------------------------------
+
+  - name: ask_returns_true_when_pattern_matches
+    setup:
+      - |
+        INSERT DATA {
+          <http://ex.org/alix> <http://ex.org/name> "Alix" .
+          <http://ex.org/gus> <http://ex.org/name> "Gus" .
+        }
+    query: |
+      ASK { <http://ex.org/alix> <http://ex.org/name> "Alix" }
+    expect:
+      count: 1
+
+  - name: ask_returns_false_when_no_match
+    setup:
+      - |
+        INSERT DATA {
+          <http://ex.org/alix> <http://ex.org/name> "Alix" .
+        }
+    query: |
+      ASK { <http://ex.org/alix> <http://ex.org/name> "Vincent" }
+    expect:
+      count: 0
+
+  - name: ask_with_filter
+    setup:
+      - |
+        INSERT DATA {
+          <http://ex.org/alix> <http://ex.org/age> "30" .
+          <http://ex.org/gus> <http://ex.org/age> "18" .
+        }
+    query: |
+      ASK {
+        ?person <http://ex.org/age> ?age .
+        FILTER (?age > "25")
+      }
+    expect:
+      count: 1
+
+  - name: ask_with_optional_always_true_when_base_matches
+    setup:
+      - |
+        INSERT DATA {
+          <http://ex.org/vincent> <http://ex.org/name> "Vincent" .
+        }
+    query: |
+      ASK {
+        <http://ex.org/vincent> <http://ex.org/name> ?name .
+        OPTIONAL { <http://ex.org/vincent> <http://ex.org/city> ?city }
+      }
+    expect:
+      count: 1
+
+  # ---------------------------------------------------------------------------
+  # CONSTRUCT (Section 16.2)
+  # ---------------------------------------------------------------------------
+
+  - name: construct_basic_triple_template
+    setup:
+      - |
+        INSERT DATA {
+          <http://ex.org/alix> <http://ex.org/name> "Alix" .
+          <http://ex.org/gus> <http://ex.org/name> "Gus" .
+        }
+    query: |
+      CONSTRUCT {
+        ?person <http://ex.org/label> ?name .
+      } WHERE {
+        ?person <http://ex.org/name> ?name .
+      }
+    expect:
+      count: 2
+
+  - name: construct_with_bind_expression
+    setup:
+      - |
+        INSERT DATA {
+          <http://ex.org/jules> <http://ex.org/firstName> "Jules" .
+        }
+    query: |
+      CONSTRUCT {
+        ?person <http://ex.org/greeting> ?msg .
+      } WHERE {
+        ?person <http://ex.org/firstName> ?name .
+        BIND(CONCAT("Hello, ", ?name) AS ?msg)
+      }
+    expect:
+      count: 1
+
+  - name: construct_from_empty_pattern_returns_nothing
+    query: |
+      CONSTRUCT {
+        ?s <http://ex.org/label> ?o .
+      } WHERE {
+        ?s <http://ex.org/nonexistent> ?o .
+      }
+    expect:
+      count: 0
+
+  # ---------------------------------------------------------------------------
+  # DESCRIBE (Section 16.4)
+  # ---------------------------------------------------------------------------
+
+  - name: describe_specific_iri
+    setup:
+      - |
+        INSERT DATA {
+          <http://ex.org/mia> <http://ex.org/name> "Mia" .
+          <http://ex.org/mia> <http://ex.org/city> "Amsterdam" .
+          <http://ex.org/butch> <http://ex.org/name> "Butch" .
+        }
+    query: |
+      DESCRIBE <http://ex.org/mia>
+    expect:
+      count: 2
+
+  - name: describe_variable_with_where
+    setup:
+      - |
+        INSERT DATA {
+          <http://ex.org/alix> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://ex.org/Person> .
+          <http://ex.org/alix> <http://ex.org/name> "Alix" .
+          <http://ex.org/amsterdam> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://ex.org/City> .
+          <http://ex.org/amsterdam> <http://ex.org/name> "Amsterdam" .
+        }
+    query: |
+      DESCRIBE ?s WHERE {
+        ?s <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://ex.org/Person> .
+      }
+    expect:
+      count: 2
+
+  - name: describe_returns_nothing_for_unknown_iri
+    # DESCRIBE on an IRI with no triples must return zero rows.
+    setup:
+      - |
+        INSERT DATA {
+          <http://ex.org/alix> <http://ex.org/name> "Alix" .
+        }
+    query: |
+      DESCRIBE <http://ex.org/nonexistent>
+    expect:
+      count: 0
+
+  - name: describe_multiple_iris
+    # DESCRIBE with two IRIs returns the union of their descriptions.
+    setup:
+      - |
+        INSERT DATA {
+          <http://ex.org/alix> <http://ex.org/name> "Alix" .
+          <http://ex.org/alix> <http://ex.org/city> "Amsterdam" .
+          <http://ex.org/gus> <http://ex.org/name> "Gus" .
+          <http://ex.org/gus> <http://ex.org/city> "Berlin" .
+          <http://ex.org/vincent> <http://ex.org/name> "Vincent" .
+        }
+    query: |
+      DESCRIBE <http://ex.org/alix> <http://ex.org/gus>
+    expect:
+      count: 4
+
+  - name: describe_variable_where_no_match
+    # DESCRIBE ?x WHERE { ... } with no matching pattern returns zero rows.
+    setup:
+      - |
+        INSERT DATA {
+          <http://ex.org/alix> <http://ex.org/name> "Alix" .
+        }
+    query: |
+      DESCRIBE ?x WHERE {
+        ?x <http://ex.org/nonexistent> ?y .
+      }
+    expect:
+      count: 0
+
+  - name: construct_preserves_template_structure
+    # CONSTRUCT remaps predicate from the template, not the WHERE clause.
+    setup:
+      - |
+        INSERT DATA {
+          <http://ex.org/alix> <http://ex.org/firstName> "Alix" .
+          <http://ex.org/gus> <http://ex.org/firstName> "Gus" .
+        }
+    query: |
+      CONSTRUCT {
+        ?person <http://schema.org/name> ?name .
+      } WHERE {
+        ?person <http://ex.org/firstName> ?name .
+      }
+    expect:
+      count: 2
+
+  - name: construct_with_filter_restricts_output
+    # Only matching rows from WHERE produce CONSTRUCT output.
+    setup:
+      - |
+        INSERT DATA {
+          <http://ex.org/alix> <http://ex.org/score> "90" .
+          <http://ex.org/gus> <http://ex.org/score> "40" .
+          <http://ex.org/vincent> <http://ex.org/score> "85" .
+        }
+    query: |
+      CONSTRUCT {
+        ?person <http://ex.org/passed> "true" .
+      } WHERE {
+        ?person <http://ex.org/score> ?score .
+        FILTER (?score > "50")
+      }
+    expect:
+      count: 2
+
+  - name: construct_with_multiple_bindings
+    # CONSTRUCT with WHERE producing multiple bindings emits one triple per
+    # binding row.
+    setup:
+      - |
+        INSERT DATA {
+          <http://ex.org/alix> <http://ex.org/name> "Alix" .
+          <http://ex.org/gus> <http://ex.org/name> "Gus" .
+          <http://ex.org/vincent> <http://ex.org/name> "Vincent" .
+        }
+    query: |
+      CONSTRUCT {
+        ?s <http://ex.org/label> ?name .
+      } WHERE {
+        ?s <http://ex.org/name> ?name .
+      }
+    expect:
+      count: 3
+
+  # ---------------------------------------------------------------------------
+  # PREFIX resolution
+  # ---------------------------------------------------------------------------
+
+  - name: prefix_resolves_correctly
+    setup:
+      - |
+        INSERT DATA {
+          <http://ex.org/gus> <http://ex.org/name> "Gus" .
+          <http://ex.org/gus> <http://ex.org/city> "Berlin" .
+        }
+    query: |
+      PREFIX ex: <http://ex.org/>
+      SELECT ?name ?city WHERE {
+        ex:gus ex:name ?name .
+        ex:gus ex:city ?city .
+      }
+    expect:
+      rows:
+        - [Gus, Berlin]
+
+  - name: prefix_a_shorthand_for_rdf_type
+    setup:
+      - |
+        INSERT DATA {
+          <http://ex.org/vincent> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://ex.org/Person> .
+          <http://ex.org/vincent> <http://ex.org/name> "Vincent" .
+          <http://ex.org/paris> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://ex.org/City> .
+          <http://ex.org/paris> <http://ex.org/name> "Paris" .
+        }
+    query: |
+      PREFIX ex: <http://ex.org/>
+      SELECT ?name WHERE {
+        ?s a ex:Person .
+        ?s ex:name ?name .
+      }
+    expect:
+      rows:
+        - [Vincent]
+
+  - name: multiple_prefixes_in_query
+    setup:
+      - |
+        INSERT DATA {
+          <http://ex.org/jules> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://schema.org/Person> .
+          <http://ex.org/jules> <http://schema.org/name> "Jules" .
+          <http://ex.org/jules> <http://ex.org/city> "Prague" .
+        }
+    query: |
+      PREFIX ex: <http://ex.org/>
+      PREFIX schema: <http://schema.org/>
+      PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+      SELECT ?name ?city WHERE {
+        ?s rdf:type schema:Person .
+        ?s schema:name ?name .
+        ?s ex:city ?city .
+      }
+    expect:
+      rows:
+        - [Jules, Prague]
+
+  # ---------------------------------------------------------------------------
+  # Subqueries (Section 12)
+  # ---------------------------------------------------------------------------
+
+  - name: basic_subquery_nested_select
+    setup:
+      - |
+        INSERT DATA {
+          <http://ex.org/alix> <http://ex.org/name> "Alix" .
+          <http://ex.org/alix> <http://ex.org/score> "90" .
+          <http://ex.org/gus> <http://ex.org/name> "Gus" .
+          <http://ex.org/gus> <http://ex.org/score> "70" .
+          <http://ex.org/mia> <http://ex.org/name> "Mia" .
+          <http://ex.org/mia> <http://ex.org/score> "85" .
+        }
+    query: |
+      SELECT ?name WHERE {
+        {
+          SELECT ?person WHERE {
+            ?person <http://ex.org/score> ?score .
+            FILTER (?score > "80")
+          }
+        }
+        ?person <http://ex.org/name> ?name .
+      } ORDER BY ?name
+    expect:
+      ordered: true
+      rows:
+        - [Alix]
+        - [Mia]
+
+  - name: subquery_with_aggregation_feeding_outer
+    setup:
+      - |
+        INSERT DATA {
+          <http://ex.org/alix> <http://ex.org/team> "alpha" .
+          <http://ex.org/gus> <http://ex.org/team> "alpha" .
+          <http://ex.org/vincent> <http://ex.org/team> "beta" .
+          <http://ex.org/jules> <http://ex.org/team> "alpha" .
+          <http://ex.org/mia> <http://ex.org/team> "beta" .
+          <http://ex.org/alpha> <http://ex.org/teamName> "alpha" .
+          <http://ex.org/alpha> <http://ex.org/label> "Alpha Squad" .
+          <http://ex.org/beta> <http://ex.org/teamName> "beta" .
+          <http://ex.org/beta> <http://ex.org/label> "Beta Squad" .
+        }
+    query: |
+      SELECT ?label ?size WHERE {
+        {
+          SELECT ?team (COUNT(?person) AS ?size) WHERE {
+            ?person <http://ex.org/team> ?team .
+          } GROUP BY ?team
+        }
+        ?t <http://ex.org/teamName> ?team .
+        ?t <http://ex.org/label> ?label .
+      } ORDER BY ?label
+    expect:
+      ordered: true
+      rows:
+        - [Alpha Squad, 3]
+        - [Beta Squad, 2]
