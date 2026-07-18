@@ -41,6 +41,13 @@ pub struct GraphSession {
     limits: BuildLimits,
 }
 
+impl Drop for GraphSession {
+    fn drop(&mut self) {
+        self.connection
+            .unregister_frontend_compiler(&graph_frontend_id());
+    }
+}
+
 impl GraphSession {
     pub fn install(
         connection: Arc<Connection>,

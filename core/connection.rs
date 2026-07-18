@@ -582,6 +582,11 @@ impl Connection {
         Ok(())
     }
 
+    /// Remove a connection-local frontend compiler registration.
+    pub fn unregister_frontend_compiler(&self, frontend: &FrontendId) -> bool {
+        self.frontend_compilers.write().remove(frontend).is_some()
+    }
+
     pub(crate) fn compile_prepared_source(
         &self,
         prepared_source: &PreparedSource,
