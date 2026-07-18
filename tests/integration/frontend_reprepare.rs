@@ -5,7 +5,7 @@ use turso_core::{
     Database, DatabaseOpts, FrontendCompiler, FrontendError, FrontendId, LimboError, OpenFlags,
     PlatformIO, Result, SqliteDialect, StatementStatusCounter, Value, IO,
 };
-use turso_parser::ast::Cmd;
+use turso_parser::ast::{Cmd, Stmt};
 use turso_parser::parser::Parser;
 
 use crate::common::TempDatabase;
@@ -76,6 +76,74 @@ fn frontend_compiler_is_reused_for_reprepare_and_keeps_parameters(
         "prepare-context invalidation must trigger exactly one reprepare"
     );
     assert_eq!(stmt.get_sql(), "SYNTHETIC RETURN $value");
+    Ok(())
+}
+
+#[derive(Debug)]
+struct PrereqCompiler {
+    prereq_calls: AtomicUsize,
+}
+
+impl PrereqCompiler {
+    const fn new() -> Self {
+        Self {
+            prereq_calls: AtomicUsize::new(0),
+        }
+    }
+}
+
+impl FrontendCompiler for PrereqCompiler {
+    fn compile(&self, source: &str) -> Result<(Option<Cmd>, usize)> {
+        // Compiles to a query over the table the prerequisite creates, so
+        // compilation itself fails if prerequisites did not run first.
+        Ok((
+            Some(parse_one("SELECT count(*) FROM prereq_marker")?),
+            source.len(),
+        ))
+    }
+
+    fn prerequisites(&self, _source: &str) -> Result<Vec<Stmt>> {
+        self.prereq_calls.fetch_add(1, Ordering::SeqCst);
+        let (Cmd::Stmt(stmt) | Cmd::Explain(stmt) | Cmd::ExplainQueryPlan(stmt)) =
+            parse_one("CREATE TABLE IF NOT EXISTS prereq_marker (id INTEGER)")?;
+        Ok(vec![stmt])
+    }
+}
+
+/// Prerequisites are initial-prepare side effects: they must run before the
+/// main statement compiles, and recompiles must not replay them because a
+/// reprepare can run mid-step while the statement holds pager locks.
+#[turso_macros::test]
+fn frontend_prerequisites_run_once_before_compile_and_never_on_reprepare(
+    tmp_db: TempDatabase,
+) -> Result<()> {
+    let conn = tmp_db.connect_limbo();
+    let frontend = FrontendId::new("prereq-synthetic")?;
+    let compiler = Arc::new(PrereqCompiler::new());
+    conn.register_frontend_compiler(frontend.clone(), compiler.clone())?;
+
+    let mut stmt = conn.prepare_frontend(&frontend, "PREREQ QUERY")?;
+    assert_eq!(
+        compiler.prereq_calls.load(Ordering::SeqCst),
+        1,
+        "initial prepare must execute prerequisites before compiling"
+    );
+
+    // Invalidate the prepare context so the next run reprepares.
+    conn.set_full_column_names(true);
+    let rows = stmt.run_collect_rows()?;
+
+    assert_eq!(rows, vec![vec![Value::from_i64(0)]]);
+    assert_eq!(
+        stmt.stmt_status(StatementStatusCounter::Reprepare),
+        1,
+        "prepare-context invalidation must trigger exactly one reprepare"
+    );
+    assert_eq!(
+        compiler.prereq_calls.load(Ordering::SeqCst),
+        1,
+        "reprepare must not replay prerequisites"
+    );
     Ok(())
 }
 

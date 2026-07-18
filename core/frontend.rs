@@ -8,7 +8,7 @@
 use std::fmt;
 
 use thiserror::Error;
-use turso_parser::ast::Cmd;
+use turso_parser::ast::{Cmd, Stmt};
 
 use crate::Result;
 
@@ -65,6 +65,19 @@ pub enum FrontendError {
 /// contract as [`crate::Dialect::parse`].
 pub trait FrontendCompiler: Send + Sync + 'static {
     fn compile(&self, source: &str) -> Result<(Option<Cmd>, usize)>;
+
+    /// Statements that must execute before `source` is first prepared, e.g.
+    /// the implicit `CREATE SEQUENCE` a PostgreSQL `SERIAL` column requires.
+    ///
+    /// Prerequisites run exactly once, during the initial
+    /// [`Connection::prepare_frontend`](crate::Connection::prepare_frontend).
+    /// Recompiles (schema-change reprepare, cross-process schema retry) skip
+    /// them: a recompile can run mid-step while the statement holds pager
+    /// locks, where executing DDL is unsafe. Prerequisites must therefore be
+    /// idempotent prepare-time side effects only.
+    fn prerequisites(&self, _source: &str) -> Result<Vec<Stmt>> {
+        Ok(Vec::new())
+    }
 }
 
 /// Data-only recipe used for initial compilation and every recompile.

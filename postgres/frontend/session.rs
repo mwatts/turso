@@ -42,6 +42,16 @@ impl FrontendCompiler for PostgresCompiler {
         reject_catalog_dml(&stmt)?;
         Ok((Some(ast::Cmd::Stmt(stmt)), source.len()))
     }
+
+    fn prerequisites(&self, source: &str) -> Result<Vec<ast::Stmt>> {
+        reject_sqlite_catalog_access(source)?;
+        let parse_result =
+            turso_pg_parser::parse(source).map_err(|e| LimboError::ParseError(e.to_string()))?;
+        let translated = PostgreSQLTranslator::new()
+            .translate_with_prereqs(&parse_result)
+            .map_err(|e| LimboError::ParseError(e.to_string()))?;
+        Ok(translated.prereqs)
+    }
 }
 
 fn postgres_frontend_id() -> FrontendId {
@@ -289,20 +299,9 @@ fn prepare_statement(conn: &Arc<Connection>, sql: &str) -> Result<Statement> {
         return Ok(stmt);
     }
 
-    let parse_result =
-        turso_pg_parser::parse(sql).map_err(|e| LimboError::ParseError(e.to_string()))?;
-    let translator = PostgreSQLTranslator::new();
-    let translated = translator
-        .translate_with_prereqs(&parse_result)
-        .map_err(|e| LimboError::ParseError(e.to_string()))?;
-    reject_catalog_dml(&translated.stmt)?;
-
-    for prereq in translated.prereqs {
-        let input = prereq.to_string();
-        let mut stmt = conn.prepare_translated_stmt(prereq, &input)?;
-        stmt.run_ignore_rows()?;
-    }
-
+    // Parsing, translation, catalog-DML rejection, and serial-sequence
+    // prerequisites all run through the registered PostgresCompiler so the
+    // initial prepare and every recompile share one compilation path.
     conn.prepare_frontend(&postgres_frontend_id(), sql)
 }
 

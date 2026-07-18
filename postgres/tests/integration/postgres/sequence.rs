@@ -622,6 +622,32 @@ fn test_serial_auto_increment(db: TempDatabase) {
     pg_execute(&conn, "DROP TABLE ser_items");
 }
 
+/// `Statement::reprepare` and `Connection::compile_cmd`'s cross-process
+/// schema retry recompile through the frontend registry, bypassing
+/// `PgConnection::prepare`. The registered compiler must surface the implicit
+/// CREATE SEQUENCE prerequisites itself, or a recompiled CREATE TABLE with
+/// SERIAL columns silently loses its backing sequence.
+#[turso_macros::test(mvcc)]
+fn test_serial_create_table_via_frontend_registry_creates_sequence(db: TempDatabase) {
+    let conn = db.connect_postgres();
+
+    let frontend = turso_core::FrontendId::new("postgres").unwrap();
+    let mut stmt = conn
+        .inner()
+        .prepare_frontend(
+            &frontend,
+            "CREATE TABLE ser_reg (id serial, name text NOT NULL)",
+        )
+        .unwrap();
+    stmt.run_ignore_rows().unwrap();
+
+    pg_execute(&conn, "INSERT INTO ser_reg (name) VALUES ('alice')");
+    assert_eq!(
+        pg_query_int(&conn, "SELECT id FROM ser_reg WHERE name = 'alice'"),
+        1
+    );
+}
+
 #[turso_macros::test(mvcc)]
 fn test_serial_explicit_value(db: TempDatabase) {
     let conn = db.connect_postgres();

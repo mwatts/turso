@@ -590,18 +590,7 @@ impl Connection {
             return self.parse_sql(prepared_source.source());
         };
 
-        // Do not invoke frontend code while holding the registry lock. A
-        // compiler may legitimately inspect connection-independent shared
-        // state, and the registry must not become a callback lock.
-        let compiler = self
-            .frontend_compilers
-            .read()
-            .get(frontend)
-            .cloned()
-            .ok_or_else(|| FrontendError::CompilerNotRegistered {
-                frontend: frontend.clone(),
-            })?;
-        let (cmd, consumed) = compiler.compile(source)?;
+        let (cmd, consumed) = self.frontend_compiler(frontend)?.compile(source)?;
         if consumed > source.len()
             || !source.is_char_boundary(consumed)
             || (cmd.is_some() && consumed == 0)
@@ -614,6 +603,23 @@ impl Connection {
             .into());
         }
         Ok((cmd, consumed))
+    }
+
+    /// Fetch a registered frontend compiler without invoking frontend code
+    /// while holding the registry lock. A compiler may legitimately inspect
+    /// connection-independent shared state, and the registry must not become
+    /// a callback lock.
+    fn frontend_compiler(&self, frontend: &FrontendId) -> Result<Arc<dyn FrontendCompiler>> {
+        self.frontend_compilers
+            .read()
+            .get(frontend)
+            .cloned()
+            .ok_or_else(|| {
+                FrontendError::CompilerNotRegistered {
+                    frontend: frontend.clone(),
+                }
+                .into()
+            })
     }
 
     fn schema_reparse_guard(self: &Arc<Connection>) -> SchemaReparseGuard {
@@ -1099,6 +1105,15 @@ impl Connection {
             return Err(LimboError::InvalidArgument(
                 "The supplied frontend source contains no statements".to_string(),
             ));
+        }
+
+        // Prerequisites must exist before the main statement compiles, and
+        // only the initial prepare may execute them; recompiles skip them by
+        // contract (see `FrontendCompiler::prerequisites`).
+        for prereq in self.frontend_compiler(frontend)?.prerequisites(source)? {
+            let input = prereq.to_string();
+            let mut stmt = self.prepare_translated_stmt(prereq, &input)?;
+            stmt.run_ignore_rows()?;
         }
 
         let full_source = PreparedSource::frontend(frontend.clone(), source);
