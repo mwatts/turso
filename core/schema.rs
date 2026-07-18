@@ -1031,6 +1031,11 @@ impl Schema {
         let declared_name = column.ty_str.clone();
         let array_dimensions = column.array_dimensions();
         let resolved = self.resolve_type(&declared_name, is_strict).ok().flatten();
+        // `kind` is computed from the leaf TypeDef in the resolution chain:
+        // STRUCT and UNION are tagged on `TypeDefKind`, DOMAIN is tagged
+        // separately on `TypeDef.is_domain`, and anything else registered
+        // through CREATE TYPE is a Custom. A column whose declared name
+        // does not appear in the type registry is a Builtin.
         let (base_type, kind) = match resolved {
             Some(resolved) => {
                 let leaf = resolved.leaf();
