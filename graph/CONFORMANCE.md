@@ -36,6 +36,11 @@ The failures are concentrated in boolean value representation, heterogeneous
 list ordering, floating-point preservation, and mixed-type aggregation. They
 remain failures rather than being hidden as unsupported.
 
+See [`CYPHER_CORPUS_GAPS.md`](CYPHER_CORPUS_GAPS.md) for the exact unsupported
+cause groups, the root causes of all 20 mismatches, the semicolon/cache
+classification defect, and the distinction between within-source and
+cross-source parser reuse.
+
 This is broad regression and parser-compatibility coverage, not a claim of
 full openCypher conformance. The generic adapter currently executes scalar
 `RETURN`/`UNWIND` TCK scenarios. Tests requiring named graphs, donor-specific
