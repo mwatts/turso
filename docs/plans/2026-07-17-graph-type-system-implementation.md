@@ -837,6 +837,11 @@ DOMAIN classification instead of re-deriving it."
 
 **Files:**
 - Modify: `graph/frontend/src/catalog.rs`
+- Modify: `graph/frontend/Cargo.toml` (add `tempfile` dev-dependency — needed
+  for Step 1's file-backed reopen test; `turso_core`'s `fs` feature, which
+  gates `Database::open_file_with_flags`/`PlatformIO`, is already enabled
+  since it's a default `turso_core` feature and this crate does not disable
+  default features)
 - Test: `graph/frontend/src/catalog.rs` (existing `#[cfg(test)] mod tests`)
 
 **Interfaces:**
@@ -874,7 +879,7 @@ helpers, ~line 741):
     }
 
     #[test]
-    fn register_graph_rejects_struct_column_without_custom_types_enabled() {
+    fn register_graph_allows_struct_column_with_custom_types_enabled() {
         let connection = connection_with_custom_types();
         connection
             .execute(
@@ -884,58 +889,95 @@ helpers, ~line 741):
             )
             .expect("create struct-typed source");
 
-        // Reconnect without custom types enabled to simulate the gating
-        // connection registering against an already-custom-typed schema.
-        let gated = Database::open_file(
-            connection.pager.io.clone(),
-            ":memory:graph-catalog-custom-types",
-            Arc::new(SqliteDialect),
-        );
-        // In-memory databases are not shareable across separate open_file
-        // calls; assert directly against the same connection instead, since
-        // experimental_custom_types_enabled is a per-connection flag checked
-        // at registration time, not at CREATE TABLE time.
-        drop(gated);
-
         let result = register_graph(&connection, &registration("people_graph"));
-        // connection_with_custom_types has custom types ENABLED, so this
-        // must succeed — the negative case is covered by the next test.
         assert!(result.is_ok(), "expected success: {result:?}");
     }
 
     #[test]
     fn register_graph_rejects_struct_column_when_custom_types_disabled() {
-        let connection = connection(); // default DatabaseOpts: custom types disabled
-        connection
-            .execute(
-                "CREATE TABLE people(id INTEGER PRIMARY KEY, name TEXT); \
-                 CREATE TABLE friendships(id INTEGER PRIMARY KEY, src INTEGER, dst INTEGER);",
+        // experimental_custom_types_enabled is fixed at Database-open time
+        // (DatabaseOpts), not per-connection and not toggled by CREATE TYPE.
+        // Two in-memory open_file calls never share state, so the only way
+        // to reach "a STRICT table with a struct column exists, but this
+        // connection has custom types disabled" is a real file: create it
+        // with custom types enabled, fully close it, then reopen the same
+        // file without the flag.
+        let temp_dir = tempfile::TempDir::new().expect("tempdir");
+        let db_path = temp_dir.path().join("graph-catalog-custom-types.db");
+        let db_path_str = db_path.to_str().expect("utf8 path");
+
+        {
+            let io: Arc<dyn turso_core::IO> =
+                Arc::new(turso_core::PlatformIO::new().expect("platform io"));
+            let db = Database::open_file_with_flags(
+                io,
+                db_path_str,
+                OpenFlags::default(),
+                DatabaseOpts::new().with_custom_types(true),
+                None,
+                Arc::new(SqliteDialect),
             )
-            .expect("create plain sources");
-        // Without --experimental-custom-types, CREATE TYPE ... AS STRUCT
-        // itself is rejected by core, so there is no way to reach a STRICT
-        // struct-typed table on a gated connection — confirming the gate is
-        // unreachable-by-construction, not merely untested. Assert that
-        // directly:
-        let create_type_result = connection.execute("CREATE TYPE point AS STRUCT(x INTEGER, y INTEGER)");
-        assert!(create_type_result.is_err(), "CREATE TYPE must fail without --experimental-custom-types");
+            .expect("open database with custom types enabled");
+            let connection = db.connect().expect("connect");
+            connection
+                .execute(
+                    "CREATE TYPE point AS STRUCT(x INTEGER, y INTEGER); \
+                     CREATE TABLE people(id INTEGER PRIMARY KEY, name TEXT, origin point) STRICT; \
+                     CREATE TABLE friendships(id INTEGER PRIMARY KEY, src INTEGER, dst INTEGER) STRICT;",
+                )
+                .expect("create struct-typed source");
+            // Drop the connection and database so the file is fully closed
+            // and the registry's cached Arc<Database> for this path/inode
+            // has no live strong references before the next open.
+            drop(connection);
+            drop(db);
+        }
+
+        let io: Arc<dyn turso_core::IO> =
+            Arc::new(turso_core::PlatformIO::new().expect("platform io"));
+        let connection = Database::open_file_with_flags(
+            io,
+            db_path_str,
+            OpenFlags::default(),
+            DatabaseOpts::new(), // custom types NOT enabled on reopen
+            None,
+            Arc::new(SqliteDialect),
+        )
+        .expect("reopen database with custom types disabled")
+        .connect()
+        .expect("connect");
+
+        let result = register_graph(&connection, &registration("people_graph"));
+        assert!(
+            matches!(
+                &result,
+                Err(CatalogError::CustomTypesDisabled { table, column })
+                    if table == "people" && column == "origin"
+            ),
+            "expected CustomTypesDisabled error: {result:?}"
+        );
     }
 ```
 
 - [ ] **Step 2: Run test to verify it fails**
 
-Run: `cargo test -p turso_graph_frontend register_graph_rejects -- --nocapture`
-Expected: `register_graph_rejects_struct_column_without_custom_types_enabled`
-PASSES already (it exercises the enabled path, no new code needed yet — this
-step confirms the *positive* path is unaffected before adding the gate).
-`register_graph_rejects_struct_column_when_custom_types_disabled` also passes
-already (it only asserts `CREATE TYPE` fails, which is pre-existing core
-behavior). Both tests compile and pass with no catalog.rs changes yet —
-proceed to Step 3 to add the actual registration-time gate, which the
-positive-path test's `assert!(result.is_ok())` will continue to enforce as a
-regression guard once the check exists.
+Run: `cargo test -p turso_graph_frontend register_graph_allows_struct_column_with_custom_types_enabled register_graph_rejects_struct_column_when_custom_types_disabled -- --nocapture`
+Expected: `register_graph_allows_struct_column_with_custom_types_enabled` PASSES
+already (it exercises the enabled path, no new code needed yet — this step
+confirms the *positive* path is unaffected before adding the gate).
+`register_graph_rejects_struct_column_when_custom_types_disabled` FAILS —
+with no gate yet, `register_graph` returns `Ok`, not
+`Err(CustomTypesDisabled)`, so the `assert!` panics. Proceed to Step 3 to add
+the actual registration-time gate.
 
 - [ ] **Step 3: Implement the gate**
+
+First, add the dev-dependency Step 1's test needs. In
+`graph/frontend/Cargo.toml`'s `[dev-dependencies]`, add:
+
+```toml
+tempfile = { workspace = true }
+```
 
 Add to `graph/frontend/src/catalog.rs`'s `use turso_core::{...}` import
 (line 7-13), add `ColumnTypeKind`:
@@ -1040,7 +1082,7 @@ the two new ones and all 9 pre-existing ones (regression gate).
 ```bash
 cargo fmt
 cargo clippy -p turso_graph_frontend --all-features --all-targets -- --deny=warnings
-git add graph/frontend/src/catalog.rs
+git add graph/frontend/src/catalog.rs graph/frontend/Cargo.toml
 git commit -S -m "graph/frontend: fail closed on custom-typed sources without the feature flag
 
 register_graph now rejects a STRICT source table that has a CUSTOM/
