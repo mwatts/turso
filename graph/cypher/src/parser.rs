@@ -522,6 +522,7 @@ fn binary_operator(pair: &Pair<'_, Rule>) -> Result<BinaryOperator, ParseError> 
         "<=" => Ok(BinaryOperator::LessOrEqual),
         ">" => Ok(BinaryOperator::Greater),
         ">=" => Ok(BinaryOperator::GreaterOrEqual),
+        "in" => Ok(BinaryOperator::In),
         "+" => Ok(BinaryOperator::Add),
         "-" => Ok(BinaryOperator::Subtract),
         "*" => Ok(BinaryOperator::Multiply),
@@ -908,5 +909,85 @@ mod tests {
     fn reports_malformed_input_with_a_byte_span() {
         let error = parse("MATCH (a)-[r:R]-> RETURN a").expect_err("invalid query");
         assert!(error.span_start <= error.span_end);
+    }
+
+    /// openCypher list membership: `value IN list` must parse as a binary
+    /// comparison so WHERE filters over list literals can reach the binder.
+    #[test]
+    fn parses_in_as_list_membership_comparison() {
+        let query = parse("MATCH (x) WHERE x.name IN ['B', 'C'] RETURN x").expect("query");
+        let Clause::Match(clause) = &query.clauses[0].value else {
+            panic!("expected MATCH")
+        };
+        let predicate = clause.predicate.as_ref().expect("WHERE predicate");
+        let Expression::Binary {
+            operator, right, ..
+        } = &predicate.value
+        else {
+            panic!("expected binary predicate, got {:?}", predicate.value)
+        };
+        assert_eq!(*operator, BinaryOperator::In);
+        assert!(matches!(
+            right.value,
+            Expression::List(ref values) if values.len() == 2
+        ));
+    }
+
+    /// IN must sit at comparison precedence: additive operands group under
+    /// it, and boolean connectives group above it, matching openCypher.
+    #[test]
+    fn in_binds_tighter_than_boolean_and_looser_than_additive() {
+        let query = parse("RETURN 1 + 2 IN [3] AS r, true AND 1 IN [1] AS s").expect("query");
+        let Clause::Return(projection) = &query.clauses[0].value else {
+            panic!("expected RETURN")
+        };
+        let ProjectionItem::Expression { expression, .. } = &projection.items[0] else {
+            panic!("expected expression item")
+        };
+        let Expression::Binary { left, operator, .. } = &expression.value else {
+            panic!("expected binary expression, got {:?}", expression.value)
+        };
+        assert_eq!(*operator, BinaryOperator::In);
+        assert!(matches!(
+            left.value,
+            Expression::Binary {
+                operator: BinaryOperator::Add,
+                ..
+            }
+        ));
+        let ProjectionItem::Expression { expression, .. } = &projection.items[1] else {
+            panic!("expected expression item")
+        };
+        let Expression::Binary {
+            operator, right, ..
+        } = &expression.value
+        else {
+            panic!("expected binary expression, got {:?}", expression.value)
+        };
+        assert_eq!(*operator, BinaryOperator::And);
+        assert!(matches!(
+            right.value,
+            Expression::Binary {
+                operator: BinaryOperator::In,
+                ..
+            }
+        ));
+    }
+
+    /// `IN` must only match as a whole word so identifiers with an `in`
+    /// prefix keep parsing as plain variables.
+    #[test]
+    fn keeps_identifiers_with_in_prefix_intact() {
+        let query = parse("MATCH (inner) RETURN inner").expect("query");
+        let Clause::Return(projection) = &query.clauses[1].value else {
+            panic!("expected RETURN")
+        };
+        let ProjectionItem::Expression { expression, .. } = &projection.items[0] else {
+            panic!("expected expression item")
+        };
+        assert!(matches!(
+            expression.value,
+            Expression::Variable(ref name) if name == "inner"
+        ));
     }
 }

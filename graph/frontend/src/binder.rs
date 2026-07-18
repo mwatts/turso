@@ -1121,8 +1121,20 @@ impl<'a> Binder<'a> {
                 operator,
                 right,
             } => {
+                let right_span = right.span;
                 let left = self.bind_expression(left)?;
                 let right = self.bind_expression(right)?;
+                if matches!(operator, cypher::BinaryOperator::In)
+                    && !matches!(
+                        right.value_type,
+                        ir::ValueType::List(_) | ir::ValueType::Any
+                    )
+                {
+                    return Err(at_unsupported(
+                        right_span,
+                        "IN membership against a non-list operand",
+                    ));
+                }
                 let value_type = binary_type(*operator, &left.value_type, &right.value_type);
                 let nullability = nullable(left.nullability, right.nullability);
                 (
@@ -1437,6 +1449,7 @@ fn bind_binary_operator(operator: cypher::BinaryOperator) -> ir::BinaryOp {
         cypher::BinaryOperator::LessOrEqual => ir::BinaryOp::LessOrEqual,
         cypher::BinaryOperator::Greater => ir::BinaryOp::Greater,
         cypher::BinaryOperator::GreaterOrEqual => ir::BinaryOp::GreaterOrEqual,
+        cypher::BinaryOperator::In => ir::BinaryOp::In,
         cypher::BinaryOperator::Add => ir::BinaryOp::Add,
         cypher::BinaryOperator::Subtract => ir::BinaryOp::Subtract,
         cypher::BinaryOperator::Multiply => ir::BinaryOp::Multiply,
@@ -1457,7 +1470,8 @@ fn binary_type(
         | cypher::BinaryOperator::Less
         | cypher::BinaryOperator::LessOrEqual
         | cypher::BinaryOperator::Greater
-        | cypher::BinaryOperator::GreaterOrEqual => ir::ValueType::Boolean,
+        | cypher::BinaryOperator::GreaterOrEqual
+        | cypher::BinaryOperator::In => ir::ValueType::Boolean,
         _ if left == &ir::ValueType::Real || right == &ir::ValueType::Real => ir::ValueType::Real,
         _ if left == &ir::ValueType::Integer && right == &ir::ValueType::Integer => {
             ir::ValueType::Integer
@@ -1797,6 +1811,35 @@ mod tests {
         assert_eq!(
             project.projections[0].expression.value_type,
             ir::ValueType::Integer
+        );
+    }
+
+    /// `IN` list membership must bind as a boolean binary containment so
+    /// WHERE predicates and projections over list literals type-check
+    /// downstream instead of failing at the parser.
+    #[test]
+    fn binds_in_membership_as_boolean_binary() {
+        let bound = bind_text(
+            "MATCH (n) RETURN n.name IN ['A', 'B'] AS r",
+            ParameterTypes::new(),
+        )
+        .expect("query should bind");
+        let ir::PlanKind::Project(project) = bound.plan.kind() else {
+            panic!("expected projection");
+        };
+        match &project.projections[0].expression.expression {
+            ir::Expression::Binary { op, right, .. } => {
+                assert_eq!(*op, ir::BinaryOp::In);
+                assert!(matches!(
+                    right.expression,
+                    ir::Expression::List(ref values) if values.len() == 2
+                ));
+            }
+            other => panic!("expected Binary expression, got {other:?}"),
+        }
+        assert_eq!(
+            project.projections[0].expression.value_type,
+            ir::ValueType::Boolean
         );
     }
 

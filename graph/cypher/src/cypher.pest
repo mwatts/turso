@@ -86,8 +86,9 @@ or_expression = { and_expression ~ (or_op ~ and_expression)* }
 or_op = { OR }
 and_expression = { comparison_expression ~ (and_op ~ comparison_expression)* }
 and_op = { AND }
-comparison_expression = { additive_expression ~ (comparison_op ~ additive_expression)* }
+comparison_expression = { additive_expression ~ ((comparison_op | in_op) ~ additive_expression)* }
 comparison_op = { "<>" | "!=" | "<=" | ">=" | "=" | "<" | ">" }
+in_op = @{ ^"in" ~ !ident_char }
 additive_expression = { multiplicative_expression ~ (additive_op ~ multiplicative_expression)* }
 additive_op = { "+" | "-" }
 multiplicative_expression = { postfix_expression ~ (multiplicative_op ~ postfix_expression)* }

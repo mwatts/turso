@@ -677,7 +677,14 @@ fn lower_expression_with_references(
                 input_alias,
                 references,
             )?;
-            Ok(format!("({left}) {} ({right})", binary_operator(*op)))
+            Ok(match op {
+                // Cypher lists lower to JSON arrays; membership must probe
+                // the array's elements, not compare against the JSON text.
+                ir::BinaryOp::In => {
+                    format!("({left}) IN (SELECT value FROM json_each({right}))")
+                }
+                _ => format!("({left}) {} ({right})", binary_operator(*op)),
+            })
         }
         ir::Expression::Function {
             function,
@@ -799,7 +806,7 @@ fn binary_operator(operator: ir::BinaryOp) -> &'static str {
         ir::BinaryOp::Divide => "/",
         ir::BinaryOp::And => "AND",
         ir::BinaryOp::Or => "OR",
-        ir::BinaryOp::In => "IN",
+        ir::BinaryOp::In => unreachable!("IN lowers to a json_each membership subquery"),
     }
 }
 
@@ -880,6 +887,39 @@ mod tests {
         assert_eq!(
             sql,
             "(SELECT p.\"address\".\"city\" FROM \"people\" AS p WHERE p.\"id\" = n.b1)"
+        );
+    }
+
+    /// Cypher lists lower to JSON arrays, so `IN` membership must probe the
+    /// array's elements through json_each; a direct SQL `IN (json_array(...))`
+    /// would compare against the single JSON text value instead.
+    #[test]
+    fn lowers_in_membership_as_json_each_subquery() {
+        let catalog = Catalog;
+        let bindings = HashMap::new();
+        let integer = |value| ir::TypedExpression {
+            expression: ir::Expression::Literal(ir::Literal::Integer(value)),
+            value_type: ir::ValueType::Integer,
+            nullability: ir::Nullability::NonNull,
+        };
+        let expression = ir::TypedExpression {
+            expression: ir::Expression::Binary {
+                left: Box::new(integer(1)),
+                op: ir::BinaryOp::In,
+                right: Box::new(ir::TypedExpression {
+                    expression: ir::Expression::List(vec![integer(1), integer(2)]),
+                    value_type: ir::ValueType::List(Box::new(ir::ValueType::Integer)),
+                    nullability: ir::Nullability::NonNull,
+                }),
+            },
+            value_type: ir::ValueType::Boolean,
+            nullability: ir::Nullability::NonNull,
+        };
+        let sql = lower_expression(&expression, &bindings, &catalog, "n")
+            .expect("IN lowering should succeed");
+        assert_eq!(
+            sql,
+            "(1) IN (SELECT value FROM json_each(json_array(1, 2)))"
         );
     }
 

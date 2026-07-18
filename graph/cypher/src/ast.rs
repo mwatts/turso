@@ -177,6 +177,7 @@ pub enum BinaryOperator {
     LessOrEqual,
     Greater,
     GreaterOrEqual,
+    In,
     Add,
     Subtract,
     Multiply,
