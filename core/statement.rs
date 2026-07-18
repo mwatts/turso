@@ -1141,41 +1141,10 @@ impl Statement {
             let Some(table_column) = table_ref.get_column_at(*column_idx) else {
                 return Ok(None);
             };
-            let declared_name = table_column.ty_str.clone();
-            let array_dimensions = table_column.array_dimensions();
             let schema = self.program.connection.schema.read();
-            let resolved = schema
-                .resolve_type(&declared_name, table_ref.is_strict())
-                .ok()
-                .flatten();
-            // `kind` is computed from the leaf TypeDef in the resolution chain:
-            // STRUCT and UNION are tagged on `TypeDefKind`, DOMAIN is tagged
-            // separately on `TypeDef.is_domain`, and anything else registered
-            // through CREATE TYPE is a Custom. A column whose declared name
-            // does not appear in the type registry is a Builtin.
-            let (base_type, kind) = match resolved {
-                Some(resolved) => {
-                    let leaf = resolved.leaf();
-                    let kind = if leaf.is_struct() {
-                        ColumnTypeKind::Struct
-                    } else if leaf.is_union() {
-                        ColumnTypeKind::Union
-                    } else if leaf.is_domain {
-                        ColumnTypeKind::Domain
-                    } else {
-                        ColumnTypeKind::Custom
-                    };
-                    (Some(resolved.primitive.to_uppercase()), kind)
-                }
-                None => (None, ColumnTypeKind::Builtin),
-            };
+            let info = schema.classify_column(table_column, table_ref.is_strict());
             drop(schema);
-            return Ok(Some(ColumnTypeInfo {
-                declared_name,
-                array_dimensions,
-                base_type,
-                kind,
-            }));
+            return Ok(Some(info));
         }
         // Not a table column: infer the result primitive from the
         // expression's shape (literal value type, operand types of a binary
