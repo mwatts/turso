@@ -949,6 +949,7 @@ fn walk_call_suffix(
         name: Spanned::new(name, target.span),
         arguments,
         distinct,
+        star: false,
     })
 }
 
@@ -970,10 +971,12 @@ fn walk_function(pair: Pair<'_, Rule>) -> Result<Expression, ParseError> {
         .ok_or_else(|| ParseError::at(span, "function has no name"))?;
     let name = walk_identifier(name);
     let mut distinct = false;
+    let mut star = false;
     let mut arguments = Vec::new();
     for item in inner {
         match item.as_rule() {
             Rule::DISTINCT => distinct = true,
+            Rule::star_argument => star = true,
             Rule::expression_list => {
                 arguments = item
                     .into_inner()
@@ -985,6 +988,7 @@ fn walk_function(pair: Pair<'_, Rule>) -> Result<Expression, ParseError> {
     }
     Ok(Expression::Function {
         name,
+        star,
         arguments,
         distinct,
     })

@@ -1081,6 +1081,7 @@ impl<'a> Binder<'a> {
             )?;
         }
         let mut projections = Vec::new();
+        let mut aggregations: Vec<ir::Aggregation> = Vec::new();
         let mut output_scope = Vec::new();
         let mut output_entities = HashMap::new();
         for item in &clause.items {
@@ -1103,7 +1104,17 @@ impl<'a> Binder<'a> {
                     }
                 }
                 cypher::ProjectionItem::Expression { expression, alias } => {
-                    let bound = self.bind_expression(expression)?;
+                    // openCypher: WITH items that are not plain variables
+                    // must be aliased (TCK With4 [5]).
+                    if !is_return
+                        && alias.is_none()
+                        && !matches!(expression.value, cypher::Expression::Variable(_))
+                    {
+                        return Err(at_unsupported(
+                            expression.span,
+                            "unaliased WITH expressions",
+                        ));
+                    }
                     let name = alias
                         .as_ref()
                         .map(|alias| alias.value.clone())
@@ -1119,6 +1130,34 @@ impl<'a> Binder<'a> {
                             span_end: span.end,
                         });
                     }
+                    if let Some((function, argument, distinct)) =
+                        self.bind_aggregate_call(expression)?
+                    {
+                        let value_type = match (&function, &argument) {
+                            (ir::AggregateFunction::Count, _) => ir::ValueType::Integer,
+                            (ir::AggregateFunction::Average, _) => ir::ValueType::Real,
+                            (ir::AggregateFunction::Collect, Some(argument)) => {
+                                ir::ValueType::List(Box::new(argument.value_type.clone()))
+                            }
+                            (_, Some(argument)) => argument.value_type.clone(),
+                            (_, None) => ir::ValueType::Any,
+                        };
+                        let output = ir::Binding::new(
+                            self.next_id()?,
+                            name,
+                            value_type,
+                            ir::Nullability::Nullable,
+                        )?;
+                        aggregations.push(ir::Aggregation {
+                            output: output.clone(),
+                            function,
+                            expression: argument,
+                            distinct,
+                        });
+                        output_scope.push(output);
+                        continue;
+                    }
+                    let bound = self.bind_expression(expression)?;
                     let old_entity = match &expression.value {
                         cypher::Expression::Variable(name) => self
                             .scope
@@ -1156,14 +1195,35 @@ impl<'a> Binder<'a> {
         } else {
             ir::ResultShape::default()
         };
-        self.plan = Some(ir::Plan::new(
-            ir::PlanKind::Project(ir::Project {
-                input: Box::new(input),
-                projections,
-            }),
-            scope,
-            shape,
-        )?);
+        self.plan = Some(if aggregations.is_empty() {
+            ir::Plan::new(
+                ir::PlanKind::Project(ir::Project {
+                    input: Box::new(input),
+                    projections,
+                }),
+                scope,
+                shape,
+            )?
+        } else {
+            // Cypher implicit grouping: non-aggregated projection items
+            // become the grouping keys.
+            let groupings = projections
+                .into_iter()
+                .map(|projection| ir::Grouping {
+                    output: projection.output,
+                    expression: projection.expression,
+                })
+                .collect();
+            ir::Plan::new(
+                ir::PlanKind::Aggregate(ir::Aggregate {
+                    input: Box::new(input),
+                    groupings,
+                    aggregations,
+                }),
+                scope,
+                shape,
+            )?
+        });
         self.scope = output_scope;
         self.entities = output_entities;
         if let Some(predicate) = &clause.predicate {
@@ -1222,6 +1282,56 @@ impl<'a> Binder<'a> {
             )?);
         }
         Ok(())
+    }
+
+    /// Detects a projection item that is a single aggregate call and binds
+    /// its argument. Returns None for non-aggregate expressions.
+    fn bind_aggregate_call(
+        &self,
+        expression: &cypher::Spanned<cypher::Expression>,
+    ) -> Result<Option<(ir::AggregateFunction, Option<ir::TypedExpression>, bool)>, BindError> {
+        let cypher::Expression::Function {
+            name,
+            arguments,
+            distinct,
+            star,
+        } = &expression.value
+        else {
+            return Ok(None);
+        };
+        let function = match name.value.to_ascii_lowercase().as_str() {
+            "count" => ir::AggregateFunction::Count,
+            "sum" => ir::AggregateFunction::Sum,
+            "avg" => ir::AggregateFunction::Average,
+            "min" => ir::AggregateFunction::Minimum,
+            "max" => ir::AggregateFunction::Maximum,
+            "collect" => ir::AggregateFunction::Collect,
+            _ => return Ok(None),
+        };
+        if *star {
+            if function != ir::AggregateFunction::Count {
+                return Err(at_unsupported(
+                    expression.span,
+                    "star arguments outside count()",
+                ));
+            }
+            return Ok(Some((function, None, *distinct)));
+        }
+        let [argument] = arguments.as_slice() else {
+            // Multi-argument min/max are SQL's scalar forms, not aggregates.
+            if matches!(
+                function,
+                ir::AggregateFunction::Minimum | ir::AggregateFunction::Maximum
+            ) {
+                return Ok(None);
+            }
+            return Err(at_unsupported(
+                expression.span,
+                "aggregate calls without exactly one argument",
+            ));
+        };
+        let argument = self.bind_expression(argument)?;
+        Ok(Some((function, Some(argument), *distinct)))
     }
 
     fn bind_pattern_subquery(
@@ -1750,7 +1860,14 @@ impl<'a> Binder<'a> {
                 name,
                 arguments,
                 distinct,
+                star,
             } => {
+                if *star {
+                    return Err(at_unsupported(
+                        expression.span,
+                        "star arguments outside aggregating projections",
+                    ));
+                }
                 if *distinct {
                     return Err(at_unsupported(
                         expression.span,

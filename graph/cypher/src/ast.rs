@@ -280,6 +280,8 @@ pub enum Expression {
         name: Spanned<String>,
         arguments: Vec<Spanned<Expression>>,
         distinct: bool,
+        /// True for a `*` argument as in `count(*)`.
+        star: bool,
     },
     List(Vec<Spanned<Expression>>),
     Map(Vec<(Spanned<String>, Spanned<Expression>)>),

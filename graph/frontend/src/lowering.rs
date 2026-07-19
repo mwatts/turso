@@ -198,7 +198,82 @@ fn lower_plan(
             })
         }
         ir::PlanKind::LeftApply(apply) => lower_optional_chain(&apply.right, catalog),
-        ir::PlanKind::Aggregate(_) => Err(LowerError::UnsupportedOperator("aggregate")),
+        ir::PlanKind::Aggregate(aggregate) => {
+            let input = lower_plan(&aggregate.input, catalog, optional)?;
+            let mut selects = Vec::new();
+            let mut groups = Vec::new();
+            let mut bindings = HashMap::new();
+            for grouping in &aggregate.groupings {
+                let sql = lower_expression(&grouping.expression, &input.bindings, catalog, "q")?;
+                selects.push(format!(
+                    "({sql}) AS {}",
+                    binding_column(grouping.output.id())
+                ));
+                groups.push(format!("({sql})"));
+                // Entity groupings keep their relational layout addressable
+                // for later property access.
+                if let ir::Expression::Binding(source_binding) = &grouping.expression.expression {
+                    if let Some(layout) = input.bindings.get(source_binding) {
+                        bindings.insert(grouping.output.id(), *layout);
+                    }
+                }
+            }
+            for aggregation in &aggregate.aggregations {
+                let argument = aggregation
+                    .expression
+                    .as_ref()
+                    .map(|expression| lower_expression(expression, &input.bindings, catalog, "q"))
+                    .transpose()?;
+                let distinct = if aggregation.distinct {
+                    "DISTINCT "
+                } else {
+                    ""
+                };
+                let call = match (&aggregation.function, &argument) {
+                    (ir::AggregateFunction::Count, None) => "count(*)".to_owned(),
+                    (ir::AggregateFunction::Count, Some(argument)) => {
+                        format!("count({distinct}({argument}))")
+                    }
+                    (ir::AggregateFunction::Sum, Some(argument)) => {
+                        format!("sum({distinct}({argument}))")
+                    }
+                    (ir::AggregateFunction::Average, Some(argument)) => {
+                        format!("avg({distinct}({argument}))")
+                    }
+                    (ir::AggregateFunction::Minimum, Some(argument)) => {
+                        format!("min({distinct}({argument}))")
+                    }
+                    (ir::AggregateFunction::Maximum, Some(argument)) => {
+                        format!("max({distinct}({argument}))")
+                    }
+                    (ir::AggregateFunction::Collect, Some(argument)) => {
+                        format!("json_group_array({distinct}({argument}))")
+                    }
+                    _ => {
+                        return Err(LowerError::UnsupportedOperator(
+                            "aggregate call without an argument",
+                        ));
+                    }
+                };
+                selects.push(format!(
+                    "{call} AS {}",
+                    binding_column(aggregation.output.id())
+                ));
+            }
+            let group_by = if groups.is_empty() {
+                String::new()
+            } else {
+                format!(" GROUP BY {}", groups.join(", "))
+            };
+            Ok(Lowered {
+                sql: format!(
+                    "SELECT {} FROM ({}) AS q{group_by}",
+                    selects.join(", "),
+                    input.sql
+                ),
+                bindings,
+            })
+        }
         ir::PlanKind::Sort(sort) => {
             let input = lower_plan(&sort.input, catalog, optional)?;
             let ordering = lower_ordering(&sort.keys, &input.bindings, catalog)?;
