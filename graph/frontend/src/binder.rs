@@ -2137,6 +2137,10 @@ impl<'a> Binder<'a> {
             })
     }
 
+    #[expect(
+        clippy::too_many_arguments,
+        reason = "entity binding construction keeps the declared metadata explicit"
+    )]
     fn new_entity_binding(
         &mut self,
         variable: Option<&cypher::Spanned<String>>,
