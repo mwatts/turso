@@ -141,9 +141,11 @@ pub fn bind_mutation(
     Binder::new(graph, catalog, parameters).bind_mutation_query(query)
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone)]
 struct EntityBinding {
     kind: CatalogEntity,
+    /// Label or relationship-type names declared where the entity was bound.
+    names: Vec<String>,
 }
 
 struct Binder<'a> {
@@ -254,6 +256,7 @@ impl<'a> Binder<'a> {
         let mut returns = Vec::new();
         let mut returns_skip = None;
         let mut returns_limit = None;
+        let mut deleted_variables: Vec<String> = Vec::new();
         let mut mutation_started = false;
         for clause in &query.clauses {
             match &clause.value {
@@ -284,6 +287,12 @@ impl<'a> Binder<'a> {
                 cypher::Clause::Delete(value) => {
                     mutation_started = true;
                     self.bind_delete(value, &mut operations)?;
+                    deleted_variables.extend(
+                        value
+                            .variables
+                            .iter()
+                            .map(|variable| variable.value.clone()),
+                    );
                 }
                 cypher::Clause::Return(value)
                     if mutation_started
@@ -319,6 +328,12 @@ impl<'a> Binder<'a> {
                                 "RETURN * after mutation clauses",
                             ));
                         };
+                        if references_variable(expression, &deleted_variables) {
+                            return Err(at_unsupported(
+                                expression.span,
+                                "returning deleted entities",
+                            ));
+                        }
                         returns.push(self.bind_expression(expression)?);
                     }
                 }
@@ -421,6 +436,11 @@ impl<'a> Binder<'a> {
                 ir::ValueType::Relationship,
                 ir::Nullability::NonNull,
                 CatalogEntity::Relationship,
+                relationship
+                    .types
+                    .iter()
+                    .map(|name| name.value.clone())
+                    .collect(),
                 relationship.span,
             )?;
             let relationship_types = relationship
@@ -493,6 +513,10 @@ impl<'a> Binder<'a> {
             ir::ValueType::Node,
             ir::Nullability::NonNull,
             CatalogEntity::Node,
+            node.labels
+                .iter()
+                .map(|label| label.value.clone())
+                .collect(),
             node.span,
         )?;
         let create = ir::CreateNode {
@@ -802,6 +826,11 @@ impl<'a> Binder<'a> {
                     ir::Nullability::NonNull
                 },
                 CatalogEntity::Relationship,
+                relationship
+                    .types
+                    .iter()
+                    .map(|name| name.value.clone())
+                    .collect(),
                 relationship.span,
             )?;
             let to = self.new_entity_binding(
@@ -810,6 +839,10 @@ impl<'a> Binder<'a> {
                 ir::ValueType::Node,
                 ir::Nullability::NonNull,
                 CatalogEntity::Node,
+                node.labels
+                    .iter()
+                    .map(|label| label.value.clone())
+                    .collect(),
                 node.span,
             )?;
             let relationship_types = relationship
@@ -930,6 +963,10 @@ impl<'a> Binder<'a> {
             ir::ValueType::Node,
             ir::Nullability::NonNull,
             CatalogEntity::Node,
+            node.labels
+                .iter()
+                .map(|label| label.value.clone())
+                .collect(),
             node.span,
         )?;
         let labels = self.resolve_labels(node)?;
@@ -1099,7 +1136,7 @@ impl<'a> Binder<'a> {
                         });
                         output_scope.push(binding.clone());
                         if let Some(entity) = self.entities.get(&binding.id()) {
-                            output_entities.insert(binding.id(), *entity);
+                            output_entities.insert(binding.id(), entity.clone());
                         }
                     }
                 }
@@ -1163,7 +1200,7 @@ impl<'a> Binder<'a> {
                             .scope
                             .iter()
                             .find(|binding| binding.name() == name)
-                            .and_then(|binding| self.entities.get(&binding.id()).copied()),
+                            .and_then(|binding| self.entities.get(&binding.id()).cloned()),
                         _ => None,
                     };
                     let output = ir::Binding::new(
@@ -1878,6 +1915,48 @@ impl<'a> Binder<'a> {
                     .iter()
                     .map(|argument| self.bind_expression(argument))
                     .collect::<Result<Vec<_>, _>>()?;
+                // labels(n) / type(r) resolve statically from the labels and
+                // relationship types declared where the entity was bound.
+                if let ("labels" | "type", [argument]) = (
+                    name.value.to_ascii_lowercase().as_str(),
+                    arguments.as_slice(),
+                ) {
+                    if let ir::Expression::Binding(id) = &argument.expression {
+                        if let Some(entity) = self.entities.get(id) {
+                            let lowered_name = name.value.to_ascii_lowercase();
+                            if lowered_name == "labels" && entity.kind == CatalogEntity::Node {
+                                let values = entity
+                                    .names
+                                    .iter()
+                                    .map(|label| ir::TypedExpression {
+                                        expression: ir::Expression::Literal(ir::Literal::Text(
+                                            label.clone(),
+                                        )),
+                                        value_type: ir::ValueType::Text,
+                                        nullability: ir::Nullability::NonNull,
+                                    })
+                                    .collect();
+                                return Ok(ir::TypedExpression {
+                                    expression: ir::Expression::List(values),
+                                    value_type: ir::ValueType::List(Box::new(ir::ValueType::Text)),
+                                    nullability: ir::Nullability::NonNull,
+                                });
+                            }
+                            if lowered_name == "type" && entity.kind == CatalogEntity::Relationship
+                            {
+                                if let [single] = entity.names.as_slice() {
+                                    return Ok(ir::TypedExpression {
+                                        expression: ir::Expression::Literal(ir::Literal::Text(
+                                            single.clone(),
+                                        )),
+                                        value_type: ir::ValueType::Text,
+                                        nullability: argument.nullability,
+                                    });
+                                }
+                            }
+                        }
+                    }
+                }
                 if let Some(rewritten) =
                     rewrite_builtin_call(&name.value, &arguments, expression.span)?
                 {
@@ -2065,6 +2144,7 @@ impl<'a> Binder<'a> {
         value_type: ir::ValueType,
         nullability: ir::Nullability,
         kind: CatalogEntity,
+        names: Vec<String>,
         span: cypher::Span,
     ) -> Result<ir::Binding, BindError> {
         if let Some(variable) = variable {
@@ -2087,7 +2167,7 @@ impl<'a> Binder<'a> {
         let binding =
             ir::Binding::new(id, name, value_type, nullability).map_err(BindError::InvalidPlan)?;
         self.scope.push(binding.clone());
-        self.entities.insert(id, EntityBinding { kind });
+        self.entities.insert(id, EntityBinding { kind, names });
         let _ = span;
         Ok(binding)
     }
@@ -2291,6 +2371,39 @@ fn rewrite_builtin_call(
             _ => return Ok(None),
         },
     ))
+}
+
+/// Shallow scan for references to the named variables: direct uses,
+/// property chains, and function arguments — the forms a mutation RETURN
+/// can produce over a deleted entity.
+fn references_variable(expression: &cypher::Spanned<cypher::Expression>, names: &[String]) -> bool {
+    match &expression.value {
+        // Returning a deleted entity's value is legal Cypher (a snapshot),
+        // but asking for its metadata is a runtime error (TCK Return2 [16]).
+        cypher::Expression::Function {
+            name, arguments, ..
+        } if matches!(
+            name.value.to_ascii_lowercase().as_str(),
+            "labels" | "type" | "properties"
+        ) =>
+        {
+            arguments.iter().any(|argument| {
+                matches!(
+                    &argument.value,
+                    cypher::Expression::Variable(variable)
+                        if names.iter().any(|deleted| deleted == variable)
+                )
+            })
+        }
+        cypher::Expression::Function { arguments, .. } => arguments
+            .iter()
+            .any(|argument| references_variable(argument, names)),
+        cypher::Expression::Unary { operand, .. } => references_variable(operand, names),
+        cypher::Expression::Binary { left, right, .. } => {
+            references_variable(left, names) || references_variable(right, names)
+        }
+        _ => false,
+    }
 }
 
 fn list_element_type(
