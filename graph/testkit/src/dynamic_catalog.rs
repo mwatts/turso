@@ -143,8 +143,20 @@ impl GraphCatalogSnapshot for DynamicCatalog {
                 return Some(property.clone());
             }
         }
-        if let Some(property) = self.inner.property(graph, entity, name) {
-            return Some(property);
+        // Identity and endpoint columns are structural: a Cypher property
+        // that shares their name (donor data often uses `id`) must not
+        // resolve onto them, or writes hit datatype mismatches against the
+        // INTEGER PRIMARY KEY. Those names get a prefixed payload column.
+        let reserved: &[&str] = if is_node {
+            &["id"]
+        } else {
+            &["id", "src", "dst"]
+        };
+        let is_reserved = reserved.contains(&name);
+        if !is_reserved {
+            if let Some(property) = self.inner.property(graph, entity, name) {
+                return Some(property);
+            }
         }
         let mut state = self.state.lock().expect("catalog state lock");
         let key = (is_node, name.to_owned());
@@ -153,7 +165,12 @@ impl GraphCatalogSnapshot for DynamicCatalog {
         } else {
             &self.relationship_table
         };
-        let column = name.replace('"', "\"\"");
+        let physical = if is_reserved {
+            format!("cyprop_{name}")
+        } else {
+            name.to_owned()
+        };
+        let column = physical.replace('"', "\"\"");
         self.connection
             .execute(format!("ALTER TABLE \"{table}\" ADD COLUMN \"{column}\""))
             .ok()?;
@@ -162,7 +179,7 @@ impl GraphCatalogSnapshot for DynamicCatalog {
             value_type: ir::ValueType::Any,
             nullability: ir::Nullability::Nullable,
         };
-        state.property_columns.insert(property.id, name.to_owned());
+        state.property_columns.insert(property.id, physical);
         state.properties.insert(key, property.clone());
         Some(property)
     }

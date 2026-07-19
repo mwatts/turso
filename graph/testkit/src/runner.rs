@@ -254,15 +254,14 @@ fn execute(
 ) -> Result<Vec<Vec<String>>, String> {
     let rows = match scenario.action.as_str() {
         "query" => session.query(&scenario.query, parameters),
-        "mutation" => session.mutate(&scenario.query, parameters).and_then(|_| {
-            session.query(
-                scenario
-                    .verification_query
-                    .as_deref()
-                    .expect("validated mutation has verification query"),
-                parameters,
-            )
-        }),
+        "mutation" => match scenario.verification_query.as_deref() {
+            Some(verification) => session
+                .mutate(&scenario.query, parameters)
+                .and_then(|_| session.query(verification, parameters)),
+            // Expected-error scenarios carry no verification query; when the
+            // mutation unexpectedly succeeds, classify sees empty rows.
+            None => session.mutate(&scenario.query, parameters).map(|_| Vec::new()),
+        },
         _ => unreachable!("manifest validation constrains actions"),
     }
     .map_err(|error| error.to_string())?;

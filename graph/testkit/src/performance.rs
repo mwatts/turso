@@ -153,7 +153,7 @@ fn measure_load(scale: u64) -> Result<Measurement> {
     seed_labels(&fixture)?;
     let started = Instant::now();
     let rows = fixture.session.query(
-        "MATCH (:Person {id: 1})-[:KNOWS*1..3]->(b:Person) RETURN count(b)",
+        "MATCH (:Person {name: 'node-1'})-[:KNOWS*1..3]->(b:Person) RETURN count(b)",
         &MutationParameters::new(),
     )?;
     let duration_ns = elapsed_ns(started);
@@ -175,7 +175,7 @@ fn measure_query(scale: u64, iterations: u32) -> Result<Measurement> {
     let fixture = empty_fixture(&format!("perf-query-{scale}"))?;
     fixture.connection.execute(line_graph_sql(scale))?;
     seed_labels(&fixture)?;
-    let query = format!("MATCH (n:Person {{id: {}}}) RETURN n.name", scale / 2);
+    let query = format!("MATCH (n:Person {{name: 'node-{}'}}) RETURN n.name", scale / 2);
     let parameters = MutationParameters::new();
     fixture.session.query(&query, &parameters)?;
     let started = Instant::now();
