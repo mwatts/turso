@@ -471,7 +471,7 @@ fn execute_statement(session: &GraphSession, statement: &str) -> Result<Vec<Vec<
         Ok(rows) => Ok(rows),
         Err(query_error) => session
             .mutate(statement, &parameters)
-            .map(|_| Vec::new())
+            .map(|summary| summary.rows)
             .map_err(|mutation_error| {
                 format!(
                     "query execution failed: {query_error}; mutation execution failed: {mutation_error}; query: {statement}"

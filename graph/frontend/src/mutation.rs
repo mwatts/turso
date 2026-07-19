@@ -18,10 +18,12 @@ const INTERNAL_PARAMETER_PREFIX: &str = "__turso_internal_graph_ref_";
 
 pub type MutationParameters = HashMap<String, Value>;
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct MutationSummary {
     pub matched_rows: u64,
     pub operations_executed: u64,
+    /// Rows produced by a trailing RETURN clause, one per input row.
+    pub rows: Vec<Vec<Value>>,
 }
 
 #[derive(Debug, Error)]
@@ -76,6 +78,7 @@ pub fn execute_cypher_mutation(
         connection,
         catalog.as_ref(),
         &bound.request,
+        &bound.returns,
         &input,
         parameters,
     );
@@ -103,6 +106,7 @@ fn execute_bound(
     connection: &Arc<Connection>,
     catalog: &dyn GraphCompilationCatalog,
     request: &ir::MutationRequest,
+    returns: &[ir::TypedExpression],
     input: &LoweredMutationInput,
     parameters: &MutationParameters,
 ) -> Result<MutationSummary, MutationError> {
@@ -119,6 +123,7 @@ fn execute_bound(
     };
     let matched_rows = rows.len() as u64;
     let mut operations_executed = 0_u64;
+    let mut returned_rows = Vec::new();
     for row in rows {
         let mut values = input_bindings
             .iter()
@@ -139,10 +144,35 @@ fn execute_bound(
             )?;
             operations_executed += 1;
         }
+        if !returns.is_empty() {
+            let references = reference_parameters(&values);
+            let columns = returns
+                .iter()
+                .map(|expression| {
+                    lower_mutation_expression(
+                        expression,
+                        input,
+                        catalog,
+                        &references.sql,
+                        &entity_layouts,
+                    )
+                    .map(|sql| format!("({sql})"))
+                })
+                .collect::<Result<Vec<_>, _>>()?
+                .join(", ");
+            let mut produced = run_rows(
+                connection,
+                &format!("SELECT {columns}"),
+                parameters,
+                &references.values,
+            )?;
+            returned_rows.append(&mut produced);
+        }
     }
     Ok(MutationSummary {
         matched_rows,
         operations_executed,
+        rows: returned_rows,
     })
 }
 

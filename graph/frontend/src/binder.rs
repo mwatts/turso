@@ -44,6 +44,8 @@ pub struct BoundQuery {
 #[derive(Clone, Debug, PartialEq)]
 pub struct BoundMutation {
     pub request: ir::MutationRequest,
+    /// Trailing RETURN projections, bound against the mutation scope.
+    pub returns: Vec<ir::TypedExpression>,
 }
 
 #[derive(Clone, Debug, Error, Eq, PartialEq)]
@@ -247,6 +249,7 @@ impl<'a> Binder<'a> {
             return Err(at_unsupported(branch.span, "UNION in mutation queries"));
         }
         let mut operations = Vec::new();
+        let mut returns = Vec::new();
         let mut mutation_started = false;
         for clause in &query.clauses {
             match &clause.value {
@@ -278,6 +281,31 @@ impl<'a> Binder<'a> {
                     mutation_started = true;
                     self.bind_delete(value, &mut operations)?;
                 }
+                cypher::Clause::Return(value)
+                    if mutation_started
+                        && std::ptr::eq(clause, query.clauses.last().expect("non-empty")) =>
+                {
+                    if value.distinct
+                        || value.predicate.is_some()
+                        || !value.order_by.is_empty()
+                        || value.skip.is_some()
+                        || value.limit.is_some()
+                    {
+                        return Err(at_unsupported(
+                            clause.span,
+                            "modifiers on a mutation RETURN clause",
+                        ));
+                    }
+                    for item in &value.items {
+                        let cypher::ProjectionItem::Expression { expression, .. } = item else {
+                            return Err(at_unsupported(
+                                clause.span,
+                                "RETURN * after mutation clauses",
+                            ));
+                        };
+                        returns.push(self.bind_expression(expression)?);
+                    }
+                }
                 cypher::Clause::Unwind(_) | cypher::Clause::With(_) | cypher::Clause::Return(_) => {
                     return Err(at_unsupported(
                         clause.span,
@@ -295,6 +323,7 @@ impl<'a> Binder<'a> {
                 input: self.plan,
                 operations,
             },
+            returns,
         })
     }
 
@@ -2338,8 +2367,11 @@ mod tests {
             bind_mutation_text("MATCH (n) SET missing.name = 'x'"),
             Err(BindError::UnknownVariable { .. })
         ));
+        let bound = bind_mutation_text("CREATE (n:Person {id: 1}) RETURN n")
+            .expect("trailing RETURN after a mutation should bind");
+        assert_eq!(bound.returns.len(), 1);
         assert!(matches!(
-            bind_mutation_text("CREATE (n:Person {id: 1}) RETURN n"),
+            bind_mutation_text("CREATE (:Person {id: 1}) WITH 1 AS x RETURN x"),
             Err(BindError::Unsupported { .. })
         ));
         assert!(matches!(
