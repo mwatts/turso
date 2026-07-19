@@ -4,19 +4,18 @@ Generated from `graph/test-results/history.jsonl`. Results are grouped by stable
 
 ## Latest complete corpus run
 
-- Run: `20260719T205715.944885Z-27369e5a052c-corpus-deep`
+- Run: `20260719T210524.711499Z-51b9a1bd28bf-corpus-deep`
 - Records: 10392
-- Passed: 6865
-- Failed: 3527
+- Passed: 7376
+- Failed: 3016
 
 ### Failure-reason histogram
 
 | Failure family | Count |
 |---|---:|
-| `execution`: mutation projection unsupported | 795 |
-| `execution`: other | 653 |
+| `execution`: other | 768 |
 | `parser`: other grammar | 550 |
-| `result-comparison`: result oracle missing | 304 |
+| `execution`: mutation projection unsupported | 473 |
 | `execution`: runtime scalar function missing | 279 |
 | `parser`: expression/operator continuation grammar | 270 |
 | `execution`: mutation operation unsupported | 215 |
@@ -36,8 +35,8 @@ Generated from `graph/test-results/history.jsonl`. Results are grouped by stable
 
 ## Latest `age-deep` run
 
-- Run: `20260719T205715.944885Z-27369e5a052c-corpus-deep`
-- Commit: `27369e5a052cafa02014ef37141e4e24093062cf` (dirty)
+- Run: `20260719T210524.711499Z-51b9a1bd28bf-corpus-deep`
+- Commit: `51b9a1bd28bf3a860dd308fd48579b851a4a6d8e` (dirty)
 - Package: `0.7.0`
 - Environment: `macos/aarch64` (`dev`)
 - Records: 3677
@@ -45,7 +44,7 @@ Generated from `graph/test-results/history.jsonl`. Results are grouped by stable
 - Unsupported: 0
 - Failed or changed: 1478
 
-### Outcome changes from `20260719T194200.705171Z-c9496b51762d-corpus-deep`
+### Outcome changes from `20260719T205715.944885Z-27369e5a052c-corpus-deep`
 
 - No outcome changes.
 
@@ -1615,8 +1614,8 @@ Generated from `graph/test-results/history.jsonl`. Results are grouped by stable
 
 ## Latest `cqlite-deep` run
 
-- Run: `20260719T205715.944885Z-27369e5a052c-corpus-deep`
-- Commit: `27369e5a052cafa02014ef37141e4e24093062cf` (dirty)
+- Run: `20260719T210524.711499Z-51b9a1bd28bf-corpus-deep`
+- Commit: `51b9a1bd28bf3a860dd308fd48579b851a4a6d8e` (dirty)
 - Package: `0.7.0`
 - Environment: `macos/aarch64` (`dev`)
 - Records: 137
@@ -1624,148 +1623,148 @@ Generated from `graph/test-results/history.jsonl`. Results are grouped by stable
 - Unsupported: 0
 - Failed or changed: 24
 
-### Outcome changes from `20260719T194200.705171Z-c9496b51762d-corpus-deep`
+### Outcome changes from `20260719T205715.944885Z-27369e5a052c-corpus-deep`
 
 - No outcome changes.
 
 | Test | Kind | Area | Outcome | Duration |
 |---|---|---|---|---:|
-| `cqlite.basic-queries.run-a-to-b.query-1` | `Conformance` | basic_queries | `Passed` | 7.680 ms |
-| `cqlite.basic-queries.run-a-to-b.query-2` | `Conformance` | basic_queries | `Passed` | 7.312 ms |
+| `cqlite.basic-queries.run-a-to-b.query-1` | `Conformance` | basic_queries | `Passed` | 7.729 ms |
+| `cqlite.basic-queries.run-a-to-b.query-2` | `Conformance` | basic_queries | `Passed` | 7.470 ms |
 | `cqlite.basic-queries.run-a-to-b.query-3` | `Conformance` | basic_queries | `Passed` | 7.402 ms |
-| `cqlite.basic-queries.run-a-edge-b.query-1` | `Conformance` | basic_queries | `Passed` | 8.304 ms |
-| `cqlite.basic-queries.run-a-edge-b.query-2` | `Conformance` | basic_queries | `Passed` | 7.427 ms |
-| `cqlite.basic-queries.run-a-to-a.query-1` | `Conformance` | basic_queries | `Passed` | 9.646 ms |
-| `cqlite.basic-queries.run-a-to-a.query-2` | `Conformance` | basic_queries | `Passed` | 9.098 ms |
-| `cqlite.basic-queries.run-a-edge-a.query-1` | `Conformance` | basic_queries | `Passed` | 9.391 ms |
-| `cqlite.basic-queries.run-a-edge-a.query-2` | `Conformance` | basic_queries | `Passed` | 7.347 ms |
-| `cqlite.basic-queries.run-a-knows-b.query-1` | `Conformance` | basic_queries | `Passed` | 9.246 ms |
-| `cqlite.basic-queries.run-a-knows-b.query-2` | `Conformance` | basic_queries | `Passed` | 7.607 ms |
-| `cqlite.basic-queries.run-a-edge-b-with-where-property.query-1` | `Conformance` | basic_queries | `Passed` | 8.938 ms |
-| `cqlite.basic-queries.run-a-edge-b-with-where-property.query-2` | `Conformance` | basic_queries | `Passed` | 8.143 ms |
-| `cqlite.basic-queries.run-a-edge-b-with-property-map.query-1` | `Conformance` | basic_queries | `Passed` | 8.659 ms |
-| `cqlite.basic-queries.run-a-edge-b-with-property-map.query-2` | `Conformance` | basic_queries | `Passed` | 8.035 ms |
-| `cqlite.basic-queries.run-a-edge-b-with-where-id.query-1` | `Conformance` | basic_queries | `Passed` | 7.723 ms |
-| `cqlite.basic-queries.run-a-edge-b-with-where-id.query-2` | `Conformance` | basic_queries | `Passed` | 7.131 ms |
-| `cqlite.basic-queries.run-a-where-with-parameters.query-1` | `Conformance` | basic_queries | `Passed` | 8.470 ms |
-| `cqlite.basic-queries.run-a-where-with-parameters.query-2` | `Conformance` | basic_queries | `Failed` | 7.075 ms |
-| `cqlite.basic-queries.run-set.query-1` | `Conformance` | basic_queries | `Passed` | 7.426 ms |
-| `cqlite.basic-queries.run-set.query-2` | `Conformance` | basic_queries | `Failed` | 7.109 ms |
-| `cqlite.basic-queries.run-set.query-3` | `Conformance` | basic_queries | `Passed` | 7.319 ms |
-| `cqlite.basic-queries.return-from-set.query-1` | `Conformance` | basic_queries | `Passed` | 7.124 ms |
-| `cqlite.basic-queries.return-from-set.query-2` | `Conformance` | basic_queries | `Passed` | 7.448 ms |
-| `cqlite.basic-queries.return-from-set.query-3` | `Conformance` | basic_queries | `Passed` | 7.321 ms |
-| `cqlite.basic-queries.run-delete-node.query-1` | `Conformance` | basic_queries | `Passed` | 7.217 ms |
-| `cqlite.basic-queries.run-delete-node.query-2` | `Conformance` | basic_queries | `Passed` | 6.975 ms |
-| `cqlite.basic-queries.run-delete-node.query-3` | `Conformance` | basic_queries | `Passed` | 6.852 ms |
-| `cqlite.basic-queries.run-delete-edge.query-1` | `Conformance` | basic_queries | `Passed` | 7.768 ms |
-| `cqlite.basic-queries.run-delete-edge.query-2` | `Conformance` | basic_queries | `Passed` | 7.179 ms |
-| `cqlite.basic-queries.run-delete-edge.query-3` | `Conformance` | basic_queries | `Passed` | 7.121 ms |
-| `cqlite.basic-queries.run-bad-delete.query-1` | `Conformance` | basic_queries | `Passed` | 7.767 ms |
-| `cqlite.basic-queries.run-bad-delete.query-2` | `Conformance` | basic_queries | `Passed` | 6.892 ms |
-| `cqlite.basic-queries.run-return-label.query-1` | `Conformance` | basic_queries | `Passed` | 8.124 ms |
-| `cqlite.basic-queries.run-return-label.query-2` | `Conformance` | basic_queries | `Failed` | 7.391 ms |
-| `cqlite.basic-queries.match-return-count.query-1` | `Conformance` | basic_queries | `Passed` | 6.937 ms |
-| `cqlite.basic-queries.match-return-count.query-2` | `Conformance` | basic_queries | `Passed` | 7.051 ms |
-| `cqlite.basic-queries.match-return-count.query-3` | `Conformance` | basic_queries | `Passed` | 6.812 ms |
-| `cqlite.basic-queries.match-multiple-edges.query-1` | `Conformance` | basic_queries | `Passed` | 9.231 ms |
+| `cqlite.basic-queries.run-a-edge-b.query-1` | `Conformance` | basic_queries | `Passed` | 8.327 ms |
+| `cqlite.basic-queries.run-a-edge-b.query-2` | `Conformance` | basic_queries | `Passed` | 7.463 ms |
+| `cqlite.basic-queries.run-a-to-a.query-1` | `Conformance` | basic_queries | `Passed` | 8.888 ms |
+| `cqlite.basic-queries.run-a-to-a.query-2` | `Conformance` | basic_queries | `Passed` | 7.416 ms |
+| `cqlite.basic-queries.run-a-edge-a.query-1` | `Conformance` | basic_queries | `Passed` | 9.500 ms |
+| `cqlite.basic-queries.run-a-edge-a.query-2` | `Conformance` | basic_queries | `Passed` | 7.447 ms |
+| `cqlite.basic-queries.run-a-knows-b.query-1` | `Conformance` | basic_queries | `Passed` | 9.139 ms |
+| `cqlite.basic-queries.run-a-knows-b.query-2` | `Conformance` | basic_queries | `Passed` | 7.527 ms |
+| `cqlite.basic-queries.run-a-edge-b-with-where-property.query-1` | `Conformance` | basic_queries | `Passed` | 9.564 ms |
+| `cqlite.basic-queries.run-a-edge-b-with-where-property.query-2` | `Conformance` | basic_queries | `Passed` | 8.430 ms |
+| `cqlite.basic-queries.run-a-edge-b-with-property-map.query-1` | `Conformance` | basic_queries | `Passed` | 8.766 ms |
+| `cqlite.basic-queries.run-a-edge-b-with-property-map.query-2` | `Conformance` | basic_queries | `Passed` | 8.151 ms |
+| `cqlite.basic-queries.run-a-edge-b-with-where-id.query-1` | `Conformance` | basic_queries | `Passed` | 7.803 ms |
+| `cqlite.basic-queries.run-a-edge-b-with-where-id.query-2` | `Conformance` | basic_queries | `Passed` | 7.171 ms |
+| `cqlite.basic-queries.run-a-where-with-parameters.query-1` | `Conformance` | basic_queries | `Passed` | 8.523 ms |
+| `cqlite.basic-queries.run-a-where-with-parameters.query-2` | `Conformance` | basic_queries | `Failed` | 7.130 ms |
+| `cqlite.basic-queries.run-set.query-1` | `Conformance` | basic_queries | `Passed` | 7.210 ms |
+| `cqlite.basic-queries.run-set.query-2` | `Conformance` | basic_queries | `Failed` | 7.355 ms |
+| `cqlite.basic-queries.run-set.query-3` | `Conformance` | basic_queries | `Passed` | 7.702 ms |
+| `cqlite.basic-queries.return-from-set.query-1` | `Conformance` | basic_queries | `Passed` | 7.243 ms |
+| `cqlite.basic-queries.return-from-set.query-2` | `Conformance` | basic_queries | `Passed` | 7.562 ms |
+| `cqlite.basic-queries.return-from-set.query-3` | `Conformance` | basic_queries | `Passed` | 7.398 ms |
+| `cqlite.basic-queries.run-delete-node.query-1` | `Conformance` | basic_queries | `Passed` | 7.433 ms |
+| `cqlite.basic-queries.run-delete-node.query-2` | `Conformance` | basic_queries | `Passed` | 6.981 ms |
+| `cqlite.basic-queries.run-delete-node.query-3` | `Conformance` | basic_queries | `Passed` | 6.843 ms |
+| `cqlite.basic-queries.run-delete-edge.query-1` | `Conformance` | basic_queries | `Passed` | 8.060 ms |
+| `cqlite.basic-queries.run-delete-edge.query-2` | `Conformance` | basic_queries | `Passed` | 7.452 ms |
+| `cqlite.basic-queries.run-delete-edge.query-3` | `Conformance` | basic_queries | `Passed` | 7.306 ms |
+| `cqlite.basic-queries.run-bad-delete.query-1` | `Conformance` | basic_queries | `Passed` | 7.853 ms |
+| `cqlite.basic-queries.run-bad-delete.query-2` | `Conformance` | basic_queries | `Passed` | 6.881 ms |
+| `cqlite.basic-queries.run-return-label.query-1` | `Conformance` | basic_queries | `Passed` | 8.141 ms |
+| `cqlite.basic-queries.run-return-label.query-2` | `Conformance` | basic_queries | `Failed` | 7.479 ms |
+| `cqlite.basic-queries.match-return-count.query-1` | `Conformance` | basic_queries | `Passed` | 7.077 ms |
+| `cqlite.basic-queries.match-return-count.query-2` | `Conformance` | basic_queries | `Passed` | 7.073 ms |
+| `cqlite.basic-queries.match-return-count.query-3` | `Conformance` | basic_queries | `Passed` | 6.934 ms |
+| `cqlite.basic-queries.match-multiple-edges.query-1` | `Conformance` | basic_queries | `Passed` | 9.303 ms |
 | `cqlite.basic-queries.match-multiple-edges.query-2` | `Conformance` | basic_queries | `Failed` | 0.036 ms |
-| `cqlite.create-queries.create-label-only.query-1` | `Conformance` | create_queries | `Passed` | 7.543 ms |
-| `cqlite.create-queries.create-label-only.query-2` | `Conformance` | create_queries | `Passed` | 6.940 ms |
-| `cqlite.create-queries.create-with-properties.query-1` | `Conformance` | create_queries | `Passed` | 8.284 ms |
-| `cqlite.create-queries.create-with-properties.query-2` | `Conformance` | create_queries | `Passed` | 7.516 ms |
-| `cqlite.create-queries.create-with-properties-from-parameters.query-1` | `Conformance` | create_queries | `Failed` | 7.330 ms |
-| `cqlite.create-queries.create-with-properties-from-parameters.query-2` | `Conformance` | create_queries | `Passed` | 7.381 ms |
-| `cqlite.create-queries.create-edges-with-label.query-1` | `Conformance` | create_queries | `Passed` | 9.662 ms |
-| `cqlite.create-queries.create-edges-with-label.query-2` | `Conformance` | create_queries | `Failed` | 10.244 ms |
-| `cqlite.delete-queries.delete-node.query-1` | `Conformance` | delete_queries | `Passed` | 7.164 ms |
-| `cqlite.delete-queries.delete-node.query-2` | `Conformance` | delete_queries | `Passed` | 6.841 ms |
-| `cqlite.delete-queries.delete-node.query-3` | `Conformance` | delete_queries | `Passed` | 6.731 ms |
-| `cqlite.delete-queries.delete-node.query-4` | `Conformance` | delete_queries | `Passed` | 6.747 ms |
-| `cqlite.delete-queries.double-delete-node.query-1` | `Conformance` | delete_queries | `Passed` | 7.192 ms |
-| `cqlite.delete-queries.double-delete-node.query-2` | `Conformance` | delete_queries | `Passed` | 6.916 ms |
-| `cqlite.delete-queries.double-delete-node.query-3` | `Conformance` | delete_queries | `Passed` | 6.928 ms |
-| `cqlite.delete-queries.double-delete-node.query-4` | `Conformance` | delete_queries | `Passed` | 6.889 ms |
-| `cqlite.delete-queries.delete-edge.query-1` | `Conformance` | delete_queries | `Passed` | 8.690 ms |
-| `cqlite.delete-queries.delete-edge.query-2` | `Conformance` | delete_queries | `Failed` | 0.035 ms |
-| `cqlite.delete-queries.delete-edge.query-3` | `Conformance` | delete_queries | `Passed` | 7.134 ms |
+| `cqlite.create-queries.create-label-only.query-1` | `Conformance` | create_queries | `Passed` | 7.668 ms |
+| `cqlite.create-queries.create-label-only.query-2` | `Conformance` | create_queries | `Passed` | 7.012 ms |
+| `cqlite.create-queries.create-with-properties.query-1` | `Conformance` | create_queries | `Passed` | 8.322 ms |
+| `cqlite.create-queries.create-with-properties.query-2` | `Conformance` | create_queries | `Passed` | 7.558 ms |
+| `cqlite.create-queries.create-with-properties-from-parameters.query-1` | `Conformance` | create_queries | `Failed` | 7.399 ms |
+| `cqlite.create-queries.create-with-properties-from-parameters.query-2` | `Conformance` | create_queries | `Passed` | 7.347 ms |
+| `cqlite.create-queries.create-edges-with-label.query-1` | `Conformance` | create_queries | `Passed` | 9.048 ms |
+| `cqlite.create-queries.create-edges-with-label.query-2` | `Conformance` | create_queries | `Failed` | 7.798 ms |
+| `cqlite.delete-queries.delete-node.query-1` | `Conformance` | delete_queries | `Passed` | 7.296 ms |
+| `cqlite.delete-queries.delete-node.query-2` | `Conformance` | delete_queries | `Passed` | 6.957 ms |
+| `cqlite.delete-queries.delete-node.query-3` | `Conformance` | delete_queries | `Passed` | 7.036 ms |
+| `cqlite.delete-queries.delete-node.query-4` | `Conformance` | delete_queries | `Passed` | 6.916 ms |
+| `cqlite.delete-queries.double-delete-node.query-1` | `Conformance` | delete_queries | `Passed` | 7.297 ms |
+| `cqlite.delete-queries.double-delete-node.query-2` | `Conformance` | delete_queries | `Passed` | 6.829 ms |
+| `cqlite.delete-queries.double-delete-node.query-3` | `Conformance` | delete_queries | `Passed` | 6.801 ms |
+| `cqlite.delete-queries.double-delete-node.query-4` | `Conformance` | delete_queries | `Passed` | 6.802 ms |
+| `cqlite.delete-queries.delete-edge.query-1` | `Conformance` | delete_queries | `Passed` | 8.615 ms |
+| `cqlite.delete-queries.delete-edge.query-2` | `Conformance` | delete_queries | `Failed` | 0.036 ms |
+| `cqlite.delete-queries.delete-edge.query-3` | `Conformance` | delete_queries | `Passed` | 7.152 ms |
 | `cqlite.delete-queries.delete-edge.query-4` | `Conformance` | delete_queries | `Failed` | 0.004 ms |
-| `cqlite.delete-queries.connected-delete-fails.query-1` | `Conformance` | delete_queries | `Passed` | 8.547 ms |
-| `cqlite.delete-queries.connected-delete-fails.query-2` | `Conformance` | delete_queries | `Passed` | 6.791 ms |
-| `cqlite.delete-queries.connected-delete-fails.query-3` | `Conformance` | delete_queries | `Passed` | 7.041 ms |
-| `cqlite.delete-queries.connected-delete-fails.query-4` | `Conformance` | delete_queries | `Passed` | 6.816 ms |
-| `cqlite.match-queries.create-test-graph.query-1` | `Conformance` | match_queries | `Passed` | 11.710 ms |
-| `cqlite.match-queries.match-all-nodes.query-1` | `Conformance` | match_queries | `Passed` | 7.184 ms |
-| `cqlite.match-queries.match-multiple-nodes.query-1` | `Conformance` | match_queries | `Passed` | 7.054 ms |
-| `cqlite.match-queries.match-multiple-nodes.query-2` | `Conformance` | match_queries | `Passed` | 6.971 ms |
-| `cqlite.match-queries.match-single-directed-edge.query-1` | `Conformance` | match_queries | `Passed` | 7.219 ms |
-| `cqlite.match-queries.match-single-undirected-edge.query-1` | `Conformance` | match_queries | `Passed` | 7.250 ms |
-| `cqlite.match-queries.match-single-path.query-1` | `Conformance` | match_queries | `Failed` | 0.035 ms |
+| `cqlite.delete-queries.connected-delete-fails.query-1` | `Conformance` | delete_queries | `Passed` | 8.594 ms |
+| `cqlite.delete-queries.connected-delete-fails.query-2` | `Conformance` | delete_queries | `Passed` | 6.886 ms |
+| `cqlite.delete-queries.connected-delete-fails.query-3` | `Conformance` | delete_queries | `Passed` | 7.067 ms |
+| `cqlite.delete-queries.connected-delete-fails.query-4` | `Conformance` | delete_queries | `Passed` | 6.783 ms |
+| `cqlite.match-queries.create-test-graph.query-1` | `Conformance` | match_queries | `Passed` | 12.354 ms |
+| `cqlite.match-queries.match-all-nodes.query-1` | `Conformance` | match_queries | `Passed` | 7.192 ms |
+| `cqlite.match-queries.match-multiple-nodes.query-1` | `Conformance` | match_queries | `Passed` | 7.647 ms |
+| `cqlite.match-queries.match-multiple-nodes.query-2` | `Conformance` | match_queries | `Passed` | 7.137 ms |
+| `cqlite.match-queries.match-single-directed-edge.query-1` | `Conformance` | match_queries | `Passed` | 16.596 ms |
+| `cqlite.match-queries.match-single-undirected-edge.query-1` | `Conformance` | match_queries | `Passed` | 7.319 ms |
+| `cqlite.match-queries.match-single-path.query-1` | `Conformance` | match_queries | `Failed` | 0.037 ms |
 | `cqlite.match-queries.match-path-with-multiple-clauses.query-1` | `Conformance` | match_queries | `Failed` | 0.029 ms |
 | `cqlite.match-queries.match-long-path.query-1` | `Conformance` | match_queries | `Failed` | 0.027 ms |
-| `cqlite.match-queries.match-labeled-nodes.query-1` | `Conformance` | match_queries | `Passed` | 6.864 ms |
-| `cqlite.match-queries.match-labeled-nodes.query-2` | `Conformance` | match_queries | `Passed` | 6.887 ms |
-| `cqlite.match-queries.match-labeled-nodes.query-3` | `Conformance` | match_queries | `Passed` | 6.917 ms |
-| `cqlite.match-queries.match-labeled-edges.query-1` | `Conformance` | match_queries | `Passed` | 7.518 ms |
-| `cqlite.match-queries.match-labeled-edges.query-2` | `Conformance` | match_queries | `Passed` | 9.981 ms |
-| `cqlite.match-queries.match-nodes-with-properties.query-1` | `Conformance` | match_queries | `Passed` | 7.888 ms |
-| `cqlite.match-queries.match-nodes-with-properties.query-2` | `Conformance` | match_queries | `Passed` | 6.948 ms |
-| `cqlite.match-queries.match-nodes-with-properties.query-3` | `Conformance` | match_queries | `Passed` | 7.440 ms |
-| `cqlite.match-queries.match-edges-with-properties.query-1` | `Conformance` | match_queries | `Passed` | 7.636 ms |
-| `cqlite.match-queries.match-nodes-with-label.query-1` | `Conformance` | match_queries | `Passed` | 6.845 ms |
-| `cqlite.match-queries-where.create-test-graph.query-1` | `Conformance` | match_queries_where | `Passed` | 16.693 ms |
-| `cqlite.match-queries-where.match-where-node-id-eq.query-1` | `Conformance` | match_queries_where | `Failed` | 7.046 ms |
-| `cqlite.match-queries-where.match-where-node-id-eq.query-2` | `Conformance` | match_queries_where | `Failed` | 6.932 ms |
-| `cqlite.match-queries-where.match-where-node-id-eq-non-id.query-1` | `Conformance` | match_queries_where | `Passed` | 7.084 ms |
-| `cqlite.match-queries-where.match-where-node-label-eq.query-1` | `Conformance` | match_queries_where | `Passed` | 6.914 ms |
-| `cqlite.match-queries-where.match-where-node-label-eq.query-2` | `Conformance` | match_queries_where | `Passed` | 7.106 ms |
-| `cqlite.match-queries-where.match-where-node-prop-eq.query-1` | `Conformance` | match_queries_where | `Failed` | 6.974 ms |
-| `cqlite.match-queries-where.match-where-node-prop.query-1` | `Conformance` | match_queries_where | `Passed` | 7.258 ms |
-| `cqlite.match-queries-where.match-where-not-node-prop.query-1` | `Conformance` | match_queries_where | `Passed` | 7.304 ms |
-| `cqlite.match-queries-where.match-where-node-prop-eq-true-false.query-1` | `Conformance` | match_queries_where | `Passed` | 7.397 ms |
-| `cqlite.match-queries-where.match-where-node-prop-eq-true-false.query-2` | `Conformance` | match_queries_where | `Passed` | 7.256 ms |
-| `cqlite.match-queries-where.match-where-node-prop-ne-null.query-1` | `Conformance` | match_queries_where | `Passed` | 7.160 ms |
-| `cqlite.match-queries-where.match-where-node-prop-lt-or-gt.query-1` | `Conformance` | match_queries_where | `Passed` | 7.368 ms |
-| `cqlite.match-queries-where.match-where-node-prop-lt-or-gt.query-2` | `Conformance` | match_queries_where | `Passed` | 7.321 ms |
-| `cqlite.match-queries-where.match-where-node-prop-lt-or-gt.query-3` | `Conformance` | match_queries_where | `Passed` | 7.314 ms |
-| `cqlite.match-queries-where.match-where-edge-id-eq.query-1` | `Conformance` | match_queries_where | `Failed` | 7.375 ms |
-| `cqlite.match-queries-where.match-where-edge-id-eq.query-2` | `Conformance` | match_queries_where | `Failed` | 7.362 ms |
-| `cqlite.match-queries-where.match-where-edge-prop-eq.query-1` | `Conformance` | match_queries_where | `Passed` | 7.835 ms |
-| `cqlite.match-queries-where.match-where-edge-prop-gt.query-1` | `Conformance` | match_queries_where | `Passed` | 7.758 ms |
-| `cqlite.match-queries-where.match-where-a-or-b.query-1` | `Conformance` | match_queries_where | `Passed` | 7.963 ms |
-| `cqlite.match-queries-where.match-long-path-with-id-constraint.query-1` | `Conformance` | match_queries_where | `Failed` | 0.037 ms |
+| `cqlite.match-queries.match-labeled-nodes.query-1` | `Conformance` | match_queries | `Passed` | 7.335 ms |
+| `cqlite.match-queries.match-labeled-nodes.query-2` | `Conformance` | match_queries | `Passed` | 7.059 ms |
+| `cqlite.match-queries.match-labeled-nodes.query-3` | `Conformance` | match_queries | `Passed` | 6.965 ms |
+| `cqlite.match-queries.match-labeled-edges.query-1` | `Conformance` | match_queries | `Passed` | 7.629 ms |
+| `cqlite.match-queries.match-labeled-edges.query-2` | `Conformance` | match_queries | `Passed` | 7.349 ms |
+| `cqlite.match-queries.match-nodes-with-properties.query-1` | `Conformance` | match_queries | `Passed` | 7.096 ms |
+| `cqlite.match-queries.match-nodes-with-properties.query-2` | `Conformance` | match_queries | `Passed` | 7.024 ms |
+| `cqlite.match-queries.match-nodes-with-properties.query-3` | `Conformance` | match_queries | `Passed` | 7.526 ms |
+| `cqlite.match-queries.match-edges-with-properties.query-1` | `Conformance` | match_queries | `Passed` | 7.668 ms |
+| `cqlite.match-queries.match-nodes-with-label.query-1` | `Conformance` | match_queries | `Passed` | 6.925 ms |
+| `cqlite.match-queries-where.create-test-graph.query-1` | `Conformance` | match_queries_where | `Passed` | 16.012 ms |
+| `cqlite.match-queries-where.match-where-node-id-eq.query-1` | `Conformance` | match_queries_where | `Failed` | 7.330 ms |
+| `cqlite.match-queries-where.match-where-node-id-eq.query-2` | `Conformance` | match_queries_where | `Failed` | 6.965 ms |
+| `cqlite.match-queries-where.match-where-node-id-eq-non-id.query-1` | `Conformance` | match_queries_where | `Passed` | 7.181 ms |
+| `cqlite.match-queries-where.match-where-node-label-eq.query-1` | `Conformance` | match_queries_where | `Passed` | 7.024 ms |
+| `cqlite.match-queries-where.match-where-node-label-eq.query-2` | `Conformance` | match_queries_where | `Passed` | 7.173 ms |
+| `cqlite.match-queries-where.match-where-node-prop-eq.query-1` | `Conformance` | match_queries_where | `Failed` | 7.010 ms |
+| `cqlite.match-queries-where.match-where-node-prop.query-1` | `Conformance` | match_queries_where | `Passed` | 7.274 ms |
+| `cqlite.match-queries-where.match-where-not-node-prop.query-1` | `Conformance` | match_queries_where | `Passed` | 7.262 ms |
+| `cqlite.match-queries-where.match-where-node-prop-eq-true-false.query-1` | `Conformance` | match_queries_where | `Passed` | 7.491 ms |
+| `cqlite.match-queries-where.match-where-node-prop-eq-true-false.query-2` | `Conformance` | match_queries_where | `Passed` | 7.354 ms |
+| `cqlite.match-queries-where.match-where-node-prop-ne-null.query-1` | `Conformance` | match_queries_where | `Passed` | 7.157 ms |
+| `cqlite.match-queries-where.match-where-node-prop-lt-or-gt.query-1` | `Conformance` | match_queries_where | `Passed` | 7.376 ms |
+| `cqlite.match-queries-where.match-where-node-prop-lt-or-gt.query-2` | `Conformance` | match_queries_where | `Passed` | 7.344 ms |
+| `cqlite.match-queries-where.match-where-node-prop-lt-or-gt.query-3` | `Conformance` | match_queries_where | `Passed` | 7.342 ms |
+| `cqlite.match-queries-where.match-where-edge-id-eq.query-1` | `Conformance` | match_queries_where | `Failed` | 7.435 ms |
+| `cqlite.match-queries-where.match-where-edge-id-eq.query-2` | `Conformance` | match_queries_where | `Failed` | 7.389 ms |
+| `cqlite.match-queries-where.match-where-edge-prop-eq.query-1` | `Conformance` | match_queries_where | `Passed` | 7.896 ms |
+| `cqlite.match-queries-where.match-where-edge-prop-gt.query-1` | `Conformance` | match_queries_where | `Passed` | 8.098 ms |
+| `cqlite.match-queries-where.match-where-a-or-b.query-1` | `Conformance` | match_queries_where | `Passed` | 8.204 ms |
+| `cqlite.match-queries-where.match-long-path-with-id-constraint.query-1` | `Conformance` | match_queries_where | `Failed` | 0.040 ms |
 | `cqlite.match-queries-where.match-long-path-with-id-constraint.query-2` | `Conformance` | match_queries_where | `Failed` | 0.031 ms |
 | `cqlite.match-queries-where.match-short-path-with-id-constraint.query-1` | `Conformance` | match_queries_where | `Failed` | 0.026 ms |
-| `cqlite.return-queries.return-parameter.query-1` | `Conformance` | return_queries | `Failed` | 6.739 ms |
-| `cqlite.return-queries.return-id-of.query-1` | `Conformance` | return_queries | `Passed` | 8.172 ms |
-| `cqlite.return-queries.return-id-of.query-2` | `Conformance` | return_queries | `Passed` | 6.877 ms |
-| `cqlite.return-queries.return-label-of.query-1` | `Conformance` | return_queries | `Passed` | 8.071 ms |
-| `cqlite.return-queries.return-label-of.query-2` | `Conformance` | return_queries | `Passed` | 6.917 ms |
-| `cqlite.return-queries.create-and-return.query-1` | `Conformance` | return_queries | `Passed` | 7.780 ms |
-| `cqlite.return-queries.create-and-return.query-2` | `Conformance` | return_queries | `Passed` | 7.003 ms |
-| `cqlite.return-queries.set-and-return.query-1` | `Conformance` | return_queries | `Passed` | 7.206 ms |
-| `cqlite.return-queries.set-and-return.query-2` | `Conformance` | return_queries | `Passed` | 6.999 ms |
-| `cqlite.return-queries.delete-and-return.query-1` | `Conformance` | return_queries | `Passed` | 7.352 ms |
-| `cqlite.return-queries.delete-and-return.query-2` | `Conformance` | return_queries | `Passed` | 6.928 ms |
-| `cqlite.return-queries.return-out-of-bounds.query-1` | `Conformance` | return_queries | `Passed` | 6.807 ms |
-| `cqlite.set-queries.set-once.query-1` | `Conformance` | set_queries | `Passed` | 7.513 ms |
-| `cqlite.set-queries.set-once.query-2` | `Conformance` | set_queries | `Passed` | 7.059 ms |
-| `cqlite.set-queries.set-once.query-3` | `Conformance` | set_queries | `Passed` | 6.762 ms |
-| `cqlite.set-queries.set-after-create.query-1` | `Conformance` | set_queries | `Passed` | 7.861 ms |
-| `cqlite.set-queries.set-after-create.query-2` | `Conformance` | set_queries | `Passed` | 6.853 ms |
-| `cqlite.set-queries.set-multiple-times.query-1` | `Conformance` | set_queries | `Passed` | 8.585 ms |
-| `cqlite.set-queries.set-multiple-times.query-2` | `Conformance` | set_queries | `Passed` | 7.291 ms |
-| `cqlite.set-queries.delete-property.query-1` | `Conformance` | set_queries | `Passed` | 7.529 ms |
-| `cqlite.set-queries.delete-property.query-2` | `Conformance` | set_queries | `Passed` | 7.035 ms |
-| `cqlite.set-queries.delete-property.query-3` | `Conformance` | set_queries | `Passed` | 6.816 ms |
-| `cqlite.txn-semantics.concurrent-reader-and-writer.query-1` | `Conformance` | txn_semantics | `Passed` | 7.561 ms |
-| `cqlite.txn-semantics.concurrent-reader-and-writer.query-2` | `Conformance` | txn_semantics | `Passed` | 7.081 ms |
-| `cqlite.txn-semantics.concurrent-reader-and-writer.query-3` | `Conformance` | txn_semantics | `Passed` | 7.583 ms |
-| `cqlite.txn-semantics.concurrent-reader-and-writer.query-4` | `Conformance` | txn_semantics | `Passed` | 7.154 ms |
-| `cqlite.txn-semantics.concurrent-reader-and-writer.query-5` | `Conformance` | txn_semantics | `Passed` | 7.067 ms |
-| `cqlite.where-conditions.where-a-and-b.query-1` | `Conformance` | where_conditions | `Failed` | 0.017 ms |
-| `cqlite.where-conditions.where-a-or-b.query-1` | `Conformance` | where_conditions | `Failed` | 0.012 ms |
-| `cqlite.where-conditions.where-a.query-1` | `Conformance` | where_conditions | `Failed` | 0.009 ms |
+| `cqlite.return-queries.return-parameter.query-1` | `Conformance` | return_queries | `Failed` | 6.857 ms |
+| `cqlite.return-queries.return-id-of.query-1` | `Conformance` | return_queries | `Passed` | 8.286 ms |
+| `cqlite.return-queries.return-id-of.query-2` | `Conformance` | return_queries | `Passed` | 7.011 ms |
+| `cqlite.return-queries.return-label-of.query-1` | `Conformance` | return_queries | `Passed` | 8.191 ms |
+| `cqlite.return-queries.return-label-of.query-2` | `Conformance` | return_queries | `Passed` | 7.033 ms |
+| `cqlite.return-queries.create-and-return.query-1` | `Conformance` | return_queries | `Passed` | 7.814 ms |
+| `cqlite.return-queries.create-and-return.query-2` | `Conformance` | return_queries | `Passed` | 7.009 ms |
+| `cqlite.return-queries.set-and-return.query-1` | `Conformance` | return_queries | `Passed` | 15.274 ms |
+| `cqlite.return-queries.set-and-return.query-2` | `Conformance` | return_queries | `Passed` | 7.271 ms |
+| `cqlite.return-queries.delete-and-return.query-1` | `Conformance` | return_queries | `Passed` | 7.208 ms |
+| `cqlite.return-queries.delete-and-return.query-2` | `Conformance` | return_queries | `Passed` | 7.013 ms |
+| `cqlite.return-queries.return-out-of-bounds.query-1` | `Conformance` | return_queries | `Passed` | 7.247 ms |
+| `cqlite.set-queries.set-once.query-1` | `Conformance` | set_queries | `Passed` | 8.397 ms |
+| `cqlite.set-queries.set-once.query-2` | `Conformance` | set_queries | `Passed` | 7.773 ms |
+| `cqlite.set-queries.set-once.query-3` | `Conformance` | set_queries | `Passed` | 7.030 ms |
+| `cqlite.set-queries.set-after-create.query-1` | `Conformance` | set_queries | `Passed` | 8.653 ms |
+| `cqlite.set-queries.set-after-create.query-2` | `Conformance` | set_queries | `Passed` | 7.324 ms |
+| `cqlite.set-queries.set-multiple-times.query-1` | `Conformance` | set_queries | `Passed` | 8.834 ms |
+| `cqlite.set-queries.set-multiple-times.query-2` | `Conformance` | set_queries | `Passed` | 7.360 ms |
+| `cqlite.set-queries.delete-property.query-1` | `Conformance` | set_queries | `Passed` | 7.535 ms |
+| `cqlite.set-queries.delete-property.query-2` | `Conformance` | set_queries | `Passed` | 7.075 ms |
+| `cqlite.set-queries.delete-property.query-3` | `Conformance` | set_queries | `Passed` | 7.145 ms |
+| `cqlite.txn-semantics.concurrent-reader-and-writer.query-1` | `Conformance` | txn_semantics | `Passed` | 7.739 ms |
+| `cqlite.txn-semantics.concurrent-reader-and-writer.query-2` | `Conformance` | txn_semantics | `Passed` | 7.244 ms |
+| `cqlite.txn-semantics.concurrent-reader-and-writer.query-3` | `Conformance` | txn_semantics | `Passed` | 7.576 ms |
+| `cqlite.txn-semantics.concurrent-reader-and-writer.query-4` | `Conformance` | txn_semantics | `Passed` | 7.247 ms |
+| `cqlite.txn-semantics.concurrent-reader-and-writer.query-5` | `Conformance` | txn_semantics | `Passed` | 7.319 ms |
+| `cqlite.where-conditions.where-a-and-b.query-1` | `Conformance` | where_conditions | `Failed` | 0.018 ms |
+| `cqlite.where-conditions.where-a-or-b.query-1` | `Conformance` | where_conditions | `Failed` | 0.011 ms |
+| `cqlite.where-conditions.where-a.query-1` | `Conformance` | where_conditions | `Failed` | 0.010 ms |
 | `cqlite.where-conditions.where-not-a.query-1` | `Conformance` | where_conditions | `Failed` | 0.009 ms |
 
 ## Latest `deep` run
@@ -1818,8 +1817,8 @@ Generated from `graph/test-results/history.jsonl`. Results are grouped by stable
 
 ## Latest `grafeo-deep` run
 
-- Run: `20260719T205715.944885Z-27369e5a052c-corpus-deep`
-- Commit: `27369e5a052cafa02014ef37141e4e24093062cf` (dirty)
+- Run: `20260719T210524.711499Z-51b9a1bd28bf-corpus-deep`
+- Commit: `51b9a1bd28bf3a860dd308fd48579b851a4a6d8e` (dirty)
 - Package: `0.7.0`
 - Environment: `macos/aarch64` (`dev`)
 - Records: 399
@@ -1827,7 +1826,7 @@ Generated from `graph/test-results/history.jsonl`. Results are grouped by stable
 - Unsupported: 0
 - Failed or changed: 146
 
-### Outcome changes from `20260719T194200.705171Z-c9496b51762d-corpus-deep`
+### Outcome changes from `20260719T205715.944885Z-27369e5a052c-corpus-deep`
 
 - No outcome changes.
 
@@ -1835,7 +1834,7 @@ Generated from `graph/test-results/history.jsonl`. Results are grouped by stable
 |---|---|---|---|---:|
 | `grafeo.spec.common.index.correctness.create.index.then.query` | `Conformance` | common | `Failed` | 0.024 ms |
 | `grafeo.spec.common.index.correctness.index.query.no.match` | `Conformance` | common | `Failed` | 0.018 ms |
-| `grafeo.spec.common.index.correctness.index.multiple.matches` | `Conformance` | common | `Failed` | 0.031 ms |
+| `grafeo.spec.common.index.correctness.index.multiple.matches` | `Conformance` | common | `Failed` | 0.017 ms |
 | `grafeo.spec.common.index.correctness.index.with.null.property` | `Conformance` | common | `Failed` | 0.017 ms |
 | `grafeo.spec.common.index.correctness.index.after.property.update` | `Conformance` | common | `Failed` | 0.003 ms |
 | `grafeo.spec.common.index.correctness.index.old.value.gone.after.update` | `Conformance` | common | `Failed` | 0.003 ms |
@@ -1844,13 +1843,13 @@ Generated from `graph/test-results/history.jsonl`. Results are grouped by stable
 | `grafeo.spec.common.index.correctness.index.reinsert.after.delete` | `Conformance` | common | `Failed` | 0.003 ms |
 | `grafeo.spec.common.index.correctness.numeric.index.exact.lookup` | `Conformance` | common | `Failed` | 0.016 ms |
 | `grafeo.spec.common.index.correctness.numeric.index.range.query` | `Conformance` | common | `Failed` | 0.003 ms |
-| `grafeo.spec.common.index.correctness.bulk.insert.then.index` | `Conformance` | common | `Failed` | 0.329 ms |
+| `grafeo.spec.common.index.correctness.bulk.insert.then.index` | `Conformance` | common | `Failed` | 0.326 ms |
 | `grafeo.spec.common.index.correctness.index.count.all` | `Conformance` | common | `Failed` | 0.016 ms |
 | `grafeo.spec.common.index.correctness.drop.index.query.still.works` | `Conformance` | common | `Failed` | 0.003 ms |
-| `grafeo.spec.common.null.semantics.negative.limit.returns.empty.cypher.cypher-variant` | `Conformance` | common | `Failed` | 6.807 ms |
-| `grafeo.spec.common.numeric.edge.cases.min.int64.cypher.cypher-variant` | `Conformance` | common | `Failed` | 6.684 ms |
-| `grafeo.spec.common.numeric.edge.cases.nan.literal.keyword.cypher.cypher-variant` | `Conformance` | common | `Failed` | 6.808 ms |
-| `grafeo.spec.common.numeric.edge.cases.inf.literal.keyword.cypher.cypher-variant` | `Conformance` | common | `Failed` | 6.778 ms |
+| `grafeo.spec.common.null.semantics.negative.limit.returns.empty.cypher.cypher-variant` | `Conformance` | common | `Failed` | 6.684 ms |
+| `grafeo.spec.common.numeric.edge.cases.min.int64.cypher.cypher-variant` | `Conformance` | common | `Failed` | 6.665 ms |
+| `grafeo.spec.common.numeric.edge.cases.nan.literal.keyword.cypher.cypher-variant` | `Conformance` | common | `Failed` | 6.730 ms |
+| `grafeo.spec.common.numeric.edge.cases.inf.literal.keyword.cypher.cypher-variant` | `Conformance` | common | `Failed` | 6.750 ms |
 | `grafeo.spec.lpg.cypher.admin.create.index.on.label.property` | `Conformance` | lpg | `Failed` | 0.004 ms |
 | `grafeo.spec.lpg.cypher.admin.create.index.and.query` | `Conformance` | lpg | `Failed` | 0.024 ms |
 | `grafeo.spec.lpg.cypher.admin.drop.index` | `Conformance` | lpg | `Failed` | 0.003 ms |
@@ -1859,379 +1858,379 @@ Generated from `graph/test-results/history.jsonl`. Results are grouped by stable
 | `grafeo.spec.lpg.cypher.admin.explain.match` | `Conformance` | lpg | `Failed` | 0.011 ms |
 | `grafeo.spec.lpg.cypher.admin.profile.match` | `Conformance` | lpg | `Failed` | 0.011 ms |
 | `grafeo.spec.lpg.cypher.comprehensions.advanced.pattern.comprehension.basic` | `Conformance` | lpg | `Failed` | 0.120 ms |
-| `grafeo.spec.lpg.cypher.comprehensions.advanced.pattern.comprehension.with.filter` | `Conformance` | lpg | `Failed` | 0.110 ms |
-| `grafeo.spec.lpg.cypher.comprehensions.advanced.pattern.comprehension.size` | `Conformance` | lpg | `Failed` | 0.172 ms |
-| `grafeo.spec.lpg.cypher.comprehensions.advanced.pattern.comprehension.with.property.extraction` | `Conformance` | lpg | `Failed` | 0.110 ms |
-| `grafeo.spec.lpg.cypher.comprehensions.advanced.list.comprehension.basic` | `Conformance` | lpg | `Passed` | 65.957 ms |
-| `grafeo.spec.lpg.cypher.comprehensions.advanced.list.comprehension.transform` | `Conformance` | lpg | `Passed` | 71.166 ms |
-| `grafeo.spec.lpg.cypher.comprehensions.advanced.list.comprehension.filter.and.transform` | `Conformance` | lpg | `Failed` | 64.276 ms |
-| `grafeo.spec.lpg.cypher.comprehensions.advanced.list.comprehension.nested` | `Conformance` | lpg | `Failed` | 64.738 ms |
-| `grafeo.spec.lpg.cypher.comprehensions.advanced.exists.subquery.actors.with.action.movies` | `Conformance` | lpg | `Passed` | 67.795 ms |
-| `grafeo.spec.lpg.cypher.comprehensions.advanced.not.exists.subquery` | `Conformance` | lpg | `Failed` | 67.573 ms |
-| `grafeo.spec.lpg.cypher.comprehensions.advanced.count.subquery.movies.per.actor` | `Conformance` | lpg | `Passed` | 67.514 ms |
-| `grafeo.spec.lpg.cypher.comprehensions.advanced.count.subquery.prolific.directors` | `Conformance` | lpg | `Passed` | 66.585 ms |
-| `grafeo.spec.lpg.cypher.comprehensions.advanced.call.subquery.basic` | `Conformance` | lpg | `Failed` | 0.049 ms |
-| `grafeo.spec.lpg.cypher.comprehensions.advanced.call.subquery.with.aggregation` | `Conformance` | lpg | `Failed` | 0.035 ms |
-| `grafeo.spec.lpg.cypher.comprehensions.advanced.foreach.set.property` | `Conformance` | lpg | `Failed` | 66.039 ms |
-| `grafeo.spec.lpg.cypher.comprehensions.advanced.foreach.create.relationships` | `Conformance` | lpg | `Failed` | 0.286 ms |
-| `grafeo.spec.lpg.cypher.comprehensions.advanced.actor.collaboration.via.comprehension` | `Conformance` | lpg | `Failed` | 0.143 ms |
-| `grafeo.spec.lpg.cypher.comprehensions.advanced.genre.diversity.per.actor` | `Conformance` | lpg | `Failed` | 0.200 ms |
-| `grafeo.spec.lpg.cypher.constraints.create.unique.constraint` | `Conformance` | lpg | `Failed` | 0.022 ms |
-| `grafeo.spec.lpg.cypher.constraints.unique.constraint.allows.distinct.values` | `Conformance` | lpg | `Failed` | 6.972 ms |
-| `grafeo.spec.lpg.cypher.constraints.unique.constraint.violation` | `Conformance` | lpg | `Failed` | 6.795 ms |
-| `grafeo.spec.lpg.cypher.constraints.unique.constraint.null.allowed` | `Conformance` | lpg | `Failed` | 6.809 ms |
-| `grafeo.spec.lpg.cypher.constraints.create.not.null.constraint` | `Conformance` | lpg | `Failed` | 0.025 ms |
-| `grafeo.spec.lpg.cypher.constraints.not.null.constraint.satisfied` | `Conformance` | lpg | `Failed` | 6.855 ms |
-| `grafeo.spec.lpg.cypher.constraints.not.null.constraint.violation` | `Conformance` | lpg | `Failed` | 6.768 ms |
-| `grafeo.spec.lpg.cypher.constraints.not.null.constraint.violation.on.set` | `Conformance` | lpg | `Failed` | 6.788 ms |
-| `grafeo.spec.lpg.cypher.constraints.create.node.key.constraint` | `Conformance` | lpg | `Failed` | 0.025 ms |
-| `grafeo.spec.lpg.cypher.constraints.node.key.allows.different.combinations` | `Conformance` | lpg | `Failed` | 6.770 ms |
-| `grafeo.spec.lpg.cypher.constraints.node.key.violation.duplicate` | `Conformance` | lpg | `Failed` | 6.715 ms |
-| `grafeo.spec.lpg.cypher.constraints.node.key.violation.missing.property` | `Conformance` | lpg | `Failed` | 6.644 ms |
-| `grafeo.spec.lpg.cypher.constraints.drop.constraint` | `Conformance` | lpg | `Failed` | 0.014 ms |
-| `grafeo.spec.lpg.cypher.constraints.drop.nonexistent.constraint` | `Conformance` | lpg | `Passed` | 0.011 ms |
-| `grafeo.spec.lpg.cypher.constraints.drop.constraint.if.exists` | `Conformance` | lpg | `Failed` | 0.012 ms |
+| `grafeo.spec.lpg.cypher.comprehensions.advanced.pattern.comprehension.with.filter` | `Conformance` | lpg | `Failed` | 0.109 ms |
+| `grafeo.spec.lpg.cypher.comprehensions.advanced.pattern.comprehension.size` | `Conformance` | lpg | `Failed` | 0.171 ms |
+| `grafeo.spec.lpg.cypher.comprehensions.advanced.pattern.comprehension.with.property.extraction` | `Conformance` | lpg | `Failed` | 0.103 ms |
+| `grafeo.spec.lpg.cypher.comprehensions.advanced.list.comprehension.basic` | `Conformance` | lpg | `Passed` | 66.002 ms |
+| `grafeo.spec.lpg.cypher.comprehensions.advanced.list.comprehension.transform` | `Conformance` | lpg | `Passed` | 64.279 ms |
+| `grafeo.spec.lpg.cypher.comprehensions.advanced.list.comprehension.filter.and.transform` | `Conformance` | lpg | `Failed` | 65.340 ms |
+| `grafeo.spec.lpg.cypher.comprehensions.advanced.list.comprehension.nested` | `Conformance` | lpg | `Failed` | 75.162 ms |
+| `grafeo.spec.lpg.cypher.comprehensions.advanced.exists.subquery.actors.with.action.movies` | `Conformance` | lpg | `Passed` | 68.183 ms |
+| `grafeo.spec.lpg.cypher.comprehensions.advanced.not.exists.subquery` | `Conformance` | lpg | `Failed` | 68.231 ms |
+| `grafeo.spec.lpg.cypher.comprehensions.advanced.count.subquery.movies.per.actor` | `Conformance` | lpg | `Passed` | 75.629 ms |
+| `grafeo.spec.lpg.cypher.comprehensions.advanced.count.subquery.prolific.directors` | `Conformance` | lpg | `Passed` | 74.613 ms |
+| `grafeo.spec.lpg.cypher.comprehensions.advanced.call.subquery.basic` | `Conformance` | lpg | `Failed` | 0.053 ms |
+| `grafeo.spec.lpg.cypher.comprehensions.advanced.call.subquery.with.aggregation` | `Conformance` | lpg | `Failed` | 0.039 ms |
+| `grafeo.spec.lpg.cypher.comprehensions.advanced.foreach.set.property` | `Conformance` | lpg | `Failed` | 75.044 ms |
+| `grafeo.spec.lpg.cypher.comprehensions.advanced.foreach.create.relationships` | `Conformance` | lpg | `Failed` | 0.334 ms |
+| `grafeo.spec.lpg.cypher.comprehensions.advanced.actor.collaboration.via.comprehension` | `Conformance` | lpg | `Failed` | 0.159 ms |
+| `grafeo.spec.lpg.cypher.comprehensions.advanced.genre.diversity.per.actor` | `Conformance` | lpg | `Failed` | 0.216 ms |
+| `grafeo.spec.lpg.cypher.constraints.create.unique.constraint` | `Conformance` | lpg | `Failed` | 0.024 ms |
+| `grafeo.spec.lpg.cypher.constraints.unique.constraint.allows.distinct.values` | `Conformance` | lpg | `Failed` | 7.994 ms |
+| `grafeo.spec.lpg.cypher.constraints.unique.constraint.violation` | `Conformance` | lpg | `Failed` | 7.595 ms |
+| `grafeo.spec.lpg.cypher.constraints.unique.constraint.null.allowed` | `Conformance` | lpg | `Failed` | 7.831 ms |
+| `grafeo.spec.lpg.cypher.constraints.create.not.null.constraint` | `Conformance` | lpg | `Failed` | 0.029 ms |
+| `grafeo.spec.lpg.cypher.constraints.not.null.constraint.satisfied` | `Conformance` | lpg | `Failed` | 7.454 ms |
+| `grafeo.spec.lpg.cypher.constraints.not.null.constraint.violation` | `Conformance` | lpg | `Failed` | 7.563 ms |
+| `grafeo.spec.lpg.cypher.constraints.not.null.constraint.violation.on.set` | `Conformance` | lpg | `Failed` | 7.420 ms |
+| `grafeo.spec.lpg.cypher.constraints.create.node.key.constraint` | `Conformance` | lpg | `Failed` | 0.029 ms |
+| `grafeo.spec.lpg.cypher.constraints.node.key.allows.different.combinations` | `Conformance` | lpg | `Failed` | 7.585 ms |
+| `grafeo.spec.lpg.cypher.constraints.node.key.violation.duplicate` | `Conformance` | lpg | `Failed` | 7.478 ms |
+| `grafeo.spec.lpg.cypher.constraints.node.key.violation.missing.property` | `Conformance` | lpg | `Failed` | 7.565 ms |
+| `grafeo.spec.lpg.cypher.constraints.drop.constraint` | `Conformance` | lpg | `Failed` | 0.019 ms |
+| `grafeo.spec.lpg.cypher.constraints.drop.nonexistent.constraint` | `Conformance` | lpg | `Passed` | 0.012 ms |
+| `grafeo.spec.lpg.cypher.constraints.drop.constraint.if.exists` | `Conformance` | lpg | `Failed` | 0.013 ms |
 | `grafeo.spec.lpg.cypher.constraints.show.constraints.after.create` | `Conformance` | lpg | `Failed` | 0.008 ms |
-| `grafeo.spec.lpg.cypher.constraints.show.constraints.empty` | `Conformance` | lpg | `Failed` | 0.001 ms |
-| `grafeo.spec.lpg.cypher.expressions.addition` | `Conformance` | lpg | `Passed` | 8.034 ms |
-| `grafeo.spec.lpg.cypher.expressions.subtraction` | `Conformance` | lpg | `Passed` | 8.048 ms |
-| `grafeo.spec.lpg.cypher.expressions.multiplication` | `Conformance` | lpg | `Passed` | 8.012 ms |
-| `grafeo.spec.lpg.cypher.expressions.division` | `Conformance` | lpg | `Passed` | 8.040 ms |
-| `grafeo.spec.lpg.cypher.expressions.modulo` | `Conformance` | lpg | `Passed` | 8.013 ms |
-| `grafeo.spec.lpg.cypher.expressions.power` | `Conformance` | lpg | `Passed` | 8.043 ms |
-| `grafeo.spec.lpg.cypher.expressions.unary.minus` | `Conformance` | lpg | `Failed` | 0.045 ms |
-| `grafeo.spec.lpg.cypher.expressions.string.concat` | `Conformance` | lpg | `Failed` | 8.381 ms |
-| `grafeo.spec.lpg.cypher.expressions.equals` | `Conformance` | lpg | `Passed` | 8.119 ms |
-| `grafeo.spec.lpg.cypher.expressions.not.equals` | `Conformance` | lpg | `Passed` | 8.879 ms |
-| `grafeo.spec.lpg.cypher.expressions.less.than` | `Conformance` | lpg | `Passed` | 8.861 ms |
-| `grafeo.spec.lpg.cypher.expressions.greater.equal` | `Conformance` | lpg | `Passed` | 8.819 ms |
-| `grafeo.spec.lpg.cypher.expressions.starts.with` | `Conformance` | lpg | `Passed` | 8.975 ms |
-| `grafeo.spec.lpg.cypher.expressions.ends.with` | `Conformance` | lpg | `Passed` | 23.294 ms |
-| `grafeo.spec.lpg.cypher.expressions.contains` | `Conformance` | lpg | `Passed` | 16.382 ms |
-| `grafeo.spec.lpg.cypher.expressions.in.list` | `Conformance` | lpg | `Passed` | 10.064 ms |
-| `grafeo.spec.lpg.cypher.expressions.regex.match` | `Conformance` | lpg | `Failed` | 0.068 ms |
-| `grafeo.spec.lpg.cypher.expressions.is.null` | `Conformance` | lpg | `Passed` | 9.439 ms |
-| `grafeo.spec.lpg.cypher.expressions.is.not.null` | `Conformance` | lpg | `Passed` | 9.003 ms |
-| `grafeo.spec.lpg.cypher.expressions.case.simple` | `Conformance` | lpg | `Passed` | 8.351 ms |
-| `grafeo.spec.lpg.cypher.expressions.case.searched` | `Conformance` | lpg | `Passed` | 8.232 ms |
-| `grafeo.spec.lpg.cypher.expressions.list.literal` | `Conformance` | lpg | `Failed` | 8.147 ms |
-| `grafeo.spec.lpg.cypher.expressions.list.comprehension` | `Conformance` | lpg | `Failed` | 8.872 ms |
-| `grafeo.spec.lpg.cypher.expressions.list.comprehension.filter.only` | `Conformance` | lpg | `Failed` | 8.605 ms |
-| `grafeo.spec.lpg.cypher.expressions.list.slice` | `Conformance` | lpg | `Failed` | 8.604 ms |
-| `grafeo.spec.lpg.cypher.expressions.index.access` | `Conformance` | lpg | `Passed` | 8.388 ms |
-| `grafeo.spec.lpg.cypher.expressions.coalesce` | `Conformance` | lpg | `Passed` | 8.680 ms |
-| `grafeo.spec.lpg.cypher.expressions.reduce` | `Conformance` | lpg | `Failed` | 0.255 ms |
-| `grafeo.spec.lpg.cypher.expressions.all.predicate` | `Conformance` | lpg | `Passed` | 8.409 ms |
-| `grafeo.spec.lpg.cypher.expressions.any.predicate` | `Conformance` | lpg | `Passed` | 8.506 ms |
-| `grafeo.spec.lpg.cypher.expressions.none.predicate` | `Conformance` | lpg | `Passed` | 8.582 ms |
-| `grafeo.spec.lpg.cypher.expressions.single.predicate` | `Conformance` | lpg | `Passed` | 8.531 ms |
-| `grafeo.spec.lpg.cypher.expressions.any.with.labels.in.where` | `Conformance` | lpg | `Passed` | 9.439 ms |
-| `grafeo.spec.lpg.cypher.expressions.comparison.in.return` | `Conformance` | lpg | `Passed` | 8.201 ms |
-| `grafeo.spec.lpg.cypher.expressions.aggregate.comparison.in.return` | `Conformance` | lpg | `Passed` | 8.206 ms |
-| `grafeo.spec.lpg.cypher.functions.id.of.node` | `Conformance` | lpg | `Passed` | 7.965 ms |
-| `grafeo.spec.lpg.cypher.functions.labels.single` | `Conformance` | lpg | `Failed` | 8.088 ms |
-| `grafeo.spec.lpg.cypher.functions.labels.multiple` | `Conformance` | lpg | `Passed` | 8.609 ms |
-| `grafeo.spec.lpg.cypher.functions.type.of.relationship` | `Conformance` | lpg | `Failed` | 9.114 ms |
-| `grafeo.spec.lpg.cypher.functions.keys.of.node` | `Conformance` | lpg | `Failed` | 8.482 ms |
-| `grafeo.spec.lpg.cypher.functions.properties.of.node` | `Conformance` | lpg | `Failed` | 8.254 ms |
-| `grafeo.spec.lpg.cypher.functions.exists.property.true` | `Conformance` | lpg | `Failed` | 7.904 ms |
-| `grafeo.spec.lpg.cypher.functions.exists.property.false` | `Conformance` | lpg | `Failed` | 7.724 ms |
-| `grafeo.spec.lpg.cypher.functions.head.of.list` | `Conformance` | lpg | `Passed` | 8.446 ms |
-| `grafeo.spec.lpg.cypher.functions.last.of.list` | `Conformance` | lpg | `Passed` | 8.290 ms |
-| `grafeo.spec.lpg.cypher.functions.tail.of.list` | `Conformance` | lpg | `Failed` | 8.557 ms |
-| `grafeo.spec.lpg.cypher.functions.range.default.step` | `Conformance` | lpg | `Failed` | 8.316 ms |
-| `grafeo.spec.lpg.cypher.functions.range.with.step` | `Conformance` | lpg | `Failed` | 8.278 ms |
-| `grafeo.spec.lpg.cypher.functions.size.of.list` | `Conformance` | lpg | `Passed` | 10.987 ms |
-| `grafeo.spec.lpg.cypher.functions.size.of.string` | `Conformance` | lpg | `Passed` | 8.850 ms |
-| `grafeo.spec.lpg.cypher.functions.to.lower` | `Conformance` | lpg | `Passed` | 8.520 ms |
-| `grafeo.spec.lpg.cypher.functions.to.upper` | `Conformance` | lpg | `Passed` | 8.259 ms |
-| `grafeo.spec.lpg.cypher.functions.trim.whitespace` | `Conformance` | lpg | `Passed` | 8.301 ms |
-| `grafeo.spec.lpg.cypher.functions.replace.substring` | `Conformance` | lpg | `Passed` | 8.245 ms |
-| `grafeo.spec.lpg.cypher.functions.substring.from.start` | `Conformance` | lpg | `Failed` | 8.349 ms |
-| `grafeo.spec.lpg.cypher.functions.substring.to.end` | `Conformance` | lpg | `Failed` | 8.236 ms |
-| `grafeo.spec.lpg.cypher.functions.split.string` | `Conformance` | lpg | `Failed` | 8.259 ms |
-| `grafeo.spec.lpg.cypher.functions.left.string` | `Conformance` | lpg | `Passed` | 8.165 ms |
-| `grafeo.spec.lpg.cypher.functions.right.string` | `Conformance` | lpg | `Passed` | 8.381 ms |
-| `grafeo.spec.lpg.cypher.functions.reverse.string` | `Conformance` | lpg | `Passed` | 8.161 ms |
-| `grafeo.spec.lpg.cypher.functions.abs.positive` | `Conformance` | lpg | `Passed` | 8.363 ms |
-| `grafeo.spec.lpg.cypher.functions.ceil.float` | `Conformance` | lpg | `Passed` | 8.126 ms |
-| `grafeo.spec.lpg.cypher.functions.floor.float` | `Conformance` | lpg | `Passed` | 9.500 ms |
-| `grafeo.spec.lpg.cypher.functions.round.float` | `Conformance` | lpg | `Passed` | 8.172 ms |
-| `grafeo.spec.lpg.cypher.functions.sign.positive` | `Conformance` | lpg | `Passed` | 8.155 ms |
-| `grafeo.spec.lpg.cypher.functions.sign.negative` | `Conformance` | lpg | `Passed` | 8.199 ms |
-| `grafeo.spec.lpg.cypher.functions.sign.zero` | `Conformance` | lpg | `Passed` | 8.138 ms |
-| `grafeo.spec.lpg.cypher.functions.sqrt.perfect.square` | `Conformance` | lpg | `Passed` | 8.322 ms |
-| `grafeo.spec.lpg.cypher.functions.to.integer.from.string` | `Conformance` | lpg | `Passed` | 8.456 ms |
-| `grafeo.spec.lpg.cypher.functions.to.integer.from.float` | `Conformance` | lpg | `Passed` | 8.202 ms |
-| `grafeo.spec.lpg.cypher.functions.to.float.from.string` | `Conformance` | lpg | `Passed` | 8.326 ms |
-| `grafeo.spec.lpg.cypher.functions.to.float.from.integer` | `Conformance` | lpg | `Passed` | 8.615 ms |
-| `grafeo.spec.lpg.cypher.functions.to.string.from.integer` | `Conformance` | lpg | `Passed` | 9.122 ms |
-| `grafeo.spec.lpg.cypher.functions.to.boolean.from.string.true` | `Conformance` | lpg | `Passed` | 8.603 ms |
-| `grafeo.spec.lpg.cypher.functions.to.boolean.from.string.false` | `Conformance` | lpg | `Passed` | 8.236 ms |
-| `grafeo.spec.lpg.cypher.functions.date.from.string` | `Conformance` | lpg | `Passed` | 8.374 ms |
-| `grafeo.spec.lpg.cypher.functions.date.from.map` | `Conformance` | lpg | `Passed` | 8.483 ms |
-| `grafeo.spec.lpg.cypher.functions.datetime.from.string` | `Conformance` | lpg | `Passed` | 8.603 ms |
-| `grafeo.spec.lpg.cypher.functions.duration.from.string` | `Conformance` | lpg | `Passed` | 8.121 ms |
-| `grafeo.spec.lpg.cypher.functions.path.length` | `Conformance` | lpg | `Passed` | 13.420 ms |
-| `grafeo.spec.lpg.cypher.functions.path.length.single.hop` | `Conformance` | lpg | `Passed` | 9.778 ms |
-| `grafeo.spec.lpg.cypher.functions.collect.names` | `Conformance` | lpg | `Passed` | 8.632 ms |
-| `grafeo.spec.lpg.cypher.functions.collect.distinct` | `Conformance` | lpg | `Failed` | 9.166 ms |
-| `grafeo.spec.lpg.cypher.functions.count.with.distinct` | `Conformance` | lpg | `Passed` | 9.704 ms |
-| `grafeo.spec.lpg.cypher.functions.sum.values` | `Conformance` | lpg | `Passed` | 9.647 ms |
-| `grafeo.spec.lpg.cypher.functions.avg.values` | `Conformance` | lpg | `Passed` | 9.419 ms |
-| `grafeo.spec.lpg.cypher.functions.min.values` | `Conformance` | lpg | `Passed` | 9.611 ms |
-| `grafeo.spec.lpg.cypher.functions.max.values` | `Conformance` | lpg | `Passed` | 9.513 ms |
-| `grafeo.spec.lpg.cypher.functions.chained.string.functions` | `Conformance` | lpg | `Passed` | 8.355 ms |
-| `grafeo.spec.lpg.cypher.functions.nested.list.functions` | `Conformance` | lpg | `Passed` | 8.737 ms |
-| `grafeo.spec.lpg.cypher.functions.extended.log.of.e` | `Conformance` | lpg | `Failed` | 8.186 ms |
-| `grafeo.spec.lpg.cypher.functions.extended.log10.of.100` | `Conformance` | lpg | `Passed` | 8.155 ms |
-| `grafeo.spec.lpg.cypher.functions.extended.exp.of.zero` | `Conformance` | lpg | `Passed` | 8.081 ms |
-| `grafeo.spec.lpg.cypher.functions.extended.e.constant` | `Conformance` | lpg | `Failed` | 8.275 ms |
-| `grafeo.spec.lpg.cypher.functions.extended.pi.constant` | `Conformance` | lpg | `Passed` | 8.148 ms |
-| `grafeo.spec.lpg.cypher.functions.extended.rand.in.range` | `Conformance` | lpg | `Passed` | 8.426 ms |
-| `grafeo.spec.lpg.cypher.functions.extended.sin.of.zero` | `Conformance` | lpg | `Passed` | 8.026 ms |
-| `grafeo.spec.lpg.cypher.functions.extended.cos.of.zero` | `Conformance` | lpg | `Passed` | 8.155 ms |
-| `grafeo.spec.lpg.cypher.functions.extended.tan.of.zero` | `Conformance` | lpg | `Passed` | 8.477 ms |
-| `grafeo.spec.lpg.cypher.functions.extended.asin.of.one` | `Conformance` | lpg | `Passed` | 8.772 ms |
-| `grafeo.spec.lpg.cypher.functions.extended.acos.of.one` | `Conformance` | lpg | `Passed` | 8.225 ms |
-| `grafeo.spec.lpg.cypher.functions.extended.atan.of.one` | `Conformance` | lpg | `Passed` | 8.149 ms |
-| `grafeo.spec.lpg.cypher.functions.extended.atan2.unit` | `Conformance` | lpg | `Passed` | 8.357 ms |
-| `grafeo.spec.lpg.cypher.functions.extended.degrees.from.pi` | `Conformance` | lpg | `Passed` | 8.224 ms |
-| `grafeo.spec.lpg.cypher.functions.extended.radians.from.180` | `Conformance` | lpg | `Passed` | 8.364 ms |
-| `grafeo.spec.lpg.cypher.functions.extended.ltrim.whitespace` | `Conformance` | lpg | `Passed` | 8.215 ms |
-| `grafeo.spec.lpg.cypher.functions.extended.rtrim.whitespace` | `Conformance` | lpg | `Passed` | 8.285 ms |
-| `grafeo.spec.lpg.cypher.functions.extended.char.length.string` | `Conformance` | lpg | `Passed` | 8.254 ms |
-| `grafeo.spec.lpg.cypher.functions.extended.length.of.string` | `Conformance` | lpg | `Passed` | 8.398 ms |
-| `grafeo.spec.lpg.cypher.functions.extended.reverse.list` | `Conformance` | lpg | `Failed` | 8.544 ms |
-| `grafeo.spec.lpg.cypher.functions.extended.keys.of.map` | `Conformance` | lpg | `Passed` | 8.860 ms |
-| `grafeo.spec.lpg.cypher.functions.extended.stdev.sample` | `Conformance` | lpg | `Failed` | 13.024 ms |
-| `grafeo.spec.lpg.cypher.functions.extended.stdevp.population` | `Conformance` | lpg | `Failed` | 12.793 ms |
-| `grafeo.spec.lpg.cypher.functions.extended.percentile.cont.median` | `Conformance` | lpg | `Failed` | 10.781 ms |
-| `grafeo.spec.lpg.cypher.functions.extended.percentile.disc.median` | `Conformance` | lpg | `Failed` | 10.945 ms |
-| `grafeo.spec.lpg.cypher.functions.extended.element.id.not.null` | `Conformance` | lpg | `Failed` | 8.021 ms |
-| `grafeo.spec.lpg.cypher.functions.extended.count.star` | `Conformance` | lpg | `Passed` | 8.656 ms |
-| `grafeo.spec.lpg.cypher.functions.extended.count.expr` | `Conformance` | lpg | `Passed` | 8.789 ms |
-| `grafeo.spec.lpg.cypher.functions.extended.nodes.of.path` | `Conformance` | lpg | `Passed` | 10.534 ms |
-| `grafeo.spec.lpg.cypher.functions.extended.relationships.of.path` | `Conformance` | lpg | `Passed` | 10.701 ms |
-| `grafeo.spec.lpg.cypher.functions.extended.nodes.of.multi.hop.path` | `Conformance` | lpg | `Passed` | 13.312 ms |
-| `grafeo.spec.lpg.cypher.functions.extended.relationships.of.multi.hop.path` | `Conformance` | lpg | `Passed` | 13.690 ms |
-| `grafeo.spec.lpg.cypher.functions.extended.date.no.args` | `Conformance` | lpg | `Passed` | 8.219 ms |
-| `grafeo.spec.lpg.cypher.functions.extended.now.returns.value` | `Conformance` | lpg | `Failed` | 8.278 ms |
-| `grafeo.spec.lpg.cypher.functions.extended.year.accessor` | `Conformance` | lpg | `Failed` | 8.103 ms |
-| `grafeo.spec.lpg.cypher.functions.extended.month.accessor` | `Conformance` | lpg | `Failed` | 8.207 ms |
-| `grafeo.spec.lpg.cypher.functions.extended.day.accessor` | `Conformance` | lpg | `Failed` | 8.194 ms |
-| `grafeo.spec.lpg.cypher.functions.extended.time.from.string` | `Conformance` | lpg | `Passed` | 8.119 ms |
-| `grafeo.spec.lpg.cypher.functions.extended.duration.from.map` | `Conformance` | lpg | `Passed` | 8.605 ms |
-| `grafeo.spec.lpg.cypher.patterns.anonymous.node` | `Conformance` | lpg | `Passed` | 7.921 ms |
-| `grafeo.spec.lpg.cypher.patterns.variable.binding` | `Conformance` | lpg | `Passed` | 7.852 ms |
-| `grafeo.spec.lpg.cypher.patterns.single.label` | `Conformance` | lpg | `Passed` | 8.573 ms |
-| `grafeo.spec.lpg.cypher.patterns.multiple.labels` | `Conformance` | lpg | `Passed` | 9.023 ms |
-| `grafeo.spec.lpg.cypher.patterns.property.filter` | `Conformance` | lpg | `Passed` | 8.844 ms |
-| `grafeo.spec.lpg.cypher.patterns.outgoing.relationship` | `Conformance` | lpg | `Passed` | 9.549 ms |
-| `grafeo.spec.lpg.cypher.patterns.incoming.relationship` | `Conformance` | lpg | `Passed` | 9.413 ms |
-| `grafeo.spec.lpg.cypher.patterns.undirected.relationship` | `Conformance` | lpg | `Passed` | 9.737 ms |
-| `grafeo.spec.lpg.cypher.patterns.multiple.relationship.types` | `Conformance` | lpg | `Passed` | 11.619 ms |
-| `grafeo.spec.lpg.cypher.patterns.relationship.properties` | `Conformance` | lpg | `Passed` | 9.841 ms |
-| `grafeo.spec.lpg.cypher.patterns.untyped.relationship` | `Conformance` | lpg | `Failed` | 9.255 ms |
-| `grafeo.spec.lpg.cypher.patterns.anonymous.relationship` | `Conformance` | lpg | `Passed` | 9.186 ms |
-| `grafeo.spec.lpg.cypher.patterns.variable.length.unbounded` | `Conformance` | lpg | `Passed` | 11.665 ms |
-| `grafeo.spec.lpg.cypher.patterns.variable.length.exact` | `Conformance` | lpg | `Passed` | 13.254 ms |
-| `grafeo.spec.lpg.cypher.patterns.variable.length.range` | `Conformance` | lpg | `Passed` | 12.231 ms |
-| `grafeo.spec.lpg.cypher.patterns.variable.length.max.only` | `Conformance` | lpg | `Passed` | 12.310 ms |
-| `grafeo.spec.lpg.cypher.patterns.variable.length.min.only` | `Conformance` | lpg | `Passed` | 12.342 ms |
-| `grafeo.spec.lpg.cypher.patterns.path.alias` | `Conformance` | lpg | `Passed` | 9.495 ms |
+| `grafeo.spec.lpg.cypher.constraints.show.constraints.empty` | `Conformance` | lpg | `Failed` | 0.002 ms |
+| `grafeo.spec.lpg.cypher.expressions.addition` | `Conformance` | lpg | `Passed` | 9.521 ms |
+| `grafeo.spec.lpg.cypher.expressions.subtraction` | `Conformance` | lpg | `Passed` | 9.343 ms |
+| `grafeo.spec.lpg.cypher.expressions.multiplication` | `Conformance` | lpg | `Passed` | 9.147 ms |
+| `grafeo.spec.lpg.cypher.expressions.division` | `Conformance` | lpg | `Passed` | 8.324 ms |
+| `grafeo.spec.lpg.cypher.expressions.modulo` | `Conformance` | lpg | `Passed` | 8.404 ms |
+| `grafeo.spec.lpg.cypher.expressions.power` | `Conformance` | lpg | `Passed` | 8.693 ms |
+| `grafeo.spec.lpg.cypher.expressions.unary.minus` | `Conformance` | lpg | `Failed` | 0.050 ms |
+| `grafeo.spec.lpg.cypher.expressions.string.concat` | `Conformance` | lpg | `Failed` | 9.407 ms |
+| `grafeo.spec.lpg.cypher.expressions.equals` | `Conformance` | lpg | `Passed` | 8.947 ms |
+| `grafeo.spec.lpg.cypher.expressions.not.equals` | `Conformance` | lpg | `Passed` | 9.121 ms |
+| `grafeo.spec.lpg.cypher.expressions.less.than` | `Conformance` | lpg | `Passed` | 9.275 ms |
+| `grafeo.spec.lpg.cypher.expressions.greater.equal` | `Conformance` | lpg | `Passed` | 9.115 ms |
+| `grafeo.spec.lpg.cypher.expressions.starts.with` | `Conformance` | lpg | `Passed` | 9.351 ms |
+| `grafeo.spec.lpg.cypher.expressions.ends.with` | `Conformance` | lpg | `Passed` | 9.281 ms |
+| `grafeo.spec.lpg.cypher.expressions.contains` | `Conformance` | lpg | `Passed` | 9.607 ms |
+| `grafeo.spec.lpg.cypher.expressions.in.list` | `Conformance` | lpg | `Passed` | 10.140 ms |
+| `grafeo.spec.lpg.cypher.expressions.regex.match` | `Conformance` | lpg | `Failed` | 0.065 ms |
+| `grafeo.spec.lpg.cypher.expressions.is.null` | `Conformance` | lpg | `Passed` | 9.254 ms |
+| `grafeo.spec.lpg.cypher.expressions.is.not.null` | `Conformance` | lpg | `Passed` | 9.256 ms |
+| `grafeo.spec.lpg.cypher.expressions.case.simple` | `Conformance` | lpg | `Passed` | 8.517 ms |
+| `grafeo.spec.lpg.cypher.expressions.case.searched` | `Conformance` | lpg | `Passed` | 8.335 ms |
+| `grafeo.spec.lpg.cypher.expressions.list.literal` | `Conformance` | lpg | `Failed` | 8.307 ms |
+| `grafeo.spec.lpg.cypher.expressions.list.comprehension` | `Conformance` | lpg | `Failed` | 8.900 ms |
+| `grafeo.spec.lpg.cypher.expressions.list.comprehension.filter.only` | `Conformance` | lpg | `Failed` | 23.051 ms |
+| `grafeo.spec.lpg.cypher.expressions.list.slice` | `Conformance` | lpg | `Failed` | 15.917 ms |
+| `grafeo.spec.lpg.cypher.expressions.index.access` | `Conformance` | lpg | `Passed` | 9.409 ms |
+| `grafeo.spec.lpg.cypher.expressions.coalesce` | `Conformance` | lpg | `Passed` | 9.631 ms |
+| `grafeo.spec.lpg.cypher.expressions.reduce` | `Conformance` | lpg | `Failed` | 0.277 ms |
+| `grafeo.spec.lpg.cypher.expressions.all.predicate` | `Conformance` | lpg | `Passed` | 9.821 ms |
+| `grafeo.spec.lpg.cypher.expressions.any.predicate` | `Conformance` | lpg | `Passed` | 9.533 ms |
+| `grafeo.spec.lpg.cypher.expressions.none.predicate` | `Conformance` | lpg | `Passed` | 9.515 ms |
+| `grafeo.spec.lpg.cypher.expressions.single.predicate` | `Conformance` | lpg | `Passed` | 9.844 ms |
+| `grafeo.spec.lpg.cypher.expressions.any.with.labels.in.where` | `Conformance` | lpg | `Passed` | 10.770 ms |
+| `grafeo.spec.lpg.cypher.expressions.comparison.in.return` | `Conformance` | lpg | `Passed` | 9.514 ms |
+| `grafeo.spec.lpg.cypher.expressions.aggregate.comparison.in.return` | `Conformance` | lpg | `Passed` | 8.506 ms |
+| `grafeo.spec.lpg.cypher.functions.id.of.node` | `Conformance` | lpg | `Passed` | 8.108 ms |
+| `grafeo.spec.lpg.cypher.functions.labels.single` | `Conformance` | lpg | `Failed` | 8.107 ms |
+| `grafeo.spec.lpg.cypher.functions.labels.multiple` | `Conformance` | lpg | `Passed` | 9.783 ms |
+| `grafeo.spec.lpg.cypher.functions.type.of.relationship` | `Conformance` | lpg | `Failed` | 9.397 ms |
+| `grafeo.spec.lpg.cypher.functions.keys.of.node` | `Conformance` | lpg | `Failed` | 8.509 ms |
+| `grafeo.spec.lpg.cypher.functions.properties.of.node` | `Conformance` | lpg | `Failed` | 8.108 ms |
+| `grafeo.spec.lpg.cypher.functions.exists.property.true` | `Conformance` | lpg | `Failed` | 7.977 ms |
+| `grafeo.spec.lpg.cypher.functions.exists.property.false` | `Conformance` | lpg | `Failed` | 8.020 ms |
+| `grafeo.spec.lpg.cypher.functions.head.of.list` | `Conformance` | lpg | `Passed` | 10.116 ms |
+| `grafeo.spec.lpg.cypher.functions.last.of.list` | `Conformance` | lpg | `Passed` | 9.669 ms |
+| `grafeo.spec.lpg.cypher.functions.tail.of.list` | `Conformance` | lpg | `Failed` | 8.667 ms |
+| `grafeo.spec.lpg.cypher.functions.range.default.step` | `Conformance` | lpg | `Failed` | 8.170 ms |
+| `grafeo.spec.lpg.cypher.functions.range.with.step` | `Conformance` | lpg | `Failed` | 8.221 ms |
+| `grafeo.spec.lpg.cypher.functions.size.of.list` | `Conformance` | lpg | `Passed` | 8.281 ms |
+| `grafeo.spec.lpg.cypher.functions.size.of.string` | `Conformance` | lpg | `Passed` | 8.654 ms |
+| `grafeo.spec.lpg.cypher.functions.to.lower` | `Conformance` | lpg | `Passed` | 8.352 ms |
+| `grafeo.spec.lpg.cypher.functions.to.upper` | `Conformance` | lpg | `Passed` | 8.152 ms |
+| `grafeo.spec.lpg.cypher.functions.trim.whitespace` | `Conformance` | lpg | `Passed` | 8.076 ms |
+| `grafeo.spec.lpg.cypher.functions.replace.substring` | `Conformance` | lpg | `Passed` | 8.468 ms |
+| `grafeo.spec.lpg.cypher.functions.substring.from.start` | `Conformance` | lpg | `Failed` | 8.726 ms |
+| `grafeo.spec.lpg.cypher.functions.substring.to.end` | `Conformance` | lpg | `Failed` | 8.284 ms |
+| `grafeo.spec.lpg.cypher.functions.split.string` | `Conformance` | lpg | `Failed` | 8.147 ms |
+| `grafeo.spec.lpg.cypher.functions.left.string` | `Conformance` | lpg | `Passed` | 8.595 ms |
+| `grafeo.spec.lpg.cypher.functions.right.string` | `Conformance` | lpg | `Passed` | 8.390 ms |
+| `grafeo.spec.lpg.cypher.functions.reverse.string` | `Conformance` | lpg | `Passed` | 8.154 ms |
+| `grafeo.spec.lpg.cypher.functions.abs.positive` | `Conformance` | lpg | `Passed` | 8.119 ms |
+| `grafeo.spec.lpg.cypher.functions.ceil.float` | `Conformance` | lpg | `Passed` | 8.199 ms |
+| `grafeo.spec.lpg.cypher.functions.floor.float` | `Conformance` | lpg | `Passed` | 8.666 ms |
+| `grafeo.spec.lpg.cypher.functions.round.float` | `Conformance` | lpg | `Passed` | 8.914 ms |
+| `grafeo.spec.lpg.cypher.functions.sign.positive` | `Conformance` | lpg | `Passed` | 8.936 ms |
+| `grafeo.spec.lpg.cypher.functions.sign.negative` | `Conformance` | lpg | `Passed` | 9.030 ms |
+| `grafeo.spec.lpg.cypher.functions.sign.zero` | `Conformance` | lpg | `Passed` | 8.965 ms |
+| `grafeo.spec.lpg.cypher.functions.sqrt.perfect.square` | `Conformance` | lpg | `Passed` | 8.998 ms |
+| `grafeo.spec.lpg.cypher.functions.to.integer.from.string` | `Conformance` | lpg | `Passed` | 9.156 ms |
+| `grafeo.spec.lpg.cypher.functions.to.integer.from.float` | `Conformance` | lpg | `Passed` | 9.346 ms |
+| `grafeo.spec.lpg.cypher.functions.to.float.from.string` | `Conformance` | lpg | `Passed` | 9.259 ms |
+| `grafeo.spec.lpg.cypher.functions.to.float.from.integer` | `Conformance` | lpg | `Passed` | 9.084 ms |
+| `grafeo.spec.lpg.cypher.functions.to.string.from.integer` | `Conformance` | lpg | `Passed` | 9.045 ms |
+| `grafeo.spec.lpg.cypher.functions.to.boolean.from.string.true` | `Conformance` | lpg | `Passed` | 8.623 ms |
+| `grafeo.spec.lpg.cypher.functions.to.boolean.from.string.false` | `Conformance` | lpg | `Passed` | 8.363 ms |
+| `grafeo.spec.lpg.cypher.functions.date.from.string` | `Conformance` | lpg | `Passed` | 8.209 ms |
+| `grafeo.spec.lpg.cypher.functions.date.from.map` | `Conformance` | lpg | `Passed` | 8.532 ms |
+| `grafeo.spec.lpg.cypher.functions.datetime.from.string` | `Conformance` | lpg | `Passed` | 8.127 ms |
+| `grafeo.spec.lpg.cypher.functions.duration.from.string` | `Conformance` | lpg | `Passed` | 8.105 ms |
+| `grafeo.spec.lpg.cypher.functions.path.length` | `Conformance` | lpg | `Passed` | 12.771 ms |
+| `grafeo.spec.lpg.cypher.functions.path.length.single.hop` | `Conformance` | lpg | `Passed` | 9.883 ms |
+| `grafeo.spec.lpg.cypher.functions.collect.names` | `Conformance` | lpg | `Passed` | 8.745 ms |
+| `grafeo.spec.lpg.cypher.functions.collect.distinct` | `Conformance` | lpg | `Failed` | 9.239 ms |
+| `grafeo.spec.lpg.cypher.functions.count.with.distinct` | `Conformance` | lpg | `Passed` | 9.470 ms |
+| `grafeo.spec.lpg.cypher.functions.sum.values` | `Conformance` | lpg | `Passed` | 9.566 ms |
+| `grafeo.spec.lpg.cypher.functions.avg.values` | `Conformance` | lpg | `Passed` | 9.368 ms |
+| `grafeo.spec.lpg.cypher.functions.min.values` | `Conformance` | lpg | `Passed` | 9.632 ms |
+| `grafeo.spec.lpg.cypher.functions.max.values` | `Conformance` | lpg | `Passed` | 9.456 ms |
+| `grafeo.spec.lpg.cypher.functions.chained.string.functions` | `Conformance` | lpg | `Passed` | 8.508 ms |
+| `grafeo.spec.lpg.cypher.functions.nested.list.functions` | `Conformance` | lpg | `Passed` | 8.516 ms |
+| `grafeo.spec.lpg.cypher.functions.extended.log.of.e` | `Conformance` | lpg | `Failed` | 8.202 ms |
+| `grafeo.spec.lpg.cypher.functions.extended.log10.of.100` | `Conformance` | lpg | `Passed` | 8.063 ms |
+| `grafeo.spec.lpg.cypher.functions.extended.exp.of.zero` | `Conformance` | lpg | `Passed` | 8.177 ms |
+| `grafeo.spec.lpg.cypher.functions.extended.e.constant` | `Conformance` | lpg | `Failed` | 7.995 ms |
+| `grafeo.spec.lpg.cypher.functions.extended.pi.constant` | `Conformance` | lpg | `Passed` | 8.095 ms |
+| `grafeo.spec.lpg.cypher.functions.extended.rand.in.range` | `Conformance` | lpg | `Passed` | 8.226 ms |
+| `grafeo.spec.lpg.cypher.functions.extended.sin.of.zero` | `Conformance` | lpg | `Passed` | 8.262 ms |
+| `grafeo.spec.lpg.cypher.functions.extended.cos.of.zero` | `Conformance` | lpg | `Passed` | 8.081 ms |
+| `grafeo.spec.lpg.cypher.functions.extended.tan.of.zero` | `Conformance` | lpg | `Passed` | 8.017 ms |
+| `grafeo.spec.lpg.cypher.functions.extended.asin.of.one` | `Conformance` | lpg | `Passed` | 8.335 ms |
+| `grafeo.spec.lpg.cypher.functions.extended.acos.of.one` | `Conformance` | lpg | `Passed` | 8.981 ms |
+| `grafeo.spec.lpg.cypher.functions.extended.atan.of.one` | `Conformance` | lpg | `Passed` | 16.935 ms |
+| `grafeo.spec.lpg.cypher.functions.extended.atan2.unit` | `Conformance` | lpg | `Passed` | 9.254 ms |
+| `grafeo.spec.lpg.cypher.functions.extended.degrees.from.pi` | `Conformance` | lpg | `Passed` | 9.334 ms |
+| `grafeo.spec.lpg.cypher.functions.extended.radians.from.180` | `Conformance` | lpg | `Passed` | 9.161 ms |
+| `grafeo.spec.lpg.cypher.functions.extended.ltrim.whitespace` | `Conformance` | lpg | `Passed` | 9.271 ms |
+| `grafeo.spec.lpg.cypher.functions.extended.rtrim.whitespace` | `Conformance` | lpg | `Passed` | 9.380 ms |
+| `grafeo.spec.lpg.cypher.functions.extended.char.length.string` | `Conformance` | lpg | `Passed` | 9.370 ms |
+| `grafeo.spec.lpg.cypher.functions.extended.length.of.string` | `Conformance` | lpg | `Passed` | 9.166 ms |
+| `grafeo.spec.lpg.cypher.functions.extended.reverse.list` | `Conformance` | lpg | `Failed` | 9.772 ms |
+| `grafeo.spec.lpg.cypher.functions.extended.keys.of.map` | `Conformance` | lpg | `Passed` | 9.773 ms |
+| `grafeo.spec.lpg.cypher.functions.extended.stdev.sample` | `Conformance` | lpg | `Failed` | 14.040 ms |
+| `grafeo.spec.lpg.cypher.functions.extended.stdevp.population` | `Conformance` | lpg | `Failed` | 14.324 ms |
+| `grafeo.spec.lpg.cypher.functions.extended.percentile.cont.median` | `Conformance` | lpg | `Failed` | 11.492 ms |
+| `grafeo.spec.lpg.cypher.functions.extended.percentile.disc.median` | `Conformance` | lpg | `Failed` | 12.341 ms |
+| `grafeo.spec.lpg.cypher.functions.extended.element.id.not.null` | `Conformance` | lpg | `Failed` | 9.060 ms |
+| `grafeo.spec.lpg.cypher.functions.extended.count.star` | `Conformance` | lpg | `Passed` | 9.703 ms |
+| `grafeo.spec.lpg.cypher.functions.extended.count.expr` | `Conformance` | lpg | `Passed` | 9.639 ms |
+| `grafeo.spec.lpg.cypher.functions.extended.nodes.of.path` | `Conformance` | lpg | `Passed` | 11.615 ms |
+| `grafeo.spec.lpg.cypher.functions.extended.relationships.of.path` | `Conformance` | lpg | `Passed` | 11.475 ms |
+| `grafeo.spec.lpg.cypher.functions.extended.nodes.of.multi.hop.path` | `Conformance` | lpg | `Passed` | 14.171 ms |
+| `grafeo.spec.lpg.cypher.functions.extended.relationships.of.multi.hop.path` | `Conformance` | lpg | `Passed` | 14.314 ms |
+| `grafeo.spec.lpg.cypher.functions.extended.date.no.args` | `Conformance` | lpg | `Passed` | 8.952 ms |
+| `grafeo.spec.lpg.cypher.functions.extended.now.returns.value` | `Conformance` | lpg | `Failed` | 8.933 ms |
+| `grafeo.spec.lpg.cypher.functions.extended.year.accessor` | `Conformance` | lpg | `Failed` | 8.964 ms |
+| `grafeo.spec.lpg.cypher.functions.extended.month.accessor` | `Conformance` | lpg | `Failed` | 9.188 ms |
+| `grafeo.spec.lpg.cypher.functions.extended.day.accessor` | `Conformance` | lpg | `Failed` | 8.765 ms |
+| `grafeo.spec.lpg.cypher.functions.extended.time.from.string` | `Conformance` | lpg | `Passed` | 8.945 ms |
+| `grafeo.spec.lpg.cypher.functions.extended.duration.from.map` | `Conformance` | lpg | `Passed` | 9.138 ms |
+| `grafeo.spec.lpg.cypher.patterns.anonymous.node` | `Conformance` | lpg | `Passed` | 8.653 ms |
+| `grafeo.spec.lpg.cypher.patterns.variable.binding` | `Conformance` | lpg | `Passed` | 15.551 ms |
+| `grafeo.spec.lpg.cypher.patterns.single.label` | `Conformance` | lpg | `Passed` | 9.598 ms |
+| `grafeo.spec.lpg.cypher.patterns.multiple.labels` | `Conformance` | lpg | `Passed` | 10.036 ms |
+| `grafeo.spec.lpg.cypher.patterns.property.filter` | `Conformance` | lpg | `Passed` | 9.829 ms |
+| `grafeo.spec.lpg.cypher.patterns.outgoing.relationship` | `Conformance` | lpg | `Passed` | 10.389 ms |
+| `grafeo.spec.lpg.cypher.patterns.incoming.relationship` | `Conformance` | lpg | `Passed` | 9.623 ms |
+| `grafeo.spec.lpg.cypher.patterns.undirected.relationship` | `Conformance` | lpg | `Passed` | 10.271 ms |
+| `grafeo.spec.lpg.cypher.patterns.multiple.relationship.types` | `Conformance` | lpg | `Passed` | 12.207 ms |
+| `grafeo.spec.lpg.cypher.patterns.relationship.properties` | `Conformance` | lpg | `Passed` | 10.251 ms |
+| `grafeo.spec.lpg.cypher.patterns.untyped.relationship` | `Conformance` | lpg | `Failed` | 9.402 ms |
+| `grafeo.spec.lpg.cypher.patterns.anonymous.relationship` | `Conformance` | lpg | `Passed` | 9.557 ms |
+| `grafeo.spec.lpg.cypher.patterns.variable.length.unbounded` | `Conformance` | lpg | `Passed` | 12.214 ms |
+| `grafeo.spec.lpg.cypher.patterns.variable.length.exact` | `Conformance` | lpg | `Passed` | 13.625 ms |
+| `grafeo.spec.lpg.cypher.patterns.variable.length.range` | `Conformance` | lpg | `Passed` | 12.435 ms |
+| `grafeo.spec.lpg.cypher.patterns.variable.length.max.only` | `Conformance` | lpg | `Passed` | 12.672 ms |
+| `grafeo.spec.lpg.cypher.patterns.variable.length.min.only` | `Conformance` | lpg | `Passed` | 12.514 ms |
+| `grafeo.spec.lpg.cypher.patterns.path.alias` | `Conformance` | lpg | `Passed` | 9.471 ms |
 | `grafeo.spec.lpg.cypher.patterns.shortest.path` | `Conformance` | lpg | `Failed` | 0.030 ms |
 | `grafeo.spec.lpg.cypher.patterns.all.shortest.paths` | `Conformance` | lpg | `Failed` | 0.024 ms |
-| `grafeo.spec.lpg.cypher.patterns.pattern.comprehension` | `Conformance` | lpg | `Failed` | 0.103 ms |
-| `grafeo.spec.lpg.cypher.patterns.exists.subquery` | `Conformance` | lpg | `Passed` | 10.316 ms |
-| `grafeo.spec.lpg.cypher.patterns.not.exists` | `Conformance` | lpg | `Passed` | 9.539 ms |
-| `grafeo.spec.lpg.cypher.patterns.count.subquery` | `Conformance` | lpg | `Passed` | 10.939 ms |
-| `grafeo.spec.lpg.cypher.reading.clauses.match.single.node` | `Conformance` | lpg | `Passed` | 8.369 ms |
-| `grafeo.spec.lpg.cypher.reading.clauses.match.by.label` | `Conformance` | lpg | `Passed` | 8.311 ms |
-| `grafeo.spec.lpg.cypher.reading.clauses.match.by.property` | `Conformance` | lpg | `Passed` | 8.587 ms |
-| `grafeo.spec.lpg.cypher.reading.clauses.match.multi.label` | `Conformance` | lpg | `Passed` | 8.715 ms |
-| `grafeo.spec.lpg.cypher.reading.clauses.match.comma.patterns` | `Conformance` | lpg | `Passed` | 8.638 ms |
-| `grafeo.spec.lpg.cypher.reading.clauses.match.multiple.clauses` | `Conformance` | lpg | `Passed` | 8.621 ms |
-| `grafeo.spec.lpg.cypher.reading.clauses.match.edge.outgoing` | `Conformance` | lpg | `Passed` | 9.288 ms |
-| `grafeo.spec.lpg.cypher.reading.clauses.match.edge.incoming` | `Conformance` | lpg | `Passed` | 9.396 ms |
-| `grafeo.spec.lpg.cypher.reading.clauses.match.edge.undirected` | `Conformance` | lpg | `Passed` | 29.470 ms |
-| `grafeo.spec.lpg.cypher.reading.clauses.optional.match.with.result` | `Conformance` | lpg | `Passed` | 9.771 ms |
-| `grafeo.spec.lpg.cypher.reading.clauses.optional.match.null` | `Conformance` | lpg | `Passed` | 9.135 ms |
-| `grafeo.spec.lpg.cypher.reading.clauses.where.comparison` | `Conformance` | lpg | `Passed` | 8.764 ms |
-| `grafeo.spec.lpg.cypher.reading.clauses.where.and` | `Conformance` | lpg | `Passed` | 9.276 ms |
-| `grafeo.spec.lpg.cypher.reading.clauses.where.or` | `Conformance` | lpg | `Passed` | 9.388 ms |
-| `grafeo.spec.lpg.cypher.reading.clauses.where.not` | `Conformance` | lpg | `Passed` | 8.962 ms |
-| `grafeo.spec.lpg.cypher.reading.clauses.where.xor` | `Conformance` | lpg | `Passed` | 10.018 ms |
-| `grafeo.spec.lpg.cypher.reading.clauses.with.projection` | `Conformance` | lpg | `Passed` | 8.172 ms |
-| `grafeo.spec.lpg.cypher.reading.clauses.with.distinct` | `Conformance` | lpg | `Passed` | 8.887 ms |
-| `grafeo.spec.lpg.cypher.reading.clauses.with.where` | `Conformance` | lpg | `Passed` | 8.815 ms |
-| `grafeo.spec.lpg.cypher.reading.clauses.with.star` | `Conformance` | lpg | `Passed` | 7.762 ms |
-| `grafeo.spec.lpg.cypher.reading.clauses.unwind.list` | `Conformance` | lpg | `Passed` | 7.135 ms |
-| `grafeo.spec.lpg.cypher.reading.clauses.unwind.with.match` | `Conformance` | lpg | `Passed` | 8.864 ms |
-| `grafeo.spec.lpg.cypher.reading.clauses.union` | `Conformance` | lpg | `Passed` | 8.892 ms |
-| `grafeo.spec.lpg.cypher.reading.clauses.union.all` | `Conformance` | lpg | `Passed` | 8.169 ms |
-| `grafeo.spec.lpg.cypher.reading.clauses.call.db.labels` | `Conformance` | lpg | `Passed` | 8.374 ms |
-| `grafeo.spec.lpg.cypher.reading.clauses.call.db.relationship.types` | `Conformance` | lpg | `Passed` | 8.703 ms |
-| `grafeo.spec.lpg.cypher.reading.clauses.call.db.property.keys` | `Conformance` | lpg | `Failed` | 7.566 ms |
-| `grafeo.spec.lpg.cypher.reading.clauses.call.subquery.basic` | `Conformance` | lpg | `Failed` | 0.025 ms |
+| `grafeo.spec.lpg.cypher.patterns.pattern.comprehension` | `Conformance` | lpg | `Failed` | 0.104 ms |
+| `grafeo.spec.lpg.cypher.patterns.exists.subquery` | `Conformance` | lpg | `Passed` | 10.430 ms |
+| `grafeo.spec.lpg.cypher.patterns.not.exists` | `Conformance` | lpg | `Passed` | 10.171 ms |
+| `grafeo.spec.lpg.cypher.patterns.count.subquery` | `Conformance` | lpg | `Passed` | 12.133 ms |
+| `grafeo.spec.lpg.cypher.reading.clauses.match.single.node` | `Conformance` | lpg | `Passed` | 9.267 ms |
+| `grafeo.spec.lpg.cypher.reading.clauses.match.by.label` | `Conformance` | lpg | `Passed` | 9.389 ms |
+| `grafeo.spec.lpg.cypher.reading.clauses.match.by.property` | `Conformance` | lpg | `Passed` | 10.073 ms |
+| `grafeo.spec.lpg.cypher.reading.clauses.match.multi.label` | `Conformance` | lpg | `Passed` | 10.550 ms |
+| `grafeo.spec.lpg.cypher.reading.clauses.match.comma.patterns` | `Conformance` | lpg | `Passed` | 9.904 ms |
+| `grafeo.spec.lpg.cypher.reading.clauses.match.multiple.clauses` | `Conformance` | lpg | `Passed` | 9.911 ms |
+| `grafeo.spec.lpg.cypher.reading.clauses.match.edge.outgoing` | `Conformance` | lpg | `Passed` | 10.953 ms |
+| `grafeo.spec.lpg.cypher.reading.clauses.match.edge.incoming` | `Conformance` | lpg | `Passed` | 10.349 ms |
+| `grafeo.spec.lpg.cypher.reading.clauses.match.edge.undirected` | `Conformance` | lpg | `Passed` | 10.143 ms |
+| `grafeo.spec.lpg.cypher.reading.clauses.optional.match.with.result` | `Conformance` | lpg | `Passed` | 9.778 ms |
+| `grafeo.spec.lpg.cypher.reading.clauses.optional.match.null` | `Conformance` | lpg | `Passed` | 9.111 ms |
+| `grafeo.spec.lpg.cypher.reading.clauses.where.comparison` | `Conformance` | lpg | `Passed` | 8.915 ms |
+| `grafeo.spec.lpg.cypher.reading.clauses.where.and` | `Conformance` | lpg | `Passed` | 9.453 ms |
+| `grafeo.spec.lpg.cypher.reading.clauses.where.or` | `Conformance` | lpg | `Passed` | 9.545 ms |
+| `grafeo.spec.lpg.cypher.reading.clauses.where.not` | `Conformance` | lpg | `Passed` | 9.225 ms |
+| `grafeo.spec.lpg.cypher.reading.clauses.where.xor` | `Conformance` | lpg | `Passed` | 10.422 ms |
+| `grafeo.spec.lpg.cypher.reading.clauses.with.projection` | `Conformance` | lpg | `Passed` | 8.524 ms |
+| `grafeo.spec.lpg.cypher.reading.clauses.with.distinct` | `Conformance` | lpg | `Passed` | 9.100 ms |
+| `grafeo.spec.lpg.cypher.reading.clauses.with.where` | `Conformance` | lpg | `Passed` | 8.956 ms |
+| `grafeo.spec.lpg.cypher.reading.clauses.with.star` | `Conformance` | lpg | `Passed` | 7.888 ms |
+| `grafeo.spec.lpg.cypher.reading.clauses.unwind.list` | `Conformance` | lpg | `Passed` | 7.297 ms |
+| `grafeo.spec.lpg.cypher.reading.clauses.unwind.with.match` | `Conformance` | lpg | `Passed` | 9.003 ms |
+| `grafeo.spec.lpg.cypher.reading.clauses.union` | `Conformance` | lpg | `Passed` | 8.964 ms |
+| `grafeo.spec.lpg.cypher.reading.clauses.union.all` | `Conformance` | lpg | `Passed` | 8.409 ms |
+| `grafeo.spec.lpg.cypher.reading.clauses.call.db.labels` | `Conformance` | lpg | `Passed` | 8.406 ms |
+| `grafeo.spec.lpg.cypher.reading.clauses.call.db.relationship.types` | `Conformance` | lpg | `Passed` | 8.790 ms |
+| `grafeo.spec.lpg.cypher.reading.clauses.call.db.property.keys` | `Conformance` | lpg | `Failed` | 7.639 ms |
+| `grafeo.spec.lpg.cypher.reading.clauses.call.subquery.basic` | `Conformance` | lpg | `Failed` | 0.026 ms |
 | `grafeo.spec.lpg.cypher.reading.clauses.call.subquery.with.outer.scope` | `Conformance` | lpg | `Failed` | 0.057 ms |
-| `grafeo.spec.lpg.cypher.regression.not.exists.with.type.filter` | `Conformance` | lpg | `Failed` | 14.635 ms |
-| `grafeo.spec.lpg.cypher.regression.sum.case.when` | `Conformance` | lpg | `Passed` | 17.612 ms |
-| `grafeo.spec.lpg.cypher.regression.any.labels.in.list.matches` | `Conformance` | lpg | `Passed` | 8.878 ms |
-| `grafeo.spec.lpg.cypher.regression.any.labels.in.list.no.match` | `Conformance` | lpg | `Passed` | 8.859 ms |
-| `grafeo.spec.lpg.cypher.regression.any.with.single.match` | `Conformance` | lpg | `Passed` | 8.693 ms |
-| `grafeo.spec.lpg.cypher.regression.reduce.with.case.max` | `Conformance` | lpg | `Failed` | 0.236 ms |
-| `grafeo.spec.lpg.cypher.regression.reduce.with.case.min` | `Conformance` | lpg | `Failed` | 0.222 ms |
-| `grafeo.spec.lpg.cypher.regression.reduce.with.case.conditional.sum` | `Conformance` | lpg | `Failed` | 0.222 ms |
-| `grafeo.spec.lpg.cypher.regression.outgoing.target.property.filter` | `Conformance` | lpg | `Passed` | 11.688 ms |
-| `grafeo.spec.lpg.cypher.regression.target.property.filter.count` | `Conformance` | lpg | `Passed` | 12.073 ms |
-| `grafeo.spec.lpg.cypher.regression.target.property.filter.no.match` | `Conformance` | lpg | `Passed` | 9.288 ms |
-| `grafeo.spec.lpg.cypher.regression.edge.property.filter` | `Conformance` | lpg | `Passed` | 12.162 ms |
-| `grafeo.spec.lpg.cypher.regression.optional.match.count.preserves.all.rows` | `Conformance` | lpg | `Passed` | 10.331 ms |
-| `grafeo.spec.lpg.cypher.regression.union.deduplicates` | `Conformance` | lpg | `Passed` | 8.488 ms |
-| `grafeo.spec.lpg.cypher.regression.union.all.preserves` | `Conformance` | lpg | `Passed` | 7.055 ms |
-| `grafeo.spec.lpg.cypher.regression.two.hop.equivalence` | `Conformance` | lpg | `Passed` | 11.993 ms |
-| `grafeo.spec.lpg.cypher.regression.merge.creates.new.after.delete` | `Conformance` | lpg | `Passed` | 9.466 ms |
-| `grafeo.spec.lpg.cypher.regression.replace.edge` | `Conformance` | lpg | `Passed` | 13.029 ms |
-| `grafeo.spec.lpg.cypher.regression.backward.arrow.forward` | `Conformance` | lpg | `Passed` | 9.706 ms |
-| `grafeo.spec.lpg.cypher.regression.backward.arrow.reverse` | `Conformance` | lpg | `Passed` | 9.616 ms |
-| `grafeo.spec.lpg.cypher.regression.backward.arrow.wrong.direction` | `Conformance` | lpg | `Passed` | 9.441 ms |
-| `grafeo.spec.lpg.cypher.regression.null.equals.null.is.unknown` | `Conformance` | lpg | `Passed` | 8.096 ms |
-| `grafeo.spec.lpg.cypher.regression.null.is.null.is.true` | `Conformance` | lpg | `Passed` | 8.004 ms |
-| `grafeo.spec.lpg.cypher.regression.bool.to.string` | `Conformance` | lpg | `Passed` | 8.718 ms |
-| `grafeo.spec.lpg.cypher.regression.int.to.string` | `Conformance` | lpg | `Passed` | 8.645 ms |
-| `grafeo.spec.lpg.cypher.regression.string.false.ne.bool.false` | `Conformance` | lpg | `Failed` | 8.824 ms |
-| `grafeo.spec.lpg.cypher.regression.neq.excludes.null` | `Conformance` | lpg | `Passed` | 10.920 ms |
-| `grafeo.spec.lpg.cypher.regression.skip.plus.limit` | `Conformance` | lpg | `Passed` | 14.254 ms |
-| `grafeo.spec.lpg.cypher.regression.distinct.values` | `Conformance` | lpg | `Passed` | 9.569 ms |
-| `grafeo.spec.lpg.cypher.regression.distinct.collapses.nulls` | `Conformance` | lpg | `Passed` | 9.740 ms |
-| `grafeo.spec.lpg.cypher.regression.order.by.property.matching.return.alias.with.edge` | `Conformance` | lpg | `Passed` | 13.270 ms |
-| `grafeo.spec.lpg.cypher.regression.order.by.desc.with.relationship.traversal` | `Conformance` | lpg | `Passed` | 13.223 ms |
-| `grafeo.spec.lpg.cypher.return.ordering.return.expression` | `Conformance` | lpg | `Passed` | 8.027 ms |
-| `grafeo.spec.lpg.cypher.return.ordering.return.alias` | `Conformance` | lpg | `Passed` | 7.692 ms |
-| `grafeo.spec.lpg.cypher.return.ordering.return.distinct` | `Conformance` | lpg | `Passed` | 8.824 ms |
-| `grafeo.spec.lpg.cypher.return.ordering.return.star` | `Conformance` | lpg | `Passed` | 7.610 ms |
-| `grafeo.spec.lpg.cypher.return.ordering.return.count.star` | `Conformance` | lpg | `Passed` | 8.313 ms |
-| `grafeo.spec.lpg.cypher.return.ordering.return.arithmetic` | `Conformance` | lpg | `Passed` | 8.025 ms |
-| `grafeo.spec.lpg.cypher.return.ordering.return.boolean.expression` | `Conformance` | lpg | `Passed` | 7.985 ms |
-| `grafeo.spec.lpg.cypher.return.ordering.order.by.asc` | `Conformance` | lpg | `Passed` | 8.632 ms |
-| `grafeo.spec.lpg.cypher.return.ordering.order.by.desc` | `Conformance` | lpg | `Passed` | 8.665 ms |
-| `grafeo.spec.lpg.cypher.return.ordering.order.by.multiple.keys` | `Conformance` | lpg | `Passed` | 9.921 ms |
-| `grafeo.spec.lpg.cypher.return.ordering.limit` | `Conformance` | lpg | `Passed` | 10.518 ms |
-| `grafeo.spec.lpg.cypher.return.ordering.skip` | `Conformance` | lpg | `Passed` | 10.660 ms |
-| `grafeo.spec.lpg.cypher.return.ordering.skip.and.limit` | `Conformance` | lpg | `Passed` | 10.777 ms |
-| `grafeo.spec.lpg.cypher.types.integer.decimal` | `Conformance` | lpg | `Passed` | 7.938 ms |
-| `grafeo.spec.lpg.cypher.types.integer.negative` | `Conformance` | lpg | `Passed` | 7.892 ms |
-| `grafeo.spec.lpg.cypher.types.integer.zero` | `Conformance` | lpg | `Passed` | 7.917 ms |
-| `grafeo.spec.lpg.cypher.types.integer.hex` | `Conformance` | lpg | `Passed` | 8.051 ms |
-| `grafeo.spec.lpg.cypher.types.integer.octal` | `Conformance` | lpg | `Passed` | 7.994 ms |
-| `grafeo.spec.lpg.cypher.types.float.decimal` | `Conformance` | lpg | `Passed` | 8.042 ms |
-| `grafeo.spec.lpg.cypher.types.float.scientific` | `Conformance` | lpg | `Passed` | 7.904 ms |
-| `grafeo.spec.lpg.cypher.types.float.negative` | `Conformance` | lpg | `Passed` | 7.985 ms |
-| `grafeo.spec.lpg.cypher.types.string.single.quoted` | `Conformance` | lpg | `Passed` | 8.027 ms |
-| `grafeo.spec.lpg.cypher.types.string.double.quoted` | `Conformance` | lpg | `Failed` | 0.049 ms |
-| `grafeo.spec.lpg.cypher.types.string.empty` | `Conformance` | lpg | `Passed` | 7.969 ms |
-| `grafeo.spec.lpg.cypher.types.boolean.true` | `Conformance` | lpg | `Passed` | 12.560 ms |
-| `grafeo.spec.lpg.cypher.types.boolean.false` | `Conformance` | lpg | `Passed` | 8.228 ms |
-| `grafeo.spec.lpg.cypher.types.null.literal` | `Conformance` | lpg | `Passed` | 7.905 ms |
-| `grafeo.spec.lpg.cypher.types.null.comparison.is.null` | `Conformance` | lpg | `Passed` | 7.944 ms |
-| `grafeo.spec.lpg.cypher.types.null.comparison.is.not.null` | `Conformance` | lpg | `Passed` | 7.930 ms |
-| `grafeo.spec.lpg.cypher.types.null.equality.returns.null` | `Conformance` | lpg | `Failed` | 7.922 ms |
-| `grafeo.spec.lpg.cypher.types.missing.property.is.null` | `Conformance` | lpg | `Passed` | 8.151 ms |
-| `grafeo.spec.lpg.cypher.types.list.of.integers` | `Conformance` | lpg | `Failed` | 7.931 ms |
-| `grafeo.spec.lpg.cypher.types.list.empty` | `Conformance` | lpg | `Passed` | 7.929 ms |
-| `grafeo.spec.lpg.cypher.types.list.nested` | `Conformance` | lpg | `Passed` | 8.290 ms |
-| `grafeo.spec.lpg.cypher.types.list.size` | `Conformance` | lpg | `Passed` | 8.344 ms |
-| `grafeo.spec.lpg.cypher.types.map.literal` | `Conformance` | lpg | `Passed` | 8.110 ms |
-| `grafeo.spec.lpg.cypher.types.map.key.count` | `Conformance` | lpg | `Passed` | 8.579 ms |
-| `grafeo.spec.lpg.cypher.types.node.return` | `Conformance` | lpg | `Passed` | 7.664 ms |
-| `grafeo.spec.lpg.cypher.types.relationship.return` | `Conformance` | lpg | `Passed` | 9.480 ms |
-| `grafeo.spec.lpg.cypher.types.path.return` | `Conformance` | lpg | `Passed` | 9.271 ms |
-| `grafeo.spec.lpg.cypher.types.date.from.string` | `Conformance` | lpg | `Passed` | 10.554 ms |
-| `grafeo.spec.lpg.cypher.types.time.from.string` | `Conformance` | lpg | `Passed` | 8.418 ms |
-| `grafeo.spec.lpg.cypher.types.datetime.from.string` | `Conformance` | lpg | `Passed` | 7.923 ms |
-| `grafeo.spec.lpg.cypher.types.duration.from.string` | `Conformance` | lpg | `Passed` | 7.886 ms |
-| `grafeo.spec.lpg.cypher.types.date.stored.as.property` | `Conformance` | lpg | `Passed` | 8.307 ms |
-| `grafeo.spec.lpg.cypher.types.integer.to.float.arithmetic` | `Conformance` | lpg | `Passed` | 7.983 ms |
-| `grafeo.spec.lpg.cypher.types.to.integer.truncation` | `Conformance` | lpg | `Passed` | 8.003 ms |
-| `grafeo.spec.lpg.cypher.types.to.float.from.integer` | `Conformance` | lpg | `Passed` | 7.974 ms |
-| `grafeo.spec.lpg.cypher.types.to.string.from.boolean` | `Conformance` | lpg | `Failed` | 7.959 ms |
-| `grafeo.spec.lpg.cypher.types.to.boolean.from.string.false` | `Conformance` | lpg | `Passed` | 8.123 ms |
-| `grafeo.spec.lpg.cypher.writing.clauses.create.node` | `Conformance` | lpg | `Passed` | 7.652 ms |
-| `grafeo.spec.lpg.cypher.writing.clauses.create.node.multi.label` | `Conformance` | lpg | `Passed` | 8.372 ms |
-| `grafeo.spec.lpg.cypher.writing.clauses.create.relationship` | `Conformance` | lpg | `Passed` | 9.639 ms |
-| `grafeo.spec.lpg.cypher.writing.clauses.create.relationship.with.properties` | `Conformance` | lpg | `Passed` | 10.020 ms |
-| `grafeo.spec.lpg.cypher.writing.clauses.create.path.pattern` | `Conformance` | lpg | `Passed` | 10.058 ms |
-| `grafeo.spec.lpg.cypher.writing.clauses.delete.node` | `Conformance` | lpg | `Passed` | 8.630 ms |
-| `grafeo.spec.lpg.cypher.writing.clauses.delete.multiple` | `Conformance` | lpg | `Passed` | 9.403 ms |
-| `grafeo.spec.lpg.cypher.writing.clauses.detach.delete` | `Conformance` | lpg | `Passed` | 9.879 ms |
-| `grafeo.spec.lpg.cypher.writing.clauses.detach.delete.with.return` | `Conformance` | lpg | `Passed` | 9.690 ms |
-| `grafeo.spec.lpg.cypher.writing.clauses.set.property` | `Conformance` | lpg | `Passed` | 8.632 ms |
-| `grafeo.spec.lpg.cypher.writing.clauses.set.multiple.properties` | `Conformance` | lpg | `Passed` | 13.984 ms |
-| `grafeo.spec.lpg.cypher.writing.clauses.set.replace.all` | `Conformance` | lpg | `Failed` | 0.132 ms |
+| `grafeo.spec.lpg.cypher.regression.not.exists.with.type.filter` | `Conformance` | lpg | `Failed` | 11.668 ms |
+| `grafeo.spec.lpg.cypher.regression.sum.case.when` | `Conformance` | lpg | `Passed` | 16.167 ms |
+| `grafeo.spec.lpg.cypher.regression.any.labels.in.list.matches` | `Conformance` | lpg | `Passed` | 9.014 ms |
+| `grafeo.spec.lpg.cypher.regression.any.labels.in.list.no.match` | `Conformance` | lpg | `Passed` | 9.495 ms |
+| `grafeo.spec.lpg.cypher.regression.any.with.single.match` | `Conformance` | lpg | `Passed` | 9.152 ms |
+| `grafeo.spec.lpg.cypher.regression.reduce.with.case.max` | `Conformance` | lpg | `Failed` | 0.253 ms |
+| `grafeo.spec.lpg.cypher.regression.reduce.with.case.min` | `Conformance` | lpg | `Failed` | 0.220 ms |
+| `grafeo.spec.lpg.cypher.regression.reduce.with.case.conditional.sum` | `Conformance` | lpg | `Failed` | 0.217 ms |
+| `grafeo.spec.lpg.cypher.regression.outgoing.target.property.filter` | `Conformance` | lpg | `Passed` | 11.909 ms |
+| `grafeo.spec.lpg.cypher.regression.target.property.filter.count` | `Conformance` | lpg | `Passed` | 11.818 ms |
+| `grafeo.spec.lpg.cypher.regression.target.property.filter.no.match` | `Conformance` | lpg | `Passed` | 10.190 ms |
+| `grafeo.spec.lpg.cypher.regression.edge.property.filter` | `Conformance` | lpg | `Passed` | 13.659 ms |
+| `grafeo.spec.lpg.cypher.regression.optional.match.count.preserves.all.rows` | `Conformance` | lpg | `Passed` | 11.850 ms |
+| `grafeo.spec.lpg.cypher.regression.union.deduplicates` | `Conformance` | lpg | `Passed` | 8.259 ms |
+| `grafeo.spec.lpg.cypher.regression.union.all.preserves` | `Conformance` | lpg | `Passed` | 12.579 ms |
+| `grafeo.spec.lpg.cypher.regression.two.hop.equivalence` | `Conformance` | lpg | `Passed` | 14.221 ms |
+| `grafeo.spec.lpg.cypher.regression.merge.creates.new.after.delete` | `Conformance` | lpg | `Passed` | 10.760 ms |
+| `grafeo.spec.lpg.cypher.regression.replace.edge` | `Conformance` | lpg | `Passed` | 14.680 ms |
+| `grafeo.spec.lpg.cypher.regression.backward.arrow.forward` | `Conformance` | lpg | `Passed` | 10.536 ms |
+| `grafeo.spec.lpg.cypher.regression.backward.arrow.reverse` | `Conformance` | lpg | `Passed` | 9.841 ms |
+| `grafeo.spec.lpg.cypher.regression.backward.arrow.wrong.direction` | `Conformance` | lpg | `Passed` | 9.824 ms |
+| `grafeo.spec.lpg.cypher.regression.null.equals.null.is.unknown` | `Conformance` | lpg | `Passed` | 8.409 ms |
+| `grafeo.spec.lpg.cypher.regression.null.is.null.is.true` | `Conformance` | lpg | `Passed` | 15.847 ms |
+| `grafeo.spec.lpg.cypher.regression.bool.to.string` | `Conformance` | lpg | `Passed` | 10.820 ms |
+| `grafeo.spec.lpg.cypher.regression.int.to.string` | `Conformance` | lpg | `Passed` | 8.921 ms |
+| `grafeo.spec.lpg.cypher.regression.string.false.ne.bool.false` | `Conformance` | lpg | `Failed` | 8.954 ms |
+| `grafeo.spec.lpg.cypher.regression.neq.excludes.null` | `Conformance` | lpg | `Passed` | 9.297 ms |
+| `grafeo.spec.lpg.cypher.regression.skip.plus.limit` | `Conformance` | lpg | `Passed` | 13.877 ms |
+| `grafeo.spec.lpg.cypher.regression.distinct.values` | `Conformance` | lpg | `Passed` | 9.680 ms |
+| `grafeo.spec.lpg.cypher.regression.distinct.collapses.nulls` | `Conformance` | lpg | `Passed` | 10.302 ms |
+| `grafeo.spec.lpg.cypher.regression.order.by.property.matching.return.alias.with.edge` | `Conformance` | lpg | `Passed` | 13.807 ms |
+| `grafeo.spec.lpg.cypher.regression.order.by.desc.with.relationship.traversal` | `Conformance` | lpg | `Passed` | 13.505 ms |
+| `grafeo.spec.lpg.cypher.return.ordering.return.expression` | `Conformance` | lpg | `Passed` | 8.230 ms |
+| `grafeo.spec.lpg.cypher.return.ordering.return.alias` | `Conformance` | lpg | `Passed` | 7.861 ms |
+| `grafeo.spec.lpg.cypher.return.ordering.return.distinct` | `Conformance` | lpg | `Passed` | 8.901 ms |
+| `grafeo.spec.lpg.cypher.return.ordering.return.star` | `Conformance` | lpg | `Passed` | 7.808 ms |
+| `grafeo.spec.lpg.cypher.return.ordering.return.count.star` | `Conformance` | lpg | `Passed` | 8.470 ms |
+| `grafeo.spec.lpg.cypher.return.ordering.return.arithmetic` | `Conformance` | lpg | `Passed` | 8.028 ms |
+| `grafeo.spec.lpg.cypher.return.ordering.return.boolean.expression` | `Conformance` | lpg | `Passed` | 8.025 ms |
+| `grafeo.spec.lpg.cypher.return.ordering.order.by.asc` | `Conformance` | lpg | `Passed` | 8.646 ms |
+| `grafeo.spec.lpg.cypher.return.ordering.order.by.desc` | `Conformance` | lpg | `Passed` | 8.675 ms |
+| `grafeo.spec.lpg.cypher.return.ordering.order.by.multiple.keys` | `Conformance` | lpg | `Passed` | 10.124 ms |
+| `grafeo.spec.lpg.cypher.return.ordering.limit` | `Conformance` | lpg | `Passed` | 10.644 ms |
+| `grafeo.spec.lpg.cypher.return.ordering.skip` | `Conformance` | lpg | `Passed` | 11.024 ms |
+| `grafeo.spec.lpg.cypher.return.ordering.skip.and.limit` | `Conformance` | lpg | `Passed` | 11.008 ms |
+| `grafeo.spec.lpg.cypher.types.integer.decimal` | `Conformance` | lpg | `Passed` | 8.854 ms |
+| `grafeo.spec.lpg.cypher.types.integer.negative` | `Conformance` | lpg | `Passed` | 8.828 ms |
+| `grafeo.spec.lpg.cypher.types.integer.zero` | `Conformance` | lpg | `Passed` | 8.894 ms |
+| `grafeo.spec.lpg.cypher.types.integer.hex` | `Conformance` | lpg | `Passed` | 9.129 ms |
+| `grafeo.spec.lpg.cypher.types.integer.octal` | `Conformance` | lpg | `Passed` | 9.060 ms |
+| `grafeo.spec.lpg.cypher.types.float.decimal` | `Conformance` | lpg | `Passed` | 9.048 ms |
+| `grafeo.spec.lpg.cypher.types.float.scientific` | `Conformance` | lpg | `Passed` | 9.014 ms |
+| `grafeo.spec.lpg.cypher.types.float.negative` | `Conformance` | lpg | `Passed` | 9.125 ms |
+| `grafeo.spec.lpg.cypher.types.string.single.quoted` | `Conformance` | lpg | `Passed` | 13.034 ms |
+| `grafeo.spec.lpg.cypher.types.string.double.quoted` | `Conformance` | lpg | `Failed` | 0.085 ms |
+| `grafeo.spec.lpg.cypher.types.string.empty` | `Conformance` | lpg | `Passed` | 10.917 ms |
+| `grafeo.spec.lpg.cypher.types.boolean.true` | `Conformance` | lpg | `Passed` | 8.957 ms |
+| `grafeo.spec.lpg.cypher.types.boolean.false` | `Conformance` | lpg | `Passed` | 8.577 ms |
+| `grafeo.spec.lpg.cypher.types.null.literal` | `Conformance` | lpg | `Passed` | 8.226 ms |
+| `grafeo.spec.lpg.cypher.types.null.comparison.is.null` | `Conformance` | lpg | `Passed` | 8.420 ms |
+| `grafeo.spec.lpg.cypher.types.null.comparison.is.not.null` | `Conformance` | lpg | `Passed` | 8.568 ms |
+| `grafeo.spec.lpg.cypher.types.null.equality.returns.null` | `Conformance` | lpg | `Failed` | 8.470 ms |
+| `grafeo.spec.lpg.cypher.types.missing.property.is.null` | `Conformance` | lpg | `Passed` | 8.912 ms |
+| `grafeo.spec.lpg.cypher.types.list.of.integers` | `Conformance` | lpg | `Failed` | 8.161 ms |
+| `grafeo.spec.lpg.cypher.types.list.empty` | `Conformance` | lpg | `Passed` | 8.011 ms |
+| `grafeo.spec.lpg.cypher.types.list.nested` | `Conformance` | lpg | `Passed` | 8.408 ms |
+| `grafeo.spec.lpg.cypher.types.list.size` | `Conformance` | lpg | `Passed` | 8.419 ms |
+| `grafeo.spec.lpg.cypher.types.map.literal` | `Conformance` | lpg | `Passed` | 8.301 ms |
+| `grafeo.spec.lpg.cypher.types.map.key.count` | `Conformance` | lpg | `Passed` | 8.804 ms |
+| `grafeo.spec.lpg.cypher.types.node.return` | `Conformance` | lpg | `Passed` | 7.981 ms |
+| `grafeo.spec.lpg.cypher.types.relationship.return` | `Conformance` | lpg | `Passed` | 9.775 ms |
+| `grafeo.spec.lpg.cypher.types.path.return` | `Conformance` | lpg | `Passed` | 9.756 ms |
+| `grafeo.spec.lpg.cypher.types.date.from.string` | `Conformance` | lpg | `Passed` | 8.250 ms |
+| `grafeo.spec.lpg.cypher.types.time.from.string` | `Conformance` | lpg | `Passed` | 8.499 ms |
+| `grafeo.spec.lpg.cypher.types.datetime.from.string` | `Conformance` | lpg | `Passed` | 8.635 ms |
+| `grafeo.spec.lpg.cypher.types.duration.from.string` | `Conformance` | lpg | `Passed` | 8.088 ms |
+| `grafeo.spec.lpg.cypher.types.date.stored.as.property` | `Conformance` | lpg | `Passed` | 8.364 ms |
+| `grafeo.spec.lpg.cypher.types.integer.to.float.arithmetic` | `Conformance` | lpg | `Passed` | 7.996 ms |
+| `grafeo.spec.lpg.cypher.types.to.integer.truncation` | `Conformance` | lpg | `Passed` | 7.980 ms |
+| `grafeo.spec.lpg.cypher.types.to.float.from.integer` | `Conformance` | lpg | `Passed` | 8.050 ms |
+| `grafeo.spec.lpg.cypher.types.to.string.from.boolean` | `Conformance` | lpg | `Failed` | 7.981 ms |
+| `grafeo.spec.lpg.cypher.types.to.boolean.from.string.false` | `Conformance` | lpg | `Passed` | 8.237 ms |
+| `grafeo.spec.lpg.cypher.writing.clauses.create.node` | `Conformance` | lpg | `Passed` | 7.655 ms |
+| `grafeo.spec.lpg.cypher.writing.clauses.create.node.multi.label` | `Conformance` | lpg | `Passed` | 8.367 ms |
+| `grafeo.spec.lpg.cypher.writing.clauses.create.relationship` | `Conformance` | lpg | `Passed` | 9.688 ms |
+| `grafeo.spec.lpg.cypher.writing.clauses.create.relationship.with.properties` | `Conformance` | lpg | `Passed` | 10.053 ms |
+| `grafeo.spec.lpg.cypher.writing.clauses.create.path.pattern` | `Conformance` | lpg | `Passed` | 10.293 ms |
+| `grafeo.spec.lpg.cypher.writing.clauses.delete.node` | `Conformance` | lpg | `Passed` | 9.141 ms |
+| `grafeo.spec.lpg.cypher.writing.clauses.delete.multiple` | `Conformance` | lpg | `Passed` | 9.848 ms |
+| `grafeo.spec.lpg.cypher.writing.clauses.detach.delete` | `Conformance` | lpg | `Passed` | 9.959 ms |
+| `grafeo.spec.lpg.cypher.writing.clauses.detach.delete.with.return` | `Conformance` | lpg | `Passed` | 9.744 ms |
+| `grafeo.spec.lpg.cypher.writing.clauses.set.property` | `Conformance` | lpg | `Passed` | 8.660 ms |
+| `grafeo.spec.lpg.cypher.writing.clauses.set.multiple.properties` | `Conformance` | lpg | `Passed` | 9.440 ms |
+| `grafeo.spec.lpg.cypher.writing.clauses.set.replace.all` | `Conformance` | lpg | `Failed` | 0.120 ms |
 | `grafeo.spec.lpg.cypher.writing.clauses.set.merge.map` | `Conformance` | lpg | `Failed` | 0.051 ms |
-| `grafeo.spec.lpg.cypher.writing.clauses.set.label` | `Conformance` | lpg | `Failed` | 0.048 ms |
-| `grafeo.spec.lpg.cypher.writing.clauses.set.multiple.labels` | `Conformance` | lpg | `Failed` | 0.048 ms |
-| `grafeo.spec.lpg.cypher.writing.clauses.set.label.preserves.variable.binding` | `Conformance` | lpg | `Failed` | 0.047 ms |
+| `grafeo.spec.lpg.cypher.writing.clauses.set.label` | `Conformance` | lpg | `Failed` | 0.047 ms |
+| `grafeo.spec.lpg.cypher.writing.clauses.set.multiple.labels` | `Conformance` | lpg | `Failed` | 0.047 ms |
+| `grafeo.spec.lpg.cypher.writing.clauses.set.label.preserves.variable.binding` | `Conformance` | lpg | `Failed` | 0.046 ms |
 | `grafeo.spec.lpg.cypher.writing.clauses.count.star.after.set.label` | `Conformance` | lpg | `Failed` | 0.029 ms |
-| `grafeo.spec.lpg.cypher.writing.clauses.count.var.after.set.label` | `Conformance` | lpg | `Failed` | 0.029 ms |
-| `grafeo.spec.lpg.cypher.writing.clauses.remove.property` | `Conformance` | lpg | `Passed` | 8.562 ms |
+| `grafeo.spec.lpg.cypher.writing.clauses.count.var.after.set.label` | `Conformance` | lpg | `Failed` | 0.031 ms |
+| `grafeo.spec.lpg.cypher.writing.clauses.remove.property` | `Conformance` | lpg | `Passed` | 8.671 ms |
 | `grafeo.spec.lpg.cypher.writing.clauses.remove.label` | `Conformance` | lpg | `Failed` | 0.101 ms |
-| `grafeo.spec.lpg.cypher.writing.clauses.remove.label.preserves.variable.binding` | `Conformance` | lpg | `Failed` | 0.049 ms |
-| `grafeo.spec.lpg.cypher.writing.clauses.match.create.edge.no.phantoms` | `Conformance` | lpg | `Passed` | 9.530 ms |
-| `grafeo.spec.lpg.cypher.writing.clauses.match.create.edge.correct.endpoints` | `Conformance` | lpg | `Passed` | 10.118 ms |
-| `grafeo.spec.lpg.cypher.writing.clauses.merge.create` | `Conformance` | lpg | `Passed` | 7.901 ms |
-| `grafeo.spec.lpg.cypher.writing.clauses.merge.match` | `Conformance` | lpg | `Passed` | 8.072 ms |
+| `grafeo.spec.lpg.cypher.writing.clauses.remove.label.preserves.variable.binding` | `Conformance` | lpg | `Failed` | 0.051 ms |
+| `grafeo.spec.lpg.cypher.writing.clauses.match.create.edge.no.phantoms` | `Conformance` | lpg | `Passed` | 9.868 ms |
+| `grafeo.spec.lpg.cypher.writing.clauses.match.create.edge.correct.endpoints` | `Conformance` | lpg | `Passed` | 10.384 ms |
+| `grafeo.spec.lpg.cypher.writing.clauses.merge.create` | `Conformance` | lpg | `Passed` | 7.969 ms |
+| `grafeo.spec.lpg.cypher.writing.clauses.merge.match` | `Conformance` | lpg | `Passed` | 8.000 ms |
 | `grafeo.spec.lpg.cypher.writing.clauses.merge.on.create.set` | `Conformance` | lpg | `Failed` | 0.052 ms |
 | `grafeo.spec.lpg.cypher.writing.clauses.merge.on.match.set` | `Conformance` | lpg | `Failed` | 0.111 ms |
-| `grafeo.spec.lpg.cypher.writing.clauses.merge.on.match.set.self.reference.increment` | `Conformance` | lpg | `Failed` | 0.049 ms |
+| `grafeo.spec.lpg.cypher.writing.clauses.merge.on.match.set.self.reference.increment` | `Conformance` | lpg | `Failed` | 0.048 ms |
 | `grafeo.spec.lpg.cypher.writing.clauses.merge.on.create.set.self.reference.coalesce` | `Conformance` | lpg | `Failed` | 0.049 ms |
-| `grafeo.spec.lpg.cypher.writing.clauses.merge.relationship` | `Conformance` | lpg | `Passed` | 10.267 ms |
-| `grafeo.spec.lpg.cypher.writing.clauses.merge.relationship.set` | `Conformance` | lpg | `Passed` | 11.527 ms |
-| `grafeo.spec.lpg.cypher.writing.clauses.foreach.create` | `Conformance` | lpg | `Passed` | 10.424 ms |
-| `grafeo.spec.regression.edge.cases.cyclic.vlp.same.source.and.target.variable.cypher-variant` | `Conformance` | regression | `Failed` | 6.896 ms |
-| `grafeo.spec.regression.edge.cases.cyclic.vlp.no.cycle.returns.empty.cypher-variant` | `Conformance` | regression | `Failed` | 6.682 ms |
-| `grafeo.spec.rosetta.aggregation.count.products.cypher-variant` | `Conformance` | rosetta | `Failed` | 23.861 ms |
-| `grafeo.spec.rosetta.aggregation.sum.order.totals.cypher.cypher-variant` | `Conformance` | rosetta | `Failed` | 0.027 ms |
-| `grafeo.spec.rosetta.aggregation.avg.product.price.cypher-variant` | `Conformance` | rosetta | `Failed` | 23.342 ms |
-| `grafeo.spec.rosetta.aggregation.min.max.price.cypher.cypher-variant` | `Conformance` | rosetta | `Failed` | 23.251 ms |
-| `grafeo.spec.rosetta.aggregation.count.by.status.cypher.cypher-variant` | `Conformance` | rosetta | `Failed` | 0.026 ms |
-| `grafeo.spec.rosetta.aggregation.orders.per.customer.cypher.cypher-variant` | `Conformance` | rosetta | `Failed` | 0.043 ms |
-| `grafeo.spec.rosetta.aggregation.total.spend.per.customer.cypher.cypher-variant` | `Conformance` | rosetta | `Failed` | 0.043 ms |
-| `grafeo.spec.rosetta.aggregation.customers.with.multiple.orders.cypher.cypher-variant` | `Conformance` | rosetta | `Failed` | 0.042 ms |
-| `grafeo.spec.rosetta.aggregation.avg.review.rating.cypher-variant` | `Conformance` | rosetta | `Failed` | 23.780 ms |
-| `grafeo.spec.rosetta.basic.queries.count.all.nodes.cypher-variant` | `Conformance` | rosetta | `Passed` | 15.254 ms |
-| `grafeo.spec.rosetta.basic.queries.match.by.label.cypher-variant` | `Conformance` | rosetta | `Passed` | 15.086 ms |
-| `grafeo.spec.rosetta.basic.queries.filter.by.age.cypher-variant` | `Conformance` | rosetta | `Passed` | 15.576 ms |
-| `grafeo.spec.rosetta.basic.queries.edge.traversal.cypher-variant` | `Conformance` | rosetta | `Passed` | 15.792 ms |
-| `grafeo.spec.rosetta.basic.queries.two.hop.path.cypher-variant` | `Conformance` | rosetta | `Passed` | 16.344 ms |
-| `grafeo.spec.rosetta.basic.queries.aggregation.group.by.cypher-variant` | `Conformance` | rosetta | `Passed` | 15.941 ms |
-| `grafeo.spec.rosetta.crud.operations.create.node.and.count.cypher-variant` | `Conformance` | rosetta | `Failed` | 6.729 ms |
-| `grafeo.spec.rosetta.crud.operations.create.node.read.properties.cypher-variant` | `Conformance` | rosetta | `Failed` | 6.798 ms |
-| `grafeo.spec.rosetta.crud.operations.create.edge.and.traverse.cypher-variant` | `Conformance` | rosetta | `Failed` | 6.828 ms |
-| `grafeo.spec.rosetta.crud.operations.match.count.multiple.nodes.cypher-variant` | `Conformance` | rosetta | `Failed` | 6.538 ms |
-| `grafeo.spec.rosetta.crud.operations.set.property.and.read.cypher-variant` | `Conformance` | rosetta | `Failed` | 6.599 ms |
-| `grafeo.spec.rosetta.crud.operations.delete.node.and.count.cypher-variant` | `Conformance` | rosetta | `Failed` | 6.552 ms |
+| `grafeo.spec.lpg.cypher.writing.clauses.merge.relationship` | `Conformance` | lpg | `Passed` | 10.377 ms |
+| `grafeo.spec.lpg.cypher.writing.clauses.merge.relationship.set` | `Conformance` | lpg | `Passed` | 11.553 ms |
+| `grafeo.spec.lpg.cypher.writing.clauses.foreach.create` | `Conformance` | lpg | `Passed` | 10.158 ms |
+| `grafeo.spec.regression.edge.cases.cyclic.vlp.same.source.and.target.variable.cypher-variant` | `Conformance` | regression | `Failed` | 6.951 ms |
+| `grafeo.spec.regression.edge.cases.cyclic.vlp.no.cycle.returns.empty.cypher-variant` | `Conformance` | regression | `Failed` | 6.790 ms |
+| `grafeo.spec.rosetta.aggregation.count.products.cypher-variant` | `Conformance` | rosetta | `Failed` | 23.906 ms |
+| `grafeo.spec.rosetta.aggregation.sum.order.totals.cypher.cypher-variant` | `Conformance` | rosetta | `Failed` | 0.029 ms |
+| `grafeo.spec.rosetta.aggregation.avg.product.price.cypher-variant` | `Conformance` | rosetta | `Failed` | 23.586 ms |
+| `grafeo.spec.rosetta.aggregation.min.max.price.cypher.cypher-variant` | `Conformance` | rosetta | `Failed` | 30.230 ms |
+| `grafeo.spec.rosetta.aggregation.count.by.status.cypher.cypher-variant` | `Conformance` | rosetta | `Failed` | 0.028 ms |
+| `grafeo.spec.rosetta.aggregation.orders.per.customer.cypher.cypher-variant` | `Conformance` | rosetta | `Failed` | 0.052 ms |
+| `grafeo.spec.rosetta.aggregation.total.spend.per.customer.cypher.cypher-variant` | `Conformance` | rosetta | `Failed` | 0.048 ms |
+| `grafeo.spec.rosetta.aggregation.customers.with.multiple.orders.cypher.cypher-variant` | `Conformance` | rosetta | `Failed` | 0.044 ms |
+| `grafeo.spec.rosetta.aggregation.avg.review.rating.cypher-variant` | `Conformance` | rosetta | `Failed` | 24.973 ms |
+| `grafeo.spec.rosetta.basic.queries.count.all.nodes.cypher-variant` | `Conformance` | rosetta | `Passed` | 15.267 ms |
+| `grafeo.spec.rosetta.basic.queries.match.by.label.cypher-variant` | `Conformance` | rosetta | `Passed` | 15.451 ms |
+| `grafeo.spec.rosetta.basic.queries.filter.by.age.cypher-variant` | `Conformance` | rosetta | `Passed` | 15.569 ms |
+| `grafeo.spec.rosetta.basic.queries.edge.traversal.cypher-variant` | `Conformance` | rosetta | `Passed` | 15.995 ms |
+| `grafeo.spec.rosetta.basic.queries.two.hop.path.cypher-variant` | `Conformance` | rosetta | `Passed` | 16.330 ms |
+| `grafeo.spec.rosetta.basic.queries.aggregation.group.by.cypher-variant` | `Conformance` | rosetta | `Passed` | 16.369 ms |
+| `grafeo.spec.rosetta.crud.operations.create.node.and.count.cypher-variant` | `Conformance` | rosetta | `Failed` | 6.651 ms |
+| `grafeo.spec.rosetta.crud.operations.create.node.read.properties.cypher-variant` | `Conformance` | rosetta | `Failed` | 6.773 ms |
+| `grafeo.spec.rosetta.crud.operations.create.edge.and.traverse.cypher-variant` | `Conformance` | rosetta | `Failed` | 6.795 ms |
+| `grafeo.spec.rosetta.crud.operations.match.count.multiple.nodes.cypher-variant` | `Conformance` | rosetta | `Failed` | 6.763 ms |
+| `grafeo.spec.rosetta.crud.operations.set.property.and.read.cypher-variant` | `Conformance` | rosetta | `Failed` | 6.535 ms |
+| `grafeo.spec.rosetta.crud.operations.delete.node.and.count.cypher-variant` | `Conformance` | rosetta | `Failed` | 6.701 ms |
 | `grafeo.spec.rosetta.crud.operations.aggregate.sum.cypher-variant` | `Conformance` | rosetta | `Failed` | 6.811 ms |
-| `grafeo.spec.rosetta.crud.operations.aggregate.count.cypher-variant` | `Conformance` | rosetta | `Failed` | 6.696 ms |
-| `grafeo.spec.rosetta.crud.operations.aggregate.avg.cypher-variant` | `Conformance` | rosetta | `Failed` | 6.725 ms |
-| `grafeo.spec.rosetta.data.fidelity.gql.insert.cypher.read.name.cypher-variant` | `Conformance` | rosetta | `Failed` | 6.703 ms |
-| `grafeo.spec.rosetta.data.fidelity.gql.insert.cypher.read.count.cypher-variant` | `Conformance` | rosetta | `Failed` | 6.820 ms |
-| `grafeo.spec.rosetta.data.fidelity.gql.insert.cypher.read.edge.cypher-variant` | `Conformance` | rosetta | `Failed` | 6.598 ms |
-| `grafeo.spec.rosetta.data.fidelity.int.property.preserved.in.cypher.cypher-variant` | `Conformance` | rosetta | `Failed` | 6.667 ms |
-| `grafeo.spec.rosetta.data.fidelity.bool.property.preserved.in.cypher.cypher-variant` | `Conformance` | rosetta | `Failed` | 6.603 ms |
-| `grafeo.spec.rosetta.data.fidelity.string.property.preserved.in.cypher.cypher-variant` | `Conformance` | rosetta | `Failed` | 6.633 ms |
-| `grafeo.spec.rosetta.data.fidelity.missing.property.null.in.cypher.cypher-variant` | `Conformance` | rosetta | `Failed` | 6.590 ms |
-| `grafeo.spec.rosetta.data.fidelity.multi.label.visible.in.cypher.cypher-variant` | `Conformance` | rosetta | `Failed` | 6.693 ms |
-| `grafeo.spec.rosetta.data.fidelity.edge.type.in.cypher.cypher-variant` | `Conformance` | rosetta | `Failed` | 6.633 ms |
-| `grafeo.spec.rosetta.data.fidelity.gql.insert.all.read.count.cypher-variant` | `Conformance` | rosetta | `Failed` | 6.587 ms |
-| `grafeo.spec.rosetta.pattern.matching.count.actors.cypher-variant` | `Conformance` | rosetta | `Passed` | 65.550 ms |
-| `grafeo.spec.rosetta.pattern.matching.find.actor.by.name.cypher-variant` | `Conformance` | rosetta | `Passed` | 66.439 ms |
-| `grafeo.spec.rosetta.pattern.matching.actors.in.heist.cypher-variant` | `Conformance` | rosetta | `Passed` | 65.302 ms |
-| `grafeo.spec.rosetta.pattern.matching.genres.of.vincent.cypher-variant` | `Conformance` | rosetta | `Passed` | 66.112 ms |
-| `grafeo.spec.rosetta.pattern.matching.movies.per.director.cypher.cypher-variant` | `Conformance` | rosetta | `Passed` | 65.525 ms |
-| `grafeo.spec.rosetta.pattern.matching.actor.roles.in.movie.cypher-variant` | `Conformance` | rosetta | `Passed` | 65.204 ms |
-| `grafeo.spec.rosetta.pattern.matching.high.rated.movies.cypher-variant` | `Conformance` | rosetta | `Passed` | 64.546 ms |
+| `grafeo.spec.rosetta.crud.operations.aggregate.count.cypher-variant` | `Conformance` | rosetta | `Failed` | 6.796 ms |
+| `grafeo.spec.rosetta.crud.operations.aggregate.avg.cypher-variant` | `Conformance` | rosetta | `Failed` | 6.693 ms |
+| `grafeo.spec.rosetta.data.fidelity.gql.insert.cypher.read.name.cypher-variant` | `Conformance` | rosetta | `Failed` | 6.813 ms |
+| `grafeo.spec.rosetta.data.fidelity.gql.insert.cypher.read.count.cypher-variant` | `Conformance` | rosetta | `Failed` | 6.947 ms |
+| `grafeo.spec.rosetta.data.fidelity.gql.insert.cypher.read.edge.cypher-variant` | `Conformance` | rosetta | `Failed` | 6.664 ms |
+| `grafeo.spec.rosetta.data.fidelity.int.property.preserved.in.cypher.cypher-variant` | `Conformance` | rosetta | `Failed` | 6.765 ms |
+| `grafeo.spec.rosetta.data.fidelity.bool.property.preserved.in.cypher.cypher-variant` | `Conformance` | rosetta | `Failed` | 6.711 ms |
+| `grafeo.spec.rosetta.data.fidelity.string.property.preserved.in.cypher.cypher-variant` | `Conformance` | rosetta | `Failed` | 6.657 ms |
+| `grafeo.spec.rosetta.data.fidelity.missing.property.null.in.cypher.cypher-variant` | `Conformance` | rosetta | `Failed` | 6.707 ms |
+| `grafeo.spec.rosetta.data.fidelity.multi.label.visible.in.cypher.cypher-variant` | `Conformance` | rosetta | `Failed` | 6.647 ms |
+| `grafeo.spec.rosetta.data.fidelity.edge.type.in.cypher.cypher-variant` | `Conformance` | rosetta | `Failed` | 6.667 ms |
+| `grafeo.spec.rosetta.data.fidelity.gql.insert.all.read.count.cypher-variant` | `Conformance` | rosetta | `Failed` | 6.631 ms |
+| `grafeo.spec.rosetta.pattern.matching.count.actors.cypher-variant` | `Conformance` | rosetta | `Passed` | 65.666 ms |
+| `grafeo.spec.rosetta.pattern.matching.find.actor.by.name.cypher-variant` | `Conformance` | rosetta | `Passed` | 64.446 ms |
+| `grafeo.spec.rosetta.pattern.matching.actors.in.heist.cypher-variant` | `Conformance` | rosetta | `Passed` | 65.400 ms |
+| `grafeo.spec.rosetta.pattern.matching.genres.of.vincent.cypher-variant` | `Conformance` | rosetta | `Passed` | 88.111 ms |
+| `grafeo.spec.rosetta.pattern.matching.movies.per.director.cypher.cypher-variant` | `Conformance` | rosetta | `Passed` | 66.117 ms |
+| `grafeo.spec.rosetta.pattern.matching.actor.roles.in.movie.cypher-variant` | `Conformance` | rosetta | `Passed` | 66.067 ms |
+| `grafeo.spec.rosetta.pattern.matching.high.rated.movies.cypher-variant` | `Conformance` | rosetta | `Passed` | 74.633 ms |
 
 ## Latest `performance-deep` run
 
@@ -2308,8 +2307,8 @@ Generated from `graph/test-results/history.jsonl`. Results are grouped by stable
 
 ## Latest `sparrowdb-deep` run
 
-- Run: `20260719T205715.944885Z-27369e5a052c-corpus-deep`
-- Commit: `27369e5a052cafa02014ef37141e4e24093062cf` (dirty)
+- Run: `20260719T210524.711499Z-51b9a1bd28bf-corpus-deep`
+- Commit: `51b9a1bd28bf3a860dd308fd48579b851a4a6d8e` (dirty)
 - Package: `0.7.0`
 - Environment: `macos/aarch64` (`dev`)
 - Records: 2253
@@ -2317,7 +2316,7 @@ Generated from `graph/test-results/history.jsonl`. Results are grouped by stable
 - Unsupported: 0
 - Failed or changed: 215
 
-### Outcome changes from `20260719T194200.705171Z-c9496b51762d-corpus-deep`
+### Outcome changes from `20260719T205715.944885Z-27369e5a052c-corpus-deep`
 
 - No outcome changes.
 
@@ -2741,424 +2740,537 @@ Generated from `graph/test-results/history.jsonl`. Results are grouped by stable
 
 ## Latest `tck-deep` run
 
-- Run: `20260719T205715.944885Z-27369e5a052c-corpus-deep`
-- Commit: `27369e5a052cafa02014ef37141e4e24093062cf` (dirty)
+- Run: `20260719T210524.711499Z-51b9a1bd28bf-corpus-deep`
+- Commit: `51b9a1bd28bf3a860dd308fd48579b851a4a6d8e` (dirty)
 - Package: `0.7.0`
 - Environment: `macos/aarch64` (`dev`)
 - Records: 3926
-- Passed: 2262
+- Passed: 2773
 - Unsupported: 0
-- Failed or changed: 1664
+- Failed or changed: 1153
 
-### Outcome changes from `20260719T194200.705171Z-c9496b51762d-corpus-deep`
+### Outcome changes from `20260719T205715.944885Z-27369e5a052c-corpus-deep`
 
-- `tck.clauses.with-orderby.withorderby1.scenario-13`: Passed
-- `tck.clauses.with-orderby.withorderby1.scenario-14`: Passed
-- `tck.clauses.with-orderby.withorderby1.scenario-17`: Passed
-- `tck.clauses.with-orderby.withorderby1.scenario-18`: Passed
-- `tck.clauses.with-orderby.withorderby1.scenario-45.examples-1-row-7`: Passed
-- `tck.clauses.with-orderby.withorderby1.scenario-45.examples-1-row-8`: Passed
-- `tck.clauses.with-orderby.withorderby1.scenario-45.examples-1-row-9`: Passed
-- `tck.clauses.with-orderby.withorderby1.scenario-45.examples-1-row-10`: Passed
-- `tck.expressions.temporal.temporal1.scenario-1.examples-1-row-1`: Passed
-- `tck.expressions.temporal.temporal1.scenario-1.examples-1-row-2`: Passed
-- `tck.expressions.temporal.temporal1.scenario-1.examples-1-row-3`: Passed
-- `tck.expressions.temporal.temporal1.scenario-1.examples-1-row-4`: Passed
-- `tck.expressions.temporal.temporal1.scenario-1.examples-1-row-5`: Passed
-- `tck.expressions.temporal.temporal1.scenario-1.examples-1-row-6`: Passed
-- `tck.expressions.temporal.temporal1.scenario-1.examples-1-row-7`: Passed
-- `tck.expressions.temporal.temporal1.scenario-1.examples-1-row-8`: Passed
-- `tck.expressions.temporal.temporal1.scenario-1.examples-1-row-9`: Passed
-- `tck.expressions.temporal.temporal1.scenario-1.examples-1-row-10`: Passed
-- `tck.expressions.temporal.temporal1.scenario-1.examples-1-row-11`: Passed
-- `tck.expressions.temporal.temporal1.scenario-1.examples-1-row-12`: Passed
-- `tck.expressions.temporal.temporal1.scenario-2.examples-1-row-1`: Passed
-- `tck.expressions.temporal.temporal1.scenario-2.examples-1-row-2`: Passed
-- `tck.expressions.temporal.temporal1.scenario-2.examples-1-row-3`: Passed
-- `tck.expressions.temporal.temporal1.scenario-2.examples-1-row-4`: Passed
-- `tck.expressions.temporal.temporal1.scenario-2.examples-1-row-5`: Passed
-- `tck.expressions.temporal.temporal1.scenario-2.examples-1-row-6`: Passed
-- `tck.expressions.temporal.temporal1.scenario-2.examples-1-row-7`: Passed
-- `tck.expressions.temporal.temporal1.scenario-2.examples-1-row-8`: Passed
-- `tck.expressions.temporal.temporal1.scenario-2.examples-1-row-9`: Passed
-- `tck.expressions.temporal.temporal1.scenario-2.examples-1-row-10`: Passed
-- `tck.expressions.temporal.temporal1.scenario-2.examples-1-row-11`: Passed
-- `tck.expressions.temporal.temporal1.scenario-2.examples-1-row-12`: Passed
-- `tck.expressions.temporal.temporal1.scenario-3.examples-1-row-1`: Passed
-- `tck.expressions.temporal.temporal1.scenario-3.examples-1-row-2`: Passed
-- `tck.expressions.temporal.temporal1.scenario-3.examples-1-row-3`: Passed
-- `tck.expressions.temporal.temporal1.scenario-3.examples-1-row-4`: Passed
-- `tck.expressions.temporal.temporal1.scenario-3.examples-1-row-5`: Passed
-- `tck.expressions.temporal.temporal1.scenario-3.examples-1-row-6`: Passed
-- `tck.expressions.temporal.temporal1.scenario-3.examples-1-row-7`: Passed
-- `tck.expressions.temporal.temporal1.scenario-3.examples-1-row-8`: Passed
-- `tck.expressions.temporal.temporal1.scenario-3.examples-1-row-9`: Passed
-- `tck.expressions.temporal.temporal1.scenario-3.examples-1-row-10`: Passed
-- `tck.expressions.temporal.temporal1.scenario-3.examples-1-row-11`: Passed
-- `tck.expressions.temporal.temporal1.scenario-3.examples-1-row-12`: Passed
-- `tck.expressions.temporal.temporal1.scenario-4.examples-1-row-3`: Passed
-- `tck.expressions.temporal.temporal1.scenario-4.examples-1-row-4`: Passed
-- `tck.expressions.temporal.temporal1.scenario-4.examples-1-row-6`: Passed
-- `tck.expressions.temporal.temporal1.scenario-4.examples-1-row-7`: Passed
-- `tck.expressions.temporal.temporal1.scenario-4.examples-1-row-8`: Passed
-- `tck.expressions.temporal.temporal1.scenario-5.examples-1-row-1`: Passed
-- `tck.expressions.temporal.temporal1.scenario-5.examples-1-row-2`: Passed
-- `tck.expressions.temporal.temporal1.scenario-5.examples-1-row-3`: Passed
-- `tck.expressions.temporal.temporal1.scenario-5.examples-1-row-4`: Passed
-- `tck.expressions.temporal.temporal1.scenario-5.examples-1-row-6`: Passed
-- `tck.expressions.temporal.temporal1.scenario-5.examples-1-row-7`: Passed
-- `tck.expressions.temporal.temporal1.scenario-6.examples-1-row-1`: Passed
-- `tck.expressions.temporal.temporal1.scenario-6.examples-1-row-2`: Passed
-- `tck.expressions.temporal.temporal1.scenario-6.examples-1-row-3`: Passed
-- `tck.expressions.temporal.temporal1.scenario-6.examples-1-row-4`: Passed
-- `tck.expressions.temporal.temporal1.scenario-6.examples-1-row-5`: Passed
-- `tck.expressions.temporal.temporal1.scenario-6.examples-1-row-7`: Passed
-- `tck.expressions.temporal.temporal1.scenario-6.examples-1-row-8`: Passed
-- `tck.expressions.temporal.temporal1.scenario-6.examples-1-row-9`: Passed
-- `tck.expressions.temporal.temporal1.scenario-6.examples-1-row-10`: Passed
-- `tck.expressions.temporal.temporal1.scenario-6.examples-1-row-11`: Passed
-- `tck.expressions.temporal.temporal1.scenario-6.examples-1-row-12`: Passed
-- `tck.expressions.temporal.temporal1.scenario-6.examples-1-row-13`: Passed
-- `tck.expressions.temporal.temporal1.scenario-6.examples-1-row-14`: Passed
-- `tck.expressions.temporal.temporal1.scenario-7.examples-1-row-1`: Passed
-- `tck.expressions.temporal.temporal1.scenario-7.examples-1-row-2`: Passed
-- `tck.expressions.temporal.temporal1.scenario-7.examples-1-row-3`: Passed
-- `tck.expressions.temporal.temporal1.scenario-7.examples-1-row-4`: Passed
-- `tck.expressions.temporal.temporal1.scenario-7.examples-1-row-5`: Passed
-- `tck.expressions.temporal.temporal1.scenario-7.examples-1-row-7`: Passed
-- `tck.expressions.temporal.temporal1.scenario-7.examples-1-row-8`: Passed
-- `tck.expressions.temporal.temporal1.scenario-7.examples-1-row-9`: Passed
-- `tck.expressions.temporal.temporal1.scenario-7.examples-1-row-10`: Passed
-- `tck.expressions.temporal.temporal1.scenario-7.examples-1-row-11`: Passed
-- `tck.expressions.temporal.temporal1.scenario-7.examples-1-row-12`: Passed
-- `tck.expressions.temporal.temporal1.scenario-7.examples-1-row-13`: Passed
-- `tck.expressions.temporal.temporal1.scenario-7.examples-1-row-14`: Passed
-- `tck.expressions.temporal.temporal1.scenario-7.examples-1-row-15`: Passed
-- `tck.expressions.temporal.temporal1.scenario-7.examples-1-row-16`: Passed
-- `tck.expressions.temporal.temporal1.scenario-7.examples-1-row-17`: Passed
-- `tck.expressions.temporal.temporal1.scenario-7.examples-1-row-18`: Passed
-- `tck.expressions.temporal.temporal1.scenario-7.examples-1-row-19`: Passed
-- `tck.expressions.temporal.temporal1.scenario-7.examples-1-row-20`: Passed
-- `tck.expressions.temporal.temporal1.scenario-7.examples-1-row-21`: Passed
-- `tck.expressions.temporal.temporal1.scenario-7.examples-1-row-22`: Passed
-- `tck.expressions.temporal.temporal1.scenario-7.examples-1-row-23`: Passed
-- `tck.expressions.temporal.temporal1.scenario-7.examples-1-row-24`: Passed
-- `tck.expressions.temporal.temporal1.scenario-7.examples-1-row-25`: Passed
-- `tck.expressions.temporal.temporal1.scenario-7.examples-1-row-26`: Passed
-- `tck.expressions.temporal.temporal1.scenario-7.examples-1-row-27`: Passed
-- `tck.expressions.temporal.temporal1.scenario-7.examples-1-row-28`: Passed
-- `tck.expressions.temporal.temporal1.scenario-7.examples-1-row-29`: Passed
-- `tck.expressions.temporal.temporal1.scenario-7.examples-1-row-30`: Passed
-- `tck.expressions.temporal.temporal1.scenario-7.examples-1-row-31`: Passed
-- `tck.expressions.temporal.temporal1.scenario-8.examples-1-row-1`: Passed
-- `tck.expressions.temporal.temporal1.scenario-8.examples-1-row-2`: Passed
-- `tck.expressions.temporal.temporal1.scenario-8.examples-1-row-3`: Passed
-- `tck.expressions.temporal.temporal1.scenario-8.examples-1-row-4`: Passed
-- `tck.expressions.temporal.temporal1.scenario-8.examples-1-row-6`: Passed
-- `tck.expressions.temporal.temporal1.scenario-8.examples-1-row-7`: Passed
-- `tck.expressions.temporal.temporal1.scenario-8.examples-1-row-8`: Passed
-- `tck.expressions.temporal.temporal1.scenario-8.examples-1-row-9`: Passed
-- `tck.expressions.temporal.temporal1.scenario-8.examples-1-row-10`: Passed
-- `tck.expressions.temporal.temporal1.scenario-8.examples-1-row-11`: Passed
-- `tck.expressions.temporal.temporal1.scenario-8.examples-1-row-12`: Passed
-- `tck.expressions.temporal.temporal1.scenario-8.examples-1-row-13`: Passed
-- `tck.expressions.temporal.temporal1.scenario-8.examples-1-row-14`: Passed
-- `tck.expressions.temporal.temporal1.scenario-8.examples-1-row-15`: Passed
-- `tck.expressions.temporal.temporal1.scenario-8.examples-1-row-16`: Passed
-- `tck.expressions.temporal.temporal1.scenario-8.examples-1-row-17`: Passed
-- `tck.expressions.temporal.temporal1.scenario-8.examples-1-row-18`: Passed
-- `tck.expressions.temporal.temporal1.scenario-8.examples-1-row-19`: Passed
-- `tck.expressions.temporal.temporal1.scenario-8.examples-1-row-20`: Passed
-- `tck.expressions.temporal.temporal1.scenario-8.examples-1-row-21`: Passed
-- `tck.expressions.temporal.temporal1.scenario-8.examples-1-row-22`: Passed
-- `tck.expressions.temporal.temporal1.scenario-8.examples-1-row-23`: Passed
-- `tck.expressions.temporal.temporal1.scenario-8.examples-1-row-24`: Passed
-- `tck.expressions.temporal.temporal1.scenario-8.examples-1-row-25`: Passed
-- `tck.expressions.temporal.temporal1.scenario-8.examples-1-row-26`: Passed
-- `tck.expressions.temporal.temporal1.scenario-8.examples-1-row-27`: Passed
-- `tck.expressions.temporal.temporal1.scenario-8.examples-1-row-28`: Passed
-- `tck.expressions.temporal.temporal1.scenario-8.examples-1-row-29`: Passed
-- `tck.expressions.temporal.temporal1.scenario-8.examples-1-row-30`: Passed
-- `tck.expressions.temporal.temporal1.scenario-9.examples-1-row-1`: Passed
-- `tck.expressions.temporal.temporal1.scenario-9.examples-1-row-2`: Passed
-- `tck.expressions.temporal.temporal1.scenario-9.examples-1-row-3`: Passed
-- `tck.expressions.temporal.temporal1.scenario-9.examples-1-row-4`: Passed
-- `tck.expressions.temporal.temporal1.scenario-9.examples-1-row-5`: Passed
-- `tck.expressions.temporal.temporal1.scenario-9.examples-1-row-6`: Passed
-- `tck.expressions.temporal.temporal1.scenario-9.examples-1-row-7`: Passed
-- `tck.expressions.temporal.temporal1.scenario-9.examples-1-row-8`: Passed
-- `tck.expressions.temporal.temporal1.scenario-9.examples-1-row-9`: Passed
-- `tck.expressions.temporal.temporal1.scenario-9.examples-1-row-10`: Passed
-- `tck.expressions.temporal.temporal1.scenario-9.examples-1-row-11`: Passed
-- `tck.expressions.temporal.temporal1.scenario-9.examples-1-row-12`: Passed
-- `tck.expressions.temporal.temporal1.scenario-9.examples-1-row-13`: Passed
-- `tck.expressions.temporal.temporal1.scenario-9.examples-1-row-14`: Passed
-- `tck.expressions.temporal.temporal1.scenario-9.examples-1-row-15`: Passed
-- `tck.expressions.temporal.temporal1.scenario-9.examples-1-row-16`: Passed
-- `tck.expressions.temporal.temporal1.scenario-9.examples-1-row-17`: Passed
-- `tck.expressions.temporal.temporal1.scenario-9.examples-1-row-18`: Passed
-- `tck.expressions.temporal.temporal1.scenario-9.examples-1-row-19`: Passed
-- `tck.expressions.temporal.temporal1.scenario-9.examples-1-row-20`: Passed
-- `tck.expressions.temporal.temporal1.scenario-9.examples-1-row-21`: Passed
-- `tck.expressions.temporal.temporal1.scenario-9.examples-1-row-22`: Passed
-- `tck.expressions.temporal.temporal1.scenario-9.examples-1-row-23`: Passed
-- `tck.expressions.temporal.temporal1.scenario-9.examples-1-row-24`: Passed
-- `tck.expressions.temporal.temporal1.scenario-9.examples-1-row-25`: Passed
-- `tck.expressions.temporal.temporal1.scenario-9.examples-1-row-26`: Passed
-- `tck.expressions.temporal.temporal1.scenario-9.examples-1-row-27`: Passed
-- `tck.expressions.temporal.temporal1.scenario-9.examples-1-row-28`: Passed
-- `tck.expressions.temporal.temporal1.scenario-9.examples-1-row-29`: Passed
-- `tck.expressions.temporal.temporal1.scenario-10.examples-1-row-1`: Passed
-- `tck.expressions.temporal.temporal1.scenario-10.examples-1-row-2`: Passed
-- `tck.expressions.temporal.temporal1.scenario-10.examples-1-row-3`: Passed
-- `tck.expressions.temporal.temporal1.scenario-10.examples-1-row-4`: Passed
-- `tck.expressions.temporal.temporal1.scenario-10.examples-1-row-5`: Passed
-- `tck.expressions.temporal.temporal1.scenario-10.examples-1-row-6`: Passed
-- `tck.expressions.temporal.temporal1.scenario-10.examples-1-row-7`: Passed
-- `tck.expressions.temporal.temporal1.scenario-10.examples-1-row-8`: Passed
-- `tck.expressions.temporal.temporal1.scenario-10.examples-1-row-9`: Passed
-- `tck.expressions.temporal.temporal1.scenario-10.examples-1-row-10`: Passed
-- `tck.expressions.temporal.temporal1.scenario-10.examples-1-row-11`: Passed
-- `tck.expressions.temporal.temporal1.scenario-10.examples-1-row-12`: Passed
-- `tck.expressions.temporal.temporal1.scenario-10.examples-1-row-13`: Passed
-- `tck.expressions.temporal.temporal1.scenario-10.examples-1-row-14`: Passed
-- `tck.expressions.temporal.temporal1.scenario-10.examples-1-row-15`: Passed
-- `tck.expressions.temporal.temporal1.scenario-10.examples-1-row-16`: Passed
-- `tck.expressions.temporal.temporal1.scenario-10.examples-1-row-17`: Passed
-- `tck.expressions.temporal.temporal1.scenario-10.examples-1-row-18`: Passed
-- `tck.expressions.temporal.temporal1.scenario-10.examples-1-row-19`: Passed
-- `tck.expressions.temporal.temporal1.scenario-10.examples-1-row-20`: Passed
-- `tck.expressions.temporal.temporal1.scenario-10.examples-1-row-21`: Passed
-- `tck.expressions.temporal.temporal1.scenario-10.examples-1-row-22`: Passed
-- `tck.expressions.temporal.temporal1.scenario-10.examples-1-row-23`: Passed
-- `tck.expressions.temporal.temporal1.scenario-10.examples-1-row-24`: Passed
-- `tck.expressions.temporal.temporal1.scenario-10.examples-1-row-25`: Passed
-- `tck.expressions.temporal.temporal1.scenario-10.examples-1-row-26`: Passed
-- `tck.expressions.temporal.temporal1.scenario-10.examples-1-row-27`: Passed
-- `tck.expressions.temporal.temporal1.scenario-10.examples-1-row-28`: Passed
-- `tck.expressions.temporal.temporal1.scenario-10.examples-1-row-29`: Passed
-- `tck.expressions.temporal.temporal10.scenario-1.examples-1-row-1`: Passed
-- `tck.expressions.temporal.temporal10.scenario-1.examples-1-row-2`: Passed
-- `tck.expressions.temporal.temporal10.scenario-1.examples-1-row-5`: Passed
-- `tck.expressions.temporal.temporal10.scenario-1.examples-1-row-6`: Passed
-- `tck.expressions.temporal.temporal10.scenario-2.examples-1-row-1`: Passed
-- `tck.expressions.temporal.temporal10.scenario-2.examples-1-row-9`: Passed
-- `tck.expressions.temporal.temporal10.scenario-2.examples-1-row-10`: Passed
-- `tck.expressions.temporal.temporal10.scenario-2.examples-1-row-14`: Passed
-- `tck.expressions.temporal.temporal10.scenario-2.examples-1-row-17`: Passed
-- `tck.expressions.temporal.temporal10.scenario-2.examples-1-row-18`: Passed
-- `tck.expressions.temporal.temporal10.scenario-3.examples-1-row-1`: Passed
-- `tck.expressions.temporal.temporal10.scenario-3.examples-1-row-2`: Passed
-- `tck.expressions.temporal.temporal10.scenario-3.examples-1-row-3`: Passed
-- `tck.expressions.temporal.temporal10.scenario-3.examples-1-row-12`: Passed
-- `tck.expressions.temporal.temporal10.scenario-3.examples-1-row-13`: Passed
-- `tck.expressions.temporal.temporal10.scenario-3.examples-1-row-14`: Passed
-- `tck.expressions.temporal.temporal10.scenario-3.examples-1-row-17`: Passed
-- `tck.expressions.temporal.temporal10.scenario-3.examples-1-row-18`: Passed
-- `tck.expressions.temporal.temporal10.scenario-4.examples-1-row-1`: Passed
-- `tck.expressions.temporal.temporal10.scenario-4.examples-1-row-2`: Passed
-- `tck.expressions.temporal.temporal10.scenario-4.examples-1-row-3`: Passed
-- `tck.expressions.temporal.temporal10.scenario-4.examples-1-row-12`: Passed
-- `tck.expressions.temporal.temporal10.scenario-4.examples-1-row-13`: Passed
-- `tck.expressions.temporal.temporal10.scenario-4.examples-1-row-14`: Passed
-- `tck.expressions.temporal.temporal10.scenario-4.examples-1-row-17`: Passed
-- `tck.expressions.temporal.temporal10.scenario-4.examples-1-row-18`: Passed
-- `tck.expressions.temporal.temporal10.scenario-5.examples-1-row-1`: Passed
-- `tck.expressions.temporal.temporal10.scenario-5.examples-1-row-9`: Passed
-- `tck.expressions.temporal.temporal10.scenario-5.examples-1-row-10`: Passed
-- `tck.expressions.temporal.temporal10.scenario-5.examples-1-row-14`: Passed
-- `tck.expressions.temporal.temporal10.scenario-5.examples-1-row-17`: Passed
-- `tck.expressions.temporal.temporal10.scenario-5.examples-1-row-18`: Passed
-- `tck.expressions.temporal.temporal10.scenario-7.examples-1-row-1`: Passed
-- `tck.expressions.temporal.temporal10.scenario-7.examples-1-row-2`: Passed
-- `tck.expressions.temporal.temporal10.scenario-7.examples-1-row-3`: Passed
-- `tck.expressions.temporal.temporal10.scenario-7.examples-1-row-4`: Passed
-- `tck.expressions.temporal.temporal10.scenario-7.examples-1-row-5`: Passed
-- `tck.expressions.temporal.temporal10.scenario-12.examples-1-row-3`: Passed
-- `tck.expressions.temporal.temporal10.scenario-13.examples-1-row-2`: Passed
-- `tck.expressions.temporal.temporal10.scenario-13.examples-1-row-3`: Passed
-- `tck.expressions.temporal.temporal10.scenario-13.examples-1-row-4`: Passed
-- `tck.expressions.temporal.temporal2.scenario-2.examples-1-row-1`: Passed
-- `tck.expressions.temporal.temporal2.scenario-2.examples-1-row-2`: Passed
-- `tck.expressions.temporal.temporal2.scenario-2.examples-1-row-4`: Passed
-- `tck.expressions.temporal.temporal2.scenario-2.examples-1-row-5`: Passed
-- `tck.expressions.temporal.temporal2.scenario-2.examples-1-row-6`: Passed
-- `tck.expressions.temporal.temporal2.scenario-2.examples-1-row-7`: Passed
-- `tck.expressions.temporal.temporal2.scenario-3.examples-1-row-2`: Passed
-- `tck.expressions.temporal.temporal2.scenario-3.examples-1-row-3`: Passed
-- `tck.expressions.temporal.temporal2.scenario-3.examples-1-row-5`: Passed
-- `tck.expressions.temporal.temporal2.scenario-3.examples-1-row-6`: Passed
-- `tck.expressions.temporal.temporal2.scenario-3.examples-1-row-8`: Passed
-- `tck.expressions.temporal.temporal2.scenario-4.examples-1-row-1`: Passed
-- `tck.expressions.temporal.temporal2.scenario-6.examples-1-row-1`: Passed
-- `tck.expressions.temporal.temporal2.scenario-6.examples-1-row-2`: Passed
-- `tck.expressions.temporal.temporal2.scenario-6.examples-1-row-3`: Passed
-- `tck.expressions.temporal.temporal2.scenario-6.examples-1-row-4`: Passed
-- `tck.expressions.temporal.temporal3.scenario-1.examples-1-row-2`: Passed
-- `tck.expressions.temporal.temporal3.scenario-1.examples-1-row-3`: Passed
-- `tck.expressions.temporal.temporal3.scenario-1.examples-1-row-4`: Passed
-- `tck.expressions.temporal.temporal3.scenario-1.examples-1-row-6`: Passed
-- `tck.expressions.temporal.temporal3.scenario-1.examples-1-row-8`: Passed
-- `tck.expressions.temporal.temporal3.scenario-1.examples-1-row-9`: Passed
-- `tck.expressions.temporal.temporal3.scenario-1.examples-1-row-10`: Passed
-- `tck.expressions.temporal.temporal3.scenario-1.examples-1-row-11`: Passed
-- `tck.expressions.temporal.temporal3.scenario-1.examples-1-row-13`: Passed
-- `tck.expressions.temporal.temporal3.scenario-1.examples-1-row-15`: Passed
-- `tck.expressions.temporal.temporal3.scenario-1.examples-1-row-16`: Passed
-- `tck.expressions.temporal.temporal3.scenario-1.examples-1-row-17`: Passed
-- `tck.expressions.temporal.temporal3.scenario-1.examples-1-row-18`: Passed
-- `tck.expressions.temporal.temporal3.scenario-1.examples-1-row-20`: Passed
-- `tck.expressions.temporal.temporal3.scenario-2.examples-1-row-2`: Passed
-- `tck.expressions.temporal.temporal3.scenario-2.examples-1-row-3`: Passed
-- `tck.expressions.temporal.temporal3.scenario-2.examples-1-row-5`: Passed
-- `tck.expressions.temporal.temporal3.scenario-2.examples-1-row-6`: Passed
-- `tck.expressions.temporal.temporal3.scenario-2.examples-1-row-8`: Passed
-- `tck.expressions.temporal.temporal3.scenario-2.examples-1-row-9`: Passed
-- `tck.expressions.temporal.temporal3.scenario-2.examples-1-row-11`: Passed
-- `tck.expressions.temporal.temporal3.scenario-2.examples-1-row-12`: Passed
-- `tck.expressions.temporal.temporal3.scenario-3.examples-1-row-2`: Passed
-- `tck.expressions.temporal.temporal3.scenario-3.examples-1-row-3`: Passed
-- `tck.expressions.temporal.temporal3.scenario-3.examples-1-row-4`: Passed
-- `tck.expressions.temporal.temporal3.scenario-3.examples-1-row-5`: Passed
-- `tck.expressions.temporal.temporal3.scenario-3.examples-1-row-7`: Passed
-- `tck.expressions.temporal.temporal3.scenario-3.examples-1-row-9`: Passed
-- `tck.expressions.temporal.temporal3.scenario-3.examples-1-row-12`: Passed
-- `tck.expressions.temporal.temporal3.scenario-3.examples-1-row-13`: Passed
-- `tck.expressions.temporal.temporal3.scenario-3.examples-1-row-14`: Passed
-- `tck.expressions.temporal.temporal3.scenario-3.examples-1-row-15`: Passed
-- `tck.expressions.temporal.temporal3.scenario-4.examples-1-row-1`: Passed
-- `tck.expressions.temporal.temporal3.scenario-4.examples-1-row-2`: Passed
-- `tck.expressions.temporal.temporal3.scenario-4.examples-1-row-3`: Passed
-- `tck.expressions.temporal.temporal3.scenario-4.examples-1-row-4`: Passed
-- `tck.expressions.temporal.temporal3.scenario-4.examples-1-row-5`: Passed
-- `tck.expressions.temporal.temporal3.scenario-4.examples-1-row-6`: Passed
-- `tck.expressions.temporal.temporal3.scenario-5.examples-1-row-1`: Passed
-- `tck.expressions.temporal.temporal3.scenario-5.examples-1-row-2`: Passed
-- `tck.expressions.temporal.temporal3.scenario-5.examples-1-row-3`: Passed
-- `tck.expressions.temporal.temporal3.scenario-5.examples-1-row-4`: Passed
-- `tck.expressions.temporal.temporal3.scenario-5.examples-1-row-5`: Passed
-- `tck.expressions.temporal.temporal3.scenario-5.examples-1-row-6`: Passed
-- `tck.expressions.temporal.temporal3.scenario-5.examples-1-row-7`: Passed
-- `tck.expressions.temporal.temporal3.scenario-5.examples-1-row-8`: Passed
-- `tck.expressions.temporal.temporal3.scenario-6.examples-1-row-1`: Passed
-- `tck.expressions.temporal.temporal3.scenario-6.examples-1-row-2`: Passed
-- `tck.expressions.temporal.temporal3.scenario-6.examples-1-row-3`: Passed
-- `tck.expressions.temporal.temporal3.scenario-6.examples-1-row-4`: Passed
-- `tck.expressions.temporal.temporal3.scenario-6.examples-1-row-5`: Passed
-- `tck.expressions.temporal.temporal3.scenario-6.examples-1-row-6`: Passed
-- `tck.expressions.temporal.temporal3.scenario-6.examples-1-row-7`: Passed
-- `tck.expressions.temporal.temporal3.scenario-6.examples-1-row-8`: Passed
-- `tck.expressions.temporal.temporal3.scenario-6.examples-1-row-9`: Passed
-- `tck.expressions.temporal.temporal3.scenario-6.examples-1-row-10`: Passed
-- `tck.expressions.temporal.temporal3.scenario-6.examples-1-row-11`: Passed
-- `tck.expressions.temporal.temporal3.scenario-6.examples-1-row-12`: Passed
-- `tck.expressions.temporal.temporal3.scenario-6.examples-1-row-13`: Passed
-- `tck.expressions.temporal.temporal3.scenario-6.examples-1-row-14`: Passed
-- `tck.expressions.temporal.temporal3.scenario-6.examples-1-row-15`: Passed
-- `tck.expressions.temporal.temporal3.scenario-6.examples-1-row-16`: Passed
-- `tck.expressions.temporal.temporal3.scenario-6.examples-1-row-17`: Passed
-- `tck.expressions.temporal.temporal3.scenario-6.examples-1-row-18`: Passed
-- `tck.expressions.temporal.temporal3.scenario-6.examples-1-row-19`: Passed
-- `tck.expressions.temporal.temporal3.scenario-6.examples-1-row-20`: Passed
-- `tck.expressions.temporal.temporal3.scenario-6.examples-1-row-21`: Passed
-- `tck.expressions.temporal.temporal3.scenario-6.examples-1-row-22`: Passed
-- `tck.expressions.temporal.temporal3.scenario-6.examples-1-row-23`: Passed
-- `tck.expressions.temporal.temporal3.scenario-6.examples-1-row-24`: Passed
-- `tck.expressions.temporal.temporal3.scenario-7.examples-1-row-2`: Passed
-- `tck.expressions.temporal.temporal3.scenario-7.examples-1-row-3`: Passed
-- `tck.expressions.temporal.temporal3.scenario-7.examples-1-row-5`: Passed
-- `tck.expressions.temporal.temporal3.scenario-7.examples-1-row-6`: Passed
-- `tck.expressions.temporal.temporal3.scenario-8.examples-1-row-1`: Passed
-- `tck.expressions.temporal.temporal3.scenario-8.examples-1-row-2`: Passed
-- `tck.expressions.temporal.temporal3.scenario-8.examples-1-row-3`: Passed
-- `tck.expressions.temporal.temporal3.scenario-8.examples-1-row-4`: Passed
-- `tck.expressions.temporal.temporal3.scenario-8.examples-1-row-5`: Passed
-- `tck.expressions.temporal.temporal3.scenario-8.examples-1-row-6`: Passed
-- `tck.expressions.temporal.temporal3.scenario-8.examples-1-row-7`: Passed
-- `tck.expressions.temporal.temporal3.scenario-8.examples-1-row-8`: Passed
-- `tck.expressions.temporal.temporal3.scenario-8.examples-1-row-9`: Passed
-- `tck.expressions.temporal.temporal3.scenario-8.examples-1-row-10`: Passed
-- `tck.expressions.temporal.temporal3.scenario-8.examples-1-row-11`: Passed
-- `tck.expressions.temporal.temporal3.scenario-8.examples-1-row-12`: Passed
-- `tck.expressions.temporal.temporal3.scenario-9.examples-1-row-1`: Passed
-- `tck.expressions.temporal.temporal3.scenario-9.examples-1-row-2`: Passed
-- `tck.expressions.temporal.temporal3.scenario-9.examples-1-row-3`: Passed
-- `tck.expressions.temporal.temporal3.scenario-9.examples-1-row-4`: Passed
-- `tck.expressions.temporal.temporal3.scenario-9.examples-1-row-5`: Passed
-- `tck.expressions.temporal.temporal3.scenario-9.examples-1-row-7`: Passed
-- `tck.expressions.temporal.temporal3.scenario-9.examples-1-row-9`: Passed
-- `tck.expressions.temporal.temporal3.scenario-9.examples-1-row-10`: Passed
-- `tck.expressions.temporal.temporal3.scenario-9.examples-1-row-11`: Passed
-- `tck.expressions.temporal.temporal3.scenario-9.examples-1-row-12`: Passed
-- `tck.expressions.temporal.temporal3.scenario-9.examples-1-row-13`: Passed
-- `tck.expressions.temporal.temporal3.scenario-9.examples-1-row-15`: Passed
-- `tck.expressions.temporal.temporal3.scenario-10.examples-1-row-1`: Passed
-- `tck.expressions.temporal.temporal3.scenario-10.examples-1-row-2`: Passed
-- `tck.expressions.temporal.temporal3.scenario-10.examples-1-row-3`: Passed
-- `tck.expressions.temporal.temporal3.scenario-10.examples-1-row-4`: Passed
-- `tck.expressions.temporal.temporal3.scenario-10.examples-1-row-5`: Passed
-- `tck.expressions.temporal.temporal3.scenario-10.examples-1-row-7`: Passed
-- `tck.expressions.temporal.temporal3.scenario-10.examples-1-row-9`: Passed
-- `tck.expressions.temporal.temporal3.scenario-10.examples-1-row-10`: Passed
-- `tck.expressions.temporal.temporal3.scenario-10.examples-1-row-11`: Passed
-- `tck.expressions.temporal.temporal3.scenario-10.examples-1-row-12`: Passed
-- `tck.expressions.temporal.temporal3.scenario-10.examples-1-row-13`: Passed
-- `tck.expressions.temporal.temporal3.scenario-10.examples-1-row-15`: Passed
-- `tck.expressions.temporal.temporal3.scenario-10.examples-1-row-17`: Passed
-- `tck.expressions.temporal.temporal3.scenario-10.examples-1-row-18`: Passed
-- `tck.expressions.temporal.temporal3.scenario-10.examples-1-row-19`: Passed
-- `tck.expressions.temporal.temporal3.scenario-10.examples-1-row-20`: Passed
-- `tck.expressions.temporal.temporal3.scenario-10.examples-1-row-21`: Passed
-- `tck.expressions.temporal.temporal3.scenario-10.examples-1-row-23`: Passed
-- `tck.expressions.temporal.temporal3.scenario-10.examples-1-row-25`: Passed
-- `tck.expressions.temporal.temporal3.scenario-10.examples-1-row-26`: Passed
-- `tck.expressions.temporal.temporal3.scenario-10.examples-1-row-27`: Passed
-- `tck.expressions.temporal.temporal3.scenario-10.examples-1-row-28`: Passed
-- `tck.expressions.temporal.temporal3.scenario-10.examples-1-row-29`: Passed
-- `tck.expressions.temporal.temporal3.scenario-10.examples-1-row-31`: Passed
-- `tck.expressions.temporal.temporal3.scenario-10.examples-1-row-33`: Passed
-- `tck.expressions.temporal.temporal3.scenario-10.examples-1-row-34`: Passed
-- `tck.expressions.temporal.temporal3.scenario-10.examples-1-row-35`: Passed
-- `tck.expressions.temporal.temporal3.scenario-10.examples-1-row-36`: Passed
-- `tck.expressions.temporal.temporal3.scenario-10.examples-1-row-37`: Passed
-- `tck.expressions.temporal.temporal3.scenario-10.examples-1-row-39`: Passed
-- `tck.expressions.temporal.temporal3.scenario-10.examples-1-row-41`: Passed
-- `tck.expressions.temporal.temporal3.scenario-10.examples-1-row-42`: Passed
-- `tck.expressions.temporal.temporal3.scenario-10.examples-1-row-43`: Passed
-- `tck.expressions.temporal.temporal3.scenario-10.examples-1-row-44`: Passed
-- `tck.expressions.temporal.temporal3.scenario-10.examples-1-row-45`: Passed
-- `tck.expressions.temporal.temporal3.scenario-10.examples-1-row-47`: Passed
-- `tck.expressions.temporal.temporal3.scenario-11.examples-1-row-2`: Passed
-- `tck.expressions.temporal.temporal3.scenario-11.examples-1-row-3`: Passed
-- `tck.expressions.temporal.temporal3.scenario-11.examples-1-row-4`: Passed
-- `tck.expressions.temporal.temporal3.scenario-11.examples-1-row-5`: Passed
-- `tck.expressions.temporal.temporal3.scenario-11.examples-1-row-7`: Passed
-- `tck.expressions.temporal.temporal3.scenario-11.examples-1-row-9`: Passed
-- `tck.expressions.temporal.temporal6.scenario-2`: Passed
-- `tck.expressions.temporal.temporal6.scenario-3`: Passed
-- `tck.expressions.temporal.temporal6.scenario-4`: Passed
-- `tck.expressions.temporal.temporal6.scenario-5`: Passed
-- `tck.expressions.temporal.temporal6.scenario-7`: Passed
-- `tck.expressions.temporal.temporal7.scenario-2.examples-1-row-1`: Passed
-- `tck.expressions.temporal.temporal7.scenario-2.examples-1-row-2`: Passed
-- `tck.expressions.temporal.temporal7.scenario-3.examples-1-row-2`: Passed
-- `tck.expressions.temporal.temporal7.scenario-4.examples-1-row-1`: Passed
-- `tck.expressions.temporal.temporal7.scenario-4.examples-1-row-2`: Passed
-- `tck.expressions.temporal.temporal7.scenario-5.examples-1-row-1`: Passed
-- `tck.expressions.temporal.temporal7.scenario-5.examples-1-row-2`: Passed
-- `tck.expressions.temporal.temporal7.scenario-6.examples-1-row-2`: Passed
-- `tck.expressions.temporal.temporal7.scenario-6.examples-1-row-3`: Passed
-- `tck.expressions.temporal.temporal7.scenario-6.examples-1-row-4`: Passed
-- `tck.expressions.temporal.temporal7.scenario-6.examples-1-row-5`: Passed
+- `tck.clauses.match.match1.scenario-2`: Passed
+- `tck.clauses.match.match1.scenario-3`: Passed
+- `tck.clauses.match.match1.scenario-4`: Passed
+- `tck.clauses.match.match2.scenario-5`: Passed
+- `tck.clauses.match.match3.scenario-1`: Passed
+- `tck.clauses.match.match3.scenario-2`: Passed
+- `tck.clauses.match.match3.scenario-3`: Passed
+- `tck.clauses.match.match3.scenario-4`: Passed
+- `tck.clauses.match.match3.scenario-5`: Passed
+- `tck.clauses.match.match3.scenario-8`: Passed
+- `tck.clauses.match.match3.scenario-9`: Passed
+- `tck.clauses.match.match3.scenario-11`: Passed
+- `tck.clauses.match.match3.scenario-12`: Passed
+- `tck.clauses.match.match3.scenario-13`: Passed
+- `tck.clauses.match.match3.scenario-14`: Passed
+- `tck.clauses.match.match3.scenario-20`: Passed
+- `tck.clauses.match.match3.scenario-21`: Passed
+- `tck.clauses.match.match3.scenario-22`: Passed
+- `tck.clauses.match.match3.scenario-23`: Passed
+- `tck.clauses.match.match4.scenario-2`: Passed
+- `tck.clauses.match.match4.scenario-3`: Passed
+- `tck.clauses.match.match7.scenario-2`: Passed
+- `tck.clauses.match.match7.scenario-7`: Passed
+- `tck.clauses.match.match7.scenario-23`: Passed
+- `tck.clauses.match.match7.scenario-26`: Passed
+- `tck.clauses.match.match8.scenario-1`: Passed
+- `tck.clauses.match-where.matchwhere1.scenario-3`: Passed
+- `tck.clauses.match-where.matchwhere1.scenario-4`: Passed
+- `tck.clauses.match-where.matchwhere1.scenario-8`: Passed
+- `tck.clauses.match-where.matchwhere1.scenario-9`: Passed
+- `tck.clauses.match-where.matchwhere1.scenario-10`: Passed
+- `tck.clauses.match-where.matchwhere1.scenario-12`: Passed
+- `tck.clauses.match-where.matchwhere3.scenario-1`: Passed
+- `tck.clauses.match-where.matchwhere3.scenario-3`: Passed
+- `tck.clauses.match-where.matchwhere4.scenario-1`: Passed
+- `tck.clauses.match-where.matchwhere5.scenario-1`: Passed
+- `tck.clauses.match-where.matchwhere5.scenario-2`: Passed
+- `tck.clauses.match-where.matchwhere5.scenario-3`: Passed
+- `tck.clauses.match-where.matchwhere5.scenario-4`: Passed
+- `tck.clauses.match-where.matchwhere6.scenario-6`: Passed
+- `tck.clauses.match-where.matchwhere6.scenario-8`: Passed
+- `tck.clauses.return.return3.scenario-3`: Passed
+- `tck.clauses.return.return4.scenario-2`: Passed
+- `tck.clauses.return.return6.scenario-8`: Passed
+- `tck.clauses.return.return6.scenario-12`: Passed
+- `tck.clauses.return-orderby.returnorderby2.scenario-4`: Passed
+- `tck.clauses.return-orderby.returnorderby2.scenario-5`: Passed
+- `tck.clauses.return-skip-limit.returnskiplimit1.scenario-1`: Passed
+- `tck.clauses.return-skip-limit.returnskiplimit1.scenario-2`: Passed
+- `tck.clauses.return-skip-limit.returnskiplimit2.scenario-2`: Passed
+- `tck.clauses.return-skip-limit.returnskiplimit3.scenario-1`: Passed
+- `tck.clauses.return-skip-limit.returnskiplimit3.scenario-2`: Passed
+- `tck.clauses.union.union1.scenario-4`: Passed
+- `tck.clauses.union.union2.scenario-4`: Passed
+- `tck.clauses.with.with1.scenario-6`: Passed
+- `tck.clauses.with.with4.scenario-2`: Passed
+- `tck.clauses.with-orderby.withorderby1.scenario-23.examples-1-row-1`: Passed
+- `tck.clauses.with-orderby.withorderby1.scenario-23.examples-1-row-2`: Passed
+- `tck.clauses.with-orderby.withorderby1.scenario-23.examples-1-row-3`: Passed
+- `tck.clauses.with-orderby.withorderby1.scenario-24.examples-1-row-1`: Passed
+- `tck.clauses.with-orderby.withorderby1.scenario-24.examples-1-row-2`: Passed
+- `tck.clauses.with-orderby.withorderby1.scenario-25.examples-1-row-1`: Passed
+- `tck.clauses.with-orderby.withorderby1.scenario-25.examples-1-row-2`: Passed
+- `tck.clauses.with-orderby.withorderby1.scenario-25.examples-1-row-3`: Passed
+- `tck.clauses.with-orderby.withorderby1.scenario-26.examples-1-row-1`: Passed
+- `tck.clauses.with-orderby.withorderby1.scenario-26.examples-1-row-2`: Passed
+- `tck.clauses.with-orderby.withorderby1.scenario-27.examples-1-row-1`: Passed
+- `tck.clauses.with-orderby.withorderby1.scenario-27.examples-1-row-2`: Passed
+- `tck.clauses.with-orderby.withorderby1.scenario-27.examples-1-row-3`: Passed
+- `tck.clauses.with-orderby.withorderby1.scenario-28.examples-1-row-1`: Passed
+- `tck.clauses.with-orderby.withorderby1.scenario-28.examples-1-row-2`: Passed
+- `tck.clauses.with-orderby.withorderby1.scenario-29.examples-1-row-1`: Passed
+- `tck.clauses.with-orderby.withorderby1.scenario-29.examples-1-row-2`: Passed
+- `tck.clauses.with-orderby.withorderby1.scenario-29.examples-1-row-3`: Passed
+- `tck.clauses.with-orderby.withorderby1.scenario-30.examples-1-row-1`: Passed
+- `tck.clauses.with-orderby.withorderby1.scenario-30.examples-1-row-2`: Passed
+- `tck.clauses.with-orderby.withorderby1.scenario-33.examples-1-row-1`: Passed
+- `tck.clauses.with-orderby.withorderby1.scenario-33.examples-1-row-2`: Passed
+- `tck.clauses.with-orderby.withorderby1.scenario-33.examples-1-row-3`: Passed
+- `tck.clauses.with-orderby.withorderby1.scenario-34.examples-1-row-1`: Passed
+- `tck.clauses.with-orderby.withorderby1.scenario-34.examples-1-row-2`: Passed
+- `tck.clauses.with-orderby.withorderby1.scenario-35.examples-1-row-1`: Passed
+- `tck.clauses.with-orderby.withorderby1.scenario-35.examples-1-row-2`: Passed
+- `tck.clauses.with-orderby.withorderby1.scenario-35.examples-1-row-3`: Passed
+- `tck.clauses.with-orderby.withorderby1.scenario-36.examples-1-row-1`: Passed
+- `tck.clauses.with-orderby.withorderby1.scenario-36.examples-1-row-2`: Passed
+- `tck.clauses.with-orderby.withorderby1.scenario-39.examples-1-row-1`: Passed
+- `tck.clauses.with-orderby.withorderby1.scenario-39.examples-1-row-2`: Passed
+- `tck.clauses.with-orderby.withorderby1.scenario-39.examples-1-row-3`: Passed
+- `tck.clauses.with-orderby.withorderby1.scenario-40.examples-1-row-1`: Passed
+- `tck.clauses.with-orderby.withorderby1.scenario-40.examples-1-row-2`: Passed
+- `tck.clauses.with-orderby.withorderby1.scenario-42.examples-1-row-1`: Passed
+- `tck.clauses.with-orderby.withorderby1.scenario-42.examples-1-row-2`: Passed
+- `tck.clauses.with-orderby.withorderby2.scenario-1.examples-1-row-1`: Passed
+- `tck.clauses.with-orderby.withorderby2.scenario-1.examples-1-row-2`: Passed
+- `tck.clauses.with-orderby.withorderby2.scenario-1.examples-1-row-3`: Passed
+- `tck.clauses.with-orderby.withorderby2.scenario-2.examples-1-row-1`: Passed
+- `tck.clauses.with-orderby.withorderby2.scenario-2.examples-1-row-2`: Passed
+- `tck.clauses.with-orderby.withorderby2.scenario-3.examples-1-row-1`: Passed
+- `tck.clauses.with-orderby.withorderby2.scenario-3.examples-1-row-2`: Passed
+- `tck.clauses.with-orderby.withorderby2.scenario-3.examples-1-row-3`: Passed
+- `tck.clauses.with-orderby.withorderby2.scenario-4.examples-1-row-1`: Passed
+- `tck.clauses.with-orderby.withorderby2.scenario-4.examples-1-row-2`: Passed
+- `tck.clauses.with-orderby.withorderby2.scenario-5.examples-1-row-1`: Passed
+- `tck.clauses.with-orderby.withorderby2.scenario-5.examples-1-row-2`: Passed
+- `tck.clauses.with-orderby.withorderby2.scenario-5.examples-1-row-3`: Passed
+- `tck.clauses.with-orderby.withorderby2.scenario-6.examples-1-row-1`: Passed
+- `tck.clauses.with-orderby.withorderby2.scenario-6.examples-1-row-2`: Passed
+- `tck.clauses.with-orderby.withorderby2.scenario-12.examples-1-row-1`: Passed
+- `tck.clauses.with-orderby.withorderby2.scenario-12.examples-1-row-2`: Passed
+- `tck.clauses.with-orderby.withorderby2.scenario-17.examples-1-row-1`: Passed
+- `tck.clauses.with-orderby.withorderby2.scenario-17.examples-1-row-2`: Passed
+- `tck.clauses.with-orderby.withorderby2.scenario-17.examples-1-row-3`: Passed
+- `tck.clauses.with-orderby.withorderby2.scenario-18.examples-1-row-1`: Passed
+- `tck.clauses.with-orderby.withorderby2.scenario-18.examples-1-row-2`: Passed
+- `tck.clauses.with-orderby.withorderby2.scenario-20.examples-1-row-1`: Passed
+- `tck.clauses.with-orderby.withorderby2.scenario-20.examples-1-row-2`: Passed
+- `tck.clauses.with-orderby.withorderby3.scenario-1.examples-1-row-1`: Passed
+- `tck.clauses.with-orderby.withorderby3.scenario-1.examples-1-row-2`: Passed
+- `tck.clauses.with-orderby.withorderby3.scenario-1.examples-1-row-3`: Passed
+- `tck.clauses.with-orderby.withorderby3.scenario-1.examples-1-row-4`: Passed
+- `tck.clauses.with-orderby.withorderby3.scenario-1.examples-1-row-5`: Passed
+- `tck.clauses.with-orderby.withorderby3.scenario-1.examples-1-row-6`: Passed
+- `tck.clauses.with-orderby.withorderby3.scenario-1.examples-1-row-7`: Passed
+- `tck.clauses.with-orderby.withorderby3.scenario-1.examples-1-row-8`: Passed
+- `tck.clauses.with-orderby.withorderby3.scenario-1.examples-1-row-9`: Passed
+- `tck.clauses.with-orderby.withorderby3.scenario-2.examples-1-row-1`: Passed
+- `tck.clauses.with-orderby.withorderby3.scenario-2.examples-1-row-2`: Passed
+- `tck.clauses.with-orderby.withorderby3.scenario-2.examples-1-row-3`: Passed
+- `tck.clauses.with-orderby.withorderby3.scenario-2.examples-1-row-4`: Passed
+- `tck.clauses.with-orderby.withorderby3.scenario-2.examples-1-row-5`: Passed
+- `tck.clauses.with-orderby.withorderby3.scenario-2.examples-1-row-6`: Passed
+- `tck.clauses.with-orderby.withorderby3.scenario-3.examples-1-row-1`: Passed
+- `tck.clauses.with-orderby.withorderby3.scenario-3.examples-1-row-2`: Passed
+- `tck.clauses.with-orderby.withorderby3.scenario-3.examples-1-row-3`: Passed
+- `tck.clauses.with-orderby.withorderby3.scenario-3.examples-1-row-4`: Passed
+- `tck.clauses.with-orderby.withorderby3.scenario-3.examples-1-row-5`: Passed
+- `tck.clauses.with-orderby.withorderby3.scenario-3.examples-1-row-6`: Passed
+- `tck.clauses.with-orderby.withorderby3.scenario-4.examples-1-row-1`: Passed
+- `tck.clauses.with-orderby.withorderby3.scenario-4.examples-1-row-2`: Passed
+- `tck.clauses.with-orderby.withorderby3.scenario-4.examples-1-row-3`: Passed
+- `tck.clauses.with-orderby.withorderby3.scenario-4.examples-1-row-4`: Passed
+- `tck.clauses.with-orderby.withorderby3.scenario-5.examples-1-row-1`: Passed
+- `tck.clauses.with-orderby.withorderby3.scenario-5.examples-1-row-2`: Passed
+- `tck.clauses.with-orderby.withorderby3.scenario-5.examples-1-row-3`: Passed
+- `tck.clauses.with-orderby.withorderby3.scenario-5.examples-1-row-4`: Passed
+- `tck.clauses.with-orderby.withorderby3.scenario-6.examples-1-row-1`: Passed
+- `tck.clauses.with-orderby.withorderby3.scenario-6.examples-1-row-2`: Passed
+- `tck.clauses.with-orderby.withorderby3.scenario-6.examples-1-row-3`: Passed
+- `tck.clauses.with-orderby.withorderby3.scenario-6.examples-1-row-4`: Passed
+- `tck.clauses.with-orderby.withorderby3.scenario-6.examples-1-row-5`: Passed
+- `tck.clauses.with-orderby.withorderby3.scenario-6.examples-1-row-6`: Passed
+- `tck.clauses.with-orderby.withorderby3.scenario-6.examples-1-row-7`: Passed
+- `tck.clauses.with-orderby.withorderby3.scenario-6.examples-1-row-8`: Passed
+- `tck.clauses.with-orderby.withorderby3.scenario-6.examples-1-row-9`: Passed
+- `tck.clauses.with-orderby.withorderby3.scenario-6.examples-1-row-10`: Passed
+- `tck.clauses.with-orderby.withorderby3.scenario-6.examples-1-row-11`: Passed
+- `tck.clauses.with-orderby.withorderby3.scenario-6.examples-1-row-12`: Passed
+- `tck.clauses.with-orderby.withorderby3.scenario-6.examples-1-row-13`: Passed
+- `tck.clauses.with-orderby.withorderby3.scenario-6.examples-1-row-14`: Passed
+- `tck.clauses.with-orderby.withorderby3.scenario-6.examples-1-row-15`: Passed
+- `tck.clauses.with-orderby.withorderby3.scenario-6.examples-1-row-16`: Passed
+- `tck.clauses.with-orderby.withorderby3.scenario-6.examples-1-row-17`: Passed
+- `tck.clauses.with-orderby.withorderby3.scenario-6.examples-1-row-18`: Passed
+- `tck.clauses.with-orderby.withorderby3.scenario-6.examples-1-row-19`: Passed
+- `tck.clauses.with-orderby.withorderby3.scenario-6.examples-1-row-20`: Passed
+- `tck.clauses.with-orderby.withorderby3.scenario-6.examples-1-row-21`: Passed
+- `tck.clauses.with-orderby.withorderby3.scenario-6.examples-1-row-22`: Passed
+- `tck.clauses.with-orderby.withorderby3.scenario-6.examples-1-row-23`: Passed
+- `tck.clauses.with-orderby.withorderby3.scenario-6.examples-1-row-24`: Passed
+- `tck.clauses.with-orderby.withorderby4.scenario-1`: Passed
+- `tck.clauses.with-orderby.withorderby4.scenario-3`: Passed
+- `tck.clauses.with-orderby.withorderby4.scenario-8`: Passed
+- `tck.clauses.with-skip-limit.withskiplimit2.scenario-1`: Passed
+- `tck.clauses.with-skip-limit.withskiplimit3.scenario-1`: Passed
+- `tck.clauses.with-skip-limit.withskiplimit3.scenario-2`: Passed
+- `tck.clauses.with-where.withwhere1.scenario-1`: Passed
+- `tck.clauses.with-where.withwhere3.scenario-1`: Passed
+- `tck.clauses.with-where.withwhere3.scenario-3`: Passed
+- `tck.clauses.with-where.withwhere4.scenario-1`: Passed
+- `tck.clauses.with-where.withwhere5.scenario-1`: Passed
+- `tck.clauses.with-where.withwhere5.scenario-2`: Passed
+- `tck.clauses.with-where.withwhere5.scenario-3`: Passed
+- `tck.clauses.with-where.withwhere5.scenario-4`: Passed
+- `tck.clauses.with-where.withwhere6.scenario-1`: Passed
+- `tck.expressions.boolean.boolean4.scenario-3`: Passed
+- `tck.expressions.existentialsubqueries.existentialsubquery1.scenario-1`: Passed
+- `tck.expressions.existentialsubqueries.existentialsubquery1.scenario-2`: Passed
+- `tck.expressions.existentialsubqueries.existentialsubquery2.scenario-1`: Passed
+- `tck.expressions.graph.graph5.scenario-1`: Passed
+- `tck.expressions.graph.graph5.scenario-3`: Passed
+- `tck.expressions.graph.graph5.scenario-4.examples-1-row-1`: Passed
+- `tck.expressions.graph.graph5.scenario-4.examples-1-row-2`: Passed
+- `tck.expressions.graph.graph5.scenario-4.examples-1-row-3`: Passed
+- `tck.expressions.graph.graph5.scenario-4.examples-1-row-4`: Passed
+- `tck.expressions.graph.graph5.scenario-4.examples-1-row-5`: Passed
+- `tck.expressions.null.null1.scenario-6`: Passed
+- `tck.expressions.null.null2.scenario-6`: Passed
+- `tck.expressions.path.path3.scenario-1`: Passed
+- `tck.expressions.pattern.pattern1.scenario-1`: Passed
+- `tck.expressions.pattern.pattern1.scenario-2`: Passed
+- `tck.expressions.pattern.pattern1.scenario-3`: Passed
+- `tck.expressions.pattern.pattern1.scenario-4`: Passed
+- `tck.expressions.pattern.pattern1.scenario-6`: Passed
+- `tck.expressions.pattern.pattern1.scenario-12`: Passed
+- `tck.expressions.pattern.pattern1.scenario-14`: Passed
+- `tck.expressions.pattern.pattern1.scenario-19`: Passed
+- `tck.expressions.pattern.pattern1.scenario-21`: Passed
+- `tck.expressions.string.string10.scenario-1`: Passed
+- `tck.expressions.string.string10.scenario-2`: Passed
+- `tck.expressions.string.string10.scenario-3`: Passed
+- `tck.expressions.string.string10.scenario-9`: Passed
+- `tck.expressions.string.string11.scenario-1`: Passed
+- `tck.expressions.string.string11.scenario-2`: Passed
+- `tck.expressions.string.string8.scenario-1`: Passed
+- `tck.expressions.string.string8.scenario-2`: Passed
+- `tck.expressions.string.string8.scenario-3`: Passed
+- `tck.expressions.string.string8.scenario-9`: Passed
+- `tck.expressions.string.string9.scenario-1`: Passed
+- `tck.expressions.string.string9.scenario-2`: Passed
+- `tck.expressions.string.string9.scenario-3`: Passed
+- `tck.expressions.string.string9.scenario-9`: Passed
+- `tck.expressions.temporal.temporal9.scenario-1.examples-1-row-1`: Passed
+- `tck.expressions.temporal.temporal9.scenario-1.examples-1-row-2`: Passed
+- `tck.expressions.temporal.temporal9.scenario-1.examples-1-row-3`: Passed
+- `tck.expressions.temporal.temporal9.scenario-1.examples-1-row-4`: Passed
+- `tck.expressions.temporal.temporal9.scenario-1.examples-1-row-5`: Passed
+- `tck.expressions.temporal.temporal9.scenario-1.examples-1-row-6`: Passed
+- `tck.expressions.temporal.temporal9.scenario-1.examples-1-row-7`: Passed
+- `tck.expressions.temporal.temporal9.scenario-1.examples-1-row-8`: Passed
+- `tck.expressions.temporal.temporal9.scenario-1.examples-1-row-9`: Passed
+- `tck.expressions.temporal.temporal9.scenario-1.examples-1-row-10`: Passed
+- `tck.expressions.temporal.temporal9.scenario-1.examples-1-row-11`: Passed
+- `tck.expressions.temporal.temporal9.scenario-1.examples-1-row-12`: Passed
+- `tck.expressions.temporal.temporal9.scenario-1.examples-1-row-13`: Passed
+- `tck.expressions.temporal.temporal9.scenario-1.examples-1-row-14`: Passed
+- `tck.expressions.temporal.temporal9.scenario-1.examples-1-row-15`: Passed
+- `tck.expressions.temporal.temporal9.scenario-1.examples-1-row-16`: Passed
+- `tck.expressions.temporal.temporal9.scenario-1.examples-1-row-17`: Passed
+- `tck.expressions.temporal.temporal9.scenario-1.examples-1-row-18`: Passed
+- `tck.expressions.temporal.temporal9.scenario-1.examples-1-row-19`: Passed
+- `tck.expressions.temporal.temporal9.scenario-1.examples-1-row-20`: Passed
+- `tck.expressions.temporal.temporal9.scenario-1.examples-1-row-21`: Passed
+- `tck.expressions.temporal.temporal9.scenario-1.examples-1-row-22`: Passed
+- `tck.expressions.temporal.temporal9.scenario-1.examples-1-row-23`: Passed
+- `tck.expressions.temporal.temporal9.scenario-1.examples-1-row-24`: Passed
+- `tck.expressions.temporal.temporal9.scenario-1.examples-1-row-25`: Passed
+- `tck.expressions.temporal.temporal9.scenario-1.examples-1-row-26`: Passed
+- `tck.expressions.temporal.temporal9.scenario-1.examples-1-row-27`: Passed
+- `tck.expressions.temporal.temporal9.scenario-1.examples-1-row-28`: Passed
+- `tck.expressions.temporal.temporal9.scenario-1.examples-1-row-29`: Passed
+- `tck.expressions.temporal.temporal9.scenario-1.examples-1-row-30`: Passed
+- `tck.expressions.temporal.temporal9.scenario-1.examples-1-row-31`: Passed
+- `tck.expressions.temporal.temporal9.scenario-1.examples-1-row-32`: Passed
+- `tck.expressions.temporal.temporal9.scenario-1.examples-1-row-33`: Passed
+- `tck.expressions.temporal.temporal9.scenario-1.examples-1-row-34`: Passed
+- `tck.expressions.temporal.temporal9.scenario-1.examples-1-row-35`: Passed
+- `tck.expressions.temporal.temporal9.scenario-1.examples-1-row-36`: Passed
+- `tck.expressions.temporal.temporal9.scenario-1.examples-1-row-37`: Passed
+- `tck.expressions.temporal.temporal9.scenario-1.examples-1-row-38`: Passed
+- `tck.expressions.temporal.temporal9.scenario-1.examples-1-row-39`: Passed
+- `tck.expressions.temporal.temporal9.scenario-1.examples-1-row-40`: Passed
+- `tck.expressions.temporal.temporal9.scenario-1.examples-1-row-41`: Passed
+- `tck.expressions.temporal.temporal9.scenario-1.examples-1-row-42`: Passed
+- `tck.expressions.temporal.temporal9.scenario-1.examples-1-row-44`: Passed
+- `tck.expressions.temporal.temporal9.scenario-1.examples-1-row-46`: Passed
+- `tck.expressions.temporal.temporal9.scenario-1.examples-1-row-48`: Passed
+- `tck.expressions.temporal.temporal9.scenario-1.examples-1-row-49`: Passed
+- `tck.expressions.temporal.temporal9.scenario-1.examples-1-row-50`: Passed
+- `tck.expressions.temporal.temporal9.scenario-1.examples-1-row-51`: Passed
+- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-1`: Passed
+- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-2`: Passed
+- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-3`: Passed
+- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-4`: Passed
+- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-5`: Passed
+- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-6`: Passed
+- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-7`: Passed
+- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-8`: Passed
+- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-9`: Passed
+- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-10`: Passed
+- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-11`: Passed
+- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-12`: Passed
+- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-13`: Passed
+- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-14`: Passed
+- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-15`: Passed
+- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-16`: Passed
+- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-17`: Passed
+- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-18`: Passed
+- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-19`: Passed
+- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-20`: Passed
+- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-21`: Passed
+- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-22`: Passed
+- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-23`: Passed
+- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-24`: Passed
+- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-25`: Passed
+- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-26`: Passed
+- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-27`: Passed
+- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-28`: Passed
+- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-29`: Passed
+- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-30`: Passed
+- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-31`: Passed
+- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-32`: Passed
+- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-33`: Passed
+- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-34`: Passed
+- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-35`: Passed
+- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-36`: Passed
+- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-37`: Passed
+- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-38`: Passed
+- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-39`: Passed
+- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-40`: Passed
+- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-41`: Passed
+- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-42`: Passed
+- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-43`: Passed
+- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-44`: Passed
+- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-45`: Passed
+- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-46`: Passed
+- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-47`: Passed
+- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-48`: Passed
+- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-49`: Passed
+- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-50`: Passed
+- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-51`: Passed
+- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-52`: Passed
+- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-53`: Passed
+- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-54`: Passed
+- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-55`: Passed
+- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-56`: Passed
+- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-57`: Passed
+- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-58`: Passed
+- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-59`: Passed
+- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-60`: Passed
+- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-61`: Passed
+- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-62`: Passed
+- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-63`: Passed
+- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-65`: Passed
+- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-66`: Passed
+- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-68`: Passed
+- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-69`: Passed
+- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-71`: Passed
+- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-72`: Passed
+- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-73`: Passed
+- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-74`: Passed
+- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-75`: Passed
+- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-76`: Passed
+- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-77`: Passed
+- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-78`: Passed
+- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-79`: Passed
+- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-80`: Passed
+- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-81`: Passed
+- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-82`: Passed
+- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-83`: Passed
+- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-84`: Passed
+- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-85`: Passed
+- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-86`: Passed
+- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-87`: Passed
+- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-88`: Passed
+- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-89`: Passed
+- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-90`: Passed
+- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-91`: Passed
+- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-92`: Passed
+- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-93`: Passed
+- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-94`: Passed
+- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-95`: Passed
+- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-96`: Passed
+- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-97`: Passed
+- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-99`: Passed
+- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-101`: Passed
+- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-103`: Passed
+- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-105`: Passed
+- `tck.expressions.temporal.temporal9.scenario-3.examples-1-row-1`: Passed
+- `tck.expressions.temporal.temporal9.scenario-3.examples-1-row-2`: Passed
+- `tck.expressions.temporal.temporal9.scenario-3.examples-1-row-3`: Passed
+- `tck.expressions.temporal.temporal9.scenario-3.examples-1-row-4`: Passed
+- `tck.expressions.temporal.temporal9.scenario-3.examples-1-row-5`: Passed
+- `tck.expressions.temporal.temporal9.scenario-3.examples-1-row-6`: Passed
+- `tck.expressions.temporal.temporal9.scenario-3.examples-1-row-7`: Passed
+- `tck.expressions.temporal.temporal9.scenario-3.examples-1-row-8`: Passed
+- `tck.expressions.temporal.temporal9.scenario-3.examples-1-row-9`: Passed
+- `tck.expressions.temporal.temporal9.scenario-3.examples-1-row-10`: Passed
+- `tck.expressions.temporal.temporal9.scenario-3.examples-1-row-11`: Passed
+- `tck.expressions.temporal.temporal9.scenario-3.examples-1-row-12`: Passed
+- `tck.expressions.temporal.temporal9.scenario-3.examples-1-row-13`: Passed
+- `tck.expressions.temporal.temporal9.scenario-3.examples-1-row-14`: Passed
+- `tck.expressions.temporal.temporal9.scenario-3.examples-1-row-15`: Passed
+- `tck.expressions.temporal.temporal9.scenario-3.examples-1-row-16`: Passed
+- `tck.expressions.temporal.temporal9.scenario-3.examples-1-row-17`: Passed
+- `tck.expressions.temporal.temporal9.scenario-3.examples-1-row-18`: Passed
+- `tck.expressions.temporal.temporal9.scenario-3.examples-1-row-19`: Passed
+- `tck.expressions.temporal.temporal9.scenario-3.examples-1-row-20`: Passed
+- `tck.expressions.temporal.temporal9.scenario-3.examples-1-row-21`: Passed
+- `tck.expressions.temporal.temporal9.scenario-3.examples-1-row-22`: Passed
+- `tck.expressions.temporal.temporal9.scenario-3.examples-1-row-23`: Passed
+- `tck.expressions.temporal.temporal9.scenario-3.examples-1-row-24`: Passed
+- `tck.expressions.temporal.temporal9.scenario-3.examples-1-row-25`: Passed
+- `tck.expressions.temporal.temporal9.scenario-3.examples-1-row-26`: Passed
+- `tck.expressions.temporal.temporal9.scenario-3.examples-1-row-27`: Passed
+- `tck.expressions.temporal.temporal9.scenario-3.examples-1-row-28`: Passed
+- `tck.expressions.temporal.temporal9.scenario-3.examples-1-row-29`: Passed
+- `tck.expressions.temporal.temporal9.scenario-3.examples-1-row-30`: Passed
+- `tck.expressions.temporal.temporal9.scenario-3.examples-1-row-31`: Passed
+- `tck.expressions.temporal.temporal9.scenario-3.examples-1-row-32`: Passed
+- `tck.expressions.temporal.temporal9.scenario-3.examples-1-row-33`: Passed
+- `tck.expressions.temporal.temporal9.scenario-3.examples-1-row-34`: Passed
+- `tck.expressions.temporal.temporal9.scenario-3.examples-1-row-35`: Passed
+- `tck.expressions.temporal.temporal9.scenario-3.examples-1-row-36`: Passed
+- `tck.expressions.temporal.temporal9.scenario-3.examples-1-row-37`: Passed
+- `tck.expressions.temporal.temporal9.scenario-3.examples-1-row-38`: Passed
+- `tck.expressions.temporal.temporal9.scenario-3.examples-1-row-39`: Passed
+- `tck.expressions.temporal.temporal9.scenario-3.examples-1-row-40`: Passed
+- `tck.expressions.temporal.temporal9.scenario-3.examples-1-row-41`: Passed
+- `tck.expressions.temporal.temporal9.scenario-3.examples-1-row-42`: Passed
+- `tck.expressions.temporal.temporal9.scenario-3.examples-1-row-44`: Passed
+- `tck.expressions.temporal.temporal9.scenario-3.examples-1-row-46`: Passed
+- `tck.expressions.temporal.temporal9.scenario-3.examples-1-row-48`: Passed
+- `tck.expressions.temporal.temporal9.scenario-3.examples-1-row-49`: Passed
+- `tck.expressions.temporal.temporal9.scenario-3.examples-1-row-50`: Passed
+- `tck.expressions.temporal.temporal9.scenario-3.examples-1-row-51`: Passed
+- `tck.expressions.temporal.temporal9.scenario-3.examples-1-row-52`: Passed
+- `tck.expressions.temporal.temporal9.scenario-3.examples-1-row-53`: Passed
+- `tck.expressions.temporal.temporal9.scenario-3.examples-1-row-54`: Passed
+- `tck.expressions.temporal.temporal9.scenario-3.examples-1-row-55`: Passed
+- `tck.expressions.temporal.temporal9.scenario-3.examples-1-row-56`: Passed
+- `tck.expressions.temporal.temporal9.scenario-3.examples-1-row-57`: Passed
+- `tck.expressions.temporal.temporal9.scenario-3.examples-1-row-58`: Passed
+- `tck.expressions.temporal.temporal9.scenario-3.examples-1-row-59`: Passed
+- `tck.expressions.temporal.temporal9.scenario-3.examples-1-row-60`: Passed
+- `tck.expressions.temporal.temporal9.scenario-3.examples-1-row-61`: Passed
+- `tck.expressions.temporal.temporal9.scenario-3.examples-1-row-62`: Passed
+- `tck.expressions.temporal.temporal9.scenario-3.examples-1-row-63`: Passed
+- `tck.expressions.temporal.temporal9.scenario-3.examples-1-row-64`: Passed
+- `tck.expressions.temporal.temporal9.scenario-3.examples-1-row-65`: Passed
+- `tck.expressions.temporal.temporal9.scenario-3.examples-1-row-66`: Passed
+- `tck.expressions.temporal.temporal9.scenario-3.examples-1-row-68`: Passed
+- `tck.expressions.temporal.temporal9.scenario-3.examples-1-row-70`: Passed
+- `tck.expressions.temporal.temporal9.scenario-3.examples-1-row-72`: Passed
+- `tck.expressions.temporal.temporal9.scenario-3.examples-1-row-74`: Passed
+- `tck.expressions.temporal.temporal9.scenario-4.examples-1-row-1`: Passed
+- `tck.expressions.temporal.temporal9.scenario-4.examples-1-row-2`: Passed
+- `tck.expressions.temporal.temporal9.scenario-4.examples-1-row-3`: Passed
+- `tck.expressions.temporal.temporal9.scenario-4.examples-1-row-4`: Passed
+- `tck.expressions.temporal.temporal9.scenario-4.examples-1-row-5`: Passed
+- `tck.expressions.temporal.temporal9.scenario-4.examples-1-row-6`: Passed
+- `tck.expressions.temporal.temporal9.scenario-4.examples-1-row-7`: Passed
+- `tck.expressions.temporal.temporal9.scenario-4.examples-1-row-8`: Passed
+- `tck.expressions.temporal.temporal9.scenario-4.examples-1-row-9`: Passed
+- `tck.expressions.temporal.temporal9.scenario-4.examples-1-row-10`: Passed
+- `tck.expressions.temporal.temporal9.scenario-4.examples-1-row-11`: Passed
+- `tck.expressions.temporal.temporal9.scenario-4.examples-1-row-12`: Passed
+- `tck.expressions.temporal.temporal9.scenario-4.examples-1-row-13`: Passed
+- `tck.expressions.temporal.temporal9.scenario-4.examples-1-row-14`: Passed
+- `tck.expressions.temporal.temporal9.scenario-4.examples-1-row-15`: Passed
+- `tck.expressions.temporal.temporal9.scenario-4.examples-1-row-16`: Passed
+- `tck.expressions.temporal.temporal9.scenario-4.examples-1-row-17`: Passed
+- `tck.expressions.temporal.temporal9.scenario-4.examples-1-row-18`: Passed
+- `tck.expressions.temporal.temporal9.scenario-4.examples-1-row-19`: Passed
+- `tck.expressions.temporal.temporal9.scenario-4.examples-1-row-20`: Passed
+- `tck.expressions.temporal.temporal9.scenario-4.examples-1-row-21`: Passed
+- `tck.expressions.temporal.temporal9.scenario-4.examples-1-row-22`: Passed
+- `tck.expressions.temporal.temporal9.scenario-4.examples-1-row-23`: Passed
+- `tck.expressions.temporal.temporal9.scenario-4.examples-1-row-24`: Passed
+- `tck.expressions.temporal.temporal9.scenario-4.examples-1-row-25`: Passed
+- `tck.expressions.temporal.temporal9.scenario-4.examples-1-row-26`: Passed
+- `tck.expressions.temporal.temporal9.scenario-4.examples-1-row-27`: Passed
+- `tck.expressions.temporal.temporal9.scenario-4.examples-1-row-28`: Passed
+- `tck.expressions.temporal.temporal9.scenario-4.examples-1-row-30`: Passed
+- `tck.expressions.temporal.temporal9.scenario-4.examples-1-row-32`: Passed
+- `tck.expressions.temporal.temporal9.scenario-4.examples-1-row-34`: Passed
+- `tck.expressions.temporal.temporal9.scenario-4.examples-1-row-36`: Passed
+- `tck.expressions.temporal.temporal9.scenario-4.examples-1-row-38`: Passed
+- `tck.expressions.temporal.temporal9.scenario-4.examples-1-row-40`: Passed
+- `tck.expressions.temporal.temporal9.scenario-4.examples-1-row-42`: Passed
+- `tck.expressions.temporal.temporal9.scenario-4.examples-1-row-44`: Passed
+- `tck.expressions.temporal.temporal9.scenario-5.examples-1-row-1`: Passed
+- `tck.expressions.temporal.temporal9.scenario-5.examples-1-row-2`: Passed
+- `tck.expressions.temporal.temporal9.scenario-5.examples-1-row-3`: Passed
+- `tck.expressions.temporal.temporal9.scenario-5.examples-1-row-4`: Passed
+- `tck.expressions.temporal.temporal9.scenario-5.examples-1-row-5`: Passed
+- `tck.expressions.temporal.temporal9.scenario-5.examples-1-row-6`: Passed
+- `tck.expressions.temporal.temporal9.scenario-5.examples-1-row-7`: Passed
+- `tck.expressions.temporal.temporal9.scenario-5.examples-1-row-8`: Passed
+- `tck.expressions.temporal.temporal9.scenario-5.examples-1-row-9`: Passed
+- `tck.expressions.temporal.temporal9.scenario-5.examples-1-row-10`: Passed
+- `tck.expressions.temporal.temporal9.scenario-5.examples-1-row-11`: Passed
+- `tck.expressions.temporal.temporal9.scenario-5.examples-1-row-12`: Passed
+- `tck.expressions.temporal.temporal9.scenario-5.examples-1-row-13`: Passed
+- `tck.expressions.temporal.temporal9.scenario-5.examples-1-row-14`: Passed
+- `tck.expressions.temporal.temporal9.scenario-5.examples-1-row-15`: Passed
+- `tck.expressions.temporal.temporal9.scenario-5.examples-1-row-16`: Passed
+- `tck.expressions.temporal.temporal9.scenario-5.examples-1-row-17`: Passed
+- `tck.expressions.temporal.temporal9.scenario-5.examples-1-row-18`: Passed
+- `tck.expressions.temporal.temporal9.scenario-5.examples-1-row-19`: Passed
+- `tck.expressions.temporal.temporal9.scenario-5.examples-1-row-20`: Passed
+- `tck.expressions.temporal.temporal9.scenario-5.examples-1-row-21`: Passed
+- `tck.expressions.temporal.temporal9.scenario-5.examples-1-row-22`: Passed
+- `tck.expressions.temporal.temporal9.scenario-5.examples-1-row-23`: Passed
+- `tck.expressions.temporal.temporal9.scenario-5.examples-1-row-24`: Passed
+- `tck.expressions.temporal.temporal9.scenario-5.examples-1-row-25`: Passed
+- `tck.expressions.temporal.temporal9.scenario-5.examples-1-row-26`: Passed
+- `tck.expressions.temporal.temporal9.scenario-5.examples-1-row-27`: Passed
+- `tck.expressions.temporal.temporal9.scenario-5.examples-1-row-28`: Passed
+- `tck.expressions.temporal.temporal9.scenario-5.examples-1-row-29`: Passed
+- `tck.expressions.temporal.temporal9.scenario-5.examples-1-row-30`: Passed
+- `tck.expressions.temporal.temporal9.scenario-5.examples-1-row-31`: Passed
+- `tck.expressions.temporal.temporal9.scenario-5.examples-1-row-32`: Passed
+- `tck.expressions.temporal.temporal9.scenario-5.examples-1-row-34`: Passed
+- `tck.expressions.temporal.temporal9.scenario-5.examples-1-row-36`: Passed
+- `tck.expressions.temporal.temporal9.scenario-5.examples-1-row-38`: Passed
+- `tck.expressions.temporal.temporal9.scenario-5.examples-1-row-40`: Passed
+- `tck.expressions.temporal.temporal9.scenario-5.examples-1-row-42`: Passed
+- `tck.expressions.temporal.temporal9.scenario-5.examples-1-row-44`: Passed
+- `tck.expressions.temporal.temporal9.scenario-5.examples-1-row-46`: Passed
+- `tck.expressions.temporal.temporal9.scenario-5.examples-1-row-48`: Passed
 
 ### Results by source area
 
 | Area | Outcome | Count |
 |---|---|---:|
-| clauses | `failed` | 595 |
-| clauses | `passed` | 656 |
-| expressions | `failed` | 1048 |
-| expressions | `passed` | 1597 |
+| clauses | `failed` | 410 |
+| clauses | `passed` | 841 |
+| expressions | `failed` | 722 |
+| expressions | `passed` | 1923 |
 | useCases | `failed` | 21 |
 | useCases | `passed` | 9 |
 
@@ -3166,17 +3278,16 @@ Generated from `graph/test-results/history.jsonl`. Results are grouped by stable
 
 | Boundary | Outcome | Count |
 |---|---|---:|
-| `execution` | `failed` | 1149 |
-| `execution` | `passed` | 2219 |
+| `execution` | `failed` | 942 |
+| `execution` | `passed` | 2730 |
 | `fixture-execution` | `failed` | 19 |
 | `parameter-binding` | `failed` | 20 |
 | `parser` | `failed` | 132 |
 | `parser` | `passed` | 43 |
-| `result-comparison` | `failed` | 304 |
 | `setup-execution` | `failed` | 11 |
 | `side-effect-comparison` | `failed` | 29 |
 
-### Failures (1664)
+### Failures (1153)
 
 - `tck.clauses.call.call1.scenario-1`: query execution failed: Parse error: procedures outside the built-in registry is not supported in the initial graph slice at byte 6..20; mutation execution failed: Cypher mutation binding failed: procedures in mutation queries is not supported in the initial graph slice at byte 1..23; query:
 CALL test.doNothing()
@@ -3270,10 +3381,10 @@ CREATE ()
 WITH *
 MATCH ()
 CREATE ()
-- `tck.clauses.create.create3.scenario-5`: result expectation is not representable by the scalar adapter
-- `tck.clauses.create.create3.scenario-6`: result expectation is not representable by the scalar adapter
-- `tck.clauses.create.create3.scenario-7`: result expectation is not representable by the scalar adapter
-- `tck.clauses.create.create3.scenario-8`: result expectation is not representable by the scalar adapter
+- `tck.clauses.create.create3.scenario-5`: expected [["( {num: 1})", "( {num: 1})"]], observed [["1", "1"]]
+- `tck.clauses.create.create3.scenario-6`: expected [["(:X)"]], observed [["1"]]
+- `tck.clauses.create.create3.scenario-7`: expected [["( {name: 'A'})", "( {name: 'A'})"]], observed [["1", "1"]]
+- `tck.clauses.create.create3.scenario-8`: expected [["( {num: 5})"]], observed [["1"]]
 - `tck.clauses.create.create3.scenario-11`: query execution failed: Parse error: mutation clauses in read queries is not supported in the initial graph slice at byte 1..12; mutation execution failed: MERGE requires at least one property to identify the entity; query:
 CREATE (a)
 WITH a
@@ -3311,9 +3422,6 @@ DETACH DELETE p
 - `tck.clauses.delete.delete5.scenario-5`: expected EOI, UNION, or clause at byte 70..70
 - `tck.clauses.delete.delete5.scenario-6`: expected EOI, UNION, or clause at byte 76..76
 - `tck.clauses.delete.delete5.scenario-7`: expected EOI, UNION, or clause at byte 83..83
-- `tck.clauses.match.match1.scenario-2`: result expectation is not representable by the scalar adapter
-- `tck.clauses.match.match1.scenario-3`: result expectation is not representable by the scalar adapter
-- `tck.clauses.match.match1.scenario-4`: result expectation is not representable by the scalar adapter
 - `tck.clauses.match.match2.scenario-2`: expected [["[:T1]"]], observed [["[:T1]"], ["[:T4]"]]
 - `tck.clauses.match.match2.scenario-3`: query execution failed: Parse error: no such function: type; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 17..37; query:
 MATCH ()-[r]-()
@@ -3321,32 +3429,16 @@ RETURN type(r) AS r
 - `tck.clauses.match.match2.scenario-4`: query execution failed: Parse error: no such function: type; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 18..38; query:
 MATCH ()-[r]->()
 RETURN type(r) AS r
-- `tck.clauses.match.match2.scenario-5`: result expectation is not representable by the scalar adapter
 - `tck.clauses.match.match2.scenario-7`: query execution failed: Parse error: duplicate variable `r` at byte 45..46; mutation execution failed: Cypher mutation binding failed: duplicate variable `r` at byte 45..46; query:
 MATCH (a1)-[r:T]->()
 WITH r, a1
 MATCH (a1)-[r:Y]->(b2)
 RETURN a1, r, b2
-- `tck.clauses.match.match3.scenario-1`: result expectation is not representable by the scalar adapter
-- `tck.clauses.match.match3.scenario-2`: result expectation is not representable by the scalar adapter
-- `tck.clauses.match.match3.scenario-3`: result expectation is not representable by the scalar adapter
-- `tck.clauses.match.match3.scenario-4`: result expectation is not representable by the scalar adapter
-- `tck.clauses.match.match3.scenario-5`: result expectation is not representable by the scalar adapter
-- `tck.clauses.match.match3.scenario-6`: result expectation is not representable by the scalar adapter
-- `tck.clauses.match.match3.scenario-7`: result expectation is not representable by the scalar adapter
-- `tck.clauses.match.match3.scenario-8`: result expectation is not representable by the scalar adapter
-- `tck.clauses.match.match3.scenario-9`: result expectation is not representable by the scalar adapter
-- `tck.clauses.match.match3.scenario-11`: result expectation is not representable by the scalar adapter
-- `tck.clauses.match.match3.scenario-12`: result expectation is not representable by the scalar adapter
-- `tck.clauses.match.match3.scenario-13`: result expectation is not representable by the scalar adapter
-- `tck.clauses.match.match3.scenario-14`: result expectation is not representable by the scalar adapter
-- `tck.clauses.match.match3.scenario-15`: result expectation is not representable by the scalar adapter
-- `tck.clauses.match.match3.scenario-16`: result expectation is not representable by the scalar adapter
+- `tck.clauses.match.match3.scenario-6`: expected [["(:Foo)"]], observed [["()"], ["(:Foo)"]]
+- `tck.clauses.match.match3.scenario-7`: expected [["(:A:B:C:D:E:F:G:H:I:J:K:L:M)", "(:Z:Y:X:W:V:U)"]], observed [["(:A:B:C:D:E:F:G:H:I:J:K:L:M)", "(:U:V:W:X:Y:Z)"]]
+- `tck.clauses.match.match3.scenario-15`: expected [["(:A)", "[:T1]", "(:Looper)", "[:LOOP]", "(:Looper)"], ["(:A)", "[:T1]", "(:Looper)", "[:T2]", "(:B)"]], observed [["(:A)", "[:T1]", "(:Looper)", "[:LOOP]", "(:Looper)"], ["(:A)", "[:T1]", "(:Looper)", "[:T1]", "(:A)"], ["(:A)", "[:T1]", "(:Looper)", "[:T2]", "(:B)"]]
+- `tck.clauses.match.match3.scenario-16`: expected [["(:A)", "[:T1]", "(:Looper)", "[:LOOP]", "(:Looper)"], ["(:A)", "[:T1]", "(:Looper)", "[:T2]", "(:B)"], ["(:B)", "[:T2]", "(:Looper)", "[:LOOP]", "(:Looper)"], ["(:B)", "[:T2]", "(:Looper)", "[:T1]", "(:A)"], ["(:Looper)", "[:LOOP]", "(:Looper)", "[:T1]", "(:A)"], ["(:Looper)", "[:LOOP]", "(:Looper)", "[:T2]", "(:B)"]], observed [["(:A)", "[:T1]", "(:Looper)", "[:LOOP]", "(:Looper)"], ["(:A)", "[:T1]", "(:Looper)", "[:T1]", "(:A)"], ["(:A)", "[:T1]", "(:Looper)", "[:T2]", "(:B)"], ["(:B)", "[:T2]", "(:Looper)", "[:LOOP]", "(:Looper)"], ["(:B)", "[:T2]", "(:Looper)", "[:T1]", "(:A)"], ["(:B)", "[:T2]", "(:Looper)", "[:T2]", "(:B)"], ["(:Looper)", "[:LOOP]", "(:Looper)", "[:LOOP]", "(:Looper)"], ["(:Looper)", "[:LOOP]", "(:Looper)", "[:T1]", "(:A)"], ["(:Looper)", "[:LOOP]", "(:Looper)", "[:T2]", "(:B)"], ["(:Looper)", "[:T1]", "(:A)", "[:T1]", "(:Looper)"], ["(:Looper)", "[:T2]", "(:B)", "[:T2]", "(:Looper)"]]
 - `tck.clauses.match.match3.scenario-19`: expected EOI, WHERE, UNION, clause, or relationship_pattern at byte 54..54
-- `tck.clauses.match.match3.scenario-20`: result expectation is not representable by the scalar adapter
-- `tck.clauses.match.match3.scenario-21`: result expectation is not representable by the scalar adapter
-- `tck.clauses.match.match3.scenario-22`: result expectation is not representable by the scalar adapter
-- `tck.clauses.match.match3.scenario-23`: result expectation is not representable by the scalar adapter
 - `tck.clauses.match.match3.scenario-24`: query execution failed: Parse error: duplicate variable `r` at byte 45..46; mutation execution failed: Cypher mutation binding failed: duplicate variable `r` at byte 45..46; query:
 MATCH (a1)-[r:T]->()
 WITH r, a1
@@ -3365,8 +3457,6 @@ RETURN a1, r, b2
 - `tck.clauses.match.match4.scenario-1`: query execution failed: Parse error: no such column: b2; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 25..34; query:
 MATCH (a)-[r*1..1]->(b)
 RETURN r
-- `tck.clauses.match.match4.scenario-2`: result expectation is not representable by the scalar adapter
-- `tck.clauses.match.match4.scenario-3`: result expectation is not representable by the scalar adapter
 - `tck.clauses.match.match4.scenario-4`: TCK setup query failed: query execution failed: Parse error: mutation clauses in read queries is not supported in the initial graph slice at byte 1..45; mutation execution failed: graph mutation database operation failed: Parse error: no such function: collect; query:
 CREATE (a {var: 'start'}), (b {var: 'end'})
 WITH *
@@ -3425,8 +3515,8 @@ RETURN c.name
 CREATE (:Label1)(:Label3)
 ; query:
 CREATE (:Label1)(:Label3)
-- `tck.clauses.match.match6.scenario-10`: result expectation is not representable by the scalar adapter
-- `tck.clauses.match.match6.scenario-11`: result expectation is not representable by the scalar adapter
+- `tck.clauses.match.match6.scenario-10`: expected [["(:B)-[:T]->(:A)>"]], observed [["<(:B)-[:T]->(:A)<-[:T]-(:B)>"], ["<(:C)-[:T]->(:B)-[:T]->(:A)>"], ["<(:C)-[:T]->(:B)<-[:T]-(:C)>"]]
+- `tck.clauses.match.match6.scenario-11`: expected [["(:C)-[:T]->(:B)-[:T]->(:A)>"]], observed [["<(:B)-[:T]->(:A)<-[:T]-(:B)-[:T]->(:A)>"], ["<(:B)-[:T]->(:A)<-[:T]-(:B)<-[:T]-(:C)>"], ["<(:C)-[:T]->(:B)-[:T]->(:A)<-[:T]-(:B)>"], ["<(:C)-[:T]->(:B)<-[:T]-(:C)-[:T]->(:B)>"], ["<(:C)-[:T]->(:B)<-[:T]-(:C)<-[:T]-(:D)>"], ["<(:D)-[:T]->(:C)-[:T]->(:B)-[:T]->(:A)>"], ["<(:D)-[:T]->(:C)-[:T]->(:B)<-[:T]-(:C)>"], ["<(:D)-[:T]->(:C)<-[:T]-(:D)-[:T]->(:C)>"]]
 - `tck.clauses.match.match6.scenario-12`: expected EOI, WHERE, UNION, clause, or relationship_pattern at byte 11..11
 - `tck.clauses.match.match6.scenario-13`: expected EOI, WHERE, UNION, clause, or relationship_pattern at byte 13..13
 - `tck.clauses.match.match6.scenario-14`: query execution failed: Parse error: variable-length path values is not supported in the initial graph slice at byte 82..91; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 75..91; query:
@@ -3438,8 +3528,7 @@ MATCH p = (a {name: 'A'})-[:KNOWS*0..1]->(b)-[:FRIEND*0..1]->(c)
 RETURN p
 - `tck.clauses.match.match6.scenario-18`: expected [[""]], observed [["<(:Movie)<-[:T]-()>"]]
 - `tck.clauses.match.match7.scenario-1`: expected [["<null>"]], observed []
-- `tck.clauses.match.match7.scenario-2`: result expectation is not representable by the scalar adapter
-- `tck.clauses.match.match7.scenario-3`: result expectation is not representable by the scalar adapter
+- `tck.clauses.match.match7.scenario-3`: expected [["(:A {num: 42})"]], observed [["(:A {num: 42})"], ["(:B {num: 46})"], ["(:C)"], ["(:Single)"], ["(:Single)"]]
 - `tck.clauses.match.match7.scenario-4`: query execution failed: Parse error: duplicate variable `r` at byte 63..64; mutation execution failed: Cypher mutation binding failed: duplicate variable `r` at byte 63..64; query:
 MATCH (a1)-[r]->()
 WITH r, a1
@@ -3458,11 +3547,10 @@ WITH r, a1
   LIMIT 1
 OPTIONAL MATCH (a1)-[r]->(b2)
 RETURN a1, r, b2
-- `tck.clauses.match.match7.scenario-7`: result expectation is not representable by the scalar adapter
 - `tck.clauses.match.match7.scenario-8`: expected [["<null>"]], observed [["(:C)"]]
-- `tck.clauses.match.match7.scenario-9`: result expectation is not representable by the scalar adapter
+- `tck.clauses.match.match7.scenario-9`: expected [["(:A {num: 42})"]], observed [["(:A {num: 42})"], ["(:B {num: 46})"]]
 - `tck.clauses.match.match7.scenario-10`: expected [["<null>"]], observed []
-- `tck.clauses.match.match7.scenario-11`: result expectation is not representable by the scalar adapter
+- `tck.clauses.match.match7.scenario-11`: expected [["(:A {num: 1})", "(:B {num: 2})", "(:C {num: 3})"], ["(:B {num: 2})", "(:A {num: 1})", "<null>"]], observed [["(:A {num: 1})", "(:B {num: 2})", "(:C {num: 3})"], ["(:A {num: 1})", "(:B {num: 2})", "<null>"], ["(:B {num: 2})", "(:A {num: 1})", "<null>"], ["(:B {num: 2})", "<null>", "<null>"], ["(:C {num: 3})", "<null>", "<null>"]]
 - `tck.clauses.match.match7.scenario-12`: query execution failed: Parse error: optional variable-length relationships is not supported in the initial graph slice at byte 33..45; mutation execution failed: Cypher mutation binding failed: optional variable-length relationships is not supported in the initial graph slice at byte 33..45; query:
 MATCH (a:Single)
 OPTIONAL MATCH (a)-[*]->(b)
@@ -3481,7 +3569,7 @@ OPTIONAL MATCH (a)-[:FOO]->(b:B)
 OPTIONAL MATCH (b)<-[:BAR*]-(c:B)
 RETURN a, b, c
 - `tck.clauses.match.match7.scenario-16`: expected [["<null>"]], observed [["{\"nodes\":[2,null],\"relationships\":[null]}"]]
-- `tck.clauses.match.match7.scenario-17`: result expectation is not representable by the scalar adapter
+- `tck.clauses.match.match7.scenario-17`: expected [["( {name: 'B'})", "<( {name: 'A'})-[:X]->( {name: 'B'})>"], ["( {name: 'C'})", "<null>"]], observed [["( {name: 'B'})", "<( {name: 'A'})-[:X]->( {name: 'B'})>"], ["( {name: 'C'})", "{\"nodes\":[1,3],\"relationships\":[null]}"]]
 - `tck.clauses.match.match7.scenario-18`: expected [["<null>"]], observed [["{\"nodes\":[2,3],\"relationships\":[null]}"]]
 - `tck.clauses.match.match7.scenario-19`: query execution failed: Parse error: optional variable-length relationships is not supported in the initial graph slice at byte 38..60; mutation execution failed: Cypher mutation binding failed: optional variable-length relationships is not supported in the initial graph slice at byte 38..60; query:
 MATCH (a {name: 'A'})
@@ -3499,13 +3587,10 @@ OPTIONAL MATCH (a)-->(c:NonExistent)
 WITH coalesce(b, c) AS x
 MATCH (x)-->(d)
 RETURN d
-- `tck.clauses.match.match7.scenario-23`: result expectation is not representable by the scalar adapter
 - `tck.clauses.match.match7.scenario-24`: expected [["[:LOOP]"]], observed [["<null>"], ["[:LOOP]"]]
 - `tck.clauses.match.match7.scenario-25`: expected [["<null>"], ["<null>"], ["<null>"]], observed [["<null>"], ["<null>"], ["<null>"], ["<null>"]]
-- `tck.clauses.match.match7.scenario-26`: result expectation is not representable by the scalar adapter
-- `tck.clauses.match.match7.scenario-27`: result expectation is not representable by the scalar adapter
+- `tck.clauses.match.match7.scenario-27`: expected [["<null>", "(:B {num: 46})", "<null>"]], observed []
 - `tck.clauses.match.match7.scenario-28`: expected [["<null>"]], observed [["[:REL]"], ["[:REL]"]]
-- `tck.clauses.match.match8.scenario-1`: result expectation is not representable by the scalar adapter
 - `tck.clauses.match.match8.scenario-2`: query execution failed: Parse error: mutation clauses in read queries is not supported in the initial graph slice at byte 11..21; mutation execution failed: Cypher mutation binding failed: MATCH after a mutation clause is not supported in the initial graph slice at byte 28..52; query:
 MATCH (a)
 MERGE (b)
@@ -3552,8 +3637,6 @@ WHERE x.name IN ['B', 'C']
 OPTIONAL MATCH p = (a)-[r*]->(x)
 RETURN r, x, p
 - `tck.clauses.match-where.matchwhere1.scenario-2`: expected EOI, WHERE, UNION, clause, or relationship_pattern at byte 9..9
-- `tck.clauses.match-where.matchwhere1.scenario-3`: result expectation is not representable by the scalar adapter
-- `tck.clauses.match-where.matchwhere1.scenario-4`: result expectation is not representable by the scalar adapter
 - `tck.clauses.match-where.matchwhere1.scenario-5`: TCK setup query failed: query execution failed: expected EOI, UNION, clause, or relationship_pattern at byte 27..27; mutation execution failed: Cypher parse failed: expected EOI, UNION, clause, or relationship_pattern at byte 27..27; query:
 CREATE ({name: 'Someone'})({name: 'Andres'})
 ; query:
@@ -3563,14 +3646,10 @@ CREATE ({name: 'Someone'})({name: 'Andres'})
 MATCH (n {name: 'A'})-[r]->(x)
 WHERE type(r) = 'KNOWS'
 RETURN x
-- `tck.clauses.match-where.matchwhere1.scenario-8`: result expectation is not representable by the scalar adapter
-- `tck.clauses.match-where.matchwhere1.scenario-9`: result expectation is not representable by the scalar adapter
-- `tck.clauses.match-where.matchwhere1.scenario-10`: result expectation is not representable by the scalar adapter
 - `tck.clauses.match-where.matchwhere1.scenario-11`: query execution failed: Parse error: no such function: type; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 65..74; query:
 MATCH (n)-[r]->(x)
 WHERE type(r) = 'KNOWS' OR type(r) = 'HATES'
 RETURN r
-- `tck.clauses.match-where.matchwhere1.scenario-12`: result expectation is not representable by the scalar adapter
 - `tck.clauses.match-where.matchwhere2.scenario-1`: TCK setup query failed: query execution failed: Parse error: mutation clauses in read queries is not supported in the initial graph slice at byte 1..51; mutation execution failed: graph mutation database operation failed: Runtime error: UNIQUE constraint failed: people.id (19); query:
 CREATE (a:A), (b:B {id: 1}), (c:C {id: 2}), (d:D)
 CREATE (a)-[:T]->(b),
@@ -3587,7 +3666,6 @@ CREATE (a)-[:T]->(b),
        (b)-[:T]->(c),
        (b)-[:T]->(d),
        (c)-[:T]->(d)
-- `tck.clauses.match-where.matchwhere3.scenario-1`: result expectation is not representable by the scalar adapter
 - `tck.clauses.match-where.matchwhere3.scenario-2`: TCK setup query failed: query execution failed: Parse error: mutation clauses in read queries is not supported in the initial graph slice at byte 1..84; mutation execution failed: graph mutation database operation failed: Runtime error: UNIQUE constraint failed: people.id (19); query:
 CREATE (:A {id: 1}),
        (:A {id: 2}),
@@ -3598,18 +3676,12 @@ CREATE (:A {id: 1}),
        (:A {id: 2}),
        (:B {id: 2}),
        (:B {id: 3})
-- `tck.clauses.match-where.matchwhere3.scenario-3`: result expectation is not representable by the scalar adapter
-- `tck.clauses.match-where.matchwhere4.scenario-1`: result expectation is not representable by the scalar adapter
 - `tck.clauses.match-where.matchwhere4.scenario-2`: query execution failed: Invalid argument supplied: graph snapshot 1 is not built; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 93..111; query:
 MATCH (a), (b)
 WHERE a.id = 0
   AND (a)-[:T]->(b:TheLabel)
   OR (a)-[:T*]->(b:MissingLabel)
 RETURN DISTINCT b
-- `tck.clauses.match-where.matchwhere5.scenario-1`: result expectation is not representable by the scalar adapter
-- `tck.clauses.match-where.matchwhere5.scenario-2`: result expectation is not representable by the scalar adapter
-- `tck.clauses.match-where.matchwhere5.scenario-3`: result expectation is not representable by the scalar adapter
-- `tck.clauses.match-where.matchwhere5.scenario-4`: result expectation is not representable by the scalar adapter
 - `tck.clauses.match-where.matchwhere6.scenario-1`: query execution failed: Parse error: no such column: b3; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 62..76; query:
 MATCH (a)-->(b)
 WHERE b:B
@@ -3621,7 +3693,7 @@ MATCH (n:Single)
 OPTIONAL MATCH (n)-[r]-(m)
 WHERE m:NonExistent
 RETURN r
-- `tck.clauses.match-where.matchwhere6.scenario-3`: result expectation is not representable by the scalar adapter
+- `tck.clauses.match-where.matchwhere6.scenario-3`: expected [["(:A {num: 42})"]], observed [["(:A {num: 42})"], ["<null>"]]
 - `tck.clauses.match-where.matchwhere6.scenario-4`: expected [["Mark"]], observed [["<null>"], ["Mark"]]
 - `tck.clauses.match-where.matchwhere6.scenario-5`: query execution failed: Parse error: duplicate variable `r` at byte 63..64; mutation execution failed: Cypher mutation binding failed: duplicate variable `r` at byte 63..64; query:
 MATCH (a1)-[r]->()
@@ -3630,9 +3702,7 @@ WITH r, a1
 OPTIONAL MATCH (a2)<-[r]-(b2)
 WHERE a1 = a2
 RETURN a1, r, b2, a2
-- `tck.clauses.match-where.matchwhere6.scenario-6`: result expectation is not representable by the scalar adapter
-- `tck.clauses.match-where.matchwhere6.scenario-7`: result expectation is not representable by the scalar adapter
-- `tck.clauses.match-where.matchwhere6.scenario-8`: result expectation is not representable by the scalar adapter
+- `tck.clauses.match-where.matchwhere6.scenario-7`: expected [["(:X {val: 1})", "(:Y {val: 2})", "(:Z {val: 3})"], ["(:X {val: 4})", "<null>", "<null>"], ["(:X {val: 6})", "<null>", "<null>"]], observed [["(:X {val: 1})", "(:Y {val: 2})", "(:Z {val: 3})"], ["(:X {val: 4})", "(:Y {val: 5})", "<null>"], ["(:X {val: 6})", "<null>", "<null>"]]
 - `tck.clauses.merge.merge1.scenario-1`: query execution failed: Parse error: mutation clauses in read queries is not supported in the initial graph slice at byte 1..11; mutation execution failed: MERGE requires at least one property to identify the entity; query:
 MERGE (a)
 RETURN count(*) AS n
@@ -3739,7 +3809,7 @@ MERGE (newB)-[:REL]->(newC)
 - `tck.clauses.merge.merge8.scenario-1`: expected EOI, UNION, clause, or relationship_pattern at byte 45..45
 - `tck.clauses.merge.merge9.scenario-1`: side effect +properties expected 4, observed 0
 - `tck.clauses.remove.remove1.scenario-5`: expected [["<null>"]], observed []
-- `tck.clauses.remove.remove1.scenario-6`: result expectation is not representable by the scalar adapter
+- `tck.clauses.remove.remove1.scenario-6`: expected [["( {num: 42})"]], observed [["1"]]
 - `tck.clauses.remove.remove1.scenario-7`: expected [["0"]], observed [["3"]]
 - `tck.clauses.remove.remove2.scenario-1`: expected property_target at byte 17..17
 - `tck.clauses.remove.remove2.scenario-2`: expected property_target at byte 17..17
@@ -3753,7 +3823,7 @@ MERGE (newB)-[:REL]->(newC)
 - `tck.clauses.remove.remove3.scenario-12`: expected property_target at byte 19..19
 - `tck.clauses.remove.remove3.scenario-13`: expected property_target at byte 19..19
 - `tck.clauses.remove.remove3.scenario-14`: expected property_target at byte 19..19
-- `tck.clauses.return.return1.scenario-1`: result expectation is not representable by the scalar adapter
+- `tck.clauses.return.return1.scenario-1`: expected [["( {numbers: [1, 2, 3]})"]], observed [["( {numbers: '[1,2,3]'})"]]
 - `tck.clauses.return.return2.scenario-7`: expected [["[4, 5, 1, 2, 3]"]], observed [["0"]]
 - `tck.clauses.return.return2.scenario-9`: expected [["{a: 1, b: 'foo'}"]], observed [["{\"a\":1,\"b\":\"foo\"}"]]
 - `tck.clauses.return.return2.scenario-12`: expected [["[(:A), [:T], (:B)]"]], observed [["[1, 1, 2]"]]
@@ -3765,8 +3835,6 @@ RETURN type(r)
 - `tck.clauses.return.return2.scenario-15`: expected an error but execution succeeded
 - `tck.clauses.return.return2.scenario-17`: expected an error but execution succeeded
 - `tck.clauses.return.return3.scenario-1`: expected [["0", "1"]], observed [["1", "1"]]
-- `tck.clauses.return.return3.scenario-3`: result expectation is not representable by the scalar adapter
-- `tck.clauses.return.return4.scenario-2`: result expectation is not representable by the scalar adapter
 - `tck.clauses.return.return4.scenario-9`: expected [["42", "42", "{name: 1}"]], observed [["42", "42", "{\"name\":1}"]]
 - `tck.clauses.return.return4.scenario-11`: query execution failed: Parse error: unknown variable `likeTime` at byte 117..125; mutation execution failed: Cypher mutation binding failed: unknown variable `likeTime` at byte 117..125; query:
 MATCH (person:Person)<--(message)<-[like]-(:Person)
@@ -3775,21 +3843,19 @@ WITH like.creationDate AS likeTime, person AS person
 WITH head(collect({likeTime: likeTime})) AS latestLike, person AS person
 RETURN latestLike.likeTime AS likeTime
   ORDER BY likeTime
-- `tck.clauses.return.return6.scenario-2`: result expectation is not representable by the scalar adapter
+- `tck.clauses.return.return6.scenario-2`: expected [["( {id: 42})", "4"]], observed [["()", "4"]]
 - `tck.clauses.return.return6.scenario-5`: query execution failed: Parse error: no such function: collect; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 11..35; query:
 MATCH (a)
 RETURN size(collect(a))
 - `tck.clauses.return.return6.scenario-6`: query execution failed: Parse error: no such function: collect; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 47..112; query:
 MATCH (a {name: 'Andres'})<-[:FATHER]-(child)
 RETURN a.name, {foo: a.name='Andres', kids: collect(child.name)}
-- `tck.clauses.return.return6.scenario-8`: result expectation is not representable by the scalar adapter
 - `tck.clauses.return.return6.scenario-9`: query execution failed: Parse error: star arguments outside aggregating projections is not supported in the initial graph slice at byte 17..26; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 10..36; query:
 MATCH ()
 RETURN count(*) * 10 AS c
 - `tck.clauses.return.return6.scenario-10`: expected [["1", "[()]"]], observed [["1", "[1]"]]
-- `tck.clauses.return.return6.scenario-12`: result expectation is not representable by the scalar adapter
 - `tck.clauses.return.return6.scenario-13`: expected [["a", "[\"c\",\"b\"]", "1"]], observed [["a", "[\"b\",\"c\"]", "1"]]
-- `tck.clauses.return.return6.scenario-16`: result expectation is not representable by the scalar adapter
+- `tck.clauses.return.return6.scenario-16`: expected [["( {name: 'Michael'})", "( {name: 'Andres'})", "-7"], ["( {name: 'Michael'})", "( {name: 'Peter'})", "0"]], observed [["( {name: 'Michael'})", "( {name: 'Andres'})", "-7"], ["( {name: 'Michael'})", "( {name: 'Michael'})", "6"], ["( {name: 'Michael'})", "( {name: 'Peter'})", "0"]]
 - `tck.clauses.return.return6.scenario-18`: expected [], observed [["<null>", "<null>"]]
 - `tck.clauses.return.return6.scenario-19`: expected [], observed [["<null>", "<null>"]]
 - `tck.clauses.return.return6.scenario-20`: expected an error but execution succeeded
@@ -3799,24 +3865,22 @@ RETURN *
 - `tck.clauses.return.return7.scenario-2`: expected an error but execution succeeded
 - `tck.clauses.return-orderby.returnorderby1.scenario-9`: expected [["[]"], ["[\"a\"]"], ["[\"a\",1]"], ["[1]"], ["[1,\"a\"]"], ["[1, null]"], ["[null, 1]"], ["[null, 2]"]], observed [["[\"a\",1]"], ["[\"a\"]"], ["[1,\"a\"]"], ["[1, null]"], ["[1]"], ["[]"], ["[null, 1]"], ["[null, 2]"]]
 - `tck.clauses.return-orderby.returnorderby1.scenario-10`: expected [["[null, 2]"], ["[null, 1]"], ["[1, null]"], ["[1,\"a\"]"], ["[1]"], ["[\"a\",1]"], ["[\"a\"]"], ["[]"]], observed [["[null, 2]"], ["[null, 1]"], ["[]"], ["[1]"], ["[1, null]"], ["[1,\"a\"]"], ["[\"a\"]"], ["[\"a\",1]"]]
-- `tck.clauses.return-orderby.returnorderby1.scenario-11`: result expectation is not representable by the scalar adapter
-- `tck.clauses.return-orderby.returnorderby1.scenario-12`: result expectation is not representable by the scalar adapter
+- `tck.clauses.return-orderby.returnorderby1.scenario-11`: expected [["{a: 'map'}"], ["(:N)"], ["[:REL]"], ["[\"list\"]"], ["()>"], ["text"], ["0"], ["1.5"], ["NaN"], ["<null>"]], observed [["0"], ["1"], ["1"], ["1.5"], ["[\"list\"]"], ["text"], ["{\"a\":\"map\"}"], ["{\"nodes\":[1,2],\"relationships\":[1]}"], ["<null>"], ["<null>"]]
+- `tck.clauses.return-orderby.returnorderby1.scenario-12`: expected [["<null>"], ["NaN"], ["1.5"], ["0"], ["text"], ["()>"], ["[\"list\"]"], ["[:REL]"], ["(:N)"], ["{a: 'map'}"]], observed [["<null>"], ["<null>"], ["{\"nodes\":[1,2],\"relationships\":[1]}"], ["{\"a\":\"map\"}"], ["text"], ["[\"list\"]"], ["1.5"], ["1"], ["1"], ["0"]]
 - `tck.clauses.return-orderby.returnorderby2.scenario-3`: query execution failed: Parse error: misuse of aggregate: max(); mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 11..63; query:
 MATCH (n)
 RETURN n.division, max(n.age)
   ORDER BY max(n.age)
-- `tck.clauses.return-orderby.returnorderby2.scenario-4`: result expectation is not representable by the scalar adapter
-- `tck.clauses.return-orderby.returnorderby2.scenario-5`: result expectation is not representable by the scalar adapter
 - `tck.clauses.return-orderby.returnorderby2.scenario-6`: query execution failed: Parse error: star arguments outside aggregating projections is not supported in the initial graph slice at byte 39..48; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 11..48; query:
 MATCH (a)
 RETURN a, count(*)
 ORDER BY count(*)
-- `tck.clauses.return-orderby.returnorderby2.scenario-8`: result expectation is not representable by the scalar adapter
+- `tck.clauses.return-orderby.returnorderby2.scenario-8`: expected [["( {id: 1})"], ["( {id: 10})"]], observed [["()"], ["()"]]
 - `tck.clauses.return-orderby.returnorderby2.scenario-9`: query execution failed: Parse error: unknown variable `id` at byte 49..52; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 11..57; query:
 MATCH (n)
 RETURN DISTINCT n.id AS id
   ORDER BY id DESC
-- `tck.clauses.return-orderby.returnorderby2.scenario-10`: result expectation is not representable by the scalar adapter
+- `tck.clauses.return-orderby.returnorderby2.scenario-10`: expected [["( {id: 1})"], ["( {id: 10})"]], observed [["()"], ["()"]]
 - `tck.clauses.return-orderby.returnorderby2.scenario-11`: query execution failed: Parse error: unknown variable `x` at byte 70..72; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 20..72; query:
 MATCH (a:A), (b:X)
 RETURN count(a) * 10 + count(b) * 5 AS x
@@ -3843,12 +3907,9 @@ ORDER BY age, age + count(you.age)
 MATCH (me: Person)--(you: Person)
 RETURN me.age AS age, count(you.age) AS cnt
 ORDER BY me.age + count(you.age)
-- `tck.clauses.return-skip-limit.returnskiplimit1.scenario-1`: result expectation is not representable by the scalar adapter
-- `tck.clauses.return-skip-limit.returnskiplimit1.scenario-2`: result expectation is not representable by the scalar adapter
 - `tck.clauses.return-skip-limit.returnskiplimit1.scenario-6`: expected an error but execution succeeded
 - `tck.clauses.return-skip-limit.returnskiplimit1.scenario-7`: expected an error but execution succeeded
 - `tck.clauses.return-skip-limit.returnskiplimit1.scenario-11`: expected an error but execution succeeded
-- `tck.clauses.return-skip-limit.returnskiplimit2.scenario-2`: result expectation is not representable by the scalar adapter
 - `tck.clauses.return-skip-limit.returnskiplimit2.scenario-7`: query execution failed: Parse error: unknown variable `x` at byte 44..46; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 13..61; query:
 MATCH (foo)
 RETURN foo.num AS x
@@ -3857,8 +3918,6 @@ RETURN foo.num AS x
 - `tck.clauses.return-skip-limit.returnskiplimit2.scenario-10`: expected an error but execution succeeded
 - `tck.clauses.return-skip-limit.returnskiplimit2.scenario-12`: expected an error but execution succeeded
 - `tck.clauses.return-skip-limit.returnskiplimit2.scenario-13`: expected an error but execution succeeded
-- `tck.clauses.return-skip-limit.returnskiplimit3.scenario-1`: result expectation is not representable by the scalar adapter
-- `tck.clauses.return-skip-limit.returnskiplimit3.scenario-2`: result expectation is not representable by the scalar adapter
 - `tck.clauses.set.set1.scenario-1`: side effect +properties expected 1, observed 0
 - `tck.clauses.set.set1.scenario-2`: side effect +properties expected 1, observed 0
 - `tck.clauses.set.set1.scenario-3`: expected identifier at byte 16..16
@@ -3868,9 +3927,9 @@ RETURN foo.num AS x
 - `tck.clauses.set.set1.scenario-7`: expected [["[1, 2, 3, 4, 5]"]], observed [["0"]]
 - `tck.clauses.set.set1.scenario-8`: expected [["<null>"]], observed []
 - `tck.clauses.set.set1.scenario-10`: expected an error but execution succeeded
-- `tck.clauses.set.set1.scenario-11`: result expectation is not representable by the scalar adapter
-- `tck.clauses.set.set2.scenario-1`: result expectation is not representable by the scalar adapter
-- `tck.clauses.set.set2.scenario-2`: result expectation is not representable by the scalar adapter
+- `tck.clauses.set.set1.scenario-11`: expected [["(:X {name: 'A', name2: 'B', num: 5})"]], observed [["1"]]
+- `tck.clauses.set.set2.scenario-1`: expected [["(:A {property2: 46})"]], observed [["1"]]
+- `tck.clauses.set.set2.scenario-2`: expected [["(:A {age: 35})"]], observed [["1"]]
 - `tck.clauses.set.set2.scenario-3`: expected [["[:REL {property2: 24}]"]], observed [["1"]]
 - `tck.clauses.set.set3.scenario-1`: expected property_target at byte 14..14
 - `tck.clauses.set.set3.scenario-2`: expected property_target at byte 14..14
@@ -3911,8 +3970,6 @@ RETURN foo.num AS x
 - `tck.clauses.set.set6.scenario-19`: side effect +properties expected 5, observed 0
 - `tck.clauses.set.set6.scenario-20`: side effect +properties expected 5, observed 0
 - `tck.clauses.set.set6.scenario-21`: side effect +properties expected 5, observed 0
-- `tck.clauses.union.union1.scenario-4`: result expectation is not representable by the scalar adapter
-- `tck.clauses.union.union2.scenario-4`: result expectation is not representable by the scalar adapter
 - `tck.clauses.unwind.unwind1.scenario-3`: expected [["1"], ["2"], ["3"], ["4"], ["5"], ["6"]], observed [["0"]]
 - `tck.clauses.unwind.unwind1.scenario-5`: query execution failed: Parse error: property access requires a node or relationship at byte 66..70; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 59..74; query:
 MATCH (row)
@@ -3928,8 +3985,8 @@ MATCH (a)-[:Y]->(b2)
 RETURN a, b2
 - `tck.clauses.unwind.unwind1.scenario-13`: expected [["1", "[1, 2]", "3", "[3, 4]", "5", "[5, 6]"], ["1", "[1, 2]", "3", "[3, 4]", "6", "[5, 6]"], ["1", "[1, 2]", "4", "[3, 4]", "5", "[5, 6]"], ["1", "[1, 2]", "4", "[3, 4]", "6", "[5, 6]"], ["2", "[1, 2]", "3", "[3, 4]", "5", "[5, 6]"], ["2", "[1, 2]", "3", "[3, 4]", "6", "[5, 6]"], ["2", "[1, 2]", "4", "[3, 4]", "5", "[5, 6]"], ["2", "[1, 2]", "4", "[3, 4]", "6", "[5, 6]"]], observed [["[1, 2]", "[3, 4]", "[5, 6]", "1", "3", "5"], ["[1, 2]", "[3, 4]", "[5, 6]", "1", "3", "6"], ["[1, 2]", "[3, 4]", "[5, 6]", "1", "4", "5"], ["[1, 2]", "[3, 4]", "[5, 6]", "1", "4", "6"], ["[1, 2]", "[3, 4]", "[5, 6]", "2", "3", "5"], ["[1, 2]", "[3, 4]", "[5, 6]", "2", "3", "6"], ["[1, 2]", "[3, 4]", "[5, 6]", "2", "4", "5"], ["[1, 2]", "[3, 4]", "[5, 6]", "2", "4", "6"]]
 - `tck.clauses.unwind.unwind1.scenario-14`: TCK parameter value is not representable by the generic adapter
-- `tck.clauses.with.with1.scenario-1`: result expectation is not representable by the scalar adapter
-- `tck.clauses.with.with1.scenario-2`: result expectation is not representable by the scalar adapter
+- `tck.clauses.with.with1.scenario-1`: expected [["(:A)", "(:B)"]], observed [["(:A)", "[:REL]", "(:B)"]]
+- `tck.clauses.with.with1.scenario-2`: expected [["(:A)", "(:B)", "(:X)"]], observed [["(:A)", "(:X)", "[:REL]", "(:B)"]]
 - `tck.clauses.with.with1.scenario-3`: query execution failed: Parse error: duplicate variable `r2` at byte 45..47; mutation execution failed: Cypher mutation binding failed: duplicate variable `r2` at byte 45..47; query:
 MATCH ()-[r1]->(:X)
 WITH r1 AS r2
@@ -3939,8 +3996,7 @@ RETURN r2 AS rel
 MATCH p = (a)
 WITH p
 RETURN p
-- `tck.clauses.with.with1.scenario-6`: result expectation is not representable by the scalar adapter
-- `tck.clauses.with.with2.scenario-1`: result expectation is not representable by the scalar adapter
+- `tck.clauses.with.with2.scenario-1`: expected [["(:End {id: 0, num: 42})"]], observed [["(:End {num: 42})"]]
 - `tck.clauses.with.with2.scenario-2`: query execution failed: Parse error: property access requires a node or relationship at byte 49..58; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 42..70; query:
 WITH {name: {name2: 'baz'}} AS nestedMap
 RETURN nestedMap.name.name2
@@ -3950,7 +4006,6 @@ WITH a, r, b
 MATCH (a)-[r]->(b)
 RETURN r AS rel
   ORDER BY rel.id
-- `tck.clauses.with.with4.scenario-2`: result expectation is not representable by the scalar adapter
 - `tck.clauses.with.with4.scenario-6`: query execution failed: Parse error: unknown variable `likeTime` at byte 117..125; mutation execution failed: Cypher mutation binding failed: unknown variable `likeTime` at byte 117..125; query:
 MATCH (person:Person)<--(message)<-[like]-(:Person)
 WITH like.creationDate AS likeTime, person AS person
@@ -3994,172 +4049,56 @@ RETURN a, r, b
 - `tck.clauses.with-orderby.withorderby1.scenario-16`: expected [["10:35-08:00"], ["12:31:14.645876124+01:00"], ["12:31:14.645876123+01:00"]], observed [["12:35:15+05:00"], ["12:31:14.645876124+01:00"], ["12:31:14.645876123+01:00"]]
 - `tck.clauses.with-orderby.withorderby1.scenario-19`: expected [["0001-01-01T01:01:01.000000001-11:59"], ["1980-12-11T12:31:14-11:59"], ["1984-10-11T12:31:14.645876123+00:17"]], observed [["0001-01-01T01:01:01.000000001-11:59"], ["1980-12-11T12:31:14-11:59"], ["1984-10-11T12:30:14.000000012+00:15"]]
 - `tck.clauses.with-orderby.withorderby1.scenario-20`: expected [["9999-09-09T09:59:59.999999999+11:59"], ["1984-10-11T12:30:14.000000012+00:15"], ["1984-10-11T12:31:14.645876123+00:17"]], observed [["9999-09-09T09:59:59.999999999+11:59"], ["1984-10-11T12:31:14.645876123+00:17"], ["1984-10-11T12:30:14.000000012+00:15"]]
-- `tck.clauses.with-orderby.withorderby1.scenario-21`: result expectation is not representable by the scalar adapter
+- `tck.clauses.with-orderby.withorderby1.scenario-21`: expected [["()>"], ["(:N)"], ["[\"list\"]"], ["[:REL]"], ["{a: 'map'}"]], observed [["0"], ["1"], ["1"], ["1.5"], ["[\"list\"]"]]
 - `tck.clauses.with-orderby.withorderby1.scenario-22`: expected [["0"], ["1.5"], ["<null>"], ["NaN"], ["text"]], observed [["<null>"], ["<null>"], ["text"], ["{\"a\":\"map\"}"], ["{\"nodes\":[1,2],\"relationships\":[1]}"]]
-- `tck.clauses.with-orderby.withorderby1.scenario-23.examples-1-row-1`: result expectation is not representable by the scalar adapter
-- `tck.clauses.with-orderby.withorderby1.scenario-23.examples-1-row-2`: result expectation is not representable by the scalar adapter
-- `tck.clauses.with-orderby.withorderby1.scenario-23.examples-1-row-3`: result expectation is not representable by the scalar adapter
-- `tck.clauses.with-orderby.withorderby1.scenario-24.examples-1-row-1`: result expectation is not representable by the scalar adapter
-- `tck.clauses.with-orderby.withorderby1.scenario-24.examples-1-row-2`: result expectation is not representable by the scalar adapter
-- `tck.clauses.with-orderby.withorderby1.scenario-25.examples-1-row-1`: result expectation is not representable by the scalar adapter
-- `tck.clauses.with-orderby.withorderby1.scenario-25.examples-1-row-2`: result expectation is not representable by the scalar adapter
-- `tck.clauses.with-orderby.withorderby1.scenario-25.examples-1-row-3`: result expectation is not representable by the scalar adapter
-- `tck.clauses.with-orderby.withorderby1.scenario-26.examples-1-row-1`: result expectation is not representable by the scalar adapter
-- `tck.clauses.with-orderby.withorderby1.scenario-26.examples-1-row-2`: result expectation is not representable by the scalar adapter
-- `tck.clauses.with-orderby.withorderby1.scenario-27.examples-1-row-1`: result expectation is not representable by the scalar adapter
-- `tck.clauses.with-orderby.withorderby1.scenario-27.examples-1-row-2`: result expectation is not representable by the scalar adapter
-- `tck.clauses.with-orderby.withorderby1.scenario-27.examples-1-row-3`: result expectation is not representable by the scalar adapter
-- `tck.clauses.with-orderby.withorderby1.scenario-28.examples-1-row-1`: result expectation is not representable by the scalar adapter
-- `tck.clauses.with-orderby.withorderby1.scenario-28.examples-1-row-2`: result expectation is not representable by the scalar adapter
-- `tck.clauses.with-orderby.withorderby1.scenario-29.examples-1-row-1`: result expectation is not representable by the scalar adapter
-- `tck.clauses.with-orderby.withorderby1.scenario-29.examples-1-row-2`: result expectation is not representable by the scalar adapter
-- `tck.clauses.with-orderby.withorderby1.scenario-29.examples-1-row-3`: result expectation is not representable by the scalar adapter
-- `tck.clauses.with-orderby.withorderby1.scenario-30.examples-1-row-1`: result expectation is not representable by the scalar adapter
-- `tck.clauses.with-orderby.withorderby1.scenario-30.examples-1-row-2`: result expectation is not representable by the scalar adapter
-- `tck.clauses.with-orderby.withorderby1.scenario-31.examples-1-row-1`: result expectation is not representable by the scalar adapter
-- `tck.clauses.with-orderby.withorderby1.scenario-31.examples-1-row-2`: result expectation is not representable by the scalar adapter
-- `tck.clauses.with-orderby.withorderby1.scenario-31.examples-1-row-3`: result expectation is not representable by the scalar adapter
-- `tck.clauses.with-orderby.withorderby1.scenario-32.examples-1-row-1`: result expectation is not representable by the scalar adapter
-- `tck.clauses.with-orderby.withorderby1.scenario-32.examples-1-row-2`: result expectation is not representable by the scalar adapter
-- `tck.clauses.with-orderby.withorderby1.scenario-33.examples-1-row-1`: result expectation is not representable by the scalar adapter
-- `tck.clauses.with-orderby.withorderby1.scenario-33.examples-1-row-2`: result expectation is not representable by the scalar adapter
-- `tck.clauses.with-orderby.withorderby1.scenario-33.examples-1-row-3`: result expectation is not representable by the scalar adapter
-- `tck.clauses.with-orderby.withorderby1.scenario-34.examples-1-row-1`: result expectation is not representable by the scalar adapter
-- `tck.clauses.with-orderby.withorderby1.scenario-34.examples-1-row-2`: result expectation is not representable by the scalar adapter
-- `tck.clauses.with-orderby.withorderby1.scenario-35.examples-1-row-1`: result expectation is not representable by the scalar adapter
-- `tck.clauses.with-orderby.withorderby1.scenario-35.examples-1-row-2`: result expectation is not representable by the scalar adapter
-- `tck.clauses.with-orderby.withorderby1.scenario-35.examples-1-row-3`: result expectation is not representable by the scalar adapter
-- `tck.clauses.with-orderby.withorderby1.scenario-36.examples-1-row-1`: result expectation is not representable by the scalar adapter
-- `tck.clauses.with-orderby.withorderby1.scenario-36.examples-1-row-2`: result expectation is not representable by the scalar adapter
-- `tck.clauses.with-orderby.withorderby1.scenario-37.examples-1-row-1`: result expectation is not representable by the scalar adapter
-- `tck.clauses.with-orderby.withorderby1.scenario-37.examples-1-row-2`: result expectation is not representable by the scalar adapter
-- `tck.clauses.with-orderby.withorderby1.scenario-37.examples-1-row-3`: result expectation is not representable by the scalar adapter
-- `tck.clauses.with-orderby.withorderby1.scenario-38.examples-1-row-1`: result expectation is not representable by the scalar adapter
-- `tck.clauses.with-orderby.withorderby1.scenario-38.examples-1-row-2`: result expectation is not representable by the scalar adapter
-- `tck.clauses.with-orderby.withorderby1.scenario-39.examples-1-row-1`: result expectation is not representable by the scalar adapter
-- `tck.clauses.with-orderby.withorderby1.scenario-39.examples-1-row-2`: result expectation is not representable by the scalar adapter
-- `tck.clauses.with-orderby.withorderby1.scenario-39.examples-1-row-3`: result expectation is not representable by the scalar adapter
-- `tck.clauses.with-orderby.withorderby1.scenario-40.examples-1-row-1`: result expectation is not representable by the scalar adapter
-- `tck.clauses.with-orderby.withorderby1.scenario-40.examples-1-row-2`: result expectation is not representable by the scalar adapter
-- `tck.clauses.with-orderby.withorderby1.scenario-41.examples-1-row-1`: result expectation is not representable by the scalar adapter
-- `tck.clauses.with-orderby.withorderby1.scenario-41.examples-1-row-2`: result expectation is not representable by the scalar adapter
-- `tck.clauses.with-orderby.withorderby1.scenario-41.examples-1-row-3`: result expectation is not representable by the scalar adapter
-- `tck.clauses.with-orderby.withorderby1.scenario-42.examples-1-row-1`: result expectation is not representable by the scalar adapter
-- `tck.clauses.with-orderby.withorderby1.scenario-42.examples-1-row-2`: result expectation is not representable by the scalar adapter
-- `tck.clauses.with-orderby.withorderby2.scenario-1.examples-1-row-1`: result expectation is not representable by the scalar adapter
-- `tck.clauses.with-orderby.withorderby2.scenario-1.examples-1-row-2`: result expectation is not representable by the scalar adapter
-- `tck.clauses.with-orderby.withorderby2.scenario-1.examples-1-row-3`: result expectation is not representable by the scalar adapter
-- `tck.clauses.with-orderby.withorderby2.scenario-2.examples-1-row-1`: result expectation is not representable by the scalar adapter
-- `tck.clauses.with-orderby.withorderby2.scenario-2.examples-1-row-2`: result expectation is not representable by the scalar adapter
-- `tck.clauses.with-orderby.withorderby2.scenario-3.examples-1-row-1`: result expectation is not representable by the scalar adapter
-- `tck.clauses.with-orderby.withorderby2.scenario-3.examples-1-row-2`: result expectation is not representable by the scalar adapter
-- `tck.clauses.with-orderby.withorderby2.scenario-3.examples-1-row-3`: result expectation is not representable by the scalar adapter
-- `tck.clauses.with-orderby.withorderby2.scenario-4.examples-1-row-1`: result expectation is not representable by the scalar adapter
-- `tck.clauses.with-orderby.withorderby2.scenario-4.examples-1-row-2`: result expectation is not representable by the scalar adapter
-- `tck.clauses.with-orderby.withorderby2.scenario-5.examples-1-row-1`: result expectation is not representable by the scalar adapter
-- `tck.clauses.with-orderby.withorderby2.scenario-5.examples-1-row-2`: result expectation is not representable by the scalar adapter
-- `tck.clauses.with-orderby.withorderby2.scenario-5.examples-1-row-3`: result expectation is not representable by the scalar adapter
-- `tck.clauses.with-orderby.withorderby2.scenario-6.examples-1-row-1`: result expectation is not representable by the scalar adapter
-- `tck.clauses.with-orderby.withorderby2.scenario-6.examples-1-row-2`: result expectation is not representable by the scalar adapter
-- `tck.clauses.with-orderby.withorderby2.scenario-7.examples-1-row-1`: result expectation is not representable by the scalar adapter
-- `tck.clauses.with-orderby.withorderby2.scenario-7.examples-1-row-2`: result expectation is not representable by the scalar adapter
-- `tck.clauses.with-orderby.withorderby2.scenario-7.examples-1-row-3`: result expectation is not representable by the scalar adapter
-- `tck.clauses.with-orderby.withorderby2.scenario-8.examples-1-row-1`: result expectation is not representable by the scalar adapter
-- `tck.clauses.with-orderby.withorderby2.scenario-8.examples-1-row-2`: result expectation is not representable by the scalar adapter
-- `tck.clauses.with-orderby.withorderby2.scenario-9.examples-1-row-1`: result expectation is not representable by the scalar adapter
-- `tck.clauses.with-orderby.withorderby2.scenario-9.examples-1-row-2`: result expectation is not representable by the scalar adapter
-- `tck.clauses.with-orderby.withorderby2.scenario-9.examples-1-row-3`: result expectation is not representable by the scalar adapter
-- `tck.clauses.with-orderby.withorderby2.scenario-10.examples-1-row-1`: result expectation is not representable by the scalar adapter
-- `tck.clauses.with-orderby.withorderby2.scenario-10.examples-1-row-2`: result expectation is not representable by the scalar adapter
-- `tck.clauses.with-orderby.withorderby2.scenario-11.examples-1-row-1`: result expectation is not representable by the scalar adapter
-- `tck.clauses.with-orderby.withorderby2.scenario-11.examples-1-row-2`: result expectation is not representable by the scalar adapter
-- `tck.clauses.with-orderby.withorderby2.scenario-11.examples-1-row-3`: result expectation is not representable by the scalar adapter
-- `tck.clauses.with-orderby.withorderby2.scenario-12.examples-1-row-1`: result expectation is not representable by the scalar adapter
-- `tck.clauses.with-orderby.withorderby2.scenario-12.examples-1-row-2`: result expectation is not representable by the scalar adapter
-- `tck.clauses.with-orderby.withorderby2.scenario-13.examples-1-row-1`: result expectation is not representable by the scalar adapter
-- `tck.clauses.with-orderby.withorderby2.scenario-13.examples-1-row-2`: result expectation is not representable by the scalar adapter
-- `tck.clauses.with-orderby.withorderby2.scenario-13.examples-1-row-3`: result expectation is not representable by the scalar adapter
-- `tck.clauses.with-orderby.withorderby2.scenario-14.examples-1-row-1`: result expectation is not representable by the scalar adapter
-- `tck.clauses.with-orderby.withorderby2.scenario-14.examples-1-row-2`: result expectation is not representable by the scalar adapter
-- `tck.clauses.with-orderby.withorderby2.scenario-15.examples-1-row-1`: result expectation is not representable by the scalar adapter
-- `tck.clauses.with-orderby.withorderby2.scenario-15.examples-1-row-2`: result expectation is not representable by the scalar adapter
-- `tck.clauses.with-orderby.withorderby2.scenario-15.examples-1-row-3`: result expectation is not representable by the scalar adapter
-- `tck.clauses.with-orderby.withorderby2.scenario-16.examples-1-row-1`: result expectation is not representable by the scalar adapter
-- `tck.clauses.with-orderby.withorderby2.scenario-16.examples-1-row-2`: result expectation is not representable by the scalar adapter
-- `tck.clauses.with-orderby.withorderby2.scenario-17.examples-1-row-1`: result expectation is not representable by the scalar adapter
-- `tck.clauses.with-orderby.withorderby2.scenario-17.examples-1-row-2`: result expectation is not representable by the scalar adapter
-- `tck.clauses.with-orderby.withorderby2.scenario-17.examples-1-row-3`: result expectation is not representable by the scalar adapter
-- `tck.clauses.with-orderby.withorderby2.scenario-18.examples-1-row-1`: result expectation is not representable by the scalar adapter
-- `tck.clauses.with-orderby.withorderby2.scenario-18.examples-1-row-2`: result expectation is not representable by the scalar adapter
-- `tck.clauses.with-orderby.withorderby2.scenario-19.examples-1-row-1`: result expectation is not representable by the scalar adapter
-- `tck.clauses.with-orderby.withorderby2.scenario-19.examples-1-row-2`: result expectation is not representable by the scalar adapter
-- `tck.clauses.with-orderby.withorderby2.scenario-19.examples-1-row-3`: result expectation is not representable by the scalar adapter
-- `tck.clauses.with-orderby.withorderby2.scenario-20.examples-1-row-1`: result expectation is not representable by the scalar adapter
-- `tck.clauses.with-orderby.withorderby2.scenario-20.examples-1-row-2`: result expectation is not representable by the scalar adapter
+- `tck.clauses.with-orderby.withorderby1.scenario-31.examples-1-row-1`: expected [["(:A {list: [2, -2]})", "[2, -2]"], ["(:B {list: [1, 2]})", "[1, 2]"], ["(:D {list: [1, -20]})", "[1, -20]"]], observed [["(:B {list: '[1,2]'})", "[1, 2]"], ["(:D {list: '[1,-20]'})", "[1, -20]"], ["(:E {list: '[2,-2,100]'})", "[2, -2, 100]"]]
+- `tck.clauses.with-orderby.withorderby1.scenario-31.examples-1-row-2`: expected [["(:A {list: [2, -2]})", "[2, -2]"], ["(:B {list: [1, 2]})", "[1, 2]"], ["(:D {list: [1, -20]})", "[1, -20]"]], observed [["(:B {list: '[1,2]'})", "[1, 2]"], ["(:D {list: '[1,-20]'})", "[1, -20]"], ["(:E {list: '[2,-2,100]'})", "[2, -2, 100]"]]
+- `tck.clauses.with-orderby.withorderby1.scenario-31.examples-1-row-3`: expected [["(:A {list: [2, -2]})", "[2, -2]"], ["(:B {list: [1, 2]})", "[1, 2]"], ["(:D {list: [1, -20]})", "[1, -20]"]], observed [["(:B {list: '[1,2]'})", "[1, 2]"], ["(:D {list: '[1,-20]'})", "[1, -20]"], ["(:E {list: '[2,-2,100]'})", "[2, -2, 100]"]]
+- `tck.clauses.with-orderby.withorderby1.scenario-32.examples-1-row-1`: expected [["(:A {list: [2, -2]})", "[2, -2]"], ["(:C {list: [300, 0]})", "[300, 0]"], ["(:E {list: [2, -2, 100]})", "[2, -2, 100]"]], observed [["(:A {list: '[2,-2]'})", "[2, -2]"], ["(:C {list: '[300,0]'})", "[300, 0]"], ["(:E {list: '[2,-2,100]'})", "[2, -2, 100]"]]
+- `tck.clauses.with-orderby.withorderby1.scenario-32.examples-1-row-2`: expected [["(:A {list: [2, -2]})", "[2, -2]"], ["(:C {list: [300, 0]})", "[300, 0]"], ["(:E {list: [2, -2, 100]})", "[2, -2, 100]"]], observed [["(:A {list: '[2,-2]'})", "[2, -2]"], ["(:C {list: '[300,0]'})", "[300, 0]"], ["(:E {list: '[2,-2,100]'})", "[2, -2, 100]"]]
+- `tck.clauses.with-orderby.withorderby1.scenario-37.examples-1-row-1`: expected [["(:B {time: '12:31:14.645876123+01:00'})", "12:31:14.645876123+01:00"], ["(:D {time: '12:35:15+05:00'})", "12:35:15+05:00"], ["(:E {time: '12:30:14.645876123+01:01'})", "12:30:14.645876123+01:01"]], observed [["(:A {time: '10:35-08:00'})", "10:35-08:00"], ["(:B {time: '12:31:14.645876123+01:00'})", "12:31:14.645876123+01:00"], ["(:E {time: '12:30:14.645876123+01:01'})", "12:30:14.645876123+01:01"]]
+- `tck.clauses.with-orderby.withorderby1.scenario-37.examples-1-row-2`: expected [["(:B {time: '12:31:14.645876123+01:00'})", "12:31:14.645876123+01:00"], ["(:D {time: '12:35:15+05:00'})", "12:35:15+05:00"], ["(:E {time: '12:30:14.645876123+01:01'})", "12:30:14.645876123+01:01"]], observed [["(:A {time: '10:35-08:00'})", "10:35-08:00"], ["(:B {time: '12:31:14.645876123+01:00'})", "12:31:14.645876123+01:00"], ["(:E {time: '12:30:14.645876123+01:01'})", "12:30:14.645876123+01:01"]]
+- `tck.clauses.with-orderby.withorderby1.scenario-37.examples-1-row-3`: expected [["(:B {time: '12:31:14.645876123+01:00'})", "12:31:14.645876123+01:00"], ["(:D {time: '12:35:15+05:00'})", "12:35:15+05:00"], ["(:E {time: '12:30:14.645876123+01:01'})", "12:30:14.645876123+01:01"]], observed [["(:A {time: '10:35-08:00'})", "10:35-08:00"], ["(:B {time: '12:31:14.645876123+01:00'})", "12:31:14.645876123+01:00"], ["(:E {time: '12:30:14.645876123+01:01'})", "12:30:14.645876123+01:01"]]
+- `tck.clauses.with-orderby.withorderby1.scenario-38.examples-1-row-1`: expected [["(:A {time: '10:35-08:00'})", "10:35-08:00"], ["(:B {time: '12:31:14.645876123+01:00'})", "12:31:14.645876123+01:00"], ["(:C {time: '12:31:14.645876124+01:00'})", "12:31:14.645876124+01:00"]], observed [["(:B {time: '12:31:14.645876123+01:00'})", "12:31:14.645876123+01:00"], ["(:C {time: '12:31:14.645876124+01:00'})", "12:31:14.645876124+01:00"], ["(:D {time: '12:35:15+05:00'})", "12:35:15+05:00"]]
+- `tck.clauses.with-orderby.withorderby1.scenario-38.examples-1-row-2`: expected [["(:A {time: '10:35-08:00'})", "10:35-08:00"], ["(:B {time: '12:31:14.645876123+01:00'})", "12:31:14.645876123+01:00"], ["(:C {time: '12:31:14.645876124+01:00'})", "12:31:14.645876124+01:00"]], observed [["(:B {time: '12:31:14.645876123+01:00'})", "12:31:14.645876123+01:00"], ["(:C {time: '12:31:14.645876124+01:00'})", "12:31:14.645876124+01:00"], ["(:D {time: '12:35:15+05:00'})", "12:35:15+05:00"]]
+- `tck.clauses.with-orderby.withorderby1.scenario-41.examples-1-row-1`: expected [["(:B {datetime: '1984-10-11T12:31:14.645876123+00:17'})", "1984-10-11T12:31:14.645876123+00:17"], ["(:C {datetime: '0001-01-01T01:01:01.000000001-11:59'})", "0001-01-01T01:01:01.000000001-11:59"], ["(:E {datetime: '1980-12-11T12:31:14-11:59'})", "1980-12-11T12:31:14-11:59"]], observed [["(:A {datetime: '1984-10-11T12:30:14.000000012+00:15'})", "1984-10-11T12:30:14.000000012+00:15"], ["(:C {datetime: '0001-01-01T01:01:01.000000001-11:59'})", "0001-01-01T01:01:01.000000001-11:59"], ["(:E {datetime: '1980-12-11T12:31:14-11:59'})", "1980-12-11T12:31:14-11:59"]]
+- `tck.clauses.with-orderby.withorderby1.scenario-41.examples-1-row-2`: expected [["(:B {datetime: '1984-10-11T12:31:14.645876123+00:17'})", "1984-10-11T12:31:14.645876123+00:17"], ["(:C {datetime: '0001-01-01T01:01:01.000000001-11:59'})", "0001-01-01T01:01:01.000000001-11:59"], ["(:E {datetime: '1980-12-11T12:31:14-11:59'})", "1980-12-11T12:31:14-11:59"]], observed [["(:A {datetime: '1984-10-11T12:30:14.000000012+00:15'})", "1984-10-11T12:30:14.000000012+00:15"], ["(:C {datetime: '0001-01-01T01:01:01.000000001-11:59'})", "0001-01-01T01:01:01.000000001-11:59"], ["(:E {datetime: '1980-12-11T12:31:14-11:59'})", "1980-12-11T12:31:14-11:59"]]
+- `tck.clauses.with-orderby.withorderby1.scenario-41.examples-1-row-3`: expected [["(:B {datetime: '1984-10-11T12:31:14.645876123+00:17'})", "1984-10-11T12:31:14.645876123+00:17"], ["(:C {datetime: '0001-01-01T01:01:01.000000001-11:59'})", "0001-01-01T01:01:01.000000001-11:59"], ["(:E {datetime: '1980-12-11T12:31:14-11:59'})", "1980-12-11T12:31:14-11:59"]], observed [["(:A {datetime: '1984-10-11T12:30:14.000000012+00:15'})", "1984-10-11T12:30:14.000000012+00:15"], ["(:C {datetime: '0001-01-01T01:01:01.000000001-11:59'})", "0001-01-01T01:01:01.000000001-11:59"], ["(:E {datetime: '1980-12-11T12:31:14-11:59'})", "1980-12-11T12:31:14-11:59"]]
+- `tck.clauses.with-orderby.withorderby2.scenario-7.examples-1-row-1`: expected [["(:A {name: 'lorem', title: 'dr.'})"], ["(:B {name: 'ipsum', title: 'dr.'})"], ["(:D {name: 'sit', title: 'dr.'})"]], observed [["(:A {name: 'lorem', title: 'dr.'})"], ["(:B {name: 'ipsum', title: 'dr.'})"], ["(:C {name: 'dolor', title: 'prof.'})"]]
+- `tck.clauses.with-orderby.withorderby2.scenario-7.examples-1-row-2`: expected [["(:A {name: 'lorem', title: 'dr.'})"], ["(:B {name: 'ipsum', title: 'dr.'})"], ["(:D {name: 'sit', title: 'dr.'})"]], observed [["(:A {name: 'lorem', title: 'dr.'})"], ["(:B {name: 'ipsum', title: 'dr.'})"], ["(:C {name: 'dolor', title: 'prof.'})"]]
+- `tck.clauses.with-orderby.withorderby2.scenario-7.examples-1-row-3`: expected [["(:A {name: 'lorem', title: 'dr.'})"], ["(:B {name: 'ipsum', title: 'dr.'})"], ["(:D {name: 'sit', title: 'dr.'})"]], observed [["(:A {name: 'lorem', title: 'dr.'})"], ["(:B {name: 'ipsum', title: 'dr.'})"], ["(:C {name: 'dolor', title: 'prof.'})"]]
+- `tck.clauses.with-orderby.withorderby2.scenario-8.examples-1-row-1`: expected [["(:C {name: 'dolor', title: 'prof.'})"], ["(:D {name: 'sit', title: 'dr.'})"], ["(:E {name: 'amet', title: 'prof.'})"]], observed [["(:A {name: 'lorem', title: 'dr.'})"], ["(:B {name: 'ipsum', title: 'dr.'})"], ["(:C {name: 'dolor', title: 'prof.'})"]]
+- `tck.clauses.with-orderby.withorderby2.scenario-8.examples-1-row-2`: expected [["(:C {name: 'dolor', title: 'prof.'})"], ["(:D {name: 'sit', title: 'dr.'})"], ["(:E {name: 'amet', title: 'prof.'})"]], observed [["(:A {name: 'lorem', title: 'dr.'})"], ["(:B {name: 'ipsum', title: 'dr.'})"], ["(:C {name: 'dolor', title: 'prof.'})"]]
+- `tck.clauses.with-orderby.withorderby2.scenario-9.examples-1-row-1`: expected [["(:A {list: [2, -2], list2: [3, -2]})"], ["(:B {list: [1, 2], list2: [2, -2]})"], ["(:C {list: [300, 0], list2: [1, -2]})"]], observed [["(:A {list: '[2,-2]', list2: '[3,-2]'})"], ["(:B {list: '[1,2]', list2: '[2,-2]'})"], ["(:C {list: '[300,0]', list2: '[1,-2]'})"]]
+- `tck.clauses.with-orderby.withorderby2.scenario-9.examples-1-row-2`: expected [["(:A {list: [2, -2], list2: [3, -2]})"], ["(:B {list: [1, 2], list2: [2, -2]})"], ["(:C {list: [300, 0], list2: [1, -2]})"]], observed [["(:A {list: '[2,-2]', list2: '[3,-2]'})"], ["(:B {list: '[1,2]', list2: '[2,-2]'})"], ["(:C {list: '[300,0]', list2: '[1,-2]'})"]]
+- `tck.clauses.with-orderby.withorderby2.scenario-9.examples-1-row-3`: expected [["(:A {list: [2, -2], list2: [3, -2]})"], ["(:B {list: [1, 2], list2: [2, -2]})"], ["(:C {list: [300, 0], list2: [1, -2]})"]], observed [["(:A {list: '[2,-2]', list2: '[3,-2]'})"], ["(:B {list: '[1,2]', list2: '[2,-2]'})"], ["(:C {list: '[300,0]', list2: '[1,-2]'})"]]
+- `tck.clauses.with-orderby.withorderby2.scenario-10.examples-1-row-1`: expected [["(:A {list: [2, -2], list2: [3, -2]})"], ["(:D {list: [1, -20], list2: [4, -2]})"], ["(:E {list: [2, -2, 100], list2: [5, -2]})"]], observed [["(:A {list: '[2,-2]', list2: '[3,-2]'})"], ["(:B {list: '[1,2]', list2: '[2,-2]'})"], ["(:C {list: '[300,0]', list2: '[1,-2]'})"]]
+- `tck.clauses.with-orderby.withorderby2.scenario-10.examples-1-row-2`: expected [["(:A {list: [2, -2], list2: [3, -2]})"], ["(:D {list: [1, -20], list2: [4, -2]})"], ["(:E {list: [2, -2, 100], list2: [5, -2]})"]], observed [["(:A {list: '[2,-2]', list2: '[3,-2]'})"], ["(:B {list: '[1,2]', list2: '[2,-2]'})"], ["(:C {list: '[300,0]', list2: '[1,-2]'})"]]
+- `tck.clauses.with-orderby.withorderby2.scenario-11.examples-1-row-1`: expected [["(:A {date: '1910-05-06'})"], ["(:E {date: '1980-10-24'})"]], observed [["(:A {date: '1910-05-06'})"], ["(:B {date: '1980-12-24'})"]]
+- `tck.clauses.with-orderby.withorderby2.scenario-11.examples-1-row-2`: expected [["(:A {date: '1910-05-06'})"], ["(:E {date: '1980-10-24'})"]], observed [["(:A {date: '1910-05-06'})"], ["(:B {date: '1980-12-24'})"]]
+- `tck.clauses.with-orderby.withorderby2.scenario-11.examples-1-row-3`: expected [["(:A {date: '1910-05-06'})"], ["(:E {date: '1980-10-24'})"]], observed [["(:A {date: '1910-05-06'})"], ["(:B {date: '1980-12-24'})"]]
+- `tck.clauses.with-orderby.withorderby2.scenario-13.examples-1-row-1`: expected [["(:A {time: '10:35'})"], ["(:B {time: '12:31:14.645876123'})"], ["(:D {time: '12:30:14.645876123'})"]], observed [["(:A {time: '10:35'})"], ["(:B {time: '12:31:14.645876123'})"], ["(:C {time: '12:31:14.645876124'})"]]
+- `tck.clauses.with-orderby.withorderby2.scenario-13.examples-1-row-2`: expected [["(:A {time: '10:35'})"], ["(:B {time: '12:31:14.645876123'})"], ["(:D {time: '12:30:14.645876123'})"]], observed [["(:A {time: '10:35'})"], ["(:B {time: '12:31:14.645876123'})"], ["(:C {time: '12:31:14.645876124'})"]]
+- `tck.clauses.with-orderby.withorderby2.scenario-13.examples-1-row-3`: expected [["(:A {time: '10:35'})"], ["(:B {time: '12:31:14.645876123'})"], ["(:D {time: '12:30:14.645876123'})"]], observed [["(:A {time: '10:35'})"], ["(:B {time: '12:31:14.645876123'})"], ["(:C {time: '12:31:14.645876124'})"]]
+- `tck.clauses.with-orderby.withorderby2.scenario-14.examples-1-row-1`: expected [["(:B {time: '12:31:14.645876123'})"], ["(:C {time: '12:31:14.645876124'})"], ["(:E {time: '12:31:15'})"]], observed [["(:B {time: '12:31:14.645876123'})"], ["(:C {time: '12:31:14.645876124'})"], ["(:D {time: '12:30:14.645876123'})"]]
+- `tck.clauses.with-orderby.withorderby2.scenario-14.examples-1-row-2`: expected [["(:B {time: '12:31:14.645876123'})"], ["(:C {time: '12:31:14.645876124'})"], ["(:E {time: '12:31:15'})"]], observed [["(:B {time: '12:31:14.645876123'})"], ["(:C {time: '12:31:14.645876124'})"], ["(:D {time: '12:30:14.645876123'})"]]
+- `tck.clauses.with-orderby.withorderby2.scenario-15.examples-1-row-1`: expected [["(:B {time: '12:31:14.645876123+01:00'})"], ["(:D {time: '12:35:15+05:00'})"], ["(:E {time: '12:30:14.645876123+01:01'})"]], observed [["(:A {time: '10:35-08:00'})"], ["(:B {time: '12:31:14.645876123+01:00'})"], ["(:C {time: '12:31:14.645876124+01:00'})"]]
+- `tck.clauses.with-orderby.withorderby2.scenario-15.examples-1-row-2`: expected [["(:B {time: '12:31:14.645876123+01:00'})"], ["(:D {time: '12:35:15+05:00'})"], ["(:E {time: '12:30:14.645876123+01:01'})"]], observed [["(:A {time: '10:35-08:00'})"], ["(:B {time: '12:31:14.645876123+01:00'})"], ["(:C {time: '12:31:14.645876124+01:00'})"]]
+- `tck.clauses.with-orderby.withorderby2.scenario-15.examples-1-row-3`: expected [["(:B {time: '12:31:14.645876123+01:00'})"], ["(:D {time: '12:35:15+05:00'})"], ["(:E {time: '12:30:14.645876123+01:01'})"]], observed [["(:A {time: '10:35-08:00'})"], ["(:B {time: '12:31:14.645876123+01:00'})"], ["(:C {time: '12:31:14.645876124+01:00'})"]]
+- `tck.clauses.with-orderby.withorderby2.scenario-16.examples-1-row-1`: expected [["(:A {time: '10:35-08:00'})"], ["(:B {time: '12:31:14.645876123+01:00'})"], ["(:C {time: '12:31:14.645876124+01:00'})"]], observed [["(:B {time: '12:31:14.645876123+01:00'})"], ["(:C {time: '12:31:14.645876124+01:00'})"], ["(:D {time: '12:35:15+05:00'})"]]
+- `tck.clauses.with-orderby.withorderby2.scenario-16.examples-1-row-2`: expected [["(:A {time: '10:35-08:00'})"], ["(:B {time: '12:31:14.645876123+01:00'})"], ["(:C {time: '12:31:14.645876124+01:00'})"]], observed [["(:B {time: '12:31:14.645876123+01:00'})"], ["(:C {time: '12:31:14.645876124+01:00'})"], ["(:D {time: '12:35:15+05:00'})"]]
+- `tck.clauses.with-orderby.withorderby2.scenario-19.examples-1-row-1`: expected [["(:B {datetime: '1984-10-11T12:31:14.645876123+00:17'})"], ["(:C {datetime: '0001-01-01T01:01:01.000000001-11:59'})"], ["(:E {datetime: '1980-12-11T12:31:14-11:59'})"]], observed [["(:A {datetime: '1984-10-11T12:30:14.000000012+00:15'})"], ["(:C {datetime: '0001-01-01T01:01:01.000000001-11:59'})"], ["(:E {datetime: '1980-12-11T12:31:14-11:59'})"]]
+- `tck.clauses.with-orderby.withorderby2.scenario-19.examples-1-row-2`: expected [["(:B {datetime: '1984-10-11T12:31:14.645876123+00:17'})"], ["(:C {datetime: '0001-01-01T01:01:01.000000001-11:59'})"], ["(:E {datetime: '1980-12-11T12:31:14-11:59'})"]], observed [["(:A {datetime: '1984-10-11T12:30:14.000000012+00:15'})"], ["(:C {datetime: '0001-01-01T01:01:01.000000001-11:59'})"], ["(:E {datetime: '1980-12-11T12:31:14-11:59'})"]]
+- `tck.clauses.with-orderby.withorderby2.scenario-19.examples-1-row-3`: expected [["(:B {datetime: '1984-10-11T12:31:14.645876123+00:17'})"], ["(:C {datetime: '0001-01-01T01:01:01.000000001-11:59'})"], ["(:E {datetime: '1980-12-11T12:31:14-11:59'})"]], observed [["(:A {datetime: '1984-10-11T12:30:14.000000012+00:15'})"], ["(:C {datetime: '0001-01-01T01:01:01.000000001-11:59'})"], ["(:E {datetime: '1980-12-11T12:31:14-11:59'})"]]
 - `tck.clauses.with-orderby.withorderby2.scenario-21.examples-1-row-2`: expected [["C"], ["C"]], observed [["A"], ["A"]]
 - `tck.clauses.with-orderby.withorderby2.scenario-22.examples-1-row-2`: expected [["C", "2"]], observed [["A", "2"]]
 - `tck.clauses.with-orderby.withorderby2.scenario-23.examples-1-row-2`: expected [["C", "2"]], observed [["A", "2"]]
-- `tck.clauses.with-orderby.withorderby3.scenario-1.examples-1-row-1`: result expectation is not representable by the scalar adapter
-- `tck.clauses.with-orderby.withorderby3.scenario-1.examples-1-row-2`: result expectation is not representable by the scalar adapter
-- `tck.clauses.with-orderby.withorderby3.scenario-1.examples-1-row-3`: result expectation is not representable by the scalar adapter
-- `tck.clauses.with-orderby.withorderby3.scenario-1.examples-1-row-4`: result expectation is not representable by the scalar adapter
-- `tck.clauses.with-orderby.withorderby3.scenario-1.examples-1-row-5`: result expectation is not representable by the scalar adapter
-- `tck.clauses.with-orderby.withorderby3.scenario-1.examples-1-row-6`: result expectation is not representable by the scalar adapter
-- `tck.clauses.with-orderby.withorderby3.scenario-1.examples-1-row-7`: result expectation is not representable by the scalar adapter
-- `tck.clauses.with-orderby.withorderby3.scenario-1.examples-1-row-8`: result expectation is not representable by the scalar adapter
-- `tck.clauses.with-orderby.withorderby3.scenario-1.examples-1-row-9`: result expectation is not representable by the scalar adapter
-- `tck.clauses.with-orderby.withorderby3.scenario-2.examples-1-row-1`: result expectation is not representable by the scalar adapter
-- `tck.clauses.with-orderby.withorderby3.scenario-2.examples-1-row-2`: result expectation is not representable by the scalar adapter
-- `tck.clauses.with-orderby.withorderby3.scenario-2.examples-1-row-3`: result expectation is not representable by the scalar adapter
-- `tck.clauses.with-orderby.withorderby3.scenario-2.examples-1-row-4`: result expectation is not representable by the scalar adapter
-- `tck.clauses.with-orderby.withorderby3.scenario-2.examples-1-row-5`: result expectation is not representable by the scalar adapter
-- `tck.clauses.with-orderby.withorderby3.scenario-2.examples-1-row-6`: result expectation is not representable by the scalar adapter
-- `tck.clauses.with-orderby.withorderby3.scenario-3.examples-1-row-1`: result expectation is not representable by the scalar adapter
-- `tck.clauses.with-orderby.withorderby3.scenario-3.examples-1-row-2`: result expectation is not representable by the scalar adapter
-- `tck.clauses.with-orderby.withorderby3.scenario-3.examples-1-row-3`: result expectation is not representable by the scalar adapter
-- `tck.clauses.with-orderby.withorderby3.scenario-3.examples-1-row-4`: result expectation is not representable by the scalar adapter
-- `tck.clauses.with-orderby.withorderby3.scenario-3.examples-1-row-5`: result expectation is not representable by the scalar adapter
-- `tck.clauses.with-orderby.withorderby3.scenario-3.examples-1-row-6`: result expectation is not representable by the scalar adapter
-- `tck.clauses.with-orderby.withorderby3.scenario-4.examples-1-row-1`: result expectation is not representable by the scalar adapter
-- `tck.clauses.with-orderby.withorderby3.scenario-4.examples-1-row-2`: result expectation is not representable by the scalar adapter
-- `tck.clauses.with-orderby.withorderby3.scenario-4.examples-1-row-3`: result expectation is not representable by the scalar adapter
-- `tck.clauses.with-orderby.withorderby3.scenario-4.examples-1-row-4`: result expectation is not representable by the scalar adapter
-- `tck.clauses.with-orderby.withorderby3.scenario-5.examples-1-row-1`: result expectation is not representable by the scalar adapter
-- `tck.clauses.with-orderby.withorderby3.scenario-5.examples-1-row-2`: result expectation is not representable by the scalar adapter
-- `tck.clauses.with-orderby.withorderby3.scenario-5.examples-1-row-3`: result expectation is not representable by the scalar adapter
-- `tck.clauses.with-orderby.withorderby3.scenario-5.examples-1-row-4`: result expectation is not representable by the scalar adapter
-- `tck.clauses.with-orderby.withorderby3.scenario-6.examples-1-row-1`: result expectation is not representable by the scalar adapter
-- `tck.clauses.with-orderby.withorderby3.scenario-6.examples-1-row-2`: result expectation is not representable by the scalar adapter
-- `tck.clauses.with-orderby.withorderby3.scenario-6.examples-1-row-3`: result expectation is not representable by the scalar adapter
-- `tck.clauses.with-orderby.withorderby3.scenario-6.examples-1-row-4`: result expectation is not representable by the scalar adapter
-- `tck.clauses.with-orderby.withorderby3.scenario-6.examples-1-row-5`: result expectation is not representable by the scalar adapter
-- `tck.clauses.with-orderby.withorderby3.scenario-6.examples-1-row-6`: result expectation is not representable by the scalar adapter
-- `tck.clauses.with-orderby.withorderby3.scenario-6.examples-1-row-7`: result expectation is not representable by the scalar adapter
-- `tck.clauses.with-orderby.withorderby3.scenario-6.examples-1-row-8`: result expectation is not representable by the scalar adapter
-- `tck.clauses.with-orderby.withorderby3.scenario-6.examples-1-row-9`: result expectation is not representable by the scalar adapter
-- `tck.clauses.with-orderby.withorderby3.scenario-6.examples-1-row-10`: result expectation is not representable by the scalar adapter
-- `tck.clauses.with-orderby.withorderby3.scenario-6.examples-1-row-11`: result expectation is not representable by the scalar adapter
-- `tck.clauses.with-orderby.withorderby3.scenario-6.examples-1-row-12`: result expectation is not representable by the scalar adapter
-- `tck.clauses.with-orderby.withorderby3.scenario-6.examples-1-row-13`: result expectation is not representable by the scalar adapter
-- `tck.clauses.with-orderby.withorderby3.scenario-6.examples-1-row-14`: result expectation is not representable by the scalar adapter
-- `tck.clauses.with-orderby.withorderby3.scenario-6.examples-1-row-15`: result expectation is not representable by the scalar adapter
-- `tck.clauses.with-orderby.withorderby3.scenario-6.examples-1-row-16`: result expectation is not representable by the scalar adapter
-- `tck.clauses.with-orderby.withorderby3.scenario-6.examples-1-row-17`: result expectation is not representable by the scalar adapter
-- `tck.clauses.with-orderby.withorderby3.scenario-6.examples-1-row-18`: result expectation is not representable by the scalar adapter
-- `tck.clauses.with-orderby.withorderby3.scenario-6.examples-1-row-19`: result expectation is not representable by the scalar adapter
-- `tck.clauses.with-orderby.withorderby3.scenario-6.examples-1-row-20`: result expectation is not representable by the scalar adapter
-- `tck.clauses.with-orderby.withorderby3.scenario-6.examples-1-row-21`: result expectation is not representable by the scalar adapter
-- `tck.clauses.with-orderby.withorderby3.scenario-6.examples-1-row-22`: result expectation is not representable by the scalar adapter
-- `tck.clauses.with-orderby.withorderby3.scenario-6.examples-1-row-23`: result expectation is not representable by the scalar adapter
-- `tck.clauses.with-orderby.withorderby3.scenario-6.examples-1-row-24`: result expectation is not representable by the scalar adapter
-- `tck.clauses.with-orderby.withorderby4.scenario-1`: result expectation is not representable by the scalar adapter
 - `tck.clauses.with-orderby.withorderby4.scenario-2`: query execution failed: Parse error: unknown variable `sum` at byte 54..60; mutation execution failed: Cypher mutation binding failed: unknown variable `sum` at byte 54..60; query:
 MATCH (a:A)
 WITH a, a.num + a.num2 AS sum
   ORDER BY sum
   LIMIT 3
 RETURN a, sum
-- `tck.clauses.with-orderby.withorderby4.scenario-3`: result expectation is not representable by the scalar adapter
 - `tck.clauses.with-orderby.withorderby4.scenario-4`: query execution failed: Parse error: unknown variable `sum` at byte 85..91; mutation execution failed: Cypher mutation binding failed: unknown variable `sum` at byte 85..91; query:
 MATCH (a:A)
 WITH a, a.num + a.num2 AS sum, a.num2 % 3 AS mod
@@ -4178,8 +4117,7 @@ WITH a, a.num + a.num2 AS sum, a.num2 % 3 AS mod
   ORDER BY mod, sum
   LIMIT 3
 RETURN a, sum, mod
-- `tck.clauses.with-orderby.withorderby4.scenario-7`: result expectation is not representable by the scalar adapter
-- `tck.clauses.with-orderby.withorderby4.scenario-8`: result expectation is not representable by the scalar adapter
+- `tck.clauses.with-orderby.withorderby4.scenario-7`: expected [["(:A {num: 1, num2: 4})", "5"], ["(:A {num: 3, num2: 3})", "6"], ["(:A {num: 5, num2: 2})", "7"]], observed [["(:A {num: 1, num2: 4})", "5"], ["(:A {num: 3, num2: 3})", "6"], ["(:A {num: 9, num2: 0})", "9"]]
 - `tck.clauses.with-orderby.withorderby4.scenario-9`: expected [["0"], ["0"], ["1"]], observed [["0"], ["1"], ["2"]]
 - `tck.clauses.with-orderby.withorderby4.scenario-10`: expected [["1"], ["1"], ["2"]], observed [["0"], ["1"], ["2"]]
 - `tck.clauses.with-orderby.withorderby4.scenario-11`: query execution failed: Parse error: misuse of aggregate: sum(); mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 105..121; query:
@@ -4229,17 +4167,13 @@ MATCH ()-[r1]->(x)
 WITH x, sum(r1.num) AS c
   ORDER BY c SKIP 1
 RETURN x, c
-- `tck.clauses.with-skip-limit.withskiplimit2.scenario-1`: result expectation is not representable by the scalar adapter
-- `tck.clauses.with-skip-limit.withskiplimit2.scenario-2`: result expectation is not representable by the scalar adapter
-- `tck.clauses.with-skip-limit.withskiplimit2.scenario-3`: result expectation is not representable by the scalar adapter
+- `tck.clauses.with-skip-limit.withskiplimit2.scenario-2`: expected [["(:End {id: 0, num: 42})"]], observed [["(:End {num: 42})"]]
+- `tck.clauses.with-skip-limit.withskiplimit2.scenario-3`: expected [["(:B)", "(:A)", "(:X)"]], observed [["(:A)", "(:B)", "[:REL]", "(:X)"]]
 - `tck.clauses.with-skip-limit.withskiplimit2.scenario-4`: query execution failed: Parse error: unknown variable `c` at byte 56..58; mutation execution failed: Cypher mutation binding failed: unknown variable `c` at byte 56..58; query:
 MATCH ()-[r1]->(x)
 WITH x, sum(r1.num) AS c
   ORDER BY c LIMIT 1
 RETURN x, c
-- `tck.clauses.with-skip-limit.withskiplimit3.scenario-1`: result expectation is not representable by the scalar adapter
-- `tck.clauses.with-skip-limit.withskiplimit3.scenario-2`: result expectation is not representable by the scalar adapter
-- `tck.clauses.with-where.withwhere1.scenario-1`: result expectation is not representable by the scalar adapter
 - `tck.clauses.with-where.withwhere1.scenario-2`: query execution failed: Parse error: unknown variable `a` at byte 47..48; mutation execution failed: Cypher mutation binding failed: unknown variable `a` at byte 47..48; query:
 MATCH (a)
 WITH DISTINCT a.name2 AS name
@@ -4273,7 +4207,6 @@ CREATE (a)-[:T]->(b),
        (b)-[:T]->(c),
        (b)-[:T]->(d),
        (c)-[:T]->(d)
-- `tck.clauses.with-where.withwhere3.scenario-1`: result expectation is not representable by the scalar adapter
 - `tck.clauses.with-where.withwhere3.scenario-2`: TCK setup query failed: query execution failed: Parse error: mutation clauses in read queries is not supported in the initial graph slice at byte 1..84; mutation execution failed: graph mutation database operation failed: Runtime error: UNIQUE constraint failed: people.id (19); query:
 CREATE (:A {id: 1}),
        (:A {id: 2}),
@@ -4284,8 +4217,6 @@ CREATE (:A {id: 1}),
        (:A {id: 2}),
        (:B {id: 2}),
        (:B {id: 3})
-- `tck.clauses.with-where.withwhere3.scenario-3`: result expectation is not representable by the scalar adapter
-- `tck.clauses.with-where.withwhere4.scenario-1`: result expectation is not representable by the scalar adapter
 - `tck.clauses.with-where.withwhere4.scenario-2`: query execution failed: Invalid argument supplied: graph snapshot 1 is not built; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 103..121; query:
 MATCH (a), (b)
 WITH a, b
@@ -4293,11 +4224,6 @@ WHERE a.id = 0
   AND (a)-[:T]->(b:TheLabel)
   OR (a)-[:T*]->(b:MissingLabel)
 RETURN DISTINCT b
-- `tck.clauses.with-where.withwhere5.scenario-1`: result expectation is not representable by the scalar adapter
-- `tck.clauses.with-where.withwhere5.scenario-2`: result expectation is not representable by the scalar adapter
-- `tck.clauses.with-where.withwhere5.scenario-3`: result expectation is not representable by the scalar adapter
-- `tck.clauses.with-where.withwhere5.scenario-4`: result expectation is not representable by the scalar adapter
-- `tck.clauses.with-where.withwhere6.scenario-1`: result expectation is not representable by the scalar adapter
 - `tck.clauses.with-where.withwhere7.scenario-1`: query execution failed: Parse error: unknown variable `a` at byte 38..39; mutation execution failed: Cypher mutation binding failed: unknown variable `a` at byte 38..39; query:
 MATCH (a)
 WITH a.name2 AS name
@@ -4312,7 +4238,7 @@ RETURN *
 - `tck.expressions.aggregation.aggregation2.scenario-9`: expected [["[2, 1]"]], observed [["[2]"]]
 - `tck.expressions.aggregation.aggregation2.scenario-11`: expected [["1"]], observed [["b"]]
 - `tck.expressions.aggregation.aggregation2.scenario-12`: expected [["[1, 2]"]], observed [["0.2"]]
-- `tck.expressions.aggregation.aggregation5.scenario-1`: result expectation is not representable by the scalar adapter
+- `tck.expressions.aggregation.aggregation5.scenario-1`: expected [["()", "[]"]], observed [["()", "[null]"]]
 - `tck.expressions.aggregation.aggregation5.scenario-2`: expected [["[]", "[42, 43, 44]"]], observed [["[]", "[]"]]
 - `tck.expressions.aggregation.aggregation6.scenario-1.examples-1-row-1`: query execution failed: Parse error: no such function: percentileDisc; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 11..60; query:
 MATCH (n)
@@ -4334,7 +4260,6 @@ MATCH (n)
 RETURN percentileCont(n.price, $percentile) AS p
 - `tck.expressions.aggregation.aggregation8.scenario-3`: expected [["[]"]], observed [["[null]"]]
 - `tck.expressions.aggregation.aggregation8.scenario-4`: expected [["[1]"]], observed [["[null, 1]"]]
-- `tck.expressions.boolean.boolean4.scenario-3`: result expectation is not representable by the scalar adapter
 - `tck.expressions.btic.btic1.scenario-1.examples-1-row-1`: query execution failed: Parse error: no such function: btic; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..26; query:
 RETURN btic('1985') AS b
 - `tck.expressions.btic.btic1.scenario-1.examples-1-row-2`: query execution failed: Parse error: no such function: btic; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..29; query:
@@ -4410,7 +4335,7 @@ RETURN btic('1985') < btic('2000') AS lt,
 RETURN btic_starts(btic('1985-01/1985-06'), btic('1985')) AS starts,
        btic_during(btic('1985-03/1985-09'), btic('1985')) AS during,
        btic_finishes(btic('1985-06/1985-12'), btic('1985')) AS finishes
-- `tck.expressions.comparison.comparison1.scenario-1`: result expectation is not representable by the scalar adapter
+- `tck.expressions.comparison.comparison1.scenario-1`: expected [["( {id: 0})"]], observed [["()"]]
 - `tck.expressions.comparison.comparison1.scenario-3`: expected [], observed [["()"]]
 - `tck.expressions.comparison.comparison1.scenario-6.examples-1-row-2`: expected [["<null>"]], observed [["0"]]
 - `tck.expressions.comparison.comparison1.scenario-6.examples-1-row-5`: expected [["<null>"]], observed [["0"]]
@@ -4481,16 +4406,13 @@ RETURN lhs, rhs
 - `tck.expressions.comparison.comparison3.scenario-9`: expected [], observed [["3"]]
 - `tck.expressions.comparison.comparison4.scenario-1`: expected [["[\"B\"]"]], observed [["[\"A\"]"], ["[\"B\"]"], ["[\"C\"]"]]
 - `tck.expressions.conditional.conditional2.scenario-1.examples-1-row-11`: expected [["something else"]], observed [["one"]]
-- `tck.expressions.existentialsubqueries.existentialsubquery1.scenario-1`: result expectation is not representable by the scalar adapter
-- `tck.expressions.existentialsubqueries.existentialsubquery1.scenario-2`: result expectation is not representable by the scalar adapter
 - `tck.expressions.existentialsubqueries.existentialsubquery1.scenario-4`: query execution failed: Parse error: no such function: type; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 63..72; query:
 MATCH (n) WHERE exists {
   (n)-[r]->() WHERE type(r) = 'NA'
 }
 RETURN n
-- `tck.expressions.existentialsubqueries.existentialsubquery2.scenario-1`: result expectation is not representable by the scalar adapter
 - `tck.expressions.existentialsubqueries.existentialsubquery2.scenario-2`: expected WHERE, RETURN, or relationship_pattern at byte 45..45
-- `tck.expressions.existentialsubqueries.existentialsubquery3.scenario-1`: result expectation is not representable by the scalar adapter
+- `tck.expressions.existentialsubqueries.existentialsubquery3.scenario-1`: expected [["(:A {prop: 1})"]], observed [["(:A {prop: 1})"], ["(:B {prop: 1})"], ["(:C {prop: 2})"], ["(:D {prop: 3})"]]
 - `tck.expressions.existentialsubqueries.existentialsubquery3.scenario-2`: expected WHERE, RETURN, or relationship_pattern at byte 65..65
 - `tck.expressions.existentialsubqueries.existentialsubquery3.scenario-3`: query execution failed: Parse error: unknown variable `m` at byte 77..78; mutation execution failed: Cypher mutation binding failed: unknown variable `m` at byte 77..78; query:
 MATCH (n) WHERE exists {
@@ -4522,14 +4444,7 @@ RETURN type(r), type(null)
 MATCH (a)-[r]->()
 WITH [r, 1] AS list
 RETURN type(list[0])
-- `tck.expressions.graph.graph5.scenario-1`: result expectation is not representable by the scalar adapter
 - `tck.expressions.graph.graph5.scenario-2`: expected [["[:T1]", "0"], ["[:T2]", "1"], ["[:T3]", "0"], ["[:T4]", "0"], ["[:t2]", "0"]], observed [["[:T1]", "0"], ["[:T2]", "0"], ["[:T3]", "0"], ["[:T4]", "0"], ["[:t2]", "0"]]
-- `tck.expressions.graph.graph5.scenario-3`: result expectation is not representable by the scalar adapter
-- `tck.expressions.graph.graph5.scenario-4.examples-1-row-1`: result expectation is not representable by the scalar adapter
-- `tck.expressions.graph.graph5.scenario-4.examples-1-row-2`: result expectation is not representable by the scalar adapter
-- `tck.expressions.graph.graph5.scenario-4.examples-1-row-3`: result expectation is not representable by the scalar adapter
-- `tck.expressions.graph.graph5.scenario-4.examples-1-row-4`: result expectation is not representable by the scalar adapter
-- `tck.expressions.graph.graph5.scenario-4.examples-1-row-5`: result expectation is not representable by the scalar adapter
 - `tck.expressions.graph.graph5.scenario-5`: expected [["<null>"]], observed [["0"]]
 - `tck.expressions.graph.graph6.scenario-3`: expected [["<null>"]], observed []
 - `tck.expressions.graph.graph6.scenario-4`: query execution failed: Parse error: property access requires a node or relationship at byte 41..48; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 33..100; query:
@@ -4610,7 +4525,7 @@ RETURN [x IN collect(p) | head(nodes(x))] AS p
 MATCH p = (n:A)-->()
 WITH [x IN collect(p) | head(nodes(x))] AS p, count(n) AS c
 RETURN p, c
-- `tck.expressions.list.list12.scenario-6`: result expectation is not representable by the scalar adapter
+- `tck.expressions.list.list12.scenario-6`: expected [["(:C)"]], observed []
 - `tck.expressions.list.list2.scenario-9.examples-1-row-1`: expected [["<null>"]], observed [["[]"]]
 - `tck.expressions.list.list2.scenario-9.examples-1-row-2`: expected [["<null>"]], observed [["[]"]]
 - `tck.expressions.list.list2.scenario-9.examples-1-row-3`: expected [["<null>"]], observed [["[]"]]
@@ -4776,7 +4691,6 @@ RETURN map.name IS NULL AS result
 - `tck.expressions.null.null1.scenario-5.examples-1-row-12`: query execution failed: Parse error: property access requires a node or relationship at byte 25..28; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 18..52; query:
 WITH null AS map
 RETURN map.name IS NULL AS result
-- `tck.expressions.null.null1.scenario-6`: result expectation is not representable by the scalar adapter
 - `tck.expressions.null.null2.scenario-3`: expected [["0"]], observed []
 - `tck.expressions.null.null2.scenario-5.examples-1-row-1`: query execution failed: Parse error: property access requires a node or relationship at byte 52..55; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 45..83; query:
 WITH {name: 'Mats', name2: 'Pontus'} AS map
@@ -4814,7 +4728,6 @@ RETURN map.name IS NOT NULL AS result
 - `tck.expressions.null.null2.scenario-5.examples-1-row-12`: query execution failed: Parse error: property access requires a node or relationship at byte 25..28; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 18..56; query:
 WITH null AS map
 RETURN map.name IS NOT NULL AS result
-- `tck.expressions.null.null2.scenario-6`: result expectation is not representable by the scalar adapter
 - `tck.expressions.null.null3.scenario-4.examples-1-row-2`: TCK parameter value is not representable by the generic adapter
 - `tck.expressions.null.null3.scenario-4.examples-1-row-3`: TCK parameter value is not representable by the generic adapter
 - `tck.expressions.null.null3.scenario-4.examples-1-row-4`: TCK parameter value is not representable by the generic adapter
@@ -4831,15 +4744,9 @@ RETURN nodes(p), nodes(null)
 WITH null AS a
 OPTIONAL MATCH p = (a)-[r]->()
 RETURN relationships(p), relationships(null)
-- `tck.expressions.path.path3.scenario-1`: result expectation is not representable by the scalar adapter
 - `tck.expressions.path.path3.scenario-2`: expected an error but execution succeeded
 - `tck.expressions.path.path3.scenario-3`: expected an error but execution succeeded
-- `tck.expressions.pattern.pattern1.scenario-1`: result expectation is not representable by the scalar adapter
-- `tck.expressions.pattern.pattern1.scenario-2`: result expectation is not representable by the scalar adapter
-- `tck.expressions.pattern.pattern1.scenario-3`: result expectation is not representable by the scalar adapter
-- `tck.expressions.pattern.pattern1.scenario-4`: result expectation is not representable by the scalar adapter
-- `tck.expressions.pattern.pattern1.scenario-5`: result expectation is not representable by the scalar adapter
-- `tck.expressions.pattern.pattern1.scenario-6`: result expectation is not representable by the scalar adapter
+- `tck.expressions.pattern.pattern1.scenario-5`: expected [["(:A)"], ["(:B)"], ["(:D)"]], observed [["(:A)"], ["(:B)"], ["(:C)"], ["(:D)"]]
 - `tck.expressions.pattern.pattern1.scenario-7`: query execution failed: Invalid argument supplied: graph snapshot 1 is not built; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 34..43; query:
 MATCH (n) WHERE (n)-[:REL1*]->() RETURN n
 - `tck.expressions.pattern.pattern1.scenario-8`: query execution failed: Invalid argument supplied: graph snapshot 1 is not built; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 33..42; query:
@@ -4849,19 +4756,15 @@ MATCH (n) WHERE (n)<-[:REL1*]-() RETURN n
 - `tck.expressions.pattern.pattern1.scenario-10`: query execution failed: Invalid argument supplied: graph snapshot 1 is not built; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 34..43; query:
 MATCH (n) WHERE (n)-[:REL1*2]-() RETURN n
 - `tck.expressions.pattern.pattern1.scenario-11`: expected an error but execution succeeded
-- `tck.expressions.pattern.pattern1.scenario-12`: result expectation is not representable by the scalar adapter
-- `tck.expressions.pattern.pattern1.scenario-13`: result expectation is not representable by the scalar adapter
-- `tck.expressions.pattern.pattern1.scenario-14`: result expectation is not representable by the scalar adapter
-- `tck.expressions.pattern.pattern1.scenario-15`: result expectation is not representable by the scalar adapter
+- `tck.expressions.pattern.pattern1.scenario-13`: expected [["(:A)", "(:B)"], ["(:A)", "(:C)"], ["(:A)", "(:D)"], ["(:B)", "(:A)"], ["(:C)", "(:A)"], ["(:D)", "(:A)"]], observed [["(:A)", "(:B)"], ["(:A)", "(:C)"], ["(:A)", "(:D)"], ["(:B)", "(:A)"], ["(:C)", "(:A)"], ["(:C)", "(:B)"], ["(:D)", "(:A)"], ["(:D)", "(:B)"]]
+- `tck.expressions.pattern.pattern1.scenario-15`: expected [["(:A)", "(:B)"], ["(:A)", "(:D)"], ["(:B)", "(:A)"], ["(:D)", "(:A)"]], observed [["(:A)", "(:B)"], ["(:A)", "(:D)"], ["(:B)", "(:A)"], ["(:C)", "(:A)"], ["(:D)", "(:A)"]]
 - `tck.expressions.pattern.pattern1.scenario-16`: query execution failed: Invalid argument supplied: graph snapshot 1 is not built; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 40..52; query:
 MATCH (n), (m) WHERE (n)-[:REL1*]->(m) RETURN n, m
 - `tck.expressions.pattern.pattern1.scenario-17`: query execution failed: Invalid argument supplied: graph snapshot 1 is not built; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 39..51; query:
 MATCH (n), (m) WHERE (n)-[:REL1*]-(m) RETURN n, m
 - `tck.expressions.pattern.pattern1.scenario-18`: query execution failed: Invalid argument supplied: graph snapshot 1 is not built; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 40..52; query:
 MATCH (n), (m) WHERE (n)-[:REL1*2]-(m) RETURN n, m
-- `tck.expressions.pattern.pattern1.scenario-19`: result expectation is not representable by the scalar adapter
-- `tck.expressions.pattern.pattern1.scenario-20`: result expectation is not representable by the scalar adapter
-- `tck.expressions.pattern.pattern1.scenario-21`: result expectation is not representable by the scalar adapter
+- `tck.expressions.pattern.pattern1.scenario-20`: expected [["(:A)"]], observed [["(:A)"], ["(:B)"], ["(:C)"], ["(:D)"]]
 - `tck.expressions.pattern.pattern2.scenario-1`: expected AND, OR, relationship_pattern, xor_op, comparison_op, predicate_suffix, additive_op, multiplicative_op, power_op, or postfix_suffix at byte 31..31
 - `tck.expressions.pattern.pattern2.scenario-2`: expected AND, OR, relationship_pattern, xor_op, comparison_op, predicate_suffix, additive_op, multiplicative_op, power_op, or postfix_suffix at byte 35..35
 - `tck.expressions.pattern.pattern2.scenario-3`: expected AND, OR, relationship_pattern, xor_op, comparison_op, predicate_suffix, additive_op, multiplicative_op, power_op, or postfix_suffix at byte 41..41
@@ -5588,26 +5491,12 @@ WITH coalesce(fixedList, list) AS list
 WITH none(x IN list WHERE x >= 3) = (size([x IN list WHERE x >= 3 | x]) = 0) AS result, count(*) AS cnt
 RETURN result
 - `tck.expressions.string.string1.scenario-1`: expected [["123456789"]], observed [["0123456789"]]
-- `tck.expressions.string.string10.scenario-1`: result expectation is not representable by the scalar adapter
-- `tck.expressions.string.string10.scenario-2`: result expectation is not representable by the scalar adapter
-- `tck.expressions.string.string10.scenario-3`: result expectation is not representable by the scalar adapter
 - `tck.expressions.string.string10.scenario-8`: expected [["<null>", "36"]], observed [["0", "16"], ["1", "9"], ["<null>", "11"]]
-- `tck.expressions.string.string10.scenario-9`: result expectation is not representable by the scalar adapter
-- `tck.expressions.string.string11.scenario-1`: result expectation is not representable by the scalar adapter
-- `tck.expressions.string.string11.scenario-2`: result expectation is not representable by the scalar adapter
 - `tck.expressions.string.string4.scenario-1`: query execution failed: Parse error: no such function: split; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 38..65; query:
 UNWIND split('one1two', '1') AS item
 RETURN count(item) AS item
-- `tck.expressions.string.string8.scenario-1`: result expectation is not representable by the scalar adapter
-- `tck.expressions.string.string8.scenario-2`: result expectation is not representable by the scalar adapter
-- `tck.expressions.string.string8.scenario-3`: result expectation is not representable by the scalar adapter
 - `tck.expressions.string.string8.scenario-8`: expected [["<null>", "36"]], observed [["0", "18"], ["1", "7"], ["<null>", "11"]]
-- `tck.expressions.string.string8.scenario-9`: result expectation is not representable by the scalar adapter
-- `tck.expressions.string.string9.scenario-1`: result expectation is not representable by the scalar adapter
-- `tck.expressions.string.string9.scenario-2`: result expectation is not representable by the scalar adapter
-- `tck.expressions.string.string9.scenario-3`: result expectation is not representable by the scalar adapter
 - `tck.expressions.string.string9.scenario-8`: expected [["<null>", "36"]], observed [["0", "18"], ["1", "7"], ["<null>", "11"]]
-- `tck.expressions.string.string9.scenario-9`: result expectation is not representable by the scalar adapter
 - `tck.expressions.temporal.temporal1.scenario-1.examples-1-row-13`: expected [["1817-01-08"]], observed [["1816-01-10"]]
 - `tck.expressions.temporal.temporal1.scenario-1.examples-1-row-14`: expected [["1817-01-07"]], observed [["1816-01-08"]]
 - `tck.expressions.temporal.temporal1.scenario-1.examples-1-row-15`: expected [["1817-01-07"]], observed [["1817-01-06"]]
@@ -5715,8 +5604,8 @@ RETURN datetime.fromepoch(416779, 999999999) AS d1,
 - `tck.expressions.temporal.temporal10.scenario-11.examples-1-row-9`: expected [["PT-1.6S"]], observed [["PT-2.400000000S"]]
 - `tck.expressions.temporal.temporal10.scenario-11.examples-1-row-10`: expected [["PT1.6S"]], observed [["PT1.600000000S"]]
 - `tck.expressions.temporal.temporal10.scenario-12.examples-1-row-1`: expected [["PT0S"]], observed [["PT0.000004000S"]]
-- `tck.expressions.temporal.temporal10.scenario-12.examples-1-row-2`: expected [["PT0S"]], observed [["PT0.000003000S"]]
-- `tck.expressions.temporal.temporal10.scenario-12.examples-1-row-4`: expected [["PT0S"]], observed [["PT0.000003000S"]]
+- `tck.expressions.temporal.temporal10.scenario-12.examples-1-row-2`: expected [["PT0S"]], observed [["PT0.000005000S"]]
+- `tck.expressions.temporal.temporal10.scenario-12.examples-1-row-4`: expected [["PT0S"]], observed [["PT0.000004000S"]]
 - `tck.expressions.temporal.temporal10.scenario-12.examples-1-row-5`: expected [["PT0S"]], observed [["PT0.000004000S"]]
 - `tck.expressions.temporal.temporal2.scenario-1.examples-1-row-2`: expected [["2015-07-21"]], observed [["<null>"]]
 - `tck.expressions.temporal.temporal2.scenario-1.examples-1-row-3`: expected [["2015-07-01"]], observed [["<null>"]]
@@ -5949,650 +5838,39 @@ RETURN x + d.dur AS sum, x - d.dur AS diff
 - `tck.expressions.temporal.temporal8.scenario-7.examples-1-row-1`: expected [["P12Y5M14DT16H13M10.000000001S", "P12Y5M14DT16H13M10.000000001S"]], observed [["0", "0"]]
 - `tck.expressions.temporal.temporal8.scenario-7.examples-1-row-2`: expected [["P24Y10M28DT32H26M20.000000002S", "P6Y2M22DT13H21M8S"]], observed [["0", "0"]]
 - `tck.expressions.temporal.temporal8.scenario-7.examples-1-row-3`: expected [["P6Y2M22DT13H21M8S", "P24Y10M28DT32H26M20.000000002S"]], observed [["0.0", "0.0"]]
-- `tck.expressions.temporal.temporal9.scenario-1.examples-1-row-1`: query execution failed: Parse error: invalid resolved function or parameter name: date.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..96; query:
-RETURN date.truncate('millennium', date({year: 2017, month: 10, day: 11}), {day: 2}) AS result
-- `tck.expressions.temporal.temporal9.scenario-1.examples-1-row-2`: query execution failed: Parse error: invalid resolved function or parameter name: date.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..90; query:
-RETURN date.truncate('millennium', date({year: 2017, month: 10, day: 11}), {}) AS result
-- `tck.expressions.temporal.temporal9.scenario-1.examples-1-row-3`: query execution failed: Parse error: invalid resolved function or parameter name: date.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..177; query:
-RETURN date.truncate('millennium', datetime({year: 2017, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123, timezone: '+01:00'}), {day: 2}) AS result
-- `tck.expressions.temporal.temporal9.scenario-1.examples-1-row-4`: query execution failed: Parse error: invalid resolved function or parameter name: date.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..171; query:
-RETURN date.truncate('millennium', datetime({year: 2017, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123, timezone: '+01:00'}), {}) AS result
-- `tck.expressions.temporal.temporal9.scenario-1.examples-1-row-5`: query execution failed: Parse error: invalid resolved function or parameter name: date.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..162; query:
-RETURN date.truncate('millennium', localdatetime({year: 2017, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123}), {day: 2}) AS result
-- `tck.expressions.temporal.temporal9.scenario-1.examples-1-row-6`: query execution failed: Parse error: invalid resolved function or parameter name: date.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..156; query:
-RETURN date.truncate('millennium', localdatetime({year: 2017, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123}), {}) AS result
-- `tck.expressions.temporal.temporal9.scenario-1.examples-1-row-7`: query execution failed: Parse error: invalid resolved function or parameter name: date.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..93; query:
-RETURN date.truncate('century', date({year: 1984, month: 10, day: 11}), {day: 2}) AS result
-- `tck.expressions.temporal.temporal9.scenario-1.examples-1-row-8`: query execution failed: Parse error: invalid resolved function or parameter name: date.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..87; query:
-RETURN date.truncate('century', date({year: 1984, month: 10, day: 11}), {}) AS result
-- `tck.expressions.temporal.temporal9.scenario-1.examples-1-row-9`: query execution failed: Parse error: invalid resolved function or parameter name: date.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..174; query:
-RETURN date.truncate('century', datetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123, timezone: '+01:00'}), {day: 2}) AS result
-- `tck.expressions.temporal.temporal9.scenario-1.examples-1-row-10`: query execution failed: Parse error: invalid resolved function or parameter name: date.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..168; query:
-RETURN date.truncate('century', datetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123, timezone: '+01:00'}), {}) AS result
-- `tck.expressions.temporal.temporal9.scenario-1.examples-1-row-11`: query execution failed: Parse error: invalid resolved function or parameter name: date.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..159; query:
-RETURN date.truncate('century', localdatetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123}), {day: 2}) AS result
-- `tck.expressions.temporal.temporal9.scenario-1.examples-1-row-12`: query execution failed: Parse error: invalid resolved function or parameter name: date.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..153; query:
-RETURN date.truncate('century', localdatetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123}), {}) AS result
-- `tck.expressions.temporal.temporal9.scenario-1.examples-1-row-13`: query execution failed: Parse error: invalid resolved function or parameter name: date.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..92; query:
-RETURN date.truncate('decade', date({year: 1984, month: 10, day: 11}), {day: 2}) AS result
-- `tck.expressions.temporal.temporal9.scenario-1.examples-1-row-14`: query execution failed: Parse error: invalid resolved function or parameter name: date.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..86; query:
-RETURN date.truncate('decade', date({year: 1984, month: 10, day: 11}), {}) AS result
-- `tck.expressions.temporal.temporal9.scenario-1.examples-1-row-15`: query execution failed: Parse error: invalid resolved function or parameter name: date.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..173; query:
-RETURN date.truncate('decade', datetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123, timezone: '+01:00'}), {day: 2}) AS result
-- `tck.expressions.temporal.temporal9.scenario-1.examples-1-row-16`: query execution failed: Parse error: invalid resolved function or parameter name: date.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..167; query:
-RETURN date.truncate('decade', datetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123, timezone: '+01:00'}), {}) AS result
-- `tck.expressions.temporal.temporal9.scenario-1.examples-1-row-17`: query execution failed: Parse error: invalid resolved function or parameter name: date.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..158; query:
-RETURN date.truncate('decade', localdatetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123}), {day: 2}) AS result
-- `tck.expressions.temporal.temporal9.scenario-1.examples-1-row-18`: query execution failed: Parse error: invalid resolved function or parameter name: date.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..152; query:
-RETURN date.truncate('decade', localdatetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123}), {}) AS result
-- `tck.expressions.temporal.temporal9.scenario-1.examples-1-row-19`: query execution failed: Parse error: invalid resolved function or parameter name: date.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..90; query:
-RETURN date.truncate('year', date({year: 1984, month: 10, day: 11}), {day: 2}) AS result
-- `tck.expressions.temporal.temporal9.scenario-1.examples-1-row-20`: query execution failed: Parse error: invalid resolved function or parameter name: date.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..84; query:
-RETURN date.truncate('year', date({year: 1984, month: 10, day: 11}), {}) AS result
-- `tck.expressions.temporal.temporal9.scenario-1.examples-1-row-21`: query execution failed: Parse error: invalid resolved function or parameter name: date.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..171; query:
-RETURN date.truncate('year', datetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123, timezone: '+01:00'}), {day: 2}) AS result
-- `tck.expressions.temporal.temporal9.scenario-1.examples-1-row-22`: query execution failed: Parse error: invalid resolved function or parameter name: date.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..165; query:
-RETURN date.truncate('year', datetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123, timezone: '+01:00'}), {}) AS result
-- `tck.expressions.temporal.temporal9.scenario-1.examples-1-row-23`: query execution failed: Parse error: invalid resolved function or parameter name: date.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..156; query:
-RETURN date.truncate('year', localdatetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123}), {day: 2}) AS result
-- `tck.expressions.temporal.temporal9.scenario-1.examples-1-row-24`: query execution failed: Parse error: invalid resolved function or parameter name: date.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..150; query:
-RETURN date.truncate('year', localdatetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123}), {}) AS result
-- `tck.expressions.temporal.temporal9.scenario-1.examples-1-row-25`: query execution failed: Parse error: invalid resolved function or parameter name: date.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..92; query:
-RETURN date.truncate('weekYear', date({year: 1984, month: 2, day: 1}), {day: 5}) AS result
-- `tck.expressions.temporal.temporal9.scenario-1.examples-1-row-26`: query execution failed: Parse error: invalid resolved function or parameter name: date.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..86; query:
-RETURN date.truncate('weekYear', date({year: 1984, month: 2, day: 1}), {}) AS result
-- `tck.expressions.temporal.temporal9.scenario-1.examples-1-row-27`: query execution failed: Parse error: invalid resolved function or parameter name: date.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..173; query:
-RETURN date.truncate('weekYear', datetime({year: 1984, month: 1, day: 1, hour: 12, minute: 31, second: 14, nanosecond: 645876123, timezone: '+01:00'}), {day: 5}) AS result
-- `tck.expressions.temporal.temporal9.scenario-1.examples-1-row-28`: query execution failed: Parse error: invalid resolved function or parameter name: date.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..167; query:
-RETURN date.truncate('weekYear', datetime({year: 1984, month: 1, day: 1, hour: 12, minute: 31, second: 14, nanosecond: 645876123, timezone: '+01:00'}), {}) AS result
-- `tck.expressions.temporal.temporal9.scenario-1.examples-1-row-29`: query execution failed: Parse error: invalid resolved function or parameter name: date.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..158; query:
-RETURN date.truncate('weekYear', localdatetime({year: 1984, month: 1, day: 1, hour: 12, minute: 31, second: 14, nanosecond: 645876123}), {day: 5}) AS result
-- `tck.expressions.temporal.temporal9.scenario-1.examples-1-row-30`: query execution failed: Parse error: invalid resolved function or parameter name: date.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..152; query:
-RETURN date.truncate('weekYear', localdatetime({year: 1984, month: 1, day: 1, hour: 12, minute: 31, second: 14, nanosecond: 645876123}), {}) AS result
-- `tck.expressions.temporal.temporal9.scenario-1.examples-1-row-31`: query execution failed: Parse error: invalid resolved function or parameter name: date.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..93; query:
-RETURN date.truncate('quarter', date({year: 1984, month: 11, day: 11}), {day: 2}) AS result
-- `tck.expressions.temporal.temporal9.scenario-1.examples-1-row-32`: query execution failed: Parse error: invalid resolved function or parameter name: date.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..87; query:
-RETURN date.truncate('quarter', date({year: 1984, month: 11, day: 11}), {}) AS result
-- `tck.expressions.temporal.temporal9.scenario-1.examples-1-row-33`: query execution failed: Parse error: invalid resolved function or parameter name: date.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..174; query:
-RETURN date.truncate('quarter', datetime({year: 1984, month: 11, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123, timezone: '+01:00'}), {day: 2}) AS result
-- `tck.expressions.temporal.temporal9.scenario-1.examples-1-row-34`: query execution failed: Parse error: invalid resolved function or parameter name: date.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..168; query:
-RETURN date.truncate('quarter', datetime({year: 1984, month: 11, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123, timezone: '+01:00'}), {}) AS result
-- `tck.expressions.temporal.temporal9.scenario-1.examples-1-row-35`: query execution failed: Parse error: invalid resolved function or parameter name: date.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..159; query:
-RETURN date.truncate('quarter', localdatetime({year: 1984, month: 11, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123}), {day: 2}) AS result
-- `tck.expressions.temporal.temporal9.scenario-1.examples-1-row-36`: query execution failed: Parse error: invalid resolved function or parameter name: date.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..153; query:
-RETURN date.truncate('quarter', localdatetime({year: 1984, month: 11, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123}), {}) AS result
-- `tck.expressions.temporal.temporal9.scenario-1.examples-1-row-37`: query execution failed: Parse error: invalid resolved function or parameter name: date.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..91; query:
-RETURN date.truncate('month', date({year: 1984, month: 10, day: 11}), {day: 2}) AS result
-- `tck.expressions.temporal.temporal9.scenario-1.examples-1-row-38`: query execution failed: Parse error: invalid resolved function or parameter name: date.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..85; query:
-RETURN date.truncate('month', date({year: 1984, month: 10, day: 11}), {}) AS result
-- `tck.expressions.temporal.temporal9.scenario-1.examples-1-row-39`: query execution failed: Parse error: invalid resolved function or parameter name: date.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..172; query:
-RETURN date.truncate('month', datetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123, timezone: '+01:00'}), {day: 2}) AS result
-- `tck.expressions.temporal.temporal9.scenario-1.examples-1-row-40`: query execution failed: Parse error: invalid resolved function or parameter name: date.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..166; query:
-RETURN date.truncate('month', datetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123, timezone: '+01:00'}), {}) AS result
-- `tck.expressions.temporal.temporal9.scenario-1.examples-1-row-41`: query execution failed: Parse error: invalid resolved function or parameter name: date.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..157; query:
-RETURN date.truncate('month', localdatetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123}), {day: 2}) AS result
-- `tck.expressions.temporal.temporal9.scenario-1.examples-1-row-42`: query execution failed: Parse error: invalid resolved function or parameter name: date.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..151; query:
-RETURN date.truncate('month', localdatetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123}), {}) AS result
-- `tck.expressions.temporal.temporal9.scenario-1.examples-1-row-43`: query execution failed: Parse error: invalid resolved function or parameter name: date.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..96; query:
-RETURN date.truncate('week', date({year: 1984, month: 10, day: 11}), {dayOfWeek: 2}) AS result
-- `tck.expressions.temporal.temporal9.scenario-1.examples-1-row-44`: query execution failed: Parse error: invalid resolved function or parameter name: date.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..84; query:
-RETURN date.truncate('week', date({year: 1984, month: 10, day: 11}), {}) AS result
-- `tck.expressions.temporal.temporal9.scenario-1.examples-1-row-45`: query execution failed: Parse error: invalid resolved function or parameter name: date.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..177; query:
-RETURN date.truncate('week', datetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123, timezone: '+01:00'}), {dayOfWeek: 2}) AS result
-- `tck.expressions.temporal.temporal9.scenario-1.examples-1-row-46`: query execution failed: Parse error: invalid resolved function or parameter name: date.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..165; query:
-RETURN date.truncate('week', datetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123, timezone: '+01:00'}), {}) AS result
-- `tck.expressions.temporal.temporal9.scenario-1.examples-1-row-47`: query execution failed: Parse error: invalid resolved function or parameter name: date.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..162; query:
-RETURN date.truncate('week', localdatetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123}), {dayOfWeek: 2}) AS result
-- `tck.expressions.temporal.temporal9.scenario-1.examples-1-row-48`: query execution failed: Parse error: invalid resolved function or parameter name: date.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..150; query:
-RETURN date.truncate('week', localdatetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123}), {}) AS result
-- `tck.expressions.temporal.temporal9.scenario-1.examples-1-row-49`: query execution failed: Parse error: invalid resolved function or parameter name: date.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..83; query:
-RETURN date.truncate('day', date({year: 1984, month: 10, day: 11}), {}) AS result
-- `tck.expressions.temporal.temporal9.scenario-1.examples-1-row-50`: query execution failed: Parse error: invalid resolved function or parameter name: date.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..164; query:
-RETURN date.truncate('day', datetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123, timezone: '+01:00'}), {}) AS result
-- `tck.expressions.temporal.temporal9.scenario-1.examples-1-row-51`: query execution failed: Parse error: invalid resolved function or parameter name: date.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..149; query:
-RETURN date.truncate('day', localdatetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123}), {}) AS result
-- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-1`: query execution failed: Parse error: invalid resolved function or parameter name: datetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..100; query:
-RETURN datetime.truncate('millennium', date({year: 2017, month: 10, day: 11}), {day: 2}) AS result
-- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-2`: query execution failed: Parse error: invalid resolved function or parameter name: datetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..122; query:
-RETURN datetime.truncate('millennium', date({year: 2017, month: 10, day: 11}), {timezone: 'Europe/Stockholm'}) AS result
-- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-3`: query execution failed: Parse error: invalid resolved function or parameter name: datetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..94; query:
-RETURN datetime.truncate('millennium', date({year: 2017, month: 10, day: 11}), {}) AS result
-- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-4`: query execution failed: Parse error: invalid resolved function or parameter name: datetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..181; query:
-RETURN datetime.truncate('millennium', datetime({year: 2017, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123, timezone: '+01:00'}), {day: 2}) AS result
-- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-5`: query execution failed: Parse error: invalid resolved function or parameter name: datetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..175; query:
-RETURN datetime.truncate('millennium', datetime({year: 2017, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123, timezone: '+01:00'}), {}) AS result
-- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-6`: query execution failed: Parse error: invalid resolved function or parameter name: datetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..203; query:
-RETURN datetime.truncate('millennium', datetime({year: 2017, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123, timezone: '-01:00'}), {timezone: 'Europe/Stockholm'}) AS result
-- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-7`: query execution failed: Parse error: invalid resolved function or parameter name: datetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..166; query:
-RETURN datetime.truncate('millennium', localdatetime({year: 2017, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123}), {day: 2}) AS result
-- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-8`: query execution failed: Parse error: invalid resolved function or parameter name: datetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..188; query:
-RETURN datetime.truncate('millennium', localdatetime({year: 2017, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123}), {timezone: 'Europe/Stockholm'}) AS result
-- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-9`: query execution failed: Parse error: invalid resolved function or parameter name: datetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..160; query:
-RETURN datetime.truncate('millennium', localdatetime({year: 2017, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123}), {}) AS result
-- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-10`: query execution failed: Parse error: invalid resolved function or parameter name: datetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..97; query:
-RETURN datetime.truncate('century', date({year: 1984, month: 10, day: 11}), {day: 2}) AS result
-- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-11`: query execution failed: Parse error: invalid resolved function or parameter name: datetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..91; query:
-RETURN datetime.truncate('century', date({year: 1984, month: 10, day: 11}), {}) AS result
-- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-12`: query execution failed: Parse error: invalid resolved function or parameter name: datetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..119; query:
-RETURN datetime.truncate('century', date({year: 2017, month: 10, day: 11}), {timezone: 'Europe/Stockholm'}) AS result
-- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-13`: query execution failed: Parse error: invalid resolved function or parameter name: datetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..178; query:
-RETURN datetime.truncate('century', datetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123, timezone: '+01:00'}), {day: 2}) AS result
-- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-14`: query execution failed: Parse error: invalid resolved function or parameter name: datetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..172; query:
-RETURN datetime.truncate('century', datetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123, timezone: '+01:00'}), {}) AS result
-- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-15`: query execution failed: Parse error: invalid resolved function or parameter name: datetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..200; query:
-RETURN datetime.truncate('century', datetime({year: 2017, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123, timezone: '-01:00'}), {timezone: 'Europe/Stockholm'}) AS result
-- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-16`: query execution failed: Parse error: invalid resolved function or parameter name: datetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..163; query:
-RETURN datetime.truncate('century', localdatetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123}), {day: 2}) AS result
-- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-17`: query execution failed: Parse error: invalid resolved function or parameter name: datetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..157; query:
-RETURN datetime.truncate('century', localdatetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123}), {}) AS result
-- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-18`: query execution failed: Parse error: invalid resolved function or parameter name: datetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..185; query:
-RETURN datetime.truncate('century', localdatetime({year: 2017, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123}), {timezone: 'Europe/Stockholm'}) AS result
-- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-19`: query execution failed: Parse error: invalid resolved function or parameter name: datetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..96; query:
-RETURN datetime.truncate('decade', date({year: 1984, month: 10, day: 11}), {day: 2}) AS result
-- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-20`: query execution failed: Parse error: invalid resolved function or parameter name: datetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..118; query:
-RETURN datetime.truncate('decade', date({year: 1984, month: 10, day: 11}), {timezone: 'Europe/Stockholm'}) AS result
-- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-21`: query execution failed: Parse error: invalid resolved function or parameter name: datetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..90; query:
-RETURN datetime.truncate('decade', date({year: 1984, month: 10, day: 11}), {}) AS result
-- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-22`: query execution failed: Parse error: invalid resolved function or parameter name: datetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..177; query:
-RETURN datetime.truncate('decade', datetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123, timezone: '+01:00'}), {day: 2}) AS result
-- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-23`: query execution failed: Parse error: invalid resolved function or parameter name: datetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..171; query:
-RETURN datetime.truncate('decade', datetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123, timezone: '+01:00'}), {}) AS result
-- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-24`: query execution failed: Parse error: invalid resolved function or parameter name: datetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..199; query:
-RETURN datetime.truncate('decade', datetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123, timezone: '-01:00'}), {timezone: 'Europe/Stockholm'}) AS result
-- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-25`: query execution failed: Parse error: invalid resolved function or parameter name: datetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..162; query:
-RETURN datetime.truncate('decade', localdatetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123}), {day: 2}) AS result
-- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-26`: query execution failed: Parse error: invalid resolved function or parameter name: datetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..184; query:
-RETURN datetime.truncate('decade', localdatetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123}), {timezone: 'Europe/Stockholm'}) AS result
-- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-27`: query execution failed: Parse error: invalid resolved function or parameter name: datetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..156; query:
-RETURN datetime.truncate('decade', localdatetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123}), {}) AS result
-- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-28`: query execution failed: Parse error: invalid resolved function or parameter name: datetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..94; query:
-RETURN datetime.truncate('year', date({year: 1984, month: 10, day: 11}), {day: 2}) AS result
-- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-29`: query execution failed: Parse error: invalid resolved function or parameter name: datetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..116; query:
-RETURN datetime.truncate('year', date({year: 1984, month: 10, day: 11}), {timezone: 'Europe/Stockholm'}) AS result
-- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-30`: query execution failed: Parse error: invalid resolved function or parameter name: datetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..88; query:
-RETURN datetime.truncate('year', date({year: 1984, month: 10, day: 11}), {}) AS result
-- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-31`: query execution failed: Parse error: invalid resolved function or parameter name: datetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..175; query:
-RETURN datetime.truncate('year', datetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123, timezone: '+01:00'}), {day: 2}) AS result
-- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-32`: query execution failed: Parse error: invalid resolved function or parameter name: datetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..169; query:
-RETURN datetime.truncate('year', datetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123, timezone: '+01:00'}), {}) AS result
-- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-33`: query execution failed: Parse error: invalid resolved function or parameter name: datetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..197; query:
-RETURN datetime.truncate('year', datetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123, timezone: '-01:00'}), {timezone: 'Europe/Stockholm'}) AS result
-- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-34`: query execution failed: Parse error: invalid resolved function or parameter name: datetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..160; query:
-RETURN datetime.truncate('year', localdatetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123}), {day: 2}) AS result
-- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-35`: query execution failed: Parse error: invalid resolved function or parameter name: datetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..182; query:
-RETURN datetime.truncate('year', localdatetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123}), {timezone: 'Europe/Stockholm'}) AS result
-- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-36`: query execution failed: Parse error: invalid resolved function or parameter name: datetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..154; query:
-RETURN datetime.truncate('year', localdatetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123}), {}) AS result
-- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-37`: query execution failed: Parse error: invalid resolved function or parameter name: datetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..96; query:
-RETURN datetime.truncate('weekYear', date({year: 1984, month: 2, day: 1}), {day: 5}) AS result
-- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-38`: query execution failed: Parse error: invalid resolved function or parameter name: datetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..118; query:
-RETURN datetime.truncate('weekYear', date({year: 1984, month: 2, day: 1}), {timezone: 'Europe/Stockholm'}) AS result
-- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-39`: query execution failed: Parse error: invalid resolved function or parameter name: datetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..90; query:
-RETURN datetime.truncate('weekYear', date({year: 1984, month: 2, day: 1}), {}) AS result
-- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-40`: query execution failed: Parse error: invalid resolved function or parameter name: datetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..177; query:
-RETURN datetime.truncate('weekYear', datetime({year: 1984, month: 1, day: 1, hour: 12, minute: 31, second: 14, nanosecond: 645876123, timezone: '+01:00'}), {day: 5}) AS result
-- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-41`: query execution failed: Parse error: invalid resolved function or parameter name: datetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..171; query:
-RETURN datetime.truncate('weekYear', datetime({year: 1984, month: 1, day: 1, hour: 12, minute: 31, second: 14, nanosecond: 645876123, timezone: '+01:00'}), {}) AS result
-- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-42`: query execution failed: Parse error: invalid resolved function or parameter name: datetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..199; query:
-RETURN datetime.truncate('weekYear', datetime({year: 1984, month: 1, day: 1, hour: 12, minute: 31, second: 14, nanosecond: 645876123, timezone: '-01:00'}), {timezone: 'Europe/Stockholm'}) AS result
-- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-43`: query execution failed: Parse error: invalid resolved function or parameter name: datetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..162; query:
-RETURN datetime.truncate('weekYear', localdatetime({year: 1984, month: 1, day: 1, hour: 12, minute: 31, second: 14, nanosecond: 645876123}), {day: 5}) AS result
-- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-44`: query execution failed: Parse error: invalid resolved function or parameter name: datetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..184; query:
-RETURN datetime.truncate('weekYear', localdatetime({year: 1984, month: 1, day: 1, hour: 12, minute: 31, second: 14, nanosecond: 645876123}), {timezone: 'Europe/Stockholm'}) AS result
-- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-45`: query execution failed: Parse error: invalid resolved function or parameter name: datetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..156; query:
-RETURN datetime.truncate('weekYear', localdatetime({year: 1984, month: 1, day: 1, hour: 12, minute: 31, second: 14, nanosecond: 645876123}), {}) AS result
-- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-46`: query execution failed: Parse error: invalid resolved function or parameter name: datetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..97; query:
-RETURN datetime.truncate('quarter', date({year: 1984, month: 11, day: 11}), {day: 2}) AS result
-- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-47`: query execution failed: Parse error: invalid resolved function or parameter name: datetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..119; query:
-RETURN datetime.truncate('quarter', date({year: 1984, month: 11, day: 11}), {timezone: 'Europe/Stockholm'}) AS result
-- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-48`: query execution failed: Parse error: invalid resolved function or parameter name: datetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..91; query:
-RETURN datetime.truncate('quarter', date({year: 1984, month: 11, day: 11}), {}) AS result
-- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-49`: query execution failed: Parse error: invalid resolved function or parameter name: datetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..178; query:
-RETURN datetime.truncate('quarter', datetime({year: 1984, month: 11, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123, timezone: '+01:00'}), {day: 2}) AS result
-- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-50`: query execution failed: Parse error: invalid resolved function or parameter name: datetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..172; query:
-RETURN datetime.truncate('quarter', datetime({year: 1984, month: 11, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123, timezone: '+01:00'}), {}) AS result
-- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-51`: query execution failed: Parse error: invalid resolved function or parameter name: datetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..200; query:
-RETURN datetime.truncate('quarter', datetime({year: 1984, month: 11, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123, timezone: '-01:00'}), {timezone: 'Europe/Stockholm'}) AS result
-- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-52`: query execution failed: Parse error: invalid resolved function or parameter name: datetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..163; query:
-RETURN datetime.truncate('quarter', localdatetime({year: 1984, month: 11, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123}), {day: 2}) AS result
-- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-53`: query execution failed: Parse error: invalid resolved function or parameter name: datetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..185; query:
-RETURN datetime.truncate('quarter', localdatetime({year: 1984, month: 11, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123}), {timezone: 'Europe/Stockholm'}) AS result
-- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-54`: query execution failed: Parse error: invalid resolved function or parameter name: datetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..157; query:
-RETURN datetime.truncate('quarter', localdatetime({year: 1984, month: 11, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123}), {}) AS result
-- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-55`: query execution failed: Parse error: invalid resolved function or parameter name: datetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..95; query:
-RETURN datetime.truncate('month', date({year: 1984, month: 10, day: 11}), {day: 2}) AS result
-- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-56`: query execution failed: Parse error: invalid resolved function or parameter name: datetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..117; query:
-RETURN datetime.truncate('month', date({year: 1984, month: 10, day: 11}), {timezone: 'Europe/Stockholm'}) AS result
-- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-57`: query execution failed: Parse error: invalid resolved function or parameter name: datetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..89; query:
-RETURN datetime.truncate('month', date({year: 1984, month: 10, day: 11}), {}) AS result
-- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-58`: query execution failed: Parse error: invalid resolved function or parameter name: datetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..176; query:
-RETURN datetime.truncate('month', datetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123, timezone: '+01:00'}), {day: 2}) AS result
-- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-59`: query execution failed: Parse error: invalid resolved function or parameter name: datetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..170; query:
-RETURN datetime.truncate('month', datetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123, timezone: '+01:00'}), {}) AS result
-- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-60`: query execution failed: Parse error: invalid resolved function or parameter name: datetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..198; query:
-RETURN datetime.truncate('month', datetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123, timezone: '-01:00'}), {timezone: 'Europe/Stockholm'}) AS result
-- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-61`: query execution failed: Parse error: invalid resolved function or parameter name: datetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..161; query:
-RETURN datetime.truncate('month', localdatetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123}), {day: 2}) AS result
-- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-62`: query execution failed: Parse error: invalid resolved function or parameter name: datetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..183; query:
-RETURN datetime.truncate('month', localdatetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123}), {timezone: 'Europe/Stockholm'}) AS result
-- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-63`: query execution failed: Parse error: invalid resolved function or parameter name: datetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..155; query:
-RETURN datetime.truncate('month', localdatetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123}), {}) AS result
-- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-64`: query execution failed: Parse error: invalid resolved function or parameter name: datetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..100; query:
-RETURN datetime.truncate('week', date({year: 1984, month: 10, day: 11}), {dayOfWeek: 2}) AS result
-- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-65`: query execution failed: Parse error: invalid resolved function or parameter name: datetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..116; query:
-RETURN datetime.truncate('week', date({year: 1984, month: 10, day: 11}), {timezone: 'Europe/Stockholm'}) AS result
-- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-66`: query execution failed: Parse error: invalid resolved function or parameter name: datetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..88; query:
-RETURN datetime.truncate('week', date({year: 1984, month: 10, day: 11}), {}) AS result
-- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-67`: query execution failed: Parse error: invalid resolved function or parameter name: datetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..181; query:
-RETURN datetime.truncate('week', datetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123, timezone: '+01:00'}), {dayOfWeek: 2}) AS result
-- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-68`: query execution failed: Parse error: invalid resolved function or parameter name: datetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..169; query:
-RETURN datetime.truncate('week', datetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123, timezone: '+01:00'}), {}) AS result
-- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-69`: query execution failed: Parse error: invalid resolved function or parameter name: datetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..197; query:
-RETURN datetime.truncate('week', datetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123, timezone: '-01:00'}), {timezone: 'Europe/Stockholm'}) AS result
-- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-70`: query execution failed: Parse error: invalid resolved function or parameter name: datetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..166; query:
-RETURN datetime.truncate('week', localdatetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123}), {dayOfWeek: 2}) AS result
-- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-71`: query execution failed: Parse error: invalid resolved function or parameter name: datetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..182; query:
-RETURN datetime.truncate('week', localdatetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123}), {timezone: 'Europe/Stockholm'}) AS result
-- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-72`: query execution failed: Parse error: invalid resolved function or parameter name: datetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..154; query:
-RETURN datetime.truncate('week', localdatetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123}), {}) AS result
-- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-73`: query execution failed: Parse error: invalid resolved function or parameter name: datetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..100; query:
-RETURN datetime.truncate('day', date({year: 1984, month: 10, day: 11}), {nanosecond: 2}) AS result
-- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-74`: query execution failed: Parse error: invalid resolved function or parameter name: datetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..115; query:
-RETURN datetime.truncate('day', date({year: 1984, month: 10, day: 11}), {timezone: 'Europe/Stockholm'}) AS result
-- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-75`: query execution failed: Parse error: invalid resolved function or parameter name: datetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..87; query:
-RETURN datetime.truncate('day', date({year: 1984, month: 10, day: 11}), {}) AS result
-- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-76`: query execution failed: Parse error: invalid resolved function or parameter name: datetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..181; query:
-RETURN datetime.truncate('day', datetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123, timezone: '+01:00'}), {nanosecond: 2}) AS result
-- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-77`: query execution failed: Parse error: invalid resolved function or parameter name: datetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..168; query:
-RETURN datetime.truncate('day', datetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123, timezone: '+01:00'}), {}) AS result
-- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-78`: query execution failed: Parse error: invalid resolved function or parameter name: datetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..196; query:
-RETURN datetime.truncate('day', datetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123, timezone: '-01:00'}), {timezone: 'Europe/Stockholm'}) AS result
-- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-79`: query execution failed: Parse error: invalid resolved function or parameter name: datetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..166; query:
-RETURN datetime.truncate('day', localdatetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123}), {nanosecond: 2}) AS result
-- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-80`: query execution failed: Parse error: invalid resolved function or parameter name: datetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..181; query:
-RETURN datetime.truncate('day', localdatetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123}), {timezone: 'Europe/Stockholm'}) AS result
-- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-81`: query execution failed: Parse error: invalid resolved function or parameter name: datetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..153; query:
-RETURN datetime.truncate('day', localdatetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123}), {}) AS result
-- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-82`: query execution failed: Parse error: invalid resolved function or parameter name: datetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..182; query:
-RETURN datetime.truncate('hour', datetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123, timezone: '-01:00'}), {nanosecond: 2}) AS result
-- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-83`: query execution failed: Parse error: invalid resolved function or parameter name: datetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..197; query:
-RETURN datetime.truncate('hour', datetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123, timezone: '-01:00'}), {timezone: 'Europe/Stockholm'}) AS result
-- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-84`: query execution failed: Parse error: invalid resolved function or parameter name: datetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..169; query:
-RETURN datetime.truncate('hour', datetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123, timezone: '-01:00'}), {}) AS result
-- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-85`: query execution failed: Parse error: invalid resolved function or parameter name: datetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..167; query:
-RETURN datetime.truncate('hour', localdatetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123}), {nanosecond: 2}) AS result
-- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-86`: query execution failed: Parse error: invalid resolved function or parameter name: datetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..182; query:
-RETURN datetime.truncate('hour', localdatetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123}), {timezone: 'Europe/Stockholm'}) AS result
-- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-87`: query execution failed: Parse error: invalid resolved function or parameter name: datetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..154; query:
-RETURN datetime.truncate('hour', localdatetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123}), {}) AS result
-- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-88`: query execution failed: Parse error: invalid resolved function or parameter name: datetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..184; query:
-RETURN datetime.truncate('minute', datetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123, timezone: '-01:00'}), {nanosecond: 2}) AS result
-- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-89`: query execution failed: Parse error: invalid resolved function or parameter name: datetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..199; query:
-RETURN datetime.truncate('minute', datetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123, timezone: '-01:00'}), {timezone: 'Europe/Stockholm'}) AS result
-- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-90`: query execution failed: Parse error: invalid resolved function or parameter name: datetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..171; query:
-RETURN datetime.truncate('minute', datetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123, timezone: '-01:00'}), {}) AS result
-- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-91`: query execution failed: Parse error: invalid resolved function or parameter name: datetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..169; query:
-RETURN datetime.truncate('minute', localdatetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123}), {nanosecond: 2}) AS result
-- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-92`: query execution failed: Parse error: invalid resolved function or parameter name: datetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..184; query:
-RETURN datetime.truncate('minute', localdatetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123}), {timezone: 'Europe/Stockholm'}) AS result
-- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-93`: query execution failed: Parse error: invalid resolved function or parameter name: datetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..156; query:
-RETURN datetime.truncate('minute', localdatetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123}), {}) AS result
-- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-94`: query execution failed: Parse error: invalid resolved function or parameter name: datetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..184; query:
-RETURN datetime.truncate('second', datetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123, timezone: '+01:00'}), {nanosecond: 2}) AS result
-- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-95`: query execution failed: Parse error: invalid resolved function or parameter name: datetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..171; query:
-RETURN datetime.truncate('second', datetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123, timezone: '+01:00'}), {}) AS result
-- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-96`: query execution failed: Parse error: invalid resolved function or parameter name: datetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..169; query:
-RETURN datetime.truncate('second', localdatetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123}), {nanosecond: 2}) AS result
-- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-97`: query execution failed: Parse error: invalid resolved function or parameter name: datetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..156; query:
-RETURN datetime.truncate('second', localdatetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123}), {}) AS result
-- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-98`: query execution failed: Parse error: invalid resolved function or parameter name: datetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..189; query:
-RETURN datetime.truncate('millisecond', datetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123, timezone: '+01:00'}), {nanosecond: 2}) AS result
-- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-99`: query execution failed: Parse error: invalid resolved function or parameter name: datetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..176; query:
-RETURN datetime.truncate('millisecond', datetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123, timezone: '+01:00'}), {}) AS result
-- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-100`: query execution failed: Parse error: invalid resolved function or parameter name: datetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..174; query:
-RETURN datetime.truncate('millisecond', localdatetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123}), {nanosecond: 2}) AS result
-- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-101`: query execution failed: Parse error: invalid resolved function or parameter name: datetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..161; query:
-RETURN datetime.truncate('millisecond', localdatetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123}), {}) AS result
-- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-102`: query execution failed: Parse error: invalid resolved function or parameter name: datetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..189; query:
-RETURN datetime.truncate('microsecond', datetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123, timezone: '+01:00'}), {nanosecond: 2}) AS result
-- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-103`: query execution failed: Parse error: invalid resolved function or parameter name: datetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..176; query:
-RETURN datetime.truncate('microsecond', datetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123, timezone: '+01:00'}), {}) AS result
-- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-104`: query execution failed: Parse error: invalid resolved function or parameter name: datetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..174; query:
-RETURN datetime.truncate('microsecond', localdatetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123}), {nanosecond: 2}) AS result
-- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-105`: query execution failed: Parse error: invalid resolved function or parameter name: datetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..161; query:
-RETURN datetime.truncate('microsecond', localdatetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123}), {}) AS result
-- `tck.expressions.temporal.temporal9.scenario-3.examples-1-row-1`: query execution failed: Parse error: invalid resolved function or parameter name: localdatetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..105; query:
-RETURN localdatetime.truncate('millennium', date({year: 2017, month: 10, day: 11}), {day: 2}) AS result
-- `tck.expressions.temporal.temporal9.scenario-3.examples-1-row-2`: query execution failed: Parse error: invalid resolved function or parameter name: localdatetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..99; query:
-RETURN localdatetime.truncate('millennium', date({year: 2017, month: 10, day: 11}), {}) AS result
-- `tck.expressions.temporal.temporal9.scenario-3.examples-1-row-3`: query execution failed: Parse error: invalid resolved function or parameter name: localdatetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..186; query:
-RETURN localdatetime.truncate('millennium', datetime({year: 2017, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123, timezone: '+01:00'}), {day: 2}) AS result
-- `tck.expressions.temporal.temporal9.scenario-3.examples-1-row-4`: query execution failed: Parse error: invalid resolved function or parameter name: localdatetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..180; query:
-RETURN localdatetime.truncate('millennium', datetime({year: 2017, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123, timezone: '+01:00'}), {}) AS result
-- `tck.expressions.temporal.temporal9.scenario-3.examples-1-row-5`: query execution failed: Parse error: invalid resolved function or parameter name: localdatetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..171; query:
-RETURN localdatetime.truncate('millennium', localdatetime({year: 2017, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123}), {day: 2}) AS result
-- `tck.expressions.temporal.temporal9.scenario-3.examples-1-row-6`: query execution failed: Parse error: invalid resolved function or parameter name: localdatetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..165; query:
-RETURN localdatetime.truncate('millennium', localdatetime({year: 2017, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123}), {}) AS result
-- `tck.expressions.temporal.temporal9.scenario-3.examples-1-row-7`: query execution failed: Parse error: invalid resolved function or parameter name: localdatetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..102; query:
-RETURN localdatetime.truncate('century', date({year: 1984, month: 10, day: 11}), {day: 2}) AS result
-- `tck.expressions.temporal.temporal9.scenario-3.examples-1-row-8`: query execution failed: Parse error: invalid resolved function or parameter name: localdatetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..96; query:
-RETURN localdatetime.truncate('century', date({year: 1984, month: 10, day: 11}), {}) AS result
-- `tck.expressions.temporal.temporal9.scenario-3.examples-1-row-9`: query execution failed: Parse error: invalid resolved function or parameter name: localdatetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..183; query:
-RETURN localdatetime.truncate('century', datetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123, timezone: '+01:00'}), {day: 2}) AS result
-- `tck.expressions.temporal.temporal9.scenario-3.examples-1-row-10`: query execution failed: Parse error: invalid resolved function or parameter name: localdatetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..177; query:
-RETURN localdatetime.truncate('century', datetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123, timezone: '+01:00'}), {}) AS result
-- `tck.expressions.temporal.temporal9.scenario-3.examples-1-row-11`: query execution failed: Parse error: invalid resolved function or parameter name: localdatetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..168; query:
-RETURN localdatetime.truncate('century', localdatetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123}), {day: 2}) AS result
-- `tck.expressions.temporal.temporal9.scenario-3.examples-1-row-12`: query execution failed: Parse error: invalid resolved function or parameter name: localdatetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..162; query:
-RETURN localdatetime.truncate('century', localdatetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123}), {}) AS result
-- `tck.expressions.temporal.temporal9.scenario-3.examples-1-row-13`: query execution failed: Parse error: invalid resolved function or parameter name: localdatetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..101; query:
-RETURN localdatetime.truncate('decade', date({year: 1984, month: 10, day: 11}), {day: 2}) AS result
-- `tck.expressions.temporal.temporal9.scenario-3.examples-1-row-14`: query execution failed: Parse error: invalid resolved function or parameter name: localdatetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..95; query:
-RETURN localdatetime.truncate('decade', date({year: 1984, month: 10, day: 11}), {}) AS result
-- `tck.expressions.temporal.temporal9.scenario-3.examples-1-row-15`: query execution failed: Parse error: invalid resolved function or parameter name: localdatetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..182; query:
-RETURN localdatetime.truncate('decade', datetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123, timezone: '+01:00'}), {day: 2}) AS result
-- `tck.expressions.temporal.temporal9.scenario-3.examples-1-row-16`: query execution failed: Parse error: invalid resolved function or parameter name: localdatetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..176; query:
-RETURN localdatetime.truncate('decade', datetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123, timezone: '+01:00'}), {}) AS result
-- `tck.expressions.temporal.temporal9.scenario-3.examples-1-row-17`: query execution failed: Parse error: invalid resolved function or parameter name: localdatetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..167; query:
-RETURN localdatetime.truncate('decade', localdatetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123}), {day: 2}) AS result
-- `tck.expressions.temporal.temporal9.scenario-3.examples-1-row-18`: query execution failed: Parse error: invalid resolved function or parameter name: localdatetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..161; query:
-RETURN localdatetime.truncate('decade', localdatetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123}), {}) AS result
-- `tck.expressions.temporal.temporal9.scenario-3.examples-1-row-19`: query execution failed: Parse error: invalid resolved function or parameter name: localdatetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..99; query:
-RETURN localdatetime.truncate('year', date({year: 1984, month: 10, day: 11}), {day: 2}) AS result
-- `tck.expressions.temporal.temporal9.scenario-3.examples-1-row-20`: query execution failed: Parse error: invalid resolved function or parameter name: localdatetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..93; query:
-RETURN localdatetime.truncate('year', date({year: 1984, month: 10, day: 11}), {}) AS result
-- `tck.expressions.temporal.temporal9.scenario-3.examples-1-row-21`: query execution failed: Parse error: invalid resolved function or parameter name: localdatetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..180; query:
-RETURN localdatetime.truncate('year', datetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123, timezone: '+01:00'}), {day: 2}) AS result
-- `tck.expressions.temporal.temporal9.scenario-3.examples-1-row-22`: query execution failed: Parse error: invalid resolved function or parameter name: localdatetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..174; query:
-RETURN localdatetime.truncate('year', datetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123, timezone: '+01:00'}), {}) AS result
-- `tck.expressions.temporal.temporal9.scenario-3.examples-1-row-23`: query execution failed: Parse error: invalid resolved function or parameter name: localdatetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..165; query:
-RETURN localdatetime.truncate('year', localdatetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123}), {day: 2}) AS result
-- `tck.expressions.temporal.temporal9.scenario-3.examples-1-row-24`: query execution failed: Parse error: invalid resolved function or parameter name: localdatetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..159; query:
-RETURN localdatetime.truncate('year', localdatetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123}), {}) AS result
-- `tck.expressions.temporal.temporal9.scenario-3.examples-1-row-25`: query execution failed: Parse error: invalid resolved function or parameter name: localdatetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..101; query:
-RETURN localdatetime.truncate('weekYear', date({year: 1984, month: 2, day: 1}), {day: 5}) AS result
-- `tck.expressions.temporal.temporal9.scenario-3.examples-1-row-26`: query execution failed: Parse error: invalid resolved function or parameter name: localdatetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..95; query:
-RETURN localdatetime.truncate('weekYear', date({year: 1984, month: 2, day: 1}), {}) AS result
-- `tck.expressions.temporal.temporal9.scenario-3.examples-1-row-27`: query execution failed: Parse error: invalid resolved function or parameter name: localdatetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..182; query:
-RETURN localdatetime.truncate('weekYear', datetime({year: 1984, month: 1, day: 1, hour: 12, minute: 31, second: 14, nanosecond: 645876123, timezone: '+01:00'}), {day: 5}) AS result
-- `tck.expressions.temporal.temporal9.scenario-3.examples-1-row-28`: query execution failed: Parse error: invalid resolved function or parameter name: localdatetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..176; query:
-RETURN localdatetime.truncate('weekYear', datetime({year: 1984, month: 1, day: 1, hour: 12, minute: 31, second: 14, nanosecond: 645876123, timezone: '+01:00'}), {}) AS result
-- `tck.expressions.temporal.temporal9.scenario-3.examples-1-row-29`: query execution failed: Parse error: invalid resolved function or parameter name: localdatetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..167; query:
-RETURN localdatetime.truncate('weekYear', localdatetime({year: 1984, month: 1, day: 1, hour: 12, minute: 31, second: 14, nanosecond: 645876123}), {day: 5}) AS result
-- `tck.expressions.temporal.temporal9.scenario-3.examples-1-row-30`: query execution failed: Parse error: invalid resolved function or parameter name: localdatetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..161; query:
-RETURN localdatetime.truncate('weekYear', localdatetime({year: 1984, month: 1, day: 1, hour: 12, minute: 31, second: 14, nanosecond: 645876123}), {}) AS result
-- `tck.expressions.temporal.temporal9.scenario-3.examples-1-row-31`: query execution failed: Parse error: invalid resolved function or parameter name: localdatetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..102; query:
-RETURN localdatetime.truncate('quarter', date({year: 1984, month: 11, day: 11}), {day: 2}) AS result
-- `tck.expressions.temporal.temporal9.scenario-3.examples-1-row-32`: query execution failed: Parse error: invalid resolved function or parameter name: localdatetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..96; query:
-RETURN localdatetime.truncate('quarter', date({year: 1984, month: 11, day: 11}), {}) AS result
-- `tck.expressions.temporal.temporal9.scenario-3.examples-1-row-33`: query execution failed: Parse error: invalid resolved function or parameter name: localdatetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..183; query:
-RETURN localdatetime.truncate('quarter', datetime({year: 1984, month: 11, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123, timezone: '+01:00'}), {day: 2}) AS result
-- `tck.expressions.temporal.temporal9.scenario-3.examples-1-row-34`: query execution failed: Parse error: invalid resolved function or parameter name: localdatetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..177; query:
-RETURN localdatetime.truncate('quarter', datetime({year: 1984, month: 11, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123, timezone: '+01:00'}), {}) AS result
-- `tck.expressions.temporal.temporal9.scenario-3.examples-1-row-35`: query execution failed: Parse error: invalid resolved function or parameter name: localdatetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..168; query:
-RETURN localdatetime.truncate('quarter', localdatetime({year: 1984, month: 11, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123}), {day: 2}) AS result
-- `tck.expressions.temporal.temporal9.scenario-3.examples-1-row-36`: query execution failed: Parse error: invalid resolved function or parameter name: localdatetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..162; query:
-RETURN localdatetime.truncate('quarter', localdatetime({year: 1984, month: 11, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123}), {}) AS result
-- `tck.expressions.temporal.temporal9.scenario-3.examples-1-row-37`: query execution failed: Parse error: invalid resolved function or parameter name: localdatetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..100; query:
-RETURN localdatetime.truncate('month', date({year: 1984, month: 10, day: 11}), {day: 2}) AS result
-- `tck.expressions.temporal.temporal9.scenario-3.examples-1-row-38`: query execution failed: Parse error: invalid resolved function or parameter name: localdatetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..94; query:
-RETURN localdatetime.truncate('month', date({year: 1984, month: 10, day: 11}), {}) AS result
-- `tck.expressions.temporal.temporal9.scenario-3.examples-1-row-39`: query execution failed: Parse error: invalid resolved function or parameter name: localdatetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..181; query:
-RETURN localdatetime.truncate('month', datetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123, timezone: '+01:00'}), {day: 2}) AS result
-- `tck.expressions.temporal.temporal9.scenario-3.examples-1-row-40`: query execution failed: Parse error: invalid resolved function or parameter name: localdatetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..175; query:
-RETURN localdatetime.truncate('month', datetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123, timezone: '+01:00'}), {}) AS result
-- `tck.expressions.temporal.temporal9.scenario-3.examples-1-row-41`: query execution failed: Parse error: invalid resolved function or parameter name: localdatetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..166; query:
-RETURN localdatetime.truncate('month', localdatetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123}), {day: 2}) AS result
-- `tck.expressions.temporal.temporal9.scenario-3.examples-1-row-42`: query execution failed: Parse error: invalid resolved function or parameter name: localdatetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..160; query:
-RETURN localdatetime.truncate('month', localdatetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123}), {}) AS result
-- `tck.expressions.temporal.temporal9.scenario-3.examples-1-row-43`: query execution failed: Parse error: invalid resolved function or parameter name: localdatetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..105; query:
-RETURN localdatetime.truncate('week', date({year: 1984, month: 10, day: 11}), {dayOfWeek: 2}) AS result
-- `tck.expressions.temporal.temporal9.scenario-3.examples-1-row-44`: query execution failed: Parse error: invalid resolved function or parameter name: localdatetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..93; query:
-RETURN localdatetime.truncate('week', date({year: 1984, month: 10, day: 11}), {}) AS result
-- `tck.expressions.temporal.temporal9.scenario-3.examples-1-row-45`: query execution failed: Parse error: invalid resolved function or parameter name: localdatetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..186; query:
-RETURN localdatetime.truncate('week', datetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123, timezone: '+01:00'}), {dayOfWeek: 2}) AS result
-- `tck.expressions.temporal.temporal9.scenario-3.examples-1-row-46`: query execution failed: Parse error: invalid resolved function or parameter name: localdatetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..174; query:
-RETURN localdatetime.truncate('week', datetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123, timezone: '+01:00'}), {}) AS result
-- `tck.expressions.temporal.temporal9.scenario-3.examples-1-row-47`: query execution failed: Parse error: invalid resolved function or parameter name: localdatetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..171; query:
-RETURN localdatetime.truncate('week', localdatetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123}), {dayOfWeek: 2}) AS result
-- `tck.expressions.temporal.temporal9.scenario-3.examples-1-row-48`: query execution failed: Parse error: invalid resolved function or parameter name: localdatetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..159; query:
-RETURN localdatetime.truncate('week', localdatetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123}), {}) AS result
-- `tck.expressions.temporal.temporal9.scenario-3.examples-1-row-49`: query execution failed: Parse error: invalid resolved function or parameter name: localdatetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..105; query:
-RETURN localdatetime.truncate('day', date({year: 1984, month: 10, day: 11}), {nanosecond: 2}) AS result
-- `tck.expressions.temporal.temporal9.scenario-3.examples-1-row-50`: query execution failed: Parse error: invalid resolved function or parameter name: localdatetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..92; query:
-RETURN localdatetime.truncate('day', date({year: 1984, month: 10, day: 11}), {}) AS result
-- `tck.expressions.temporal.temporal9.scenario-3.examples-1-row-51`: query execution failed: Parse error: invalid resolved function or parameter name: localdatetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..186; query:
-RETURN localdatetime.truncate('day', datetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123, timezone: '+01:00'}), {nanosecond: 2}) AS result
-- `tck.expressions.temporal.temporal9.scenario-3.examples-1-row-52`: query execution failed: Parse error: invalid resolved function or parameter name: localdatetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..173; query:
-RETURN localdatetime.truncate('day', datetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123, timezone: '+01:00'}), {}) AS result
-- `tck.expressions.temporal.temporal9.scenario-3.examples-1-row-53`: query execution failed: Parse error: invalid resolved function or parameter name: localdatetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..171; query:
-RETURN localdatetime.truncate('day', localdatetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123}), {nanosecond: 2}) AS result
-- `tck.expressions.temporal.temporal9.scenario-3.examples-1-row-54`: query execution failed: Parse error: invalid resolved function or parameter name: localdatetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..158; query:
-RETURN localdatetime.truncate('day', localdatetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123}), {}) AS result
-- `tck.expressions.temporal.temporal9.scenario-3.examples-1-row-55`: query execution failed: Parse error: invalid resolved function or parameter name: localdatetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..187; query:
-RETURN localdatetime.truncate('hour', datetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123, timezone: '+01:00'}), {nanosecond: 2}) AS result
-- `tck.expressions.temporal.temporal9.scenario-3.examples-1-row-56`: query execution failed: Parse error: invalid resolved function or parameter name: localdatetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..174; query:
-RETURN localdatetime.truncate('hour', datetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123, timezone: '+01:00'}), {}) AS result
-- `tck.expressions.temporal.temporal9.scenario-3.examples-1-row-57`: query execution failed: Parse error: invalid resolved function or parameter name: localdatetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..172; query:
-RETURN localdatetime.truncate('hour', localdatetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123}), {nanosecond: 2}) AS result
-- `tck.expressions.temporal.temporal9.scenario-3.examples-1-row-58`: query execution failed: Parse error: invalid resolved function or parameter name: localdatetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..159; query:
-RETURN localdatetime.truncate('hour', localdatetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123}), {}) AS result
-- `tck.expressions.temporal.temporal9.scenario-3.examples-1-row-59`: query execution failed: Parse error: invalid resolved function or parameter name: localdatetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..189; query:
-RETURN localdatetime.truncate('minute', datetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123, timezone: '+01:00'}), {nanosecond: 2}) AS result
-- `tck.expressions.temporal.temporal9.scenario-3.examples-1-row-60`: query execution failed: Parse error: invalid resolved function or parameter name: localdatetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..176; query:
-RETURN localdatetime.truncate('minute', datetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123, timezone: '+01:00'}), {}) AS result
-- `tck.expressions.temporal.temporal9.scenario-3.examples-1-row-61`: query execution failed: Parse error: invalid resolved function or parameter name: localdatetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..174; query:
-RETURN localdatetime.truncate('minute', localdatetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123}), {nanosecond: 2}) AS result
-- `tck.expressions.temporal.temporal9.scenario-3.examples-1-row-62`: query execution failed: Parse error: invalid resolved function or parameter name: localdatetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..161; query:
-RETURN localdatetime.truncate('minute', localdatetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123}), {}) AS result
-- `tck.expressions.temporal.temporal9.scenario-3.examples-1-row-63`: query execution failed: Parse error: invalid resolved function or parameter name: localdatetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..189; query:
-RETURN localdatetime.truncate('second', datetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123, timezone: '+01:00'}), {nanosecond: 2}) AS result
-- `tck.expressions.temporal.temporal9.scenario-3.examples-1-row-64`: query execution failed: Parse error: invalid resolved function or parameter name: localdatetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..176; query:
-RETURN localdatetime.truncate('second', datetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123, timezone: '+01:00'}), {}) AS result
-- `tck.expressions.temporal.temporal9.scenario-3.examples-1-row-65`: query execution failed: Parse error: invalid resolved function or parameter name: localdatetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..174; query:
-RETURN localdatetime.truncate('second', localdatetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123}), {nanosecond: 2}) AS result
-- `tck.expressions.temporal.temporal9.scenario-3.examples-1-row-66`: query execution failed: Parse error: invalid resolved function or parameter name: localdatetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..161; query:
-RETURN localdatetime.truncate('second', localdatetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123}), {}) AS result
-- `tck.expressions.temporal.temporal9.scenario-3.examples-1-row-67`: query execution failed: Parse error: invalid resolved function or parameter name: localdatetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..194; query:
-RETURN localdatetime.truncate('millisecond', datetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123, timezone: '+01:00'}), {nanosecond: 2}) AS result
-- `tck.expressions.temporal.temporal9.scenario-3.examples-1-row-68`: query execution failed: Parse error: invalid resolved function or parameter name: localdatetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..181; query:
-RETURN localdatetime.truncate('millisecond', datetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123, timezone: '+01:00'}), {}) AS result
-- `tck.expressions.temporal.temporal9.scenario-3.examples-1-row-69`: query execution failed: Parse error: invalid resolved function or parameter name: localdatetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..179; query:
-RETURN localdatetime.truncate('millisecond', localdatetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123}), {nanosecond: 2}) AS result
-- `tck.expressions.temporal.temporal9.scenario-3.examples-1-row-70`: query execution failed: Parse error: invalid resolved function or parameter name: localdatetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..166; query:
-RETURN localdatetime.truncate('millisecond', localdatetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123}), {}) AS result
-- `tck.expressions.temporal.temporal9.scenario-3.examples-1-row-71`: query execution failed: Parse error: invalid resolved function or parameter name: localdatetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..194; query:
-RETURN localdatetime.truncate('microsecond', datetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123, timezone: '+01:00'}), {nanosecond: 2}) AS result
-- `tck.expressions.temporal.temporal9.scenario-3.examples-1-row-72`: query execution failed: Parse error: invalid resolved function or parameter name: localdatetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..181; query:
-RETURN localdatetime.truncate('microsecond', datetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123, timezone: '+01:00'}), {}) AS result
-- `tck.expressions.temporal.temporal9.scenario-3.examples-1-row-73`: query execution failed: Parse error: invalid resolved function or parameter name: localdatetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..179; query:
-RETURN localdatetime.truncate('microsecond', localdatetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123}), {nanosecond: 2}) AS result
-- `tck.expressions.temporal.temporal9.scenario-3.examples-1-row-74`: query execution failed: Parse error: invalid resolved function or parameter name: localdatetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..166; query:
-RETURN localdatetime.truncate('microsecond', localdatetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123}), {}) AS result
-- `tck.expressions.temporal.temporal9.scenario-4.examples-1-row-1`: query execution failed: Parse error: invalid resolved function or parameter name: localtime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..182; query:
-RETURN localtime.truncate('day', datetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123, timezone: '+01:00'}), {nanosecond: 2}) AS result
-- `tck.expressions.temporal.temporal9.scenario-4.examples-1-row-2`: query execution failed: Parse error: invalid resolved function or parameter name: localtime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..169; query:
-RETURN localtime.truncate('day', datetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123, timezone: '+01:00'}), {}) AS result
-- `tck.expressions.temporal.temporal9.scenario-4.examples-1-row-3`: query execution failed: Parse error: invalid resolved function or parameter name: localtime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..167; query:
-RETURN localtime.truncate('day', localdatetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123}), {nanosecond: 2}) AS result
-- `tck.expressions.temporal.temporal9.scenario-4.examples-1-row-4`: query execution failed: Parse error: invalid resolved function or parameter name: localtime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..154; query:
-RETURN localtime.truncate('day', localdatetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123}), {}) AS result
-- `tck.expressions.temporal.temporal9.scenario-4.examples-1-row-5`: query execution failed: Parse error: invalid resolved function or parameter name: localtime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..183; query:
-RETURN localtime.truncate('hour', datetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123, timezone: '+01:00'}), {nanosecond: 2}) AS result
-- `tck.expressions.temporal.temporal9.scenario-4.examples-1-row-6`: query execution failed: Parse error: invalid resolved function or parameter name: localtime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..170; query:
-RETURN localtime.truncate('hour', datetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123, timezone: '+01:00'}), {}) AS result
-- `tck.expressions.temporal.temporal9.scenario-4.examples-1-row-7`: query execution failed: Parse error: invalid resolved function or parameter name: localtime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..168; query:
-RETURN localtime.truncate('hour', localdatetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123}), {nanosecond: 2}) AS result
-- `tck.expressions.temporal.temporal9.scenario-4.examples-1-row-8`: query execution failed: Parse error: invalid resolved function or parameter name: localtime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..155; query:
-RETURN localtime.truncate('hour', localdatetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123}), {}) AS result
-- `tck.expressions.temporal.temporal9.scenario-4.examples-1-row-9`: query execution failed: Parse error: invalid resolved function or parameter name: localtime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..132; query:
-RETURN localtime.truncate('hour', localtime({hour: 12, minute: 31, second: 14, nanosecond: 645876123}), {nanosecond: 2}) AS result
-- `tck.expressions.temporal.temporal9.scenario-4.examples-1-row-10`: query execution failed: Parse error: invalid resolved function or parameter name: localtime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..119; query:
-RETURN localtime.truncate('hour', localtime({hour: 12, minute: 31, second: 14, nanosecond: 645876123}), {}) AS result
-- `tck.expressions.temporal.temporal9.scenario-4.examples-1-row-11`: query execution failed: Parse error: invalid resolved function or parameter name: localtime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..147; query:
-RETURN localtime.truncate('hour', time({hour: 12, minute: 31, second: 14, nanosecond: 645876123, timezone: '+01:00'}), {nanosecond: 2}) AS result
-- `tck.expressions.temporal.temporal9.scenario-4.examples-1-row-12`: query execution failed: Parse error: invalid resolved function or parameter name: localtime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..134; query:
-RETURN localtime.truncate('hour', time({hour: 12, minute: 31, second: 14, nanosecond: 645876123, timezone: '+01:00'}), {}) AS result
-- `tck.expressions.temporal.temporal9.scenario-4.examples-1-row-13`: query execution failed: Parse error: invalid resolved function or parameter name: localtime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..185; query:
-RETURN localtime.truncate('minute', datetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123, timezone: '+01:00'}), {nanosecond: 2}) AS result
-- `tck.expressions.temporal.temporal9.scenario-4.examples-1-row-14`: query execution failed: Parse error: invalid resolved function or parameter name: localtime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..172; query:
-RETURN localtime.truncate('minute', datetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123, timezone: '+01:00'}), {}) AS result
-- `tck.expressions.temporal.temporal9.scenario-4.examples-1-row-15`: query execution failed: Parse error: invalid resolved function or parameter name: localtime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..170; query:
-RETURN localtime.truncate('minute', localdatetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123}), {nanosecond: 2}) AS result
-- `tck.expressions.temporal.temporal9.scenario-4.examples-1-row-16`: query execution failed: Parse error: invalid resolved function or parameter name: localtime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..157; query:
-RETURN localtime.truncate('minute', localdatetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123}), {}) AS result
-- `tck.expressions.temporal.temporal9.scenario-4.examples-1-row-17`: query execution failed: Parse error: invalid resolved function or parameter name: localtime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..134; query:
-RETURN localtime.truncate('minute', localtime({hour: 12, minute: 31, second: 14, nanosecond: 645876123}), {nanosecond: 2}) AS result
-- `tck.expressions.temporal.temporal9.scenario-4.examples-1-row-18`: query execution failed: Parse error: invalid resolved function or parameter name: localtime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..121; query:
-RETURN localtime.truncate('minute', localtime({hour: 12, minute: 31, second: 14, nanosecond: 645876123}), {}) AS result
-- `tck.expressions.temporal.temporal9.scenario-4.examples-1-row-19`: query execution failed: Parse error: invalid resolved function or parameter name: localtime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..149; query:
-RETURN localtime.truncate('minute', time({hour: 12, minute: 31, second: 14, nanosecond: 645876123, timezone: '+01:00'}), {nanosecond: 2}) AS result
-- `tck.expressions.temporal.temporal9.scenario-4.examples-1-row-20`: query execution failed: Parse error: invalid resolved function or parameter name: localtime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..136; query:
-RETURN localtime.truncate('minute', time({hour: 12, minute: 31, second: 14, nanosecond: 645876123, timezone: '+01:00'}), {}) AS result
-- `tck.expressions.temporal.temporal9.scenario-4.examples-1-row-21`: query execution failed: Parse error: invalid resolved function or parameter name: localtime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..185; query:
-RETURN localtime.truncate('second', datetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123, timezone: '+01:00'}), {nanosecond: 2}) AS result
-- `tck.expressions.temporal.temporal9.scenario-4.examples-1-row-22`: query execution failed: Parse error: invalid resolved function or parameter name: localtime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..172; query:
-RETURN localtime.truncate('second', datetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123, timezone: '+01:00'}), {}) AS result
-- `tck.expressions.temporal.temporal9.scenario-4.examples-1-row-23`: query execution failed: Parse error: invalid resolved function or parameter name: localtime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..170; query:
-RETURN localtime.truncate('second', localdatetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123}), {nanosecond: 2}) AS result
-- `tck.expressions.temporal.temporal9.scenario-4.examples-1-row-24`: query execution failed: Parse error: invalid resolved function or parameter name: localtime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..157; query:
-RETURN localtime.truncate('second', localdatetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123}), {}) AS result
-- `tck.expressions.temporal.temporal9.scenario-4.examples-1-row-25`: query execution failed: Parse error: invalid resolved function or parameter name: localtime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..134; query:
-RETURN localtime.truncate('second', localtime({hour: 12, minute: 31, second: 14, nanosecond: 645876123}), {nanosecond: 2}) AS result
-- `tck.expressions.temporal.temporal9.scenario-4.examples-1-row-26`: query execution failed: Parse error: invalid resolved function or parameter name: localtime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..121; query:
-RETURN localtime.truncate('second', localtime({hour: 12, minute: 31, second: 14, nanosecond: 645876123}), {}) AS result
-- `tck.expressions.temporal.temporal9.scenario-4.examples-1-row-27`: query execution failed: Parse error: invalid resolved function or parameter name: localtime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..149; query:
-RETURN localtime.truncate('second', time({hour: 12, minute: 31, second: 14, nanosecond: 645876123, timezone: '+01:00'}), {nanosecond: 2}) AS result
-- `tck.expressions.temporal.temporal9.scenario-4.examples-1-row-28`: query execution failed: Parse error: invalid resolved function or parameter name: localtime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..136; query:
-RETURN localtime.truncate('second', time({hour: 12, minute: 31, second: 14, nanosecond: 645876123, timezone: '+01:00'}), {}) AS result
-- `tck.expressions.temporal.temporal9.scenario-4.examples-1-row-29`: query execution failed: Parse error: invalid resolved function or parameter name: localtime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..190; query:
-RETURN localtime.truncate('millisecond', datetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123, timezone: '+01:00'}), {nanosecond: 2}) AS result
-- `tck.expressions.temporal.temporal9.scenario-4.examples-1-row-30`: query execution failed: Parse error: invalid resolved function or parameter name: localtime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..177; query:
-RETURN localtime.truncate('millisecond', datetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123, timezone: '+01:00'}), {}) AS result
-- `tck.expressions.temporal.temporal9.scenario-4.examples-1-row-31`: query execution failed: Parse error: invalid resolved function or parameter name: localtime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..175; query:
-RETURN localtime.truncate('millisecond', localdatetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123}), {nanosecond: 2}) AS result
-- `tck.expressions.temporal.temporal9.scenario-4.examples-1-row-32`: query execution failed: Parse error: invalid resolved function or parameter name: localtime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..162; query:
-RETURN localtime.truncate('millisecond', localdatetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123}), {}) AS result
-- `tck.expressions.temporal.temporal9.scenario-4.examples-1-row-33`: query execution failed: Parse error: invalid resolved function or parameter name: localtime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..139; query:
-RETURN localtime.truncate('millisecond', localtime({hour: 12, minute: 31, second: 14, nanosecond: 645876123}), {nanosecond: 2}) AS result
-- `tck.expressions.temporal.temporal9.scenario-4.examples-1-row-34`: query execution failed: Parse error: invalid resolved function or parameter name: localtime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..126; query:
-RETURN localtime.truncate('millisecond', localtime({hour: 12, minute: 31, second: 14, nanosecond: 645876123}), {}) AS result
-- `tck.expressions.temporal.temporal9.scenario-4.examples-1-row-35`: query execution failed: Parse error: invalid resolved function or parameter name: localtime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..154; query:
-RETURN localtime.truncate('millisecond', time({hour: 12, minute: 31, second: 14, nanosecond: 645876123, timezone: '+01:00'}), {nanosecond: 2}) AS result
-- `tck.expressions.temporal.temporal9.scenario-4.examples-1-row-36`: query execution failed: Parse error: invalid resolved function or parameter name: localtime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..141; query:
-RETURN localtime.truncate('millisecond', time({hour: 12, minute: 31, second: 14, nanosecond: 645876123, timezone: '+01:00'}), {}) AS result
-- `tck.expressions.temporal.temporal9.scenario-4.examples-1-row-37`: query execution failed: Parse error: invalid resolved function or parameter name: localtime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..190; query:
-RETURN localtime.truncate('microsecond', datetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123, timezone: '+01:00'}), {nanosecond: 2}) AS result
-- `tck.expressions.temporal.temporal9.scenario-4.examples-1-row-38`: query execution failed: Parse error: invalid resolved function or parameter name: localtime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..177; query:
-RETURN localtime.truncate('microsecond', datetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123, timezone: '+01:00'}), {}) AS result
-- `tck.expressions.temporal.temporal9.scenario-4.examples-1-row-39`: query execution failed: Parse error: invalid resolved function or parameter name: localtime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..175; query:
-RETURN localtime.truncate('microsecond', localdatetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123}), {nanosecond: 2}) AS result
-- `tck.expressions.temporal.temporal9.scenario-4.examples-1-row-40`: query execution failed: Parse error: invalid resolved function or parameter name: localtime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..162; query:
-RETURN localtime.truncate('microsecond', localdatetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123}), {}) AS result
-- `tck.expressions.temporal.temporal9.scenario-4.examples-1-row-41`: query execution failed: Parse error: invalid resolved function or parameter name: localtime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..139; query:
-RETURN localtime.truncate('microsecond', localtime({hour: 12, minute: 31, second: 14, nanosecond: 645876123}), {nanosecond: 2}) AS result
-- `tck.expressions.temporal.temporal9.scenario-4.examples-1-row-42`: query execution failed: Parse error: invalid resolved function or parameter name: localtime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..126; query:
-RETURN localtime.truncate('microsecond', localtime({hour: 12, minute: 31, second: 14, nanosecond: 645876123}), {}) AS result
-- `tck.expressions.temporal.temporal9.scenario-4.examples-1-row-43`: query execution failed: Parse error: invalid resolved function or parameter name: localtime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..154; query:
-RETURN localtime.truncate('microsecond', time({hour: 12, minute: 31, second: 14, nanosecond: 645876123, timezone: '+01:00'}), {nanosecond: 2}) AS result
-- `tck.expressions.temporal.temporal9.scenario-4.examples-1-row-44`: query execution failed: Parse error: invalid resolved function or parameter name: localtime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..141; query:
-RETURN localtime.truncate('microsecond', time({hour: 12, minute: 31, second: 14, nanosecond: 645876123, timezone: '+01:00'}), {}) AS result
-- `tck.expressions.temporal.temporal9.scenario-5.examples-1-row-1`: query execution failed: Parse error: invalid resolved function or parameter name: time.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..177; query:
-RETURN time.truncate('day', datetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123, timezone: '+01:00'}), {nanosecond: 2}) AS result
-- `tck.expressions.temporal.temporal9.scenario-5.examples-1-row-2`: query execution failed: Parse error: invalid resolved function or parameter name: time.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..164; query:
-RETURN time.truncate('day', datetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123, timezone: '+01:00'}), {}) AS result
-- `tck.expressions.temporal.temporal9.scenario-5.examples-1-row-3`: query execution failed: Parse error: invalid resolved function or parameter name: time.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..162; query:
-RETURN time.truncate('day', localdatetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123}), {nanosecond: 2}) AS result
-- `tck.expressions.temporal.temporal9.scenario-5.examples-1-row-4`: query execution failed: Parse error: invalid resolved function or parameter name: time.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..149; query:
-RETURN time.truncate('day', localdatetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123}), {}) AS result
-- `tck.expressions.temporal.temporal9.scenario-5.examples-1-row-5`: query execution failed: Parse error: invalid resolved function or parameter name: time.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..178; query:
-RETURN time.truncate('hour', datetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123, timezone: '-01:00'}), {nanosecond: 2}) AS result
-- `tck.expressions.temporal.temporal9.scenario-5.examples-1-row-6`: query execution failed: Parse error: invalid resolved function or parameter name: time.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..183; query:
-RETURN time.truncate('hour', datetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123, timezone: '-01:00'}), {timezone: '+01:00'}) AS result
-- `tck.expressions.temporal.temporal9.scenario-5.examples-1-row-7`: query execution failed: Parse error: invalid resolved function or parameter name: time.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..165; query:
-RETURN time.truncate('hour', datetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123, timezone: '-01:00'}), {}) AS result
-- `tck.expressions.temporal.temporal9.scenario-5.examples-1-row-8`: query execution failed: Parse error: invalid resolved function or parameter name: time.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..163; query:
-RETURN time.truncate('hour', localdatetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123}), {nanosecond: 2}) AS result
-- `tck.expressions.temporal.temporal9.scenario-5.examples-1-row-9`: query execution failed: Parse error: invalid resolved function or parameter name: time.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..168; query:
-RETURN time.truncate('hour', localdatetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123}), {timezone: '+01:00'}) AS result
-- `tck.expressions.temporal.temporal9.scenario-5.examples-1-row-10`: query execution failed: Parse error: invalid resolved function or parameter name: time.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..150; query:
-RETURN time.truncate('hour', localdatetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123}), {}) AS result
-- `tck.expressions.temporal.temporal9.scenario-5.examples-1-row-11`: query execution failed: Parse error: invalid resolved function or parameter name: time.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..127; query:
-RETURN time.truncate('hour', localtime({hour: 12, minute: 31, second: 14, nanosecond: 645876123}), {nanosecond: 2}) AS result
-- `tck.expressions.temporal.temporal9.scenario-5.examples-1-row-12`: query execution failed: Parse error: invalid resolved function or parameter name: time.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..132; query:
-RETURN time.truncate('hour', localtime({hour: 12, minute: 31, second: 14, nanosecond: 645876123}), {timezone: '+01:00'}) AS result
-- `tck.expressions.temporal.temporal9.scenario-5.examples-1-row-13`: query execution failed: Parse error: invalid resolved function or parameter name: time.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..114; query:
-RETURN time.truncate('hour', localtime({hour: 12, minute: 31, second: 14, nanosecond: 645876123}), {}) AS result
-- `tck.expressions.temporal.temporal9.scenario-5.examples-1-row-14`: query execution failed: Parse error: invalid resolved function or parameter name: time.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..142; query:
-RETURN time.truncate('hour', time({hour: 12, minute: 31, second: 14, nanosecond: 645876123, timezone: '-01:00'}), {nanosecond: 2}) AS result
-- `tck.expressions.temporal.temporal9.scenario-5.examples-1-row-15`: query execution failed: Parse error: invalid resolved function or parameter name: time.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..147; query:
-RETURN time.truncate('hour', time({hour: 12, minute: 31, second: 14, nanosecond: 645876123, timezone: '-01:00'}), {timezone: '+01:00'}) AS result
-- `tck.expressions.temporal.temporal9.scenario-5.examples-1-row-16`: query execution failed: Parse error: invalid resolved function or parameter name: time.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..129; query:
-RETURN time.truncate('hour', time({hour: 12, minute: 31, second: 14, nanosecond: 645876123, timezone: '-01:00'}), {}) AS result
-- `tck.expressions.temporal.temporal9.scenario-5.examples-1-row-17`: query execution failed: Parse error: invalid resolved function or parameter name: time.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..180; query:
-RETURN time.truncate('minute', datetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123, timezone: '-01:00'}), {nanosecond: 2}) AS result
-- `tck.expressions.temporal.temporal9.scenario-5.examples-1-row-18`: query execution failed: Parse error: invalid resolved function or parameter name: time.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..167; query:
-RETURN time.truncate('minute', datetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123, timezone: '-01:00'}), {}) AS result
-- `tck.expressions.temporal.temporal9.scenario-5.examples-1-row-19`: query execution failed: Parse error: invalid resolved function or parameter name: time.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..165; query:
-RETURN time.truncate('minute', localdatetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123}), {nanosecond: 2}) AS result
-- `tck.expressions.temporal.temporal9.scenario-5.examples-1-row-20`: query execution failed: Parse error: invalid resolved function or parameter name: time.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..152; query:
-RETURN time.truncate('minute', localdatetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123}), {}) AS result
-- `tck.expressions.temporal.temporal9.scenario-5.examples-1-row-21`: query execution failed: Parse error: invalid resolved function or parameter name: time.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..129; query:
-RETURN time.truncate('minute', localtime({hour: 12, minute: 31, second: 14, nanosecond: 645876123}), {nanosecond: 2}) AS result
-- `tck.expressions.temporal.temporal9.scenario-5.examples-1-row-22`: query execution failed: Parse error: invalid resolved function or parameter name: time.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..116; query:
-RETURN time.truncate('minute', localtime({hour: 12, minute: 31, second: 14, nanosecond: 645876123}), {}) AS result
-- `tck.expressions.temporal.temporal9.scenario-5.examples-1-row-23`: query execution failed: Parse error: invalid resolved function or parameter name: time.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..144; query:
-RETURN time.truncate('minute', time({hour: 12, minute: 31, second: 14, nanosecond: 645876123, timezone: '-01:00'}), {nanosecond: 2}) AS result
-- `tck.expressions.temporal.temporal9.scenario-5.examples-1-row-24`: query execution failed: Parse error: invalid resolved function or parameter name: time.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..131; query:
-RETURN time.truncate('minute', time({hour: 12, minute: 31, second: 14, nanosecond: 645876123, timezone: '-01:00'}), {}) AS result
-- `tck.expressions.temporal.temporal9.scenario-5.examples-1-row-25`: query execution failed: Parse error: invalid resolved function or parameter name: time.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..180; query:
-RETURN time.truncate('second', datetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123, timezone: '+01:00'}), {nanosecond: 2}) AS result
-- `tck.expressions.temporal.temporal9.scenario-5.examples-1-row-26`: query execution failed: Parse error: invalid resolved function or parameter name: time.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..167; query:
-RETURN time.truncate('second', datetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123, timezone: '+01:00'}), {}) AS result
-- `tck.expressions.temporal.temporal9.scenario-5.examples-1-row-27`: query execution failed: Parse error: invalid resolved function or parameter name: time.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..165; query:
-RETURN time.truncate('second', localdatetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123}), {nanosecond: 2}) AS result
-- `tck.expressions.temporal.temporal9.scenario-5.examples-1-row-28`: query execution failed: Parse error: invalid resolved function or parameter name: time.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..152; query:
-RETURN time.truncate('second', localdatetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123}), {}) AS result
-- `tck.expressions.temporal.temporal9.scenario-5.examples-1-row-29`: query execution failed: Parse error: invalid resolved function or parameter name: time.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..129; query:
-RETURN time.truncate('second', localtime({hour: 12, minute: 31, second: 14, nanosecond: 645876123}), {nanosecond: 2}) AS result
-- `tck.expressions.temporal.temporal9.scenario-5.examples-1-row-30`: query execution failed: Parse error: invalid resolved function or parameter name: time.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..116; query:
-RETURN time.truncate('second', localtime({hour: 12, minute: 31, second: 14, nanosecond: 645876123}), {}) AS result
-- `tck.expressions.temporal.temporal9.scenario-5.examples-1-row-31`: query execution failed: Parse error: invalid resolved function or parameter name: time.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..144; query:
-RETURN time.truncate('second', time({hour: 12, minute: 31, second: 14, nanosecond: 645876123, timezone: '+01:00'}), {nanosecond: 2}) AS result
-- `tck.expressions.temporal.temporal9.scenario-5.examples-1-row-32`: query execution failed: Parse error: invalid resolved function or parameter name: time.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..131; query:
-RETURN time.truncate('second', time({hour: 12, minute: 31, second: 14, nanosecond: 645876123, timezone: '+01:00'}), {}) AS result
-- `tck.expressions.temporal.temporal9.scenario-5.examples-1-row-33`: query execution failed: Parse error: invalid resolved function or parameter name: time.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..185; query:
-RETURN time.truncate('millisecond', datetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123, timezone: '+01:00'}), {nanosecond: 2}) AS result
-- `tck.expressions.temporal.temporal9.scenario-5.examples-1-row-34`: query execution failed: Parse error: invalid resolved function or parameter name: time.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..172; query:
-RETURN time.truncate('millisecond', datetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123, timezone: '+01:00'}), {}) AS result
-- `tck.expressions.temporal.temporal9.scenario-5.examples-1-row-35`: query execution failed: Parse error: invalid resolved function or parameter name: time.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..170; query:
-RETURN time.truncate('millisecond', localdatetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123}), {nanosecond: 2}) AS result
-- `tck.expressions.temporal.temporal9.scenario-5.examples-1-row-36`: query execution failed: Parse error: invalid resolved function or parameter name: time.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..157; query:
-RETURN time.truncate('millisecond', localdatetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123}), {}) AS result
-- `tck.expressions.temporal.temporal9.scenario-5.examples-1-row-37`: query execution failed: Parse error: invalid resolved function or parameter name: time.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..134; query:
-RETURN time.truncate('millisecond', localtime({hour: 12, minute: 31, second: 14, nanosecond: 645876123}), {nanosecond: 2}) AS result
-- `tck.expressions.temporal.temporal9.scenario-5.examples-1-row-38`: query execution failed: Parse error: invalid resolved function or parameter name: time.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..121; query:
-RETURN time.truncate('millisecond', localtime({hour: 12, minute: 31, second: 14, nanosecond: 645876123}), {}) AS result
-- `tck.expressions.temporal.temporal9.scenario-5.examples-1-row-39`: query execution failed: Parse error: invalid resolved function or parameter name: time.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..149; query:
-RETURN time.truncate('millisecond', time({hour: 12, minute: 31, second: 14, nanosecond: 645876123, timezone: '+01:00'}), {nanosecond: 2}) AS result
-- `tck.expressions.temporal.temporal9.scenario-5.examples-1-row-40`: query execution failed: Parse error: invalid resolved function or parameter name: time.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..136; query:
-RETURN time.truncate('millisecond', time({hour: 12, minute: 31, second: 14, nanosecond: 645876123, timezone: '+01:00'}), {}) AS result
-- `tck.expressions.temporal.temporal9.scenario-5.examples-1-row-41`: query execution failed: Parse error: invalid resolved function or parameter name: time.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..185; query:
-RETURN time.truncate('microsecond', datetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123, timezone: '+01:00'}), {nanosecond: 2}) AS result
-- `tck.expressions.temporal.temporal9.scenario-5.examples-1-row-42`: query execution failed: Parse error: invalid resolved function or parameter name: time.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..172; query:
-RETURN time.truncate('microsecond', datetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123, timezone: '+01:00'}), {}) AS result
-- `tck.expressions.temporal.temporal9.scenario-5.examples-1-row-43`: query execution failed: Parse error: invalid resolved function or parameter name: time.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..170; query:
-RETURN time.truncate('microsecond', localdatetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123}), {nanosecond: 2}) AS result
-- `tck.expressions.temporal.temporal9.scenario-5.examples-1-row-44`: query execution failed: Parse error: invalid resolved function or parameter name: time.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..157; query:
-RETURN time.truncate('microsecond', localdatetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123}), {}) AS result
-- `tck.expressions.temporal.temporal9.scenario-5.examples-1-row-45`: query execution failed: Parse error: invalid resolved function or parameter name: time.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..134; query:
-RETURN time.truncate('microsecond', localtime({hour: 12, minute: 31, second: 14, nanosecond: 645876123}), {nanosecond: 2}) AS result
-- `tck.expressions.temporal.temporal9.scenario-5.examples-1-row-46`: query execution failed: Parse error: invalid resolved function or parameter name: time.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..121; query:
-RETURN time.truncate('microsecond', localtime({hour: 12, minute: 31, second: 14, nanosecond: 645876123}), {}) AS result
-- `tck.expressions.temporal.temporal9.scenario-5.examples-1-row-47`: query execution failed: Parse error: invalid resolved function or parameter name: time.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..149; query:
-RETURN time.truncate('microsecond', time({hour: 12, minute: 31, second: 14, nanosecond: 645876123, timezone: '+01:00'}), {nanosecond: 2}) AS result
-- `tck.expressions.temporal.temporal9.scenario-5.examples-1-row-48`: query execution failed: Parse error: invalid resolved function or parameter name: time.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..136; query:
-RETURN time.truncate('microsecond', time({hour: 12, minute: 31, second: 14, nanosecond: 645876123, timezone: '+01:00'}), {}) AS result
+- `tck.expressions.temporal.temporal9.scenario-1.examples-1-row-43`: expected [["1984-10-09"]], observed [["1984-10-08"]]
+- `tck.expressions.temporal.temporal9.scenario-1.examples-1-row-45`: expected [["1984-10-09"]], observed [["1984-10-08"]]
+- `tck.expressions.temporal.temporal9.scenario-1.examples-1-row-47`: expected [["1984-10-09"]], observed [["1984-10-08"]]
+- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-64`: expected [["1984-10-09T00:00Z"]], observed [["1984-10-08T00:00Z"]]
+- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-67`: expected [["1984-10-09T00:00+01:00"]], observed [["1984-10-08T00:00+01:00"]]
+- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-70`: expected [["1984-10-09T00:00Z"]], observed [["1984-10-08T00:00Z"]]
+- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-98`: expected [["1984-10-11T12:31:14.645000002+01:00"]], observed [["1984-10-11T12:31:14.000000002+01:00"]]
+- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-100`: expected [["1984-10-11T12:31:14.645000002Z"]], observed [["1984-10-11T12:31:14.000000002Z"]]
+- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-102`: expected [["1984-10-11T12:31:14.645876002+01:00"]], observed [["1984-10-11T12:31:14.000000002+01:00"]]
+- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-104`: expected [["1984-10-11T12:31:14.645876002Z"]], observed [["1984-10-11T12:31:14.000000002Z"]]
+- `tck.expressions.temporal.temporal9.scenario-3.examples-1-row-43`: expected [["1984-10-09T00:00"]], observed [["1984-10-08T00:00"]]
+- `tck.expressions.temporal.temporal9.scenario-3.examples-1-row-45`: expected [["1984-10-09T00:00"]], observed [["1984-10-08T00:00"]]
+- `tck.expressions.temporal.temporal9.scenario-3.examples-1-row-47`: expected [["1984-10-09T00:00"]], observed [["1984-10-08T00:00"]]
+- `tck.expressions.temporal.temporal9.scenario-3.examples-1-row-67`: expected [["1984-10-11T12:31:14.645000002"]], observed [["1984-10-11T12:31:14.000000002"]]
+- `tck.expressions.temporal.temporal9.scenario-3.examples-1-row-69`: expected [["1984-10-11T12:31:14.645000002"]], observed [["1984-10-11T12:31:14.000000002"]]
+- `tck.expressions.temporal.temporal9.scenario-3.examples-1-row-71`: expected [["1984-10-11T12:31:14.645876002"]], observed [["1984-10-11T12:31:14.000000002"]]
+- `tck.expressions.temporal.temporal9.scenario-3.examples-1-row-73`: expected [["1984-10-11T12:31:14.645876002"]], observed [["1984-10-11T12:31:14.000000002"]]
+- `tck.expressions.temporal.temporal9.scenario-4.examples-1-row-29`: expected [["12:31:14.645000002"]], observed [["12:31:14.000000002"]]
+- `tck.expressions.temporal.temporal9.scenario-4.examples-1-row-31`: expected [["12:31:14.645000002"]], observed [["12:31:14.000000002"]]
+- `tck.expressions.temporal.temporal9.scenario-4.examples-1-row-33`: expected [["12:31:14.645000002"]], observed [["12:31:14.000000002"]]
+- `tck.expressions.temporal.temporal9.scenario-4.examples-1-row-35`: expected [["12:31:14.645000002"]], observed [["12:31:14.000000002"]]
+- `tck.expressions.temporal.temporal9.scenario-4.examples-1-row-37`: expected [["12:31:14.645876002"]], observed [["12:31:14.000000002"]]
+- `tck.expressions.temporal.temporal9.scenario-4.examples-1-row-39`: expected [["12:31:14.645876002"]], observed [["12:31:14.000000002"]]
+- `tck.expressions.temporal.temporal9.scenario-4.examples-1-row-41`: expected [["12:31:14.645876002"]], observed [["12:31:14.000000002"]]
+- `tck.expressions.temporal.temporal9.scenario-4.examples-1-row-43`: expected [["12:31:14.645876002"]], observed [["12:31:14.000000002"]]
+- `tck.expressions.temporal.temporal9.scenario-5.examples-1-row-33`: expected [["12:31:14.645000002+01:00"]], observed [["12:31:14.000000002+01:00"]]
+- `tck.expressions.temporal.temporal9.scenario-5.examples-1-row-35`: expected [["12:31:14.645000002Z"]], observed [["12:31:14.000000002Z"]]
+- `tck.expressions.temporal.temporal9.scenario-5.examples-1-row-37`: expected [["12:31:14.645000002Z"]], observed [["12:31:14.000000002Z"]]
+- `tck.expressions.temporal.temporal9.scenario-5.examples-1-row-39`: expected [["12:31:14.645000002+01:00"]], observed [["12:31:14.000000002+01:00"]]
+- `tck.expressions.temporal.temporal9.scenario-5.examples-1-row-41`: expected [["12:31:14.645876002+01:00"]], observed [["12:31:14.000000002+01:00"]]
+- `tck.expressions.temporal.temporal9.scenario-5.examples-1-row-43`: expected [["12:31:14.645876002Z"]], observed [["12:31:14.000000002Z"]]
+- `tck.expressions.temporal.temporal9.scenario-5.examples-1-row-45`: expected [["12:31:14.645876002Z"]], observed [["12:31:14.000000002Z"]]
+- `tck.expressions.temporal.temporal9.scenario-5.examples-1-row-47`: expected [["12:31:14.645876002+01:00"]], observed [["12:31:14.000000002+01:00"]]
 - `tck.expressions.typeconversion.typeconversion1.scenario-5.examples-1-row-1`: expected an error but execution succeeded
 - `tck.expressions.typeconversion.typeconversion1.scenario-5.examples-1-row-2`: expected an error but execution succeeded
 - `tck.expressions.typeconversion.typeconversion1.scenario-5.examples-1-row-3`: expected an error but execution succeeded
@@ -7176,6 +6454,6 @@ CREATE (b1)-[:FRIEND]->(b2),
 
 ## Longitudinal inventory
 
-- Runs: 294
-- Result records: 602801
+- Runs: 299
+- Result records: 613193
 - Unique test identities: 10441
