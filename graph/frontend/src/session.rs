@@ -16,6 +16,8 @@ pub enum GraphSessionError {
     #[error(transparent)]
     Parse(#[from] turso_graph_cypher::ParseError),
     #[error(transparent)]
+    Bind(#[from] crate::BindError),
+    #[error(transparent)]
     Snapshot(#[from] SnapshotError),
     #[error(transparent)]
     Mutation(#[from] MutationError),
@@ -37,6 +39,7 @@ pub struct GraphSession {
     graph: GraphId,
     graph_name: String,
     catalog: Arc<dyn GraphCompilationCatalog>,
+    parameters: ParameterTypes,
     snapshots: Arc<SessionSnapshotStore>,
     limits: BuildLimits,
 }
@@ -62,13 +65,18 @@ impl GraphSession {
         install_graph_catalog(connection.as_ref(), shared_snapshots)?;
         connection.register_frontend_compiler(
             graph_frontend_id(),
-            Arc::new(GraphCompiler::new(graph.id, catalog.clone(), parameters)),
+            Arc::new(GraphCompiler::new(
+                graph.id,
+                catalog.clone(),
+                parameters.clone(),
+            )),
         )?;
         Ok(Self {
             connection,
             graph: graph.id,
             graph_name: graph.name.clone(),
             catalog,
+            parameters,
             snapshots,
             limits,
         })
@@ -106,6 +114,29 @@ impl GraphSession {
         parameters: &MutationParameters,
     ) -> Result<Statement, GraphSessionError> {
         self.prepare_query_cancellable(source, parameters, &NeverCancelled)
+    }
+
+    /// Static result-column types of a read query, in projection order.
+    /// Booleans reach storage as integers, so callers that need to render
+    /// Cypher values faithfully must consult these types.
+    pub fn query_result_types(
+        &self,
+        source: &str,
+    ) -> Result<Vec<turso_graph_ir::ValueType>, GraphSessionError> {
+        let syntax = turso_graph_cypher::parse(source)?;
+        let bound = crate::bind(&syntax, self.graph, self.catalog.as_ref(), &self.parameters)?;
+        let scope = bound.plan.scope();
+        Ok(bound
+            .plan
+            .result_shape()
+            .iter()
+            .map(|column| {
+                scope
+                    .get(column.binding())
+                    .map(|binding| binding.value_type().clone())
+                    .unwrap_or(turso_graph_ir::ValueType::Any)
+            })
+            .collect())
     }
 
     pub fn prepare_query_cancellable(

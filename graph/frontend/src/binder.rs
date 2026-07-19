@@ -150,6 +150,7 @@ struct Binder<'a> {
     scope: Vec<ir::Binding>,
     entities: HashMap<ir::BindingId, EntityBinding>,
     plan: Option<ir::Plan>,
+    list_scopes: std::cell::RefCell<Vec<(String, ir::ValueType)>>,
 }
 
 impl<'a> Binder<'a> {
@@ -166,6 +167,7 @@ impl<'a> Binder<'a> {
             scope: Vec::new(),
             entities: HashMap::new(),
             plan: None,
+            list_scopes: std::cell::RefCell::new(Vec::new()),
         }
     }
 
@@ -1050,12 +1052,33 @@ impl<'a> Binder<'a> {
                 (ir::Expression::Literal(literal), value_type, nullability)
             }
             cypher::Expression::Variable(name) => {
-                let binding = self.resolve_binding(name, expression.span)?;
-                (
-                    ir::Expression::Binding(binding.id()),
-                    binding.value_type().clone(),
-                    binding.nullability(),
-                )
+                let scope_hit = {
+                    let scopes = self.list_scopes.borrow();
+                    scopes
+                        .iter()
+                        .rposition(|(scope_name, _)| scope_name == name)
+                        .map(|position| (position, scopes.len(), scopes[position].1.clone()))
+                };
+                if let Some((position, scope_count, element_type)) = scope_hit {
+                    if position + 1 != scope_count {
+                        return Err(at_unsupported(
+                            expression.span,
+                            "outer list-scope variables inside nested list scopes",
+                        ));
+                    }
+                    (
+                        ir::Expression::ListElement(position + 1),
+                        element_type,
+                        ir::Nullability::Nullable,
+                    )
+                } else {
+                    let binding = self.resolve_binding(name, expression.span)?;
+                    (
+                        ir::Expression::Binding(binding.id()),
+                        binding.value_type().clone(),
+                        binding.nullability(),
+                    )
+                }
             }
             cypher::Expression::Parameter(name) => {
                 let (value_type, nullability) =
@@ -1142,6 +1165,86 @@ impl<'a> Binder<'a> {
                     nullability,
                 )
             }
+            cypher::Expression::Quantifier {
+                kind,
+                variable,
+                list,
+                predicate,
+            } => {
+                let list_span = list.span;
+                let list = self.bind_expression(list)?;
+                let element_type = list_element_type(&list.value_type, list_span)?;
+                self.list_scopes
+                    .borrow_mut()
+                    .push((variable.value.clone(), element_type));
+                let depth = self.list_scopes.borrow().len();
+                let predicate = self.bind_expression(predicate);
+                self.list_scopes.borrow_mut().pop();
+                let predicate = predicate?;
+                if !boolean_compatible(&predicate.value_type) {
+                    return Err(at_unsupported(
+                        expression.span,
+                        "quantifier predicates over non-boolean expressions",
+                    ));
+                }
+                (
+                    ir::Expression::Quantifier {
+                        kind: match kind {
+                            cypher::QuantifierKind::All => ir::QuantifierKind::All,
+                            cypher::QuantifierKind::Any => ir::QuantifierKind::Any,
+                            cypher::QuantifierKind::None => ir::QuantifierKind::None,
+                            cypher::QuantifierKind::Single => ir::QuantifierKind::Single,
+                        },
+                        depth,
+                        list: Box::new(list),
+                        predicate: Box::new(predicate),
+                    },
+                    ir::ValueType::Boolean,
+                    ir::Nullability::Nullable,
+                )
+            }
+            cypher::Expression::ListComprehension {
+                variable,
+                list,
+                predicate,
+                map,
+            } => {
+                let list_span = list.span;
+                let list = self.bind_expression(list)?;
+                let element_type = list_element_type(&list.value_type, list_span)?;
+                self.list_scopes
+                    .borrow_mut()
+                    .push((variable.value.clone(), element_type.clone()));
+                let depth = self.list_scopes.borrow().len();
+                let bound = (|| {
+                    let predicate = predicate
+                        .as_ref()
+                        .map(|predicate| self.bind_expression(predicate))
+                        .transpose()?
+                        .map(Box::new);
+                    let map = map
+                        .as_ref()
+                        .map(|map| self.bind_expression(map))
+                        .transpose()?
+                        .map(Box::new);
+                    Ok::<_, BindError>((predicate, map))
+                })();
+                self.list_scopes.borrow_mut().pop();
+                let (predicate, map) = bound?;
+                let element_result = map
+                    .as_ref()
+                    .map_or(element_type, |map| map.value_type.clone());
+                (
+                    ir::Expression::ListComprehension {
+                        depth,
+                        list: Box::new(list),
+                        predicate,
+                        map,
+                    },
+                    ir::ValueType::List(Box::new(element_result)),
+                    ir::Nullability::Nullable,
+                )
+            }
             cypher::Expression::Case {
                 subject,
                 branches,
@@ -1224,6 +1327,19 @@ impl<'a> Binder<'a> {
                         return Err(at_unsupported(
                             right_span,
                             "string predicates on non-string operands",
+                        ));
+                    }
+                    cypher::BinaryOperator::Subtract
+                    | cypher::BinaryOperator::Multiply
+                    | cypher::BinaryOperator::Divide
+                    | cypher::BinaryOperator::Modulo
+                    | cypher::BinaryOperator::Power
+                        if !numeric_compatible(&left.value_type)
+                            || !numeric_compatible(&right.value_type) =>
+                    {
+                        return Err(at_unsupported(
+                            right_span,
+                            "arithmetic on non-numeric operands",
                         ));
                     }
                     _ => {}
@@ -1532,12 +1648,30 @@ fn bind_literal(literal: &cypher::Literal) -> (ir::Literal, ir::ValueType, ir::N
     }
 }
 
+fn list_element_type(
+    value_type: &ir::ValueType,
+    span: cypher::Span,
+) -> Result<ir::ValueType, BindError> {
+    match value_type {
+        ir::ValueType::List(element) => Ok((**element).clone()),
+        ir::ValueType::Any => Ok(ir::ValueType::Any),
+        _ => Err(at_unsupported(span, "list scans over non-list expressions")),
+    }
+}
+
 fn boolean_compatible(value_type: &ir::ValueType) -> bool {
     matches!(value_type, ir::ValueType::Boolean | ir::ValueType::Any)
 }
 
 fn text_compatible(value_type: &ir::ValueType) -> bool {
     matches!(value_type, ir::ValueType::Text | ir::ValueType::Any)
+}
+
+fn numeric_compatible(value_type: &ir::ValueType) -> bool {
+    matches!(
+        value_type,
+        ir::ValueType::Integer | ir::ValueType::Real | ir::ValueType::Any
+    )
 }
 
 fn bind_binary_operator(operator: cypher::BinaryOperator) -> ir::BinaryOp {

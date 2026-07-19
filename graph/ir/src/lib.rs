@@ -15,8 +15,8 @@ mod scope;
 
 pub use error::{InvalidId, PlanError};
 pub use expression::{
-    BinaryOp, Expression, FunctionName, Literal, NullOrder, SortDirection, TypedExpression,
-    UnaryOp, ValueType, VectorKind,
+    BinaryOp, Expression, FunctionName, Literal, NullOrder, QuantifierKind, SortDirection,
+    TypedExpression, UnaryOp, ValueType, VectorKind,
 };
 pub use identity::{
     BindingId, GraphId, LabelId, NodeId, PropertyId, RelationshipId, RelationshipTypeId,

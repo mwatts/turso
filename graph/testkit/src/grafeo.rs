@@ -440,7 +440,10 @@ fn execute_case(
             Some("expected an error but execution succeeded".to_owned()),
             "execution",
         ),
-        rows => compare_rows(case, stringify_rows(rows)),
+        rows => {
+            let types = fixture.session.query_result_types(&case.query).ok();
+            compare_rows(case, stringify_rows_with_types(rows, types.as_deref()))
+        }
     }
 }
 
@@ -641,15 +644,31 @@ fn yaml_text(value: &YamlValue) -> String {
 }
 
 fn stringify_rows(rows: Vec<Vec<Value>>) -> Vec<Vec<String>> {
+    stringify_rows_with_types(rows, None)
+}
+
+fn stringify_rows_with_types(
+    rows: Vec<Vec<Value>>,
+    types: Option<&[turso_graph_ir::ValueType]>,
+) -> Vec<Vec<String>> {
     rows.into_iter()
         .map(|row| {
             row.into_iter()
-                .map(|value| match value {
-                    Value::Null => "<null>".to_owned(),
-                    Value::Numeric(Numeric::Integer(value)) => value.to_string(),
-                    Value::Numeric(Numeric::Float(value)) => value.to_string(),
-                    Value::Text(value) => value.to_string(),
-                    Value::Blob(value) => format!("{value:?}"),
+                .enumerate()
+                .map(|(index, value)| {
+                    let boolean = types.is_some_and(|types| {
+                        types.get(index) == Some(&turso_graph_ir::ValueType::Boolean)
+                    });
+                    match value {
+                        Value::Null => "<null>".to_owned(),
+                        Value::Numeric(Numeric::Integer(value)) if boolean => {
+                            if value == 0 { "false" } else { "true" }.to_owned()
+                        }
+                        Value::Numeric(Numeric::Integer(value)) => value.to_string(),
+                        Value::Numeric(Numeric::Float(value)) => value.to_string(),
+                        Value::Text(value) => value.to_string(),
+                        Value::Blob(value) => format!("{value:?}"),
+                    }
                 })
                 .collect()
         })

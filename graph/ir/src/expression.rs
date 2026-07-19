@@ -56,6 +56,14 @@ pub enum Literal {
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum QuantifierKind {
+    All,
+    Any,
+    None,
+    Single,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum UnaryOp {
     Not,
     Negate,
@@ -125,6 +133,23 @@ pub enum Expression {
         subject: Option<Box<TypedExpression>>,
         branches: Vec<(TypedExpression, TypedExpression)>,
         default: Option<Box<TypedExpression>>,
+    },
+    /// The loop variable of the list scope at the recorded depth (1-based).
+    /// Only the innermost scope is addressable; the binder enforces this.
+    ListElement(usize),
+    Quantifier {
+        kind: QuantifierKind,
+        /// Scope depth of this quantifier's loop variable (1-based).
+        depth: usize,
+        list: Box<TypedExpression>,
+        predicate: Box<TypedExpression>,
+    },
+    ListComprehension {
+        /// Scope depth of this comprehension's loop variable (1-based).
+        depth: usize,
+        list: Box<TypedExpression>,
+        predicate: Option<Box<TypedExpression>>,
+        map: Option<Box<TypedExpression>>,
     },
     Function {
         function: FunctionName,

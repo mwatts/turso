@@ -707,6 +707,75 @@ fn lower_expression_with_references(
                 _ => format!("({left}) {} ({right})", binary_operator(*op)),
             })
         }
+        ir::Expression::ListElement(depth) => Ok(format!("lst{depth}.value")),
+        ir::Expression::Quantifier {
+            kind,
+            depth,
+            list,
+            predicate,
+        } => {
+            let list =
+                lower_expression_with_references(list, bindings, catalog, input_alias, references)?;
+            let predicate = lower_expression_with_references(
+                predicate,
+                bindings,
+                catalog,
+                input_alias,
+                references,
+            )?;
+            let alias = format!("lst{depth}");
+            Ok(match kind {
+                ir::QuantifierKind::Any => format!(
+                    "EXISTS (SELECT 1 FROM json_each(({list})) AS {alias} WHERE ({predicate}))"
+                ),
+                ir::QuantifierKind::All => format!(
+                    "NOT EXISTS (SELECT 1 FROM json_each(({list})) AS {alias} \
+                     WHERE NOT ({predicate}))"
+                ),
+                ir::QuantifierKind::None => format!(
+                    "NOT EXISTS (SELECT 1 FROM json_each(({list})) AS {alias} \
+                     WHERE ({predicate}))"
+                ),
+                ir::QuantifierKind::Single => format!(
+                    "((SELECT count(*) FROM json_each(({list})) AS {alias} \
+                     WHERE ({predicate})) = 1)"
+                ),
+            })
+        }
+        ir::Expression::ListComprehension {
+            depth,
+            list,
+            predicate,
+            map,
+        } => {
+            let list =
+                lower_expression_with_references(list, bindings, catalog, input_alias, references)?;
+            let alias = format!("lst{depth}");
+            let element = match map {
+                Some(map) => lower_expression_with_references(
+                    map,
+                    bindings,
+                    catalog,
+                    input_alias,
+                    references,
+                )?,
+                None => format!("{alias}.value"),
+            };
+            let filter = match predicate {
+                Some(predicate) => lower_expression_with_references(
+                    predicate,
+                    bindings,
+                    catalog,
+                    input_alias,
+                    references,
+                )?,
+                None => "1".to_owned(),
+            };
+            Ok(format!(
+                "(SELECT json_group_array({element}) FROM json_each(({list})) AS {alias} \
+                 WHERE ({filter}))"
+            ))
+        }
         ir::Expression::Case {
             subject,
             branches,

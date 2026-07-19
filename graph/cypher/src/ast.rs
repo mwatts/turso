@@ -197,6 +197,14 @@ pub enum UnaryOperator {
     IsNotNull,
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum QuantifierKind {
+    All,
+    Any,
+    None,
+    Single,
+}
+
 #[derive(Clone, Debug, PartialEq)]
 pub enum Expression {
     Literal(Literal),
@@ -219,6 +227,18 @@ pub enum Expression {
         subject: Option<Box<Spanned<Expression>>>,
         branches: Vec<(Spanned<Expression>, Spanned<Expression>)>,
         default: Option<Box<Spanned<Expression>>>,
+    },
+    Quantifier {
+        kind: QuantifierKind,
+        variable: Spanned<String>,
+        list: Box<Spanned<Expression>>,
+        predicate: Box<Spanned<Expression>>,
+    },
+    ListComprehension {
+        variable: Spanned<String>,
+        list: Box<Spanned<Expression>>,
+        predicate: Option<Box<Spanned<Expression>>>,
+        map: Option<Box<Spanned<Expression>>>,
     },
     Function {
         name: Spanned<String>,

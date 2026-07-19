@@ -166,11 +166,21 @@ fn run_canonical(
                 .query(&case.query, &MutationParameters::new())
             {
                 Ok(_) => (Outcome::Passed, None, "execution"),
-                Err(error) => (
-                    Outcome::Failed,
-                    Some(format!("query execution failed: {error}")),
-                    "execution",
-                ),
+                // Mirror the TCK statement router: statements the read
+                // pipeline rejects may still be executable mutations.
+                Err(query_error) => match fixture
+                    .session
+                    .mutate(&case.query, &MutationParameters::new())
+                {
+                    Ok(_) => (Outcome::Passed, None, "execution"),
+                    Err(mutation_error) => (
+                        Outcome::Failed,
+                        Some(format!(
+                            "query execution failed: {query_error}; mutation execution failed: {mutation_error}"
+                        )),
+                        "execution",
+                    ),
+                },
             },
             Err(error) => (
                 Outcome::Failed,

@@ -15,8 +15,8 @@ use thiserror::Error;
 use crate::{
     BinaryOperator, Clause, CreateClause, DeleteClause, Direction, Expression, Literal,
     MatchClause, MergeClause, NodePattern, PathPattern, ProjectionClause, ProjectionItem,
-    PropertyTarget, Query, RelationshipPattern, RelationshipRange, RemoveClause, SetClause,
-    SetItem, SortItem, Span, Spanned, UnaryOperator, UnwindClause,
+    PropertyTarget, QuantifierKind, Query, RelationshipPattern, RelationshipRange, RemoveClause,
+    SetClause, SetItem, SortItem, Span, Spanned, UnaryOperator, UnwindClause,
 };
 
 #[derive(Parser)]
@@ -480,6 +480,8 @@ fn walk_expression(pair: Pair<'_, Rule>) -> Result<Spanned<Expression>, ParseErr
         Rule::parameter => Expression::Parameter(pair.as_str()[1..].to_owned()),
         Rule::function_call => walk_function(pair)?,
         Rule::case_expression => walk_case(pair)?,
+        Rule::quantifier_expression => walk_quantifier(pair)?,
+        Rule::list_comprehension => walk_list_comprehension(pair)?,
         Rule::list_literal => Expression::List(
             pair.into_inner()
                 .filter(|item| item.as_rule() == Rule::expression_list)
@@ -565,6 +567,78 @@ fn walk_not(pair: Pair<'_, Rule>) -> Result<Expression, ParseError> {
         );
     }
     Ok(expression.value)
+}
+
+fn walk_quantifier(pair: Pair<'_, Rule>) -> Result<Expression, ParseError> {
+    let span = pair_span(&pair);
+    let mut kind = None;
+    let mut variable = None;
+    let mut expressions = Vec::new();
+    for child in pair.into_inner() {
+        match child.as_rule() {
+            Rule::quantifier_kind => {
+                kind = Some(match child.as_str().to_ascii_lowercase().as_str() {
+                    "all" => QuantifierKind::All,
+                    "any" => QuantifierKind::Any,
+                    "none" => QuantifierKind::None,
+                    _ => QuantifierKind::Single,
+                });
+            }
+            Rule::identifier => variable = Some(walk_identifier(child)),
+            Rule::expression => expressions.push(walk_expression(child)?),
+            _ => {}
+        }
+    }
+    let kind = kind.ok_or_else(|| ParseError::at(span, "quantifier has no kind"))?;
+    let variable = variable.ok_or_else(|| ParseError::at(span, "quantifier has no variable"))?;
+    let mut expressions = expressions.into_iter();
+    let list = expressions
+        .next()
+        .ok_or_else(|| ParseError::at(span, "quantifier has no list"))?;
+    let predicate = expressions
+        .next()
+        .ok_or_else(|| ParseError::at(span, "quantifier has no predicate"))?;
+    Ok(Expression::Quantifier {
+        kind,
+        variable,
+        list: Box::new(list),
+        predicate: Box::new(predicate),
+    })
+}
+
+fn walk_list_comprehension(pair: Pair<'_, Rule>) -> Result<Expression, ParseError> {
+    let span = pair_span(&pair);
+    let mut variable = None;
+    let mut list = None;
+    let mut predicate = None;
+    let mut map = None;
+    let mut after_where = false;
+    for child in pair.into_inner() {
+        match child.as_rule() {
+            Rule::identifier => variable = Some(walk_identifier(child)),
+            Rule::WHERE => after_where = true,
+            Rule::expression => {
+                let expression = walk_expression(child)?;
+                if list.is_none() {
+                    list = Some(expression);
+                } else if after_where && predicate.is_none() {
+                    predicate = Some(Box::new(expression));
+                } else {
+                    map = Some(Box::new(expression));
+                }
+            }
+            _ => {}
+        }
+    }
+    let variable =
+        variable.ok_or_else(|| ParseError::at(span, "list comprehension has no variable"))?;
+    let list = list.ok_or_else(|| ParseError::at(span, "list comprehension has no list"))?;
+    Ok(Expression::ListComprehension {
+        variable,
+        list: Box::new(list),
+        predicate,
+        map,
+    })
 }
 
 fn walk_case(pair: Pair<'_, Rule>) -> Result<Expression, ParseError> {

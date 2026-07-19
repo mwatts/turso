@@ -508,7 +508,8 @@ fn execute_case(
                     "graph-comparison",
                 );
             }
-            let mut rows = stringify_rows(rows);
+            let types = fixture.session.query_result_types(query).ok();
+            let mut rows = stringify_rows_with_types(rows, types.as_deref());
             let Some((mut expected_rows, ordered)) = expected_rows(case) else {
                 return (
                     Outcome::Failed,
@@ -715,18 +716,34 @@ fn canonicalize_list(value: &str) -> Option<String> {
 }
 
 fn stringify_rows(rows: Vec<Vec<Value>>) -> Vec<Vec<String>> {
+    stringify_rows_with_types(rows, None)
+}
+
+fn stringify_rows_with_types(
+    rows: Vec<Vec<Value>>,
+    types: Option<&[turso_graph_ir::ValueType]>,
+) -> Vec<Vec<String>> {
     rows.into_iter()
         .map(|row| {
             row.into_iter()
-                .map(|value| match value {
-                    Value::Null => "<null>".to_owned(),
-                    Value::Numeric(Numeric::Integer(value)) => value.to_string(),
-                    Value::Numeric(Numeric::Float(value)) if value.fract() == 0.0 => {
-                        format!("{value:.1}")
+                .enumerate()
+                .map(|(index, value)| {
+                    let boolean = types.is_some_and(|types| {
+                        types.get(index) == Some(&turso_graph_ir::ValueType::Boolean)
+                    });
+                    match value {
+                        Value::Null => "<null>".to_owned(),
+                        Value::Numeric(Numeric::Integer(value)) if boolean => {
+                            if value == 0 { "false" } else { "true" }.to_owned()
+                        }
+                        Value::Numeric(Numeric::Integer(value)) => value.to_string(),
+                        Value::Numeric(Numeric::Float(value)) if value.fract() == 0.0 => {
+                            format!("{value:.1}")
+                        }
+                        Value::Numeric(Numeric::Float(value)) => value.to_string(),
+                        Value::Text(value) => value.to_string(),
+                        Value::Blob(value) => format!("{value:?}"),
                     }
-                    Value::Numeric(Numeric::Float(value)) => value.to_string(),
-                    Value::Text(value) => value.to_string(),
-                    Value::Blob(value) => format!("{value:?}"),
                 })
                 .collect()
         })
