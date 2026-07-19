@@ -323,7 +323,10 @@ impl<'a> Binder<'a> {
                     "variable-length mutation relationships",
                 ));
             }
-            if relationship.direction == cypher::Direction::Both {
+            // Cypher defines MERGE over an undirected relationship: it may
+            // match either direction and creates an outgoing one. Plain
+            // CREATE still requires an explicit direction.
+            if relationship.direction == cypher::Direction::Both && !merge {
                 return Err(at_unsupported(
                     relationship.span,
                     "undirected relationship creation",
