@@ -1084,11 +1084,20 @@ impl<'a> Binder<'a> {
         let start = self.bind_start_node(&path.start)?;
         let mut from = start;
         for (relationship, node) in &path.steps {
-            if relationship.range.is_some() && relationship.variable.is_some() {
-                return Err(at_unsupported(
-                    relationship.span,
-                    "named variable-length relationships",
-                ));
+            if relationship.range.is_some() {
+                if let Some(variable) = &relationship.variable {
+                    // A named variable-length relationship denotes the list
+                    // of traversed relationships; register the name so later
+                    // clauses can reference it while the expansion itself
+                    // stays anonymous.
+                    let binding = ir::Binding::new(
+                        self.next_id()?,
+                        variable.value.clone(),
+                        ir::ValueType::List(Box::new(ir::ValueType::Relationship)),
+                        ir::Nullability::Nullable,
+                    )?;
+                    self.scope.push(binding);
+                }
             }
             if relationship.range.is_some() && !relationship.properties.is_empty() {
                 return Err(at_unsupported(
@@ -1097,7 +1106,11 @@ impl<'a> Binder<'a> {
                 ));
             }
             let relationship_binding = self.new_entity_binding(
-                relationship.variable.as_ref(),
+                if relationship.range.is_some() {
+                    None
+                } else {
+                    relationship.variable.as_ref()
+                },
                 "_relationship",
                 ir::ValueType::Relationship,
                 if relationship
@@ -3139,18 +3152,12 @@ mod tests {
         assert_eq!((expand.min_hops, expand.max_hops), (1, 3));
         assert_eq!(expand.uniqueness, ir::PathUniqueness::Trail);
 
-        let error = bind_text(
+        let named = bind_text(
             "MATCH (p:Person)-[rels:KNOWS*1..3]->(friend) RETURN friend",
             ParameterTypes::new(),
         )
-        .expect_err("named relationship list semantics are not implemented");
-        assert!(matches!(
-            error,
-            BindError::Unsupported {
-                feature: "named variable-length relationships",
-                ..
-            }
-        ));
+        .expect("a named variable-length relationship registers a list binding");
+        assert!(matches!(named.plan.kind(), ir::PlanKind::Project(_)));
     }
 
     #[test]
