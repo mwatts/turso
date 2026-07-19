@@ -811,6 +811,18 @@ fn walk_predicate(pair: Pair<'_, Rule>) -> Result<Expression, ParseError> {
                     operand: Box::new(left),
                 }
             }
+            Rule::label_suffix => {
+                let labels = suffix
+                    .into_inner()
+                    .flat_map(Pair::into_inner)
+                    .filter(|item| item.as_rule() == Rule::identifier)
+                    .map(walk_identifier)
+                    .collect::<Vec<_>>();
+                Expression::HasLabels {
+                    operand: Box::new(left),
+                    labels,
+                }
+            }
             rule => return Err(unexpected(&suffix, "predicate suffix", rule)),
         };
         left = Spanned::new(value, combined);

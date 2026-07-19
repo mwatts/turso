@@ -1304,6 +1304,37 @@ impl<'a> Binder<'a> {
                 };
                 self.bind_pattern_subquery(*count, &clause, expression.span)?
             }
+            cypher::Expression::HasLabels { operand, labels } => {
+                let cypher::Expression::Variable(name) = &operand.value else {
+                    return Err(at_unsupported(
+                        operand.span,
+                        "label predicates on non-variable expressions",
+                    ));
+                };
+                if !self.scope.iter().any(|binding| binding.name() == *name) {
+                    return Err(BindError::UnknownVariable {
+                        name: name.clone(),
+                        span_start: operand.span.start,
+                        span_end: operand.span.end,
+                    });
+                }
+                let clause = cypher::MatchClause {
+                    optional: false,
+                    paths: vec![cypher::PathPattern {
+                        variable: None,
+                        start: cypher::NodePattern {
+                            variable: Some(cypher::Spanned::new(name.clone(), operand.span)),
+                            labels: labels.clone(),
+                            properties: Vec::new(),
+                            span: expression.span,
+                        },
+                        steps: Vec::new(),
+                        span: expression.span,
+                    }],
+                    predicate: None,
+                };
+                self.bind_pattern_subquery(false, &clause, expression.span)?
+            }
             cypher::Expression::PatternPredicate { path } => {
                 // openCypher: a bare pattern predicate may only use already
                 // bound variables (TCK Pattern1 [10]).

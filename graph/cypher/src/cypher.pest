@@ -96,7 +96,8 @@ not_op = @{ ^"not" ~ !ident_char }
 comparison_expression = { predicate_expression ~ (comparison_op ~ predicate_expression)* }
 comparison_op = { "<>" | "!=" | "<=" | ">=" | "=" | "<" | ">" }
 predicate_expression = { additive_expression ~ predicate_suffix* }
-predicate_suffix = { in_suffix | null_suffix | starts_suffix | ends_suffix | contains_suffix }
+predicate_suffix = { in_suffix | null_suffix | starts_suffix | ends_suffix | contains_suffix | label_suffix }
+label_suffix = { node_labels }
 in_suffix = { in_op ~ additive_expression }
 in_op = @{ ^"in" ~ !ident_char }
 null_suffix = { IS ~ not_op? ~ NULL }

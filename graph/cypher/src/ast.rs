@@ -250,6 +250,10 @@ pub enum Expression {
     PatternPredicate {
         path: Box<PathPattern>,
     },
+    HasLabels {
+        operand: Box<Spanned<Expression>>,
+        labels: Vec<Spanned<String>>,
+    },
     Index {
         base: Box<Spanned<Expression>>,
         index: Box<Spanned<Expression>>,
