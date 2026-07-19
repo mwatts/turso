@@ -13,6 +13,8 @@ pub enum ValueType {
     Relationship,
     Path,
     List(Box<ValueType>),
+    /// A general key/value map with no declared field types.
+    Map,
     /// A `CREATE TYPE name BASE <primitive> ENCODE ... DECODE ...` scalar.
     /// `base` is the underlying storage primitive (e.g. `Bytes` for a BLOB
     /// custom type).

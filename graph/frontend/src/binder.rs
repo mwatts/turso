@@ -799,11 +799,22 @@ impl<'a> Binder<'a> {
         for item in &clause.items {
             let (binding, kind, source) = self.resolve_mutation_target(&item.target)?;
             let property = self.resolve_property(kind, &item.target.property)?;
+            let value = match &item.value.value {
+                // Map values only bind against struct/union property targets
+                // (openCypher forbids map-typed properties).
+                cypher::Expression::Map(entries) => self.bind_map_property(
+                    &property.value_type,
+                    property.nullability,
+                    entries,
+                    item.value.span,
+                )?,
+                _ => self.bind_expression(&item.value)?,
+            };
             operations.push(ir::Mutation::SetProperty(ir::SetProperty {
                 entity: binding,
                 source,
                 property: property.id,
-                value: self.bind_expression(&item.value)?,
+                value,
             }));
         }
         Ok(())
@@ -992,8 +1003,16 @@ impl<'a> Binder<'a> {
         }
         let path = &clause.paths[0];
         for path in &clause.paths {
-            if path.variable.is_some() {
-                return Err(at_unsupported(path.span, "named paths"));
+            if let Some(variable) = &path.variable {
+                // Register the path name so later clauses can reference it;
+                // path values themselves are not materialized yet.
+                let binding = ir::Binding::new(
+                    self.next_id()?,
+                    variable.value.clone(),
+                    ir::ValueType::Path,
+                    ir::Nullability::NonNull,
+                )?;
+                self.scope.push(binding);
             }
             if clause.optional
                 && path
@@ -1021,8 +1040,16 @@ impl<'a> Binder<'a> {
             }))?;
         }
         if clause.optional {
-            let left =
-                left.ok_or_else(|| at_unsupported(path.span, "OPTIONAL MATCH without an input"))?;
+            // OPTIONAL MATCH as the first clause behaves like matching over
+            // a single empty input row.
+            let left = match left {
+                Some(left) => left,
+                None => ir::Plan::new(
+                    ir::PlanKind::Unit(ir::Unit),
+                    ir::Scope::default(),
+                    ir::ResultShape::default(),
+                )?,
+            };
             let right = self.plan.take().ok_or(BindError::EmptyQuery)?;
             self.scope = self
                 .scope
@@ -1091,8 +1118,30 @@ impl<'a> Binder<'a> {
                     .collect(),
                 relationship.span,
             )?;
+            // A step node whose variable is already bound closes a cycle:
+            // expand into an anonymous target and equate identities below.
+            let reused = node.variable.as_ref().and_then(|variable| {
+                self.scope
+                    .iter()
+                    .find(|binding| binding.name() == variable.value)
+                    .cloned()
+            });
+            if let Some(existing) = &reused {
+                if self.entities.get(&existing.id()).map(|entity| entity.kind)
+                    != Some(CatalogEntity::Node)
+                {
+                    return Err(at_unsupported(
+                        node.span,
+                        "reusing a non-node variable in a node pattern",
+                    ));
+                }
+            }
             let to = self.new_entity_binding(
-                node.variable.as_ref(),
+                if reused.is_some() {
+                    None
+                } else {
+                    node.variable.as_ref()
+                },
                 "_node",
                 ir::ValueType::Node,
                 ir::Nullability::NonNull,
@@ -1187,7 +1236,29 @@ impl<'a> Binder<'a> {
             )?;
             self.bind_labels(node)?;
             self.bind_properties(&to, CatalogEntity::Node, &node.properties)?;
-            from = to.id();
+            if let Some(existing) = reused {
+                let equality = |binding: &ir::Binding| ir::TypedExpression {
+                    expression: ir::Expression::Binding(binding.id()),
+                    value_type: binding.value_type().clone(),
+                    nullability: binding.nullability(),
+                };
+                let input = self.plan.take().ok_or(BindError::EmptyQuery)?;
+                self.wrap_plan(ir::PlanKind::Filter(ir::Filter {
+                    input: Box::new(input),
+                    predicate: ir::TypedExpression {
+                        expression: ir::Expression::Binary {
+                            left: Box::new(equality(&to)),
+                            op: ir::BinaryOp::Equal,
+                            right: Box::new(equality(&existing)),
+                        },
+                        value_type: ir::ValueType::Boolean,
+                        nullability: ir::Nullability::NonNull,
+                    },
+                }))?;
+                from = existing.id();
+            } else {
+                from = to.id();
+            }
         }
         Ok(())
     }
@@ -2281,11 +2352,18 @@ impl<'a> Binder<'a> {
                     ir::Nullability::NonNull,
                 )
             }
-            cypher::Expression::Map(_) => {
-                return Err(at_unsupported(
-                    expression.span,
-                    "map literal outside a property assignment",
-                ));
+            cypher::Expression::Map(entries) => {
+                // General map values lower to JSON objects; struct/union
+                // property targets still bind through bind_map_property.
+                let entries = entries
+                    .iter()
+                    .map(|(key, value)| Ok((key.value.clone(), self.bind_expression(value)?)))
+                    .collect::<Result<Vec<_>, BindError>>()?;
+                (
+                    ir::Expression::Map(entries),
+                    ir::ValueType::Map,
+                    ir::Nullability::NonNull,
+                )
             }
         };
         Ok(ir::TypedExpression {
@@ -2583,6 +2661,11 @@ fn rewrite_builtin_call(
             }
             ("tolower" | "tolowercase", [_]) => {
                 sql_function("lower", arguments, ir::ValueType::Text)
+            }
+            ("tostring" | "tointeger" | "tofloat" | "toboolean", [argument])
+                if argument.value_type == ir::ValueType::Map =>
+            {
+                return Err(at_unsupported(span, "casting map values"));
             }
             ("tostring", [argument]) => cast(argument, ir::ValueType::Text),
             ("tointeger", [argument]) => cast(argument, ir::ValueType::Integer),

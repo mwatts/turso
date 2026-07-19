@@ -1171,9 +1171,21 @@ fn lower_expression_with_references(
                     tag.replace('\'', "''")
                 ))
             }
-            _ => Err(LowerError::UnsupportedOperator(
-                "map literal outside a struct or union property",
-            )),
+            _ => {
+                // General maps lower to JSON objects, matching list lowering.
+                let mut parts = Vec::with_capacity(entries.len() * 2);
+                for (key, value) in entries {
+                    parts.push(format!("'{}'", key.replace('\'', "''")));
+                    parts.push(lower_expression_with_references(
+                        value,
+                        bindings,
+                        catalog,
+                        input_alias,
+                        references,
+                    )?);
+                }
+                Ok(format!("json_object({})", parts.join(", ")))
+            }
         },
     }
 }
