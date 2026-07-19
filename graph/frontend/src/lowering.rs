@@ -1129,6 +1129,18 @@ fn lower_expression_with_references(
                          FROM generate_series(({start}), ({stop}), ({step})))"
                     ));
                 }
+                ("__cypher_time_parse", [value]) => {
+                    // Offset-less datetime strings parse as UTC; time_parse
+                    // itself requires an offset on datetime forms.
+                    let tail = format!("substr(({value}), instr(({value}), 'T'))");
+                    return Ok(format!(
+                        "time_parse(CASE WHEN instr(({value}), 'T') > 0 \
+                         AND instr({tail}, 'Z') = 0 \
+                         AND instr({tail}, '+') = 0 \
+                         AND instr({tail}, '-') = 0 \
+                         THEN ({value}) || 'Z' ELSE ({value}) END)"
+                    ));
+                }
                 ("__cypher_labels", [value]) => {
                     let table = catalog
                         .labels_table()
