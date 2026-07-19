@@ -50,6 +50,14 @@ pub enum Clause {
     With(ProjectionClause),
     Return(ProjectionClause),
     Foreach(ForeachClause),
+    Call(CallClause),
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct CallClause {
+    pub name: Spanned<String>,
+    pub arguments: Vec<Spanned<Expression>>,
+    pub yields: Vec<Spanned<String>>,
 }
 
 #[derive(Clone, Debug, PartialEq)]

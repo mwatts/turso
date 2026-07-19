@@ -13,10 +13,11 @@ use pest_derive::Parser;
 use thiserror::Error;
 
 use crate::{
-    BinaryOperator, Clause, CreateClause, DeleteClause, Direction, Expression, ForeachClause,
-    Literal, MatchClause, MergeClause, NodePattern, PathPattern, ProjectionClause, ProjectionItem,
-    PropertyTarget, QuantifierKind, Query, RelationshipPattern, RelationshipRange, RemoveClause,
-    SetClause, SetItem, SortItem, Span, Spanned, UnaryOperator, UnionBranch, UnwindClause,
+    BinaryOperator, CallClause, Clause, CreateClause, DeleteClause, Direction, Expression,
+    ForeachClause, Literal, MatchClause, MergeClause, NodePattern, PathPattern, ProjectionClause,
+    ProjectionItem, PropertyTarget, QuantifierKind, Query, RelationshipPattern, RelationshipRange,
+    RemoveClause, SetClause, SetItem, SortItem, Span, Spanned, UnaryOperator, UnionBranch,
+    UnwindClause,
 };
 
 #[derive(Parser)]
@@ -111,6 +112,7 @@ fn walk_clause(pair: Pair<'_, Rule>) -> Result<Spanned<Clause>, ParseError> {
         Rule::with_clause => Clause::With(walk_projection_clause(pair)?),
         Rule::return_clause => Clause::Return(walk_projection_clause(pair)?),
         Rule::foreach_clause => Clause::Foreach(walk_foreach(pair)?),
+        Rule::call_clause => Clause::Call(walk_call(pair)?),
         rule => return Err(unexpected(&pair, "clause", rule)),
     };
     Ok(Spanned::new(clause, span))
@@ -213,6 +215,40 @@ fn walk_unwind(pair: Pair<'_, Rule>) -> Result<UnwindClause, ParseError> {
     Ok(UnwindClause {
         expression,
         alias: walk_identifier(alias),
+    })
+}
+
+fn walk_call(pair: Pair<'_, Rule>) -> Result<CallClause, ParseError> {
+    let span = pair_span(&pair);
+    let mut name = None;
+    let mut arguments = Vec::new();
+    let mut yields = Vec::new();
+    for child in pair.into_inner() {
+        match child.as_rule() {
+            Rule::qualified_name => {
+                let name_span = pair_span(&child);
+                let joined = child
+                    .into_inner()
+                    .filter(|item| item.as_rule() == Rule::identifier)
+                    .map(|item| identifier_text(item.as_str()))
+                    .collect::<Vec<_>>()
+                    .join(".");
+                name = Some(Spanned::new(joined, name_span));
+            }
+            Rule::expression_list => {
+                arguments = child
+                    .into_inner()
+                    .map(walk_expression)
+                    .collect::<Result<Vec<_>, _>>()?;
+            }
+            Rule::identifier => yields.push(walk_identifier(child)),
+            _ => {}
+        }
+    }
+    Ok(CallClause {
+        name: name.ok_or_else(|| ParseError::at(span, "CALL has no procedure name"))?,
+        arguments,
+        yields,
     })
 }
 

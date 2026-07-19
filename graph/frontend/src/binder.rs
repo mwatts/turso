@@ -295,8 +295,79 @@ impl<'a> Binder<'a> {
                         "mutation clauses in read queries",
                     ));
                 }
+                cypher::Clause::Call(value) => self.bind_call(value, clause.span)?,
             }
         }
+        Ok(())
+    }
+
+    /// Minimal built-in procedure registry: introspection procedures over
+    /// the label and relationship-type junctions.
+    fn bind_call(
+        &mut self,
+        clause: &cypher::CallClause,
+        span: cypher::Span,
+    ) -> Result<(), BindError> {
+        let (sentinel, default_yield) = match clause.name.value.to_ascii_lowercase().as_str() {
+            "db.labels" => ("__cypher_all_labels", "label"),
+            "db.relationshiptypes" => ("__cypher_all_relationship_types", "relationshipType"),
+            _ => {
+                return Err(at_unsupported(
+                    clause.name.span,
+                    "procedures outside the built-in registry",
+                ));
+            }
+        };
+        if !clause.arguments.is_empty() {
+            return Err(at_unsupported(span, "procedure arguments"));
+        }
+        if clause.yields.len() > 1 {
+            return Err(at_unsupported(span, "multi-column procedure YIELD"));
+        }
+        let name = clause
+            .yields
+            .first()
+            .map(|item| item.value.clone())
+            .unwrap_or_else(|| default_yield.to_owned());
+        let list = ir::TypedExpression {
+            expression: ir::Expression::Function {
+                function: ir::FunctionName::new(sentinel).expect("static name"),
+                arguments: Vec::new(),
+            },
+            value_type: ir::ValueType::List(Box::new(ir::ValueType::Text)),
+            nullability: ir::Nullability::NonNull,
+        };
+        let output = ir::Binding::new(
+            self.next_id()?,
+            name,
+            ir::ValueType::Text,
+            ir::Nullability::NonNull,
+        )?;
+        let input = match self.plan.take() {
+            Some(input) => input,
+            None => ir::Plan::new(
+                ir::PlanKind::Unit(ir::Unit),
+                ir::Scope::default(),
+                ir::ResultShape::default(),
+            )?,
+        };
+        self.scope.push(output.clone());
+        let scope = ir::Scope::new(self.scope.clone())?;
+        // A bare CALL with no YIELD and no trailing clauses returns its
+        // single column directly.
+        let shape = ir::ResultShape::new(
+            vec![ir::ResultColumn::new(output.id(), output.name())?],
+            &scope,
+        )?;
+        self.plan = Some(ir::Plan::new(
+            ir::PlanKind::Unwind(ir::Unwind {
+                input: Box::new(input),
+                list,
+                output,
+            }),
+            scope,
+            shape,
+        )?);
         Ok(())
     }
 
@@ -473,6 +544,12 @@ impl<'a> Binder<'a> {
                             output: output.id(),
                             list,
                         });
+                }
+                cypher::Clause::Call(_) => {
+                    return Err(at_unsupported(
+                        clause.span,
+                        "procedures in mutation queries",
+                    ));
                 }
                 cypher::Clause::With(_) | cypher::Clause::Return(_) => {
                     return Err(at_unsupported(

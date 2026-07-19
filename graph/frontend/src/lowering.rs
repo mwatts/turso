@@ -1141,6 +1141,30 @@ fn lower_expression_with_references(
                          THEN ({value}) || 'Z' ELSE ({value}) END)"
                     ));
                 }
+                ("__cypher_all_labels", []) => {
+                    let table = catalog
+                        .labels_table()
+                        .ok_or(LowerError::UnsupportedOperator(
+                            "db.labels without a label table",
+                        ))?;
+                    return Ok(format!(
+                        "(SELECT json_group_array(label) FROM \
+                         (SELECT DISTINCT label FROM {} ORDER BY label))",
+                        quote_identifier(&table)
+                    ));
+                }
+                ("__cypher_all_relationship_types", []) => {
+                    let table = catalog.relationship_types_table().ok_or(
+                        LowerError::UnsupportedOperator(
+                            "db.relationshipTypes without a type table",
+                        ),
+                    )?;
+                    return Ok(format!(
+                        "(SELECT json_group_array(type) FROM \
+                         (SELECT DISTINCT type FROM {} ORDER BY type))",
+                        quote_identifier(&table)
+                    ));
+                }
                 ("__cypher_labels", [value]) => {
                     let table = catalog
                         .labels_table()
