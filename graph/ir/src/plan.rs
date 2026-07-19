@@ -51,6 +51,15 @@ pub enum PlanKind {
     LeftApply(LeftApply),
     Unwind(Unwind),
     Union(Union),
+    Join(Join),
+}
+
+/// Cartesian product of two independent inputs; a later Filter applies any
+/// cross-input predicates.
+#[derive(Clone, Debug, PartialEq)]
+pub struct Join {
+    pub left: Box<Plan>,
+    pub right: Box<Plan>,
 }
 
 /// A single row with no bindings, used by source clauses such as `UNWIND`.

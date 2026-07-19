@@ -238,6 +238,19 @@ fn lower_plan(
                 bindings: input.bindings,
             })
         }
+        ir::PlanKind::Join(join) => {
+            let left = lower_plan(&join.left, catalog, optional)?;
+            let right = lower_plan(&join.right, catalog, optional)?;
+            let mut bindings = left.bindings;
+            bindings.extend(right.bindings);
+            Ok(Lowered {
+                sql: format!(
+                    "SELECT l.*, r.* FROM ({}) AS l JOIN ({}) AS r",
+                    left.sql, right.sql
+                ),
+                bindings,
+            })
+        }
         ir::PlanKind::Union(union) => {
             let mut parts = Vec::new();
             let mut bindings = None;
@@ -820,12 +833,20 @@ fn lower_expression_with_references(
                 input_alias,
                 references,
             )?;
-            let sql_type = match target {
-                ir::ValueType::Integer | ir::ValueType::Boolean => "INTEGER",
-                ir::ValueType::Real => "REAL",
-                _ => "TEXT",
-            };
-            Ok(format!("CAST(({value}) AS {sql_type})"))
+            Ok(match target {
+                // Boolean casts need text-name handling; CAST('true' AS
+                // INTEGER) is 0, not 1.
+                ir::ValueType::Boolean => format!(
+                    "(CASE WHEN ({value}) IS NULL THEN NULL \
+                     WHEN lower(CAST(({value}) AS TEXT)) = 'true' THEN 1 \
+                     WHEN lower(CAST(({value}) AS TEXT)) = 'false' THEN 0 \
+                     WHEN typeof(({value})) IN ('integer', 'real') THEN ({value}) != 0 \
+                     ELSE NULL END)"
+                ),
+                ir::ValueType::Integer => format!("CAST(({value}) AS INTEGER)"),
+                ir::ValueType::Real => format!("CAST(({value}) AS REAL)"),
+                _ => format!("CAST(({value}) AS TEXT)"),
+            })
         }
         ir::Expression::Quantifier {
             kind,
@@ -957,9 +978,35 @@ fn lower_expression_with_references(
                         references,
                     )
                 })
-                .collect::<Result<Vec<_>, _>>()?
-                .join(", ");
-            Ok(format!("{}({arguments})", function.as_str()))
+                .collect::<Result<Vec<_>, _>>()?;
+            // Sentinel names the binder emits for Cypher builtins with no
+            // single-function SQL equivalent.
+            match (function.as_str(), arguments.as_slice()) {
+                ("__cypher_size", [value]) => {
+                    return Ok(format!(
+                        "(CASE WHEN json_valid(({value})) AND json_type(({value})) = 'array' \
+                         THEN json_array_length(({value})) ELSE length(({value})) END)"
+                    ));
+                }
+                ("__cypher_range", [start, stop]) => {
+                    return Ok(format!(
+                        "(SELECT json_group_array(value) FROM generate_series(({start}), ({stop})))"
+                    ));
+                }
+                ("__cypher_range", [start, stop, step]) => {
+                    return Ok(format!(
+                        "(SELECT json_group_array(value) \
+                         FROM generate_series(({start}), ({stop}), ({step})))"
+                    ));
+                }
+                ("__cypher_keys", [value]) => {
+                    return Ok(format!(
+                        "(SELECT json_group_array(k.key) FROM json_each(({value})) AS k)"
+                    ));
+                }
+                _ => {}
+            }
+            Ok(format!("{}({})", function.as_str(), arguments.join(", ")))
         }
         ir::Expression::List(values) => {
             let values = values

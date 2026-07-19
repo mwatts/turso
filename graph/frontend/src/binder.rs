@@ -332,6 +332,14 @@ impl<'a> Binder<'a> {
                     "undirected relationship creation",
                 ));
             }
+            // openCypher requires exactly one relationship type when
+            // creating or merging a relationship (TCK Merge5 [24]/[25]).
+            if relationship.types.len() != 1 {
+                return Err(at_unsupported(
+                    relationship.span,
+                    "relationship creation without exactly one type",
+                ));
+            }
             let to = self.bind_created_node(node, merge, operations)?;
             let source = self.relationship_source(relationship.span)?;
             let binding = self.new_entity_binding(
@@ -624,27 +632,31 @@ impl<'a> Binder<'a> {
         clause: &cypher::MatchClause,
         fallback: cypher::Span,
     ) -> Result<(), BindError> {
-        if clause.paths.len() != 1 {
-            return Err(at_unsupported(fallback, "multiple path patterns"));
+        if clause.optional && clause.paths.len() != 1 {
+            return Err(at_unsupported(fallback, "multiple OPTIONAL MATCH paths"));
         }
         let path = &clause.paths[0];
-        if path.variable.is_some() {
-            return Err(at_unsupported(path.span, "named paths"));
-        }
-        if clause.optional
-            && path
-                .steps
-                .iter()
-                .any(|(relationship, _)| relationship.range.is_some())
-        {
-            return Err(at_unsupported(
-                path.span,
-                "optional variable-length relationships",
-            ));
+        for path in &clause.paths {
+            if path.variable.is_some() {
+                return Err(at_unsupported(path.span, "named paths"));
+            }
+            if clause.optional
+                && path
+                    .steps
+                    .iter()
+                    .any(|(relationship, _)| relationship.range.is_some())
+            {
+                return Err(at_unsupported(
+                    path.span,
+                    "optional variable-length relationships",
+                ));
+            }
         }
         let left = self.plan.clone();
         let old_ids: Vec<_> = self.scope.iter().map(ir::Binding::id).collect();
-        self.bind_path(path)?;
+        for path in &clause.paths {
+            self.bind_path(path)?;
+        }
         if let Some(predicate) = &clause.predicate {
             let predicate = self.bind_expression(predicate)?;
             let input = self.plan.take().ok_or(BindError::EmptyQuery)?;
@@ -824,6 +836,16 @@ impl<'a> Binder<'a> {
                 .find(|binding| binding.name() == variable.value)
                 .cloned()
             {
+                // openCypher raises VariableTypeConflict when a non-node
+                // variable is reused in a node pattern (TCK Match1 [7]/[9]).
+                if self.entities.get(&existing.id()).map(|entity| entity.kind)
+                    != Some(CatalogEntity::Node)
+                {
+                    return Err(at_unsupported(
+                        variable.span,
+                        "reusing a non-node variable in a node pattern",
+                    ));
+                }
                 self.bind_labels(node)?;
                 self.bind_properties(&existing, CatalogEntity::Node, &node.properties)?;
                 return Ok(existing.id());
@@ -847,16 +869,29 @@ impl<'a> Binder<'a> {
                 span_end: node.span.end,
             })?;
         let scope = ir::Scope::new(self.scope.clone())?;
-        self.plan = Some(ir::Plan::new(
+        let scan = ir::Plan::new(
             ir::PlanKind::NodeScan(ir::NodeScan {
                 graph: self.graph,
                 source,
                 binding: binding.id(),
                 labels,
             }),
-            scope,
+            scope.clone(),
             ir::ResultShape::default(),
-        )?);
+        )?;
+        // A fresh scan while a plan already exists starts a disconnected
+        // pattern: combine as a cartesian product instead of replacing it.
+        self.plan = Some(match self.plan.take() {
+            None => scan,
+            Some(existing) => ir::Plan::new(
+                ir::PlanKind::Join(ir::Join {
+                    left: Box::new(existing),
+                    right: Box::new(scan),
+                }),
+                scope,
+                ir::ResultShape::default(),
+            )?,
+        });
         self.bind_properties(&binding, CatalogEntity::Node, &node.properties)?;
         Ok(binding.id())
     }
@@ -1648,12 +1683,17 @@ impl<'a> Binder<'a> {
                         "DISTINCT function arguments",
                     ));
                 }
-                let function = ir::FunctionName::new(name.value.clone())
-                    .ok_or_else(|| at_unsupported(name.span, "empty function names"))?;
                 let arguments = arguments
                     .iter()
                     .map(|argument| self.bind_expression(argument))
                     .collect::<Result<Vec<_>, _>>()?;
+                if let Some(rewritten) =
+                    rewrite_builtin_call(&name.value, &arguments, expression.span)?
+                {
+                    return Ok(rewritten);
+                }
+                let function = ir::FunctionName::new(name.value.clone())
+                    .ok_or_else(|| at_unsupported(name.span, "empty function names"))?;
                 let (value_type, nullability) = match crate::functions::lookup(function.as_str()) {
                     Some(signature) => {
                         if let Err(feature) =
@@ -1927,6 +1967,139 @@ fn bind_literal(literal: &cypher::Literal) -> (ir::Literal, ir::ValueType, ir::N
             ir::Nullability::NonNull,
         ),
     }
+}
+
+/// Rewrites Cypher builtin calls onto existing IR forms (identity
+/// passthrough, casts, index/slice sugar, renamed or sentinel SQL
+/// functions). Returns None for names the generic path should handle.
+fn rewrite_builtin_call(
+    name: &str,
+    arguments: &[ir::TypedExpression],
+    span: cypher::Span,
+) -> Result<Option<ir::TypedExpression>, BindError> {
+    let sql_function =
+        |sql: &str, args: &[ir::TypedExpression], value_type: ir::ValueType| ir::TypedExpression {
+            expression: ir::Expression::Function {
+                function: ir::FunctionName::new(sql).expect("static SQL function name"),
+                arguments: args.to_vec(),
+            },
+            value_type,
+            nullability: ir::Nullability::Nullable,
+        };
+    let cast = |argument: &ir::TypedExpression, target: ir::ValueType| ir::TypedExpression {
+        expression: ir::Expression::Cast {
+            expression: Box::new(argument.clone()),
+            target: target.clone(),
+        },
+        value_type: target,
+        nullability: ir::Nullability::Nullable,
+    };
+    let integer_literal = |value: i64| ir::TypedExpression {
+        expression: ir::Expression::Literal(ir::Literal::Integer(value)),
+        value_type: ir::ValueType::Integer,
+        nullability: ir::Nullability::NonNull,
+    };
+    let index = |base: &ir::TypedExpression, at: i64| ir::TypedExpression {
+        expression: ir::Expression::Index {
+            base: Box::new(base.clone()),
+            index: Box::new(integer_literal(at)),
+        },
+        value_type: match &base.value_type {
+            ir::ValueType::List(element) => (**element).clone(),
+            _ => ir::ValueType::Any,
+        },
+        nullability: ir::Nullability::Nullable,
+    };
+    Ok(Some(
+        match (name.to_ascii_lowercase().as_str(), arguments) {
+            ("id", [entity])
+                if matches!(
+                    entity.value_type,
+                    ir::ValueType::Node | ir::ValueType::Relationship | ir::ValueType::Any
+                ) =>
+            {
+                // The relational binding column is the entity identity.
+                ir::TypedExpression {
+                    expression: entity.expression.clone(),
+                    value_type: ir::ValueType::Integer,
+                    nullability: entity.nullability,
+                }
+            }
+            ("toupper" | "touppercase", [_]) => {
+                sql_function("upper", arguments, ir::ValueType::Text)
+            }
+            ("tolower" | "tolowercase", [_]) => {
+                sql_function("lower", arguments, ir::ValueType::Text)
+            }
+            ("tostring", [argument]) => cast(argument, ir::ValueType::Text),
+            ("tointeger", [argument]) => cast(argument, ir::ValueType::Integer),
+            ("tofloat", [argument]) => cast(argument, ir::ValueType::Real),
+            ("toboolean", [argument]) => cast(argument, ir::ValueType::Boolean),
+            ("size", [argument]) => {
+                // openCypher removed size() over pattern predicates (List6 [6]).
+                if matches!(argument.expression, ir::Expression::PatternSubquery { .. }) {
+                    return Err(at_unsupported(span, "size() over pattern predicates"));
+                }
+                sql_function("__cypher_size", arguments, ir::ValueType::Integer)
+            }
+            ("range", [_, _] | [_, _, _]) => {
+                // The TCK requires errors for non-integer arguments and a
+                // zero step (List11 [4]/[5]).
+                for argument in arguments {
+                    if !matches!(
+                        argument.value_type,
+                        ir::ValueType::Integer | ir::ValueType::Any
+                    ) {
+                        return Err(at_unsupported(span, "range over non-integer arguments"));
+                    }
+                }
+                if let Some(step) = arguments.get(2) {
+                    if step.expression == ir::Expression::Literal(ir::Literal::Integer(0)) {
+                        return Err(at_unsupported(span, "range with a zero step"));
+                    }
+                }
+                sql_function(
+                    "__cypher_range",
+                    arguments,
+                    ir::ValueType::List(Box::new(ir::ValueType::Integer)),
+                )
+            }
+            ("keys", [_]) => sql_function(
+                "__cypher_keys",
+                arguments,
+                ir::ValueType::List(Box::new(ir::ValueType::Text)),
+            ),
+            ("head", [base]) => index(base, 0),
+            ("last", [base]) => index(base, -1),
+            ("tail", [base]) => ir::TypedExpression {
+                expression: ir::Expression::Slice {
+                    base: Box::new(base.clone()),
+                    from: Some(Box::new(integer_literal(1))),
+                    to: None,
+                },
+                value_type: base.value_type.clone(),
+                nullability: ir::Nullability::Nullable,
+            },
+            ("left", [text, count]) => sql_function(
+                "substr",
+                &[text.clone(), integer_literal(1), count.clone()],
+                ir::ValueType::Text,
+            ),
+            ("right", [text, count]) => {
+                let negated = ir::TypedExpression {
+                    expression: ir::Expression::Binary {
+                        left: Box::new(integer_literal(0)),
+                        op: ir::BinaryOp::Subtract,
+                        right: Box::new(count.clone()),
+                    },
+                    value_type: ir::ValueType::Integer,
+                    nullability: count.nullability,
+                };
+                sql_function("substr", &[text.clone(), negated], ir::ValueType::Text)
+            }
+            _ => return Ok(None),
+        },
+    ))
 }
 
 fn list_element_type(

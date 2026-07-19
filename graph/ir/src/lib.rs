@@ -28,7 +28,7 @@ pub use mutation::{
 };
 pub use plan::{
     Aggregate, AggregateFunction, Aggregation, Distinct, Filter, FixedExpand, GraphExpand,
-    Grouping, LeftApply, Limit, NodeScan, PathUniqueness, Plan, PlanKind, Project, Projection,
-    Skip, Sort, SortKey, Union, Unit, Unwind,
+    Grouping, Join, LeftApply, Limit, NodeScan, PathUniqueness, Plan, PlanKind, Project,
+    Projection, Skip, Sort, SortKey, Union, Unit, Unwind,
 };
 pub use scope::{Binding, Direction, Nullability, ResultColumn, ResultShape, Scope};
