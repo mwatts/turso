@@ -44,10 +44,49 @@ pub struct BoundQuery {
 #[derive(Clone, Debug, PartialEq)]
 pub struct BoundMutation {
     pub request: ir::MutationRequest,
-    /// Trailing RETURN projections, bound against the mutation scope.
-    pub returns: Vec<ir::TypedExpression>,
+    /// Pipeline stages after the initial mutation block, each introduced by
+    /// a WITH clause.
+    pub stages: Vec<MutationStage>,
+    /// Trailing RETURN projections, bound against the final stage scope.
+    pub returns: Vec<StageProjection>,
     pub returns_skip: Option<usize>,
     pub returns_limit: Option<usize>,
+    /// Entity kind of every binding the pipeline can reference, letting the
+    /// executor resolve relational layouts for projected entities.
+    pub entity_kinds: std::collections::HashMap<ir::BindingId, CatalogEntity>,
+}
+
+/// One WITH-introduced pipeline stage of a mutation query.
+#[derive(Clone, Debug, PartialEq)]
+pub struct MutationStage {
+    pub projections: Vec<StageProjection>,
+    /// WITH ... WHERE predicate, bound against the stage's output scope.
+    pub predicate: Option<ir::TypedExpression>,
+    pub distinct: bool,
+    pub items: Vec<StageItem>,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub enum StageItem {
+    Operation(ir::Mutation),
+    Unwind {
+        output: ir::BindingId,
+        list: ir::TypedExpression,
+    },
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub enum StageProjection {
+    Expression {
+        output: ir::BindingId,
+        expression: ir::TypedExpression,
+    },
+    Aggregate {
+        output: ir::BindingId,
+        function: ir::AggregateFunction,
+        argument: Option<ir::TypedExpression>,
+        distinct: bool,
+    },
 }
 
 #[derive(Clone, Debug, Error, Eq, PartialEq)]
@@ -253,11 +292,25 @@ impl<'a> Binder<'a> {
             return Err(at_unsupported(branch.span, "UNION in mutation queries"));
         }
         let mut operations = Vec::new();
+        let mut stages: Vec<MutationStage> = Vec::new();
         let mut returns = Vec::new();
         let mut returns_skip = None;
         let mut returns_limit = None;
         let mut deleted_variables: Vec<String> = Vec::new();
         let mut mutation_started = false;
+        fn route(
+            operations: &mut Vec<ir::Mutation>,
+            stages: &mut [MutationStage],
+            new_operations: Vec<ir::Mutation>,
+        ) {
+            if let Some(stage) = stages.last_mut() {
+                stage
+                    .items
+                    .extend(new_operations.into_iter().map(StageItem::Operation));
+            } else {
+                operations.extend(new_operations);
+            }
+        }
         for clause in &query.clauses {
             match &clause.value {
                 cypher::Clause::Match(value) => {
@@ -268,31 +321,47 @@ impl<'a> Binder<'a> {
                 }
                 cypher::Clause::Create(value) => {
                     mutation_started = true;
+                    let mut new_operations = Vec::new();
                     for path in &value.paths {
-                        self.bind_create_path(path, false, &mut operations)?;
+                        self.bind_create_path(path, false, &mut new_operations)?;
                     }
+                    route(&mut operations, &mut stages, new_operations);
                 }
                 cypher::Clause::Merge(value) => {
                     mutation_started = true;
-                    self.bind_create_path(&value.path, true, &mut operations)?;
+                    let mut new_operations = Vec::new();
+                    self.bind_create_path(&value.path, true, &mut new_operations)?;
+                    route(&mut operations, &mut stages, new_operations);
                 }
                 cypher::Clause::Set(value) => {
                     mutation_started = true;
-                    self.bind_set(value, &mut operations)?;
+                    let mut new_operations = Vec::new();
+                    self.bind_set(value, &mut new_operations)?;
+                    route(&mut operations, &mut stages, new_operations);
                 }
                 cypher::Clause::Remove(value) => {
                     mutation_started = true;
-                    self.bind_remove(value, &mut operations)?;
+                    let mut new_operations = Vec::new();
+                    self.bind_remove(value, &mut new_operations)?;
+                    route(&mut operations, &mut stages, new_operations);
                 }
                 cypher::Clause::Delete(value) => {
                     mutation_started = true;
-                    self.bind_delete(value, &mut operations)?;
+                    let mut new_operations = Vec::new();
+                    self.bind_delete(value, &mut new_operations)?;
+                    route(&mut operations, &mut stages, new_operations);
                     deleted_variables.extend(
                         value
                             .variables
                             .iter()
                             .map(|variable| variable.value.clone()),
                     );
+                }
+                cypher::Clause::With(value) if !mutation_started => {
+                    self.bind_projection(value, false)?;
+                }
+                cypher::Clause::With(value) if mutation_started => {
+                    stages.push(self.bind_mutation_with(value, clause.span)?);
                 }
                 cypher::Clause::Return(value)
                     if mutation_started
@@ -334,13 +403,53 @@ impl<'a> Binder<'a> {
                                 "returning deleted entities",
                             ));
                         }
-                        returns.push(self.bind_expression(expression)?);
+                        let output = self.next_id()?;
+                        if let Some((function, argument, distinct)) =
+                            self.bind_aggregate_call(expression)?
+                        {
+                            returns.push(StageProjection::Aggregate {
+                                output,
+                                function,
+                                argument,
+                                distinct,
+                            });
+                        } else {
+                            returns.push(StageProjection::Expression {
+                                output,
+                                expression: self.bind_expression(expression)?,
+                            });
+                        }
                     }
                 }
                 cypher::Clause::Unwind(value) if !mutation_started => {
                     self.bind_unwind(value)?;
                 }
-                cypher::Clause::Unwind(_) | cypher::Clause::With(_) | cypher::Clause::Return(_) => {
+                cypher::Clause::Unwind(value) => {
+                    // Mid-pipeline UNWIND expands the row set in place. When
+                    // no WITH has started a stage yet, open an implicit
+                    // passthrough stage to carry it.
+                    if stages.is_empty() {
+                        stages.push(self.passthrough_stage());
+                    }
+                    let list = self.bind_expression(&value.expression)?;
+                    let element_type = list_element_type(&list.value_type, value.expression.span)?;
+                    let output = ir::Binding::new(
+                        self.next_id()?,
+                        value.alias.value.clone(),
+                        element_type,
+                        ir::Nullability::Nullable,
+                    )?;
+                    self.scope.push(output.clone());
+                    stages
+                        .last_mut()
+                        .expect("stage pushed above")
+                        .items
+                        .push(StageItem::Unwind {
+                            output: output.id(),
+                            list,
+                        });
+                }
+                cypher::Clause::With(_) | cypher::Clause::Return(_) => {
                     return Err(at_unsupported(
                         clause.span,
                         "projection clauses in mutation queries",
@@ -351,15 +460,164 @@ impl<'a> Binder<'a> {
         if operations.is_empty() {
             return Err(BindError::EmptyMutation);
         }
+        let entity_kinds = self
+            .entities
+            .iter()
+            .map(|(id, entity)| (*id, entity.kind))
+            .collect();
         Ok(BoundMutation {
             request: ir::MutationRequest {
                 graph: self.graph,
                 input: self.plan,
                 operations,
             },
+            stages,
             returns,
             returns_skip,
             returns_limit,
+            entity_kinds,
+        })
+    }
+
+    /// A stage that forwards every current binding unchanged.
+    fn passthrough_stage(&self) -> MutationStage {
+        MutationStage {
+            projections: self
+                .scope
+                .iter()
+                .map(|binding| StageProjection::Expression {
+                    output: binding.id(),
+                    expression: ir::TypedExpression {
+                        expression: ir::Expression::Binding(binding.id()),
+                        value_type: binding.value_type().clone(),
+                        nullability: binding.nullability(),
+                    },
+                })
+                .collect(),
+            predicate: None,
+            distinct: false,
+            items: Vec::new(),
+        }
+    }
+
+    fn bind_mutation_with(
+        &mut self,
+        clause: &cypher::ProjectionClause,
+        span: cypher::Span,
+    ) -> Result<MutationStage, BindError> {
+        if !clause.order_by.is_empty() || clause.skip.is_some() || clause.limit.is_some() {
+            return Err(at_unsupported(
+                span,
+                "ORDER BY, SKIP, or LIMIT on mutation WITH clauses",
+            ));
+        }
+        let mut projections = Vec::new();
+        let mut output_scope: Vec<ir::Binding> = Vec::new();
+        let mut output_entities = HashMap::new();
+        for item in &clause.items {
+            match item {
+                cypher::ProjectionItem::All(_) => {
+                    for binding in &self.scope {
+                        projections.push(StageProjection::Expression {
+                            output: binding.id(),
+                            expression: ir::TypedExpression {
+                                expression: ir::Expression::Binding(binding.id()),
+                                value_type: binding.value_type().clone(),
+                                nullability: binding.nullability(),
+                            },
+                        });
+                        output_scope.push(binding.clone());
+                        if let Some(entity) = self.entities.get(&binding.id()) {
+                            output_entities.insert(binding.id(), entity.clone());
+                        }
+                    }
+                }
+                cypher::ProjectionItem::Expression { expression, alias } => {
+                    if alias.is_none()
+                        && !matches!(expression.value, cypher::Expression::Variable(_))
+                    {
+                        return Err(at_unsupported(
+                            expression.span,
+                            "unaliased WITH expressions",
+                        ));
+                    }
+                    let name = alias
+                        .as_ref()
+                        .map(|alias| alias.value.clone())
+                        .unwrap_or_else(|| projection_name(expression));
+                    if output_scope.iter().any(|binding| binding.name() == name) {
+                        let span = alias.as_ref().map_or(expression.span, |alias| alias.span);
+                        return Err(BindError::DuplicateVariable {
+                            name,
+                            span_start: span.start,
+                            span_end: span.end,
+                        });
+                    }
+                    if let Some((function, argument, distinct)) =
+                        self.bind_aggregate_call(expression)?
+                    {
+                        let value_type = match (&function, &argument) {
+                            (ir::AggregateFunction::Count, _) => ir::ValueType::Integer,
+                            (ir::AggregateFunction::Average, _) => ir::ValueType::Real,
+                            (ir::AggregateFunction::Collect, Some(argument)) => {
+                                ir::ValueType::List(Box::new(argument.value_type.clone()))
+                            }
+                            (_, Some(argument)) => argument.value_type.clone(),
+                            (_, None) => ir::ValueType::Any,
+                        };
+                        let output = ir::Binding::new(
+                            self.next_id()?,
+                            name,
+                            value_type,
+                            ir::Nullability::Nullable,
+                        )?;
+                        projections.push(StageProjection::Aggregate {
+                            output: output.id(),
+                            function,
+                            argument,
+                            distinct,
+                        });
+                        output_scope.push(output);
+                        continue;
+                    }
+                    let bound = self.bind_expression(expression)?;
+                    let old_entity = match &expression.value {
+                        cypher::Expression::Variable(name) => self
+                            .scope
+                            .iter()
+                            .find(|binding| binding.name() == name)
+                            .and_then(|binding| self.entities.get(&binding.id()).cloned()),
+                        _ => None,
+                    };
+                    let output = ir::Binding::new(
+                        self.next_id()?,
+                        name,
+                        bound.value_type.clone(),
+                        bound.nullability,
+                    )?;
+                    if let Some(entity) = old_entity {
+                        output_entities.insert(output.id(), entity);
+                    }
+                    projections.push(StageProjection::Expression {
+                        output: output.id(),
+                        expression: bound,
+                    });
+                    output_scope.push(output);
+                }
+            }
+        }
+        self.scope = output_scope;
+        self.entities = output_entities;
+        let predicate = clause
+            .predicate
+            .as_ref()
+            .map(|predicate| self.bind_expression(predicate))
+            .transpose()?;
+        Ok(MutationStage {
+            projections,
+            predicate,
+            distinct: clause.distinct,
+            items: Vec::new(),
         })
     }
 
@@ -2649,10 +2907,10 @@ mod tests {
         let bound = bind_mutation_text("CREATE (n:Person {id: 1}) RETURN n")
             .expect("trailing RETURN after a mutation should bind");
         assert_eq!(bound.returns.len(), 1);
-        assert!(matches!(
-            bind_mutation_text("CREATE (:Person {id: 1}) WITH 1 AS x RETURN x"),
-            Err(BindError::Unsupported { .. })
-        ));
+        let staged = bind_mutation_text("CREATE (:Person {id: 1}) WITH 1 AS x RETURN x")
+            .expect("WITH pipelines after mutations should bind");
+        assert_eq!(staged.stages.len(), 1);
+        assert_eq!(staged.returns.len(), 1);
         assert!(matches!(
             bind_mutation_text("CREATE (:Person {id: 1}) MATCH (n) DELETE n"),
             Err(BindError::Unsupported { .. })

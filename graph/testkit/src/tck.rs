@@ -466,6 +466,7 @@ fn execute_case(
             );
         }
     }
+    let counters_before = graph_counters(&fixture.connection);
     match execute_tck_statement(&fixture.session, query, &parameters) {
         Err(error) if expectation == Expectation::Error => {
             (Outcome::Passed, None, Some(error), "execution")
@@ -478,20 +479,21 @@ fn execute_case(
             "execution",
         ),
         Ok(rows) => {
-            if case
+            if let Some(step) = case
                 .steps
                 .iter()
-                .any(|step| step.value.contains("side effects should be"))
+                .find(|step| step.value.contains("side effects should be"))
             {
-                return (
-                    Outcome::Failed,
-                    Some(stringify_rows(rows)),
-                    Some(
-                        "query executed, but TCK side-effect comparison is not implemented"
-                            .to_owned(),
-                    ),
-                    "side-effect-comparison",
-                );
+                if let Err(message) =
+                    compare_side_effects(&fixture.connection, counters_before.as_ref(), step)
+                {
+                    return (
+                        Outcome::Failed,
+                        Some(stringify_rows(rows)),
+                        Some(message),
+                        "side-effect-comparison",
+                    );
+                }
             }
             if case
                 .steps
@@ -536,6 +538,125 @@ fn execute_case(
             }
         }
     }
+}
+
+struct GraphCounters {
+    nodes: i64,
+    relationships: i64,
+    properties: i64,
+}
+
+/// Counts nodes, relationships, and non-null property cells in the shared
+/// fixture tables. Labels are not physically stored, so ±labels expectations
+/// cannot be verified.
+fn graph_counters(
+    connection: &std::sync::Arc<turso_core::Connection>,
+) -> Result<GraphCounters, String> {
+    let count = |sql: &str| -> Result<i64, String> {
+        let rows = connection
+            .prepare(sql)
+            .and_then(|mut statement| statement.run_collect_rows())
+            .map_err(|error| error.to_string())?;
+        match rows.first().and_then(|row| row.first()) {
+            Some(Value::Numeric(Numeric::Integer(value))) => Ok(*value),
+            other => Err(format!("count query returned {other:?}")),
+        }
+    };
+    let mut properties = 0_i64;
+    for (table, excluded) in [
+        ("people", vec!["id"]),
+        ("relationships", vec!["id", "src", "dst"]),
+    ] {
+        let columns = connection
+            .prepare(format!("SELECT name FROM pragma_table_info('{table}')"))
+            .and_then(|mut statement| statement.run_collect_rows())
+            .map_err(|error| error.to_string())?;
+        for row in columns {
+            let Some(Value::Text(name)) = row.first() else {
+                continue;
+            };
+            let name = name.to_string();
+            if excluded.contains(&name.as_str()) {
+                continue;
+            }
+            properties += count(&format!("SELECT count(\"{name}\") FROM \"{table}\""))?;
+        }
+    }
+    Ok(GraphCounters {
+        nodes: count("SELECT count(*) FROM people")?,
+        relationships: count("SELECT count(*) FROM relationships")?,
+        properties,
+    })
+}
+
+fn compare_side_effects(
+    connection: &std::sync::Arc<turso_core::Connection>,
+    before: Result<&GraphCounters, &String>,
+    step: &Step,
+) -> Result<(), String> {
+    let before = before.map_err(|error| format!("side-effect baseline failed: {error}"))?;
+    let after = graph_counters(connection)
+        .map_err(|error| format!("side-effect measurement failed: {error}"))?;
+    let mut observed = std::collections::BTreeMap::new();
+    let diff = |added: &str, removed: &str, delta: i64| {
+        [
+            (added.to_owned(), delta.max(0)),
+            (removed.to_owned(), (-delta).max(0)),
+        ]
+    };
+    for (key, value) in diff("+nodes", "-nodes", after.nodes - before.nodes)
+        .into_iter()
+        .chain(diff(
+            "+relationships",
+            "-relationships",
+            after.relationships - before.relationships,
+        ))
+        .chain(diff(
+            "+properties",
+            "-properties",
+            after.properties - before.properties,
+        ))
+    {
+        observed.insert(key, value);
+    }
+    let Some(table) = &step.table else {
+        return Err("side-effect expectation has no table".to_owned());
+    };
+    for row in &table.rows {
+        let [key, expected] = row.as_slice() else {
+            return Err(format!("unexpected side-effect row {row:?}"));
+        };
+        let expected: i64 = expected
+            .trim()
+            .parse()
+            .map_err(|_| format!("unparsable side-effect count {expected:?}"))?;
+        match observed.get(key.trim()) {
+            Some(actual) if *actual == expected => {}
+            Some(actual) => {
+                return Err(format!(
+                    "side effect {key} expected {expected}, observed {actual}"
+                ));
+            }
+            // Labels are not physically stored in the relational model.
+            None => {
+                return Err(format!(
+                    "side effect {key} is not measurable in this fixture"
+                ));
+            }
+        }
+    }
+    // Any measured effect the expectation does not mention must be zero.
+    for (key, actual) in &observed {
+        if *actual != 0
+            && !table
+                .rows
+                .iter()
+                .any(|row| row.first().map(|k| k.trim()) == Some(key.as_str()))
+        {
+            return Err(format!("unexpected side effect {key} = {actual}"));
+        }
+    }
+    Ok(())
 }
 
 fn setup_queries(case: &TckCase) -> impl Iterator<Item = &str> {

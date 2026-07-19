@@ -6,6 +6,7 @@ use turso_graph_ir as ir;
 
 use crate::{
     bind_mutation,
+    binder::{BoundMutation, StageItem, StageProjection},
     lowering::{
         lower_mutation_expression, lower_mutation_input, mutation_rows_sql, quoted_identifier,
         unit_mutation_input, LoweredMutationInput, MutationEntityKind,
@@ -74,23 +75,17 @@ pub fn execute_cypher_mutation(
     };
 
     connection.execute(format!("SAVEPOINT {SAVEPOINT}"))?;
-    let result = execute_bound(
-        connection,
-        catalog.as_ref(),
-        &bound.request,
-        &bound.returns,
-        &input,
-        parameters,
-    )
-    .map(|mut summary| {
-        if let Some(skip) = bound.returns_skip {
-            summary.rows.drain(..skip.min(summary.rows.len()));
-        }
-        if let Some(limit) = bound.returns_limit {
-            summary.rows.truncate(limit);
-        }
-        summary
-    });
+    let result = execute_bound(connection, catalog.as_ref(), &bound, &input, parameters).map(
+        |mut summary| {
+            if let Some(skip) = bound.returns_skip {
+                summary.rows.drain(..skip.min(summary.rows.len()));
+            }
+            if let Some(limit) = bound.returns_limit {
+                summary.rows.truncate(limit);
+            }
+            summary
+        },
+    );
     match result {
         Ok(summary) => {
             connection.execute(format!("RELEASE {SAVEPOINT}"))?;
@@ -114,32 +109,47 @@ pub fn execute_cypher_mutation(
 fn execute_bound(
     connection: &Arc<Connection>,
     catalog: &dyn GraphCompilationCatalog,
-    request: &ir::MutationRequest,
-    returns: &[ir::TypedExpression],
+    bound: &BoundMutation,
     input: &LoweredMutationInput,
     parameters: &MutationParameters,
 ) -> Result<MutationSummary, MutationError> {
+    let request = &bound.request;
     let input_bindings = request
         .input
         .as_ref()
         .map(|plan| plan.scope().iter().map(ir::Binding::id).collect::<Vec<_>>())
         .unwrap_or_default();
-    let rows = if request.input.is_some() {
+    let initial = if request.input.is_some() {
         let sql = mutation_rows_sql(input, &input_bindings);
         run_rows(connection, &sql, parameters, &HashMap::new())?
     } else {
         vec![Vec::new()]
     };
-    let matched_rows = rows.len() as u64;
+    let matched_rows = initial.len() as u64;
     let mut operations_executed = 0_u64;
-    let mut returned_rows = Vec::new();
-    for row in rows {
-        let mut values = input_bindings
-            .iter()
-            .copied()
-            .zip(row)
-            .collect::<HashMap<_, _>>();
-        let mut entity_layouts = HashMap::new();
+    // Every binding kind is known at bind time, so relational layouts for
+    // projected entities can be resolved up front.
+    let mut entity_layouts: HashMap<ir::BindingId, (ir::SourceTableId, MutationEntityKind)> =
+        HashMap::new();
+    for (id, kind) in &bound.entity_kinds {
+        let (source, kind) = match kind {
+            crate::CatalogEntity::Node => {
+                (catalog.node_source(request.graph), MutationEntityKind::Node)
+            }
+            crate::CatalogEntity::Relationship => (
+                catalog.relationship_source(request.graph),
+                MutationEntityKind::Relationship,
+            ),
+        };
+        if let Some(source) = source {
+            entity_layouts.insert(*id, (source, kind));
+        }
+    }
+    let mut rows: Vec<HashMap<ir::BindingId, Value>> = initial
+        .into_iter()
+        .map(|row| input_bindings.iter().copied().zip(row).collect())
+        .collect();
+    for values in &mut rows {
         for operation in &request.operations {
             execute_operation(
                 connection,
@@ -148,40 +158,404 @@ fn execute_bound(
                 input,
                 operation,
                 parameters,
-                &mut values,
+                values,
                 &mut entity_layouts,
             )?;
             operations_executed += 1;
         }
-        if !returns.is_empty() {
-            let references = reference_parameters(&values);
-            let columns = returns
-                .iter()
-                .map(|expression| {
-                    lower_mutation_expression(
-                        expression,
-                        input,
-                        catalog,
-                        &references.sql,
-                        &entity_layouts,
-                    )
-                    .map(|sql| format!("({sql})"))
-                })
-                .collect::<Result<Vec<_>, _>>()?
-                .join(", ");
-            let mut produced = run_rows(
-                connection,
-                &format!("SELECT {columns}"),
-                parameters,
-                &references.values,
-            )?;
-            returned_rows.append(&mut produced);
+    }
+    for stage in &bound.stages {
+        rows = project_stage(
+            connection,
+            catalog,
+            input,
+            parameters,
+            &stage.projections,
+            stage.predicate.as_ref(),
+            stage.distinct,
+            rows,
+            &entity_layouts,
+        )?;
+        for item in &stage.items {
+            match item {
+                StageItem::Operation(operation) => {
+                    for values in &mut rows {
+                        execute_operation(
+                            connection,
+                            catalog,
+                            request.graph,
+                            input,
+                            operation,
+                            parameters,
+                            values,
+                            &mut entity_layouts,
+                        )?;
+                        operations_executed += 1;
+                    }
+                }
+                StageItem::Unwind { output, list } => {
+                    let mut expanded = Vec::new();
+                    for values in &rows {
+                        let references = reference_parameters(values);
+                        let sql = lower_mutation_expression(
+                            list,
+                            input,
+                            catalog,
+                            &references.sql,
+                            &entity_layouts,
+                        )?;
+                        let elements = run_rows(
+                            connection,
+                            &format!("SELECT value FROM json_each(({sql}))"),
+                            parameters,
+                            &references.values,
+                        )?;
+                        for mut element in elements {
+                            let Some(element) = element.pop() else {
+                                continue;
+                            };
+                            let mut next = values.clone();
+                            next.insert(*output, element);
+                            expanded.push(next);
+                        }
+                    }
+                    rows = expanded;
+                }
+            }
         }
     }
+    let returned_rows = if bound.returns.is_empty() {
+        Vec::new()
+    } else {
+        let projected = project_stage(
+            connection,
+            catalog,
+            input,
+            parameters,
+            &bound.returns,
+            None,
+            false,
+            rows,
+            &entity_layouts,
+        )?;
+        let order: Vec<ir::BindingId> = bound
+            .returns
+            .iter()
+            .map(|projection| match projection {
+                StageProjection::Expression { output, .. }
+                | StageProjection::Aggregate { output, .. } => *output,
+            })
+            .collect();
+        projected
+            .into_iter()
+            .map(|values| {
+                order
+                    .iter()
+                    .map(|output| values.get(output).cloned().unwrap_or(Value::Null))
+                    .collect()
+            })
+            .collect()
+    };
     Ok(MutationSummary {
         matched_rows,
         operations_executed,
         rows: returned_rows,
+    })
+}
+
+/// Evaluates a stage's projections over the row set: plain expressions map
+/// row-by-row, aggregates fold with implicit Cypher grouping over the plain
+/// items, then the optional predicate and DISTINCT apply to the output rows.
+#[allow(clippy::too_many_arguments)]
+fn project_stage(
+    connection: &Arc<Connection>,
+    catalog: &dyn GraphCompilationCatalog,
+    input: &LoweredMutationInput,
+    parameters: &MutationParameters,
+    projections: &[StageProjection],
+    predicate: Option<&ir::TypedExpression>,
+    distinct: bool,
+    rows: Vec<HashMap<ir::BindingId, Value>>,
+    entity_layouts: &HashMap<ir::BindingId, (ir::SourceTableId, MutationEntityKind)>,
+) -> Result<Vec<HashMap<ir::BindingId, Value>>, MutationError> {
+    let has_aggregates = projections
+        .iter()
+        .any(|projection| matches!(projection, StageProjection::Aggregate { .. }));
+    // Evaluate every projection input per row in a single SELECT.
+    let mut evaluated: Vec<Vec<Value>> = Vec::with_capacity(rows.len());
+    for values in &rows {
+        let references = reference_parameters(values);
+        let columns = projections
+            .iter()
+            .map(|projection| {
+                let expression = match projection {
+                    StageProjection::Expression { expression, .. } => Some(expression),
+                    StageProjection::Aggregate { argument, .. } => argument.as_ref(),
+                };
+                match expression {
+                    Some(expression) => lower_mutation_expression(
+                        expression,
+                        input,
+                        catalog,
+                        &references.sql,
+                        entity_layouts,
+                    )
+                    .map(|sql| format!("({sql})")),
+                    // count(*) has no argument; any placeholder counts.
+                    None => Ok("1".to_owned()),
+                }
+            })
+            .collect::<Result<Vec<_>, _>>()?
+            .join(", ");
+        let mut produced = run_rows(
+            connection,
+            &format!("SELECT {columns}"),
+            parameters,
+            &references.values,
+        )?;
+        evaluated.push(produced.pop().unwrap_or_default());
+    }
+    let mut output_rows: Vec<HashMap<ir::BindingId, Value>> = if has_aggregates {
+        let key_positions: Vec<usize> = projections
+            .iter()
+            .enumerate()
+            .filter(|(_, projection)| matches!(projection, StageProjection::Expression { .. }))
+            .map(|(position, _)| position)
+            .collect();
+        let mut groups: Vec<(String, Vec<Vec<Value>>)> = Vec::new();
+        for row in evaluated {
+            let key = key_positions
+                .iter()
+                .map(|position| format!("{:?}", row[*position]))
+                .collect::<Vec<_>>()
+                .join("\u{1}");
+            match groups.iter_mut().find(|(existing, _)| *existing == key) {
+                Some((_, members)) => members.push(row),
+                None => groups.push((key, vec![row])),
+            }
+        }
+        let mut output = Vec::new();
+        for (_, members) in groups {
+            let mut values = HashMap::new();
+            for (position, projection) in projections.iter().enumerate() {
+                match projection {
+                    StageProjection::Expression { output: id, .. } => {
+                        values.insert(*id, members[0][position].clone());
+                    }
+                    StageProjection::Aggregate {
+                        output: id,
+                        function,
+                        argument,
+                        distinct,
+                    } => {
+                        let collected: Vec<Value> = members
+                            .iter()
+                            .map(|member| member[position].clone())
+                            .collect();
+                        values.insert(
+                            *id,
+                            fold_aggregate(
+                                connection,
+                                parameters,
+                                *function,
+                                argument.is_none(),
+                                collected,
+                                *distinct,
+                            )?,
+                        );
+                    }
+                }
+            }
+            output.push(values);
+        }
+        output
+    } else {
+        evaluated
+            .into_iter()
+            .map(|row| {
+                projections
+                    .iter()
+                    .zip(row)
+                    .map(|(projection, value)| match projection {
+                        StageProjection::Expression { output, .. }
+                        | StageProjection::Aggregate { output, .. } => (*output, value),
+                    })
+                    .collect()
+            })
+            .collect()
+    };
+    if let Some(predicate) = predicate {
+        let mut kept = Vec::new();
+        for values in output_rows {
+            let references = reference_parameters(&values);
+            let sql = lower_mutation_expression(
+                predicate,
+                input,
+                catalog,
+                &references.sql,
+                entity_layouts,
+            )?;
+            let result = run_rows(
+                connection,
+                &format!("SELECT ({sql})"),
+                parameters,
+                &references.values,
+            )?;
+            let truthy = matches!(
+                result.first().and_then(|row| row.first()),
+                Some(Value::Numeric(Numeric::Integer(value))) if *value != 0
+            );
+            if truthy {
+                kept.push(values);
+            }
+        }
+        output_rows = kept;
+    }
+    if distinct {
+        let mut seen = Vec::new();
+        output_rows.retain(|values| {
+            let mut entries: Vec<_> = values.iter().collect();
+            entries.sort_by_key(|(id, _)| id.get());
+            let key = format!("{entries:?}");
+            if seen.contains(&key) {
+                false
+            } else {
+                seen.push(key);
+                true
+            }
+        });
+    }
+    Ok(output_rows)
+}
+
+fn fold_aggregate(
+    connection: &Arc<Connection>,
+    parameters: &MutationParameters,
+    function: ir::AggregateFunction,
+    count_star: bool,
+    mut values: Vec<Value>,
+    distinct: bool,
+) -> Result<Value, MutationError> {
+    if distinct {
+        let mut seen = Vec::new();
+        values.retain(|value| {
+            let key = format!("{value:?}");
+            if seen.contains(&key) {
+                false
+            } else {
+                seen.push(key);
+                true
+            }
+        });
+    }
+    let non_null: Vec<&Value> = values
+        .iter()
+        .filter(|value| !matches!(value, Value::Null))
+        .collect();
+    let as_float = |value: &Value| match value {
+        Value::Numeric(Numeric::Integer(value)) => Some(*value as f64),
+        Value::Numeric(Numeric::Float(value)) => Some(f64::from(*value)),
+        _ => None,
+    };
+    let float_value = |value: f64| match turso_core::NonNan::new(value) {
+        Some(value) => Value::Numeric(Numeric::Float(value)),
+        None => Value::Null,
+    };
+    Ok(match function {
+        ir::AggregateFunction::Count => {
+            let count = if count_star {
+                values.len()
+            } else {
+                non_null.len()
+            };
+            Value::Numeric(Numeric::Integer(count as i64))
+        }
+        ir::AggregateFunction::Sum => {
+            let all_integers = non_null
+                .iter()
+                .all(|value| matches!(value, Value::Numeric(Numeric::Integer(_))));
+            if all_integers {
+                Value::Numeric(Numeric::Integer(
+                    non_null
+                        .iter()
+                        .filter_map(|value| match value {
+                            Value::Numeric(Numeric::Integer(value)) => Some(*value),
+                            _ => None,
+                        })
+                        .sum(),
+                ))
+            } else {
+                float_value(non_null.iter().filter_map(|value| as_float(value)).sum())
+            }
+        }
+        ir::AggregateFunction::Average => {
+            if non_null.is_empty() {
+                Value::Null
+            } else {
+                let total: f64 = non_null.iter().filter_map(|value| as_float(value)).sum();
+                float_value(total / non_null.len() as f64)
+            }
+        }
+        ir::AggregateFunction::Minimum | ir::AggregateFunction::Maximum => {
+            let want_minimum = function == ir::AggregateFunction::Minimum;
+            let mut best: Option<&Value> = None;
+            for value in &non_null {
+                let better = match best {
+                    None => true,
+                    Some(current) => {
+                        let ordering = match (as_float(current), as_float(value)) {
+                            (Some(left), Some(right)) => right.partial_cmp(&left),
+                            _ => match (current, value) {
+                                (Value::Text(left), Value::Text(right)) => {
+                                    Some(right.as_str().cmp(left.as_str()))
+                                }
+                                _ => None,
+                            },
+                        };
+                        matches!(
+                            ordering,
+                            Some(std::cmp::Ordering::Less) if want_minimum
+                        ) || matches!(
+                            ordering,
+                            Some(std::cmp::Ordering::Greater) if !want_minimum
+                        )
+                    }
+                };
+                if better {
+                    best = Some(value);
+                }
+            }
+            best.cloned().unwrap_or(Value::Null)
+        }
+        ir::AggregateFunction::Collect => {
+            // Build the JSON array in SQL so element encoding matches the
+            // read path's json_group_array output.
+            if non_null.is_empty() {
+                Value::Text("[]".to_owned().into())
+            } else {
+                let mut internal = HashMap::new();
+                let selects = non_null
+                    .iter()
+                    .enumerate()
+                    .map(|(index, value)| {
+                        let name = format!("{INTERNAL_PARAMETER_PREFIX}collect_{index}");
+                        let select = format!("SELECT ${name} AS value");
+                        internal.insert(name, (*value).clone());
+                        select
+                    })
+                    .collect::<Vec<_>>()
+                    .join(" UNION ALL ");
+                run_rows(
+                    connection,
+                    &format!("SELECT json_group_array(value) FROM ({selects})"),
+                    parameters,
+                    &internal,
+                )?
+                .pop()
+                .and_then(|mut row| row.pop())
+                .unwrap_or(Value::Null)
+            }
+        }
     })
 }
 

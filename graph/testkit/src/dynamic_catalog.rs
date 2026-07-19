@@ -108,15 +108,21 @@ impl GraphCatalogSnapshot for DynamicCatalog {
         entity: CatalogEntity,
         name: &str,
     ) -> Option<ResolvedProperty> {
+        let is_node = matches!(entity, CatalogEntity::Node);
+        {
+            // Dynamically provisioned properties stay Any-typed even after
+            // their ALTERed column becomes visible to the schema catalog,
+            // which would otherwise re-resolve them with a text affinity.
+            let state = self.state.lock().expect("catalog state lock");
+            if let Some(property) = state.properties.get(&(is_node, name.to_owned())) {
+                return Some(property.clone());
+            }
+        }
         if let Some(property) = self.inner.property(graph, entity, name) {
             return Some(property);
         }
-        let is_node = matches!(entity, CatalogEntity::Node);
         let mut state = self.state.lock().expect("catalog state lock");
         let key = (is_node, name.to_owned());
-        if let Some(property) = state.properties.get(&key) {
-            return Some(property.clone());
-        }
         let table = if is_node {
             &self.node_table
         } else {
