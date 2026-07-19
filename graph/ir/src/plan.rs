@@ -102,6 +102,9 @@ pub struct GraphExpand {
     pub min_hops: u32,
     pub max_hops: u32,
     pub uniqueness: PathUniqueness,
+    /// When set, the expansion also materializes each traversed path as a
+    /// {nodes, relationships} value bound to this output.
+    pub path_output: Option<Binding>,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]

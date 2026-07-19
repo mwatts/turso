@@ -194,12 +194,18 @@ struct EntityBinding {
     names: Vec<String>,
 }
 
-/// Ordered constituents of a bound fixed-length path pattern.
+/// How a named path's value can be produced.
 #[derive(Clone, Debug)]
-struct PathComposition {
-    nodes: Vec<ir::BindingId>,
-    relationships: Vec<ir::BindingId>,
-    variable_length: bool,
+enum PathComposition {
+    /// Fixed-length: the ordered node and relationship bindings.
+    Fixed {
+        nodes: Vec<ir::BindingId>,
+        relationships: Vec<ir::BindingId>,
+    },
+    /// A single variable-length expansion materializes the path itself.
+    Expanded(ir::BindingId),
+    /// Mixed fixed/variable paths are not materializable yet.
+    Unsupported,
 }
 
 struct Binder<'a> {
@@ -1181,8 +1187,7 @@ impl<'a> Binder<'a> {
         }
         for path in &clause.paths {
             if let Some(variable) = &path.variable {
-                // Register the path name so later clauses can reference it;
-                // path values themselves are not materialized yet.
+                // Register the path name so later clauses can reference it.
                 let binding = ir::Binding::new(
                     self.next_id()?,
                     variable.value.clone(),
@@ -1206,7 +1211,13 @@ impl<'a> Binder<'a> {
         let left = self.plan.clone();
         let old_ids: Vec<_> = self.scope.iter().map(ir::Binding::id).collect();
         for path in &clause.paths {
-            let composition = self.bind_path(path)?;
+            let path_binding = path.variable.as_ref().and_then(|variable| {
+                self.scope
+                    .iter()
+                    .find(|binding| binding.name() == variable.value)
+                    .cloned()
+            });
+            let composition = self.bind_path(path, path_binding.as_ref())?;
             if let Some(variable) = &path.variable {
                 self.path_compositions
                     .insert(variable.value.clone(), composition);
@@ -1262,17 +1273,21 @@ impl<'a> Binder<'a> {
         Ok(())
     }
 
-    fn bind_path(&mut self, path: &cypher::PathPattern) -> Result<PathComposition, BindError> {
+    fn bind_path(
+        &mut self,
+        path: &cypher::PathPattern,
+        path_binding: Option<&ir::Binding>,
+    ) -> Result<PathComposition, BindError> {
         let start = self.bind_start_node(&path.start)?;
-        let mut composition = PathComposition {
-            nodes: vec![start],
-            relationships: Vec::new(),
-            variable_length: false,
-        };
+        let mut nodes = vec![start];
+        let mut relationships = Vec::new();
+        let mut variable_length = false;
+        let expand_path =
+            path_binding.filter(|_| path.steps.len() == 1 && path.steps[0].0.range.is_some());
         let mut from = start;
         for (relationship, node) in &path.steps {
             if relationship.range.is_some() {
-                composition.variable_length = true;
+                variable_length = true;
                 if let Some(variable) = &relationship.variable {
                     // A named variable-length relationship denotes the list
                     // of traversed relationships; register the name so later
@@ -1415,6 +1430,7 @@ impl<'a> Binder<'a> {
                     min_hops,
                     max_hops,
                     uniqueness: ir::PathUniqueness::Trail,
+                    path_output: expand_path.cloned(),
                 })
             } else {
                 ir::PlanKind::FixedExpand(ir::FixedExpand {
@@ -1459,10 +1475,19 @@ impl<'a> Binder<'a> {
             } else {
                 from = to.id();
             }
-            composition.relationships.push(relationship_binding.id());
-            composition.nodes.push(from);
+            relationships.push(relationship_binding.id());
+            nodes.push(from);
         }
-        Ok(composition)
+        Ok(if !variable_length {
+            PathComposition::Fixed {
+                nodes,
+                relationships,
+            }
+        } else if let Some(binding) = expand_path {
+            PathComposition::Expanded(binding.id())
+        } else {
+            PathComposition::Unsupported
+        })
     }
 
     fn bind_start_node(&mut self, node: &cypher::NodePattern) -> Result<ir::BindingId, BindError> {
@@ -1990,20 +2015,28 @@ impl<'a> Binder<'a> {
                         .map(|position| (position, scopes.len(), scopes[position].1.clone()))
                 };
                 if let Some(composition) = self.path_compositions.get(name) {
-                    if composition.variable_length {
-                        return Err(at_unsupported(
+                    return match composition {
+                        PathComposition::Fixed {
+                            nodes,
+                            relationships,
+                        } => Ok(ir::TypedExpression {
+                            expression: ir::Expression::PathValue {
+                                nodes: nodes.clone(),
+                                relationships: relationships.clone(),
+                            },
+                            value_type: ir::ValueType::Path,
+                            nullability: ir::Nullability::NonNull,
+                        }),
+                        PathComposition::Expanded(binding) => Ok(ir::TypedExpression {
+                            expression: ir::Expression::Binding(*binding),
+                            value_type: ir::ValueType::Path,
+                            nullability: ir::Nullability::NonNull,
+                        }),
+                        PathComposition::Unsupported => Err(at_unsupported(
                             expression.span,
                             "variable-length path values",
-                        ));
-                    }
-                    return Ok(ir::TypedExpression {
-                        expression: ir::Expression::PathValue {
-                            nodes: composition.nodes.clone(),
-                            relationships: composition.relationships.clone(),
-                        },
-                        value_type: ir::ValueType::Path,
-                        nullability: ir::Nullability::NonNull,
-                    });
+                        )),
+                    };
                 }
                 if let Some((position, scope_count, element_type)) = scope_hit {
                     if position + 1 != scope_count {
@@ -3131,9 +3164,15 @@ fn rewrite_builtin_call(
             ("tofloat", [argument]) => cast(argument, ir::ValueType::Real),
             ("toboolean", [argument]) => cast(argument, ir::ValueType::Boolean),
             ("size", [argument]) => {
-                // openCypher removed size() over pattern predicates (List6 [6]).
-                if matches!(argument.expression, ir::Expression::PatternSubquery { .. }) {
-                    return Err(at_unsupported(span, "size() over pattern predicates"));
+                // openCypher removed size() over pattern predicates (List6
+                // [6]) and rejects it on paths (List6 [5]).
+                if matches!(argument.expression, ir::Expression::PatternSubquery { .. })
+                    || argument.value_type == ir::ValueType::Path
+                {
+                    return Err(at_unsupported(
+                        span,
+                        "size() over paths or pattern predicates",
+                    ));
                 }
                 sql_function("__cypher_size", arguments, ir::ValueType::Integer)
             }

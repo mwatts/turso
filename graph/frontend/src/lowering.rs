@@ -416,6 +416,73 @@ fn lower_graph_expand(
             kind: EntityKind::Node,
         },
     );
+    if let Some(path_output) = &expand.path_output {
+        // Materialize each traversed path: group the expansion's per-step
+        // rows by path identity, building the {nodes, relationships} value
+        // alongside the terminal node/relationship columns.
+        let group_columns = expand
+            .input
+            .scope()
+            .iter()
+            // Path and relationship-list bindings live in scope without a
+            // materialized column; grouping on them would reference columns
+            // the input never produced.
+            .filter(|binding| {
+                !matches!(
+                    binding.value_type(),
+                    ir::ValueType::Path | ir::ValueType::List(_)
+                )
+            })
+            .map(|binding| format!("q.{}", binding_column(binding.id())))
+            .collect::<Vec<_>>()
+            .join(", ");
+        let inner_select = if group_columns.is_empty() {
+            String::new()
+        } else {
+            format!("{group_columns}, ")
+        };
+        return Ok(Lowered {
+            sql: format!(
+                "SELECT g.*, r.{} AS {}, n.{} AS {} \
+                 FROM (SELECT {}json_object('nodes', json_group_array(gx.node_identity), \
+                 'relationships', json_group_array(gx.relationship_identity) \
+                 FILTER (WHERE gx.path_position > 0)) AS {}, \
+                 max(CASE WHEN gx.is_terminal = 1 THEN gx.node_identity END) AS __gx_node, \
+                 max(CASE WHEN gx.is_terminal = 1 THEN gx.relationship_identity END) AS __gx_rel \
+                 FROM ({}) AS q \
+                 JOIN __turso_graph_expand({}, {}, q.{}, '{}', '{}', {}, {}, '{}', {}, {}, {}, {}, {}) AS gx \
+                 GROUP BY {}gx.path_id) AS g \
+                 JOIN {} AS n ON n.{} = g.__gx_node \
+                 LEFT JOIN {} AS r ON r.{} = g.__gx_rel",
+                quote_identifier(&relationship.identity_column),
+                binding_column(expand.relationship.id()),
+                quote_identifier(&target.identity_column),
+                binding_column(expand.to.id()),
+                inner_select,
+                binding_column(path_output.id()),
+                input.sql,
+                expand.graph.get(),
+                from.source.get(),
+                binding_column(expand.from),
+                direction,
+                relationship_types,
+                expand.min_hops,
+                expand.max_hops,
+                uniqueness,
+                limits.max_node_visits,
+                limits.max_edge_visits,
+                limits.max_paths,
+                limits.max_work,
+                limits.max_memory_bytes,
+                inner_select,
+                quote_identifier(&target.table),
+                quote_identifier(&target.identity_column),
+                quote_identifier(&relationship.table),
+                quote_identifier(&relationship.identity_column),
+            ),
+            bindings,
+        });
+    }
     Ok(Lowered {
         sql: format!(
             "SELECT q.*, r.{} AS {}, n.{} AS {} \
