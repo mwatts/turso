@@ -873,6 +873,23 @@ fn lower_expression_with_references(
             })
         }
         ir::Expression::ListElement(depth) => Ok(format!("lst{depth}.value")),
+        ir::Expression::PathValue {
+            nodes,
+            relationships,
+        } => {
+            let render = |bindings_list: &[ir::BindingId]| {
+                bindings_list
+                    .iter()
+                    .map(|binding| binding_reference(*binding, input_alias, references))
+                    .collect::<Vec<_>>()
+                    .join(", ")
+            };
+            Ok(format!(
+                "json_object('nodes', json_array({}), 'relationships', json_array({}))",
+                render(nodes),
+                render(relationships)
+            ))
+        }
         ir::Expression::PatternSubquery {
             count,
             plan,
@@ -1113,9 +1130,14 @@ fn lower_expression_with_references(
             // single-function SQL equivalent.
             match (function.as_str(), arguments.as_slice()) {
                 ("__cypher_size", [value]) => {
+                    // json_type errors on invalid JSON and AND does not
+                    // short-circuit, so nest the validity check.
                     return Ok(format!(
-                        "(CASE WHEN json_valid(({value})) AND json_type(({value})) = 'array' \
-                         THEN json_array_length(({value})) ELSE length(({value})) END)"
+                        "(CASE WHEN ({value}) IS NULL THEN NULL \
+                         WHEN json_valid(({value})) THEN \
+                         (CASE WHEN json_type(({value})) = 'array' \
+                         THEN json_array_length(({value})) ELSE length(({value})) END) \
+                         ELSE length(({value})) END)"
                     ));
                 }
                 ("__cypher_range", [start, stop]) => {
@@ -1200,8 +1222,10 @@ fn lower_expression_with_references(
                 ("__cypher_isempty", [value]) => {
                     return Ok(format!(
                         "(CASE WHEN ({value}) IS NULL THEN NULL \
-                         WHEN json_valid(({value})) AND json_type(({value})) = 'array' \
+                         WHEN json_valid(({value})) THEN \
+                         (CASE WHEN json_type(({value})) = 'array' \
                          THEN json_array_length(({value})) = 0 \
+                         ELSE length(({value})) = 0 END) \
                          ELSE length(({value})) = 0 END)"
                     ));
                 }

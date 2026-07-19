@@ -139,6 +139,12 @@ pub enum Expression {
     /// The loop variable of the list scope at the recorded depth (1-based).
     /// Only the innermost scope is addressable; the binder enforces this.
     ListElement(usize),
+    /// A fixed-length path value: the ordered node and relationship
+    /// bindings the path traverses.
+    PathValue {
+        nodes: Vec<BindingId>,
+        relationships: Vec<BindingId>,
+    },
     /// EXISTS/COUNT over a correlated graph-pattern subquery. Correlations
     /// pair an outer-scope binding with the subquery binding carrying the
     /// same user variable; lowering equates their identity columns.

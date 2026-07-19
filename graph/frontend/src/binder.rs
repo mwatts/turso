@@ -194,6 +194,14 @@ struct EntityBinding {
     names: Vec<String>,
 }
 
+/// Ordered constituents of a bound fixed-length path pattern.
+#[derive(Clone, Debug)]
+struct PathComposition {
+    nodes: Vec<ir::BindingId>,
+    relationships: Vec<ir::BindingId>,
+    variable_length: bool,
+}
+
 struct Binder<'a> {
     graph: ir::GraphId,
     catalog: &'a dyn GraphCatalogSnapshot,
@@ -203,6 +211,7 @@ struct Binder<'a> {
     entities: HashMap<ir::BindingId, EntityBinding>,
     plan: Option<ir::Plan>,
     list_scopes: std::cell::RefCell<Vec<(String, ir::ValueType)>>,
+    path_compositions: HashMap<String, PathComposition>,
 }
 
 impl<'a> Binder<'a> {
@@ -220,6 +229,7 @@ impl<'a> Binder<'a> {
             entities: HashMap::new(),
             plan: None,
             list_scopes: std::cell::RefCell::new(Vec::new()),
+            path_compositions: HashMap::new(),
         }
     }
 
@@ -1196,7 +1206,11 @@ impl<'a> Binder<'a> {
         let left = self.plan.clone();
         let old_ids: Vec<_> = self.scope.iter().map(ir::Binding::id).collect();
         for path in &clause.paths {
-            self.bind_path(path)?;
+            let composition = self.bind_path(path)?;
+            if let Some(variable) = &path.variable {
+                self.path_compositions
+                    .insert(variable.value.clone(), composition);
+            }
         }
         if let Some(predicate) = &clause.predicate {
             let predicate = self.bind_expression(predicate)?;
@@ -1248,11 +1262,17 @@ impl<'a> Binder<'a> {
         Ok(())
     }
 
-    fn bind_path(&mut self, path: &cypher::PathPattern) -> Result<(), BindError> {
+    fn bind_path(&mut self, path: &cypher::PathPattern) -> Result<PathComposition, BindError> {
         let start = self.bind_start_node(&path.start)?;
+        let mut composition = PathComposition {
+            nodes: vec![start],
+            relationships: Vec::new(),
+            variable_length: false,
+        };
         let mut from = start;
         for (relationship, node) in &path.steps {
             if relationship.range.is_some() {
+                composition.variable_length = true;
                 if let Some(variable) = &relationship.variable {
                     // A named variable-length relationship denotes the list
                     // of traversed relationships; register the name so later
@@ -1439,8 +1459,10 @@ impl<'a> Binder<'a> {
             } else {
                 from = to.id();
             }
+            composition.relationships.push(relationship_binding.id());
+            composition.nodes.push(from);
         }
-        Ok(())
+        Ok(composition)
     }
 
     fn bind_start_node(&mut self, node: &cypher::NodePattern) -> Result<ir::BindingId, BindError> {
@@ -1967,6 +1989,22 @@ impl<'a> Binder<'a> {
                         .rposition(|(scope_name, _)| scope_name == name)
                         .map(|position| (position, scopes.len(), scopes[position].1.clone()))
                 };
+                if let Some(composition) = self.path_compositions.get(name) {
+                    if composition.variable_length {
+                        return Err(at_unsupported(
+                            expression.span,
+                            "variable-length path values",
+                        ));
+                    }
+                    return Ok(ir::TypedExpression {
+                        expression: ir::Expression::PathValue {
+                            nodes: composition.nodes.clone(),
+                            relationships: composition.relationships.clone(),
+                        },
+                        value_type: ir::ValueType::Path,
+                        nullability: ir::Nullability::NonNull,
+                    });
+                }
                 if let Some((position, scope_count, element_type)) = scope_hit {
                     if position + 1 != scope_count {
                         return Err(at_unsupported(
@@ -2502,6 +2540,56 @@ impl<'a> Binder<'a> {
                                 });
                             }
                         }
+                    }
+                }
+                if let ("nodes" | "relationships" | "length", [argument]) = (
+                    name.value.to_ascii_lowercase().as_str(),
+                    arguments.as_slice(),
+                ) {
+                    if argument.value_type == ir::ValueType::Path {
+                        let lowered_name = name.value.to_ascii_lowercase();
+                        let part = |field: &str, value_type: ir::ValueType| {
+                            sql_call(
+                                "json_extract",
+                                vec![
+                                    argument.clone(),
+                                    ir::TypedExpression {
+                                        expression: ir::Expression::Literal(ir::Literal::Text(
+                                            field.to_owned(),
+                                        )),
+                                        value_type: ir::ValueType::Text,
+                                        nullability: ir::Nullability::NonNull,
+                                    },
+                                ],
+                                value_type,
+                            )
+                        };
+                        return Ok(match lowered_name.as_str() {
+                            "nodes" => part(
+                                "$.nodes",
+                                ir::ValueType::List(Box::new(ir::ValueType::Node)),
+                            ),
+                            "relationships" => part(
+                                "$.relationships",
+                                ir::ValueType::List(Box::new(ir::ValueType::Relationship)),
+                            ),
+                            _ => sql_call(
+                                "json_array_length",
+                                vec![part(
+                                    "$.relationships",
+                                    ir::ValueType::List(Box::new(ir::ValueType::Relationship)),
+                                )],
+                                ir::ValueType::Integer,
+                            ),
+                        });
+                    }
+                    if name.value.eq_ignore_ascii_case("length") {
+                        // length() over lists and strings behaves like size().
+                        return Ok(sql_call(
+                            "__cypher_size",
+                            vec![argument.clone()],
+                            ir::ValueType::Integer,
+                        ));
                     }
                 }
                 if let Some(temporal) = temporal_constructor(
