@@ -81,7 +81,16 @@ pub fn execute_cypher_mutation(
         &bound.returns,
         &input,
         parameters,
-    );
+    )
+    .map(|mut summary| {
+        if let Some(skip) = bound.returns_skip {
+            summary.rows.drain(..skip.min(summary.rows.len()));
+        }
+        if let Some(limit) = bound.returns_limit {
+            summary.rows.truncate(limit);
+        }
+        summary
+    });
     match result {
         Ok(summary) => {
             connection.execute(format!("RELEASE {SAVEPOINT}"))?;

@@ -46,6 +46,8 @@ pub struct BoundMutation {
     pub request: ir::MutationRequest,
     /// Trailing RETURN projections, bound against the mutation scope.
     pub returns: Vec<ir::TypedExpression>,
+    pub returns_skip: Option<usize>,
+    pub returns_limit: Option<usize>,
 }
 
 #[derive(Clone, Debug, Error, Eq, PartialEq)]
@@ -250,6 +252,8 @@ impl<'a> Binder<'a> {
         }
         let mut operations = Vec::new();
         let mut returns = Vec::new();
+        let mut returns_skip = None;
+        let mut returns_limit = None;
         let mut mutation_started = false;
         for clause in &query.clauses {
             match &clause.value {
@@ -285,17 +289,29 @@ impl<'a> Binder<'a> {
                     if mutation_started
                         && std::ptr::eq(clause, query.clauses.last().expect("non-empty")) =>
                 {
-                    if value.distinct
-                        || value.predicate.is_some()
-                        || !value.order_by.is_empty()
-                        || value.skip.is_some()
-                        || value.limit.is_some()
-                    {
+                    if value.distinct || value.predicate.is_some() || !value.order_by.is_empty() {
                         return Err(at_unsupported(
                             clause.span,
                             "modifiers on a mutation RETURN clause",
                         ));
                     }
+                    let constant = |bound: Option<&cypher::Spanned<cypher::Expression>>| match bound
+                    {
+                        None => Ok(None),
+                        Some(expression) => match &expression.value {
+                            cypher::Expression::Literal(cypher::Literal::Integer(value))
+                                if *value >= 0 =>
+                            {
+                                Ok(Some(*value as usize))
+                            }
+                            _ => Err(at_unsupported(
+                                expression.span,
+                                "non-constant SKIP/LIMIT on a mutation RETURN clause",
+                            )),
+                        },
+                    };
+                    returns_skip = constant(value.skip.as_ref())?;
+                    returns_limit = constant(value.limit.as_ref())?;
                     for item in &value.items {
                         let cypher::ProjectionItem::Expression { expression, .. } = item else {
                             return Err(at_unsupported(
@@ -305,6 +321,9 @@ impl<'a> Binder<'a> {
                         };
                         returns.push(self.bind_expression(expression)?);
                     }
+                }
+                cypher::Clause::Unwind(value) if !mutation_started => {
+                    self.bind_unwind(value)?;
                 }
                 cypher::Clause::Unwind(_) | cypher::Clause::With(_) | cypher::Clause::Return(_) => {
                     return Err(at_unsupported(
@@ -324,6 +343,8 @@ impl<'a> Binder<'a> {
                 operations,
             },
             returns,
+            returns_skip,
+            returns_limit,
         })
     }
 
