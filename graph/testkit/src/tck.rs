@@ -515,14 +515,14 @@ fn execute_case(
                 );
             }
             let types = fixture.session.query_result_types(query).ok();
-            let mut rows = stringify_rows_with_entities(
+            let rows = stringify_rows_with_entities(
                 rows,
                 types.as_deref(),
                 &fixture.connection,
                 &labels_table,
                 fixture.session.graph_id(),
             );
-            let Some((mut expected_rows, ordered)) = expected_rows(case) else {
+            let Some((expected_rows, ordered)) = expected_rows(case) else {
                 return (
                     Outcome::Failed,
                     Some(rows),
@@ -532,6 +532,14 @@ fn execute_case(
                     "result-comparison",
                 );
             };
+            let mut rows: Vec<Vec<String>> = rows
+                .into_iter()
+                .map(|row| row.into_iter().map(|cell| normalize_cell(&cell)).collect())
+                .collect();
+            let mut expected_rows: Vec<Vec<String>> = expected_rows
+                .into_iter()
+                .map(|row| row.into_iter().map(|cell| normalize_cell(&cell)).collect())
+                .collect();
             if !ordered {
                 rows.sort();
                 expected_rows.sort();
@@ -886,6 +894,266 @@ fn stringify_rows_with_types(
                 .collect()
         })
         .collect()
+}
+
+/// Canonicalizes a result cell for comparison: entity, path, map, and list
+/// literals parse into a structural form re-emitted with sorted property
+/// keys, normalized quoting, and booleans folded onto their stored integer
+/// representation. Non-structural cells pass through unchanged.
+fn normalize_cell(cell: &str) -> String {
+    let mut parser = CellParser {
+        input: cell.as_bytes(),
+        position: 0,
+    };
+    match parser.parse_value() {
+        Some(value) if parser.at_end() => value,
+        _ => cell.to_owned(),
+    }
+}
+
+struct CellParser<'a> {
+    input: &'a [u8],
+    position: usize,
+}
+
+impl CellParser<'_> {
+    fn at_end(&mut self) -> bool {
+        self.skip_spaces();
+        self.position >= self.input.len()
+    }
+
+    fn skip_spaces(&mut self) {
+        while self.input.get(self.position) == Some(&b' ') {
+            self.position += 1;
+        }
+    }
+
+    fn peek(&mut self) -> Option<u8> {
+        self.skip_spaces();
+        self.input.get(self.position).copied()
+    }
+
+    fn eat(&mut self, byte: u8) -> bool {
+        if self.peek() == Some(byte) {
+            self.position += 1;
+            true
+        } else {
+            false
+        }
+    }
+
+    fn parse_value(&mut self) -> Option<String> {
+        match self.peek()? {
+            b'(' => self.parse_entity(b'(', b')'),
+            b'[' => {
+                // Either a relationship literal [:T {..}] or a list [v, ..].
+                let checkpoint = self.position;
+                if let Some(entity) = self.parse_entity(b'[', b']') {
+                    return Some(entity);
+                }
+                self.position = checkpoint;
+                self.parse_list()
+            }
+            b'<' => self.parse_path(),
+            b'{' => self.parse_map(),
+            b'\'' => self.parse_string(),
+            _ => self.parse_scalar(),
+        }
+    }
+
+    fn parse_entity(&mut self, open: u8, close: u8) -> Option<String> {
+        if !self.eat(open) {
+            return None;
+        }
+        let mut labels = Vec::new();
+        while self.eat(b':') {
+            labels.push(self.parse_identifier()?);
+        }
+        let properties = if self.peek() == Some(b'{') {
+            self.parse_property_map()?
+        } else {
+            Vec::new()
+        };
+        if !self.eat(close) {
+            return None;
+        }
+        let mut rendered = String::new();
+        rendered.push(open as char);
+        for label in labels {
+            rendered.push(':');
+            rendered.push_str(&label);
+        }
+        rendered.push_str(&render_sorted_properties(properties, !rendered.is_empty()));
+        rendered.push(close as char);
+        Some(rendered)
+    }
+
+    fn parse_path(&mut self) -> Option<String> {
+        if !self.eat(b'<') {
+            return None;
+        }
+        let mut rendered = String::from("<");
+        rendered.push_str(&self.parse_entity(b'(', b')')?);
+        loop {
+            match self.peek() {
+                Some(b'>') => {
+                    self.position += 1;
+                    rendered.push('>');
+                    return Some(rendered);
+                }
+                Some(b'-') => {
+                    self.position += 1;
+                    let relationship = self.parse_entity(b'[', b']')?;
+                    if self.eat(b'-') {
+                        if !self.eat(b'>') {
+                            return None;
+                        }
+                        rendered.push_str(&format!("-{relationship}->"));
+                    } else {
+                        return None;
+                    }
+                    rendered.push_str(&self.parse_entity(b'(', b')')?);
+                }
+                Some(b'<') => {
+                    self.position += 1;
+                    if !self.eat(b'-') {
+                        return None;
+                    }
+                    let relationship = self.parse_entity(b'[', b']')?;
+                    if !self.eat(b'-') {
+                        return None;
+                    }
+                    rendered.push_str(&format!("<-{relationship}-"));
+                    rendered.push_str(&self.parse_entity(b'(', b')')?);
+                }
+                _ => return None,
+            }
+        }
+    }
+
+    fn parse_list(&mut self) -> Option<String> {
+        if !self.eat(b'[') {
+            return None;
+        }
+        let mut items = Vec::new();
+        if self.peek() != Some(b']') {
+            loop {
+                items.push(self.parse_value()?);
+                if !self.eat(b',') {
+                    break;
+                }
+            }
+        }
+        if !self.eat(b']') {
+            return None;
+        }
+        Some(format!("[{}]", items.join(", ")))
+    }
+
+    fn parse_map(&mut self) -> Option<String> {
+        let properties = self.parse_property_map()?;
+        Some(format!(
+            "{{{}}}",
+            sorted_property_entries(properties).join(", ")
+        ))
+    }
+
+    fn parse_property_map(&mut self) -> Option<Vec<(String, String)>> {
+        if !self.eat(b'{') {
+            return None;
+        }
+        let mut properties = Vec::new();
+        if self.peek() != Some(b'}') {
+            loop {
+                let key = self.parse_identifier()?;
+                if !self.eat(b':') {
+                    return None;
+                }
+                properties.push((key, self.parse_value()?));
+                if !self.eat(b',') {
+                    break;
+                }
+            }
+        }
+        if !self.eat(b'}') {
+            return None;
+        }
+        Some(properties)
+    }
+
+    fn parse_identifier(&mut self) -> Option<String> {
+        self.skip_spaces();
+        let start = self.position;
+        while self
+            .input
+            .get(self.position)
+            .is_some_and(|byte| byte.is_ascii_alphanumeric() || *byte == b'_')
+        {
+            self.position += 1;
+        }
+        (self.position > start)
+            .then(|| String::from_utf8_lossy(&self.input[start..self.position]).into_owned())
+    }
+
+    fn parse_string(&mut self) -> Option<String> {
+        if !self.eat(b'\'') {
+            return None;
+        }
+        let start = self.position;
+        while self
+            .input
+            .get(self.position)
+            .is_some_and(|byte| *byte != b'\'')
+        {
+            self.position += 1;
+        }
+        if self.input.get(self.position) != Some(&b'\'') {
+            return None;
+        }
+        let body = String::from_utf8_lossy(&self.input[start..self.position]).into_owned();
+        self.position += 1;
+        Some(format!("'{body}'"))
+    }
+
+    fn parse_scalar(&mut self) -> Option<String> {
+        self.skip_spaces();
+        let start = self.position;
+        while self.input.get(self.position).is_some_and(|byte| {
+            byte.is_ascii_alphanumeric() || matches!(byte, b'_' | b'-' | b'+' | b'.')
+        }) {
+            self.position += 1;
+        }
+        if self.position == start {
+            return None;
+        }
+        let token = String::from_utf8_lossy(&self.input[start..self.position]).into_owned();
+        // Booleans fold onto their stored integer representation.
+        Some(match token.as_str() {
+            "true" => "1".to_owned(),
+            "false" => "0".to_owned(),
+            _ => token,
+        })
+    }
+}
+
+fn sorted_property_entries(mut properties: Vec<(String, String)>) -> Vec<String> {
+    properties.sort_by(|left, right| left.0.cmp(&right.0));
+    properties
+        .into_iter()
+        .map(|(key, value)| format!("{key}: {value}"))
+        .collect()
+}
+
+fn render_sorted_properties(properties: Vec<(String, String)>, spaced: bool) -> String {
+    if properties.is_empty() {
+        return String::new();
+    }
+    let body = format!("{{{}}}", sorted_property_entries(properties).join(", "));
+    if spaced {
+        format!(" {body}")
+    } else {
+        body
+    }
 }
 
 /// Renders result rows with graph-aware formatting: node and relationship

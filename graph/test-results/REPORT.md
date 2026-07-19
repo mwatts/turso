@@ -4,17 +4,17 @@ Generated from `graph/test-results/history.jsonl`. Results are grouped by stable
 
 ## Latest complete corpus run
 
-- Run: `20260719T171000.776800Z-c4e37ebd93ca-corpus-deep`
+- Run: `20260719T192159.606478Z-c9496b51762d-corpus-deep`
 - Records: 10392
-- Passed: 6429
-- Failed: 3963
+- Passed: 6444
+- Failed: 3948
 
 ### Failure-reason histogram
 
 | Failure family | Count |
 |---|---:|
 | `execution`: mutation projection unsupported | 1139 |
-| `execution`: other | 679 |
+| `execution`: other | 664 |
 | `parser`: other grammar | 550 |
 | `execution`: runtime scalar function missing | 318 |
 | `parser`: expression/operator continuation grammar | 270 |
@@ -36,8 +36,8 @@ Generated from `graph/test-results/history.jsonl`. Results are grouped by stable
 
 ## Latest `age-deep` run
 
-- Run: `20260719T171000.776800Z-c4e37ebd93ca-corpus-deep`
-- Commit: `c4e37ebd93ca95d8555f5a1925bfc59cf51c4422` (dirty)
+- Run: `20260719T192159.606478Z-c9496b51762d-corpus-deep`
+- Commit: `c9496b51762d76bc04065390219a9c955d692f11` (dirty)
 - Package: `0.7.0`
 - Environment: `macos/aarch64` (`dev`)
 - Records: 3677
@@ -45,7 +45,7 @@ Generated from `graph/test-results/history.jsonl`. Results are grouped by stable
 - Unsupported: 0
 - Failed or changed: 1478
 
-### Outcome changes from `20260719T170635.289226Z-c4e37ebd93ca-corpus-deep`
+### Outcome changes from `20260719T171000.776800Z-c4e37ebd93ca-corpus-deep`
 
 - No outcome changes.
 
@@ -1615,8 +1615,8 @@ Generated from `graph/test-results/history.jsonl`. Results are grouped by stable
 
 ## Latest `cqlite-deep` run
 
-- Run: `20260719T171000.776800Z-c4e37ebd93ca-corpus-deep`
-- Commit: `c4e37ebd93ca95d8555f5a1925bfc59cf51c4422` (dirty)
+- Run: `20260719T192159.606478Z-c9496b51762d-corpus-deep`
+- Commit: `c9496b51762d76bc04065390219a9c955d692f11` (dirty)
 - Package: `0.7.0`
 - Environment: `macos/aarch64` (`dev`)
 - Records: 137
@@ -1624,148 +1624,148 @@ Generated from `graph/test-results/history.jsonl`. Results are grouped by stable
 - Unsupported: 0
 - Failed or changed: 24
 
-### Outcome changes from `20260719T170635.289226Z-c4e37ebd93ca-corpus-deep`
+### Outcome changes from `20260719T171000.776800Z-c4e37ebd93ca-corpus-deep`
 
 - No outcome changes.
 
 | Test | Kind | Area | Outcome | Duration |
 |---|---|---|---|---:|
-| `cqlite.basic-queries.run-a-to-b.query-1` | `Conformance` | basic_queries | `Passed` | 7.061 ms |
-| `cqlite.basic-queries.run-a-to-b.query-2` | `Conformance` | basic_queries | `Passed` | 6.595 ms |
-| `cqlite.basic-queries.run-a-to-b.query-3` | `Conformance` | basic_queries | `Passed` | 6.586 ms |
-| `cqlite.basic-queries.run-a-edge-b.query-1` | `Conformance` | basic_queries | `Passed` | 7.670 ms |
-| `cqlite.basic-queries.run-a-edge-b.query-2` | `Conformance` | basic_queries | `Passed` | 6.618 ms |
-| `cqlite.basic-queries.run-a-to-a.query-1` | `Conformance` | basic_queries | `Passed` | 8.042 ms |
-| `cqlite.basic-queries.run-a-to-a.query-2` | `Conformance` | basic_queries | `Passed` | 6.564 ms |
-| `cqlite.basic-queries.run-a-edge-a.query-1` | `Conformance` | basic_queries | `Passed` | 8.591 ms |
-| `cqlite.basic-queries.run-a-edge-a.query-2` | `Conformance` | basic_queries | `Passed` | 6.782 ms |
-| `cqlite.basic-queries.run-a-knows-b.query-1` | `Conformance` | basic_queries | `Passed` | 8.328 ms |
-| `cqlite.basic-queries.run-a-knows-b.query-2` | `Conformance` | basic_queries | `Passed` | 6.665 ms |
-| `cqlite.basic-queries.run-a-edge-b-with-where-property.query-1` | `Conformance` | basic_queries | `Passed` | 8.296 ms |
-| `cqlite.basic-queries.run-a-edge-b-with-where-property.query-2` | `Conformance` | basic_queries | `Passed` | 7.344 ms |
-| `cqlite.basic-queries.run-a-edge-b-with-property-map.query-1` | `Conformance` | basic_queries | `Passed` | 7.907 ms |
-| `cqlite.basic-queries.run-a-edge-b-with-property-map.query-2` | `Conformance` | basic_queries | `Passed` | 7.283 ms |
-| `cqlite.basic-queries.run-a-edge-b-with-where-id.query-1` | `Conformance` | basic_queries | `Passed` | 6.964 ms |
-| `cqlite.basic-queries.run-a-edge-b-with-where-id.query-2` | `Conformance` | basic_queries | `Passed` | 6.307 ms |
-| `cqlite.basic-queries.run-a-where-with-parameters.query-1` | `Conformance` | basic_queries | `Passed` | 7.704 ms |
-| `cqlite.basic-queries.run-a-where-with-parameters.query-2` | `Conformance` | basic_queries | `Failed` | 6.299 ms |
-| `cqlite.basic-queries.run-set.query-1` | `Conformance` | basic_queries | `Passed` | 6.454 ms |
-| `cqlite.basic-queries.run-set.query-2` | `Conformance` | basic_queries | `Failed` | 6.399 ms |
-| `cqlite.basic-queries.run-set.query-3` | `Conformance` | basic_queries | `Passed` | 6.553 ms |
-| `cqlite.basic-queries.return-from-set.query-1` | `Conformance` | basic_queries | `Passed` | 6.431 ms |
-| `cqlite.basic-queries.return-from-set.query-2` | `Conformance` | basic_queries | `Passed` | 6.633 ms |
-| `cqlite.basic-queries.return-from-set.query-3` | `Conformance` | basic_queries | `Passed` | 6.453 ms |
-| `cqlite.basic-queries.run-delete-node.query-1` | `Conformance` | basic_queries | `Passed` | 6.392 ms |
-| `cqlite.basic-queries.run-delete-node.query-2` | `Conformance` | basic_queries | `Passed` | 6.145 ms |
-| `cqlite.basic-queries.run-delete-node.query-3` | `Conformance` | basic_queries | `Passed` | 6.035 ms |
-| `cqlite.basic-queries.run-delete-edge.query-1` | `Conformance` | basic_queries | `Passed` | 6.999 ms |
-| `cqlite.basic-queries.run-delete-edge.query-2` | `Conformance` | basic_queries | `Passed` | 6.391 ms |
-| `cqlite.basic-queries.run-delete-edge.query-3` | `Conformance` | basic_queries | `Passed` | 6.317 ms |
-| `cqlite.basic-queries.run-bad-delete.query-1` | `Conformance` | basic_queries | `Passed` | 7.077 ms |
-| `cqlite.basic-queries.run-bad-delete.query-2` | `Conformance` | basic_queries | `Passed` | 6.045 ms |
-| `cqlite.basic-queries.run-return-label.query-1` | `Conformance` | basic_queries | `Passed` | 7.306 ms |
-| `cqlite.basic-queries.run-return-label.query-2` | `Conformance` | basic_queries | `Failed` | 6.626 ms |
-| `cqlite.basic-queries.match-return-count.query-1` | `Conformance` | basic_queries | `Passed` | 6.243 ms |
-| `cqlite.basic-queries.match-return-count.query-2` | `Conformance` | basic_queries | `Passed` | 6.278 ms |
-| `cqlite.basic-queries.match-return-count.query-3` | `Conformance` | basic_queries | `Passed` | 6.034 ms |
-| `cqlite.basic-queries.match-multiple-edges.query-1` | `Conformance` | basic_queries | `Passed` | 8.460 ms |
-| `cqlite.basic-queries.match-multiple-edges.query-2` | `Conformance` | basic_queries | `Failed` | 0.035 ms |
-| `cqlite.create-queries.create-label-only.query-1` | `Conformance` | create_queries | `Passed` | 6.817 ms |
-| `cqlite.create-queries.create-label-only.query-2` | `Conformance` | create_queries | `Passed` | 10.326 ms |
-| `cqlite.create-queries.create-with-properties.query-1` | `Conformance` | create_queries | `Passed` | 8.846 ms |
-| `cqlite.create-queries.create-with-properties.query-2` | `Conformance` | create_queries | `Passed` | 7.294 ms |
-| `cqlite.create-queries.create-with-properties-from-parameters.query-1` | `Conformance` | create_queries | `Failed` | 6.726 ms |
-| `cqlite.create-queries.create-with-properties-from-parameters.query-2` | `Conformance` | create_queries | `Passed` | 6.624 ms |
-| `cqlite.create-queries.create-edges-with-label.query-1` | `Conformance` | create_queries | `Passed` | 8.176 ms |
-| `cqlite.create-queries.create-edges-with-label.query-2` | `Conformance` | create_queries | `Failed` | 6.839 ms |
-| `cqlite.delete-queries.delete-node.query-1` | `Conformance` | delete_queries | `Passed` | 6.481 ms |
-| `cqlite.delete-queries.delete-node.query-2` | `Conformance` | delete_queries | `Passed` | 6.132 ms |
-| `cqlite.delete-queries.delete-node.query-3` | `Conformance` | delete_queries | `Passed` | 5.969 ms |
-| `cqlite.delete-queries.delete-node.query-4` | `Conformance` | delete_queries | `Passed` | 6.159 ms |
-| `cqlite.delete-queries.double-delete-node.query-1` | `Conformance` | delete_queries | `Passed` | 6.340 ms |
-| `cqlite.delete-queries.double-delete-node.query-2` | `Conformance` | delete_queries | `Passed` | 6.026 ms |
-| `cqlite.delete-queries.double-delete-node.query-3` | `Conformance` | delete_queries | `Passed` | 6.012 ms |
-| `cqlite.delete-queries.double-delete-node.query-4` | `Conformance` | delete_queries | `Passed` | 6.054 ms |
-| `cqlite.delete-queries.delete-edge.query-1` | `Conformance` | delete_queries | `Passed` | 7.776 ms |
-| `cqlite.delete-queries.delete-edge.query-2` | `Conformance` | delete_queries | `Failed` | 0.035 ms |
-| `cqlite.delete-queries.delete-edge.query-3` | `Conformance` | delete_queries | `Passed` | 6.336 ms |
-| `cqlite.delete-queries.delete-edge.query-4` | `Conformance` | delete_queries | `Failed` | 0.004 ms |
-| `cqlite.delete-queries.connected-delete-fails.query-1` | `Conformance` | delete_queries | `Passed` | 7.822 ms |
-| `cqlite.delete-queries.connected-delete-fails.query-2` | `Conformance` | delete_queries | `Passed` | 6.098 ms |
-| `cqlite.delete-queries.connected-delete-fails.query-3` | `Conformance` | delete_queries | `Passed` | 6.224 ms |
-| `cqlite.delete-queries.connected-delete-fails.query-4` | `Conformance` | delete_queries | `Passed` | 6.009 ms |
-| `cqlite.match-queries.create-test-graph.query-1` | `Conformance` | match_queries | `Passed` | 10.921 ms |
-| `cqlite.match-queries.match-all-nodes.query-1` | `Conformance` | match_queries | `Passed` | 6.398 ms |
-| `cqlite.match-queries.match-multiple-nodes.query-1` | `Conformance` | match_queries | `Passed` | 6.275 ms |
-| `cqlite.match-queries.match-multiple-nodes.query-2` | `Conformance` | match_queries | `Passed` | 6.197 ms |
-| `cqlite.match-queries.match-single-directed-edge.query-1` | `Conformance` | match_queries | `Passed` | 6.423 ms |
-| `cqlite.match-queries.match-single-undirected-edge.query-1` | `Conformance` | match_queries | `Passed` | 6.428 ms |
-| `cqlite.match-queries.match-single-path.query-1` | `Conformance` | match_queries | `Failed` | 0.034 ms |
-| `cqlite.match-queries.match-path-with-multiple-clauses.query-1` | `Conformance` | match_queries | `Failed` | 0.028 ms |
-| `cqlite.match-queries.match-long-path.query-1` | `Conformance` | match_queries | `Failed` | 0.027 ms |
-| `cqlite.match-queries.match-labeled-nodes.query-1` | `Conformance` | match_queries | `Passed` | 6.124 ms |
-| `cqlite.match-queries.match-labeled-nodes.query-2` | `Conformance` | match_queries | `Passed` | 6.120 ms |
-| `cqlite.match-queries.match-labeled-nodes.query-3` | `Conformance` | match_queries | `Passed` | 6.098 ms |
-| `cqlite.match-queries.match-labeled-edges.query-1` | `Conformance` | match_queries | `Passed` | 6.816 ms |
-| `cqlite.match-queries.match-labeled-edges.query-2` | `Conformance` | match_queries | `Passed` | 6.738 ms |
-| `cqlite.match-queries.match-nodes-with-properties.query-1` | `Conformance` | match_queries | `Passed` | 6.507 ms |
-| `cqlite.match-queries.match-nodes-with-properties.query-2` | `Conformance` | match_queries | `Passed` | 6.324 ms |
-| `cqlite.match-queries.match-nodes-with-properties.query-3` | `Conformance` | match_queries | `Passed` | 6.915 ms |
-| `cqlite.match-queries.match-edges-with-properties.query-1` | `Conformance` | match_queries | `Passed` | 6.860 ms |
-| `cqlite.match-queries.match-nodes-with-label.query-1` | `Conformance` | match_queries | `Passed` | 6.308 ms |
-| `cqlite.match-queries-where.create-test-graph.query-1` | `Conformance` | match_queries_where | `Passed` | 15.261 ms |
-| `cqlite.match-queries-where.match-where-node-id-eq.query-1` | `Conformance` | match_queries_where | `Failed` | 6.452 ms |
-| `cqlite.match-queries-where.match-where-node-id-eq.query-2` | `Conformance` | match_queries_where | `Failed` | 6.330 ms |
-| `cqlite.match-queries-where.match-where-node-id-eq-non-id.query-1` | `Conformance` | match_queries_where | `Passed` | 6.297 ms |
-| `cqlite.match-queries-where.match-where-node-label-eq.query-1` | `Conformance` | match_queries_where | `Passed` | 6.380 ms |
-| `cqlite.match-queries-where.match-where-node-label-eq.query-2` | `Conformance` | match_queries_where | `Passed` | 6.279 ms |
-| `cqlite.match-queries-where.match-where-node-prop-eq.query-1` | `Conformance` | match_queries_where | `Failed` | 6.189 ms |
-| `cqlite.match-queries-where.match-where-node-prop.query-1` | `Conformance` | match_queries_where | `Passed` | 6.483 ms |
-| `cqlite.match-queries-where.match-where-not-node-prop.query-1` | `Conformance` | match_queries_where | `Passed` | 6.584 ms |
-| `cqlite.match-queries-where.match-where-node-prop-eq-true-false.query-1` | `Conformance` | match_queries_where | `Passed` | 6.528 ms |
-| `cqlite.match-queries-where.match-where-node-prop-eq-true-false.query-2` | `Conformance` | match_queries_where | `Passed` | 6.502 ms |
-| `cqlite.match-queries-where.match-where-node-prop-ne-null.query-1` | `Conformance` | match_queries_where | `Passed` | 6.424 ms |
-| `cqlite.match-queries-where.match-where-node-prop-lt-or-gt.query-1` | `Conformance` | match_queries_where | `Passed` | 6.514 ms |
-| `cqlite.match-queries-where.match-where-node-prop-lt-or-gt.query-2` | `Conformance` | match_queries_where | `Passed` | 7.029 ms |
-| `cqlite.match-queries-where.match-where-node-prop-lt-or-gt.query-3` | `Conformance` | match_queries_where | `Passed` | 6.602 ms |
-| `cqlite.match-queries-where.match-where-edge-id-eq.query-1` | `Conformance` | match_queries_where | `Failed` | 6.580 ms |
-| `cqlite.match-queries-where.match-where-edge-id-eq.query-2` | `Conformance` | match_queries_where | `Failed` | 6.537 ms |
-| `cqlite.match-queries-where.match-where-edge-prop-eq.query-1` | `Conformance` | match_queries_where | `Passed` | 7.045 ms |
-| `cqlite.match-queries-where.match-where-edge-prop-gt.query-1` | `Conformance` | match_queries_where | `Passed` | 7.184 ms |
-| `cqlite.match-queries-where.match-where-a-or-b.query-1` | `Conformance` | match_queries_where | `Passed` | 7.205 ms |
-| `cqlite.match-queries-where.match-long-path-with-id-constraint.query-1` | `Conformance` | match_queries_where | `Failed` | 0.037 ms |
-| `cqlite.match-queries-where.match-long-path-with-id-constraint.query-2` | `Conformance` | match_queries_where | `Failed` | 0.037 ms |
+| `cqlite.basic-queries.run-a-to-b.query-1` | `Conformance` | basic_queries | `Passed` | 7.559 ms |
+| `cqlite.basic-queries.run-a-to-b.query-2` | `Conformance` | basic_queries | `Passed` | 7.133 ms |
+| `cqlite.basic-queries.run-a-to-b.query-3` | `Conformance` | basic_queries | `Passed` | 8.174 ms |
+| `cqlite.basic-queries.run-a-edge-b.query-1` | `Conformance` | basic_queries | `Passed` | 8.420 ms |
+| `cqlite.basic-queries.run-a-edge-b.query-2` | `Conformance` | basic_queries | `Passed` | 7.126 ms |
+| `cqlite.basic-queries.run-a-to-a.query-1` | `Conformance` | basic_queries | `Passed` | 8.946 ms |
+| `cqlite.basic-queries.run-a-to-a.query-2` | `Conformance` | basic_queries | `Passed` | 7.476 ms |
+| `cqlite.basic-queries.run-a-edge-a.query-1` | `Conformance` | basic_queries | `Passed` | 10.790 ms |
+| `cqlite.basic-queries.run-a-edge-a.query-2` | `Conformance` | basic_queries | `Passed` | 7.535 ms |
+| `cqlite.basic-queries.run-a-knows-b.query-1` | `Conformance` | basic_queries | `Passed` | 8.938 ms |
+| `cqlite.basic-queries.run-a-knows-b.query-2` | `Conformance` | basic_queries | `Passed` | 7.154 ms |
+| `cqlite.basic-queries.run-a-edge-b-with-where-property.query-1` | `Conformance` | basic_queries | `Passed` | 8.944 ms |
+| `cqlite.basic-queries.run-a-edge-b-with-where-property.query-2` | `Conformance` | basic_queries | `Passed` | 8.157 ms |
+| `cqlite.basic-queries.run-a-edge-b-with-property-map.query-1` | `Conformance` | basic_queries | `Passed` | 8.729 ms |
+| `cqlite.basic-queries.run-a-edge-b-with-property-map.query-2` | `Conformance` | basic_queries | `Passed` | 7.959 ms |
+| `cqlite.basic-queries.run-a-edge-b-with-where-id.query-1` | `Conformance` | basic_queries | `Passed` | 7.740 ms |
+| `cqlite.basic-queries.run-a-edge-b-with-where-id.query-2` | `Conformance` | basic_queries | `Passed` | 6.723 ms |
+| `cqlite.basic-queries.run-a-where-with-parameters.query-1` | `Conformance` | basic_queries | `Passed` | 8.541 ms |
+| `cqlite.basic-queries.run-a-where-with-parameters.query-2` | `Conformance` | basic_queries | `Failed` | 6.606 ms |
+| `cqlite.basic-queries.run-set.query-1` | `Conformance` | basic_queries | `Passed` | 6.972 ms |
+| `cqlite.basic-queries.run-set.query-2` | `Conformance` | basic_queries | `Failed` | 6.547 ms |
+| `cqlite.basic-queries.run-set.query-3` | `Conformance` | basic_queries | `Passed` | 6.818 ms |
+| `cqlite.basic-queries.return-from-set.query-1` | `Conformance` | basic_queries | `Passed` | 6.866 ms |
+| `cqlite.basic-queries.return-from-set.query-2` | `Conformance` | basic_queries | `Passed` | 6.979 ms |
+| `cqlite.basic-queries.return-from-set.query-3` | `Conformance` | basic_queries | `Passed` | 6.729 ms |
+| `cqlite.basic-queries.run-delete-node.query-1` | `Conformance` | basic_queries | `Passed` | 7.022 ms |
+| `cqlite.basic-queries.run-delete-node.query-2` | `Conformance` | basic_queries | `Passed` | 6.551 ms |
+| `cqlite.basic-queries.run-delete-node.query-3` | `Conformance` | basic_queries | `Passed` | 6.689 ms |
+| `cqlite.basic-queries.run-delete-edge.query-1` | `Conformance` | basic_queries | `Passed` | 7.355 ms |
+| `cqlite.basic-queries.run-delete-edge.query-2` | `Conformance` | basic_queries | `Passed` | 6.608 ms |
+| `cqlite.basic-queries.run-delete-edge.query-3` | `Conformance` | basic_queries | `Passed` | 6.493 ms |
+| `cqlite.basic-queries.run-bad-delete.query-1` | `Conformance` | basic_queries | `Passed` | 7.211 ms |
+| `cqlite.basic-queries.run-bad-delete.query-2` | `Conformance` | basic_queries | `Passed` | 6.378 ms |
+| `cqlite.basic-queries.run-return-label.query-1` | `Conformance` | basic_queries | `Passed` | 7.512 ms |
+| `cqlite.basic-queries.run-return-label.query-2` | `Conformance` | basic_queries | `Failed` | 6.839 ms |
+| `cqlite.basic-queries.match-return-count.query-1` | `Conformance` | basic_queries | `Passed` | 6.288 ms |
+| `cqlite.basic-queries.match-return-count.query-2` | `Conformance` | basic_queries | `Passed` | 6.371 ms |
+| `cqlite.basic-queries.match-return-count.query-3` | `Conformance` | basic_queries | `Passed` | 6.123 ms |
+| `cqlite.basic-queries.match-multiple-edges.query-1` | `Conformance` | basic_queries | `Passed` | 9.501 ms |
+| `cqlite.basic-queries.match-multiple-edges.query-2` | `Conformance` | basic_queries | `Failed` | 0.045 ms |
+| `cqlite.create-queries.create-label-only.query-1` | `Conformance` | create_queries | `Passed` | 7.737 ms |
+| `cqlite.create-queries.create-label-only.query-2` | `Conformance` | create_queries | `Passed` | 6.509 ms |
+| `cqlite.create-queries.create-with-properties.query-1` | `Conformance` | create_queries | `Passed` | 7.855 ms |
+| `cqlite.create-queries.create-with-properties.query-2` | `Conformance` | create_queries | `Passed` | 6.997 ms |
+| `cqlite.create-queries.create-with-properties-from-parameters.query-1` | `Conformance` | create_queries | `Failed` | 6.743 ms |
+| `cqlite.create-queries.create-with-properties-from-parameters.query-2` | `Conformance` | create_queries | `Passed` | 6.850 ms |
+| `cqlite.create-queries.create-edges-with-label.query-1` | `Conformance` | create_queries | `Passed` | 8.505 ms |
+| `cqlite.create-queries.create-edges-with-label.query-2` | `Conformance` | create_queries | `Failed` | 7.132 ms |
+| `cqlite.delete-queries.delete-node.query-1` | `Conformance` | delete_queries | `Passed` | 6.785 ms |
+| `cqlite.delete-queries.delete-node.query-2` | `Conformance` | delete_queries | `Passed` | 7.242 ms |
+| `cqlite.delete-queries.delete-node.query-3` | `Conformance` | delete_queries | `Passed` | 6.339 ms |
+| `cqlite.delete-queries.delete-node.query-4` | `Conformance` | delete_queries | `Passed` | 6.817 ms |
+| `cqlite.delete-queries.double-delete-node.query-1` | `Conformance` | delete_queries | `Passed` | 6.854 ms |
+| `cqlite.delete-queries.double-delete-node.query-2` | `Conformance` | delete_queries | `Passed` | 6.805 ms |
+| `cqlite.delete-queries.double-delete-node.query-3` | `Conformance` | delete_queries | `Passed` | 6.387 ms |
+| `cqlite.delete-queries.double-delete-node.query-4` | `Conformance` | delete_queries | `Passed` | 6.406 ms |
+| `cqlite.delete-queries.delete-edge.query-1` | `Conformance` | delete_queries | `Passed` | 8.455 ms |
+| `cqlite.delete-queries.delete-edge.query-2` | `Conformance` | delete_queries | `Failed` | 0.050 ms |
+| `cqlite.delete-queries.delete-edge.query-3` | `Conformance` | delete_queries | `Passed` | 6.962 ms |
+| `cqlite.delete-queries.delete-edge.query-4` | `Conformance` | delete_queries | `Failed` | 0.007 ms |
+| `cqlite.delete-queries.connected-delete-fails.query-1` | `Conformance` | delete_queries | `Passed` | 8.388 ms |
+| `cqlite.delete-queries.connected-delete-fails.query-2` | `Conformance` | delete_queries | `Passed` | 6.574 ms |
+| `cqlite.delete-queries.connected-delete-fails.query-3` | `Conformance` | delete_queries | `Passed` | 6.858 ms |
+| `cqlite.delete-queries.connected-delete-fails.query-4` | `Conformance` | delete_queries | `Passed` | 6.628 ms |
+| `cqlite.match-queries.create-test-graph.query-1` | `Conformance` | match_queries | `Passed` | 13.426 ms |
+| `cqlite.match-queries.match-all-nodes.query-1` | `Conformance` | match_queries | `Passed` | 7.018 ms |
+| `cqlite.match-queries.match-multiple-nodes.query-1` | `Conformance` | match_queries | `Passed` | 6.963 ms |
+| `cqlite.match-queries.match-multiple-nodes.query-2` | `Conformance` | match_queries | `Passed` | 6.814 ms |
+| `cqlite.match-queries.match-single-directed-edge.query-1` | `Conformance` | match_queries | `Passed` | 7.141 ms |
+| `cqlite.match-queries.match-single-undirected-edge.query-1` | `Conformance` | match_queries | `Passed` | 7.053 ms |
+| `cqlite.match-queries.match-single-path.query-1` | `Conformance` | match_queries | `Failed` | 0.053 ms |
+| `cqlite.match-queries.match-path-with-multiple-clauses.query-1` | `Conformance` | match_queries | `Failed` | 0.030 ms |
+| `cqlite.match-queries.match-long-path.query-1` | `Conformance` | match_queries | `Failed` | 0.028 ms |
+| `cqlite.match-queries.match-labeled-nodes.query-1` | `Conformance` | match_queries | `Passed` | 6.703 ms |
+| `cqlite.match-queries.match-labeled-nodes.query-2` | `Conformance` | match_queries | `Passed` | 6.644 ms |
+| `cqlite.match-queries.match-labeled-nodes.query-3` | `Conformance` | match_queries | `Passed` | 6.994 ms |
+| `cqlite.match-queries.match-labeled-edges.query-1` | `Conformance` | match_queries | `Passed` | 7.437 ms |
+| `cqlite.match-queries.match-labeled-edges.query-2` | `Conformance` | match_queries | `Passed` | 7.340 ms |
+| `cqlite.match-queries.match-nodes-with-properties.query-1` | `Conformance` | match_queries | `Passed` | 6.672 ms |
+| `cqlite.match-queries.match-nodes-with-properties.query-2` | `Conformance` | match_queries | `Passed` | 6.575 ms |
+| `cqlite.match-queries.match-nodes-with-properties.query-3` | `Conformance` | match_queries | `Passed` | 7.718 ms |
+| `cqlite.match-queries.match-edges-with-properties.query-1` | `Conformance` | match_queries | `Passed` | 7.225 ms |
+| `cqlite.match-queries.match-nodes-with-label.query-1` | `Conformance` | match_queries | `Passed` | 7.093 ms |
+| `cqlite.match-queries-where.create-test-graph.query-1` | `Conformance` | match_queries_where | `Passed` | 15.541 ms |
+| `cqlite.match-queries-where.match-where-node-id-eq.query-1` | `Conformance` | match_queries_where | `Failed` | 6.593 ms |
+| `cqlite.match-queries-where.match-where-node-id-eq.query-2` | `Conformance` | match_queries_where | `Failed` | 6.344 ms |
+| `cqlite.match-queries-where.match-where-node-id-eq-non-id.query-1` | `Conformance` | match_queries_where | `Passed` | 6.639 ms |
+| `cqlite.match-queries-where.match-where-node-label-eq.query-1` | `Conformance` | match_queries_where | `Passed` | 6.348 ms |
+| `cqlite.match-queries-where.match-where-node-label-eq.query-2` | `Conformance` | match_queries_where | `Passed` | 6.409 ms |
+| `cqlite.match-queries-where.match-where-node-prop-eq.query-1` | `Conformance` | match_queries_where | `Failed` | 6.272 ms |
+| `cqlite.match-queries-where.match-where-node-prop.query-1` | `Conformance` | match_queries_where | `Passed` | 6.615 ms |
+| `cqlite.match-queries-where.match-where-not-node-prop.query-1` | `Conformance` | match_queries_where | `Passed` | 6.450 ms |
+| `cqlite.match-queries-where.match-where-node-prop-eq-true-false.query-1` | `Conformance` | match_queries_where | `Passed` | 6.712 ms |
+| `cqlite.match-queries-where.match-where-node-prop-eq-true-false.query-2` | `Conformance` | match_queries_where | `Passed` | 6.583 ms |
+| `cqlite.match-queries-where.match-where-node-prop-ne-null.query-1` | `Conformance` | match_queries_where | `Passed` | 6.405 ms |
+| `cqlite.match-queries-where.match-where-node-prop-lt-or-gt.query-1` | `Conformance` | match_queries_where | `Passed` | 6.607 ms |
+| `cqlite.match-queries-where.match-where-node-prop-lt-or-gt.query-2` | `Conformance` | match_queries_where | `Passed` | 6.669 ms |
+| `cqlite.match-queries-where.match-where-node-prop-lt-or-gt.query-3` | `Conformance` | match_queries_where | `Passed` | 6.645 ms |
+| `cqlite.match-queries-where.match-where-edge-id-eq.query-1` | `Conformance` | match_queries_where | `Failed` | 6.701 ms |
+| `cqlite.match-queries-where.match-where-edge-id-eq.query-2` | `Conformance` | match_queries_where | `Failed` | 6.668 ms |
+| `cqlite.match-queries-where.match-where-edge-prop-eq.query-1` | `Conformance` | match_queries_where | `Passed` | 7.075 ms |
+| `cqlite.match-queries-where.match-where-edge-prop-gt.query-1` | `Conformance` | match_queries_where | `Passed` | 7.162 ms |
+| `cqlite.match-queries-where.match-where-a-or-b.query-1` | `Conformance` | match_queries_where | `Passed` | 7.388 ms |
+| `cqlite.match-queries-where.match-long-path-with-id-constraint.query-1` | `Conformance` | match_queries_where | `Failed` | 0.038 ms |
+| `cqlite.match-queries-where.match-long-path-with-id-constraint.query-2` | `Conformance` | match_queries_where | `Failed` | 0.031 ms |
 | `cqlite.match-queries-where.match-short-path-with-id-constraint.query-1` | `Conformance` | match_queries_where | `Failed` | 0.026 ms |
-| `cqlite.return-queries.return-parameter.query-1` | `Conformance` | return_queries | `Failed` | 5.986 ms |
-| `cqlite.return-queries.return-id-of.query-1` | `Conformance` | return_queries | `Passed` | 7.685 ms |
-| `cqlite.return-queries.return-id-of.query-2` | `Conformance` | return_queries | `Passed` | 6.144 ms |
-| `cqlite.return-queries.return-label-of.query-1` | `Conformance` | return_queries | `Passed` | 7.291 ms |
-| `cqlite.return-queries.return-label-of.query-2` | `Conformance` | return_queries | `Passed` | 6.232 ms |
-| `cqlite.return-queries.create-and-return.query-1` | `Conformance` | return_queries | `Passed` | 6.949 ms |
-| `cqlite.return-queries.create-and-return.query-2` | `Conformance` | return_queries | `Passed` | 6.187 ms |
-| `cqlite.return-queries.set-and-return.query-1` | `Conformance` | return_queries | `Passed` | 6.429 ms |
-| `cqlite.return-queries.set-and-return.query-2` | `Conformance` | return_queries | `Passed` | 6.350 ms |
-| `cqlite.return-queries.delete-and-return.query-1` | `Conformance` | return_queries | `Passed` | 6.539 ms |
-| `cqlite.return-queries.delete-and-return.query-2` | `Conformance` | return_queries | `Passed` | 6.134 ms |
-| `cqlite.return-queries.return-out-of-bounds.query-1` | `Conformance` | return_queries | `Passed` | 5.986 ms |
-| `cqlite.set-queries.set-once.query-1` | `Conformance` | set_queries | `Passed` | 6.730 ms |
-| `cqlite.set-queries.set-once.query-2` | `Conformance` | set_queries | `Passed` | 6.257 ms |
-| `cqlite.set-queries.set-once.query-3` | `Conformance` | set_queries | `Passed` | 5.990 ms |
-| `cqlite.set-queries.set-after-create.query-1` | `Conformance` | set_queries | `Passed` | 7.140 ms |
-| `cqlite.set-queries.set-after-create.query-2` | `Conformance` | set_queries | `Passed` | 6.016 ms |
-| `cqlite.set-queries.set-multiple-times.query-1` | `Conformance` | set_queries | `Passed` | 7.782 ms |
-| `cqlite.set-queries.set-multiple-times.query-2` | `Conformance` | set_queries | `Passed` | 6.123 ms |
-| `cqlite.set-queries.delete-property.query-1` | `Conformance` | set_queries | `Passed` | 6.605 ms |
-| `cqlite.set-queries.delete-property.query-2` | `Conformance` | set_queries | `Passed` | 6.188 ms |
-| `cqlite.set-queries.delete-property.query-3` | `Conformance` | set_queries | `Passed` | 5.991 ms |
-| `cqlite.txn-semantics.concurrent-reader-and-writer.query-1` | `Conformance` | txn_semantics | `Passed` | 6.760 ms |
-| `cqlite.txn-semantics.concurrent-reader-and-writer.query-2` | `Conformance` | txn_semantics | `Passed` | 6.352 ms |
-| `cqlite.txn-semantics.concurrent-reader-and-writer.query-3` | `Conformance` | txn_semantics | `Passed` | 6.768 ms |
-| `cqlite.txn-semantics.concurrent-reader-and-writer.query-4` | `Conformance` | txn_semantics | `Passed` | 6.339 ms |
-| `cqlite.txn-semantics.concurrent-reader-and-writer.query-5` | `Conformance` | txn_semantics | `Passed` | 6.220 ms |
-| `cqlite.where-conditions.where-a-and-b.query-1` | `Conformance` | where_conditions | `Failed` | 0.017 ms |
+| `cqlite.return-queries.return-parameter.query-1` | `Conformance` | return_queries | `Failed` | 6.056 ms |
+| `cqlite.return-queries.return-id-of.query-1` | `Conformance` | return_queries | `Passed` | 7.757 ms |
+| `cqlite.return-queries.return-id-of.query-2` | `Conformance` | return_queries | `Passed` | 6.257 ms |
+| `cqlite.return-queries.return-label-of.query-1` | `Conformance` | return_queries | `Passed` | 7.472 ms |
+| `cqlite.return-queries.return-label-of.query-2` | `Conformance` | return_queries | `Passed` | 6.528 ms |
+| `cqlite.return-queries.create-and-return.query-1` | `Conformance` | return_queries | `Passed` | 7.078 ms |
+| `cqlite.return-queries.create-and-return.query-2` | `Conformance` | return_queries | `Passed` | 6.172 ms |
+| `cqlite.return-queries.set-and-return.query-1` | `Conformance` | return_queries | `Passed` | 11.377 ms |
+| `cqlite.return-queries.set-and-return.query-2` | `Conformance` | return_queries | `Passed` | 7.015 ms |
+| `cqlite.return-queries.delete-and-return.query-1` | `Conformance` | return_queries | `Passed` | 6.534 ms |
+| `cqlite.return-queries.delete-and-return.query-2` | `Conformance` | return_queries | `Passed` | 6.228 ms |
+| `cqlite.return-queries.return-out-of-bounds.query-1` | `Conformance` | return_queries | `Passed` | 6.107 ms |
+| `cqlite.set-queries.set-once.query-1` | `Conformance` | set_queries | `Passed` | 6.818 ms |
+| `cqlite.set-queries.set-once.query-2` | `Conformance` | set_queries | `Passed` | 6.273 ms |
+| `cqlite.set-queries.set-once.query-3` | `Conformance` | set_queries | `Passed` | 6.052 ms |
+| `cqlite.set-queries.set-after-create.query-1` | `Conformance` | set_queries | `Passed` | 7.103 ms |
+| `cqlite.set-queries.set-after-create.query-2` | `Conformance` | set_queries | `Passed` | 6.106 ms |
+| `cqlite.set-queries.set-multiple-times.query-1` | `Conformance` | set_queries | `Passed` | 7.778 ms |
+| `cqlite.set-queries.set-multiple-times.query-2` | `Conformance` | set_queries | `Passed` | 6.085 ms |
+| `cqlite.set-queries.delete-property.query-1` | `Conformance` | set_queries | `Passed` | 6.743 ms |
+| `cqlite.set-queries.delete-property.query-2` | `Conformance` | set_queries | `Passed` | 6.454 ms |
+| `cqlite.set-queries.delete-property.query-3` | `Conformance` | set_queries | `Passed` | 6.216 ms |
+| `cqlite.txn-semantics.concurrent-reader-and-writer.query-1` | `Conformance` | txn_semantics | `Passed` | 6.962 ms |
+| `cqlite.txn-semantics.concurrent-reader-and-writer.query-2` | `Conformance` | txn_semantics | `Passed` | 6.492 ms |
+| `cqlite.txn-semantics.concurrent-reader-and-writer.query-3` | `Conformance` | txn_semantics | `Passed` | 6.951 ms |
+| `cqlite.txn-semantics.concurrent-reader-and-writer.query-4` | `Conformance` | txn_semantics | `Passed` | 6.577 ms |
+| `cqlite.txn-semantics.concurrent-reader-and-writer.query-5` | `Conformance` | txn_semantics | `Passed` | 6.715 ms |
+| `cqlite.where-conditions.where-a-and-b.query-1` | `Conformance` | where_conditions | `Failed` | 0.020 ms |
 | `cqlite.where-conditions.where-a-or-b.query-1` | `Conformance` | where_conditions | `Failed` | 0.011 ms |
-| `cqlite.where-conditions.where-a.query-1` | `Conformance` | where_conditions | `Failed` | 0.009 ms |
+| `cqlite.where-conditions.where-a.query-1` | `Conformance` | where_conditions | `Failed` | 0.010 ms |
 | `cqlite.where-conditions.where-not-a.query-1` | `Conformance` | where_conditions | `Failed` | 0.009 ms |
 
 ## Latest `deep` run
@@ -1818,8 +1818,8 @@ Generated from `graph/test-results/history.jsonl`. Results are grouped by stable
 
 ## Latest `grafeo-deep` run
 
-- Run: `20260719T171000.776800Z-c4e37ebd93ca-corpus-deep`
-- Commit: `c4e37ebd93ca95d8555f5a1925bfc59cf51c4422` (dirty)
+- Run: `20260719T192159.606478Z-c9496b51762d-corpus-deep`
+- Commit: `c9496b51762d76bc04065390219a9c955d692f11` (dirty)
 - Package: `0.7.0`
 - Environment: `macos/aarch64` (`dev`)
 - Records: 399
@@ -1827,7 +1827,7 @@ Generated from `graph/test-results/history.jsonl`. Results are grouped by stable
 - Unsupported: 0
 - Failed or changed: 149
 
-### Outcome changes from `20260719T170635.289226Z-c4e37ebd93ca-corpus-deep`
+### Outcome changes from `20260719T171000.776800Z-c4e37ebd93ca-corpus-deep`
 
 - No outcome changes.
 
@@ -1839,18 +1839,18 @@ Generated from `graph/test-results/history.jsonl`. Results are grouped by stable
 | `grafeo.spec.common.index.correctness.index.with.null.property` | `Conformance` | common | `Failed` | 0.017 ms |
 | `grafeo.spec.common.index.correctness.index.after.property.update` | `Conformance` | common | `Failed` | 0.003 ms |
 | `grafeo.spec.common.index.correctness.index.old.value.gone.after.update` | `Conformance` | common | `Failed` | 0.003 ms |
-| `grafeo.spec.common.index.correctness.index.after.delete` | `Conformance` | common | `Failed` | 0.002 ms |
+| `grafeo.spec.common.index.correctness.index.after.delete` | `Conformance` | common | `Failed` | 0.003 ms |
 | `grafeo.spec.common.index.correctness.index.remaining.after.delete` | `Conformance` | common | `Failed` | 0.003 ms |
-| `grafeo.spec.common.index.correctness.index.reinsert.after.delete` | `Conformance` | common | `Failed` | 0.003 ms |
+| `grafeo.spec.common.index.correctness.index.reinsert.after.delete` | `Conformance` | common | `Failed` | 0.002 ms |
 | `grafeo.spec.common.index.correctness.numeric.index.exact.lookup` | `Conformance` | common | `Failed` | 0.016 ms |
 | `grafeo.spec.common.index.correctness.numeric.index.range.query` | `Conformance` | common | `Failed` | 0.003 ms |
 | `grafeo.spec.common.index.correctness.bulk.insert.then.index` | `Conformance` | common | `Failed` | 0.329 ms |
 | `grafeo.spec.common.index.correctness.index.count.all` | `Conformance` | common | `Failed` | 0.016 ms |
 | `grafeo.spec.common.index.correctness.drop.index.query.still.works` | `Conformance` | common | `Failed` | 0.003 ms |
-| `grafeo.spec.common.null.semantics.negative.limit.returns.empty.cypher.cypher-variant` | `Conformance` | common | `Failed` | 5.914 ms |
-| `grafeo.spec.common.numeric.edge.cases.min.int64.cypher.cypher-variant` | `Conformance` | common | `Failed` | 5.851 ms |
-| `grafeo.spec.common.numeric.edge.cases.nan.literal.keyword.cypher.cypher-variant` | `Conformance` | common | `Failed` | 5.935 ms |
-| `grafeo.spec.common.numeric.edge.cases.inf.literal.keyword.cypher.cypher-variant` | `Conformance` | common | `Failed` | 5.959 ms |
+| `grafeo.spec.common.null.semantics.negative.limit.returns.empty.cypher.cypher-variant` | `Conformance` | common | `Failed` | 5.970 ms |
+| `grafeo.spec.common.numeric.edge.cases.min.int64.cypher.cypher-variant` | `Conformance` | common | `Failed` | 5.905 ms |
+| `grafeo.spec.common.numeric.edge.cases.nan.literal.keyword.cypher.cypher-variant` | `Conformance` | common | `Failed` | 5.945 ms |
+| `grafeo.spec.common.numeric.edge.cases.inf.literal.keyword.cypher.cypher-variant` | `Conformance` | common | `Failed` | 5.984 ms |
 | `grafeo.spec.lpg.cypher.admin.create.index.on.label.property` | `Conformance` | lpg | `Failed` | 0.004 ms |
 | `grafeo.spec.lpg.cypher.admin.create.index.and.query` | `Conformance` | lpg | `Failed` | 0.023 ms |
 | `grafeo.spec.lpg.cypher.admin.drop.index` | `Conformance` | lpg | `Failed` | 0.003 ms |
@@ -1858,380 +1858,380 @@ Generated from `graph/test-results/history.jsonl`. Results are grouped by stable
 | `grafeo.spec.lpg.cypher.admin.show.indexes.after.create` | `Conformance` | lpg | `Failed` | 0.003 ms |
 | `grafeo.spec.lpg.cypher.admin.explain.match` | `Conformance` | lpg | `Failed` | 0.011 ms |
 | `grafeo.spec.lpg.cypher.admin.profile.match` | `Conformance` | lpg | `Failed` | 0.011 ms |
-| `grafeo.spec.lpg.cypher.comprehensions.advanced.pattern.comprehension.basic` | `Conformance` | lpg | `Failed` | 0.117 ms |
+| `grafeo.spec.lpg.cypher.comprehensions.advanced.pattern.comprehension.basic` | `Conformance` | lpg | `Failed` | 0.118 ms |
 | `grafeo.spec.lpg.cypher.comprehensions.advanced.pattern.comprehension.with.filter` | `Conformance` | lpg | `Failed` | 0.110 ms |
 | `grafeo.spec.lpg.cypher.comprehensions.advanced.pattern.comprehension.size` | `Conformance` | lpg | `Failed` | 0.171 ms |
-| `grafeo.spec.lpg.cypher.comprehensions.advanced.pattern.comprehension.with.property.extraction` | `Conformance` | lpg | `Failed` | 0.103 ms |
-| `grafeo.spec.lpg.cypher.comprehensions.advanced.list.comprehension.basic` | `Conformance` | lpg | `Passed` | 76.625 ms |
-| `grafeo.spec.lpg.cypher.comprehensions.advanced.list.comprehension.transform` | `Conformance` | lpg | `Passed` | 64.054 ms |
-| `grafeo.spec.lpg.cypher.comprehensions.advanced.list.comprehension.filter.and.transform` | `Conformance` | lpg | `Failed` | 63.217 ms |
-| `grafeo.spec.lpg.cypher.comprehensions.advanced.list.comprehension.nested` | `Conformance` | lpg | `Failed` | 73.397 ms |
-| `grafeo.spec.lpg.cypher.comprehensions.advanced.exists.subquery.actors.with.action.movies` | `Conformance` | lpg | `Passed` | 67.870 ms |
-| `grafeo.spec.lpg.cypher.comprehensions.advanced.not.exists.subquery` | `Conformance` | lpg | `Failed` | 66.355 ms |
-| `grafeo.spec.lpg.cypher.comprehensions.advanced.count.subquery.movies.per.actor` | `Conformance` | lpg | `Passed` | 67.181 ms |
-| `grafeo.spec.lpg.cypher.comprehensions.advanced.count.subquery.prolific.directors` | `Conformance` | lpg | `Passed` | 65.481 ms |
+| `grafeo.spec.lpg.cypher.comprehensions.advanced.pattern.comprehension.with.property.extraction` | `Conformance` | lpg | `Failed` | 0.104 ms |
+| `grafeo.spec.lpg.cypher.comprehensions.advanced.list.comprehension.basic` | `Conformance` | lpg | `Passed` | 71.857 ms |
+| `grafeo.spec.lpg.cypher.comprehensions.advanced.list.comprehension.transform` | `Conformance` | lpg | `Passed` | 64.358 ms |
+| `grafeo.spec.lpg.cypher.comprehensions.advanced.list.comprehension.filter.and.transform` | `Conformance` | lpg | `Failed` | 63.315 ms |
+| `grafeo.spec.lpg.cypher.comprehensions.advanced.list.comprehension.nested` | `Conformance` | lpg | `Failed` | 64.280 ms |
+| `grafeo.spec.lpg.cypher.comprehensions.advanced.exists.subquery.actors.with.action.movies` | `Conformance` | lpg | `Passed` | 83.271 ms |
+| `grafeo.spec.lpg.cypher.comprehensions.advanced.not.exists.subquery` | `Conformance` | lpg | `Failed` | 66.435 ms |
+| `grafeo.spec.lpg.cypher.comprehensions.advanced.count.subquery.movies.per.actor` | `Conformance` | lpg | `Passed` | 73.096 ms |
+| `grafeo.spec.lpg.cypher.comprehensions.advanced.count.subquery.prolific.directors` | `Conformance` | lpg | `Passed` | 73.802 ms |
 | `grafeo.spec.lpg.cypher.comprehensions.advanced.call.subquery.basic` | `Conformance` | lpg | `Failed` | 0.044 ms |
 | `grafeo.spec.lpg.cypher.comprehensions.advanced.call.subquery.with.aggregation` | `Conformance` | lpg | `Failed` | 0.035 ms |
-| `grafeo.spec.lpg.cypher.comprehensions.advanced.foreach.set.property` | `Conformance` | lpg | `Failed` | 65.236 ms |
-| `grafeo.spec.lpg.cypher.comprehensions.advanced.foreach.create.relationships` | `Conformance` | lpg | `Failed` | 0.291 ms |
-| `grafeo.spec.lpg.cypher.comprehensions.advanced.actor.collaboration.via.comprehension` | `Conformance` | lpg | `Failed` | 0.142 ms |
+| `grafeo.spec.lpg.cypher.comprehensions.advanced.foreach.set.property` | `Conformance` | lpg | `Failed` | 64.706 ms |
+| `grafeo.spec.lpg.cypher.comprehensions.advanced.foreach.create.relationships` | `Conformance` | lpg | `Failed` | 0.278 ms |
+| `grafeo.spec.lpg.cypher.comprehensions.advanced.actor.collaboration.via.comprehension` | `Conformance` | lpg | `Failed` | 0.144 ms |
 | `grafeo.spec.lpg.cypher.comprehensions.advanced.genre.diversity.per.actor` | `Conformance` | lpg | `Failed` | 0.201 ms |
 | `grafeo.spec.lpg.cypher.constraints.create.unique.constraint` | `Conformance` | lpg | `Failed` | 0.022 ms |
-| `grafeo.spec.lpg.cypher.constraints.unique.constraint.allows.distinct.values` | `Conformance` | lpg | `Failed` | 6.175 ms |
-| `grafeo.spec.lpg.cypher.constraints.unique.constraint.violation` | `Conformance` | lpg | `Failed` | 6.059 ms |
-| `grafeo.spec.lpg.cypher.constraints.unique.constraint.null.allowed` | `Conformance` | lpg | `Failed` | 6.015 ms |
-| `grafeo.spec.lpg.cypher.constraints.create.not.null.constraint` | `Conformance` | lpg | `Failed` | 0.025 ms |
-| `grafeo.spec.lpg.cypher.constraints.not.null.constraint.satisfied` | `Conformance` | lpg | `Failed` | 6.048 ms |
-| `grafeo.spec.lpg.cypher.constraints.not.null.constraint.violation` | `Conformance` | lpg | `Failed` | 5.963 ms |
-| `grafeo.spec.lpg.cypher.constraints.not.null.constraint.violation.on.set` | `Conformance` | lpg | `Failed` | 6.028 ms |
+| `grafeo.spec.lpg.cypher.constraints.unique.constraint.allows.distinct.values` | `Conformance` | lpg | `Failed` | 6.243 ms |
+| `grafeo.spec.lpg.cypher.constraints.unique.constraint.violation` | `Conformance` | lpg | `Failed` | 6.005 ms |
+| `grafeo.spec.lpg.cypher.constraints.unique.constraint.null.allowed` | `Conformance` | lpg | `Failed` | 6.031 ms |
+| `grafeo.spec.lpg.cypher.constraints.create.not.null.constraint` | `Conformance` | lpg | `Failed` | 0.024 ms |
+| `grafeo.spec.lpg.cypher.constraints.not.null.constraint.satisfied` | `Conformance` | lpg | `Failed` | 6.107 ms |
+| `grafeo.spec.lpg.cypher.constraints.not.null.constraint.violation` | `Conformance` | lpg | `Failed` | 6.021 ms |
+| `grafeo.spec.lpg.cypher.constraints.not.null.constraint.violation.on.set` | `Conformance` | lpg | `Failed` | 6.064 ms |
 | `grafeo.spec.lpg.cypher.constraints.create.node.key.constraint` | `Conformance` | lpg | `Failed` | 0.025 ms |
-| `grafeo.spec.lpg.cypher.constraints.node.key.allows.different.combinations` | `Conformance` | lpg | `Failed` | 5.994 ms |
-| `grafeo.spec.lpg.cypher.constraints.node.key.violation.duplicate` | `Conformance` | lpg | `Failed` | 5.928 ms |
-| `grafeo.spec.lpg.cypher.constraints.node.key.violation.missing.property` | `Conformance` | lpg | `Failed` | 5.842 ms |
+| `grafeo.spec.lpg.cypher.constraints.node.key.allows.different.combinations` | `Conformance` | lpg | `Failed` | 6.097 ms |
+| `grafeo.spec.lpg.cypher.constraints.node.key.violation.duplicate` | `Conformance` | lpg | `Failed` | 5.954 ms |
+| `grafeo.spec.lpg.cypher.constraints.node.key.violation.missing.property` | `Conformance` | lpg | `Failed` | 5.906 ms |
 | `grafeo.spec.lpg.cypher.constraints.drop.constraint` | `Conformance` | lpg | `Failed` | 0.014 ms |
-| `grafeo.spec.lpg.cypher.constraints.drop.nonexistent.constraint` | `Conformance` | lpg | `Passed` | 0.011 ms |
+| `grafeo.spec.lpg.cypher.constraints.drop.nonexistent.constraint` | `Conformance` | lpg | `Passed` | 0.012 ms |
 | `grafeo.spec.lpg.cypher.constraints.drop.constraint.if.exists` | `Conformance` | lpg | `Failed` | 0.012 ms |
 | `grafeo.spec.lpg.cypher.constraints.show.constraints.after.create` | `Conformance` | lpg | `Failed` | 0.008 ms |
 | `grafeo.spec.lpg.cypher.constraints.show.constraints.empty` | `Conformance` | lpg | `Failed` | 0.001 ms |
-| `grafeo.spec.lpg.cypher.expressions.addition` | `Conformance` | lpg | `Passed` | 7.273 ms |
-| `grafeo.spec.lpg.cypher.expressions.subtraction` | `Conformance` | lpg | `Passed` | 7.243 ms |
-| `grafeo.spec.lpg.cypher.expressions.multiplication` | `Conformance` | lpg | `Passed` | 7.242 ms |
-| `grafeo.spec.lpg.cypher.expressions.division` | `Conformance` | lpg | `Passed` | 7.259 ms |
-| `grafeo.spec.lpg.cypher.expressions.modulo` | `Conformance` | lpg | `Passed` | 7.240 ms |
-| `grafeo.spec.lpg.cypher.expressions.power` | `Conformance` | lpg | `Passed` | 7.247 ms |
+| `grafeo.spec.lpg.cypher.expressions.addition` | `Conformance` | lpg | `Passed` | 7.224 ms |
+| `grafeo.spec.lpg.cypher.expressions.subtraction` | `Conformance` | lpg | `Passed` | 7.286 ms |
+| `grafeo.spec.lpg.cypher.expressions.multiplication` | `Conformance` | lpg | `Passed` | 7.261 ms |
+| `grafeo.spec.lpg.cypher.expressions.division` | `Conformance` | lpg | `Passed` | 7.299 ms |
+| `grafeo.spec.lpg.cypher.expressions.modulo` | `Conformance` | lpg | `Passed` | 7.259 ms |
+| `grafeo.spec.lpg.cypher.expressions.power` | `Conformance` | lpg | `Passed` | 7.269 ms |
 | `grafeo.spec.lpg.cypher.expressions.unary.minus` | `Conformance` | lpg | `Failed` | 0.044 ms |
-| `grafeo.spec.lpg.cypher.expressions.string.concat` | `Conformance` | lpg | `Failed` | 7.608 ms |
-| `grafeo.spec.lpg.cypher.expressions.equals` | `Conformance` | lpg | `Passed` | 7.367 ms |
-| `grafeo.spec.lpg.cypher.expressions.not.equals` | `Conformance` | lpg | `Passed` | 7.968 ms |
-| `grafeo.spec.lpg.cypher.expressions.less.than` | `Conformance` | lpg | `Passed` | 8.047 ms |
-| `grafeo.spec.lpg.cypher.expressions.greater.equal` | `Conformance` | lpg | `Passed` | 7.946 ms |
-| `grafeo.spec.lpg.cypher.expressions.starts.with` | `Conformance` | lpg | `Passed` | 8.012 ms |
-| `grafeo.spec.lpg.cypher.expressions.ends.with` | `Conformance` | lpg | `Passed` | 8.295 ms |
-| `grafeo.spec.lpg.cypher.expressions.contains` | `Conformance` | lpg | `Passed` | 8.435 ms |
-| `grafeo.spec.lpg.cypher.expressions.in.list` | `Conformance` | lpg | `Passed` | 9.046 ms |
-| `grafeo.spec.lpg.cypher.expressions.regex.match` | `Conformance` | lpg | `Failed` | 0.063 ms |
-| `grafeo.spec.lpg.cypher.expressions.is.null` | `Conformance` | lpg | `Passed` | 8.301 ms |
-| `grafeo.spec.lpg.cypher.expressions.is.not.null` | `Conformance` | lpg | `Passed` | 8.277 ms |
-| `grafeo.spec.lpg.cypher.expressions.case.simple` | `Conformance` | lpg | `Passed` | 7.800 ms |
-| `grafeo.spec.lpg.cypher.expressions.case.searched` | `Conformance` | lpg | `Passed` | 18.189 ms |
-| `grafeo.spec.lpg.cypher.expressions.list.literal` | `Conformance` | lpg | `Failed` | 16.030 ms |
-| `grafeo.spec.lpg.cypher.expressions.list.comprehension` | `Conformance` | lpg | `Failed` | 11.268 ms |
-| `grafeo.spec.lpg.cypher.expressions.list.comprehension.filter.only` | `Conformance` | lpg | `Failed` | 7.865 ms |
-| `grafeo.spec.lpg.cypher.expressions.list.slice` | `Conformance` | lpg | `Failed` | 7.935 ms |
-| `grafeo.spec.lpg.cypher.expressions.index.access` | `Conformance` | lpg | `Passed` | 7.453 ms |
-| `grafeo.spec.lpg.cypher.expressions.coalesce` | `Conformance` | lpg | `Passed` | 7.665 ms |
-| `grafeo.spec.lpg.cypher.expressions.reduce` | `Conformance` | lpg | `Failed` | 0.255 ms |
-| `grafeo.spec.lpg.cypher.expressions.all.predicate` | `Conformance` | lpg | `Passed` | 7.602 ms |
-| `grafeo.spec.lpg.cypher.expressions.any.predicate` | `Conformance` | lpg | `Passed` | 7.522 ms |
-| `grafeo.spec.lpg.cypher.expressions.none.predicate` | `Conformance` | lpg | `Passed` | 7.540 ms |
-| `grafeo.spec.lpg.cypher.expressions.single.predicate` | `Conformance` | lpg | `Passed` | 7.564 ms |
-| `grafeo.spec.lpg.cypher.expressions.any.with.labels.in.where` | `Conformance` | lpg | `Passed` | 8.489 ms |
-| `grafeo.spec.lpg.cypher.expressions.comparison.in.return` | `Conformance` | lpg | `Passed` | 7.325 ms |
-| `grafeo.spec.lpg.cypher.expressions.aggregate.comparison.in.return` | `Conformance` | lpg | `Passed` | 7.246 ms |
-| `grafeo.spec.lpg.cypher.functions.id.of.node` | `Conformance` | lpg | `Passed` | 7.061 ms |
-| `grafeo.spec.lpg.cypher.functions.labels.single` | `Conformance` | lpg | `Failed` | 7.128 ms |
-| `grafeo.spec.lpg.cypher.functions.labels.multiple` | `Conformance` | lpg | `Passed` | 7.756 ms |
-| `grafeo.spec.lpg.cypher.functions.type.of.relationship` | `Conformance` | lpg | `Failed` | 8.234 ms |
-| `grafeo.spec.lpg.cypher.functions.keys.of.node` | `Conformance` | lpg | `Failed` | 7.535 ms |
-| `grafeo.spec.lpg.cypher.functions.properties.of.node` | `Conformance` | lpg | `Failed` | 7.155 ms |
-| `grafeo.spec.lpg.cypher.functions.exists.property.true` | `Conformance` | lpg | `Failed` | 7.011 ms |
-| `grafeo.spec.lpg.cypher.functions.exists.property.false` | `Conformance` | lpg | `Failed` | 6.791 ms |
-| `grafeo.spec.lpg.cypher.functions.head.of.list` | `Conformance` | lpg | `Passed` | 7.377 ms |
-| `grafeo.spec.lpg.cypher.functions.last.of.list` | `Conformance` | lpg | `Passed` | 7.427 ms |
-| `grafeo.spec.lpg.cypher.functions.tail.of.list` | `Conformance` | lpg | `Failed` | 7.474 ms |
-| `grafeo.spec.lpg.cypher.functions.range.default.step` | `Conformance` | lpg | `Failed` | 7.273 ms |
-| `grafeo.spec.lpg.cypher.functions.range.with.step` | `Conformance` | lpg | `Failed` | 9.461 ms |
-| `grafeo.spec.lpg.cypher.functions.size.of.list` | `Conformance` | lpg | `Passed` | 9.549 ms |
-| `grafeo.spec.lpg.cypher.functions.size.of.string` | `Conformance` | lpg | `Passed` | 7.638 ms |
-| `grafeo.spec.lpg.cypher.functions.to.lower` | `Conformance` | lpg | `Passed` | 7.258 ms |
-| `grafeo.spec.lpg.cypher.functions.to.upper` | `Conformance` | lpg | `Passed` | 7.324 ms |
-| `grafeo.spec.lpg.cypher.functions.trim.whitespace` | `Conformance` | lpg | `Passed` | 7.334 ms |
-| `grafeo.spec.lpg.cypher.functions.replace.substring` | `Conformance` | lpg | `Passed` | 7.449 ms |
-| `grafeo.spec.lpg.cypher.functions.substring.from.start` | `Conformance` | lpg | `Failed` | 7.404 ms |
-| `grafeo.spec.lpg.cypher.functions.substring.to.end` | `Conformance` | lpg | `Failed` | 7.272 ms |
-| `grafeo.spec.lpg.cypher.functions.split.string` | `Conformance` | lpg | `Failed` | 7.299 ms |
-| `grafeo.spec.lpg.cypher.functions.left.string` | `Conformance` | lpg | `Passed` | 7.333 ms |
-| `grafeo.spec.lpg.cypher.functions.right.string` | `Conformance` | lpg | `Passed` | 7.380 ms |
-| `grafeo.spec.lpg.cypher.functions.reverse.string` | `Conformance` | lpg | `Passed` | 7.263 ms |
-| `grafeo.spec.lpg.cypher.functions.abs.positive` | `Conformance` | lpg | `Passed` | 7.257 ms |
-| `grafeo.spec.lpg.cypher.functions.ceil.float` | `Conformance` | lpg | `Passed` | 7.246 ms |
-| `grafeo.spec.lpg.cypher.functions.floor.float` | `Conformance` | lpg | `Passed` | 7.153 ms |
-| `grafeo.spec.lpg.cypher.functions.round.float` | `Conformance` | lpg | `Passed` | 7.118 ms |
-| `grafeo.spec.lpg.cypher.functions.sign.positive` | `Conformance` | lpg | `Passed` | 7.214 ms |
-| `grafeo.spec.lpg.cypher.functions.sign.negative` | `Conformance` | lpg | `Passed` | 7.170 ms |
-| `grafeo.spec.lpg.cypher.functions.sign.zero` | `Conformance` | lpg | `Passed` | 7.167 ms |
-| `grafeo.spec.lpg.cypher.functions.sqrt.perfect.square` | `Conformance` | lpg | `Passed` | 7.136 ms |
-| `grafeo.spec.lpg.cypher.functions.to.integer.from.string` | `Conformance` | lpg | `Passed` | 7.220 ms |
-| `grafeo.spec.lpg.cypher.functions.to.integer.from.float` | `Conformance` | lpg | `Passed` | 7.138 ms |
-| `grafeo.spec.lpg.cypher.functions.to.float.from.string` | `Conformance` | lpg | `Passed` | 7.231 ms |
-| `grafeo.spec.lpg.cypher.functions.to.float.from.integer` | `Conformance` | lpg | `Passed` | 7.153 ms |
-| `grafeo.spec.lpg.cypher.functions.to.string.from.integer` | `Conformance` | lpg | `Passed` | 7.224 ms |
-| `grafeo.spec.lpg.cypher.functions.to.boolean.from.string.true` | `Conformance` | lpg | `Passed` | 7.335 ms |
-| `grafeo.spec.lpg.cypher.functions.to.boolean.from.string.false` | `Conformance` | lpg | `Passed` | 7.321 ms |
-| `grafeo.spec.lpg.cypher.functions.date.from.string` | `Conformance` | lpg | `Passed` | 7.322 ms |
-| `grafeo.spec.lpg.cypher.functions.date.from.map` | `Conformance` | lpg | `Passed` | 7.437 ms |
-| `grafeo.spec.lpg.cypher.functions.datetime.from.string` | `Conformance` | lpg | `Passed` | 7.285 ms |
-| `grafeo.spec.lpg.cypher.functions.duration.from.string` | `Conformance` | lpg | `Failed` | 7.204 ms |
-| `grafeo.spec.lpg.cypher.functions.path.length` | `Conformance` | lpg | `Passed` | 11.845 ms |
-| `grafeo.spec.lpg.cypher.functions.path.length.single.hop` | `Conformance` | lpg | `Passed` | 8.735 ms |
-| `grafeo.spec.lpg.cypher.functions.collect.names` | `Conformance` | lpg | `Passed` | 7.718 ms |
-| `grafeo.spec.lpg.cypher.functions.collect.distinct` | `Conformance` | lpg | `Failed` | 14.944 ms |
-| `grafeo.spec.lpg.cypher.functions.count.with.distinct` | `Conformance` | lpg | `Passed` | 8.378 ms |
-| `grafeo.spec.lpg.cypher.functions.sum.values` | `Conformance` | lpg | `Passed` | 8.484 ms |
-| `grafeo.spec.lpg.cypher.functions.avg.values` | `Conformance` | lpg | `Passed` | 8.453 ms |
-| `grafeo.spec.lpg.cypher.functions.min.values` | `Conformance` | lpg | `Passed` | 8.480 ms |
-| `grafeo.spec.lpg.cypher.functions.max.values` | `Conformance` | lpg | `Passed` | 8.469 ms |
-| `grafeo.spec.lpg.cypher.functions.chained.string.functions` | `Conformance` | lpg | `Passed` | 7.331 ms |
-| `grafeo.spec.lpg.cypher.functions.nested.list.functions` | `Conformance` | lpg | `Passed` | 7.545 ms |
-| `grafeo.spec.lpg.cypher.functions.extended.log.of.e` | `Conformance` | lpg | `Failed` | 7.336 ms |
-| `grafeo.spec.lpg.cypher.functions.extended.log10.of.100` | `Conformance` | lpg | `Passed` | 7.139 ms |
-| `grafeo.spec.lpg.cypher.functions.extended.exp.of.zero` | `Conformance` | lpg | `Passed` | 7.098 ms |
-| `grafeo.spec.lpg.cypher.functions.extended.e.constant` | `Conformance` | lpg | `Failed` | 7.147 ms |
-| `grafeo.spec.lpg.cypher.functions.extended.pi.constant` | `Conformance` | lpg | `Passed` | 7.173 ms |
-| `grafeo.spec.lpg.cypher.functions.extended.rand.in.range` | `Conformance` | lpg | `Passed` | 7.412 ms |
-| `grafeo.spec.lpg.cypher.functions.extended.sin.of.zero` | `Conformance` | lpg | `Passed` | 7.182 ms |
-| `grafeo.spec.lpg.cypher.functions.extended.cos.of.zero` | `Conformance` | lpg | `Passed` | 7.101 ms |
-| `grafeo.spec.lpg.cypher.functions.extended.tan.of.zero` | `Conformance` | lpg | `Passed` | 7.086 ms |
-| `grafeo.spec.lpg.cypher.functions.extended.asin.of.one` | `Conformance` | lpg | `Passed` | 7.150 ms |
-| `grafeo.spec.lpg.cypher.functions.extended.acos.of.one` | `Conformance` | lpg | `Passed` | 7.133 ms |
-| `grafeo.spec.lpg.cypher.functions.extended.atan.of.one` | `Conformance` | lpg | `Passed` | 7.212 ms |
-| `grafeo.spec.lpg.cypher.functions.extended.atan2.unit` | `Conformance` | lpg | `Passed` | 7.225 ms |
-| `grafeo.spec.lpg.cypher.functions.extended.degrees.from.pi` | `Conformance` | lpg | `Passed` | 7.169 ms |
-| `grafeo.spec.lpg.cypher.functions.extended.radians.from.180` | `Conformance` | lpg | `Passed` | 7.185 ms |
-| `grafeo.spec.lpg.cypher.functions.extended.ltrim.whitespace` | `Conformance` | lpg | `Passed` | 7.177 ms |
-| `grafeo.spec.lpg.cypher.functions.extended.rtrim.whitespace` | `Conformance` | lpg | `Passed` | 7.176 ms |
-| `grafeo.spec.lpg.cypher.functions.extended.char.length.string` | `Conformance` | lpg | `Passed` | 7.201 ms |
-| `grafeo.spec.lpg.cypher.functions.extended.length.of.string` | `Conformance` | lpg | `Passed` | 7.389 ms |
-| `grafeo.spec.lpg.cypher.functions.extended.reverse.list` | `Conformance` | lpg | `Failed` | 7.352 ms |
-| `grafeo.spec.lpg.cypher.functions.extended.keys.of.map` | `Conformance` | lpg | `Passed` | 7.629 ms |
-| `grafeo.spec.lpg.cypher.functions.extended.stdev.sample` | `Conformance` | lpg | `Failed` | 11.298 ms |
-| `grafeo.spec.lpg.cypher.functions.extended.stdevp.population` | `Conformance` | lpg | `Failed` | 15.559 ms |
-| `grafeo.spec.lpg.cypher.functions.extended.percentile.cont.median` | `Conformance` | lpg | `Failed` | 9.553 ms |
-| `grafeo.spec.lpg.cypher.functions.extended.percentile.disc.median` | `Conformance` | lpg | `Failed` | 9.519 ms |
-| `grafeo.spec.lpg.cypher.functions.extended.element.id.not.null` | `Conformance` | lpg | `Failed` | 6.969 ms |
-| `grafeo.spec.lpg.cypher.functions.extended.count.star` | `Conformance` | lpg | `Passed` | 7.726 ms |
-| `grafeo.spec.lpg.cypher.functions.extended.count.expr` | `Conformance` | lpg | `Passed` | 7.776 ms |
-| `grafeo.spec.lpg.cypher.functions.extended.nodes.of.path` | `Conformance` | lpg | `Passed` | 9.463 ms |
-| `grafeo.spec.lpg.cypher.functions.extended.relationships.of.path` | `Conformance` | lpg | `Passed` | 9.501 ms |
-| `grafeo.spec.lpg.cypher.functions.extended.nodes.of.multi.hop.path` | `Conformance` | lpg | `Passed` | 11.959 ms |
-| `grafeo.spec.lpg.cypher.functions.extended.relationships.of.multi.hop.path` | `Conformance` | lpg | `Passed` | 11.985 ms |
-| `grafeo.spec.lpg.cypher.functions.extended.date.no.args` | `Conformance` | lpg | `Passed` | 7.263 ms |
-| `grafeo.spec.lpg.cypher.functions.extended.now.returns.value` | `Conformance` | lpg | `Failed` | 9.503 ms |
-| `grafeo.spec.lpg.cypher.functions.extended.year.accessor` | `Conformance` | lpg | `Failed` | 7.314 ms |
-| `grafeo.spec.lpg.cypher.functions.extended.month.accessor` | `Conformance` | lpg | `Failed` | 7.280 ms |
-| `grafeo.spec.lpg.cypher.functions.extended.day.accessor` | `Conformance` | lpg | `Failed` | 7.269 ms |
-| `grafeo.spec.lpg.cypher.functions.extended.time.from.string` | `Conformance` | lpg | `Passed` | 7.359 ms |
-| `grafeo.spec.lpg.cypher.functions.extended.duration.from.map` | `Conformance` | lpg | `Failed` | 7.346 ms |
-| `grafeo.spec.lpg.cypher.patterns.anonymous.node` | `Conformance` | lpg | `Passed` | 6.792 ms |
-| `grafeo.spec.lpg.cypher.patterns.variable.binding` | `Conformance` | lpg | `Passed` | 6.821 ms |
-| `grafeo.spec.lpg.cypher.patterns.single.label` | `Conformance` | lpg | `Passed` | 7.541 ms |
-| `grafeo.spec.lpg.cypher.patterns.multiple.labels` | `Conformance` | lpg | `Passed` | 8.019 ms |
-| `grafeo.spec.lpg.cypher.patterns.property.filter` | `Conformance` | lpg | `Passed` | 7.834 ms |
-| `grafeo.spec.lpg.cypher.patterns.outgoing.relationship` | `Conformance` | lpg | `Passed` | 8.532 ms |
-| `grafeo.spec.lpg.cypher.patterns.incoming.relationship` | `Conformance` | lpg | `Passed` | 8.338 ms |
-| `grafeo.spec.lpg.cypher.patterns.undirected.relationship` | `Conformance` | lpg | `Passed` | 8.817 ms |
-| `grafeo.spec.lpg.cypher.patterns.multiple.relationship.types` | `Conformance` | lpg | `Passed` | 10.781 ms |
-| `grafeo.spec.lpg.cypher.patterns.relationship.properties` | `Conformance` | lpg | `Passed` | 8.996 ms |
-| `grafeo.spec.lpg.cypher.patterns.untyped.relationship` | `Conformance` | lpg | `Failed` | 8.773 ms |
-| `grafeo.spec.lpg.cypher.patterns.anonymous.relationship` | `Conformance` | lpg | `Passed` | 8.421 ms |
-| `grafeo.spec.lpg.cypher.patterns.variable.length.unbounded` | `Conformance` | lpg | `Passed` | 10.948 ms |
-| `grafeo.spec.lpg.cypher.patterns.variable.length.exact` | `Conformance` | lpg | `Passed` | 12.541 ms |
-| `grafeo.spec.lpg.cypher.patterns.variable.length.range` | `Conformance` | lpg | `Passed` | 11.547 ms |
-| `grafeo.spec.lpg.cypher.patterns.variable.length.max.only` | `Conformance` | lpg | `Passed` | 11.658 ms |
-| `grafeo.spec.lpg.cypher.patterns.variable.length.min.only` | `Conformance` | lpg | `Passed` | 11.539 ms |
-| `grafeo.spec.lpg.cypher.patterns.path.alias` | `Conformance` | lpg | `Passed` | 10.614 ms |
-| `grafeo.spec.lpg.cypher.patterns.shortest.path` | `Conformance` | lpg | `Failed` | 0.038 ms |
-| `grafeo.spec.lpg.cypher.patterns.all.shortest.paths` | `Conformance` | lpg | `Failed` | 0.025 ms |
-| `grafeo.spec.lpg.cypher.patterns.pattern.comprehension` | `Conformance` | lpg | `Failed` | 0.114 ms |
-| `grafeo.spec.lpg.cypher.patterns.exists.subquery` | `Conformance` | lpg | `Passed` | 11.527 ms |
-| `grafeo.spec.lpg.cypher.patterns.not.exists` | `Conformance` | lpg | `Passed` | 8.706 ms |
-| `grafeo.spec.lpg.cypher.patterns.count.subquery` | `Conformance` | lpg | `Passed` | 10.289 ms |
-| `grafeo.spec.lpg.cypher.reading.clauses.match.single.node` | `Conformance` | lpg | `Passed` | 7.609 ms |
-| `grafeo.spec.lpg.cypher.reading.clauses.match.by.label` | `Conformance` | lpg | `Passed` | 7.555 ms |
-| `grafeo.spec.lpg.cypher.reading.clauses.match.by.property` | `Conformance` | lpg | `Passed` | 7.811 ms |
-| `grafeo.spec.lpg.cypher.reading.clauses.match.multi.label` | `Conformance` | lpg | `Passed` | 7.912 ms |
-| `grafeo.spec.lpg.cypher.reading.clauses.match.comma.patterns` | `Conformance` | lpg | `Passed` | 7.817 ms |
-| `grafeo.spec.lpg.cypher.reading.clauses.match.multiple.clauses` | `Conformance` | lpg | `Passed` | 7.855 ms |
-| `grafeo.spec.lpg.cypher.reading.clauses.match.edge.outgoing` | `Conformance` | lpg | `Passed` | 8.568 ms |
-| `grafeo.spec.lpg.cypher.reading.clauses.match.edge.incoming` | `Conformance` | lpg | `Passed` | 8.547 ms |
-| `grafeo.spec.lpg.cypher.reading.clauses.match.edge.undirected` | `Conformance` | lpg | `Passed` | 8.798 ms |
-| `grafeo.spec.lpg.cypher.reading.clauses.optional.match.with.result` | `Conformance` | lpg | `Passed` | 8.516 ms |
-| `grafeo.spec.lpg.cypher.reading.clauses.optional.match.null` | `Conformance` | lpg | `Passed` | 7.861 ms |
-| `grafeo.spec.lpg.cypher.reading.clauses.where.comparison` | `Conformance` | lpg | `Passed` | 7.884 ms |
-| `grafeo.spec.lpg.cypher.reading.clauses.where.and` | `Conformance` | lpg | `Passed` | 8.454 ms |
-| `grafeo.spec.lpg.cypher.reading.clauses.where.or` | `Conformance` | lpg | `Passed` | 8.549 ms |
-| `grafeo.spec.lpg.cypher.reading.clauses.where.not` | `Conformance` | lpg | `Passed` | 8.123 ms |
-| `grafeo.spec.lpg.cypher.reading.clauses.where.xor` | `Conformance` | lpg | `Passed` | 9.257 ms |
-| `grafeo.spec.lpg.cypher.reading.clauses.with.projection` | `Conformance` | lpg | `Passed` | 7.369 ms |
-| `grafeo.spec.lpg.cypher.reading.clauses.with.distinct` | `Conformance` | lpg | `Passed` | 8.085 ms |
-| `grafeo.spec.lpg.cypher.reading.clauses.with.where` | `Conformance` | lpg | `Passed` | 8.000 ms |
-| `grafeo.spec.lpg.cypher.reading.clauses.with.star` | `Conformance` | lpg | `Passed` | 11.877 ms |
-| `grafeo.spec.lpg.cypher.reading.clauses.unwind.list` | `Conformance` | lpg | `Passed` | 6.319 ms |
-| `grafeo.spec.lpg.cypher.reading.clauses.unwind.with.match` | `Conformance` | lpg | `Passed` | 8.020 ms |
-| `grafeo.spec.lpg.cypher.reading.clauses.union` | `Conformance` | lpg | `Passed` | 8.088 ms |
-| `grafeo.spec.lpg.cypher.reading.clauses.union.all` | `Conformance` | lpg | `Passed` | 7.364 ms |
-| `grafeo.spec.lpg.cypher.reading.clauses.call.db.labels` | `Conformance` | lpg | `Passed` | 7.554 ms |
-| `grafeo.spec.lpg.cypher.reading.clauses.call.db.relationship.types` | `Conformance` | lpg | `Passed` | 7.879 ms |
-| `grafeo.spec.lpg.cypher.reading.clauses.call.db.property.keys` | `Conformance` | lpg | `Failed` | 6.736 ms |
-| `grafeo.spec.lpg.cypher.reading.clauses.call.subquery.basic` | `Conformance` | lpg | `Failed` | 0.025 ms |
-| `grafeo.spec.lpg.cypher.reading.clauses.call.subquery.with.outer.scope` | `Conformance` | lpg | `Failed` | 0.056 ms |
-| `grafeo.spec.lpg.cypher.regression.not.exists.with.type.filter` | `Conformance` | lpg | `Failed` | 10.596 ms |
-| `grafeo.spec.lpg.cypher.regression.sum.case.when` | `Conformance` | lpg | `Passed` | 14.924 ms |
-| `grafeo.spec.lpg.cypher.regression.any.labels.in.list.matches` | `Conformance` | lpg | `Passed` | 8.078 ms |
-| `grafeo.spec.lpg.cypher.regression.any.labels.in.list.no.match` | `Conformance` | lpg | `Passed` | 8.161 ms |
-| `grafeo.spec.lpg.cypher.regression.any.with.single.match` | `Conformance` | lpg | `Passed` | 8.099 ms |
+| `grafeo.spec.lpg.cypher.expressions.string.concat` | `Conformance` | lpg | `Failed` | 7.654 ms |
+| `grafeo.spec.lpg.cypher.expressions.equals` | `Conformance` | lpg | `Passed` | 7.440 ms |
+| `grafeo.spec.lpg.cypher.expressions.not.equals` | `Conformance` | lpg | `Passed` | 8.003 ms |
+| `grafeo.spec.lpg.cypher.expressions.less.than` | `Conformance` | lpg | `Passed` | 8.039 ms |
+| `grafeo.spec.lpg.cypher.expressions.greater.equal` | `Conformance` | lpg | `Passed` | 7.990 ms |
+| `grafeo.spec.lpg.cypher.expressions.starts.with` | `Conformance` | lpg | `Passed` | 8.108 ms |
+| `grafeo.spec.lpg.cypher.expressions.ends.with` | `Conformance` | lpg | `Passed` | 8.150 ms |
+| `grafeo.spec.lpg.cypher.expressions.contains` | `Conformance` | lpg | `Passed` | 8.359 ms |
+| `grafeo.spec.lpg.cypher.expressions.in.list` | `Conformance` | lpg | `Passed` | 9.192 ms |
+| `grafeo.spec.lpg.cypher.expressions.regex.match` | `Conformance` | lpg | `Failed` | 0.068 ms |
+| `grafeo.spec.lpg.cypher.expressions.is.null` | `Conformance` | lpg | `Passed` | 8.330 ms |
+| `grafeo.spec.lpg.cypher.expressions.is.not.null` | `Conformance` | lpg | `Passed` | 8.263 ms |
+| `grafeo.spec.lpg.cypher.expressions.case.simple` | `Conformance` | lpg | `Passed` | 7.584 ms |
+| `grafeo.spec.lpg.cypher.expressions.case.searched` | `Conformance` | lpg | `Passed` | 7.431 ms |
+| `grafeo.spec.lpg.cypher.expressions.list.literal` | `Conformance` | lpg | `Failed` | 7.746 ms |
+| `grafeo.spec.lpg.cypher.expressions.list.comprehension` | `Conformance` | lpg | `Failed` | 7.921 ms |
+| `grafeo.spec.lpg.cypher.expressions.list.comprehension.filter.only` | `Conformance` | lpg | `Failed` | 7.719 ms |
+| `grafeo.spec.lpg.cypher.expressions.list.slice` | `Conformance` | lpg | `Failed` | 7.764 ms |
+| `grafeo.spec.lpg.cypher.expressions.index.access` | `Conformance` | lpg | `Passed` | 7.512 ms |
+| `grafeo.spec.lpg.cypher.expressions.coalesce` | `Conformance` | lpg | `Passed` | 8.086 ms |
+| `grafeo.spec.lpg.cypher.expressions.reduce` | `Conformance` | lpg | `Failed` | 0.268 ms |
+| `grafeo.spec.lpg.cypher.expressions.all.predicate` | `Conformance` | lpg | `Passed` | 7.839 ms |
+| `grafeo.spec.lpg.cypher.expressions.any.predicate` | `Conformance` | lpg | `Passed` | 7.620 ms |
+| `grafeo.spec.lpg.cypher.expressions.none.predicate` | `Conformance` | lpg | `Passed` | 7.548 ms |
+| `grafeo.spec.lpg.cypher.expressions.single.predicate` | `Conformance` | lpg | `Passed` | 7.629 ms |
+| `grafeo.spec.lpg.cypher.expressions.any.with.labels.in.where` | `Conformance` | lpg | `Passed` | 8.459 ms |
+| `grafeo.spec.lpg.cypher.expressions.comparison.in.return` | `Conformance` | lpg | `Passed` | 7.268 ms |
+| `grafeo.spec.lpg.cypher.expressions.aggregate.comparison.in.return` | `Conformance` | lpg | `Passed` | 7.227 ms |
+| `grafeo.spec.lpg.cypher.functions.id.of.node` | `Conformance` | lpg | `Passed` | 7.175 ms |
+| `grafeo.spec.lpg.cypher.functions.labels.single` | `Conformance` | lpg | `Failed` | 7.233 ms |
+| `grafeo.spec.lpg.cypher.functions.labels.multiple` | `Conformance` | lpg | `Passed` | 7.791 ms |
+| `grafeo.spec.lpg.cypher.functions.type.of.relationship` | `Conformance` | lpg | `Failed` | 8.206 ms |
+| `grafeo.spec.lpg.cypher.functions.keys.of.node` | `Conformance` | lpg | `Failed` | 7.532 ms |
+| `grafeo.spec.lpg.cypher.functions.properties.of.node` | `Conformance` | lpg | `Failed` | 7.246 ms |
+| `grafeo.spec.lpg.cypher.functions.exists.property.true` | `Conformance` | lpg | `Failed` | 7.024 ms |
+| `grafeo.spec.lpg.cypher.functions.exists.property.false` | `Conformance` | lpg | `Failed` | 6.848 ms |
+| `grafeo.spec.lpg.cypher.functions.head.of.list` | `Conformance` | lpg | `Passed` | 7.427 ms |
+| `grafeo.spec.lpg.cypher.functions.last.of.list` | `Conformance` | lpg | `Passed` | 7.453 ms |
+| `grafeo.spec.lpg.cypher.functions.tail.of.list` | `Conformance` | lpg | `Failed` | 7.489 ms |
+| `grafeo.spec.lpg.cypher.functions.range.default.step` | `Conformance` | lpg | `Failed` | 7.322 ms |
+| `grafeo.spec.lpg.cypher.functions.range.with.step` | `Conformance` | lpg | `Failed` | 7.354 ms |
+| `grafeo.spec.lpg.cypher.functions.size.of.list` | `Conformance` | lpg | `Passed` | 7.470 ms |
+| `grafeo.spec.lpg.cypher.functions.size.of.string` | `Conformance` | lpg | `Passed` | 7.437 ms |
+| `grafeo.spec.lpg.cypher.functions.to.lower` | `Conformance` | lpg | `Passed` | 7.294 ms |
+| `grafeo.spec.lpg.cypher.functions.to.upper` | `Conformance` | lpg | `Passed` | 7.242 ms |
+| `grafeo.spec.lpg.cypher.functions.trim.whitespace` | `Conformance` | lpg | `Passed` | 7.247 ms |
+| `grafeo.spec.lpg.cypher.functions.replace.substring` | `Conformance` | lpg | `Passed` | 7.349 ms |
+| `grafeo.spec.lpg.cypher.functions.substring.from.start` | `Conformance` | lpg | `Failed` | 7.326 ms |
+| `grafeo.spec.lpg.cypher.functions.substring.to.end` | `Conformance` | lpg | `Failed` | 7.302 ms |
+| `grafeo.spec.lpg.cypher.functions.split.string` | `Conformance` | lpg | `Failed` | 7.285 ms |
+| `grafeo.spec.lpg.cypher.functions.left.string` | `Conformance` | lpg | `Passed` | 7.346 ms |
+| `grafeo.spec.lpg.cypher.functions.right.string` | `Conformance` | lpg | `Passed` | 7.343 ms |
+| `grafeo.spec.lpg.cypher.functions.reverse.string` | `Conformance` | lpg | `Passed` | 7.282 ms |
+| `grafeo.spec.lpg.cypher.functions.abs.positive` | `Conformance` | lpg | `Passed` | 7.211 ms |
+| `grafeo.spec.lpg.cypher.functions.ceil.float` | `Conformance` | lpg | `Passed` | 7.169 ms |
+| `grafeo.spec.lpg.cypher.functions.floor.float` | `Conformance` | lpg | `Passed` | 7.134 ms |
+| `grafeo.spec.lpg.cypher.functions.round.float` | `Conformance` | lpg | `Passed` | 7.164 ms |
+| `grafeo.spec.lpg.cypher.functions.sign.positive` | `Conformance` | lpg | `Passed` | 7.272 ms |
+| `grafeo.spec.lpg.cypher.functions.sign.negative` | `Conformance` | lpg | `Passed` | 7.183 ms |
+| `grafeo.spec.lpg.cypher.functions.sign.zero` | `Conformance` | lpg | `Passed` | 7.134 ms |
+| `grafeo.spec.lpg.cypher.functions.sqrt.perfect.square` | `Conformance` | lpg | `Passed` | 7.168 ms |
+| `grafeo.spec.lpg.cypher.functions.to.integer.from.string` | `Conformance` | lpg | `Passed` | 7.219 ms |
+| `grafeo.spec.lpg.cypher.functions.to.integer.from.float` | `Conformance` | lpg | `Passed` | 7.073 ms |
+| `grafeo.spec.lpg.cypher.functions.to.float.from.string` | `Conformance` | lpg | `Passed` | 7.172 ms |
+| `grafeo.spec.lpg.cypher.functions.to.float.from.integer` | `Conformance` | lpg | `Passed` | 7.131 ms |
+| `grafeo.spec.lpg.cypher.functions.to.string.from.integer` | `Conformance` | lpg | `Passed` | 7.231 ms |
+| `grafeo.spec.lpg.cypher.functions.to.boolean.from.string.true` | `Conformance` | lpg | `Passed` | 7.381 ms |
+| `grafeo.spec.lpg.cypher.functions.to.boolean.from.string.false` | `Conformance` | lpg | `Passed` | 7.331 ms |
+| `grafeo.spec.lpg.cypher.functions.date.from.string` | `Conformance` | lpg | `Passed` | 7.314 ms |
+| `grafeo.spec.lpg.cypher.functions.date.from.map` | `Conformance` | lpg | `Passed` | 7.428 ms |
+| `grafeo.spec.lpg.cypher.functions.datetime.from.string` | `Conformance` | lpg | `Passed` | 7.275 ms |
+| `grafeo.spec.lpg.cypher.functions.duration.from.string` | `Conformance` | lpg | `Failed` | 7.152 ms |
+| `grafeo.spec.lpg.cypher.functions.path.length` | `Conformance` | lpg | `Passed` | 11.923 ms |
+| `grafeo.spec.lpg.cypher.functions.path.length.single.hop` | `Conformance` | lpg | `Passed` | 8.839 ms |
+| `grafeo.spec.lpg.cypher.functions.collect.names` | `Conformance` | lpg | `Passed` | 7.733 ms |
+| `grafeo.spec.lpg.cypher.functions.collect.distinct` | `Conformance` | lpg | `Failed` | 8.277 ms |
+| `grafeo.spec.lpg.cypher.functions.count.with.distinct` | `Conformance` | lpg | `Passed` | 8.539 ms |
+| `grafeo.spec.lpg.cypher.functions.sum.values` | `Conformance` | lpg | `Passed` | 8.546 ms |
+| `grafeo.spec.lpg.cypher.functions.avg.values` | `Conformance` | lpg | `Passed` | 16.627 ms |
+| `grafeo.spec.lpg.cypher.functions.min.values` | `Conformance` | lpg | `Passed` | 11.133 ms |
+| `grafeo.spec.lpg.cypher.functions.max.values` | `Conformance` | lpg | `Passed` | 8.416 ms |
+| `grafeo.spec.lpg.cypher.functions.chained.string.functions` | `Conformance` | lpg | `Passed` | 7.378 ms |
+| `grafeo.spec.lpg.cypher.functions.nested.list.functions` | `Conformance` | lpg | `Passed` | 7.596 ms |
+| `grafeo.spec.lpg.cypher.functions.extended.log.of.e` | `Conformance` | lpg | `Failed` | 7.334 ms |
+| `grafeo.spec.lpg.cypher.functions.extended.log10.of.100` | `Conformance` | lpg | `Passed` | 7.156 ms |
+| `grafeo.spec.lpg.cypher.functions.extended.exp.of.zero` | `Conformance` | lpg | `Passed` | 7.109 ms |
+| `grafeo.spec.lpg.cypher.functions.extended.e.constant` | `Conformance` | lpg | `Failed` | 7.168 ms |
+| `grafeo.spec.lpg.cypher.functions.extended.pi.constant` | `Conformance` | lpg | `Passed` | 7.449 ms |
+| `grafeo.spec.lpg.cypher.functions.extended.rand.in.range` | `Conformance` | lpg | `Passed` | 7.496 ms |
+| `grafeo.spec.lpg.cypher.functions.extended.sin.of.zero` | `Conformance` | lpg | `Passed` | 7.251 ms |
+| `grafeo.spec.lpg.cypher.functions.extended.cos.of.zero` | `Conformance` | lpg | `Passed` | 7.239 ms |
+| `grafeo.spec.lpg.cypher.functions.extended.tan.of.zero` | `Conformance` | lpg | `Passed` | 7.146 ms |
+| `grafeo.spec.lpg.cypher.functions.extended.asin.of.one` | `Conformance` | lpg | `Passed` | 7.536 ms |
+| `grafeo.spec.lpg.cypher.functions.extended.acos.of.one` | `Conformance` | lpg | `Passed` | 7.232 ms |
+| `grafeo.spec.lpg.cypher.functions.extended.atan.of.one` | `Conformance` | lpg | `Passed` | 8.254 ms |
+| `grafeo.spec.lpg.cypher.functions.extended.atan2.unit` | `Conformance` | lpg | `Passed` | 7.307 ms |
+| `grafeo.spec.lpg.cypher.functions.extended.degrees.from.pi` | `Conformance` | lpg | `Passed` | 7.361 ms |
+| `grafeo.spec.lpg.cypher.functions.extended.radians.from.180` | `Conformance` | lpg | `Passed` | 7.288 ms |
+| `grafeo.spec.lpg.cypher.functions.extended.ltrim.whitespace` | `Conformance` | lpg | `Passed` | 7.271 ms |
+| `grafeo.spec.lpg.cypher.functions.extended.rtrim.whitespace` | `Conformance` | lpg | `Passed` | 7.262 ms |
+| `grafeo.spec.lpg.cypher.functions.extended.char.length.string` | `Conformance` | lpg | `Passed` | 7.256 ms |
+| `grafeo.spec.lpg.cypher.functions.extended.length.of.string` | `Conformance` | lpg | `Passed` | 7.436 ms |
+| `grafeo.spec.lpg.cypher.functions.extended.reverse.list` | `Conformance` | lpg | `Failed` | 10.261 ms |
+| `grafeo.spec.lpg.cypher.functions.extended.keys.of.map` | `Conformance` | lpg | `Passed` | 7.784 ms |
+| `grafeo.spec.lpg.cypher.functions.extended.stdev.sample` | `Conformance` | lpg | `Failed` | 11.347 ms |
+| `grafeo.spec.lpg.cypher.functions.extended.stdevp.population` | `Conformance` | lpg | `Failed` | 11.518 ms |
+| `grafeo.spec.lpg.cypher.functions.extended.percentile.cont.median` | `Conformance` | lpg | `Failed` | 9.761 ms |
+| `grafeo.spec.lpg.cypher.functions.extended.percentile.disc.median` | `Conformance` | lpg | `Failed` | 9.713 ms |
+| `grafeo.spec.lpg.cypher.functions.extended.element.id.not.null` | `Conformance` | lpg | `Failed` | 6.993 ms |
+| `grafeo.spec.lpg.cypher.functions.extended.count.star` | `Conformance` | lpg | `Passed` | 7.918 ms |
+| `grafeo.spec.lpg.cypher.functions.extended.count.expr` | `Conformance` | lpg | `Passed` | 7.858 ms |
+| `grafeo.spec.lpg.cypher.functions.extended.nodes.of.path` | `Conformance` | lpg | `Passed` | 9.435 ms |
+| `grafeo.spec.lpg.cypher.functions.extended.relationships.of.path` | `Conformance` | lpg | `Passed` | 9.450 ms |
+| `grafeo.spec.lpg.cypher.functions.extended.nodes.of.multi.hop.path` | `Conformance` | lpg | `Passed` | 12.006 ms |
+| `grafeo.spec.lpg.cypher.functions.extended.relationships.of.multi.hop.path` | `Conformance` | lpg | `Passed` | 12.031 ms |
+| `grafeo.spec.lpg.cypher.functions.extended.date.no.args` | `Conformance` | lpg | `Passed` | 7.337 ms |
+| `grafeo.spec.lpg.cypher.functions.extended.now.returns.value` | `Conformance` | lpg | `Failed` | 7.192 ms |
+| `grafeo.spec.lpg.cypher.functions.extended.year.accessor` | `Conformance` | lpg | `Failed` | 7.319 ms |
+| `grafeo.spec.lpg.cypher.functions.extended.month.accessor` | `Conformance` | lpg | `Failed` | 7.283 ms |
+| `grafeo.spec.lpg.cypher.functions.extended.day.accessor` | `Conformance` | lpg | `Failed` | 7.301 ms |
+| `grafeo.spec.lpg.cypher.functions.extended.time.from.string` | `Conformance` | lpg | `Passed` | 7.337 ms |
+| `grafeo.spec.lpg.cypher.functions.extended.duration.from.map` | `Conformance` | lpg | `Failed` | 7.388 ms |
+| `grafeo.spec.lpg.cypher.patterns.anonymous.node` | `Conformance` | lpg | `Passed` | 6.777 ms |
+| `grafeo.spec.lpg.cypher.patterns.variable.binding` | `Conformance` | lpg | `Passed` | 6.850 ms |
+| `grafeo.spec.lpg.cypher.patterns.single.label` | `Conformance` | lpg | `Passed` | 7.493 ms |
+| `grafeo.spec.lpg.cypher.patterns.multiple.labels` | `Conformance` | lpg | `Passed` | 8.097 ms |
+| `grafeo.spec.lpg.cypher.patterns.property.filter` | `Conformance` | lpg | `Passed` | 7.912 ms |
+| `grafeo.spec.lpg.cypher.patterns.outgoing.relationship` | `Conformance` | lpg | `Passed` | 8.540 ms |
+| `grafeo.spec.lpg.cypher.patterns.incoming.relationship` | `Conformance` | lpg | `Passed` | 8.414 ms |
+| `grafeo.spec.lpg.cypher.patterns.undirected.relationship` | `Conformance` | lpg | `Passed` | 8.874 ms |
+| `grafeo.spec.lpg.cypher.patterns.multiple.relationship.types` | `Conformance` | lpg | `Passed` | 10.848 ms |
+| `grafeo.spec.lpg.cypher.patterns.relationship.properties` | `Conformance` | lpg | `Passed` | 9.049 ms |
+| `grafeo.spec.lpg.cypher.patterns.untyped.relationship` | `Conformance` | lpg | `Failed` | 8.354 ms |
+| `grafeo.spec.lpg.cypher.patterns.anonymous.relationship` | `Conformance` | lpg | `Passed` | 8.406 ms |
+| `grafeo.spec.lpg.cypher.patterns.variable.length.unbounded` | `Conformance` | lpg | `Passed` | 10.910 ms |
+| `grafeo.spec.lpg.cypher.patterns.variable.length.exact` | `Conformance` | lpg | `Passed` | 12.526 ms |
+| `grafeo.spec.lpg.cypher.patterns.variable.length.range` | `Conformance` | lpg | `Passed` | 11.606 ms |
+| `grafeo.spec.lpg.cypher.patterns.variable.length.max.only` | `Conformance` | lpg | `Passed` | 11.602 ms |
+| `grafeo.spec.lpg.cypher.patterns.variable.length.min.only` | `Conformance` | lpg | `Passed` | 11.637 ms |
+| `grafeo.spec.lpg.cypher.patterns.path.alias` | `Conformance` | lpg | `Passed` | 8.986 ms |
+| `grafeo.spec.lpg.cypher.patterns.shortest.path` | `Conformance` | lpg | `Failed` | 0.030 ms |
+| `grafeo.spec.lpg.cypher.patterns.all.shortest.paths` | `Conformance` | lpg | `Failed` | 0.026 ms |
+| `grafeo.spec.lpg.cypher.patterns.pattern.comprehension` | `Conformance` | lpg | `Failed` | 0.104 ms |
+| `grafeo.spec.lpg.cypher.patterns.exists.subquery` | `Conformance` | lpg | `Passed` | 9.629 ms |
+| `grafeo.spec.lpg.cypher.patterns.not.exists` | `Conformance` | lpg | `Passed` | 8.846 ms |
+| `grafeo.spec.lpg.cypher.patterns.count.subquery` | `Conformance` | lpg | `Passed` | 10.322 ms |
+| `grafeo.spec.lpg.cypher.reading.clauses.match.single.node` | `Conformance` | lpg | `Passed` | 7.924 ms |
+| `grafeo.spec.lpg.cypher.reading.clauses.match.by.label` | `Conformance` | lpg | `Passed` | 7.679 ms |
+| `grafeo.spec.lpg.cypher.reading.clauses.match.by.property` | `Conformance` | lpg | `Passed` | 7.915 ms |
+| `grafeo.spec.lpg.cypher.reading.clauses.match.multi.label` | `Conformance` | lpg | `Passed` | 7.995 ms |
+| `grafeo.spec.lpg.cypher.reading.clauses.match.comma.patterns` | `Conformance` | lpg | `Passed` | 7.849 ms |
+| `grafeo.spec.lpg.cypher.reading.clauses.match.multiple.clauses` | `Conformance` | lpg | `Passed` | 7.916 ms |
+| `grafeo.spec.lpg.cypher.reading.clauses.match.edge.outgoing` | `Conformance` | lpg | `Passed` | 8.600 ms |
+| `grafeo.spec.lpg.cypher.reading.clauses.match.edge.incoming` | `Conformance` | lpg | `Passed` | 8.665 ms |
+| `grafeo.spec.lpg.cypher.reading.clauses.match.edge.undirected` | `Conformance` | lpg | `Passed` | 8.880 ms |
+| `grafeo.spec.lpg.cypher.reading.clauses.optional.match.with.result` | `Conformance` | lpg | `Passed` | 8.548 ms |
+| `grafeo.spec.lpg.cypher.reading.clauses.optional.match.null` | `Conformance` | lpg | `Passed` | 7.865 ms |
+| `grafeo.spec.lpg.cypher.reading.clauses.where.comparison` | `Conformance` | lpg | `Passed` | 7.931 ms |
+| `grafeo.spec.lpg.cypher.reading.clauses.where.and` | `Conformance` | lpg | `Passed` | 8.461 ms |
+| `grafeo.spec.lpg.cypher.reading.clauses.where.or` | `Conformance` | lpg | `Passed` | 8.651 ms |
+| `grafeo.spec.lpg.cypher.reading.clauses.where.not` | `Conformance` | lpg | `Passed` | 8.406 ms |
+| `grafeo.spec.lpg.cypher.reading.clauses.where.xor` | `Conformance` | lpg | `Passed` | 9.456 ms |
+| `grafeo.spec.lpg.cypher.reading.clauses.with.projection` | `Conformance` | lpg | `Passed` | 22.114 ms |
+| `grafeo.spec.lpg.cypher.reading.clauses.with.distinct` | `Conformance` | lpg | `Passed` | 8.386 ms |
+| `grafeo.spec.lpg.cypher.reading.clauses.with.where` | `Conformance` | lpg | `Passed` | 8.138 ms |
+| `grafeo.spec.lpg.cypher.reading.clauses.with.star` | `Conformance` | lpg | `Passed` | 7.052 ms |
+| `grafeo.spec.lpg.cypher.reading.clauses.unwind.list` | `Conformance` | lpg | `Passed` | 6.384 ms |
+| `grafeo.spec.lpg.cypher.reading.clauses.unwind.with.match` | `Conformance` | lpg | `Passed` | 8.165 ms |
+| `grafeo.spec.lpg.cypher.reading.clauses.union` | `Conformance` | lpg | `Passed` | 8.165 ms |
+| `grafeo.spec.lpg.cypher.reading.clauses.union.all` | `Conformance` | lpg | `Passed` | 7.381 ms |
+| `grafeo.spec.lpg.cypher.reading.clauses.call.db.labels` | `Conformance` | lpg | `Passed` | 7.587 ms |
+| `grafeo.spec.lpg.cypher.reading.clauses.call.db.relationship.types` | `Conformance` | lpg | `Passed` | 7.997 ms |
+| `grafeo.spec.lpg.cypher.reading.clauses.call.db.property.keys` | `Conformance` | lpg | `Failed` | 6.794 ms |
+| `grafeo.spec.lpg.cypher.reading.clauses.call.subquery.basic` | `Conformance` | lpg | `Failed` | 0.027 ms |
+| `grafeo.spec.lpg.cypher.reading.clauses.call.subquery.with.outer.scope` | `Conformance` | lpg | `Failed` | 0.057 ms |
+| `grafeo.spec.lpg.cypher.regression.not.exists.with.type.filter` | `Conformance` | lpg | `Failed` | 10.649 ms |
+| `grafeo.spec.lpg.cypher.regression.sum.case.when` | `Conformance` | lpg | `Passed` | 15.265 ms |
+| `grafeo.spec.lpg.cypher.regression.any.labels.in.list.matches` | `Conformance` | lpg | `Passed` | 8.098 ms |
+| `grafeo.spec.lpg.cypher.regression.any.labels.in.list.no.match` | `Conformance` | lpg | `Passed` | 8.104 ms |
+| `grafeo.spec.lpg.cypher.regression.any.with.single.match` | `Conformance` | lpg | `Passed` | 8.395 ms |
 | `grafeo.spec.lpg.cypher.regression.reduce.with.case.max` | `Conformance` | lpg | `Failed` | 0.235 ms |
-| `grafeo.spec.lpg.cypher.regression.reduce.with.case.min` | `Conformance` | lpg | `Failed` | 0.223 ms |
-| `grafeo.spec.lpg.cypher.regression.reduce.with.case.conditional.sum` | `Conformance` | lpg | `Failed` | 0.225 ms |
-| `grafeo.spec.lpg.cypher.regression.outgoing.target.property.filter` | `Conformance` | lpg | `Passed` | 10.944 ms |
-| `grafeo.spec.lpg.cypher.regression.target.property.filter.count` | `Conformance` | lpg | `Passed` | 10.876 ms |
-| `grafeo.spec.lpg.cypher.regression.target.property.filter.no.match` | `Conformance` | lpg | `Passed` | 8.498 ms |
-| `grafeo.spec.lpg.cypher.regression.edge.property.filter` | `Conformance` | lpg | `Passed` | 11.212 ms |
-| `grafeo.spec.lpg.cypher.regression.optional.match.count.preserves.all.rows` | `Conformance` | lpg | `Passed` | 9.545 ms |
-| `grafeo.spec.lpg.cypher.regression.union.deduplicates` | `Conformance` | lpg | `Passed` | 6.486 ms |
-| `grafeo.spec.lpg.cypher.regression.union.all.preserves` | `Conformance` | lpg | `Passed` | 6.260 ms |
-| `grafeo.spec.lpg.cypher.regression.two.hop.equivalence` | `Conformance` | lpg | `Passed` | 11.178 ms |
-| `grafeo.spec.lpg.cypher.regression.merge.creates.new.after.delete` | `Conformance` | lpg | `Passed` | 8.618 ms |
-| `grafeo.spec.lpg.cypher.regression.replace.edge` | `Conformance` | lpg | `Passed` | 12.201 ms |
-| `grafeo.spec.lpg.cypher.regression.backward.arrow.forward` | `Conformance` | lpg | `Passed` | 9.145 ms |
-| `grafeo.spec.lpg.cypher.regression.backward.arrow.reverse` | `Conformance` | lpg | `Passed` | 8.922 ms |
-| `grafeo.spec.lpg.cypher.regression.backward.arrow.wrong.direction` | `Conformance` | lpg | `Passed` | 8.704 ms |
-| `grafeo.spec.lpg.cypher.regression.null.equals.null.is.unknown` | `Conformance` | lpg | `Passed` | 7.302 ms |
-| `grafeo.spec.lpg.cypher.regression.null.is.null.is.true` | `Conformance` | lpg | `Passed` | 7.349 ms |
-| `grafeo.spec.lpg.cypher.regression.bool.to.string` | `Conformance` | lpg | `Passed` | 7.853 ms |
-| `grafeo.spec.lpg.cypher.regression.int.to.string` | `Conformance` | lpg | `Passed` | 7.825 ms |
-| `grafeo.spec.lpg.cypher.regression.string.false.ne.bool.false` | `Conformance` | lpg | `Failed` | 8.042 ms |
-| `grafeo.spec.lpg.cypher.regression.neq.excludes.null` | `Conformance` | lpg | `Passed` | 8.542 ms |
-| `grafeo.spec.lpg.cypher.regression.skip.plus.limit` | `Conformance` | lpg | `Passed` | 13.499 ms |
-| `grafeo.spec.lpg.cypher.regression.distinct.values` | `Conformance` | lpg | `Passed` | 8.670 ms |
-| `grafeo.spec.lpg.cypher.regression.distinct.collapses.nulls` | `Conformance` | lpg | `Passed` | 8.993 ms |
-| `grafeo.spec.lpg.cypher.regression.order.by.property.matching.return.alias.with.edge` | `Conformance` | lpg | `Passed` | 12.440 ms |
-| `grafeo.spec.lpg.cypher.regression.order.by.desc.with.relationship.traversal` | `Conformance` | lpg | `Passed` | 12.535 ms |
-| `grafeo.spec.lpg.cypher.return.ordering.return.expression` | `Conformance` | lpg | `Passed` | 7.274 ms |
-| `grafeo.spec.lpg.cypher.return.ordering.return.alias` | `Conformance` | lpg | `Passed` | 6.944 ms |
-| `grafeo.spec.lpg.cypher.return.ordering.return.distinct` | `Conformance` | lpg | `Passed` | 7.932 ms |
-| `grafeo.spec.lpg.cypher.return.ordering.return.star` | `Conformance` | lpg | `Passed` | 6.751 ms |
-| `grafeo.spec.lpg.cypher.return.ordering.return.count.star` | `Conformance` | lpg | `Passed` | 7.435 ms |
-| `grafeo.spec.lpg.cypher.return.ordering.return.arithmetic` | `Conformance` | lpg | `Passed` | 7.155 ms |
-| `grafeo.spec.lpg.cypher.return.ordering.return.boolean.expression` | `Conformance` | lpg | `Passed` | 7.139 ms |
-| `grafeo.spec.lpg.cypher.return.ordering.order.by.asc` | `Conformance` | lpg | `Passed` | 7.847 ms |
-| `grafeo.spec.lpg.cypher.return.ordering.order.by.desc` | `Conformance` | lpg | `Passed` | 7.803 ms |
-| `grafeo.spec.lpg.cypher.return.ordering.order.by.multiple.keys` | `Conformance` | lpg | `Passed` | 9.028 ms |
-| `grafeo.spec.lpg.cypher.return.ordering.limit` | `Conformance` | lpg | `Passed` | 9.663 ms |
-| `grafeo.spec.lpg.cypher.return.ordering.skip` | `Conformance` | lpg | `Passed` | 9.858 ms |
-| `grafeo.spec.lpg.cypher.return.ordering.skip.and.limit` | `Conformance` | lpg | `Passed` | 9.977 ms |
-| `grafeo.spec.lpg.cypher.types.integer.decimal` | `Conformance` | lpg | `Passed` | 7.132 ms |
-| `grafeo.spec.lpg.cypher.types.integer.negative` | `Conformance` | lpg | `Passed` | 7.081 ms |
-| `grafeo.spec.lpg.cypher.types.integer.zero` | `Conformance` | lpg | `Passed` | 7.093 ms |
-| `grafeo.spec.lpg.cypher.types.integer.hex` | `Conformance` | lpg | `Passed` | 7.069 ms |
-| `grafeo.spec.lpg.cypher.types.integer.octal` | `Conformance` | lpg | `Passed` | 7.071 ms |
-| `grafeo.spec.lpg.cypher.types.float.decimal` | `Conformance` | lpg | `Passed` | 7.107 ms |
-| `grafeo.spec.lpg.cypher.types.float.scientific` | `Conformance` | lpg | `Passed` | 7.073 ms |
-| `grafeo.spec.lpg.cypher.types.float.negative` | `Conformance` | lpg | `Passed` | 7.058 ms |
-| `grafeo.spec.lpg.cypher.types.string.single.quoted` | `Conformance` | lpg | `Passed` | 7.103 ms |
-| `grafeo.spec.lpg.cypher.types.string.double.quoted` | `Conformance` | lpg | `Failed` | 0.046 ms |
-| `grafeo.spec.lpg.cypher.types.string.empty` | `Conformance` | lpg | `Passed` | 7.083 ms |
-| `grafeo.spec.lpg.cypher.types.boolean.true` | `Conformance` | lpg | `Passed` | 7.121 ms |
-| `grafeo.spec.lpg.cypher.types.boolean.false` | `Conformance` | lpg | `Passed` | 7.078 ms |
-| `grafeo.spec.lpg.cypher.types.null.literal` | `Conformance` | lpg | `Passed` | 7.097 ms |
-| `grafeo.spec.lpg.cypher.types.null.comparison.is.null` | `Conformance` | lpg | `Passed` | 7.109 ms |
-| `grafeo.spec.lpg.cypher.types.null.comparison.is.not.null` | `Conformance` | lpg | `Passed` | 7.086 ms |
-| `grafeo.spec.lpg.cypher.types.null.equality.returns.null` | `Conformance` | lpg | `Failed` | 7.164 ms |
-| `grafeo.spec.lpg.cypher.types.missing.property.is.null` | `Conformance` | lpg | `Passed` | 7.428 ms |
-| `grafeo.spec.lpg.cypher.types.list.of.integers` | `Conformance` | lpg | `Failed` | 7.227 ms |
-| `grafeo.spec.lpg.cypher.types.list.empty` | `Conformance` | lpg | `Passed` | 7.143 ms |
-| `grafeo.spec.lpg.cypher.types.list.nested` | `Conformance` | lpg | `Passed` | 7.447 ms |
-| `grafeo.spec.lpg.cypher.types.list.size` | `Conformance` | lpg | `Passed` | 7.512 ms |
-| `grafeo.spec.lpg.cypher.types.map.literal` | `Conformance` | lpg | `Passed` | 7.257 ms |
-| `grafeo.spec.lpg.cypher.types.map.key.count` | `Conformance` | lpg | `Passed` | 7.692 ms |
-| `grafeo.spec.lpg.cypher.types.node.return` | `Conformance` | lpg | `Passed` | 6.850 ms |
-| `grafeo.spec.lpg.cypher.types.relationship.return` | `Conformance` | lpg | `Passed` | 8.557 ms |
-| `grafeo.spec.lpg.cypher.types.path.return` | `Conformance` | lpg | `Passed` | 8.355 ms |
-| `grafeo.spec.lpg.cypher.types.date.from.string` | `Conformance` | lpg | `Passed` | 7.299 ms |
-| `grafeo.spec.lpg.cypher.types.time.from.string` | `Conformance` | lpg | `Passed` | 7.303 ms |
-| `grafeo.spec.lpg.cypher.types.datetime.from.string` | `Conformance` | lpg | `Passed` | 7.322 ms |
-| `grafeo.spec.lpg.cypher.types.duration.from.string` | `Conformance` | lpg | `Failed` | 7.086 ms |
-| `grafeo.spec.lpg.cypher.types.date.stored.as.property` | `Conformance` | lpg | `Passed` | 7.526 ms |
-| `grafeo.spec.lpg.cypher.types.integer.to.float.arithmetic` | `Conformance` | lpg | `Passed` | 7.146 ms |
-| `grafeo.spec.lpg.cypher.types.to.integer.truncation` | `Conformance` | lpg | `Passed` | 7.162 ms |
-| `grafeo.spec.lpg.cypher.types.to.float.from.integer` | `Conformance` | lpg | `Passed` | 7.130 ms |
-| `grafeo.spec.lpg.cypher.types.to.string.from.boolean` | `Conformance` | lpg | `Failed` | 7.072 ms |
-| `grafeo.spec.lpg.cypher.types.to.boolean.from.string.false` | `Conformance` | lpg | `Passed` | 7.328 ms |
-| `grafeo.spec.lpg.cypher.writing.clauses.create.node` | `Conformance` | lpg | `Passed` | 6.828 ms |
-| `grafeo.spec.lpg.cypher.writing.clauses.create.node.multi.label` | `Conformance` | lpg | `Passed` | 7.550 ms |
-| `grafeo.spec.lpg.cypher.writing.clauses.create.relationship` | `Conformance` | lpg | `Passed` | 8.828 ms |
-| `grafeo.spec.lpg.cypher.writing.clauses.create.relationship.with.properties` | `Conformance` | lpg | `Passed` | 9.646 ms |
-| `grafeo.spec.lpg.cypher.writing.clauses.create.path.pattern` | `Conformance` | lpg | `Passed` | 9.290 ms |
-| `grafeo.spec.lpg.cypher.writing.clauses.delete.node` | `Conformance` | lpg | `Passed` | 7.787 ms |
-| `grafeo.spec.lpg.cypher.writing.clauses.delete.multiple` | `Conformance` | lpg | `Passed` | 8.564 ms |
-| `grafeo.spec.lpg.cypher.writing.clauses.detach.delete` | `Conformance` | lpg | `Passed` | 8.973 ms |
-| `grafeo.spec.lpg.cypher.writing.clauses.detach.delete.with.return` | `Conformance` | lpg | `Passed` | 8.819 ms |
-| `grafeo.spec.lpg.cypher.writing.clauses.set.property` | `Conformance` | lpg | `Passed` | 7.807 ms |
-| `grafeo.spec.lpg.cypher.writing.clauses.set.multiple.properties` | `Conformance` | lpg | `Passed` | 8.574 ms |
-| `grafeo.spec.lpg.cypher.writing.clauses.set.replace.all` | `Conformance` | lpg | `Failed` | 0.120 ms |
+| `grafeo.spec.lpg.cypher.regression.reduce.with.case.min` | `Conformance` | lpg | `Failed` | 0.221 ms |
+| `grafeo.spec.lpg.cypher.regression.reduce.with.case.conditional.sum` | `Conformance` | lpg | `Failed` | 0.217 ms |
+| `grafeo.spec.lpg.cypher.regression.outgoing.target.property.filter` | `Conformance` | lpg | `Passed` | 11.017 ms |
+| `grafeo.spec.lpg.cypher.regression.target.property.filter.count` | `Conformance` | lpg | `Passed` | 10.861 ms |
+| `grafeo.spec.lpg.cypher.regression.target.property.filter.no.match` | `Conformance` | lpg | `Passed` | 8.499 ms |
+| `grafeo.spec.lpg.cypher.regression.edge.property.filter` | `Conformance` | lpg | `Passed` | 11.213 ms |
+| `grafeo.spec.lpg.cypher.regression.optional.match.count.preserves.all.rows` | `Conformance` | lpg | `Passed` | 9.630 ms |
+| `grafeo.spec.lpg.cypher.regression.union.deduplicates` | `Conformance` | lpg | `Passed` | 6.493 ms |
+| `grafeo.spec.lpg.cypher.regression.union.all.preserves` | `Conformance` | lpg | `Passed` | 6.231 ms |
+| `grafeo.spec.lpg.cypher.regression.two.hop.equivalence` | `Conformance` | lpg | `Passed` | 11.161 ms |
+| `grafeo.spec.lpg.cypher.regression.merge.creates.new.after.delete` | `Conformance` | lpg | `Passed` | 8.653 ms |
+| `grafeo.spec.lpg.cypher.regression.replace.edge` | `Conformance` | lpg | `Passed` | 12.226 ms |
+| `grafeo.spec.lpg.cypher.regression.backward.arrow.forward` | `Conformance` | lpg | `Passed` | 8.946 ms |
+| `grafeo.spec.lpg.cypher.regression.backward.arrow.reverse` | `Conformance` | lpg | `Passed` | 8.803 ms |
+| `grafeo.spec.lpg.cypher.regression.backward.arrow.wrong.direction` | `Conformance` | lpg | `Passed` | 8.699 ms |
+| `grafeo.spec.lpg.cypher.regression.null.equals.null.is.unknown` | `Conformance` | lpg | `Passed` | 7.336 ms |
+| `grafeo.spec.lpg.cypher.regression.null.is.null.is.true` | `Conformance` | lpg | `Passed` | 7.310 ms |
+| `grafeo.spec.lpg.cypher.regression.bool.to.string` | `Conformance` | lpg | `Passed` | 7.865 ms |
+| `grafeo.spec.lpg.cypher.regression.int.to.string` | `Conformance` | lpg | `Passed` | 7.832 ms |
+| `grafeo.spec.lpg.cypher.regression.string.false.ne.bool.false` | `Conformance` | lpg | `Failed` | 13.076 ms |
+| `grafeo.spec.lpg.cypher.regression.neq.excludes.null` | `Conformance` | lpg | `Passed` | 10.094 ms |
+| `grafeo.spec.lpg.cypher.regression.skip.plus.limit` | `Conformance` | lpg | `Passed` | 13.398 ms |
+| `grafeo.spec.lpg.cypher.regression.distinct.values` | `Conformance` | lpg | `Passed` | 8.784 ms |
+| `grafeo.spec.lpg.cypher.regression.distinct.collapses.nulls` | `Conformance` | lpg | `Passed` | 8.964 ms |
+| `grafeo.spec.lpg.cypher.regression.order.by.property.matching.return.alias.with.edge` | `Conformance` | lpg | `Passed` | 12.718 ms |
+| `grafeo.spec.lpg.cypher.regression.order.by.desc.with.relationship.traversal` | `Conformance` | lpg | `Passed` | 12.599 ms |
+| `grafeo.spec.lpg.cypher.return.ordering.return.expression` | `Conformance` | lpg | `Passed` | 7.319 ms |
+| `grafeo.spec.lpg.cypher.return.ordering.return.alias` | `Conformance` | lpg | `Passed` | 6.926 ms |
+| `grafeo.spec.lpg.cypher.return.ordering.return.distinct` | `Conformance` | lpg | `Passed` | 7.957 ms |
+| `grafeo.spec.lpg.cypher.return.ordering.return.star` | `Conformance` | lpg | `Passed` | 6.794 ms |
+| `grafeo.spec.lpg.cypher.return.ordering.return.count.star` | `Conformance` | lpg | `Passed` | 7.484 ms |
+| `grafeo.spec.lpg.cypher.return.ordering.return.arithmetic` | `Conformance` | lpg | `Passed` | 7.189 ms |
+| `grafeo.spec.lpg.cypher.return.ordering.return.boolean.expression` | `Conformance` | lpg | `Passed` | 7.146 ms |
+| `grafeo.spec.lpg.cypher.return.ordering.order.by.asc` | `Conformance` | lpg | `Passed` | 7.862 ms |
+| `grafeo.spec.lpg.cypher.return.ordering.order.by.desc` | `Conformance` | lpg | `Passed` | 7.856 ms |
+| `grafeo.spec.lpg.cypher.return.ordering.order.by.multiple.keys` | `Conformance` | lpg | `Passed` | 9.069 ms |
+| `grafeo.spec.lpg.cypher.return.ordering.limit` | `Conformance` | lpg | `Passed` | 9.674 ms |
+| `grafeo.spec.lpg.cypher.return.ordering.skip` | `Conformance` | lpg | `Passed` | 9.851 ms |
+| `grafeo.spec.lpg.cypher.return.ordering.skip.and.limit` | `Conformance` | lpg | `Passed` | 9.951 ms |
+| `grafeo.spec.lpg.cypher.types.integer.decimal` | `Conformance` | lpg | `Passed` | 7.124 ms |
+| `grafeo.spec.lpg.cypher.types.integer.negative` | `Conformance` | lpg | `Passed` | 9.971 ms |
+| `grafeo.spec.lpg.cypher.types.integer.zero` | `Conformance` | lpg | `Passed` | 7.327 ms |
+| `grafeo.spec.lpg.cypher.types.integer.hex` | `Conformance` | lpg | `Passed` | 7.046 ms |
+| `grafeo.spec.lpg.cypher.types.integer.octal` | `Conformance` | lpg | `Passed` | 7.087 ms |
+| `grafeo.spec.lpg.cypher.types.float.decimal` | `Conformance` | lpg | `Passed` | 7.067 ms |
+| `grafeo.spec.lpg.cypher.types.float.scientific` | `Conformance` | lpg | `Passed` | 7.064 ms |
+| `grafeo.spec.lpg.cypher.types.float.negative` | `Conformance` | lpg | `Passed` | 7.059 ms |
+| `grafeo.spec.lpg.cypher.types.string.single.quoted` | `Conformance` | lpg | `Passed` | 7.106 ms |
+| `grafeo.spec.lpg.cypher.types.string.double.quoted` | `Conformance` | lpg | `Failed` | 0.047 ms |
+| `grafeo.spec.lpg.cypher.types.string.empty` | `Conformance` | lpg | `Passed` | 7.113 ms |
+| `grafeo.spec.lpg.cypher.types.boolean.true` | `Conformance` | lpg | `Passed` | 7.086 ms |
+| `grafeo.spec.lpg.cypher.types.boolean.false` | `Conformance` | lpg | `Passed` | 7.055 ms |
+| `grafeo.spec.lpg.cypher.types.null.literal` | `Conformance` | lpg | `Passed` | 7.202 ms |
+| `grafeo.spec.lpg.cypher.types.null.comparison.is.null` | `Conformance` | lpg | `Passed` | 7.302 ms |
+| `grafeo.spec.lpg.cypher.types.null.comparison.is.not.null` | `Conformance` | lpg | `Passed` | 7.194 ms |
+| `grafeo.spec.lpg.cypher.types.null.equality.returns.null` | `Conformance` | lpg | `Failed` | 7.202 ms |
+| `grafeo.spec.lpg.cypher.types.missing.property.is.null` | `Conformance` | lpg | `Passed` | 7.386 ms |
+| `grafeo.spec.lpg.cypher.types.list.of.integers` | `Conformance` | lpg | `Failed` | 7.202 ms |
+| `grafeo.spec.lpg.cypher.types.list.empty` | `Conformance` | lpg | `Passed` | 7.165 ms |
+| `grafeo.spec.lpg.cypher.types.list.nested` | `Conformance` | lpg | `Passed` | 7.549 ms |
+| `grafeo.spec.lpg.cypher.types.list.size` | `Conformance` | lpg | `Passed` | 7.530 ms |
+| `grafeo.spec.lpg.cypher.types.map.literal` | `Conformance` | lpg | `Passed` | 7.347 ms |
+| `grafeo.spec.lpg.cypher.types.map.key.count` | `Conformance` | lpg | `Passed` | 7.687 ms |
+| `grafeo.spec.lpg.cypher.types.node.return` | `Conformance` | lpg | `Passed` | 6.853 ms |
+| `grafeo.spec.lpg.cypher.types.relationship.return` | `Conformance` | lpg | `Passed` | 8.559 ms |
+| `grafeo.spec.lpg.cypher.types.path.return` | `Conformance` | lpg | `Passed` | 8.417 ms |
+| `grafeo.spec.lpg.cypher.types.date.from.string` | `Conformance` | lpg | `Passed` | 7.361 ms |
+| `grafeo.spec.lpg.cypher.types.time.from.string` | `Conformance` | lpg | `Passed` | 7.337 ms |
+| `grafeo.spec.lpg.cypher.types.datetime.from.string` | `Conformance` | lpg | `Passed` | 7.323 ms |
+| `grafeo.spec.lpg.cypher.types.duration.from.string` | `Conformance` | lpg | `Failed` | 7.085 ms |
+| `grafeo.spec.lpg.cypher.types.date.stored.as.property` | `Conformance` | lpg | `Passed` | 7.566 ms |
+| `grafeo.spec.lpg.cypher.types.integer.to.float.arithmetic` | `Conformance` | lpg | `Passed` | 7.190 ms |
+| `grafeo.spec.lpg.cypher.types.to.integer.truncation` | `Conformance` | lpg | `Passed` | 7.132 ms |
+| `grafeo.spec.lpg.cypher.types.to.float.from.integer` | `Conformance` | lpg | `Passed` | 7.120 ms |
+| `grafeo.spec.lpg.cypher.types.to.string.from.boolean` | `Conformance` | lpg | `Failed` | 7.117 ms |
+| `grafeo.spec.lpg.cypher.types.to.boolean.from.string.false` | `Conformance` | lpg | `Passed` | 7.309 ms |
+| `grafeo.spec.lpg.cypher.writing.clauses.create.node` | `Conformance` | lpg | `Passed` | 6.818 ms |
+| `grafeo.spec.lpg.cypher.writing.clauses.create.node.multi.label` | `Conformance` | lpg | `Passed` | 7.581 ms |
+| `grafeo.spec.lpg.cypher.writing.clauses.create.relationship` | `Conformance` | lpg | `Passed` | 8.863 ms |
+| `grafeo.spec.lpg.cypher.writing.clauses.create.relationship.with.properties` | `Conformance` | lpg | `Passed` | 9.169 ms |
+| `grafeo.spec.lpg.cypher.writing.clauses.create.path.pattern` | `Conformance` | lpg | `Passed` | 9.206 ms |
+| `grafeo.spec.lpg.cypher.writing.clauses.delete.node` | `Conformance` | lpg | `Passed` | 7.865 ms |
+| `grafeo.spec.lpg.cypher.writing.clauses.delete.multiple` | `Conformance` | lpg | `Passed` | 8.583 ms |
+| `grafeo.spec.lpg.cypher.writing.clauses.detach.delete` | `Conformance` | lpg | `Passed` | 8.998 ms |
+| `grafeo.spec.lpg.cypher.writing.clauses.detach.delete.with.return` | `Conformance` | lpg | `Passed` | 8.853 ms |
+| `grafeo.spec.lpg.cypher.writing.clauses.set.property` | `Conformance` | lpg | `Passed` | 8.167 ms |
+| `grafeo.spec.lpg.cypher.writing.clauses.set.multiple.properties` | `Conformance` | lpg | `Passed` | 8.603 ms |
+| `grafeo.spec.lpg.cypher.writing.clauses.set.replace.all` | `Conformance` | lpg | `Failed` | 0.121 ms |
 | `grafeo.spec.lpg.cypher.writing.clauses.set.merge.map` | `Conformance` | lpg | `Failed` | 0.051 ms |
 | `grafeo.spec.lpg.cypher.writing.clauses.set.label` | `Conformance` | lpg | `Failed` | 0.047 ms |
-| `grafeo.spec.lpg.cypher.writing.clauses.set.multiple.labels` | `Conformance` | lpg | `Failed` | 0.047 ms |
-| `grafeo.spec.lpg.cypher.writing.clauses.set.label.preserves.variable.binding` | `Conformance` | lpg | `Failed` | 0.047 ms |
+| `grafeo.spec.lpg.cypher.writing.clauses.set.multiple.labels` | `Conformance` | lpg | `Failed` | 0.048 ms |
+| `grafeo.spec.lpg.cypher.writing.clauses.set.label.preserves.variable.binding` | `Conformance` | lpg | `Failed` | 0.049 ms |
 | `grafeo.spec.lpg.cypher.writing.clauses.count.star.after.set.label` | `Conformance` | lpg | `Failed` | 0.029 ms |
-| `grafeo.spec.lpg.cypher.writing.clauses.count.var.after.set.label` | `Conformance` | lpg | `Failed` | 0.029 ms |
-| `grafeo.spec.lpg.cypher.writing.clauses.remove.property` | `Conformance` | lpg | `Passed` | 17.351 ms |
-| `grafeo.spec.lpg.cypher.writing.clauses.remove.label` | `Conformance` | lpg | `Failed` | 0.105 ms |
-| `grafeo.spec.lpg.cypher.writing.clauses.remove.label.preserves.variable.binding` | `Conformance` | lpg | `Failed` | 0.050 ms |
-| `grafeo.spec.lpg.cypher.writing.clauses.match.create.edge.no.phantoms` | `Conformance` | lpg | `Passed` | 14.466 ms |
-| `grafeo.spec.lpg.cypher.writing.clauses.match.create.edge.correct.endpoints` | `Conformance` | lpg | `Passed` | 9.476 ms |
-| `grafeo.spec.lpg.cypher.writing.clauses.merge.create` | `Conformance` | lpg | `Passed` | 7.081 ms |
-| `grafeo.spec.lpg.cypher.writing.clauses.merge.match` | `Conformance` | lpg | `Passed` | 7.168 ms |
-| `grafeo.spec.lpg.cypher.writing.clauses.merge.on.create.set` | `Conformance` | lpg | `Failed` | 0.051 ms |
-| `grafeo.spec.lpg.cypher.writing.clauses.merge.on.match.set` | `Conformance` | lpg | `Failed` | 0.112 ms |
+| `grafeo.spec.lpg.cypher.writing.clauses.count.var.after.set.label` | `Conformance` | lpg | `Failed` | 0.028 ms |
+| `grafeo.spec.lpg.cypher.writing.clauses.remove.property` | `Conformance` | lpg | `Passed` | 7.850 ms |
+| `grafeo.spec.lpg.cypher.writing.clauses.remove.label` | `Conformance` | lpg | `Failed` | 0.101 ms |
+| `grafeo.spec.lpg.cypher.writing.clauses.remove.label.preserves.variable.binding` | `Conformance` | lpg | `Failed` | 0.049 ms |
+| `grafeo.spec.lpg.cypher.writing.clauses.match.create.edge.no.phantoms` | `Conformance` | lpg | `Passed` | 8.952 ms |
+| `grafeo.spec.lpg.cypher.writing.clauses.match.create.edge.correct.endpoints` | `Conformance` | lpg | `Passed` | 9.461 ms |
+| `grafeo.spec.lpg.cypher.writing.clauses.merge.create` | `Conformance` | lpg | `Passed` | 7.488 ms |
+| `grafeo.spec.lpg.cypher.writing.clauses.merge.match` | `Conformance` | lpg | `Passed` | 7.396 ms |
+| `grafeo.spec.lpg.cypher.writing.clauses.merge.on.create.set` | `Conformance` | lpg | `Failed` | 0.052 ms |
+| `grafeo.spec.lpg.cypher.writing.clauses.merge.on.match.set` | `Conformance` | lpg | `Failed` | 0.111 ms |
 | `grafeo.spec.lpg.cypher.writing.clauses.merge.on.match.set.self.reference.increment` | `Conformance` | lpg | `Failed` | 0.049 ms |
 | `grafeo.spec.lpg.cypher.writing.clauses.merge.on.create.set.self.reference.coalesce` | `Conformance` | lpg | `Failed` | 0.049 ms |
-| `grafeo.spec.lpg.cypher.writing.clauses.merge.relationship` | `Conformance` | lpg | `Passed` | 9.598 ms |
-| `grafeo.spec.lpg.cypher.writing.clauses.merge.relationship.set` | `Conformance` | lpg | `Passed` | 10.708 ms |
-| `grafeo.spec.lpg.cypher.writing.clauses.foreach.create` | `Conformance` | lpg | `Passed` | 9.309 ms |
-| `grafeo.spec.regression.edge.cases.cyclic.vlp.same.source.and.target.variable.cypher-variant` | `Conformance` | regression | `Failed` | 6.110 ms |
-| `grafeo.spec.regression.edge.cases.cyclic.vlp.no.cycle.returns.empty.cypher-variant` | `Conformance` | regression | `Failed` | 5.918 ms |
-| `grafeo.spec.rosetta.aggregation.count.products.cypher-variant` | `Conformance` | rosetta | `Failed` | 22.434 ms |
+| `grafeo.spec.lpg.cypher.writing.clauses.merge.relationship` | `Conformance` | lpg | `Passed` | 9.574 ms |
+| `grafeo.spec.lpg.cypher.writing.clauses.merge.relationship.set` | `Conformance` | lpg | `Passed` | 10.819 ms |
+| `grafeo.spec.lpg.cypher.writing.clauses.foreach.create` | `Conformance` | lpg | `Passed` | 9.601 ms |
+| `grafeo.spec.regression.edge.cases.cyclic.vlp.same.source.and.target.variable.cypher-variant` | `Conformance` | regression | `Failed` | 6.122 ms |
+| `grafeo.spec.regression.edge.cases.cyclic.vlp.no.cycle.returns.empty.cypher-variant` | `Conformance` | regression | `Failed` | 5.966 ms |
+| `grafeo.spec.rosetta.aggregation.count.products.cypher-variant` | `Conformance` | rosetta | `Failed` | 22.432 ms |
 | `grafeo.spec.rosetta.aggregation.sum.order.totals.cypher.cypher-variant` | `Conformance` | rosetta | `Failed` | 0.027 ms |
-| `grafeo.spec.rosetta.aggregation.avg.product.price.cypher-variant` | `Conformance` | rosetta | `Failed` | 22.642 ms |
-| `grafeo.spec.rosetta.aggregation.min.max.price.cypher.cypher-variant` | `Conformance` | rosetta | `Failed` | 22.552 ms |
+| `grafeo.spec.rosetta.aggregation.avg.product.price.cypher-variant` | `Conformance` | rosetta | `Failed` | 22.616 ms |
+| `grafeo.spec.rosetta.aggregation.min.max.price.cypher.cypher-variant` | `Conformance` | rosetta | `Failed` | 22.641 ms |
 | `grafeo.spec.rosetta.aggregation.count.by.status.cypher.cypher-variant` | `Conformance` | rosetta | `Failed` | 0.026 ms |
 | `grafeo.spec.rosetta.aggregation.orders.per.customer.cypher.cypher-variant` | `Conformance` | rosetta | `Failed` | 0.043 ms |
 | `grafeo.spec.rosetta.aggregation.total.spend.per.customer.cypher.cypher-variant` | `Conformance` | rosetta | `Failed` | 0.043 ms |
 | `grafeo.spec.rosetta.aggregation.customers.with.multiple.orders.cypher.cypher-variant` | `Conformance` | rosetta | `Failed` | 0.042 ms |
-| `grafeo.spec.rosetta.aggregation.avg.review.rating.cypher-variant` | `Conformance` | rosetta | `Failed` | 22.605 ms |
-| `grafeo.spec.rosetta.basic.queries.count.all.nodes.cypher-variant` | `Conformance` | rosetta | `Passed` | 18.582 ms |
-| `grafeo.spec.rosetta.basic.queries.match.by.label.cypher-variant` | `Conformance` | rosetta | `Passed` | 15.356 ms |
-| `grafeo.spec.rosetta.basic.queries.filter.by.age.cypher-variant` | `Conformance` | rosetta | `Passed` | 14.479 ms |
-| `grafeo.spec.rosetta.basic.queries.edge.traversal.cypher-variant` | `Conformance` | rosetta | `Passed` | 14.941 ms |
-| `grafeo.spec.rosetta.basic.queries.two.hop.path.cypher-variant` | `Conformance` | rosetta | `Passed` | 15.520 ms |
-| `grafeo.spec.rosetta.basic.queries.aggregation.group.by.cypher-variant` | `Conformance` | rosetta | `Passed` | 15.275 ms |
-| `grafeo.spec.rosetta.crud.operations.create.node.and.count.cypher-variant` | `Conformance` | rosetta | `Failed` | 5.894 ms |
-| `grafeo.spec.rosetta.crud.operations.create.node.read.properties.cypher-variant` | `Conformance` | rosetta | `Failed` | 6.006 ms |
-| `grafeo.spec.rosetta.crud.operations.create.edge.and.traverse.cypher-variant` | `Conformance` | rosetta | `Failed` | 6.024 ms |
-| `grafeo.spec.rosetta.crud.operations.match.count.multiple.nodes.cypher-variant` | `Conformance` | rosetta | `Failed` | 5.803 ms |
-| `grafeo.spec.rosetta.crud.operations.set.property.and.read.cypher-variant` | `Conformance` | rosetta | `Failed` | 5.807 ms |
-| `grafeo.spec.rosetta.crud.operations.delete.node.and.count.cypher-variant` | `Conformance` | rosetta | `Failed` | 5.873 ms |
-| `grafeo.spec.rosetta.crud.operations.aggregate.sum.cypher-variant` | `Conformance` | rosetta | `Failed` | 5.908 ms |
-| `grafeo.spec.rosetta.crud.operations.aggregate.count.cypher-variant` | `Conformance` | rosetta | `Failed` | 5.999 ms |
-| `grafeo.spec.rosetta.crud.operations.aggregate.avg.cypher-variant` | `Conformance` | rosetta | `Failed` | 5.858 ms |
-| `grafeo.spec.rosetta.data.fidelity.gql.insert.cypher.read.name.cypher-variant` | `Conformance` | rosetta | `Failed` | 5.941 ms |
-| `grafeo.spec.rosetta.data.fidelity.gql.insert.cypher.read.count.cypher-variant` | `Conformance` | rosetta | `Failed` | 5.909 ms |
-| `grafeo.spec.rosetta.data.fidelity.gql.insert.cypher.read.edge.cypher-variant` | `Conformance` | rosetta | `Failed` | 5.834 ms |
-| `grafeo.spec.rosetta.data.fidelity.int.property.preserved.in.cypher.cypher-variant` | `Conformance` | rosetta | `Failed` | 5.854 ms |
-| `grafeo.spec.rosetta.data.fidelity.bool.property.preserved.in.cypher.cypher-variant` | `Conformance` | rosetta | `Failed` | 5.845 ms |
-| `grafeo.spec.rosetta.data.fidelity.string.property.preserved.in.cypher.cypher-variant` | `Conformance` | rosetta | `Failed` | 5.891 ms |
-| `grafeo.spec.rosetta.data.fidelity.missing.property.null.in.cypher.cypher-variant` | `Conformance` | rosetta | `Failed` | 5.802 ms |
-| `grafeo.spec.rosetta.data.fidelity.multi.label.visible.in.cypher.cypher-variant` | `Conformance` | rosetta | `Failed` | 5.870 ms |
-| `grafeo.spec.rosetta.data.fidelity.edge.type.in.cypher.cypher-variant` | `Conformance` | rosetta | `Failed` | 5.882 ms |
-| `grafeo.spec.rosetta.data.fidelity.gql.insert.all.read.count.cypher-variant` | `Conformance` | rosetta | `Failed` | 5.793 ms |
-| `grafeo.spec.rosetta.pattern.matching.count.actors.cypher-variant` | `Conformance` | rosetta | `Passed` | 64.311 ms |
-| `grafeo.spec.rosetta.pattern.matching.find.actor.by.name.cypher-variant` | `Conformance` | rosetta | `Passed` | 63.503 ms |
-| `grafeo.spec.rosetta.pattern.matching.actors.in.heist.cypher-variant` | `Conformance` | rosetta | `Passed` | 64.079 ms |
-| `grafeo.spec.rosetta.pattern.matching.genres.of.vincent.cypher-variant` | `Conformance` | rosetta | `Passed` | 74.770 ms |
-| `grafeo.spec.rosetta.pattern.matching.movies.per.director.cypher.cypher-variant` | `Conformance` | rosetta | `Passed` | 64.227 ms |
-| `grafeo.spec.rosetta.pattern.matching.actor.roles.in.movie.cypher-variant` | `Conformance` | rosetta | `Passed` | 65.211 ms |
-| `grafeo.spec.rosetta.pattern.matching.high.rated.movies.cypher-variant` | `Conformance` | rosetta | `Passed` | 63.424 ms |
+| `grafeo.spec.rosetta.aggregation.avg.review.rating.cypher-variant` | `Conformance` | rosetta | `Failed` | 33.055 ms |
+| `grafeo.spec.rosetta.basic.queries.count.all.nodes.cypher-variant` | `Conformance` | rosetta | `Passed` | 14.276 ms |
+| `grafeo.spec.rosetta.basic.queries.match.by.label.cypher-variant` | `Conformance` | rosetta | `Passed` | 14.557 ms |
+| `grafeo.spec.rosetta.basic.queries.filter.by.age.cypher-variant` | `Conformance` | rosetta | `Passed` | 14.619 ms |
+| `grafeo.spec.rosetta.basic.queries.edge.traversal.cypher-variant` | `Conformance` | rosetta | `Passed` | 15.073 ms |
+| `grafeo.spec.rosetta.basic.queries.two.hop.path.cypher-variant` | `Conformance` | rosetta | `Passed` | 15.533 ms |
+| `grafeo.spec.rosetta.basic.queries.aggregation.group.by.cypher-variant` | `Conformance` | rosetta | `Passed` | 15.033 ms |
+| `grafeo.spec.rosetta.crud.operations.create.node.and.count.cypher-variant` | `Conformance` | rosetta | `Failed` | 5.982 ms |
+| `grafeo.spec.rosetta.crud.operations.create.node.read.properties.cypher-variant` | `Conformance` | rosetta | `Failed` | 6.017 ms |
+| `grafeo.spec.rosetta.crud.operations.create.edge.and.traverse.cypher-variant` | `Conformance` | rosetta | `Failed` | 6.002 ms |
+| `grafeo.spec.rosetta.crud.operations.match.count.multiple.nodes.cypher-variant` | `Conformance` | rosetta | `Failed` | 5.900 ms |
+| `grafeo.spec.rosetta.crud.operations.set.property.and.read.cypher-variant` | `Conformance` | rosetta | `Failed` | 5.881 ms |
+| `grafeo.spec.rosetta.crud.operations.delete.node.and.count.cypher-variant` | `Conformance` | rosetta | `Failed` | 5.957 ms |
+| `grafeo.spec.rosetta.crud.operations.aggregate.sum.cypher-variant` | `Conformance` | rosetta | `Failed` | 5.914 ms |
+| `grafeo.spec.rosetta.crud.operations.aggregate.count.cypher-variant` | `Conformance` | rosetta | `Failed` | 5.893 ms |
+| `grafeo.spec.rosetta.crud.operations.aggregate.avg.cypher-variant` | `Conformance` | rosetta | `Failed` | 6.044 ms |
+| `grafeo.spec.rosetta.data.fidelity.gql.insert.cypher.read.name.cypher-variant` | `Conformance` | rosetta | `Failed` | 6.000 ms |
+| `grafeo.spec.rosetta.data.fidelity.gql.insert.cypher.read.count.cypher-variant` | `Conformance` | rosetta | `Failed` | 5.903 ms |
+| `grafeo.spec.rosetta.data.fidelity.gql.insert.cypher.read.edge.cypher-variant` | `Conformance` | rosetta | `Failed` | 5.997 ms |
+| `grafeo.spec.rosetta.data.fidelity.int.property.preserved.in.cypher.cypher-variant` | `Conformance` | rosetta | `Failed` | 5.936 ms |
+| `grafeo.spec.rosetta.data.fidelity.bool.property.preserved.in.cypher.cypher-variant` | `Conformance` | rosetta | `Failed` | 5.859 ms |
+| `grafeo.spec.rosetta.data.fidelity.string.property.preserved.in.cypher.cypher-variant` | `Conformance` | rosetta | `Failed` | 5.969 ms |
+| `grafeo.spec.rosetta.data.fidelity.missing.property.null.in.cypher.cypher-variant` | `Conformance` | rosetta | `Failed` | 5.895 ms |
+| `grafeo.spec.rosetta.data.fidelity.multi.label.visible.in.cypher.cypher-variant` | `Conformance` | rosetta | `Failed` | 5.923 ms |
+| `grafeo.spec.rosetta.data.fidelity.edge.type.in.cypher.cypher-variant` | `Conformance` | rosetta | `Failed` | 5.901 ms |
+| `grafeo.spec.rosetta.data.fidelity.gql.insert.all.read.count.cypher-variant` | `Conformance` | rosetta | `Failed` | 5.822 ms |
+| `grafeo.spec.rosetta.pattern.matching.count.actors.cypher-variant` | `Conformance` | rosetta | `Passed` | 83.677 ms |
+| `grafeo.spec.rosetta.pattern.matching.find.actor.by.name.cypher-variant` | `Conformance` | rosetta | `Passed` | 63.176 ms |
+| `grafeo.spec.rosetta.pattern.matching.actors.in.heist.cypher-variant` | `Conformance` | rosetta | `Passed` | 64.219 ms |
+| `grafeo.spec.rosetta.pattern.matching.genres.of.vincent.cypher-variant` | `Conformance` | rosetta | `Passed` | 74.222 ms |
+| `grafeo.spec.rosetta.pattern.matching.movies.per.director.cypher.cypher-variant` | `Conformance` | rosetta | `Passed` | 64.295 ms |
+| `grafeo.spec.rosetta.pattern.matching.actor.roles.in.movie.cypher-variant` | `Conformance` | rosetta | `Passed` | 65.006 ms |
+| `grafeo.spec.rosetta.pattern.matching.high.rated.movies.cypher-variant` | `Conformance` | rosetta | `Passed` | 63.366 ms |
 
 ## Latest `performance-deep` run
 
@@ -2308,8 +2308,8 @@ Generated from `graph/test-results/history.jsonl`. Results are grouped by stable
 
 ## Latest `sparrowdb-deep` run
 
-- Run: `20260719T171000.776800Z-c4e37ebd93ca-corpus-deep`
-- Commit: `c4e37ebd93ca95d8555f5a1925bfc59cf51c4422` (dirty)
+- Run: `20260719T192159.606478Z-c9496b51762d-corpus-deep`
+- Commit: `c9496b51762d76bc04065390219a9c955d692f11` (dirty)
 - Package: `0.7.0`
 - Environment: `macos/aarch64` (`dev`)
 - Records: 2253
@@ -2317,7 +2317,7 @@ Generated from `graph/test-results/history.jsonl`. Results are grouped by stable
 - Unsupported: 0
 - Failed or changed: 217
 
-### Outcome changes from `20260719T170635.289226Z-c4e37ebd93ca-corpus-deep`
+### Outcome changes from `20260719T171000.776800Z-c4e37ebd93ca-corpus-deep`
 
 - No outcome changes.
 
@@ -2743,27 +2743,41 @@ Generated from `graph/test-results/history.jsonl`. Results are grouped by stable
 
 ## Latest `tck-deep` run
 
-- Run: `20260719T171000.776800Z-c4e37ebd93ca-corpus-deep`
-- Commit: `c4e37ebd93ca95d8555f5a1925bfc59cf51c4422` (dirty)
+- Run: `20260719T192159.606478Z-c9496b51762d-corpus-deep`
+- Commit: `c9496b51762d76bc04065390219a9c955d692f11` (dirty)
 - Package: `0.7.0`
 - Environment: `macos/aarch64` (`dev`)
 - Records: 3926
-- Passed: 1831
+- Passed: 1846
 - Unsupported: 0
-- Failed or changed: 2095
+- Failed or changed: 2080
 
-### Outcome changes from `20260719T170635.289226Z-c4e37ebd93ca-corpus-deep`
+### Outcome changes from `20260719T171000.776800Z-c4e37ebd93ca-corpus-deep`
 
-- `tck.expressions.list.list6.scenario-5`: Passed
+- `tck.clauses.remove.remove1.scenario-1`: Passed
+- `tck.clauses.remove.remove1.scenario-3`: Passed
+- `tck.expressions.boolean.boolean1.scenario-5`: Passed
+- `tck.expressions.boolean.boolean1.scenario-7`: Passed
+- `tck.expressions.boolean.boolean2.scenario-5`: Passed
+- `tck.expressions.boolean.boolean2.scenario-7`: Passed
+- `tck.expressions.boolean.boolean3.scenario-5`: Passed
+- `tck.expressions.boolean.boolean3.scenario-7`: Passed
+- `tck.expressions.boolean.boolean5.scenario-2`: Passed
+- `tck.expressions.boolean.boolean5.scenario-4`: Passed
+- `tck.expressions.boolean.boolean5.scenario-6`: Passed
+- `tck.expressions.literals.literals7.scenario-2`: Passed
+- `tck.expressions.typeconversion.typeconversion4.scenario-2`: Passed
+- `tck.expressions.typeconversion.typeconversion4.scenario-3`: Passed
+- `tck.expressions.typeconversion.typeconversion4.scenario-4`: Passed
 
 ### Results by source area
 
 | Area | Outcome | Count |
 |---|---|---:|
-| clauses | `failed` | 605 |
-| clauses | `passed` | 646 |
-| expressions | `failed` | 1469 |
-| expressions | `passed` | 1176 |
+| clauses | `failed` | 603 |
+| clauses | `passed` | 648 |
+| expressions | `failed` | 1456 |
+| expressions | `passed` | 1189 |
 | useCases | `failed` | 21 |
 | useCases | `passed` | 9 |
 
@@ -2771,8 +2785,8 @@ Generated from `graph/test-results/history.jsonl`. Results are grouped by stable
 
 | Boundary | Outcome | Count |
 |---|---|---:|
-| `execution` | `failed` | 1553 |
-| `execution` | `passed` | 1788 |
+| `execution` | `failed` | 1538 |
+| `execution` | `passed` | 1803 |
 | `fixture-execution` | `failed` | 19 |
 | `parameter-binding` | `failed` | 20 |
 | `parser` | `failed` | 132 |
@@ -2781,7 +2795,7 @@ Generated from `graph/test-results/history.jsonl`. Results are grouped by stable
 | `setup-execution` | `failed` | 83 |
 | `side-effect-comparison` | `failed` | 29 |
 
-### Failures (2095)
+### Failures (2080)
 
 - `tck.clauses.call.call1.scenario-1`: query execution failed: Parse error: procedures outside the built-in registry is not supported in the initial graph slice at byte 6..20; mutation execution failed: Cypher mutation binding failed: procedures in mutation queries is not supported in the initial graph slice at byte 1..23; query:
 CALL test.doNothing()
@@ -3343,8 +3357,6 @@ MERGE (newB)-[:REL]->(newC)
 - `tck.clauses.merge.merge7.scenario-5`: expected EOI, UNION, clause, or relationship_pattern at byte 65..65
 - `tck.clauses.merge.merge8.scenario-1`: expected EOI, UNION, clause, or relationship_pattern at byte 45..45
 - `tck.clauses.merge.merge9.scenario-1`: side effect +properties expected 4, observed 0
-- `tck.clauses.remove.remove1.scenario-1`: expected [["false"]], observed [["0"]]
-- `tck.clauses.remove.remove1.scenario-3`: expected [["false"]], observed [["0"]]
 - `tck.clauses.remove.remove1.scenario-5`: expected [["<null>"]], observed []
 - `tck.clauses.remove.remove1.scenario-6`: result expectation is not representable by the scalar adapter
 - `tck.clauses.remove.remove1.scenario-7`: expected [["0"]], observed [["3"]]
@@ -3361,17 +3373,17 @@ MERGE (newB)-[:REL]->(newC)
 - `tck.clauses.remove.remove3.scenario-13`: expected property_target at byte 19..19
 - `tck.clauses.remove.remove3.scenario-14`: expected property_target at byte 19..19
 - `tck.clauses.return.return1.scenario-1`: result expectation is not representable by the scalar adapter
-- `tck.clauses.return.return2.scenario-7`: expected [["[4,5,1,2,3]"]], observed [["0"]]
+- `tck.clauses.return.return2.scenario-7`: expected [["[4, 5, 1, 2, 3]"]], observed [["0"]]
 - `tck.clauses.return.return2.scenario-9`: expected [["{a: 1, b: 'foo'}"]], observed [["{\"a\":1,\"b\":\"foo\"}"]]
-- `tck.clauses.return.return2.scenario-12`: expected [["[(:A),[:T],(:B)]"]], observed [["[1,1,2]"]]
-- `tck.clauses.return.return2.scenario-13`: expected [["{node1: (:A), rel: [:T], node2: (:B)}"]], observed [["{\"node1\":1,\"rel\":1,\"node2\":2}"]]
+- `tck.clauses.return.return2.scenario-12`: expected [["[(:A), [:T], (:B)]"]], observed [["[1, 1, 2]"]]
+- `tck.clauses.return.return2.scenario-13`: expected [["{node1: (:A), node2: (:B), rel: [:T]}"]], observed [["{\"node1\":1,\"rel\":1,\"node2\":2}"]]
 - `tck.clauses.return.return2.scenario-14`: query execution failed: Parse error: mutation clauses in read queries is not supported in the initial graph slice at byte 18..27; mutation execution failed: Cypher mutation binding failed: returning deleted entities is not supported in the initial graph slice at byte 34..42; query:
 MATCH ()-[r]->()
 DELETE r
 RETURN type(r)
 - `tck.clauses.return.return2.scenario-15`: expected an error but execution succeeded
 - `tck.clauses.return.return2.scenario-17`: expected an error but execution succeeded
-- `tck.clauses.return.return3.scenario-1`: expected [["false", "true"]], observed [["true", "true"]]
+- `tck.clauses.return.return3.scenario-1`: expected [["0", "1"]], observed [["1", "1"]]
 - `tck.clauses.return.return3.scenario-3`: result expectation is not representable by the scalar adapter
 - `tck.clauses.return.return4.scenario-2`: result expectation is not representable by the scalar adapter
 - `tck.clauses.return.return4.scenario-9`: expected [["42", "42", "{name: 1}"]], observed [["42", "42", "{\"name\":1}"]]
@@ -3404,8 +3416,8 @@ RETURN count(*) * 10 AS c
 MATCH p = (a:Start)-->(b)
 RETURN *
 - `tck.clauses.return.return7.scenario-2`: expected an error but execution succeeded
-- `tck.clauses.return-orderby.returnorderby1.scenario-9`: expected [["[]"], ["[\"a\"]"], ["[\"a\",1]"], ["[1]"], ["[1,\"a\"]"], ["[1,null]"], ["[null,1]"], ["[null,2]"]], observed [["[\"a\",1]"], ["[\"a\"]"], ["[1,\"a\"]"], ["[1,null]"], ["[1]"], ["[]"], ["[null,1]"], ["[null,2]"]]
-- `tck.clauses.return-orderby.returnorderby1.scenario-10`: expected [["[null,2]"], ["[null,1]"], ["[1,null]"], ["[1,\"a\"]"], ["[1]"], ["[\"a\",1]"], ["[\"a\"]"], ["[]"]], observed [["[null,2]"], ["[null,1]"], ["[]"], ["[1]"], ["[1,null]"], ["[1,\"a\"]"], ["[\"a\"]"], ["[\"a\",1]"]]
+- `tck.clauses.return-orderby.returnorderby1.scenario-9`: expected [["[]"], ["[\"a\"]"], ["[\"a\",1]"], ["[1]"], ["[1,\"a\"]"], ["[1, null]"], ["[null, 1]"], ["[null, 2]"]], observed [["[\"a\",1]"], ["[\"a\"]"], ["[1,\"a\"]"], ["[1, null]"], ["[1]"], ["[]"], ["[null, 1]"], ["[null, 2]"]]
+- `tck.clauses.return-orderby.returnorderby1.scenario-10`: expected [["[null, 2]"], ["[null, 1]"], ["[1, null]"], ["[1,\"a\"]"], ["[1]"], ["[\"a\",1]"], ["[\"a\"]"], ["[]"]], observed [["[null, 2]"], ["[null, 1]"], ["[]"], ["[1]"], ["[1, null]"], ["[1,\"a\"]"], ["[\"a\"]"], ["[\"a\",1]"]]
 - `tck.clauses.return-orderby.returnorderby1.scenario-11`: result expectation is not representable by the scalar adapter
 - `tck.clauses.return-orderby.returnorderby1.scenario-12`: result expectation is not representable by the scalar adapter
 - `tck.clauses.return-orderby.returnorderby2.scenario-3`: query execution failed: Parse error: misuse of aggregate: max(); mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 11..63; query:
@@ -3470,15 +3482,15 @@ RETURN foo.num AS x
 - `tck.clauses.set.set1.scenario-2`: side effect +properties expected 1, observed 0
 - `tck.clauses.set.set1.scenario-3`: expected identifier at byte 16..16
 - `tck.clauses.set.set1.scenario-4`: expected identifier at byte 25..25
-- `tck.clauses.set.set1.scenario-5`: expected [["[0.5,1.0,1.5]"]], observed [["[0,1,1]"]]
-- `tck.clauses.set.set1.scenario-6`: expected [["[1,2,3,4,5]"]], observed [["0"]]
-- `tck.clauses.set.set1.scenario-7`: expected [["[1,2,3,4,5]"]], observed [["0"]]
+- `tck.clauses.set.set1.scenario-5`: expected [["[0.5, 1.0, 1.5]"]], observed [["[0, 1, 1]"]]
+- `tck.clauses.set.set1.scenario-6`: expected [["[1, 2, 3, 4, 5]"]], observed [["0"]]
+- `tck.clauses.set.set1.scenario-7`: expected [["[1, 2, 3, 4, 5]"]], observed [["0"]]
 - `tck.clauses.set.set1.scenario-8`: expected [["<null>"]], observed []
 - `tck.clauses.set.set1.scenario-10`: expected an error but execution succeeded
 - `tck.clauses.set.set1.scenario-11`: result expectation is not representable by the scalar adapter
 - `tck.clauses.set.set2.scenario-1`: result expectation is not representable by the scalar adapter
 - `tck.clauses.set.set2.scenario-2`: result expectation is not representable by the scalar adapter
-- `tck.clauses.set.set2.scenario-3`: expected [["[:REL{property2:24}]"]], observed [["1"]]
+- `tck.clauses.set.set2.scenario-3`: expected [["[:REL {property2: 24}]"]], observed [["1"]]
 - `tck.clauses.set.set3.scenario-1`: expected property_target at byte 14..14
 - `tck.clauses.set.set3.scenario-2`: expected property_target at byte 14..14
 - `tck.clauses.set.set3.scenario-3`: expected property_target at byte 16..16
@@ -3533,7 +3545,7 @@ WITH a, collect(b1) AS bees
 UNWIND bees AS b2
 MATCH (a)-[:Y]->(b2)
 RETURN a, b2
-- `tck.clauses.unwind.unwind1.scenario-13`: expected [["1", "[1,2]", "3", "[3,4]", "5", "[5,6]"], ["1", "[1,2]", "3", "[3,4]", "6", "[5,6]"], ["1", "[1,2]", "4", "[3,4]", "5", "[5,6]"], ["1", "[1,2]", "4", "[3,4]", "6", "[5,6]"], ["2", "[1,2]", "3", "[3,4]", "5", "[5,6]"], ["2", "[1,2]", "3", "[3,4]", "6", "[5,6]"], ["2", "[1,2]", "4", "[3,4]", "5", "[5,6]"], ["2", "[1,2]", "4", "[3,4]", "6", "[5,6]"]], observed [["[1,2]", "[3,4]", "[5,6]", "1", "3", "5"], ["[1,2]", "[3,4]", "[5,6]", "1", "3", "6"], ["[1,2]", "[3,4]", "[5,6]", "1", "4", "5"], ["[1,2]", "[3,4]", "[5,6]", "1", "4", "6"], ["[1,2]", "[3,4]", "[5,6]", "2", "3", "5"], ["[1,2]", "[3,4]", "[5,6]", "2", "3", "6"], ["[1,2]", "[3,4]", "[5,6]", "2", "4", "5"], ["[1,2]", "[3,4]", "[5,6]", "2", "4", "6"]]
+- `tck.clauses.unwind.unwind1.scenario-13`: expected [["1", "[1, 2]", "3", "[3, 4]", "5", "[5, 6]"], ["1", "[1, 2]", "3", "[3, 4]", "6", "[5, 6]"], ["1", "[1, 2]", "4", "[3, 4]", "5", "[5, 6]"], ["1", "[1, 2]", "4", "[3, 4]", "6", "[5, 6]"], ["2", "[1, 2]", "3", "[3, 4]", "5", "[5, 6]"], ["2", "[1, 2]", "3", "[3, 4]", "6", "[5, 6]"], ["2", "[1, 2]", "4", "[3, 4]", "5", "[5, 6]"], ["2", "[1, 2]", "4", "[3, 4]", "6", "[5, 6]"]], observed [["[1, 2]", "[3, 4]", "[5, 6]", "1", "3", "5"], ["[1, 2]", "[3, 4]", "[5, 6]", "1", "3", "6"], ["[1, 2]", "[3, 4]", "[5, 6]", "1", "4", "5"], ["[1, 2]", "[3, 4]", "[5, 6]", "1", "4", "6"], ["[1, 2]", "[3, 4]", "[5, 6]", "2", "3", "5"], ["[1, 2]", "[3, 4]", "[5, 6]", "2", "3", "6"], ["[1, 2]", "[3, 4]", "[5, 6]", "2", "4", "5"], ["[1, 2]", "[3, 4]", "[5, 6]", "2", "4", "6"]]
 - `tck.clauses.unwind.unwind1.scenario-14`: TCK parameter value is not representable by the generic adapter
 - `tck.clauses.with.with1.scenario-1`: result expectation is not representable by the scalar adapter
 - `tck.clauses.with.with1.scenario-2`: result expectation is not representable by the scalar adapter
@@ -3595,8 +3607,8 @@ WITH b AS a, r
 LIMIT 1
 MATCH (a)-[r]->(b)
 RETURN a, r, b
-- `tck.clauses.with-orderby.withorderby1.scenario-9`: expected [["[]"], ["[\"a\"]"], ["[\"a\",1]"], ["[1]"]], observed [["[\"a\",1]"], ["[\"a\"]"], ["[1,\"a\"]"], ["[1,null]"]]
-- `tck.clauses.with-orderby.withorderby1.scenario-10`: expected [["[null,2]"], ["[null,1]"], ["[1,null]"], ["[1,\"a\"]"]], observed [["[null,2]"], ["[null,1]"], ["[]"], ["[1]"]]
+- `tck.clauses.with-orderby.withorderby1.scenario-9`: expected [["[]"], ["[\"a\"]"], ["[\"a\",1]"], ["[1]"]], observed [["[\"a\",1]"], ["[\"a\"]"], ["[1,\"a\"]"], ["[1, null]"]]
+- `tck.clauses.with-orderby.withorderby1.scenario-10`: expected [["[null, 2]"], ["[null, 1]"], ["[1, null]"], ["[1,\"a\"]"]], observed [["[null, 2]"], ["[null, 1]"], ["[]"], ["[1]"]]
 - `tck.clauses.with-orderby.withorderby1.scenario-13`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 52..120; mutation execution failed: Cypher mutation binding failed: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 52..120; query:
 UNWIND [localtime({hour: 10, minute: 35}),
         localtime({hour: 12, minute: 31, second: 14, nanosecond: 645876123}),
@@ -3678,7 +3690,7 @@ WITH datetimes
   LIMIT 3
 RETURN datetimes
 - `tck.clauses.with-orderby.withorderby1.scenario-21`: result expectation is not representable by the scalar adapter
-- `tck.clauses.with-orderby.withorderby1.scenario-22`: expected [["1.5"], ["<null>"], ["NaN"], ["false"], ["text"]], observed [["<null>"], ["<null>"], ["text"], ["{\"a\":\"map\"}"], ["{\"nodes\":[1,2],\"relationships\":[1]}"]]
+- `tck.clauses.with-orderby.withorderby1.scenario-22`: expected [["0"], ["1.5"], ["<null>"], ["NaN"], ["text"]], observed [["<null>"], ["<null>"], ["text"], ["{\"a\":\"map\"}"], ["{\"nodes\":[1,2],\"relationships\":[1]}"]]
 - `tck.clauses.with-orderby.withorderby1.scenario-23.examples-1-row-1`: result expectation is not representable by the scalar adapter
 - `tck.clauses.with-orderby.withorderby1.scenario-23.examples-1-row-2`: result expectation is not representable by the scalar adapter
 - `tck.clauses.with-orderby.withorderby1.scenario-23.examples-1-row-3`: result expectation is not representable by the scalar adapter
@@ -4489,11 +4501,11 @@ WITH a.name2 AS name
 WHERE name = 'B' OR a.name2 = 'C'
 RETURN *
 - `tck.expressions.aggregation.aggregation2.scenario-3`: expected [["2.0"]], observed [["2"]]
-- `tck.expressions.aggregation.aggregation2.scenario-9`: expected [["[2,1]"]], observed [["[2]"]]
+- `tck.expressions.aggregation.aggregation2.scenario-9`: expected [["[2, 1]"]], observed [["[2]"]]
 - `tck.expressions.aggregation.aggregation2.scenario-11`: expected [["1"]], observed [["b"]]
-- `tck.expressions.aggregation.aggregation2.scenario-12`: expected [["[1,2]"]], observed [["0.2"]]
+- `tck.expressions.aggregation.aggregation2.scenario-12`: expected [["[1, 2]"]], observed [["0.2"]]
 - `tck.expressions.aggregation.aggregation5.scenario-1`: result expectation is not representable by the scalar adapter
-- `tck.expressions.aggregation.aggregation5.scenario-2`: expected [["[]", "[42,43,44]"]], observed [["[]", "[]"]]
+- `tck.expressions.aggregation.aggregation5.scenario-2`: expected [["[]", "[42, 43, 44]"]], observed [["[]", "[]"]]
 - `tck.expressions.aggregation.aggregation6.scenario-1.examples-1-row-1`: query execution failed: Parse error: no such function: percentileDisc; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 11..60; query:
 MATCH (n)
 RETURN percentileDisc(n.price, $percentile) AS p
@@ -4513,17 +4525,8 @@ RETURN percentileCont(n.price, $percentile) AS p
 MATCH (n)
 RETURN percentileCont(n.price, $percentile) AS p
 - `tck.expressions.aggregation.aggregation8.scenario-3`: expected [["[]"]], observed [["[null]"]]
-- `tck.expressions.aggregation.aggregation8.scenario-4`: expected [["[1]"]], observed [["[null,1]"]]
-- `tck.expressions.boolean.boolean1.scenario-5`: expected [["<null>", "<null>", "true"], ["<null>", "false", "true"], ["<null>", "true", "true"], ["false", "<null>", "true"], ["true", "<null>", "true"]], observed [["0", "<null>", "true"], ["1", "<null>", "true"], ["<null>", "0", "true"], ["<null>", "1", "true"], ["<null>", "<null>", "true"]]
-- `tck.expressions.boolean.boolean1.scenario-7`: expected [["<null>", "<null>", "<null>", "true"], ["<null>", "<null>", "false", "true"], ["<null>", "<null>", "true", "true"], ["<null>", "false", "<null>", "true"], ["<null>", "false", "false", "true"], ["<null>", "false", "true", "true"], ["<null>", "true", "<null>", "true"], ["<null>", "true", "false", "true"], ["<null>", "true", "true", "true"], ["false", "<null>", "<null>", "true"], ["false", "<null>", "false", "true"], ["false", "<null>", "true", "true"], ["false", "false", "<null>", "true"], ["false", "true", "<null>", "true"], ["true", "<null>", "<null>", "true"], ["true", "<null>", "false", "true"], ["true", "<null>", "true", "true"], ["true", "false", "<null>", "true"], ["true", "true", "<null>", "true"]], observed [["0", "0", "<null>", "true"], ["0", "1", "<null>", "true"], ["0", "<null>", "0", "true"], ["0", "<null>", "1", "true"], ["0", "<null>", "<null>", "true"], ["1", "0", "<null>", "true"], ["1", "1", "<null>", "true"], ["1", "<null>", "0", "true"], ["1", "<null>", "1", "true"], ["1", "<null>", "<null>", "true"], ["<null>", "0", "0", "true"], ["<null>", "0", "1", "true"], ["<null>", "0", "<null>", "true"], ["<null>", "1", "0", "true"], ["<null>", "1", "1", "true"], ["<null>", "1", "<null>", "true"], ["<null>", "<null>", "0", "true"], ["<null>", "<null>", "1", "true"], ["<null>", "<null>", "<null>", "true"]]
-- `tck.expressions.boolean.boolean2.scenario-5`: expected [["<null>", "<null>", "true"], ["<null>", "false", "true"], ["<null>", "true", "true"], ["false", "<null>", "true"], ["true", "<null>", "true"]], observed [["0", "<null>", "true"], ["1", "<null>", "true"], ["<null>", "0", "true"], ["<null>", "1", "true"], ["<null>", "<null>", "true"]]
-- `tck.expressions.boolean.boolean2.scenario-7`: expected [["<null>", "<null>", "<null>", "true"], ["<null>", "<null>", "false", "true"], ["<null>", "<null>", "true", "true"], ["<null>", "false", "<null>", "true"], ["<null>", "false", "false", "true"], ["<null>", "false", "true", "true"], ["<null>", "true", "<null>", "true"], ["<null>", "true", "false", "true"], ["<null>", "true", "true", "true"], ["false", "<null>", "<null>", "true"], ["false", "<null>", "false", "true"], ["false", "<null>", "true", "true"], ["false", "false", "<null>", "true"], ["false", "true", "<null>", "true"], ["true", "<null>", "<null>", "true"], ["true", "<null>", "false", "true"], ["true", "<null>", "true", "true"], ["true", "false", "<null>", "true"], ["true", "true", "<null>", "true"]], observed [["0", "0", "<null>", "true"], ["0", "1", "<null>", "true"], ["0", "<null>", "0", "true"], ["0", "<null>", "1", "true"], ["0", "<null>", "<null>", "true"], ["1", "0", "<null>", "true"], ["1", "1", "<null>", "true"], ["1", "<null>", "0", "true"], ["1", "<null>", "1", "true"], ["1", "<null>", "<null>", "true"], ["<null>", "0", "0", "true"], ["<null>", "0", "1", "true"], ["<null>", "0", "<null>", "true"], ["<null>", "1", "0", "true"], ["<null>", "1", "1", "true"], ["<null>", "1", "<null>", "true"], ["<null>", "<null>", "0", "true"], ["<null>", "<null>", "1", "true"], ["<null>", "<null>", "<null>", "true"]]
-- `tck.expressions.boolean.boolean3.scenario-5`: expected [["<null>", "<null>", "true"], ["<null>", "false", "true"], ["<null>", "true", "true"], ["false", "<null>", "true"], ["true", "<null>", "true"]], observed [["0", "<null>", "true"], ["1", "<null>", "true"], ["<null>", "0", "true"], ["<null>", "1", "true"], ["<null>", "<null>", "true"]]
-- `tck.expressions.boolean.boolean3.scenario-7`: expected [["<null>", "<null>", "<null>", "true"], ["<null>", "<null>", "false", "true"], ["<null>", "<null>", "true", "true"], ["<null>", "false", "<null>", "true"], ["<null>", "false", "false", "true"], ["<null>", "false", "true", "true"], ["<null>", "true", "<null>", "true"], ["<null>", "true", "false", "true"], ["<null>", "true", "true", "true"], ["false", "<null>", "<null>", "true"], ["false", "<null>", "false", "true"], ["false", "<null>", "true", "true"], ["false", "false", "<null>", "true"], ["false", "true", "<null>", "true"], ["true", "<null>", "<null>", "true"], ["true", "<null>", "false", "true"], ["true", "<null>", "true", "true"], ["true", "false", "<null>", "true"], ["true", "true", "<null>", "true"]], observed [["0", "0", "<null>", "true"], ["0", "1", "<null>", "true"], ["0", "<null>", "0", "true"], ["0", "<null>", "1", "true"], ["0", "<null>", "<null>", "true"], ["1", "0", "<null>", "true"], ["1", "1", "<null>", "true"], ["1", "<null>", "0", "true"], ["1", "<null>", "1", "true"], ["1", "<null>", "<null>", "true"], ["<null>", "0", "0", "true"], ["<null>", "0", "1", "true"], ["<null>", "0", "<null>", "true"], ["<null>", "1", "0", "true"], ["<null>", "1", "1", "true"], ["<null>", "1", "<null>", "true"], ["<null>", "<null>", "0", "true"], ["<null>", "<null>", "1", "true"], ["<null>", "<null>", "<null>", "true"]]
+- `tck.expressions.aggregation.aggregation8.scenario-4`: expected [["[1]"]], observed [["[null, 1]"]]
 - `tck.expressions.boolean.boolean4.scenario-3`: result expectation is not representable by the scalar adapter
-- `tck.expressions.boolean.boolean5.scenario-2`: expected [["<null>", "<null>", "<null>", "true"], ["<null>", "<null>", "false", "true"], ["<null>", "<null>", "true", "true"], ["<null>", "false", "<null>", "true"], ["<null>", "false", "false", "true"], ["<null>", "false", "true", "true"], ["<null>", "true", "<null>", "true"], ["<null>", "true", "false", "true"], ["<null>", "true", "true", "true"], ["false", "<null>", "<null>", "true"], ["false", "<null>", "false", "true"], ["false", "<null>", "true", "true"], ["false", "false", "<null>", "true"], ["false", "true", "<null>", "true"], ["true", "<null>", "<null>", "true"], ["true", "<null>", "false", "true"], ["true", "<null>", "true", "true"], ["true", "false", "<null>", "true"], ["true", "true", "<null>", "true"]], observed [["0", "0", "<null>", "true"], ["0", "1", "<null>", "true"], ["0", "<null>", "0", "true"], ["0", "<null>", "1", "true"], ["0", "<null>", "<null>", "true"], ["1", "0", "<null>", "true"], ["1", "1", "<null>", "true"], ["1", "<null>", "0", "true"], ["1", "<null>", "1", "true"], ["1", "<null>", "<null>", "true"], ["<null>", "0", "0", "true"], ["<null>", "0", "1", "true"], ["<null>", "0", "<null>", "true"], ["<null>", "1", "0", "true"], ["<null>", "1", "1", "true"], ["<null>", "1", "<null>", "true"], ["<null>", "<null>", "0", "true"], ["<null>", "<null>", "1", "true"], ["<null>", "<null>", "<null>", "true"]]
-- `tck.expressions.boolean.boolean5.scenario-4`: expected [["<null>", "<null>", "<null>", "true"], ["<null>", "<null>", "false", "true"], ["<null>", "<null>", "true", "true"], ["<null>", "false", "<null>", "true"], ["<null>", "false", "false", "true"], ["<null>", "false", "true", "true"], ["<null>", "true", "<null>", "true"], ["<null>", "true", "false", "true"], ["<null>", "true", "true", "true"], ["false", "<null>", "<null>", "true"], ["false", "<null>", "false", "true"], ["false", "<null>", "true", "true"], ["false", "false", "<null>", "true"], ["false", "true", "<null>", "true"], ["true", "<null>", "<null>", "true"], ["true", "<null>", "false", "true"], ["true", "<null>", "true", "true"], ["true", "false", "<null>", "true"], ["true", "true", "<null>", "true"]], observed [["0", "0", "<null>", "true"], ["0", "1", "<null>", "true"], ["0", "<null>", "0", "true"], ["0", "<null>", "1", "true"], ["0", "<null>", "<null>", "true"], ["1", "0", "<null>", "true"], ["1", "1", "<null>", "true"], ["1", "<null>", "0", "true"], ["1", "<null>", "1", "true"], ["1", "<null>", "<null>", "true"], ["<null>", "0", "0", "true"], ["<null>", "0", "1", "true"], ["<null>", "0", "<null>", "true"], ["<null>", "1", "0", "true"], ["<null>", "1", "1", "true"], ["<null>", "1", "<null>", "true"], ["<null>", "<null>", "0", "true"], ["<null>", "<null>", "1", "true"], ["<null>", "<null>", "<null>", "true"]]
-- `tck.expressions.boolean.boolean5.scenario-6`: expected [["<null>", "<null>", "<null>", "true"], ["<null>", "<null>", "false", "true"], ["<null>", "<null>", "true", "true"], ["<null>", "false", "<null>", "true"], ["<null>", "false", "false", "true"], ["<null>", "false", "true", "true"], ["<null>", "true", "<null>", "true"], ["<null>", "true", "false", "true"], ["<null>", "true", "true", "false"], ["false", "<null>", "<null>", "true"], ["false", "<null>", "false", "true"], ["false", "<null>", "true", "true"], ["false", "false", "<null>", "true"], ["false", "true", "<null>", "true"], ["true", "<null>", "<null>", "true"], ["true", "<null>", "false", "true"], ["true", "<null>", "true", "true"], ["true", "false", "<null>", "true"], ["true", "true", "<null>", "true"]], observed [["0", "0", "<null>", "true"], ["0", "1", "<null>", "true"], ["0", "<null>", "0", "true"], ["0", "<null>", "1", "true"], ["0", "<null>", "<null>", "true"], ["1", "0", "<null>", "true"], ["1", "1", "<null>", "true"], ["1", "<null>", "0", "true"], ["1", "<null>", "1", "true"], ["1", "<null>", "<null>", "true"], ["<null>", "0", "0", "true"], ["<null>", "0", "1", "true"], ["<null>", "0", "<null>", "true"], ["<null>", "1", "0", "true"], ["<null>", "1", "1", "false"], ["<null>", "1", "<null>", "true"], ["<null>", "<null>", "0", "true"], ["<null>", "<null>", "1", "true"], ["<null>", "<null>", "<null>", "true"]]
 - `tck.expressions.btic.btic1.scenario-1.examples-1-row-1`: query execution failed: Parse error: no such function: btic; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..26; query:
 RETURN btic('1985') AS b
 - `tck.expressions.btic.btic1.scenario-1.examples-1-row-2`: query execution failed: Parse error: no such function: btic; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..29; query:
@@ -4601,17 +4604,17 @@ RETURN btic_starts(btic('1985-01/1985-06'), btic('1985')) AS starts,
        btic_finishes(btic('1985-06/1985-12'), btic('1985')) AS finishes
 - `tck.expressions.comparison.comparison1.scenario-1`: result expectation is not representable by the scalar adapter
 - `tck.expressions.comparison.comparison1.scenario-3`: expected [], observed [["()"]]
-- `tck.expressions.comparison.comparison1.scenario-6.examples-1-row-2`: expected [["<null>"]], observed [["false"]]
-- `tck.expressions.comparison.comparison1.scenario-6.examples-1-row-5`: expected [["<null>"]], observed [["false"]]
-- `tck.expressions.comparison.comparison1.scenario-7.examples-1-row-12`: expected [["<null>"]], observed [["true"]]
-- `tck.expressions.comparison.comparison1.scenario-7.examples-1-row-13`: expected [["<null>"]], observed [["false"]]
-- `tck.expressions.comparison.comparison1.scenario-7.examples-1-row-14`: expected [["<null>"]], observed [["false"]]
-- `tck.expressions.comparison.comparison1.scenario-7.examples-1-row-15`: expected [["<null>"]], observed [["false"]]
-- `tck.expressions.comparison.comparison1.scenario-7.examples-1-row-16`: expected [["<null>"]], observed [["false"]]
-- `tck.expressions.comparison.comparison1.scenario-8.examples-1-row-1`: expected [["false", "true"]], observed [["<null>", "<null>"]]
-- `tck.expressions.comparison.comparison1.scenario-8.examples-1-row-2`: expected [["false", "true"]], observed [["<null>", "<null>"]]
-- `tck.expressions.comparison.comparison1.scenario-8.examples-1-row-3`: expected [["false", "true"]], observed [["<null>", "<null>"]]
-- `tck.expressions.comparison.comparison1.scenario-8.examples-1-row-4`: expected [["false", "true"]], observed [["<null>", "<null>"]]
+- `tck.expressions.comparison.comparison1.scenario-6.examples-1-row-2`: expected [["<null>"]], observed [["0"]]
+- `tck.expressions.comparison.comparison1.scenario-6.examples-1-row-5`: expected [["<null>"]], observed [["0"]]
+- `tck.expressions.comparison.comparison1.scenario-7.examples-1-row-12`: expected [["<null>"]], observed [["1"]]
+- `tck.expressions.comparison.comparison1.scenario-7.examples-1-row-13`: expected [["<null>"]], observed [["0"]]
+- `tck.expressions.comparison.comparison1.scenario-7.examples-1-row-14`: expected [["<null>"]], observed [["0"]]
+- `tck.expressions.comparison.comparison1.scenario-7.examples-1-row-15`: expected [["<null>"]], observed [["0"]]
+- `tck.expressions.comparison.comparison1.scenario-7.examples-1-row-16`: expected [["<null>"]], observed [["0"]]
+- `tck.expressions.comparison.comparison1.scenario-8.examples-1-row-1`: expected [["0", "1"]], observed [["<null>", "<null>"]]
+- `tck.expressions.comparison.comparison1.scenario-8.examples-1-row-2`: expected [["0", "1"]], observed [["<null>", "<null>"]]
+- `tck.expressions.comparison.comparison1.scenario-8.examples-1-row-3`: expected [["0", "1"]], observed [["<null>", "<null>"]]
+- `tck.expressions.comparison.comparison1.scenario-8.examples-1-row-4`: expected [["0", "1"]], observed [["<null>", "<null>"]]
 - `tck.expressions.comparison.comparison2.scenario-3.examples-1-row-1`: query execution failed: Parse error: unknown variable `i` at byte 200..202; mutation execution failed: Cypher mutation binding failed: unknown variable `i` at byte 200..202; query:
 MATCH p = (n)-[r]->()
 WITH [n, r, p, '', 1, 3.14, true, null, [], {}] AS types
@@ -4652,15 +4655,15 @@ WHERE i <> j
 WITH lhs, rhs, lhs > rhs AS result
 WHERE result
 RETURN lhs, rhs
-- `tck.expressions.comparison.comparison2.scenario-4.examples-1-row-1`: expected [["true"]], observed [["false"]]
-- `tck.expressions.comparison.comparison2.scenario-4.examples-1-row-2`: expected [["true"]], observed [["false"]]
-- `tck.expressions.comparison.comparison2.scenario-4.examples-1-row-3`: expected [["<null>"]], observed [["false"]]
-- `tck.expressions.comparison.comparison2.scenario-4.examples-1-row-4`: expected [["<null>"]], observed [["false"]]
-- `tck.expressions.comparison.comparison2.scenario-5.examples-1-row-1`: expected [["false", "false", "false", "false"]], observed [["<null>", "<null>", "<null>", "<null>"]]
-- `tck.expressions.comparison.comparison2.scenario-5.examples-1-row-2`: expected [["false", "false", "false", "false"]], observed [["<null>", "<null>", "<null>", "<null>"]]
-- `tck.expressions.comparison.comparison2.scenario-5.examples-1-row-3`: expected [["false", "false", "false", "false"]], observed [["<null>", "<null>", "<null>", "<null>"]]
-- `tck.expressions.comparison.comparison2.scenario-6.examples-1-row-3`: expected [["<null>"]], observed [["false"]]
-- `tck.expressions.comparison.comparison2.scenario-6.examples-1-row-4`: expected [["<null>"]], observed [["false"]]
+- `tck.expressions.comparison.comparison2.scenario-4.examples-1-row-1`: expected [["1"]], observed [["0"]]
+- `tck.expressions.comparison.comparison2.scenario-4.examples-1-row-2`: expected [["1"]], observed [["0"]]
+- `tck.expressions.comparison.comparison2.scenario-4.examples-1-row-3`: expected [["<null>"]], observed [["0"]]
+- `tck.expressions.comparison.comparison2.scenario-4.examples-1-row-4`: expected [["<null>"]], observed [["0"]]
+- `tck.expressions.comparison.comparison2.scenario-5.examples-1-row-1`: expected [["0", "0", "0", "0"]], observed [["<null>", "<null>", "<null>", "<null>"]]
+- `tck.expressions.comparison.comparison2.scenario-5.examples-1-row-2`: expected [["0", "0", "0", "0"]], observed [["<null>", "<null>", "<null>", "<null>"]]
+- `tck.expressions.comparison.comparison2.scenario-5.examples-1-row-3`: expected [["0", "0", "0", "0"]], observed [["<null>", "<null>", "<null>", "<null>"]]
+- `tck.expressions.comparison.comparison2.scenario-6.examples-1-row-3`: expected [["<null>"]], observed [["0"]]
+- `tck.expressions.comparison.comparison2.scenario-6.examples-1-row-4`: expected [["<null>"]], observed [["0"]]
 - `tck.expressions.comparison.comparison3.scenario-1`: expected [["2"]], observed [["1"], ["2"], ["3"]]
 - `tck.expressions.comparison.comparison3.scenario-2`: expected [["2"], ["3"]], observed [["1"], ["2"], ["3"]]
 - `tck.expressions.comparison.comparison3.scenario-3`: expected [["1"], ["2"]], observed [["1"], ["2"], ["3"]]
@@ -4712,14 +4715,14 @@ MATCH (a)-[r]->()
 WITH [r, 1] AS list
 RETURN type(list[0])
 - `tck.expressions.graph.graph5.scenario-1`: result expectation is not representable by the scalar adapter
-- `tck.expressions.graph.graph5.scenario-2`: expected [["[:T1]", "false"], ["[:T2]", "true"], ["[:T3]", "false"], ["[:T4]", "false"], ["[:t2]", "false"]], observed [["[:T1]", "false"], ["[:T2]", "false"], ["[:T3]", "false"], ["[:T4]", "false"], ["[:t2]", "false"]]
+- `tck.expressions.graph.graph5.scenario-2`: expected [["[:T1]", "0"], ["[:T2]", "1"], ["[:T3]", "0"], ["[:T4]", "0"], ["[:t2]", "0"]], observed [["[:T1]", "0"], ["[:T2]", "0"], ["[:T3]", "0"], ["[:T4]", "0"], ["[:t2]", "0"]]
 - `tck.expressions.graph.graph5.scenario-3`: result expectation is not representable by the scalar adapter
 - `tck.expressions.graph.graph5.scenario-4.examples-1-row-1`: result expectation is not representable by the scalar adapter
 - `tck.expressions.graph.graph5.scenario-4.examples-1-row-2`: result expectation is not representable by the scalar adapter
 - `tck.expressions.graph.graph5.scenario-4.examples-1-row-3`: result expectation is not representable by the scalar adapter
 - `tck.expressions.graph.graph5.scenario-4.examples-1-row-4`: result expectation is not representable by the scalar adapter
 - `tck.expressions.graph.graph5.scenario-4.examples-1-row-5`: result expectation is not representable by the scalar adapter
-- `tck.expressions.graph.graph5.scenario-5`: expected [["<null>"]], observed [["false"]]
+- `tck.expressions.graph.graph5.scenario-5`: expected [["<null>"]], observed [["0"]]
 - `tck.expressions.graph.graph6.scenario-3`: expected [["<null>"]], observed []
 - `tck.expressions.graph.graph6.scenario-4`: query execution failed: Parse error: property access requires a node or relationship at byte 41..48; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 33..100; query:
 MATCH (n)
@@ -4747,7 +4750,7 @@ RETURN n[$idx] AS value
 - `tck.expressions.graph.graph8.scenario-5`: expected [["status"], ["year"]], observed [["<null>"]]
 - `tck.expressions.graph.graph8.scenario-6`: expected [], observed [["<null>"]]
 - `tck.expressions.graph.graph8.scenario-7`: expected [], observed [["<null>"]]
-- `tck.expressions.graph.graph8.scenario-8`: expected [["true", "false", "false"]], observed [["false", "false", "false"]]
+- `tck.expressions.graph.graph8.scenario-8`: expected [["1", "0", "0"]], observed [["0", "0", "0"]]
 - `tck.expressions.graph.graph9.scenario-1`: query execution failed: Parse error: no such function: properties; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 18..44; query:
 MATCH (p:Person)
 RETURN properties(p) AS m
@@ -4805,15 +4808,15 @@ RETURN p, c
 - `tck.expressions.list.list2.scenario-9.examples-1-row-3`: expected [["<null>"]], observed [["[]"]]
 - `tck.expressions.list.list2.scenario-9.examples-1-row-4`: expected [["<null>"]], observed [["[]"]]
 - `tck.expressions.list.list2.scenario-9.examples-1-row-5`: expected [["<null>"]], observed [["[]"]]
-- `tck.expressions.list.list3.scenario-4`: expected [["<null>"]], observed [["false"]]
-- `tck.expressions.list.list3.scenario-7`: expected [["<null>"]], observed [["false"]]
-- `tck.expressions.list.list4.scenario-1`: expected [["[1,10,100,4,5]"]], observed [["0"]]
-- `tck.expressions.list.list4.scenario-2`: expected [["[false,true,false]"]], observed [["0"]]
-- `tck.expressions.list.list5.scenario-5`: expected [["false"]], observed [["true"]]
-- `tck.expressions.list.list5.scenario-21`: expected [["<null>"]], observed [["true"]]
-- `tck.expressions.list.list5.scenario-29`: expected [["<null>"]], observed [["false"]]
-- `tck.expressions.list.list5.scenario-31`: expected [["<null>"]], observed [["true"]]
-- `tck.expressions.list.list5.scenario-34`: expected [["<null>"]], observed [["false"]]
+- `tck.expressions.list.list3.scenario-4`: expected [["<null>"]], observed [["0"]]
+- `tck.expressions.list.list3.scenario-7`: expected [["<null>"]], observed [["0"]]
+- `tck.expressions.list.list4.scenario-1`: expected [["[1, 10, 100, 4, 5]"]], observed [["0"]]
+- `tck.expressions.list.list4.scenario-2`: expected [["[0, 1, 0]"]], observed [["0"]]
+- `tck.expressions.list.list5.scenario-5`: expected [["0"]], observed [["1"]]
+- `tck.expressions.list.list5.scenario-21`: expected [["<null>"]], observed [["1"]]
+- `tck.expressions.list.list5.scenario-29`: expected [["<null>"]], observed [["0"]]
+- `tck.expressions.list.list5.scenario-31`: expected [["<null>"]], observed [["1"]]
+- `tck.expressions.list.list5.scenario-34`: expected [["<null>"]], observed [["0"]]
 - `tck.expressions.list.list6.scenario-3`: expected [["3"]], observed [["1"]]
 - `tck.expressions.list.list6.scenario-7`: expected AND, OR, relationship_pattern, xor_op, comparison_op, predicate_suffix, additive_op, multiplicative_op, power_op, or postfix_suffix at byte 36..36
 - `tck.expressions.list.list6.scenario-8`: expected AND, OR, relationship_pattern, xor_op, comparison_op, predicate_suffix, additive_op, multiplicative_op, power_op, or postfix_suffix at byte 34..34
@@ -4846,7 +4849,6 @@ RETURN p, c
 - `tck.expressions.literals.literals6.scenario-9`: expected DISTINCT or projection_items at byte 7..7
 - `tck.expressions.literals.literals6.scenario-11`: expected DISTINCT or projection_items at byte 7..7
 - `tck.expressions.literals.literals6.scenario-12`: expected DISTINCT or projection_items at byte 7..7
-- `tck.expressions.literals.literals7.scenario-2`: expected [["[false]"]], observed [["[0]"]]
 - `tck.expressions.literals.literals7.scenario-7`: expected identifier or not_expression at byte 8..8
 - `tck.expressions.literals.literals7.scenario-16`: expected [["[0.2,\", as#?lßdj \",null,71034856,false]"]], observed [["[0.2,\", as#?lßdj \",null,71034856,0]"]]
 - `tck.expressions.literals.literals7.scenario-18`: expected [["[{id:\"0001\",type:\"donut\",name:\"Cake\",ppu:0.55,batters:{batter:[{id:\"1001\",type:\"Regular\"},{id:\"1002\",type:\"Chocolate\"},{id:\"1003\",type:\"Blueberry\"},{id:\"1004\",type:\"Devils Food\"}]},topping:[{id:\"5001\",type:\"None\"},{id:\"5002\",type:\"Glazed\"},{id:\"5005\",type:\"Sugar\"},{id:\"5007\",type:\"Powdered Sugar\"},{id:\"5006\",type:\"Chocolate Sprinkles\"},{id:\"5003\",type:\"Chocolate\"},{id:\"5004\",type:\"Maple\"}]},{id:\"0002\",type:\"donut\",name:\"Raised\",ppu:0.55,batters:{batter:[{id:\"1001\",type:\"Regular\"}]},topping:[{id:\"5001\",type:\"None\"},{id:\"5002\",type:\"Glazed\"},{id:\"5005\",type:\"Sugar\"},{id:\"5003\",type:\"Chocolate\"},{id:\"5004\",type:\"Maple\"}]},{id:\"0003\",type:\"donut\",name:\"Old Fashioned\",ppu:0.55,batters:{batter:[{id:\"1001\",type:\"Regular\"},{id:\"1002\",type:\"Chocolate\"}]},topping:[{id:\"5001\",type:\"None\"},{id:\"5002\",type:\"Glazed\"},{id:\"5003\",type:\"Chocolate\"},{id:\"5004\",type:\"Maple\"}]}]"]], observed [["[{\"id\":\"0001\",\"type\":\"donut\",\"name\":\"Cake\",\"ppu\":0.55,\"batters\":{\"batter\":[{\"id\":\"1001\",\"type\":\"Regular\"},{\"id\":\"1002\",\"type\":\"Chocolate\"},{\"id\":\"1003\",\"type\":\"Blueberry\"},{\"id\":\"1004\",\"type\":\"Devils Food\"}]},\"topping\":[{\"id\":\"5001\",\"type\":\"None\"},{\"id\":\"5002\",\"type\":\"Glazed\"},{\"id\":\"5005\",\"type\":\"Sugar\"},{\"id\":\"5007\",\"type\":\"Powdered Sugar\"},{\"id\":\"5006\",\"type\":\"Chocolate Sprinkles\"},{\"id\":\"5003\",\"type\":\"Chocolate\"},{\"id\":\"5004\",\"type\":\"Maple\"}]},{\"id\":\"0002\",\"type\":\"donut\",\"name\":\"Raised\",\"ppu\":0.55,\"batters\":{\"batter\":[{\"id\":\"1001\",\"type\":\"Regular\"}]},\"topping\":[{\"id\":\"5001\",\"type\":\"None\"},{\"id\":\"5002\",\"type\":\"Glazed\"},{\"id\":\"5005\",\"type\":\"Sugar\"},{\"id\":\"5003\",\"type\":\"Chocolate\"},{\"id\":\"5004\",\"type\":\"Maple\"}]},{\"id\":\"0003\",\"type\":\"donut\",\"name\":\"Old Fashioned\",\"ppu\":0.55,\"batters\":{\"batter\":[{\"id\":\"1001\",\"type\":\"Regular\"},{\"id\":\"1002\",\"type\":\"Chocolate\"}]},\"topping\":[{\"id\":\"5001\",\"type\":\"None\"},{\"id\":\"5002\",\"type\":\"Glazed\"},{\"id\":\"5003\",\"type\":\"Chocolate\"},{\"id\":\"5004\",\"type\":\"Maple\"}]}]"]]
@@ -4854,7 +4856,7 @@ RETURN p, c
 - `tck.expressions.literals.literals8.scenario-3`: expected [["{ABC: 1}"]], observed [["{\"ABC\":1}"]]
 - `tck.expressions.literals.literals8.scenario-4`: expected [["{aBCdeF: 1}"]], observed [["{\"aBCdeF\":1}"]]
 - `tck.expressions.literals.literals8.scenario-5`: expected [["{a1B2c3e67: 1}"]], observed [["{\"a1B2c3e67\":1}"]]
-- `tck.expressions.literals.literals8.scenario-6`: expected [["{k: false}"]], observed [["{\"k\":0}"]]
+- `tck.expressions.literals.literals8.scenario-6`: expected [["{k: 0}"]], observed [["{\"k\":0}"]]
 - `tck.expressions.literals.literals8.scenario-7`: expected [["{k: null}"]], observed [["{\"k\":null}"]]
 - `tck.expressions.literals.literals8.scenario-8`: expected [["{k: 1}"]], observed [["{\"k\":1}"]]
 - `tck.expressions.literals.literals8.scenario-9`: expected [["{F: -372036854}"]], observed [["{\"F\":-372036854}"]]
@@ -4866,7 +4868,7 @@ RETURN p, c
 - `tck.expressions.literals.literals8.scenario-15`: expected [["{a1: {a2: {a3: {a4: {a5: {a6: {a7: {a8: {a9: {a10: {a11: {a12: {a13: {a14: {a15: {a16: {a17: {a18: {a19: {}}}}}}}}}}}}}}}}}}}}"]], observed [["{\"a1\":{\"a2\":{\"a3\":{\"a4\":{\"a5\":{\"a6\":{\"a7\":{\"a8\":{\"a9\":{\"a10\":{\"a11\":{\"a12\":{\"a13\":{\"a14\":{\"a15\":{\"a16\":{\"a17\":{\"a18\":{\"a19\":{}}}}}}}}}}}}}}}}}}}}"]]
 - `tck.expressions.literals.literals8.scenario-16`: expected [["{a1: {a2: {a3: {a4: {a5: {a6: {a7: {a8: {a9: {a10: {a11: {a12: {a13: {a14: {a15: {a16: {a17: {a18: {a19: {a20: {a21: {a22: {a23: {a24: {a25: {a26: {a27: {a28: {a29: {a30: {a31: {a32: {a33: {a34: {a35: {a36: {a37: {a38: {a39: {}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}"]], observed [["{\"a1\":{\"a2\":{\"a3\":{\"a4\":{\"a5\":{\"a6\":{\"a7\":{\"a8\":{\"a9\":{\"a10\":{\"a11\":{\"a12\":{\"a13\":{\"a14\":{\"a15\":{\"a16\":{\"a17\":{\"a18\":{\"a19\":{\"a20\":{\"a21\":{\"a22\":{\"a23\":{\"a24\":{\"a25\":{\"a26\":{\"a27\":{\"a28\":{\"a29\":{\"a30\":{\"a31\":{\"a32\":{\"a33\":{\"a34\":{\"a35\":{\"a36\":{\"a37\":{\"a38\":{\"a39\":{}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}"]]
 - `tck.expressions.literals.literals8.scenario-17`: expected [["{a: ' { b : ', c: {d: ' '}, d: ' } '}"]], observed [["{\"a\":\" { b : \",\"c\":{\"d\":\" \"},\"d\":\" } \"}"]]
-- `tck.expressions.literals.literals8.scenario-18`: expected [["{data: [{id: '0001', type: 'donut', name: 'Cake', ppu: 0.55, batters: {batter: [{id: '1001', type: 'Regular'}, {id: '1002', type: 'Chocolate'}, {id: '1003', type: 'Blueberry'}, {id: '1004', type: 'Devils Food'}]}, topping: [{id: '5001', type: 'None'}, {id: '5002', type: 'Glazed'}, {id: '5005', type: 'Sugar'}, {id: '5007', type: 'Powdered Sugar'}, {id: '5006', type: 'Chocolate Sprinkles'}, {id: '5003', type: 'Chocolate'}, {id: '5004', type: 'Maple'}]}, {id: '0002', type: 'donut', name: 'Raised', ppu: 0.55, batters: {batter: [{id: '1001', type: 'Regular'}]}, topping: [{id: '5001', type: 'None'}, {id: '5002', type: 'Glazed'}, {id: '5005', type: 'Sugar'}, {id: '5003', type: 'Chocolate'}, {id: '5004', type: 'Maple'}]}, {id: '0003', type: 'donut', name: 'Old Fashioned', ppu: 0.55, batters: {batter: [{id: '1001', type: 'Regular'}, {id: '1002', type: 'Chocolate'}]}, topping: [{id: '5001', type: 'None'}, {id: '5002', type: 'Glazed'}, {id: '5003', type: 'Chocolate'}, {id: '5004', type: 'Maple'}]}]}"]], observed [["{\"data\":[{\"id\":\"0001\",\"type\":\"donut\",\"name\":\"Cake\",\"ppu\":0.55,\"batters\":{\"batter\":[{\"id\":\"1001\",\"type\":\"Regular\"},{\"id\":\"1002\",\"type\":\"Chocolate\"},{\"id\":\"1003\",\"type\":\"Blueberry\"},{\"id\":\"1004\",\"type\":\"Devils Food\"}]},\"topping\":[{\"id\":\"5001\",\"type\":\"None\"},{\"id\":\"5002\",\"type\":\"Glazed\"},{\"id\":\"5005\",\"type\":\"Sugar\"},{\"id\":\"5007\",\"type\":\"Powdered Sugar\"},{\"id\":\"5006\",\"type\":\"Chocolate Sprinkles\"},{\"id\":\"5003\",\"type\":\"Chocolate\"},{\"id\":\"5004\",\"type\":\"Maple\"}]},{\"id\":\"0002\",\"type\":\"donut\",\"name\":\"Raised\",\"ppu\":0.55,\"batters\":{\"batter\":[{\"id\":\"1001\",\"type\":\"Regular\"}]},\"topping\":[{\"id\":\"5001\",\"type\":\"None\"},{\"id\":\"5002\",\"type\":\"Glazed\"},{\"id\":\"5005\",\"type\":\"Sugar\"},{\"id\":\"5003\",\"type\":\"Chocolate\"},{\"id\":\"5004\",\"type\":\"Maple\"}]},{\"id\":\"0003\",\"type\":\"donut\",\"name\":\"Old Fashioned\",\"ppu\":0.55,\"batters\":{\"batter\":[{\"id\":\"1001\",\"type\":\"Regular\"},{\"id\":\"1002\",\"type\":\"Chocolate\"}]},\"topping\":[{\"id\":\"5001\",\"type\":\"None\"},{\"id\":\"5002\",\"type\":\"Glazed\"},{\"id\":\"5003\",\"type\":\"Chocolate\"},{\"id\":\"5004\",\"type\":\"Maple\"}]}]}"]]
+- `tck.expressions.literals.literals8.scenario-18`: expected [["{data: [{batters: {batter: [{id: '1001', type: 'Regular'}, {id: '1002', type: 'Chocolate'}, {id: '1003', type: 'Blueberry'}, {id: '1004', type: 'Devils Food'}]}, id: '0001', name: 'Cake', ppu: 0.55, topping: [{id: '5001', type: 'None'}, {id: '5002', type: 'Glazed'}, {id: '5005', type: 'Sugar'}, {id: '5007', type: 'Powdered Sugar'}, {id: '5006', type: 'Chocolate Sprinkles'}, {id: '5003', type: 'Chocolate'}, {id: '5004', type: 'Maple'}], type: 'donut'}, {batters: {batter: [ {id: '1001', type: 'Regular'}]}, id: '0002', name: 'Raised', ppu: 0.55, topping: [{id: '5001', type: 'None'}, {id: '5002', type: 'Glazed'}, {id: '5005', type: 'Sugar'}, {id: '5003', type: 'Chocolate'}, {id: '5004', type: 'Maple'}], type: 'donut'}, {batters: {batter: [{id: '1001', type: 'Regular'}, {id: '1002', type: 'Chocolate'}]}, id: '0003', name: 'Old Fashioned', ppu: 0.55, topping: [{id: '5001', type: 'None'}, {id: '5002', type: 'Glazed'}, {id: '5003', type: 'Chocolate'}, {id: '5004', type: 'Maple'}], type: 'donut'}]}"]], observed [["{\"data\":[{\"id\":\"0001\",\"type\":\"donut\",\"name\":\"Cake\",\"ppu\":0.55,\"batters\":{\"batter\":[{\"id\":\"1001\",\"type\":\"Regular\"},{\"id\":\"1002\",\"type\":\"Chocolate\"},{\"id\":\"1003\",\"type\":\"Blueberry\"},{\"id\":\"1004\",\"type\":\"Devils Food\"}]},\"topping\":[{\"id\":\"5001\",\"type\":\"None\"},{\"id\":\"5002\",\"type\":\"Glazed\"},{\"id\":\"5005\",\"type\":\"Sugar\"},{\"id\":\"5007\",\"type\":\"Powdered Sugar\"},{\"id\":\"5006\",\"type\":\"Chocolate Sprinkles\"},{\"id\":\"5003\",\"type\":\"Chocolate\"},{\"id\":\"5004\",\"type\":\"Maple\"}]},{\"id\":\"0002\",\"type\":\"donut\",\"name\":\"Raised\",\"ppu\":0.55,\"batters\":{\"batter\":[{\"id\":\"1001\",\"type\":\"Regular\"}]},\"topping\":[{\"id\":\"5001\",\"type\":\"None\"},{\"id\":\"5002\",\"type\":\"Glazed\"},{\"id\":\"5005\",\"type\":\"Sugar\"},{\"id\":\"5003\",\"type\":\"Chocolate\"},{\"id\":\"5004\",\"type\":\"Maple\"}]},{\"id\":\"0003\",\"type\":\"donut\",\"name\":\"Old Fashioned\",\"ppu\":0.55,\"batters\":{\"batter\":[{\"id\":\"1001\",\"type\":\"Regular\"},{\"id\":\"1002\",\"type\":\"Chocolate\"}]},\"topping\":[{\"id\":\"5001\",\"type\":\"None\"},{\"id\":\"5002\",\"type\":\"Glazed\"},{\"id\":\"5003\",\"type\":\"Chocolate\"},{\"id\":\"5004\",\"type\":\"Maple\"}]}]}"]]
 - `tck.expressions.map.map1.scenario-1`: query execution failed: Parse error: property access requires a node or relationship at byte 51..52; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 44..87; query:
 WITH {existing: 42, notMissing: null} AS m
 RETURN m.missing, m.notMissing, m.existing
@@ -4928,8 +4930,8 @@ RETURN map['null'] AS result
 - `tck.expressions.map.map2.scenario-7`: TCK parameter value is not representable by the generic adapter
 - `tck.expressions.map.map3.scenario-2`: TCK parameter value is not representable by the generic adapter
 - `tck.expressions.map.map3.scenario-3`: expected [["<null>", "<null>"]], observed [["[null]", "[null]"]]
-- `tck.expressions.map.map3.scenario-5`: expected [["true", "true", "false"]], observed [["false", "false", "false"]]
-- `tck.expressions.null.null1.scenario-3`: expected [["true"]], observed []
+- `tck.expressions.map.map3.scenario-5`: expected [["1", "1", "0"]], observed [["0", "0", "0"]]
+- `tck.expressions.null.null1.scenario-3`: expected [["1"]], observed []
 - `tck.expressions.null.null1.scenario-5.examples-1-row-1`: query execution failed: Parse error: property access requires a node or relationship at byte 52..55; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 45..79; query:
 WITH {name: 'Mats', name2: 'Pontus'} AS map
 RETURN map.name IS NULL AS result
@@ -4967,7 +4969,7 @@ RETURN map.name IS NULL AS result
 WITH null AS map
 RETURN map.name IS NULL AS result
 - `tck.expressions.null.null1.scenario-6`: result expectation is not representable by the scalar adapter
-- `tck.expressions.null.null2.scenario-3`: expected [["false"]], observed []
+- `tck.expressions.null.null2.scenario-3`: expected [["0"]], observed []
 - `tck.expressions.null.null2.scenario-5.examples-1-row-1`: query execution failed: Parse error: property access requires a node or relationship at byte 52..55; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 45..83; query:
 WITH {name: 'Mats', name2: 'Pontus'} AS map
 RETURN map.name IS NOT NULL AS result
@@ -5015,8 +5017,8 @@ RETURN map.name IS NOT NULL AS result
 WITH null AS a
 OPTIONAL MATCH p = (a)-[r]->()
 RETURN nodes(p), nodes(null)
-- `tck.expressions.path.path2.scenario-1`: expected [["[[:REL{num:1}],[:REL{num:2}]]"]], observed [["[1,2]"]]
-- `tck.expressions.path.path2.scenario-2`: expected [["[[:REL{num:1}],[:REL{num:2}]]"]], observed [["[1,2]"]]
+- `tck.expressions.path.path2.scenario-1`: expected [["[[:REL {num: 1}], [:REL {num: 2}]]"]], observed [["[1, 2]"]]
+- `tck.expressions.path.path2.scenario-2`: expected [["[[:REL {num: 1}], [:REL {num: 2}]]"]], observed [["[1, 2]"]]
 - `tck.expressions.path.path2.scenario-3`: query execution failed: Parse error: reusing a non-node variable in a node pattern is not supported in the initial graph slice at byte 36..37; mutation execution failed: Cypher mutation binding failed: reusing a non-node variable in a node pattern is not supported in the initial graph slice at byte 36..37; query:
 WITH null AS a
 OPTIONAL MATCH p = (a)-[r]->()
@@ -5063,20 +5065,20 @@ MATCH (n), (m) WHERE (n)-[:REL1*2]-(m) RETURN n, m
 - `tck.expressions.pattern.pattern2.scenario-9`: expected AND, OR, relationship_pattern, xor_op, comparison_op, predicate_suffix, additive_op, multiplicative_op, power_op, or postfix_suffix at byte 42..42
 - `tck.expressions.pattern.pattern2.scenario-10`: expected AND, OR, relationship_pattern, xor_op, comparison_op, predicate_suffix, additive_op, multiplicative_op, power_op, or postfix_suffix at byte 39..39
 - `tck.expressions.pattern.pattern2.scenario-11`: expected AND, OR, relationship_pattern, xor_op, comparison_op, predicate_suffix, additive_op, multiplicative_op, power_op, or postfix_suffix at byte 38..38
-- `tck.expressions.precedence.precedence1.scenario-1`: expected [["true", "true", "false"]], observed [["false", "true", "false"]]
-- `tck.expressions.precedence.precedence1.scenario-14`: expected [["true"]], observed [["false"]]
+- `tck.expressions.precedence.precedence1.scenario-1`: expected [["1", "1", "0"]], observed [["0", "1", "0"]]
+- `tck.expressions.precedence.precedence1.scenario-14`: expected [["1"]], observed [["0"]]
 - `tck.expressions.precedence.precedence2.scenario-4`: expected not_expression at byte 49..49
 - `tck.expressions.precedence.precedence2.scenario-5.examples-1-row-1`: expected not_expression at byte 49..49
 - `tck.expressions.precedence.precedence2.scenario-5.examples-1-row-2`: expected not_expression at byte 49..49
-- `tck.expressions.precedence.precedence3.scenario-1`: expected [["[[1],[2,3],[4,5],10]", "[[1],[2,3],[4,5],10]", "5"]], observed [["10", "10", "<null>"]]
-- `tck.expressions.precedence.precedence3.scenario-2`: expected [["[[1],[2,3],[4,5],8,9]", "[[1],[2,3],[4,5],8,9]", "[4,5]"]], observed [["0", "0", "<null>"]]
-- `tck.expressions.precedence.precedence3.scenario-3`: expected [["[[1],[2,3],[4,5],[6,7],[8,9]]", "[[1],[2,3],[4,5],[6,7],[8,9]]", "[[2,3],[4,5]]"]], observed [["0", "0", "[]"]]
-- `tck.expressions.precedence.precedence3.scenario-4`: expected [["false", "false", "[1,false,4]"]], observed [["false", "false", "4"]]
-- `tck.expressions.precedence.precedence3.scenario-5`: expected [["false", "false", "[false,4]", "[1,false,4]"]], observed [["true", "true", "0", "0"]]
-- `tck.expressions.precedence.precedence3.scenario-6.examples-1-row-3`: expected [["<null>", "<null>", "false"]], observed [["false", "false", "false"]]
-- `tck.expressions.precedence.precedence3.scenario-6.examples-1-row-4`: expected [["<null>", "<null>", "true"]], observed [["true", "true", "true"]]
-- `tck.expressions.precedence.precedence3.scenario-6.examples-1-row-5`: expected [["<null>", "<null>", "false"]], observed [["false", "false", "false"]]
-- `tck.expressions.precedence.precedence3.scenario-6.examples-1-row-6`: expected [["<null>", "<null>", "true"]], observed [["true", "true", "true"]]
+- `tck.expressions.precedence.precedence3.scenario-1`: expected [["[[1], [2, 3], [4, 5], 10]", "[[1], [2, 3], [4, 5], 10]", "5"]], observed [["10", "10", "<null>"]]
+- `tck.expressions.precedence.precedence3.scenario-2`: expected [["[[1], [2, 3], [4, 5], 8, 9]", "[[1], [2, 3], [4, 5], 8, 9]", "[4, 5]"]], observed [["0", "0", "<null>"]]
+- `tck.expressions.precedence.precedence3.scenario-3`: expected [["[[1], [2, 3], [4, 5], [6, 7], [8, 9]]", "[[1], [2, 3], [4, 5], [6, 7], [8, 9]]", "[[2, 3], [4, 5]]"]], observed [["0", "0", "[]"]]
+- `tck.expressions.precedence.precedence3.scenario-4`: expected [["0", "0", "[1, 0, 4]"]], observed [["0", "0", "4"]]
+- `tck.expressions.precedence.precedence3.scenario-5`: expected [["0", "0", "[0, 4]", "[1, 0, 4]"]], observed [["1", "1", "0", "0"]]
+- `tck.expressions.precedence.precedence3.scenario-6.examples-1-row-3`: expected [["<null>", "<null>", "0"]], observed [["0", "0", "0"]]
+- `tck.expressions.precedence.precedence3.scenario-6.examples-1-row-4`: expected [["<null>", "<null>", "1"]], observed [["1", "1", "1"]]
+- `tck.expressions.precedence.precedence3.scenario-6.examples-1-row-5`: expected [["<null>", "<null>", "0"]], observed [["0", "0", "0"]]
+- `tck.expressions.precedence.precedence3.scenario-6.examples-1-row-6`: expected [["<null>", "<null>", "1"]], observed [["1", "1", "1"]]
 - `tck.expressions.precedence.precedence4.scenario-4`: query execution failed: Parse error: string predicates on non-string operands is not supported in the initial graph slice at byte 146..160; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..334; query:
 RETURN ('abc' STARTS WITH null OR true) = (('abc' STARTS WITH null) OR true) AS a,
        ('abc' STARTS WITH null OR true) <> ('abc' STARTS WITH (null OR true)) AS b,
@@ -5108,11 +5110,11 @@ RETURN nodes, none(x IN nodes WHERE x.name = 'a') AS result
 MATCH p = (:SRelationships)-[*0..4]->(x)
 WITH tail(relationships(p)) AS relationships, COUNT(*) AS c
 RETURN relationships, none(x IN relationships WHERE x.name = 'a') AS result
-- `tck.expressions.quantifier.quantifier1.scenario-10.examples-1-row-1`: expected [["<null>"]], observed [["true"]]
-- `tck.expressions.quantifier.quantifier1.scenario-10.examples-1-row-2`: expected [["<null>"]], observed [["true"]]
-- `tck.expressions.quantifier.quantifier1.scenario-10.examples-1-row-3`: expected [["<null>"]], observed [["true"]]
-- `tck.expressions.quantifier.quantifier1.scenario-10.examples-1-row-7`: expected [["<null>"]], observed [["true"]]
-- `tck.expressions.quantifier.quantifier10.scenario-2`: expected [["false"]], observed [["true"]]
+- `tck.expressions.quantifier.quantifier1.scenario-10.examples-1-row-1`: expected [["<null>"]], observed [["1"]]
+- `tck.expressions.quantifier.quantifier1.scenario-10.examples-1-row-2`: expected [["<null>"]], observed [["1"]]
+- `tck.expressions.quantifier.quantifier1.scenario-10.examples-1-row-3`: expected [["<null>"]], observed [["1"]]
+- `tck.expressions.quantifier.quantifier1.scenario-10.examples-1-row-7`: expected [["<null>"]], observed [["1"]]
+- `tck.expressions.quantifier.quantifier10.scenario-2`: expected [["0"]], observed [["1"]]
 - `tck.expressions.quantifier.quantifier10.scenario-4.examples-1-row-1`: query execution failed: Parse error: property access requires a node or relationship at byte 186..191; mutation execution failed: Cypher mutation binding failed: property access requires a node or relationship at byte 186..191; query:
 UNWIND [{list: [2], fixed: true},
         {list: [6], fixed: true},
@@ -5519,12 +5521,12 @@ RETURN nodes, single(x IN nodes WHERE x.name = 'a') AS result
 MATCH p = (:SRelationships)-[*0..4]->(x)
 WITH tail(relationships(p)) AS relationships, COUNT(*) AS c
 RETURN relationships, single(x IN relationships WHERE x.name = 'a') AS result
-- `tck.expressions.quantifier.quantifier2.scenario-10.examples-1-row-1`: expected [["<null>"]], observed [["false"]]
-- `tck.expressions.quantifier.quantifier2.scenario-10.examples-1-row-2`: expected [["<null>"]], observed [["false"]]
-- `tck.expressions.quantifier.quantifier2.scenario-10.examples-1-row-3`: expected [["<null>"]], observed [["false"]]
-- `tck.expressions.quantifier.quantifier2.scenario-10.examples-1-row-4`: expected [["<null>"]], observed [["true"]]
-- `tck.expressions.quantifier.quantifier2.scenario-10.examples-1-row-5`: expected [["<null>"]], observed [["true"]]
-- `tck.expressions.quantifier.quantifier2.scenario-10.examples-1-row-7`: expected [["<null>"]], observed [["false"]]
+- `tck.expressions.quantifier.quantifier2.scenario-10.examples-1-row-1`: expected [["<null>"]], observed [["0"]]
+- `tck.expressions.quantifier.quantifier2.scenario-10.examples-1-row-2`: expected [["<null>"]], observed [["0"]]
+- `tck.expressions.quantifier.quantifier2.scenario-10.examples-1-row-3`: expected [["<null>"]], observed [["0"]]
+- `tck.expressions.quantifier.quantifier2.scenario-10.examples-1-row-4`: expected [["<null>"]], observed [["1"]]
+- `tck.expressions.quantifier.quantifier2.scenario-10.examples-1-row-5`: expected [["<null>"]], observed [["1"]]
+- `tck.expressions.quantifier.quantifier2.scenario-10.examples-1-row-7`: expected [["<null>"]], observed [["0"]]
 - `tck.expressions.quantifier.quantifier3.scenario-7.examples-1-row-1`: query execution failed: Parse error: unknown variable `x` at byte 26..27; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..45; query:
 RETURN any(x IN [] WHERE x.a = 2) AS result
 - `tck.expressions.quantifier.quantifier3.scenario-7.examples-1-row-2`: query execution failed: Parse error: unknown variable `x` at byte 38..39; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..57; query:
@@ -5551,10 +5553,10 @@ RETURN nodes, any(x IN nodes WHERE x.name = 'a') AS result
 MATCH p = (:SRelationships)-[*0..4]->(x)
 WITH tail(relationships(p)) AS relationships, COUNT(*) AS c
 RETURN relationships, any(x IN relationships WHERE x.name = 'a') AS result
-- `tck.expressions.quantifier.quantifier3.scenario-10.examples-1-row-1`: expected [["<null>"]], observed [["false"]]
-- `tck.expressions.quantifier.quantifier3.scenario-10.examples-1-row-2`: expected [["<null>"]], observed [["false"]]
-- `tck.expressions.quantifier.quantifier3.scenario-10.examples-1-row-3`: expected [["<null>"]], observed [["false"]]
-- `tck.expressions.quantifier.quantifier3.scenario-10.examples-1-row-7`: expected [["<null>"]], observed [["false"]]
+- `tck.expressions.quantifier.quantifier3.scenario-10.examples-1-row-1`: expected [["<null>"]], observed [["0"]]
+- `tck.expressions.quantifier.quantifier3.scenario-10.examples-1-row-2`: expected [["<null>"]], observed [["0"]]
+- `tck.expressions.quantifier.quantifier3.scenario-10.examples-1-row-3`: expected [["<null>"]], observed [["0"]]
+- `tck.expressions.quantifier.quantifier3.scenario-10.examples-1-row-7`: expected [["<null>"]], observed [["0"]]
 - `tck.expressions.quantifier.quantifier4.scenario-7.examples-1-row-1`: query execution failed: Parse error: unknown variable `x` at byte 26..27; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..45; query:
 RETURN all(x IN [] WHERE x.a = 2) AS result
 - `tck.expressions.quantifier.quantifier4.scenario-7.examples-1-row-2`: query execution failed: Parse error: unknown variable `x` at byte 38..39; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..57; query:
@@ -5581,11 +5583,11 @@ RETURN nodes, all(x IN nodes WHERE x.name = 'a') AS result
 MATCH p = (:SRelationships)-[*0..4]->(x)
 WITH tail(relationships(p)) AS relationships, COUNT(*) AS c
 RETURN relationships, all(x IN relationships WHERE x.name = 'a') AS result
-- `tck.expressions.quantifier.quantifier4.scenario-10.examples-1-row-1`: expected [["<null>"]], observed [["true"]]
-- `tck.expressions.quantifier.quantifier4.scenario-10.examples-1-row-2`: expected [["<null>"]], observed [["true"]]
-- `tck.expressions.quantifier.quantifier4.scenario-10.examples-1-row-4`: expected [["<null>"]], observed [["true"]]
-- `tck.expressions.quantifier.quantifier4.scenario-10.examples-1-row-5`: expected [["<null>"]], observed [["true"]]
-- `tck.expressions.quantifier.quantifier4.scenario-10.examples-1-row-8`: expected [["<null>"]], observed [["true"]]
+- `tck.expressions.quantifier.quantifier4.scenario-10.examples-1-row-1`: expected [["<null>"]], observed [["1"]]
+- `tck.expressions.quantifier.quantifier4.scenario-10.examples-1-row-2`: expected [["<null>"]], observed [["1"]]
+- `tck.expressions.quantifier.quantifier4.scenario-10.examples-1-row-4`: expected [["<null>"]], observed [["1"]]
+- `tck.expressions.quantifier.quantifier4.scenario-10.examples-1-row-5`: expected [["<null>"]], observed [["1"]]
+- `tck.expressions.quantifier.quantifier4.scenario-10.examples-1-row-8`: expected [["<null>"]], observed [["1"]]
 - `tck.expressions.quantifier.quantifier5.scenario-2.examples-1-row-1`: query execution failed: Parse error: outer list-scope variables inside nested list scopes is not supported in the initial graph slice at byte 91..93; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 42..110; query:
 WITH [1, 2, 3, 4, 5, 6, 7, 8, 9] AS list
 RETURN none(x IN list WHERE none(y IN list WHERE x <= y)) AS result
@@ -5781,7 +5783,7 @@ RETURN result
 - `tck.expressions.string.string10.scenario-1`: result expectation is not representable by the scalar adapter
 - `tck.expressions.string.string10.scenario-2`: result expectation is not representable by the scalar adapter
 - `tck.expressions.string.string10.scenario-3`: result expectation is not representable by the scalar adapter
-- `tck.expressions.string.string10.scenario-8`: expected [["<null>", "36"]], observed [["<null>", "11"], ["false", "16"], ["true", "9"]]
+- `tck.expressions.string.string10.scenario-8`: expected [["<null>", "36"]], observed [["0", "16"], ["1", "9"], ["<null>", "11"]]
 - `tck.expressions.string.string10.scenario-9`: result expectation is not representable by the scalar adapter
 - `tck.expressions.string.string11.scenario-1`: result expectation is not representable by the scalar adapter
 - `tck.expressions.string.string11.scenario-2`: result expectation is not representable by the scalar adapter
@@ -5791,12 +5793,12 @@ RETURN count(item) AS item
 - `tck.expressions.string.string8.scenario-1`: result expectation is not representable by the scalar adapter
 - `tck.expressions.string.string8.scenario-2`: result expectation is not representable by the scalar adapter
 - `tck.expressions.string.string8.scenario-3`: result expectation is not representable by the scalar adapter
-- `tck.expressions.string.string8.scenario-8`: expected [["<null>", "36"]], observed [["<null>", "11"], ["false", "18"], ["true", "7"]]
+- `tck.expressions.string.string8.scenario-8`: expected [["<null>", "36"]], observed [["0", "18"], ["1", "7"], ["<null>", "11"]]
 - `tck.expressions.string.string8.scenario-9`: result expectation is not representable by the scalar adapter
 - `tck.expressions.string.string9.scenario-1`: result expectation is not representable by the scalar adapter
 - `tck.expressions.string.string9.scenario-2`: result expectation is not representable by the scalar adapter
 - `tck.expressions.string.string9.scenario-3`: result expectation is not representable by the scalar adapter
-- `tck.expressions.string.string9.scenario-8`: expected [["<null>", "36"]], observed [["<null>", "11"], ["false", "18"], ["true", "7"]]
+- `tck.expressions.string.string9.scenario-8`: expected [["<null>", "36"]], observed [["0", "18"], ["1", "7"], ["<null>", "11"]]
 - `tck.expressions.string.string9.scenario-9`: result expectation is not representable by the scalar adapter
 - `tck.expressions.temporal.temporal1.scenario-1.examples-1-row-1`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 8..36; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..41; query:
 RETURN date({year: 1816, week: 1}) AS d
@@ -8041,23 +8043,20 @@ RETURN time.truncate('microsecond', time({hour: 12, minute: 31, second: 14, nano
 - `tck.expressions.typeconversion.typeconversion1.scenario-5.examples-1-row-5`: expected an error but execution succeeded
 - `tck.expressions.typeconversion.typeconversion1.scenario-5.examples-1-row-6`: expected an error but execution succeeded
 - `tck.expressions.typeconversion.typeconversion2.scenario-2`: expected [["<null>", "<null>"]], observed [["0", "0"]]
-- `tck.expressions.typeconversion.typeconversion2.scenario-5`: expected [["[2,2,null]"]], observed [["[2,2,0]"]]
+- `tck.expressions.typeconversion.typeconversion2.scenario-5`: expected [["[2, 2, null]"]], observed [["[2, 2, 0]"]]
 - `tck.expressions.typeconversion.typeconversion2.scenario-8.examples-1-row-1`: expected an error but execution succeeded
 - `tck.expressions.typeconversion.typeconversion2.scenario-8.examples-1-row-2`: expected an error but execution succeeded
 - `tck.expressions.typeconversion.typeconversion2.scenario-8.examples-1-row-3`: expected an error but execution succeeded
 - `tck.expressions.typeconversion.typeconversion2.scenario-8.examples-1-row-4`: expected an error but execution succeeded
 - `tck.expressions.typeconversion.typeconversion2.scenario-8.examples-1-row-5`: expected an error but execution succeeded
 - `tck.expressions.typeconversion.typeconversion3.scenario-2`: expected [["<null>", "<null>"]], observed [["0.0", "0.0"]]
-- `tck.expressions.typeconversion.typeconversion3.scenario-4`: expected [["[1.0,2.0,null]"]], observed [["[1.0,2.0,0.0]"]]
+- `tck.expressions.typeconversion.typeconversion3.scenario-4`: expected [["[1.0, 2.0, null]"]], observed [["[1.0, 2.0, 0.0]"]]
 - `tck.expressions.typeconversion.typeconversion3.scenario-6.examples-1-row-1`: expected an error but execution succeeded
 - `tck.expressions.typeconversion.typeconversion3.scenario-6.examples-1-row-2`: expected an error but execution succeeded
 - `tck.expressions.typeconversion.typeconversion3.scenario-6.examples-1-row-3`: expected an error but execution succeeded
 - `tck.expressions.typeconversion.typeconversion3.scenario-6.examples-1-row-4`: expected an error but execution succeeded
 - `tck.expressions.typeconversion.typeconversion3.scenario-6.examples-1-row-5`: expected an error but execution succeeded
 - `tck.expressions.typeconversion.typeconversion3.scenario-6.examples-1-row-6`: expected an error but execution succeeded
-- `tck.expressions.typeconversion.typeconversion4.scenario-2`: expected [["true"]], observed [["1"]]
-- `tck.expressions.typeconversion.typeconversion4.scenario-3`: expected [["false"]], observed [["0"]]
-- `tck.expressions.typeconversion.typeconversion4.scenario-4`: expected [["true"]], observed [["1"]]
 - `tck.expressions.typeconversion.typeconversion4.scenario-5`: expected [["[\"1\",\"2.3\",\"true\",\"apa\"]"]], observed [["[\"1\",\"2.3\",\"1\",\"apa\"]"]]
 - `tck.expressions.typeconversion.typeconversion4.scenario-10.examples-1-row-1`: expected an error but execution succeeded
 - `tck.expressions.typeconversion.typeconversion4.scenario-10.examples-1-row-2`: expected an error but execution succeeded
@@ -8620,6 +8619,6 @@ CREATE (b1)-[:FRIEND]->(b2),
 
 ## Longitudinal inventory
 
-- Runs: 279
-- Result records: 571625
+- Runs: 284
+- Result records: 582017
 - Unique test identities: 10441
