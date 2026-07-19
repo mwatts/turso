@@ -294,6 +294,12 @@ fn matches_two_level_nested_struct_field_read_executes() {
             "INSERT INTO zones(id, bounds) VALUES (1, struct_pack(struct_pack(3, 4), 'north'))",
         )
         .expect("insert nested struct-valued row");
+    connection
+        .execute(format!(
+            "INSERT INTO \"{}\"(node_id, label) VALUES (1, 'Zone')",
+            turso_graph_frontend::labels_table_name(session.graph_id())
+        ))
+        .expect("record seeded node label");
 
     let rows = session
         .query(
@@ -321,6 +327,12 @@ fn nested_struct_field_read_lowers_and_executes() {
     connection
         .execute("INSERT INTO people VALUES (1, struct_pack('Ada', struct_pack('London', 90210)))")
         .expect("insert nested struct-valued row");
+    connection
+        .execute(format!(
+            "INSERT INTO \"{}\"(node_id, label) VALUES (1, 'Person')",
+            turso_graph_frontend::labels_table_name(session.graph_id())
+        ))
+        .expect("record seeded node label");
 
     // Exactly at the two-level cap: `info` is the root property, `home` and
     // `city` are the two nested fields beyond it.

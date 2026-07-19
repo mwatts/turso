@@ -144,6 +144,23 @@ impl GraphCatalogSnapshot for DynamicCatalog {
 }
 
 impl RelationalCatalogSnapshot for DynamicCatalog {
+    fn labels_table(&self) -> Option<String> {
+        self.inner.labels_table()
+    }
+
+    fn label_name(&self, label: ir::LabelId) -> Option<String> {
+        if let Some(name) = self.inner.label_name(label) {
+            return Some(name);
+        }
+        self.state
+            .lock()
+            .expect("catalog state lock")
+            .labels
+            .iter()
+            .find(|(_, id)| **id == label)
+            .map(|(name, _)| name.clone())
+    }
+
     fn node_layout(&self, source: ir::SourceTableId) -> Option<NodeTableLayout> {
         self.inner.node_layout(source)
     }

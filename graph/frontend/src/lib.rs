@@ -22,9 +22,9 @@ pub use binder::{
     ParameterTypes, ResolvedProperty,
 };
 pub use catalog::{
-    graph_generation, load_registered_graph, register_graph, CatalogError, GraphRegistration,
-    NodeSourceRegistration, RegisteredGraph, RegisteredNodeSource, RegisteredRelationshipSource,
-    RelationshipSourceRegistration, GRAPH_CATALOG_VERSION,
+    graph_generation, labels_table_name, load_registered_graph, register_graph, CatalogError,
+    GraphRegistration, NodeSourceRegistration, RegisteredGraph, RegisteredNodeSource,
+    RegisteredRelationshipSource, RelationshipSourceRegistration, GRAPH_CATALOG_VERSION,
 };
 pub use compiler::{graph_frontend_id, GraphCompilationCatalog, GraphCompiler};
 pub use graph_expand::{install_graph_catalog, register_graph_catalog, GRAPH_EXPAND_TABLE_NAME};

@@ -466,7 +466,8 @@ fn execute_case(
             );
         }
     }
-    let counters_before = graph_counters(&fixture.connection);
+    let labels_table = turso_graph_frontend::labels_table_name(fixture.session.graph_id());
+    let counters_before = graph_counters(&fixture.connection, &labels_table);
     match execute_tck_statement(&fixture.session, query, &parameters) {
         Err(error) if expectation == Expectation::Error => {
             (Outcome::Passed, None, Some(error), "execution")
@@ -484,9 +485,12 @@ fn execute_case(
                 .iter()
                 .find(|step| step.value.contains("side effects should be"))
             {
-                if let Err(message) =
-                    compare_side_effects(&fixture.connection, counters_before.as_ref(), step)
-                {
+                if let Err(message) = compare_side_effects(
+                    &fixture.connection,
+                    &labels_table,
+                    counters_before.as_ref(),
+                    step,
+                ) {
                     return (
                         Outcome::Failed,
                         Some(stringify_rows(rows)),
@@ -544,6 +548,7 @@ struct GraphCounters {
     nodes: i64,
     relationships: i64,
     properties: i64,
+    labels: i64,
 }
 
 /// Counts nodes, relationships, and non-null property cells in the shared
@@ -551,6 +556,7 @@ struct GraphCounters {
 /// cannot be verified.
 fn graph_counters(
     connection: &std::sync::Arc<turso_core::Connection>,
+    labels_table: &str,
 ) -> Result<GraphCounters, String> {
     let count = |sql: &str| -> Result<i64, String> {
         let rows = connection
@@ -586,16 +592,20 @@ fn graph_counters(
         nodes: count("SELECT count(*) FROM people")?,
         relationships: count("SELECT count(*) FROM relationships")?,
         properties,
+        labels: count(&format!(
+            "SELECT count(DISTINCT label) FROM \"{labels_table}\""
+        ))?,
     })
 }
 
 fn compare_side_effects(
     connection: &std::sync::Arc<turso_core::Connection>,
+    labels_table: &str,
     before: Result<&GraphCounters, &String>,
     step: &Step,
 ) -> Result<(), String> {
     let before = before.map_err(|error| format!("side-effect baseline failed: {error}"))?;
-    let after = graph_counters(connection)
+    let after = graph_counters(connection, labels_table)
         .map_err(|error| format!("side-effect measurement failed: {error}"))?;
     let mut observed = std::collections::BTreeMap::new();
     let diff = |added: &str, removed: &str, delta: i64| {
@@ -616,6 +626,7 @@ fn compare_side_effects(
             "-properties",
             after.properties - before.properties,
         ))
+        .chain(diff("+labels", "-labels", after.labels - before.labels))
     {
         observed.insert(key, value);
     }

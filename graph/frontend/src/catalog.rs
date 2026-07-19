@@ -391,7 +391,19 @@ fn register_graph_in_transaction(
     for table in mapped_tables {
         install_generation_triggers(connection, graph_id, table)?;
     }
+    execute_internal(
+        connection,
+        format!(
+            "CREATE TABLE IF NOT EXISTS \"{}\"(node_id INTEGER NOT NULL, label TEXT NOT NULL)",
+            labels_table_name(graph_id)
+        ),
+    )?;
     load_registered_graph(connection, &registration.name)
+}
+
+/// Name of the per-graph node-label junction table.
+pub fn labels_table_name(graph: GraphId) -> String {
+    format!("__turso_graph_node_labels_{}", graph.get())
 }
 
 fn create_catalog(connection: &Arc<Connection>) -> Result<(), CatalogError> {

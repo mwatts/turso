@@ -2371,28 +2371,31 @@ impl<'a> Binder<'a> {
                         if let Some(entity) = self.entities.get(id) {
                             let lowered_name = name.value.to_ascii_lowercase();
                             if lowered_name == "labels" && entity.kind == CatalogEntity::Node {
-                                let values = entity
-                                    .names
-                                    .iter()
-                                    .map(|label| ir::TypedExpression {
-                                        expression: ir::Expression::Literal(ir::Literal::Text(
-                                            label.clone(),
-                                        )),
-                                        value_type: ir::ValueType::Text,
-                                        nullability: ir::Nullability::NonNull,
-                                    })
-                                    .collect();
+                                // The label junction table is the source of
+                                // truth; lowering resolves the sentinel.
                                 return Ok(ir::TypedExpression {
-                                    expression: ir::Expression::List(values),
+                                    expression: ir::Expression::Function {
+                                        function: ir::FunctionName::new("__cypher_labels")
+                                            .expect("static name"),
+                                        arguments: vec![argument.clone()],
+                                    },
                                     value_type: ir::ValueType::List(Box::new(ir::ValueType::Text)),
                                     nullability: ir::Nullability::NonNull,
                                 });
                             }
+                            if lowered_name == "label" && entity.kind == CatalogEntity::Node {
+                                return Ok(ir::TypedExpression {
+                                    expression: ir::Expression::Function {
+                                        function: ir::FunctionName::new("__cypher_label")
+                                            .expect("static name"),
+                                        arguments: vec![argument.clone()],
+                                    },
+                                    value_type: ir::ValueType::Text,
+                                    nullability: ir::Nullability::Nullable,
+                                });
+                            }
                             let single_name = match lowered_name.as_str() {
                                 "type" if entity.kind == CatalogEntity::Relationship => {
-                                    entity.names.first()
-                                }
-                                "label" if entity.kind == CatalogEntity::Node => {
                                     entity.names.first()
                                 }
                                 _ => None,

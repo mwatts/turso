@@ -295,6 +295,17 @@ impl GraphCatalogSnapshot for SchemaCatalog {
 }
 
 impl RelationalCatalogSnapshot for SchemaCatalog {
+    fn labels_table(&self) -> Option<String> {
+        Some(crate::catalog::labels_table_name(self.graph.id))
+    }
+
+    fn label_name(&self, label: ir::LabelId) -> Option<String> {
+        self.graph
+            .node_sources
+            .get((label.get() as usize).checked_sub(1)?)
+            .map(|source| source.name.clone())
+    }
+
     fn node_layout(&self, source: ir::SourceTableId) -> Option<NodeTableLayout> {
         let entry = self
             .node_source_entry()

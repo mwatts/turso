@@ -135,6 +135,7 @@ fn measure_bulk_load(scale: u64) -> Result<Measurement> {
     let sql = line_graph_sql(scale);
     let started = Instant::now();
     fixture.connection.execute(&sql)?;
+    seed_labels(&fixture)?;
     let duration_ns = elapsed_ns(started);
     validate_counts(&fixture, scale, scale - 1)?;
     Ok(measurement(
@@ -149,6 +150,7 @@ fn measure_bulk_load(scale: u64) -> Result<Measurement> {
 fn measure_load(scale: u64) -> Result<Measurement> {
     let fixture = empty_fixture(&format!("perf-load-{scale}"))?;
     fixture.connection.execute(line_graph_sql(scale))?;
+    seed_labels(&fixture)?;
     let started = Instant::now();
     let rows = fixture.session.query(
         "MATCH (:Person {id: 1})-[:KNOWS*1..3]->(b:Person) RETURN count(b)",
@@ -172,6 +174,7 @@ fn measure_load(scale: u64) -> Result<Measurement> {
 fn measure_query(scale: u64, iterations: u32) -> Result<Measurement> {
     let fixture = empty_fixture(&format!("perf-query-{scale}"))?;
     fixture.connection.execute(line_graph_sql(scale))?;
+    seed_labels(&fixture)?;
     let query = format!("MATCH (n:Person {{id: {}}}) RETURN n.name", scale / 2);
     let parameters = MutationParameters::new();
     fixture.session.query(&query, &parameters)?;
@@ -198,6 +201,7 @@ fn measure_query(scale: u64, iterations: u32) -> Result<Measurement> {
 fn measure_delete(scale: u64) -> Result<Measurement> {
     let fixture = empty_fixture(&format!("perf-delete-{scale}"))?;
     fixture.connection.execute(line_graph_sql(scale))?;
+    seed_labels(&fixture)?;
     let started = Instant::now();
     fixture.session.mutate(
         "MATCH (n:Person) DETACH DELETE n",
@@ -327,6 +331,15 @@ fn record(
             dimensions: BTreeMap::new(),
         },
     }
+}
+
+fn seed_labels(fixture: &crate::runner::GraphFixture) -> Result<(), turso_core::LimboError> {
+    fixture.connection.execute(format!(
+        "INSERT INTO \"{}\"(node_id, label) SELECT id, 'Person' FROM people \
+         WHERE id NOT IN (SELECT node_id FROM \"{}\")",
+        turso_graph_frontend::labels_table_name(fixture.session.graph_id()),
+        turso_graph_frontend::labels_table_name(fixture.session.graph_id()),
+    ))
 }
 
 fn line_graph_sql(scale: u64) -> String {

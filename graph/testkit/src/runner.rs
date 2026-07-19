@@ -166,6 +166,12 @@ fn build_fixture(
         },
     )
     .map_err(|error| RunnerError::Fixture(error.to_string()))?;
+    connection
+        .execute(format!(
+            "INSERT INTO \"{}\"(node_id, label) SELECT id, 'Person' FROM people",
+            turso_graph_frontend::labels_table_name(registered.id)
+        ))
+        .map_err(|error| RunnerError::Fixture(error.to_string()))?;
     let catalog: Arc<dyn GraphCompilationCatalog> =
         Arc::new(crate::dynamic_catalog::DynamicCatalog::new(
             connection.clone(),

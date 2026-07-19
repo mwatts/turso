@@ -27,6 +27,14 @@ pub trait RelationalCatalogSnapshot {
         source: ir::SourceTableId,
         property: ir::PropertyId,
     ) -> Option<String>;
+    /// Junction table recording each node's labels, when the graph has one.
+    fn labels_table(&self) -> Option<String> {
+        None
+    }
+    /// Human-readable name of a label identity, when known.
+    fn label_name(&self, _label: ir::LabelId) -> Option<String> {
+        None
+    }
 }
 
 #[derive(Debug, Error)]
@@ -532,15 +540,28 @@ fn lower_node_scan(
             kind: EntityKind::Node,
         },
     );
-    Ok(Lowered {
-        sql: format!(
-            "SELECT n.{} AS {} FROM {} AS n",
-            quote_identifier(&layout.identity_column),
-            binding_column(scan.binding),
-            quote_identifier(&layout.table)
-        ),
-        bindings,
-    })
+    let mut sql = format!(
+        "SELECT n.{} AS {} FROM {} AS n",
+        quote_identifier(&layout.identity_column),
+        binding_column(scan.binding),
+        quote_identifier(&layout.table)
+    );
+    // Filter labeled scans through the node-label junction when available.
+    // Joins (each label yields at most one junction row per node) keep the
+    // scan shape simple for downstream traversal joins.
+    if let Some(labels_table) = catalog.labels_table() {
+        for (index, label) in scan.labels.iter().enumerate() {
+            if let Some(name) = catalog.label_name(*label) {
+                sql.push_str(&format!(
+                    " JOIN {} AS lbl{index} ON lbl{index}.node_id = n.{} AND lbl{index}.label = '{}'",
+                    quote_identifier(&labels_table),
+                    quote_identifier(&layout.identity_column),
+                    name.replace('\'', "''")
+                ));
+            }
+        }
+    }
+    Ok(Lowered { sql, bindings })
 }
 
 fn lower_fixed_expand(
@@ -1072,6 +1093,30 @@ fn lower_expression_with_references(
                     return Ok(format!(
                         "(SELECT json_group_array(value) \
                          FROM generate_series(({start}), ({stop}), ({step})))"
+                    ));
+                }
+                ("__cypher_labels", [value]) => {
+                    let table = catalog
+                        .labels_table()
+                        .ok_or(LowerError::UnsupportedOperator(
+                            "labels() without a label table",
+                        ))?;
+                    return Ok(format!(
+                        "(SELECT json_group_array(label) FROM (SELECT lbl.label FROM {} AS lbl \
+                         WHERE lbl.node_id = ({value}) ORDER BY lbl.rowid))",
+                        quote_identifier(&table)
+                    ));
+                }
+                ("__cypher_label", [value]) => {
+                    let table = catalog
+                        .labels_table()
+                        .ok_or(LowerError::UnsupportedOperator(
+                            "label() without a label table",
+                        ))?;
+                    return Ok(format!(
+                        "(SELECT lbl.label FROM {} AS lbl WHERE lbl.node_id = ({value}) \
+                         ORDER BY lbl.rowid LIMIT 1)",
+                        quote_identifier(&table)
                     ));
                 }
                 ("__cypher_keys", [value]) => {

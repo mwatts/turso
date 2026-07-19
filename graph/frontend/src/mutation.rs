@@ -677,6 +677,7 @@ fn execute_operation(
                 entity_layouts,
                 false,
             )?;
+            record_node_labels(connection, catalog, &create.labels, &identity, parameters)?;
             values.insert(create.binding.id(), identity);
             entity_layouts.insert(
                 create.binding.id(),
@@ -693,6 +694,13 @@ fn execute_operation(
                 values,
                 entity_layouts,
                 true,
+            )?;
+            record_node_labels(
+                connection,
+                catalog,
+                &merge.create.labels,
+                &identity,
+                parameters,
             )?;
             values.insert(merge.create.binding.id(), identity);
             entity_layouts.insert(
@@ -786,6 +794,40 @@ fn execute_operation(
         ir::Mutation::Delete(delete) => {
             delete_entity(connection, catalog, graph, delete, parameters, values)?;
         }
+    }
+    Ok(())
+}
+
+/// Records a created or merged node's labels in the graph's junction
+/// table; idempotent so MERGE matches do not duplicate rows.
+fn record_node_labels(
+    connection: &Arc<Connection>,
+    catalog: &dyn GraphCompilationCatalog,
+    labels: &[ir::LabelId],
+    identity: &Value,
+    parameters: &MutationParameters,
+) -> Result<(), MutationError> {
+    let Some(table) = catalog.labels_table() else {
+        return Ok(());
+    };
+    let table = table.replace('"', "\"\"");
+    for label in labels {
+        let Some(name) = catalog.label_name(*label) else {
+            continue;
+        };
+        let name = name.replace('\'', "''");
+        let parameter = format!("{INTERNAL_PARAMETER_PREFIX}label_node");
+        let internal = HashMap::from([(parameter.clone(), identity.clone())]);
+        run_ignore(
+            connection,
+            &format!(
+                "INSERT INTO \"{table}\"(node_id, label) SELECT ${parameter}, '{name}' \
+                 WHERE NOT EXISTS (SELECT 1 FROM \"{table}\" \
+                 WHERE node_id = ${parameter} AND label = '{name}')"
+            ),
+            parameters,
+            &internal,
+        )?;
     }
     Ok(())
 }
@@ -993,6 +1035,18 @@ fn delete_entity(
             {
                 return Err(MutationError::NodeHasRelationships);
             }
+        }
+        if let Some(labels_table) = catalog.labels_table() {
+            run_ignore(
+                connection,
+                &format!(
+                    "DELETE FROM \"{}\" WHERE node_id = ${}",
+                    labels_table.replace('"', "\"\""),
+                    identity_parameter(delete.entity),
+                ),
+                parameters,
+                &internal,
+            )?;
         }
         Ok(run_ignore(
             connection,
