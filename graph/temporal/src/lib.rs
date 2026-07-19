@@ -40,6 +40,7 @@ pub fn install_temporal_extension(connection: &Connection) {
         register(c"duration_neg".as_ptr(), duration_neg);
         register(c"duration_between".as_ptr(), duration_between);
         register(c"temporal_make".as_ptr(), temporal_make);
+        register(c"temporal_truncate".as_ptr(), temporal_truncate);
         register(c"temporal_parse".as_ptr(), temporal_parse);
         register(c"temporal_get".as_ptr(), temporal_get);
         register(c"temporal_now".as_ptr(), temporal_now);
@@ -568,6 +569,119 @@ fn temporal_make(args: &[ExtValue]) -> ExtValue {
     }
 }
 
+/// `temporal_truncate(kind, unit, value[, components_json])` truncates a
+/// temporal value to the start of `unit`, applies optional component
+/// overrides, and coerces onto the requested kind — the `<kind>.truncate`
+/// Cypher functions.
+#[scalar(name = "temporal_truncate")]
+fn temporal_truncate(args: &[ExtValue]) -> ExtValue {
+    let (Some(kind), Some(unit), Some(value)) = (
+        args.first().and_then(text),
+        args.get(1).and_then(text),
+        args.get(2).and_then(temporal_argument),
+    ) else {
+        return ExtValue::null();
+    };
+    let date = temporal_date(&value);
+    let time = temporal_time(&value).unwrap_or(civil::Time::midnight());
+    let zone = temporal_zone(&value);
+    let Some((date, time)) = truncate_parts(date, time, &unit) else {
+        return ExtValue::null();
+    };
+    let overrides = args.get(3).and_then(text).map(|json| {
+        match serde_json::from_str::<serde_json::Value>(&json) {
+            Ok(serde_json::Value::Object(map)) => Some(map),
+            _ => None,
+        }
+    });
+    let assembled = match overrides {
+        Some(None) => None,
+        Some(Some(map)) => {
+            let zone = match component_text(&map, "timezone") {
+                Some(name) => parse_timezone(&name),
+                None => zone,
+            };
+            (|| {
+                let date = build_date(&map, date)?;
+                let time = build_time(&map, Some(time))?;
+                assemble_temporal(&kind, date, time, zone)
+            })()
+        }
+        None => assemble_temporal(&kind, date, time, zone),
+    };
+    match assembled {
+        Some(value) => ExtValue::from_text(render_temporal(&value)),
+        None => ExtValue::null(),
+    }
+}
+
+/// Truncates date/time parts to the start of `unit`. Time-only values pass
+/// `None` for the date and keep it `None`.
+fn truncate_parts(
+    date: Option<civil::Date>,
+    time: civil::Time,
+    unit: &str,
+) -> Option<(Option<civil::Date>, civil::Time)> {
+    let midnight = civil::Time::midnight();
+    if let Some(date) = date {
+        let year = date.year();
+        let start_of = |year: i16| civil::Date::new(year, 1, 1).ok();
+        let truncated = match unit {
+            "millennium" => (start_of(year.div_euclid(1000) * 1000)?, midnight),
+            "century" => (start_of(year.div_euclid(100) * 100)?, midnight),
+            "decade" => (start_of(year.div_euclid(10) * 10)?, midnight),
+            "year" => (start_of(year)?, midnight),
+            "weekYear" => (
+                civil::ISOWeekDate::new(date.iso_week_date().year(), 1, civil::Weekday::Monday)
+                    .ok()?
+                    .date(),
+                midnight,
+            ),
+            "quarter" => (
+                civil::Date::new(year, (date.month() - 1) / 3 * 3 + 1, 1).ok()?,
+                midnight,
+            ),
+            "month" => (civil::Date::new(year, date.month(), 1).ok()?, midnight),
+            "week" => (
+                date.checked_sub(
+                    Span::new().days(i64::from(date.weekday().to_monday_zero_offset())),
+                )
+                .ok()?,
+                midnight,
+            ),
+            "day" => (date, midnight),
+            _ => (date, truncate_time(time, unit)?),
+        };
+        return Some((Some(truncated.0), truncated.1));
+    }
+    Some((None, truncate_time(time, unit)?))
+}
+
+fn truncate_time(time: civil::Time, unit: &str) -> Option<civil::Time> {
+    let subsec = time.subsec_nanosecond();
+    match unit {
+        "day" => Some(civil::Time::midnight()),
+        "hour" => civil::Time::new(time.hour(), 0, 0, 0).ok(),
+        "minute" => civil::Time::new(time.hour(), time.minute(), 0, 0).ok(),
+        "second" => civil::Time::new(time.hour(), time.minute(), time.second(), 0).ok(),
+        "millisecond" => civil::Time::new(
+            time.hour(),
+            time.minute(),
+            time.second(),
+            subsec / 1_000_000 * 1_000_000,
+        )
+        .ok(),
+        "microsecond" => civil::Time::new(
+            time.hour(),
+            time.minute(),
+            time.second(),
+            subsec / 1_000 * 1_000,
+        )
+        .ok(),
+        _ => None,
+    }
+}
+
 fn component_i64(map: &serde_json::Map<String, serde_json::Value>, key: &str) -> Option<i64> {
     match map.get(key)? {
         serde_json::Value::Number(number) => number
@@ -631,7 +745,16 @@ fn build_temporal(
 
     let date = build_date(map, inherited_date)?;
     let time = build_time(map, inherited_time)?;
+    assemble_temporal(kind, date, time, zone)
+}
 
+/// Assembles a temporal value of the requested kind from its parts.
+fn assemble_temporal(
+    kind: &str,
+    date: Option<civil::Date>,
+    time: civil::Time,
+    zone: Option<TimeZone>,
+) -> Option<Temporal> {
     Some(match kind {
         "date" => Temporal::Date(date?),
         "localtime" => Temporal::LocalTime(time),

@@ -823,8 +823,10 @@ fn normalize_expected_scalar(value: &str) -> Option<String> {
                 .replace("\\\\", "\\"),
         );
     }
-    if value.starts_with('(') || value.starts_with("<[") {
-        return None;
+    // Entity, path, and map cells pass through as written: comparison is
+    // structural (normalize_cell), so the rendered side lines up.
+    if value.starts_with('(') || value.starts_with('<') {
+        return Some(value.to_owned());
     }
     if value.starts_with('[') {
         return canonicalize_list(value);
@@ -1265,7 +1267,13 @@ fn entity_properties(
         };
         if let Some(value) = values.first().and_then(|row| row.first()) {
             if !matches!(value, Value::Null) {
-                properties.push((name, render_property_value(value)));
+                // Reserved-name properties live in prefixed payload columns
+                // (dynamic catalog); render them under their Cypher name.
+                let logical = name
+                    .strip_prefix("cyprop_")
+                    .map(str::to_owned)
+                    .unwrap_or(name);
+                properties.push((logical, render_property_value(value)));
             }
         }
     }

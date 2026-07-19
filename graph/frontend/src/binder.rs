@@ -2669,6 +2669,9 @@ impl<'a> Binder<'a> {
                 if let Some(duration) = duration_constructor(&name.value, &arguments) {
                     return Ok(duration);
                 }
+                if let Some(truncated) = temporal_truncate_call(&name.value, &arguments) {
+                    return Ok(truncated);
+                }
                 if let Some(rewritten) =
                     rewrite_builtin_call(&name.value, &arguments, expression.span)?
                 {
@@ -3201,6 +3204,38 @@ fn duration_arithmetic(
         }
         _ => None,
     }
+}
+
+/// Rewrites `<kind>.truncate(unit, value[, overrides])` onto the
+/// temporal_truncate extension function.
+fn temporal_truncate_call(
+    name: &str,
+    arguments: &[ir::TypedExpression],
+) -> Option<ir::TypedExpression> {
+    let kind = name.strip_suffix(".truncate")?;
+    if !matches!(
+        kind,
+        "datetime" | "localdatetime" | "date" | "localtime" | "time"
+    ) {
+        return None;
+    }
+    let (unit, value, overrides) = match arguments {
+        [unit, value] => (unit, value, None),
+        [unit, value, overrides] => (unit, value, Some(overrides)),
+        _ => return None,
+    };
+    let kind_literal = ir::TypedExpression {
+        expression: ir::Expression::Literal(ir::Literal::Text(kind.to_owned())),
+        value_type: ir::ValueType::Text,
+        nullability: ir::Nullability::NonNull,
+    };
+    let mut call_arguments = vec![kind_literal, unit.clone(), value.clone()];
+    if let Some(overrides) = overrides {
+        call_arguments.push(overrides.clone());
+    }
+    let mut call = sql_call("temporal_truncate", call_arguments, ir::ValueType::Text);
+    call.value_type = temporal_value_type();
+    Some(call)
 }
 
 fn is_temporal_unit(name: &str) -> bool {
