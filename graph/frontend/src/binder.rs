@@ -1001,7 +1001,6 @@ impl<'a> Binder<'a> {
         if clause.optional && clause.paths.len() != 1 {
             return Err(at_unsupported(fallback, "multiple OPTIONAL MATCH paths"));
         }
-        let path = &clause.paths[0];
         for path in &clause.paths {
             if let Some(variable) = &path.variable {
                 // Register the path name so later clauses can reference it;
