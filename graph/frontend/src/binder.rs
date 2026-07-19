@@ -2075,18 +2075,29 @@ impl<'a> Binder<'a> {
                 )
             }
             cypher::Expression::Property { entity, name } => {
-                // Component access on temporal values maps onto the core
-                // time_get_* functions.
-                if let Some(accessor) = temporal_accessor(&name.value) {
+                // Component access on temporal values maps onto temporal_get.
+                if is_temporal_unit(&name.value) {
                     let base = self.bind_expression(entity);
                     if let Ok(base) = &base {
                         if base.value_type == temporal_value_type() {
-                            let parsed = sql_call(
-                                "__cypher_time_parse",
-                                vec![base.clone()],
-                                ir::ValueType::Bytes,
-                            );
-                            return Ok(sql_call(accessor, vec![parsed], ir::ValueType::Integer));
+                            let unit = ir::TypedExpression {
+                                expression: ir::Expression::Literal(ir::Literal::Text(
+                                    name.value.clone(),
+                                )),
+                                value_type: ir::ValueType::Text,
+                                nullability: ir::Nullability::NonNull,
+                            };
+                            let value_type = if matches!(name.value.as_str(), "timezone" | "offset")
+                            {
+                                ir::ValueType::Text
+                            } else {
+                                ir::ValueType::Integer
+                            };
+                            return Ok(sql_call(
+                                "temporal_get",
+                                vec![base.clone(), unit],
+                                value_type,
+                            ));
                         }
                     }
                 }
@@ -3044,11 +3055,30 @@ fn duration_constructor(
             }
             _ => None,
         },
-        ("duration.between", [start, end]) => finish(sql_call(
-            "duration_between",
-            vec![start.clone(), end.clone()],
-            ir::ValueType::Text,
-        )),
+        (
+            "duration.between" | "duration.inMonths" | "duration.inDays" | "duration.inSeconds",
+            [start, end],
+        ) => {
+            let mode = match name {
+                "duration.inMonths" => "months",
+                "duration.inDays" => "days",
+                "duration.inSeconds" => "seconds",
+                _ => "between",
+            };
+            finish(sql_call(
+                "duration_between",
+                vec![
+                    start.clone(),
+                    end.clone(),
+                    ir::TypedExpression {
+                        expression: ir::Expression::Literal(ir::Literal::Text(mode.to_owned())),
+                        value_type: ir::ValueType::Text,
+                        nullability: ir::Nullability::NonNull,
+                    },
+                ],
+                ir::ValueType::Text,
+            ))
+        }
         _ => None,
     }
 }
@@ -3173,19 +3203,32 @@ fn duration_arithmetic(
     }
 }
 
-fn temporal_accessor(name: &str) -> Option<&'static str> {
-    Some(match name {
-        "year" => "time_get_year",
-        "month" => "time_get_month",
-        "day" => "time_get_day",
-        "hour" => "time_get_hour",
-        "minute" => "time_get_minute",
-        "second" => "time_get_second",
-        "nanosecond" => "time_get_nano",
-        "weekday" => "time_get_weekday",
-        "ordinalDay" => "time_get_yearday",
-        _ => return None,
-    })
+fn is_temporal_unit(name: &str) -> bool {
+    matches!(
+        name,
+        "year"
+            | "month"
+            | "day"
+            | "week"
+            | "weekYear"
+            | "quarter"
+            | "dayOfQuarter"
+            | "ordinalDay"
+            | "dayOfYear"
+            | "weekday"
+            | "dayOfWeek"
+            | "hour"
+            | "minute"
+            | "second"
+            | "millisecond"
+            | "microsecond"
+            | "nanosecond"
+            | "timezone"
+            | "offset"
+            | "offsetMinutes"
+            | "epochSeconds"
+            | "epochMillis"
+    )
 }
 
 fn sql_call(
@@ -3203,13 +3246,38 @@ fn sql_call(
     }
 }
 
-/// Builds a temporal constructor from a bound map/text argument, composed
-/// from core time_* calls. Returns None for shapes core cannot express.
+/// Builds a temporal constructor over the temporal_* extension functions:
+/// component maps lower to `temporal_make(kind, json)`, strings to
+/// `temporal_parse(kind, text)`, and no arguments to `temporal_now(kind)`.
 fn temporal_constructor(
     name: &str,
     arguments: &[ir::TypedExpression],
     span: cypher::Span,
 ) -> Result<Option<ir::TypedExpression>, BindError> {
+    const COMPONENTS: [&str; 22] = [
+        "year",
+        "month",
+        "day",
+        "week",
+        "dayOfWeek",
+        "ordinalDay",
+        "quarter",
+        "dayOfQuarter",
+        "hour",
+        "minute",
+        "second",
+        "millisecond",
+        "microsecond",
+        "nanosecond",
+        "timezone",
+        "date",
+        "time",
+        "datetime",
+        "epochSeconds",
+        "epochMillis",
+        "weekYear",
+        "dayOfYear",
+    ];
     let kind = match name {
         "datetime" | "localdatetime" | "date" | "localtime" | "time" => name,
         _ => return Ok(None),
@@ -3219,110 +3287,44 @@ fn temporal_constructor(
         value_type: ir::ValueType::Text,
         nullability: ir::Nullability::NonNull,
     };
-    let integer_literal = |value: i64| ir::TypedExpression {
-        expression: ir::Expression::Literal(ir::Literal::Integer(value)),
-        value_type: ir::ValueType::Integer,
-        nullability: ir::Nullability::NonNull,
-    };
     let finish = |value: ir::TypedExpression| {
         let mut value = value;
         value.value_type = temporal_value_type();
         Ok(Some(value))
     };
-    let render = |instant: ir::TypedExpression| match kind {
-        "datetime" => sql_call("time_fmt_iso", vec![instant], ir::ValueType::Text),
-        "localdatetime" => sql_call(
-            "replace",
-            vec![
-                sql_call("time_fmt_iso", vec![instant], ir::ValueType::Text),
-                text_literal("Z"),
-                text_literal(""),
-            ],
-            ir::ValueType::Text,
-        ),
-        "date" => sql_call("time_fmt_date", vec![instant], ir::ValueType::Text),
-        "localtime" => sql_call("time_fmt_time", vec![instant], ir::ValueType::Text),
-        _ => sql_call(
-            "concat",
-            vec![
-                sql_call("time_fmt_time", vec![instant], ir::ValueType::Text),
-                text_literal("Z"),
-            ],
-            ir::ValueType::Text,
-        ),
-    };
     match arguments {
-        [] => finish(render(sql_call(
-            "time_now",
-            Vec::new(),
-            ir::ValueType::Bytes,
-        ))),
+        [] => finish(sql_call(
+            "temporal_now",
+            vec![text_literal(kind)],
+            ir::ValueType::Text,
+        )),
         [argument] => match &argument.expression {
             ir::Expression::Map(entries) => {
-                const COMPONENTS: [&str; 6] = ["year", "month", "day", "hour", "minute", "second"];
                 if entries
                     .iter()
                     .any(|(key, _)| !COMPONENTS.contains(&key.as_str()))
                 {
                     return Err(at_unsupported(
                         span,
-                        "temporal constructor components beyond year..second",
+                        "temporal constructor components outside the Cypher component set",
                     ));
                 }
-                let component = |key: &str, default: i64| {
-                    entries
-                        .iter()
-                        .find(|(name, _)| name == key)
-                        .map(|(_, value)| value.clone())
-                        .unwrap_or_else(|| integer_literal(default))
-                };
-                let instant = sql_call(
-                    "time_date",
-                    vec![
-                        component("year", 1970),
-                        component("month", 1),
-                        component("day", 1),
-                        component("hour", 0),
-                        component("minute", 0),
-                        component("second", 0),
-                    ],
-                    ir::ValueType::Bytes,
-                );
-                finish(render(instant))
+                finish(sql_call(
+                    "temporal_make",
+                    vec![text_literal(kind), argument.clone()],
+                    ir::ValueType::Text,
+                ))
             }
             _ if matches!(
                 argument.value_type,
                 ir::ValueType::Text | ir::ValueType::Any
             ) =>
             {
-                let instant = sql_call(
-                    "__cypher_time_parse",
-                    vec![argument.clone()],
-                    ir::ValueType::Bytes,
-                );
-                // time_parse errors on NULL input; Cypher propagates it.
-                let is_null = ir::TypedExpression {
-                    expression: ir::Expression::Unary {
-                        op: ir::UnaryOp::IsNull,
-                        expression: Box::new(argument.clone()),
-                    },
-                    value_type: ir::ValueType::Boolean,
-                    nullability: ir::Nullability::NonNull,
-                };
-                let null_value = ir::TypedExpression {
-                    expression: ir::Expression::Literal(ir::Literal::Null),
-                    value_type: ir::ValueType::Any,
-                    nullability: ir::Nullability::Nullable,
-                };
-                finish(ir::TypedExpression {
-                    expression: ir::Expression::Case {
-                        subject: None,
-                        branches: vec![(is_null, null_value)],
-                        default: Some(Box::new(render(instant))),
-                    },
-                    value_type: ir::ValueType::Text,
-                    nullability: ir::Nullability::Nullable,
-                })
+                finish(sql_call(
+                    "temporal_parse",
+                    vec![text_literal(kind), argument.clone()],
+                    ir::ValueType::Text,
+                ))
             }
             _ => Ok(None),
         },

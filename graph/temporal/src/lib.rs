@@ -1,0 +1,1015 @@
+//! Cypher temporal and duration values as a statically registered scalar
+//! extension.
+//!
+//! Values follow the Cypher/GQL temporal model (shared with JS Temporal):
+//! civil dates and times, zoned datetimes rendered as RFC 9557 text
+//! (`2018-03-22T12:00+01:00[Europe/Berlin]`), and durations kept as the
+//! four-component month/day/second/nanosecond vector that Cypher requires
+//! (fields never cross: `P1DT25H` keeps 25 hours). The arithmetic is
+//! implemented with `jiff`, whose bundled IANA tz database provides named
+//! zones without a system dependency.
+
+use jiff::{
+    civil,
+    tz::{Offset, TimeZone},
+    Span, Timestamp, Unit, Zoned,
+};
+use turso_core::Connection;
+use turso_ext::{scalar, ExtensionApi, Value as ExtValue};
+
+/// Registers the temporal functions on a connection. Safe to call more
+/// than once; later registrations replace the earlier entries.
+pub fn install_temporal_extension(connection: &Connection) {
+    connection.register_static_extension(|ext_api: &mut ExtensionApi| unsafe {
+        let register = |name: *const std::ffi::c_char, function| {
+            (ext_api.register_scalar_function)(
+                ext_api.ctx,
+                name,
+                -1,
+                false,
+                0,
+                function,
+                None,
+                None,
+            );
+        };
+        register(c"duration_make".as_ptr(), duration_make);
+        register(c"duration_parse".as_ptr(), duration_parse);
+        register(c"duration_get".as_ptr(), duration_get);
+        register(c"duration_add".as_ptr(), duration_add);
+        register(c"duration_neg".as_ptr(), duration_neg);
+        register(c"duration_between".as_ptr(), duration_between);
+        register(c"temporal_make".as_ptr(), temporal_make);
+        register(c"temporal_parse".as_ptr(), temporal_parse);
+        register(c"temporal_get".as_ptr(), temporal_get);
+        register(c"temporal_now".as_ptr(), temporal_now);
+        register(c"datetime_add_duration".as_ptr(), datetime_add_duration);
+        register(c"datetime_sub_duration".as_ptr(), datetime_sub_duration);
+    });
+}
+
+// ---------------------------------------------------------------------------
+// Durations: four-component vectors encoded as canonical ISO-8601 text.
+// ---------------------------------------------------------------------------
+
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+struct Dur {
+    months: i64,
+    days: i64,
+    seconds: i64,
+    nanos: i64,
+}
+
+impl Dur {
+    fn normalized(mut self) -> Self {
+        let extra = self.nanos.div_euclid(1_000_000_000);
+        self.seconds += extra;
+        self.nanos = self.nanos.rem_euclid(1_000_000_000);
+        self
+    }
+
+    fn render(self) -> String {
+        let normalized = self.normalized();
+        let years = normalized.months / 12;
+        let months = normalized.months % 12;
+        let mut out = String::from("P");
+        if years != 0 {
+            out.push_str(&format!("{years}Y"));
+        }
+        if months != 0 {
+            out.push_str(&format!("{months}M"));
+        }
+        if normalized.days != 0 {
+            out.push_str(&format!("{}D", normalized.days));
+        }
+        if normalized.seconds != 0 || normalized.nanos != 0 || out.len() == 1 {
+            out.push('T');
+            let hours = normalized.seconds / 3600;
+            let minutes = (normalized.seconds % 3600) / 60;
+            let seconds = normalized.seconds % 60;
+            if hours != 0 {
+                out.push_str(&format!("{hours}H"));
+            }
+            if minutes != 0 {
+                out.push_str(&format!("{minutes}M"));
+            }
+            if seconds != 0 || normalized.nanos != 0 || (hours == 0 && minutes == 0) {
+                if normalized.nanos == 0 {
+                    out.push_str(&format!("{seconds}S"));
+                } else {
+                    out.push_str(&format!("{seconds}.{:09}S", normalized.nanos));
+                }
+            }
+        }
+        out
+    }
+
+    fn parse(text: &str) -> Option<Self> {
+        let text = text.trim();
+        let rest = text.strip_prefix('P')?;
+        let (date_part, time_part) = match rest.split_once('T') {
+            Some((date, time)) => (date, Some(time)),
+            None => (rest, None),
+        };
+        let mut value = Dur::default();
+        let mut number = String::new();
+        for character in date_part.chars() {
+            if character.is_ascii_digit() || character == '-' || character == '+' {
+                number.push(character);
+                continue;
+            }
+            let quantity: i64 = number.parse().ok()?;
+            number.clear();
+            match character {
+                'Y' => value.months += quantity * 12,
+                'M' => value.months += quantity,
+                'W' => value.days += quantity * 7,
+                'D' => value.days += quantity,
+                _ => return None,
+            }
+        }
+        if !number.is_empty() {
+            return None;
+        }
+        if let Some(time_part) = time_part {
+            let mut number = String::new();
+            for character in time_part.chars() {
+                if character.is_ascii_digit() || matches!(character, '-' | '+' | '.') {
+                    number.push(character);
+                    continue;
+                }
+                match character {
+                    'H' => value.seconds += number.parse::<i64>().ok()? * 3600,
+                    'M' => value.seconds += number.parse::<i64>().ok()? * 60,
+                    'S' => {
+                        let (seconds, nanos) = parse_fractional_seconds(&number)?;
+                        value.seconds += seconds;
+                        value.nanos += nanos;
+                    }
+                    _ => return None,
+                }
+                number.clear();
+            }
+            if !number.is_empty() {
+                return None;
+            }
+        }
+        Some(value.normalized())
+    }
+}
+
+fn parse_fractional_seconds(text: &str) -> Option<(i64, i64)> {
+    match text.split_once('.') {
+        None => Some((text.parse().ok()?, 0)),
+        Some((whole, fraction)) => {
+            let seconds: i64 = whole.parse().ok()?;
+            let mut digits = fraction.to_owned();
+            if digits.len() > 9 || digits.is_empty() {
+                return None;
+            }
+            while digits.len() < 9 {
+                digits.push('0');
+            }
+            let nanos: i64 = digits.parse().ok()?;
+            Some((seconds, if seconds < 0 { -nanos } else { nanos }))
+        }
+    }
+}
+
+fn span_to_dur(span: Span) -> Dur {
+    Dur {
+        months: i64::from(span.get_years()) * 12 + i64::from(span.get_months()),
+        days: i64::from(span.get_weeks()) * 7 + i64::from(span.get_days()),
+        seconds: i64::from(span.get_hours()) * 3600 + span.get_minutes() * 60 + span.get_seconds(),
+        nanos: span.get_milliseconds() * 1_000_000
+            + span.get_microseconds() * 1_000
+            + span.get_nanoseconds(),
+    }
+    .normalized()
+}
+
+// ---------------------------------------------------------------------------
+// Temporal values: the five Cypher temporal kinds over jiff types.
+// ---------------------------------------------------------------------------
+
+#[derive(Clone, Debug)]
+enum Temporal {
+    Date(civil::Date),
+    LocalTime(civil::Time),
+    Time(civil::Time, Offset),
+    LocalDateTime(civil::DateTime),
+    DateTime(Zoned),
+}
+
+enum ZoneSuffix {
+    Missing,
+    Utc,
+    Fixed(Offset),
+}
+
+/// Splits a trailing `Z` or `±HH:MM` offset from a temporal string. A date
+/// like `2018-04-27` is safe: its final `-` is not followed by `dd:dd`.
+fn strip_zone(text: &str) -> (&str, ZoneSuffix) {
+    if let Some(rest) = text.strip_suffix('Z') {
+        return (rest, ZoneSuffix::Utc);
+    }
+    if text.len() >= 6 {
+        let tail = &text[text.len() - 6..];
+        let bytes = tail.as_bytes();
+        if (bytes[0] == b'+' || bytes[0] == b'-') && bytes[3] == b':' {
+            if let (Ok(hours), Ok(minutes)) = (tail[1..3].parse::<i32>(), tail[4..6].parse::<i32>())
+            {
+                let sign = if bytes[0] == b'+' { 1 } else { -1 };
+                if let Ok(offset) = Offset::from_seconds(sign * (hours * 3600 + minutes * 60)) {
+                    return (&text[..text.len() - 6], ZoneSuffix::Fixed(offset));
+                }
+            }
+        }
+    }
+    (text, ZoneSuffix::Missing)
+}
+
+fn zone_of(suffix: &ZoneSuffix) -> Option<TimeZone> {
+    match suffix {
+        ZoneSuffix::Missing => None,
+        ZoneSuffix::Utc => Some(TimeZone::fixed(Offset::UTC)),
+        ZoneSuffix::Fixed(offset) => Some(TimeZone::fixed(*offset)),
+    }
+}
+
+fn parse_temporal(text: &str) -> Option<Temporal> {
+    let text = text.trim();
+    if text.contains('[') {
+        return text.parse::<Zoned>().ok().map(Temporal::DateTime);
+    }
+    let (core, zone) = strip_zone(text);
+    let has_date = core.len() >= 8 && core.as_bytes().get(4) == Some(&b'-');
+    if has_date {
+        if let Ok(datetime) = core.parse::<civil::DateTime>() {
+            return Some(match zone_of(&zone) {
+                None => Temporal::LocalDateTime(datetime),
+                Some(tz) => Temporal::DateTime(datetime.to_zoned(tz).ok()?),
+            });
+        }
+        if let Ok(date) = core.parse::<civil::Date>() {
+            return Some(match zone_of(&zone) {
+                None => Temporal::Date(date),
+                Some(tz) => Temporal::DateTime(
+                    date.to_datetime(civil::Time::midnight())
+                        .to_zoned(tz)
+                        .ok()?,
+                ),
+            });
+        }
+        return None;
+    }
+    let time = core.parse::<civil::Time>().ok()?;
+    Some(match zone {
+        ZoneSuffix::Missing => Temporal::LocalTime(time),
+        ZoneSuffix::Utc => Temporal::Time(time, Offset::UTC),
+        ZoneSuffix::Fixed(offset) => Temporal::Time(time, offset),
+    })
+}
+
+/// Renders a civil time with Cypher's reduced precision: minutes always,
+/// seconds only when the seconds or fraction are non-zero, and the fraction
+/// trimmed of trailing zeros.
+fn render_time(time: civil::Time) -> String {
+    let mut out = format!("{:02}:{:02}", time.hour(), time.minute());
+    let nanos = time.subsec_nanosecond();
+    if time.second() != 0 || nanos != 0 {
+        out.push_str(&format!(":{:02}", time.second()));
+        if nanos != 0 {
+            let digits = format!("{nanos:09}");
+            out.push('.');
+            out.push_str(digits.trim_end_matches('0'));
+        }
+    }
+    out
+}
+
+fn render_date(date: civil::Date) -> String {
+    format!("{:04}-{:02}-{:02}", date.year(), date.month(), date.day())
+}
+
+fn render_offset(offset: Offset) -> String {
+    let seconds = offset.seconds();
+    if seconds == 0 {
+        return "Z".to_owned();
+    }
+    let sign = if seconds < 0 { '-' } else { '+' };
+    let seconds = seconds.abs();
+    format!("{sign}{:02}:{:02}", seconds / 3600, (seconds % 3600) / 60)
+}
+
+fn render_temporal(value: &Temporal) -> String {
+    match value {
+        Temporal::Date(date) => render_date(*date),
+        Temporal::LocalTime(time) => render_time(*time),
+        Temporal::Time(time, offset) => format!("{}{}", render_time(*time), render_offset(*offset)),
+        Temporal::LocalDateTime(datetime) => format!(
+            "{}T{}",
+            render_date(datetime.date()),
+            render_time(datetime.time())
+        ),
+        Temporal::DateTime(zoned) => {
+            let mut out = format!(
+                "{}T{}{}",
+                render_date(zoned.date()),
+                render_time(zoned.time()),
+                render_offset(zoned.offset())
+            );
+            // UTC renders as a bare Z; jiff reports fixed zero offsets as
+            // the named UTC zone, and Cypher never brackets UTC.
+            if let Some(name) = zoned.time_zone().iana_name() {
+                if name != "UTC" {
+                    out.push_str(&format!("[{name}]"));
+                }
+            }
+            out
+        }
+    }
+}
+
+/// Parses a Cypher timezone component: an IANA name, `Z`, or `±HH:MM`.
+fn parse_timezone(name: &str) -> Option<TimeZone> {
+    let name = name.trim();
+    if name == "Z" {
+        return Some(TimeZone::fixed(Offset::UTC));
+    }
+    if let Ok(zone) = TimeZone::get(name) {
+        return Some(zone);
+    }
+    let ("", ZoneSuffix::Fixed(offset)) = strip_zone(name) else {
+        return None;
+    };
+    Some(TimeZone::fixed(offset))
+}
+
+fn temporal_date(value: &Temporal) -> Option<civil::Date> {
+    match value {
+        Temporal::Date(date) => Some(*date),
+        Temporal::LocalDateTime(datetime) => Some(datetime.date()),
+        Temporal::DateTime(zoned) => Some(zoned.date()),
+        _ => None,
+    }
+}
+
+fn temporal_time(value: &Temporal) -> Option<civil::Time> {
+    match value {
+        Temporal::LocalTime(time) | Temporal::Time(time, _) => Some(*time),
+        Temporal::LocalDateTime(datetime) => Some(datetime.time()),
+        Temporal::DateTime(zoned) => Some(zoned.time()),
+        Temporal::Date(_) => None,
+    }
+}
+
+fn temporal_zone(value: &Temporal) -> Option<TimeZone> {
+    match value {
+        Temporal::Time(_, offset) => Some(TimeZone::fixed(*offset)),
+        Temporal::DateTime(zoned) => Some(zoned.time_zone().clone()),
+        _ => None,
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Scalar functions.
+// ---------------------------------------------------------------------------
+
+fn integer(value: &ExtValue) -> Option<i64> {
+    value.to_integer()
+}
+
+fn text(value: &ExtValue) -> Option<String> {
+    value.to_text().map(|text| text.to_owned())
+}
+
+fn duration_value(value: &ExtValue) -> Option<Dur> {
+    Dur::parse(&text(value)?)
+}
+
+fn temporal_argument(value: &ExtValue) -> Option<Temporal> {
+    parse_temporal(&text(value)?)
+}
+
+#[scalar(name = "duration_make")]
+fn duration_make(args: &[ExtValue]) -> ExtValue {
+    let (Some(months), Some(days), Some(seconds), Some(nanos)) = (
+        args.first().and_then(integer),
+        args.get(1).and_then(integer),
+        args.get(2).and_then(integer),
+        args.get(3).and_then(integer),
+    ) else {
+        return ExtValue::null();
+    };
+    ExtValue::from_text(
+        Dur {
+            months,
+            days,
+            seconds,
+            nanos,
+        }
+        .render(),
+    )
+}
+
+#[scalar(name = "duration_parse")]
+fn duration_parse(args: &[ExtValue]) -> ExtValue {
+    match args.first().and_then(duration_value) {
+        Some(value) => ExtValue::from_text(value.render()),
+        None => ExtValue::null(),
+    }
+}
+
+#[scalar(name = "duration_get")]
+fn duration_get(args: &[ExtValue]) -> ExtValue {
+    let (Some(value), Some(unit)) = (
+        args.first().and_then(duration_value),
+        args.get(1).and_then(text),
+    ) else {
+        return ExtValue::null();
+    };
+    let result = match unit.as_str() {
+        "years" => value.months / 12,
+        "quarters" => value.months / 3,
+        "months" => value.months,
+        "weeks" => value.days / 7,
+        "days" => value.days,
+        "hours" => value.seconds / 3600,
+        "minutes" => value.seconds / 60,
+        "seconds" => value.seconds,
+        "milliseconds" => value.seconds * 1_000 + value.nanos / 1_000_000,
+        "microseconds" => value.seconds * 1_000_000 + value.nanos / 1_000,
+        "nanoseconds" => value.seconds * 1_000_000_000 + value.nanos,
+        "monthsOfYear" => value.months % 12,
+        "minutesOfHour" => (value.seconds % 3600) / 60,
+        "secondsOfMinute" => value.seconds % 60,
+        "millisecondsOfSecond" => value.nanos / 1_000_000,
+        "microsecondsOfSecond" => value.nanos / 1_000,
+        "nanosecondsOfSecond" => value.nanos,
+        _ => return ExtValue::null(),
+    };
+    ExtValue::from_integer(result)
+}
+
+#[scalar(name = "duration_add")]
+fn duration_add(args: &[ExtValue]) -> ExtValue {
+    let (Some(left), Some(right)) = (
+        args.first().and_then(duration_value),
+        args.get(1).and_then(duration_value),
+    ) else {
+        return ExtValue::null();
+    };
+    ExtValue::from_text(
+        Dur {
+            months: left.months + right.months,
+            days: left.days + right.days,
+            seconds: left.seconds + right.seconds,
+            nanos: left.nanos + right.nanos,
+        }
+        .render(),
+    )
+}
+
+#[scalar(name = "duration_neg")]
+fn duration_neg(args: &[ExtValue]) -> ExtValue {
+    match args.first().and_then(duration_value) {
+        Some(value) => ExtValue::from_text(
+            Dur {
+                months: -value.months,
+                days: -value.days,
+                seconds: -value.seconds,
+                nanos: -value.nanos,
+            }
+            .render(),
+        ),
+        None => ExtValue::null(),
+    }
+}
+
+/// `duration_between(start, end, mode)` where mode is `between`, `months`,
+/// `days`, or `seconds`, matching duration.between and the duration.in*
+/// variants: `between` yields months/days/time, the others truncate to
+/// whole units of their kind.
+#[scalar(name = "duration_between")]
+fn duration_between(args: &[ExtValue]) -> ExtValue {
+    let (Some(start), Some(end)) = (
+        args.first().and_then(temporal_argument),
+        args.get(1).and_then(temporal_argument),
+    ) else {
+        return ExtValue::null();
+    };
+    let mode = args
+        .get(2)
+        .and_then(text)
+        .unwrap_or_else(|| "between".to_owned());
+    let largest = match mode.as_str() {
+        "days" => Unit::Day,
+        "seconds" => Unit::Second,
+        _ => Unit::Month,
+    };
+    let span = match (&start, &end) {
+        (Temporal::DateTime(start), Temporal::DateTime(end)) => start.until((largest, end)).ok(),
+        _ => {
+            let promote = |value: &Temporal| -> Option<civil::DateTime> {
+                match value {
+                    Temporal::LocalTime(time) | Temporal::Time(time, _) => {
+                        Some(civil::Date::new(1970, 1, 1).ok()?.to_datetime(*time))
+                    }
+                    _ => Some(
+                        temporal_date(value)?
+                            .to_datetime(temporal_time(value).unwrap_or(civil::Time::midnight())),
+                    ),
+                }
+            };
+            let (Some(start), Some(end)) = (promote(&start), promote(&end)) else {
+                return ExtValue::null();
+            };
+            start.until((largest, end)).ok()
+        }
+    };
+    let Some(span) = span else {
+        return ExtValue::null();
+    };
+    let mut value = span_to_dur(span);
+    match mode.as_str() {
+        "months" => {
+            value.days = 0;
+            value.seconds = 0;
+            value.nanos = 0;
+        }
+        "days" => {
+            value.seconds = 0;
+            value.nanos = 0;
+        }
+        _ => {}
+    }
+    ExtValue::from_text(value.render())
+}
+
+/// `temporal_make(kind, components_json)` builds a temporal value from a
+/// Cypher component map: calendar (year/month/day), week (year/week/
+/// dayOfWeek), ordinal (year/ordinalDay), quarter (year/quarter/
+/// dayOfQuarter) dates; time components down to nanoseconds; `timezone`;
+/// composition from existing `date`/`time`/`datetime` values; and epoch
+/// seconds/milliseconds.
+#[scalar(name = "temporal_make")]
+fn temporal_make(args: &[ExtValue]) -> ExtValue {
+    let (Some(kind), Some(json)) = (args.first().and_then(text), args.get(1).and_then(text)) else {
+        return ExtValue::null();
+    };
+    let Ok(serde_json::Value::Object(map)) = serde_json::from_str::<serde_json::Value>(&json)
+    else {
+        return ExtValue::null();
+    };
+    match build_temporal(&kind, &map) {
+        Some(value) => ExtValue::from_text(render_temporal(&value)),
+        None => ExtValue::null(),
+    }
+}
+
+fn component_i64(map: &serde_json::Map<String, serde_json::Value>, key: &str) -> Option<i64> {
+    match map.get(key)? {
+        serde_json::Value::Number(number) => number
+            .as_i64()
+            .or_else(|| number.as_f64().map(|real| real as i64)),
+        serde_json::Value::String(string) => string.parse().ok(),
+        _ => None,
+    }
+}
+
+fn component_text(map: &serde_json::Map<String, serde_json::Value>, key: &str) -> Option<String> {
+    map.get(key)?.as_str().map(|value| value.to_owned())
+}
+
+fn build_temporal(
+    kind: &str,
+    map: &serde_json::Map<String, serde_json::Value>,
+) -> Option<Temporal> {
+    let base_datetime = component_text(map, "datetime").and_then(|value| parse_temporal(&value));
+    let base_date = component_text(map, "date").and_then(|value| parse_temporal(&value));
+    let base_time = component_text(map, "time").and_then(|value| parse_temporal(&value));
+
+    let zone = match component_text(map, "timezone") {
+        Some(name) => Some(parse_timezone(&name)?),
+        None => [&base_time, &base_datetime]
+            .into_iter()
+            .flatten()
+            .find_map(temporal_zone),
+    };
+
+    // Epoch construction takes precedence for datetimes.
+    if kind == "datetime" {
+        let timestamp = if let Some(seconds) = component_i64(map, "epochSeconds") {
+            Some(
+                Timestamp::new(
+                    seconds,
+                    component_i64(map, "nanosecond").unwrap_or(0) as i32,
+                )
+                .ok()?,
+            )
+        } else {
+            component_i64(map, "epochMillis")
+                .map(Timestamp::from_millisecond)
+                .transpose()
+                .ok()?
+        };
+        if let Some(timestamp) = timestamp {
+            let zone = zone.unwrap_or_else(|| TimeZone::fixed(Offset::UTC));
+            return Some(Temporal::DateTime(timestamp.to_zoned(zone)));
+        }
+    }
+
+    let inherited_date = [&base_date, &base_datetime]
+        .into_iter()
+        .flatten()
+        .find_map(temporal_date);
+    let inherited_time = [&base_time, &base_datetime]
+        .into_iter()
+        .flatten()
+        .find_map(temporal_time);
+
+    let date = build_date(map, inherited_date)?;
+    let time = build_time(map, inherited_time)?;
+
+    Some(match kind {
+        "date" => Temporal::Date(date?),
+        "localtime" => Temporal::LocalTime(time),
+        "time" => {
+            let offset = match &zone {
+                Some(zone) => zone.to_offset(Timestamp::now()),
+                None => Offset::UTC,
+            };
+            Temporal::Time(time, offset)
+        }
+        "localdatetime" => Temporal::LocalDateTime(date?.to_datetime(time)),
+        "datetime" => {
+            let zone = zone.unwrap_or_else(|| TimeZone::fixed(Offset::UTC));
+            Temporal::DateTime(date?.to_datetime(time).to_zoned(zone).ok()?)
+        }
+        _ => return None,
+    })
+}
+
+/// Builds the date part; `None` inner value means no date components were
+/// given at all (legal only for time kinds).
+fn build_date(
+    map: &serde_json::Map<String, serde_json::Value>,
+    inherited: Option<civil::Date>,
+) -> Option<Option<civil::Date>> {
+    let year = component_i64(map, "year");
+    if year.is_none() && inherited.is_none() {
+        return Some(None);
+    }
+    let year = i16::try_from(year.unwrap_or_else(|| i64::from(inherited.unwrap().year()))).ok()?;
+    if let Some(week) = component_i64(map, "week") {
+        let weekday = civil::Weekday::from_monday_one_offset(
+            i8::try_from(component_i64(map, "dayOfWeek").unwrap_or(1)).ok()?,
+        )
+        .ok()?;
+        let week_date = civil::ISOWeekDate::new(year, i8::try_from(week).ok()?, weekday).ok()?;
+        return Some(Some(week_date.date()));
+    }
+    if let Some(ordinal) = component_i64(map, "ordinalDay") {
+        let start = civil::Date::new(year, 1, 1).ok()?;
+        return Some(Some(start.checked_add(Span::new().days(ordinal - 1)).ok()?));
+    }
+    if let Some(quarter) = component_i64(map, "quarter") {
+        let month = i8::try_from((quarter - 1) * 3 + 1).ok()?;
+        let start = civil::Date::new(year, month, 1).ok()?;
+        let day_of_quarter = component_i64(map, "dayOfQuarter").unwrap_or(1);
+        return Some(Some(
+            start
+                .checked_add(Span::new().days(day_of_quarter - 1))
+                .ok()?,
+        ));
+    }
+    let month = component_i64(map, "month")
+        .map(i8::try_from)
+        .transpose()
+        .ok()?
+        .or_else(|| inherited.map(civil::Date::month))
+        .unwrap_or(1);
+    let day = component_i64(map, "day")
+        .map(i8::try_from)
+        .transpose()
+        .ok()?
+        .or_else(|| inherited.map(civil::Date::day))
+        .unwrap_or(1);
+    Some(Some(civil::Date::new(year, month, day).ok()?))
+}
+
+fn build_time(
+    map: &serde_json::Map<String, serde_json::Value>,
+    inherited: Option<civil::Time>,
+) -> Option<civil::Time> {
+    let component = |key: &str| component_i64(map, key);
+    let explicit_fraction = ["millisecond", "microsecond", "nanosecond"]
+        .iter()
+        .any(|key| map.contains_key(*key));
+    let subsec = if explicit_fraction {
+        i32::try_from(
+            component("millisecond").unwrap_or(0) * 1_000_000
+                + component("microsecond").unwrap_or(0) * 1_000
+                + component("nanosecond").unwrap_or(0),
+        )
+        .ok()?
+    } else {
+        inherited.map(|time| time.subsec_nanosecond()).unwrap_or(0)
+    };
+    let field = |key: &str, from_inherited: fn(civil::Time) -> i8| {
+        component(key)
+            .map(i8::try_from)
+            .map(|value| value.ok())
+            .unwrap_or_else(|| Some(inherited.map(from_inherited).unwrap_or(0)))
+    };
+    civil::Time::new(
+        field("hour", civil::Time::hour)?,
+        field("minute", civil::Time::minute)?,
+        field("second", civil::Time::second)?,
+        subsec,
+    )
+    .ok()
+}
+
+#[scalar(name = "temporal_parse")]
+fn temporal_parse(args: &[ExtValue]) -> ExtValue {
+    let (Some(kind), Some(value)) = (
+        args.first().and_then(text),
+        args.get(1).and_then(temporal_argument),
+    ) else {
+        return ExtValue::null();
+    };
+    // Coerce the parsed value onto the requested kind.
+    let coerced = match (kind.as_str(), &value) {
+        ("date", _) => temporal_date(&value).map(Temporal::Date),
+        ("localtime", _) => temporal_time(&value).map(Temporal::LocalTime),
+        ("time", Temporal::Time(..)) => Some(value.clone()),
+        ("time", _) => temporal_time(&value).map(|time| Temporal::Time(time, Offset::UTC)),
+        ("localdatetime", Temporal::Date(date)) => Some(Temporal::LocalDateTime(
+            date.to_datetime(civil::Time::midnight()),
+        )),
+        ("localdatetime", Temporal::DateTime(zoned)) => {
+            Some(Temporal::LocalDateTime(zoned.datetime()))
+        }
+        ("localdatetime", Temporal::LocalDateTime(_)) => Some(value.clone()),
+        ("datetime", Temporal::DateTime(_)) => Some(value.clone()),
+        ("datetime", Temporal::LocalDateTime(datetime)) => datetime
+            .to_zoned(TimeZone::fixed(Offset::UTC))
+            .ok()
+            .map(Temporal::DateTime),
+        ("datetime", Temporal::Date(date)) => date
+            .to_datetime(civil::Time::midnight())
+            .to_zoned(TimeZone::fixed(Offset::UTC))
+            .ok()
+            .map(Temporal::DateTime),
+        _ => None,
+    };
+    match coerced {
+        Some(value) => ExtValue::from_text(render_temporal(&value)),
+        None => ExtValue::null(),
+    }
+}
+
+#[scalar(name = "temporal_get")]
+fn temporal_get(args: &[ExtValue]) -> ExtValue {
+    let (Some(value), Some(unit)) = (
+        args.first().and_then(temporal_argument),
+        args.get(1).and_then(text),
+    ) else {
+        return ExtValue::null();
+    };
+    let date = temporal_date(&value);
+    let time = temporal_time(&value);
+    let from_date = |get: fn(civil::Date) -> i64| date.map(get).map(ExtValue::from_integer);
+    let from_time = |get: fn(civil::Time) -> i64| time.map(get).map(ExtValue::from_integer);
+    let result = match unit.as_str() {
+        "year" => from_date(|date| i64::from(date.year())),
+        "month" => from_date(|date| i64::from(date.month())),
+        "day" => from_date(|date| i64::from(date.day())),
+        "week" => from_date(|date| i64::from(date.iso_week_date().week())),
+        "weekYear" => from_date(|date| i64::from(date.iso_week_date().year())),
+        "quarter" => from_date(|date| i64::from((date.month() - 1) / 3 + 1)),
+        "dayOfQuarter" => date.and_then(|date| {
+            let month = (date.month() - 1) / 3 * 3 + 1;
+            let start = civil::Date::new(date.year(), month, 1).ok()?;
+            Some(ExtValue::from_integer(
+                i64::from(date.day_of_year()) - i64::from(start.day_of_year()) + 1,
+            ))
+        }),
+        "ordinalDay" | "dayOfYear" => from_date(|date| i64::from(date.day_of_year())),
+        "weekday" | "dayOfWeek" => {
+            from_date(|date| i64::from(date.weekday().to_monday_one_offset()))
+        }
+        "hour" => from_time(|time| i64::from(time.hour())),
+        "minute" => from_time(|time| i64::from(time.minute())),
+        "second" => from_time(|time| i64::from(time.second())),
+        "millisecond" => from_time(|time| i64::from(time.subsec_nanosecond()) / 1_000_000),
+        "microsecond" => from_time(|time| i64::from(time.subsec_nanosecond()) / 1_000),
+        "nanosecond" => from_time(|time| i64::from(time.subsec_nanosecond())),
+        "timezone" => match &value {
+            Temporal::DateTime(zoned) => Some(ExtValue::from_text(
+                zoned
+                    .time_zone()
+                    .iana_name()
+                    .map(str::to_owned)
+                    .unwrap_or_else(|| render_offset(zoned.offset())),
+            )),
+            Temporal::Time(_, offset) => Some(ExtValue::from_text(render_offset(*offset))),
+            _ => None,
+        },
+        "offset" => match &value {
+            Temporal::DateTime(zoned) => Some(ExtValue::from_text(render_offset(zoned.offset()))),
+            Temporal::Time(_, offset) => Some(ExtValue::from_text(render_offset(*offset))),
+            _ => None,
+        },
+        "offsetMinutes" => match &value {
+            Temporal::DateTime(zoned) => Some(ExtValue::from_integer(
+                i64::from(zoned.offset().seconds()) / 60,
+            )),
+            Temporal::Time(_, offset) => {
+                Some(ExtValue::from_integer(i64::from(offset.seconds()) / 60))
+            }
+            _ => None,
+        },
+        "epochSeconds" => match &value {
+            Temporal::DateTime(zoned) => {
+                Some(ExtValue::from_integer(zoned.timestamp().as_second()))
+            }
+            _ => None,
+        },
+        "epochMillis" => match &value {
+            Temporal::DateTime(zoned) => {
+                Some(ExtValue::from_integer(zoned.timestamp().as_millisecond()))
+            }
+            _ => None,
+        },
+        _ => None,
+    };
+    result.unwrap_or_else(ExtValue::null)
+}
+
+#[scalar(name = "temporal_now")]
+fn temporal_now(args: &[ExtValue]) -> ExtValue {
+    let Some(kind) = args.first().and_then(text) else {
+        return ExtValue::null();
+    };
+    let now = Timestamp::now().to_zoned(TimeZone::fixed(Offset::UTC));
+    let value = match kind.as_str() {
+        "date" => Temporal::Date(now.date()),
+        "localtime" => Temporal::LocalTime(now.time()),
+        "time" => Temporal::Time(now.time(), Offset::UTC),
+        "localdatetime" => Temporal::LocalDateTime(now.datetime()),
+        "datetime" => Temporal::DateTime(now),
+        _ => return ExtValue::null(),
+    };
+    ExtValue::from_text(render_temporal(&value))
+}
+
+/// Shifts a temporal value by a duration, preserving its kind and zone.
+/// Calendar steps clamp at month ends; times wrap; date shifts count only
+/// whole days from the duration's time part.
+fn shift_temporal(value: Temporal, duration: Dur, sign: i64) -> Option<Temporal> {
+    let months = duration.months * sign;
+    let days = duration.days * sign;
+    let seconds = duration.seconds * sign;
+    let nanos = duration.nanos * sign;
+    let month_span = Span::new().months(months);
+    let day_span = Span::new().days(days);
+    let time_span = Span::new().seconds(seconds).nanoseconds(nanos);
+    Some(match value {
+        Temporal::Date(date) => Temporal::Date(
+            date.checked_add(month_span)
+                .ok()?
+                .checked_add(Span::new().days(days + seconds / 86_400))
+                .ok()?,
+        ),
+        Temporal::LocalTime(time) => Temporal::LocalTime(time.wrapping_add(time_span)),
+        Temporal::Time(time, offset) => Temporal::Time(time.wrapping_add(time_span), offset),
+        Temporal::LocalDateTime(datetime) => Temporal::LocalDateTime(
+            datetime
+                .checked_add(month_span)
+                .ok()?
+                .checked_add(day_span)
+                .ok()?
+                .checked_add(time_span)
+                .ok()?,
+        ),
+        Temporal::DateTime(zoned) => Temporal::DateTime(
+            zoned
+                .checked_add(month_span)
+                .ok()?
+                .checked_add(day_span)
+                .ok()?
+                .checked_add(time_span)
+                .ok()?,
+        ),
+    })
+}
+
+fn shift_datetime(args: &[ExtValue], sign: i64) -> ExtValue {
+    let (Some(value), Some(duration)) = (
+        args.first().and_then(temporal_argument),
+        args.get(1).and_then(duration_value),
+    ) else {
+        return ExtValue::null();
+    };
+    match shift_temporal(value, duration, sign) {
+        Some(shifted) => ExtValue::from_text(render_temporal(&shifted)),
+        None => ExtValue::null(),
+    }
+}
+
+#[scalar(name = "datetime_add_duration")]
+fn datetime_add_duration(args: &[ExtValue]) -> ExtValue {
+    shift_datetime(args, 1)
+}
+
+#[scalar(name = "datetime_sub_duration")]
+fn datetime_sub_duration(args: &[ExtValue]) -> ExtValue {
+    shift_datetime(args, -1)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn parses_and_renders_canonical_iso_durations() {
+        let parsed = Dur::parse("P1Y2M3DT4H5M6.000000007S").expect("parses");
+        assert_eq!(parsed.months, 14);
+        assert_eq!(parsed.days, 3);
+        assert_eq!(parsed.seconds, 4 * 3600 + 5 * 60 + 6);
+        assert_eq!(parsed.nanos, 7);
+        assert_eq!(parsed.render(), "P1Y2M3DT4H5M6.000000007S");
+        assert_eq!(Dur::parse("P2W").expect("weeks").days, 14);
+        assert_eq!(Dur::default().render(), "PT0S");
+    }
+
+    #[test]
+    fn calendar_shift_respects_month_lengths() {
+        let start = parse_temporal("2024-01-31T00:00:00Z").expect("parses");
+        let shifted = shift_temporal(
+            start,
+            Dur {
+                months: 1,
+                ..Dur::default()
+            },
+            1,
+        )
+        .expect("shifts");
+        assert_eq!(render_temporal(&shifted), "2024-02-29T00:00Z");
+    }
+
+    #[test]
+    fn renders_reduced_precision_and_zones() {
+        let time = parse_temporal("10:35").expect("parses");
+        assert_eq!(render_temporal(&time), "10:35");
+        let precise = parse_temporal("12:31:14.645876123").expect("parses");
+        assert_eq!(render_temporal(&precise), "12:31:14.645876123");
+        let zoned = parse_temporal("1984-03-07T12:31:14+01:00[Europe/Stockholm]").expect("parses");
+        assert_eq!(
+            render_temporal(&zoned),
+            "1984-03-07T12:31:14+01:00[Europe/Stockholm]"
+        );
+    }
+
+    #[test]
+    fn builds_week_ordinal_and_quarter_dates() {
+        let map = |json: &str| -> serde_json::Map<String, serde_json::Value> {
+            match serde_json::from_str(json).expect("valid json") {
+                serde_json::Value::Object(map) => map,
+                _ => unreachable!(),
+            }
+        };
+        let render = |kind: &str, json: &str| {
+            render_temporal(&build_temporal(kind, &map(json)).expect("builds"))
+        };
+        assert_eq!(
+            render("date", r#"{"year": 1984, "week": 10, "dayOfWeek": 3}"#),
+            "1984-03-07"
+        );
+        assert_eq!(
+            render("date", r#"{"year": 1984, "ordinalDay": 202}"#),
+            "1984-07-20"
+        );
+        assert_eq!(
+            render(
+                "date",
+                r#"{"year": 1984, "quarter": 3, "dayOfQuarter": 45}"#
+            ),
+            "1984-08-14"
+        );
+        assert_eq!(
+            render(
+                "datetime",
+                r#"{"year": 1984, "month": 3, "day": 7, "hour": 12, "nanosecond": 645876123, "timezone": "Europe/Stockholm"}"#
+            ),
+            "1984-03-07T12:00:00.645876123+01:00[Europe/Stockholm]"
+        );
+        assert_eq!(
+            render("datetime", r#"{"date": "1984-03-07", "time": "12:31:14"}"#),
+            "1984-03-07T12:31:14Z"
+        );
+    }
+}

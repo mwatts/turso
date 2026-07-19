@@ -24,7 +24,7 @@ thiserror.workspace = true
 toml.workspace = true
 turso_core.workspace = true
 turso_graph_cypher.workspace = true
-turso_graph_duration.workspace = true
+turso_graph_temporal.workspace = true
 turso_graph_frontend.workspace = true
 turso_graph_ir.workspace = true
 

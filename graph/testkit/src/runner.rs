@@ -142,7 +142,7 @@ fn build_fixture(
     let connection = database
         .connect()
         .map_err(|error| RunnerError::Fixture(error.to_string()))?;
-    turso_graph_duration::install_duration_extension(&connection);
+    turso_graph_temporal::install_temporal_extension(&connection);
     connection
         .execute("CREATE TYPE duration BASE TEXT; CREATE TABLE people(id INTEGER PRIMARY KEY, name TEXT, age INTEGER); CREATE TABLE relationships(id INTEGER PRIMARY KEY, src INTEGER, dst INTEGER);")
         .map_err(|error| RunnerError::Fixture(error.to_string()))?;
@@ -393,7 +393,7 @@ mod tests {
         assert_eq!(text("RETURN duration('P1DT1H').hours AS h"), "1");
         assert_eq!(
             text("RETURN datetime('2024-01-31T00:00:00Z') + duration({months: 1}) AS d"),
-            "2024-02-29T00:00:00Z"
+            "2024-02-29T00:00Z"
         );
         assert_eq!(
             text(

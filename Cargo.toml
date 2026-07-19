@@ -22,7 +22,7 @@ members = [
     "graph/frontend",
     "graph/ir",
     "graph/runtime",
-    "graph/duration",
+    "graph/temporal",
     "graph/testkit",
     "macros",
     "testing/simulator",
@@ -77,7 +77,7 @@ default-members = [
     "graph/frontend",
     "graph/ir",
     "graph/runtime",
-    "graph/duration",
+    "graph/temporal",
     "graph/testkit",
     "macros",
     "testing/simulator",
@@ -130,7 +130,7 @@ turso_graph_frontend = { path = "graph/frontend", version = "0.7.0" }
 turso_graph_ir = { path = "graph/ir", version = "0.7.0" }
 turso_graph_runtime = { path = "graph/runtime", version = "0.7.0" }
 turso_graph_testkit = { path = "graph/testkit", version = "0.7.0" }
-turso_graph_duration = { path = "graph/duration", version = "0.7.0" }
+turso_graph_temporal = { path = "graph/temporal", version = "0.7.0" }
 sql_generation = { path = "sql_generation" }
 turso-dbhash = { path = "tools/dbhash" }
 strum = { version = "0.26", features = ["derive"] }
@@ -168,6 +168,7 @@ codspeed-criterion-compat = "4.2.1"
 divan = { package = "codspeed-divan-compat", version = "4.2.1" }
 
 chrono = { version = "0.4.42", default-features = false }
+jiff = "0.2"
 hex = "0.4"
 antithesis_sdk = { version = "0.2.9", default-features = false }
 cfg-if = "1.0.0"
