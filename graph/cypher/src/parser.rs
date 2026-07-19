@@ -743,21 +743,123 @@ fn walk_postfix(pair: Pair<'_, Rule>) -> Result<Expression, ParseError> {
         .ok_or_else(|| ParseError::at(span, "expression has no value"))?;
     let mut expression = walk_expression(primary)?;
     for suffix in inner {
-        let name = suffix
-            .into_inner()
-            .next()
-            .ok_or_else(|| ParseError::at(span, "property access has no name"))?;
-        let name = walk_identifier(name);
-        let property_span = Span::new(expression.span.start, name.span.end);
-        expression = Spanned::new(
-            Expression::Property {
-                entity: Box::new(expression),
-                name,
-            },
-            property_span,
-        );
+        let suffix_span = pair_span(&suffix);
+        let combined = Span::new(expression.span.start, suffix_span.end);
+        let suffix = only_child(suffix)?;
+        let value = match suffix.as_rule() {
+            Rule::property_suffix => {
+                let name = suffix
+                    .into_inner()
+                    .next()
+                    .ok_or_else(|| ParseError::at(span, "property access has no name"))?;
+                Expression::Property {
+                    entity: Box::new(expression),
+                    name: walk_identifier(name),
+                }
+            }
+            Rule::index_suffix => walk_index_suffix(suffix, expression)?,
+            Rule::cast_suffix => {
+                let name = suffix
+                    .into_inner()
+                    .find(|item| item.as_rule() == Rule::identifier)
+                    .ok_or_else(|| ParseError::at(suffix_span, "cast has no type name"))?;
+                Expression::Cast {
+                    operand: Box::new(expression),
+                    type_name: walk_identifier(name),
+                }
+            }
+            Rule::call_suffix => walk_call_suffix(suffix, expression, combined)?,
+            rule => return Err(unexpected(&suffix, "postfix suffix", rule)),
+        };
+        expression = Spanned::new(value, combined);
     }
     Ok(expression.value)
+}
+
+fn walk_index_suffix(
+    suffix: Pair<'_, Rule>,
+    base: Spanned<Expression>,
+) -> Result<Expression, ParseError> {
+    let mut leading_dotdot = false;
+    let mut saw_dotdot = false;
+    let mut first = None;
+    let mut second = None;
+    for item in suffix.into_inner() {
+        match item.as_rule() {
+            Rule::dotdot => {
+                if first.is_none() {
+                    leading_dotdot = true;
+                }
+                saw_dotdot = true;
+            }
+            Rule::expression => {
+                let expression = walk_expression(item)?;
+                if first.is_none() {
+                    first = Some(Box::new(expression));
+                } else {
+                    second = Some(Box::new(expression));
+                }
+            }
+            _ => {}
+        }
+    }
+    Ok(if leading_dotdot {
+        Expression::Slice {
+            base: Box::new(base),
+            from: None,
+            to: first,
+        }
+    } else if saw_dotdot {
+        Expression::Slice {
+            base: Box::new(base),
+            from: first,
+            to: second,
+        }
+    } else {
+        let index = first.expect("grammar guarantees an index expression");
+        Expression::Index {
+            base: Box::new(base),
+            index,
+        }
+    })
+}
+
+fn walk_call_suffix(
+    suffix: Pair<'_, Rule>,
+    target: Spanned<Expression>,
+    span: Span,
+) -> Result<Expression, ParseError> {
+    let name = qualified_call_name(&target).ok_or_else(|| {
+        ParseError::at(
+            span,
+            "call target is not a plain or namespaced function name",
+        )
+    })?;
+    let distinct = suffix
+        .clone()
+        .into_inner()
+        .any(|item| item.as_rule() == Rule::DISTINCT);
+    let arguments = suffix
+        .into_inner()
+        .filter(|item| item.as_rule() == Rule::expression_list)
+        .flat_map(Pair::into_inner)
+        .map(walk_expression)
+        .collect::<Result<Vec<_>, _>>()?;
+    Ok(Expression::Function {
+        name: Spanned::new(name, target.span),
+        arguments,
+        distinct,
+    })
+}
+
+fn qualified_call_name(target: &Spanned<Expression>) -> Option<String> {
+    match &target.value {
+        Expression::Variable(name) => Some(name.clone()),
+        Expression::Property { entity, name } => {
+            Some(format!("{}.{}", qualified_call_name(entity)?, name.value))
+        }
+        _ => None,
+    }
 }
 
 fn walk_function(pair: Pair<'_, Rule>) -> Result<Expression, ParseError> {

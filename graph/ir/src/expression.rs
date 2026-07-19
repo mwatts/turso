@@ -137,6 +137,19 @@ pub enum Expression {
     /// The loop variable of the list scope at the recorded depth (1-based).
     /// Only the innermost scope is addressable; the binder enforces this.
     ListElement(usize),
+    Index {
+        base: Box<TypedExpression>,
+        index: Box<TypedExpression>,
+    },
+    Slice {
+        base: Box<TypedExpression>,
+        from: Option<Box<TypedExpression>>,
+        to: Option<Box<TypedExpression>>,
+    },
+    Cast {
+        expression: Box<TypedExpression>,
+        target: ValueType,
+    },
     Quantifier {
         kind: QuantifierKind,
         /// Scope depth of this quantifier's loop variable (1-based).

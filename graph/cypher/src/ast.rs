@@ -234,6 +234,19 @@ pub enum Expression {
         list: Box<Spanned<Expression>>,
         predicate: Box<Spanned<Expression>>,
     },
+    Index {
+        base: Box<Spanned<Expression>>,
+        index: Box<Spanned<Expression>>,
+    },
+    Slice {
+        base: Box<Spanned<Expression>>,
+        from: Option<Box<Spanned<Expression>>>,
+        to: Option<Box<Spanned<Expression>>>,
+    },
+    Cast {
+        operand: Box<Spanned<Expression>>,
+        type_name: Spanned<String>,
+    },
     ListComprehension {
         variable: Spanned<String>,
         list: Box<Spanned<Expression>>,

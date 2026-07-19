@@ -1165,6 +1165,85 @@ impl<'a> Binder<'a> {
                     nullability,
                 )
             }
+            cypher::Expression::Index { base, index } => {
+                let base_span = base.span;
+                let base = self.bind_expression(base)?;
+                let index = self.bind_expression(index)?;
+                let element_type = match (&base.value_type, &index.value_type) {
+                    (ir::ValueType::List(element), _) if numeric_compatible(&index.value_type) => {
+                        (**element).clone()
+                    }
+                    (ir::ValueType::Any, _)
+                        if numeric_compatible(&index.value_type)
+                            || text_compatible(&index.value_type) =>
+                    {
+                        ir::ValueType::Any
+                    }
+                    _ => {
+                        return Err(at_unsupported(
+                            base_span,
+                            "indexing this operand/key combination",
+                        ));
+                    }
+                };
+                (
+                    ir::Expression::Index {
+                        base: Box::new(base),
+                        index: Box::new(index),
+                    },
+                    element_type,
+                    ir::Nullability::Nullable,
+                )
+            }
+            cypher::Expression::Slice { base, from, to } => {
+                let base_span = base.span;
+                let base = self.bind_expression(base)?;
+                if !matches!(base.value_type, ir::ValueType::List(_) | ir::ValueType::Any) {
+                    return Err(at_unsupported(base_span, "slicing a non-list operand"));
+                }
+                let value_type = base.value_type.clone();
+                let from = from
+                    .as_ref()
+                    .map(|from| self.bind_expression(from))
+                    .transpose()?
+                    .map(Box::new);
+                let to = to
+                    .as_ref()
+                    .map(|to| self.bind_expression(to))
+                    .transpose()?
+                    .map(Box::new);
+                (
+                    ir::Expression::Slice {
+                        base: Box::new(base),
+                        from,
+                        to,
+                    },
+                    value_type,
+                    ir::Nullability::Nullable,
+                )
+            }
+            cypher::Expression::Cast { operand, type_name } => {
+                let operand = self.bind_expression(operand)?;
+                let target = match type_name.value.to_ascii_lowercase().as_str() {
+                    "integer" | "int" | "bigint" | "smallint" => ir::ValueType::Integer,
+                    "float" | "float8" | "pg_float8" | "double" | "real" | "numeric" => {
+                        ir::ValueType::Real
+                    }
+                    "text" | "string" | "varchar" => ir::ValueType::Text,
+                    "bool" | "boolean" => ir::ValueType::Boolean,
+                    _ => {
+                        return Err(at_unsupported(type_name.span, "casts to this type name"));
+                    }
+                };
+                (
+                    ir::Expression::Cast {
+                        expression: Box::new(operand),
+                        target: target.clone(),
+                    },
+                    target,
+                    ir::Nullability::Nullable,
+                )
+            }
             cypher::Expression::Quantifier {
                 kind,
                 variable,

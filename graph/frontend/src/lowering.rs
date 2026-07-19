@@ -708,6 +708,76 @@ fn lower_expression_with_references(
             })
         }
         ir::Expression::ListElement(depth) => Ok(format!("lst{depth}.value")),
+        ir::Expression::Index { base, index } => {
+            let base =
+                lower_expression_with_references(base, bindings, catalog, input_alias, references)?;
+            let text_key = index.value_type == ir::ValueType::Text;
+            let index = lower_expression_with_references(
+                index,
+                bindings,
+                catalog,
+                input_alias,
+                references,
+            )?;
+            Ok(if text_key {
+                format!("json_extract(({base}), '$.\"' || ({index}) || '\"')")
+            } else {
+                // Negative indices address from the end via the '#' form.
+                format!(
+                    "json_extract(({base}), '$[' || (CASE WHEN ({index}) >= 0 \
+                     THEN ({index}) ELSE '#' || ({index}) END) || ']')"
+                )
+            })
+        }
+        ir::Expression::Slice { base, from, to } => {
+            let base =
+                lower_expression_with_references(base, bindings, catalog, input_alias, references)?;
+            let normalized = |bound: &str| {
+                format!(
+                    "(CASE WHEN ({bound}) < 0 THEN json_array_length(({base})) + ({bound}) \
+                     ELSE ({bound}) END)"
+                )
+            };
+            let from = match from {
+                Some(from) => normalized(&lower_expression_with_references(
+                    from,
+                    bindings,
+                    catalog,
+                    input_alias,
+                    references,
+                )?),
+                None => "0".to_owned(),
+            };
+            let to = match to {
+                Some(to) => normalized(&lower_expression_with_references(
+                    to,
+                    bindings,
+                    catalog,
+                    input_alias,
+                    references,
+                )?),
+                None => format!("json_array_length(({base}))"),
+            };
+            Ok(format!(
+                "(SELECT json_group_array(slc.value) FROM json_each(({base})) AS slc \
+                 WHERE CAST(slc.key AS INTEGER) >= {from} AND CAST(slc.key AS INTEGER) < {to})"
+            ))
+        }
+        ir::Expression::Cast { expression, target } => {
+            let value = lower_expression_with_references(
+                expression,
+                bindings,
+                catalog,
+                input_alias,
+                references,
+            )?;
+            let sql_type = match target {
+                ir::ValueType::Integer | ir::ValueType::Boolean => "INTEGER",
+                ir::ValueType::Real => "REAL",
+                _ => "TEXT",
+            };
+            Ok(format!("CAST(({value}) AS {sql_type})"))
+        }
         ir::Expression::Quantifier {
             kind,
             depth,
