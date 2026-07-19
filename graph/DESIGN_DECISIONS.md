@@ -1,12 +1,14 @@
 # Graph frontend: design decisions
 
-Status: all four decisions were made and, except path values, are
-implemented on this branch.
+Status: all decisions are made and implemented on this branch
+(variable-length path materialization is the one outlined follow-up).
 
 - Labels: **junction table** (chosen, implemented — filtered scans,
   labels()/label(), ±labels side effects; extended to a relationship-type
   junction with a persistent identity registry).
-- Path values: **first-class Path IR** (chosen, not yet implemented).
+- Path values: **first-class Path IR** (chosen, fixed-length implemented —
+  PathValue IR, nodes()/relationships()/length(); variable-length paths
+  await traversal-emitted path data).
 - Temporal: **core time_* functions** (chosen, implemented — constructors,
   accessors, ISO rendering; durations remain).
 - CALL: **minimal registry** (chosen, implemented — db.labels,
