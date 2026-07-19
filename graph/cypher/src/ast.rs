@@ -115,6 +115,9 @@ pub struct NodePattern {
     pub variable: Option<Spanned<String>>,
     pub labels: Vec<Spanned<String>>,
     pub properties: Vec<(Spanned<String>, Spanned<Expression>)>,
+    /// True when a `{...}` map was written, even if it was empty; some
+    /// binder rules distinguish `(n)` from `(n {})`.
+    pub has_property_map: bool,
     pub span: Span,
 }
 

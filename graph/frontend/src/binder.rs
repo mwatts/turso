@@ -354,6 +354,29 @@ impl<'a> Binder<'a> {
         merge: bool,
         operations: &mut Vec<ir::Mutation>,
     ) -> Result<(), BindError> {
+        if merge {
+            // openCypher: MERGE on a null property can never match nor
+            // create (TCK Merge1 [17], Merge5 [29]).
+            let null_property = path
+                .start
+                .properties
+                .iter()
+                .chain(path.steps.iter().flat_map(|(relationship, node)| {
+                    relationship.properties.iter().chain(node.properties.iter())
+                }))
+                .find(|(_, value)| {
+                    matches!(
+                        value.value,
+                        cypher::Expression::Literal(cypher::Literal::Null)
+                    )
+                });
+            if let Some((_, value)) = null_property {
+                return Err(at_unsupported(
+                    value.span,
+                    "MERGE with null property values",
+                ));
+            }
+        }
         if let Some(variable) = &path.variable {
             // Register the path name so later clauses can reference it; the
             // path value itself is not materialized in the initial slice.
@@ -454,7 +477,7 @@ impl<'a> Binder<'a> {
                 .find(|binding| binding.name() == variable.value)
                 .cloned()
             {
-                if !node.labels.is_empty() || !node.properties.is_empty() {
+                if !node.labels.is_empty() || node.has_property_map {
                     return Err(at_unsupported(
                         node.span,
                         "labels or properties on an already-bound CREATE node",
@@ -1414,6 +1437,7 @@ impl<'a> Binder<'a> {
                             variable: Some(cypher::Spanned::new(name.clone(), operand.span)),
                             labels: labels.clone(),
                             properties: Vec::new(),
+                            has_property_map: false,
                             span: expression.span,
                         },
                         steps: Vec::new(),

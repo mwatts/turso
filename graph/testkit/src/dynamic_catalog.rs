@@ -1,0 +1,164 @@
+//! Schemaless catalog for donor fixtures.
+//!
+//! Donor corpora create arbitrary labels, relationship types, and
+//! properties, while a fixture registers one node and one relationship
+//! table. This catalog delegates to the schema-backed catalog first and
+//! provisions anything unknown on demand: labels and relationship types
+//! get fresh identities (the engine does not filter scans by label), and
+//! properties get a real column added to the backing table.
+
+use std::collections::HashMap;
+use std::sync::{Arc, Mutex};
+
+use turso_core::Connection;
+use turso_graph_frontend::{
+    CatalogEntity, GraphCatalogSnapshot, NodeTableLayout, RegisteredGraph,
+    RelationalCatalogSnapshot, RelationshipTableLayout, ResolvedProperty, SchemaCatalog,
+};
+use turso_graph_ir as ir;
+
+/// Identity offset that keeps dynamically provisioned ids clear of the
+/// schema catalog's own allocations.
+const DYNAMIC_ID_BASE: u32 = 100_000;
+
+struct DynamicState {
+    labels: HashMap<String, ir::LabelId>,
+    relationship_types: HashMap<String, ir::RelationshipTypeId>,
+    properties: HashMap<(bool, String), ResolvedProperty>,
+    property_columns: HashMap<ir::PropertyId, String>,
+    next_id: u32,
+}
+
+pub struct DynamicCatalog {
+    inner: SchemaCatalog,
+    connection: Arc<Connection>,
+    node_table: String,
+    relationship_table: String,
+    state: Mutex<DynamicState>,
+}
+
+impl DynamicCatalog {
+    pub fn new(
+        connection: Arc<Connection>,
+        graph: RegisteredGraph,
+        node_table: String,
+        relationship_table: String,
+    ) -> Self {
+        Self {
+            inner: SchemaCatalog::new(connection.clone(), graph),
+            connection,
+            node_table,
+            relationship_table,
+            state: Mutex::new(DynamicState {
+                labels: HashMap::new(),
+                relationship_types: HashMap::new(),
+                properties: HashMap::new(),
+                property_columns: HashMap::new(),
+                next_id: DYNAMIC_ID_BASE,
+            }),
+        }
+    }
+
+    fn next_id(state: &mut DynamicState) -> u32 {
+        state.next_id += 1;
+        state.next_id
+    }
+}
+
+impl GraphCatalogSnapshot for DynamicCatalog {
+    fn node_source(&self, graph: ir::GraphId) -> Option<ir::SourceTableId> {
+        self.inner.node_source(graph)
+    }
+
+    fn relationship_source(&self, graph: ir::GraphId) -> Option<ir::SourceTableId> {
+        self.inner.relationship_source(graph)
+    }
+
+    fn label(&self, graph: ir::GraphId, name: &str) -> Option<ir::LabelId> {
+        if let Some(label) = self.inner.label(graph, name) {
+            return Some(label);
+        }
+        let mut state = self.state.lock().expect("catalog state lock");
+        if let Some(label) = state.labels.get(name) {
+            return Some(*label);
+        }
+        let label = ir::LabelId::new(Self::next_id(&mut state)).ok()?;
+        state.labels.insert(name.to_owned(), label);
+        Some(label)
+    }
+
+    fn relationship_type(&self, graph: ir::GraphId, name: &str) -> Option<ir::RelationshipTypeId> {
+        if let Some(relationship_type) = self.inner.relationship_type(graph, name) {
+            return Some(relationship_type);
+        }
+        let mut state = self.state.lock().expect("catalog state lock");
+        if let Some(relationship_type) = state.relationship_types.get(name) {
+            return Some(*relationship_type);
+        }
+        let relationship_type = ir::RelationshipTypeId::new(Self::next_id(&mut state)).ok()?;
+        state
+            .relationship_types
+            .insert(name.to_owned(), relationship_type);
+        Some(relationship_type)
+    }
+
+    fn property(
+        &self,
+        graph: ir::GraphId,
+        entity: CatalogEntity,
+        name: &str,
+    ) -> Option<ResolvedProperty> {
+        if let Some(property) = self.inner.property(graph, entity, name) {
+            return Some(property);
+        }
+        let is_node = matches!(entity, CatalogEntity::Node);
+        let mut state = self.state.lock().expect("catalog state lock");
+        let key = (is_node, name.to_owned());
+        if let Some(property) = state.properties.get(&key) {
+            return Some(property.clone());
+        }
+        let table = if is_node {
+            &self.node_table
+        } else {
+            &self.relationship_table
+        };
+        let column = name.replace('"', "\"\"");
+        self.connection
+            .execute(format!("ALTER TABLE \"{table}\" ADD COLUMN \"{column}\""))
+            .ok()?;
+        let property = ResolvedProperty {
+            id: ir::PropertyId::new(Self::next_id(&mut state)).ok()?,
+            value_type: ir::ValueType::Any,
+            nullability: ir::Nullability::Nullable,
+        };
+        state.property_columns.insert(property.id, name.to_owned());
+        state.properties.insert(key, property.clone());
+        Some(property)
+    }
+}
+
+impl RelationalCatalogSnapshot for DynamicCatalog {
+    fn node_layout(&self, source: ir::SourceTableId) -> Option<NodeTableLayout> {
+        self.inner.node_layout(source)
+    }
+
+    fn relationship_layout(&self, source: ir::SourceTableId) -> Option<RelationshipTableLayout> {
+        self.inner.relationship_layout(source)
+    }
+
+    fn property_column(
+        &self,
+        source: ir::SourceTableId,
+        property: ir::PropertyId,
+    ) -> Option<String> {
+        if let Some(column) = self.inner.property_column(source, property) {
+            return Some(column);
+        }
+        self.state
+            .lock()
+            .expect("catalog state lock")
+            .property_columns
+            .get(&property)
+            .cloned()
+    }
+}

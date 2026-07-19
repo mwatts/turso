@@ -278,13 +278,17 @@ fn walk_node(pair: Pair<'_, Rule>) -> Result<NodePattern, ParseError> {
     let mut variable = None;
     let mut labels = Vec::new();
     let mut properties = Vec::new();
+    let mut has_property_map = false;
     for child in pair.into_inner() {
         match child.as_rule() {
             Rule::identifier => variable = Some(walk_identifier(child)),
             Rule::node_labels => {
                 labels.extend(child.into_inner().map(walk_identifier));
             }
-            Rule::map_literal => properties = walk_map(child)?,
+            Rule::map_literal => {
+                has_property_map = true;
+                properties = walk_map(child)?;
+            }
             rule => return Err(unexpected(&child, "node component", rule)),
         }
     }
@@ -292,6 +296,7 @@ fn walk_node(pair: Pair<'_, Rule>) -> Result<NodePattern, ParseError> {
         variable,
         labels,
         properties,
+        has_property_map,
         span,
     })
 }

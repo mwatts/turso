@@ -168,7 +168,12 @@ fn build_fixture(
     )
     .map_err(|error| RunnerError::Fixture(error.to_string()))?;
     let catalog: Arc<dyn GraphCompilationCatalog> =
-        Arc::new(SchemaCatalog::new(connection.clone(), registered.clone()));
+        Arc::new(crate::dynamic_catalog::DynamicCatalog::new(
+            connection.clone(),
+            registered.clone(),
+            "people".to_owned(),
+            "relationships".to_owned(),
+        ));
     let session = GraphSession::install(
         connection.clone(),
         &registered,

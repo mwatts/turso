@@ -3,6 +3,7 @@
 #![forbid(unsafe_code)]
 
 pub mod age;
+pub mod dynamic_catalog;
 pub mod grafeo;
 pub mod history;
 pub mod identity;
