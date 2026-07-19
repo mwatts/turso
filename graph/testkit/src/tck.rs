@@ -515,7 +515,13 @@ fn execute_case(
                 );
             }
             let types = fixture.session.query_result_types(query).ok();
-            let mut rows = stringify_rows_with_types(rows, types.as_deref());
+            let mut rows = stringify_rows_with_entities(
+                rows,
+                types.as_deref(),
+                &fixture.connection,
+                &labels_table,
+                fixture.session.graph_id(),
+            );
             let Some((mut expected_rows, ordered)) = expected_rows(case) else {
                 return (
                     Outcome::Failed,
@@ -880,6 +886,240 @@ fn stringify_rows_with_types(
                 .collect()
         })
         .collect()
+}
+
+/// Renders result rows with graph-aware formatting: node and relationship
+/// columns print in the TCK's `(:Label {key: value})` / `[:TYPE {..}]`
+/// shapes, resolved from the label/type junctions and fixture tables.
+fn stringify_rows_with_entities(
+    rows: Vec<Vec<Value>>,
+    types: Option<&[turso_graph_ir::ValueType]>,
+    connection: &std::sync::Arc<turso_core::Connection>,
+    labels_table: &str,
+    graph: turso_graph_ir::GraphId,
+) -> Vec<Vec<String>> {
+    let types_table = turso_graph_frontend::relationship_types_table_name(graph);
+    rows.into_iter()
+        .map(|row| {
+            row.into_iter()
+                .enumerate()
+                .map(|(index, value)| {
+                    let column_type = types.and_then(|types| types.get(index));
+                    match (column_type, &value) {
+                        (
+                            Some(turso_graph_ir::ValueType::Node),
+                            Value::Numeric(Numeric::Integer(identity)),
+                        ) => render_node(connection, labels_table, *identity)
+                            .unwrap_or_else(|| identity.to_string()),
+                        (
+                            Some(turso_graph_ir::ValueType::Relationship),
+                            Value::Numeric(Numeric::Integer(identity)),
+                        ) => render_relationship(connection, &types_table, *identity)
+                            .unwrap_or_else(|| identity.to_string()),
+                        (Some(turso_graph_ir::ValueType::Path), Value::Text(json)) => {
+                            render_path(connection, labels_table, &types_table, json.as_str())
+                                .unwrap_or_else(|| json.to_string())
+                        }
+                        _ => stringify_value(
+                            value,
+                            column_type == Some(&turso_graph_ir::ValueType::Boolean),
+                        ),
+                    }
+                })
+                .collect()
+        })
+        .collect()
+}
+
+fn stringify_value(value: Value, boolean: bool) -> String {
+    match value {
+        Value::Null => "<null>".to_owned(),
+        Value::Numeric(Numeric::Integer(value)) if boolean => {
+            if value == 0 { "false" } else { "true" }.to_owned()
+        }
+        Value::Numeric(Numeric::Integer(value)) => value.to_string(),
+        Value::Numeric(Numeric::Float(value)) if value.fract() == 0.0 => {
+            format!("{value:.1}")
+        }
+        Value::Numeric(Numeric::Float(value)) => value.to_string(),
+        Value::Text(value) => value.to_string(),
+        Value::Blob(value) => format!("{value:?}"),
+    }
+}
+
+fn scalar_rows(
+    connection: &std::sync::Arc<turso_core::Connection>,
+    sql: &str,
+) -> Option<Vec<Vec<Value>>> {
+    connection
+        .prepare(sql)
+        .and_then(|mut statement| statement.run_collect_rows())
+        .ok()
+}
+
+fn render_property_value(value: &Value) -> String {
+    match value {
+        Value::Text(text) => format!("'{}'", text.to_string().replace('\'', "\\'")),
+        Value::Numeric(Numeric::Integer(value)) => value.to_string(),
+        Value::Numeric(Numeric::Float(value)) if value.fract() == 0.0 => format!("{value:.1}"),
+        Value::Numeric(Numeric::Float(value)) => value.to_string(),
+        Value::Null => "null".to_owned(),
+        Value::Blob(value) => format!("{value:?}"),
+    }
+}
+
+fn entity_properties(
+    connection: &std::sync::Arc<turso_core::Connection>,
+    table: &str,
+    excluded: &[&str],
+    identity: i64,
+) -> Vec<(String, String)> {
+    let mut properties = Vec::new();
+    let Some(columns) = scalar_rows(
+        connection,
+        &format!("SELECT name FROM pragma_table_info('{table}')"),
+    ) else {
+        return properties;
+    };
+    for column in columns {
+        let Some(Value::Text(name)) = column.first() else {
+            continue;
+        };
+        let name = name.to_string();
+        if excluded.contains(&name.as_str()) {
+            continue;
+        }
+        let Some(values) = scalar_rows(
+            connection,
+            &format!("SELECT \"{name}\" FROM \"{table}\" WHERE id = {identity}"),
+        ) else {
+            continue;
+        };
+        if let Some(value) = values.first().and_then(|row| row.first()) {
+            if !matches!(value, Value::Null) {
+                properties.push((name, render_property_value(value)));
+            }
+        }
+    }
+    properties
+}
+
+fn render_entity(labels: Vec<String>, properties: Vec<(String, String)>, node: bool) -> String {
+    let mut inner = String::new();
+    for label in labels {
+        inner.push(':');
+        inner.push_str(&label);
+    }
+    if !properties.is_empty() {
+        if !inner.is_empty() {
+            inner.push(' ');
+        }
+        inner.push('{');
+        inner.push_str(
+            &properties
+                .into_iter()
+                .map(|(key, value)| format!("{key}: {value}"))
+                .collect::<Vec<_>>()
+                .join(", "),
+        );
+        inner.push('}');
+    }
+    if node {
+        format!("({inner})")
+    } else {
+        format!("[{inner}]")
+    }
+}
+
+fn render_node(
+    connection: &std::sync::Arc<turso_core::Connection>,
+    labels_table: &str,
+    identity: i64,
+) -> Option<String> {
+    let labels = scalar_rows(
+        connection,
+        &format!("SELECT label FROM \"{labels_table}\" WHERE node_id = {identity} ORDER BY rowid"),
+    )?
+    .into_iter()
+    .filter_map(|row| match row.into_iter().next() {
+        Some(Value::Text(label)) => Some(label.to_string()),
+        _ => None,
+    })
+    .collect();
+    let properties = entity_properties(connection, "people", &["id"], identity);
+    Some(render_entity(labels, properties, true))
+}
+
+fn render_relationship(
+    connection: &std::sync::Arc<turso_core::Connection>,
+    types_table: &str,
+    identity: i64,
+) -> Option<String> {
+    let types = scalar_rows(
+        connection,
+        &format!(
+            "SELECT type FROM \"{types_table}\" WHERE relationship_id = {identity} ORDER BY rowid"
+        ),
+    )?
+    .into_iter()
+    .filter_map(|row| match row.into_iter().next() {
+        Some(Value::Text(name)) => Some(name.to_string()),
+        _ => None,
+    })
+    .collect();
+    let properties =
+        entity_properties(connection, "relationships", &["id", "src", "dst"], identity);
+    Some(render_entity(types, properties, false))
+}
+
+/// Renders a {nodes, relationships} path value in the TCK's
+/// `<(a)-[:T]->(b)>` shape, recovering hop directions from the
+/// relationship endpoints.
+fn render_path(
+    connection: &std::sync::Arc<turso_core::Connection>,
+    labels_table: &str,
+    types_table: &str,
+    json: &str,
+) -> Option<String> {
+    let parsed: serde_json::Value = serde_json::from_str(json).ok()?;
+    let identities = |key: &str| -> Option<Vec<i64>> {
+        parsed
+            .get(key)?
+            .as_array()?
+            .iter()
+            .map(serde_json::Value::as_i64)
+            .collect()
+    };
+    let nodes = identities("nodes")?;
+    let relationships = identities("relationships")?;
+    let mut rendered = String::from("<");
+    rendered.push_str(&render_node(connection, labels_table, *nodes.first()?)?);
+    for (index, relationship) in relationships.iter().enumerate() {
+        let source = scalar_rows(
+            connection,
+            &format!("SELECT src FROM relationships WHERE id = {relationship}"),
+        )?
+        .into_iter()
+        .next()
+        .and_then(|row| match row.into_iter().next() {
+            Some(Value::Numeric(Numeric::Integer(source))) => Some(source),
+            _ => None,
+        })?;
+        let outgoing = source == nodes[index];
+        let arrow = render_relationship(connection, types_table, *relationship)?;
+        if outgoing {
+            rendered.push_str(&format!("-{arrow}->"));
+        } else {
+            rendered.push_str(&format!("<-{arrow}-"));
+        }
+        rendered.push_str(&render_node(
+            connection,
+            labels_table,
+            *nodes.get(index + 1)?,
+        )?);
+    }
+    rendered.push('>');
+    Some(rendered)
 }
 
 #[expect(
