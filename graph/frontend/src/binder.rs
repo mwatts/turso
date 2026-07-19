@@ -1116,6 +1116,74 @@ impl<'a> Binder<'a> {
                     nullable(binding.nullability(), property.nullability),
                 )
             }
+            cypher::Expression::Unary { operator, operand } => {
+                let operand_span = operand.span;
+                let operand = self.bind_expression(operand)?;
+                if matches!(operator, cypher::UnaryOperator::Not)
+                    && !boolean_compatible(&operand.value_type)
+                {
+                    return Err(at_unsupported(operand_span, "NOT on a non-boolean operand"));
+                }
+                let (op, nullability) = match operator {
+                    cypher::UnaryOperator::Not => (ir::UnaryOp::Not, operand.nullability),
+                    cypher::UnaryOperator::IsNull => {
+                        (ir::UnaryOp::IsNull, ir::Nullability::NonNull)
+                    }
+                    cypher::UnaryOperator::IsNotNull => {
+                        (ir::UnaryOp::IsNotNull, ir::Nullability::NonNull)
+                    }
+                };
+                (
+                    ir::Expression::Unary {
+                        op,
+                        expression: Box::new(operand),
+                    },
+                    ir::ValueType::Boolean,
+                    nullability,
+                )
+            }
+            cypher::Expression::Case {
+                subject,
+                branches,
+                default,
+            } => {
+                let subject = subject
+                    .as_ref()
+                    .map(|subject| self.bind_expression(subject))
+                    .transpose()?
+                    .map(Box::new);
+                let branches = branches
+                    .iter()
+                    .map(|(condition, result)| {
+                        Ok((
+                            self.bind_expression(condition)?,
+                            self.bind_expression(result)?,
+                        ))
+                    })
+                    .collect::<Result<Vec<_>, BindError>>()?;
+                let default = default
+                    .as_ref()
+                    .map(|default| self.bind_expression(default))
+                    .transpose()?
+                    .map(Box::new);
+                let mut result_types = branches
+                    .iter()
+                    .map(|(_, result)| &result.value_type)
+                    .chain(default.iter().map(|default| &default.value_type));
+                let value_type = match result_types.next() {
+                    Some(first) if result_types.all(|next| next == first) => first.clone(),
+                    _ => ir::ValueType::Any,
+                };
+                (
+                    ir::Expression::Case {
+                        subject,
+                        branches,
+                        default,
+                    },
+                    value_type,
+                    ir::Nullability::Nullable,
+                )
+            }
             cypher::Expression::Binary {
                 left,
                 operator,
@@ -1124,16 +1192,41 @@ impl<'a> Binder<'a> {
                 let right_span = right.span;
                 let left = self.bind_expression(left)?;
                 let right = self.bind_expression(right)?;
-                if matches!(operator, cypher::BinaryOperator::In)
-                    && !matches!(
-                        right.value_type,
-                        ir::ValueType::List(_) | ir::ValueType::Any
-                    )
-                {
-                    return Err(at_unsupported(
-                        right_span,
-                        "IN membership against a non-list operand",
-                    ));
+                match operator {
+                    cypher::BinaryOperator::In
+                        if !matches!(
+                            right.value_type,
+                            ir::ValueType::List(_) | ir::ValueType::Any
+                        ) =>
+                    {
+                        return Err(at_unsupported(
+                            right_span,
+                            "IN membership against a non-list operand",
+                        ));
+                    }
+                    cypher::BinaryOperator::And
+                    | cypher::BinaryOperator::Or
+                    | cypher::BinaryOperator::Xor
+                        if !boolean_compatible(&left.value_type)
+                            || !boolean_compatible(&right.value_type) =>
+                    {
+                        return Err(at_unsupported(
+                            right_span,
+                            "boolean operators on non-boolean operands",
+                        ));
+                    }
+                    cypher::BinaryOperator::StartsWith
+                    | cypher::BinaryOperator::EndsWith
+                    | cypher::BinaryOperator::Contains
+                        if !text_compatible(&left.value_type)
+                            || !text_compatible(&right.value_type) =>
+                    {
+                        return Err(at_unsupported(
+                            right_span,
+                            "string predicates on non-string operands",
+                        ));
+                    }
+                    _ => {}
                 }
                 let value_type = binary_type(*operator, &left.value_type, &right.value_type);
                 let nullability = nullable(left.nullability, right.nullability);
@@ -1439,9 +1532,18 @@ fn bind_literal(literal: &cypher::Literal) -> (ir::Literal, ir::ValueType, ir::N
     }
 }
 
+fn boolean_compatible(value_type: &ir::ValueType) -> bool {
+    matches!(value_type, ir::ValueType::Boolean | ir::ValueType::Any)
+}
+
+fn text_compatible(value_type: &ir::ValueType) -> bool {
+    matches!(value_type, ir::ValueType::Text | ir::ValueType::Any)
+}
+
 fn bind_binary_operator(operator: cypher::BinaryOperator) -> ir::BinaryOp {
     match operator {
         cypher::BinaryOperator::Or => ir::BinaryOp::Or,
+        cypher::BinaryOperator::Xor => ir::BinaryOp::Xor,
         cypher::BinaryOperator::And => ir::BinaryOp::And,
         cypher::BinaryOperator::Equal => ir::BinaryOp::Equal,
         cypher::BinaryOperator::NotEqual => ir::BinaryOp::NotEqual,
@@ -1450,10 +1552,15 @@ fn bind_binary_operator(operator: cypher::BinaryOperator) -> ir::BinaryOp {
         cypher::BinaryOperator::Greater => ir::BinaryOp::Greater,
         cypher::BinaryOperator::GreaterOrEqual => ir::BinaryOp::GreaterOrEqual,
         cypher::BinaryOperator::In => ir::BinaryOp::In,
+        cypher::BinaryOperator::StartsWith => ir::BinaryOp::StartsWith,
+        cypher::BinaryOperator::EndsWith => ir::BinaryOp::EndsWith,
+        cypher::BinaryOperator::Contains => ir::BinaryOp::Contains,
         cypher::BinaryOperator::Add => ir::BinaryOp::Add,
         cypher::BinaryOperator::Subtract => ir::BinaryOp::Subtract,
         cypher::BinaryOperator::Multiply => ir::BinaryOp::Multiply,
         cypher::BinaryOperator::Divide => ir::BinaryOp::Divide,
+        cypher::BinaryOperator::Modulo => ir::BinaryOp::Modulo,
+        cypher::BinaryOperator::Power => ir::BinaryOp::Power,
     }
 }
 
@@ -1471,7 +1578,12 @@ fn binary_type(
         | cypher::BinaryOperator::LessOrEqual
         | cypher::BinaryOperator::Greater
         | cypher::BinaryOperator::GreaterOrEqual
-        | cypher::BinaryOperator::In => ir::ValueType::Boolean,
+        | cypher::BinaryOperator::In
+        | cypher::BinaryOperator::Xor
+        | cypher::BinaryOperator::StartsWith
+        | cypher::BinaryOperator::EndsWith
+        | cypher::BinaryOperator::Contains => ir::ValueType::Boolean,
+        cypher::BinaryOperator::Power => ir::ValueType::Real,
         _ if left == &ir::ValueType::Real || right == &ir::ValueType::Real => ir::ValueType::Real,
         _ if left == &ir::ValueType::Integer && right == &ir::ValueType::Integer => {
             ir::ValueType::Integer

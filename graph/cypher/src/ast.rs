@@ -170,6 +170,7 @@ pub enum Literal {
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum BinaryOperator {
     Or,
+    Xor,
     And,
     Equal,
     NotEqual,
@@ -178,10 +179,22 @@ pub enum BinaryOperator {
     Greater,
     GreaterOrEqual,
     In,
+    StartsWith,
+    EndsWith,
+    Contains,
     Add,
     Subtract,
     Multiply,
     Divide,
+    Modulo,
+    Power,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum UnaryOperator {
+    Not,
+    IsNull,
+    IsNotNull,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -197,6 +210,15 @@ pub enum Expression {
         left: Box<Spanned<Expression>>,
         operator: BinaryOperator,
         right: Box<Spanned<Expression>>,
+    },
+    Unary {
+        operator: UnaryOperator,
+        operand: Box<Spanned<Expression>>,
+    },
+    Case {
+        subject: Option<Box<Spanned<Expression>>>,
+        branches: Vec<(Spanned<Expression>, Spanned<Expression>)>,
+        default: Option<Box<Spanned<Expression>>>,
     },
     Function {
         name: Spanned<String>,

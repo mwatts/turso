@@ -683,8 +683,75 @@ fn lower_expression_with_references(
                 ir::BinaryOp::In => {
                     format!("({left}) IN (SELECT value FROM json_each({right}))")
                 }
+                // Boolean XOR over 1/0/NULL: inequality preserves Cypher's
+                // three-valued semantics.
+                ir::BinaryOp::Xor => format!("(({left}) <> ({right}))"),
+                ir::BinaryOp::Power => format!("pow(({left}), ({right}))"),
+                // The CASE guards keep the empty-needle results Cypher
+                // defines (always true) while still propagating NULL inputs;
+                // instr/substr alone return false for an empty needle.
+                ir::BinaryOp::StartsWith => format!(
+                    "(CASE WHEN ({left}) IS NULL OR ({right}) IS NULL THEN NULL \
+                     ELSE substr(({left}), 1, length(({right}))) = ({right}) END)"
+                ),
+                ir::BinaryOp::EndsWith => format!(
+                    "(CASE WHEN ({left}) IS NULL OR ({right}) IS NULL THEN NULL \
+                     WHEN length(({right})) = 0 THEN 1 \
+                     ELSE substr(({left}), -length(({right}))) = ({right}) END)"
+                ),
+                ir::BinaryOp::Contains => format!(
+                    "(CASE WHEN ({left}) IS NULL OR ({right}) IS NULL THEN NULL \
+                     WHEN length(({right})) = 0 THEN 1 \
+                     ELSE instr(({left}), ({right})) > 0 END)"
+                ),
                 _ => format!("({left}) {} ({right})", binary_operator(*op)),
             })
+        }
+        ir::Expression::Case {
+            subject,
+            branches,
+            default,
+        } => {
+            let mut sql = String::from("CASE");
+            if let Some(subject) = subject {
+                let subject = lower_expression_with_references(
+                    subject,
+                    bindings,
+                    catalog,
+                    input_alias,
+                    references,
+                )?;
+                sql.push_str(&format!(" ({subject})"));
+            }
+            for (condition, result) in branches {
+                let condition = lower_expression_with_references(
+                    condition,
+                    bindings,
+                    catalog,
+                    input_alias,
+                    references,
+                )?;
+                let result = lower_expression_with_references(
+                    result,
+                    bindings,
+                    catalog,
+                    input_alias,
+                    references,
+                )?;
+                sql.push_str(&format!(" WHEN ({condition}) THEN ({result})"));
+            }
+            if let Some(default) = default {
+                let default = lower_expression_with_references(
+                    default,
+                    bindings,
+                    catalog,
+                    input_alias,
+                    references,
+                )?;
+                sql.push_str(&format!(" ELSE ({default})"));
+            }
+            sql.push_str(" END");
+            Ok(format!("({sql})"))
         }
         ir::Expression::Function {
             function,
@@ -804,9 +871,17 @@ fn binary_operator(operator: ir::BinaryOp) -> &'static str {
         ir::BinaryOp::Subtract => "-",
         ir::BinaryOp::Multiply => "*",
         ir::BinaryOp::Divide => "/",
+        ir::BinaryOp::Modulo => "%",
         ir::BinaryOp::And => "AND",
         ir::BinaryOp::Or => "OR",
-        ir::BinaryOp::In => unreachable!("IN lowers to a json_each membership subquery"),
+        ir::BinaryOp::In
+        | ir::BinaryOp::Xor
+        | ir::BinaryOp::Power
+        | ir::BinaryOp::StartsWith
+        | ir::BinaryOp::EndsWith
+        | ir::BinaryOp::Contains => {
+            unreachable!("operator lowers through a dedicated SQL form")
+        }
     }
 }
 

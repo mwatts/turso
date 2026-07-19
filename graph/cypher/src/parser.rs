@@ -16,7 +16,7 @@ use crate::{
     BinaryOperator, Clause, CreateClause, DeleteClause, Direction, Expression, Literal,
     MatchClause, MergeClause, NodePattern, PathPattern, ProjectionClause, ProjectionItem,
     PropertyTarget, Query, RelationshipPattern, RelationshipRange, RemoveClause, SetClause,
-    SetItem, SortItem, Span, Spanned, UnwindClause,
+    SetItem, SortItem, Span, Spanned, UnaryOperator, UnwindClause,
 };
 
 #[derive(Parser)]
@@ -461,11 +461,16 @@ fn walk_expression(pair: Pair<'_, Rule>) -> Result<Spanned<Expression>, ParseErr
         | Rule::and_expression
         | Rule::comparison_expression
         | Rule::additive_expression
-        | Rule::multiplicative_expression => walk_binary(pair)?,
+        | Rule::multiplicative_expression
+        | Rule::power_expression => walk_binary(pair)?,
+        Rule::not_expression => walk_not(pair)?,
+        Rule::predicate_expression => walk_predicate(pair)?,
         Rule::postfix_expression => walk_postfix(pair)?,
         Rule::primary_expression => return walk_expression(only_child(pair)?),
         Rule::literal => return walk_expression(only_child(pair)?),
         Rule::integer => Expression::Literal(Literal::Integer(parse_i64(&pair)?)),
+        Rule::hex_integer => Expression::Literal(Literal::Integer(parse_radix(&pair, 16)?)),
+        Rule::octal_integer => Expression::Literal(Literal::Integer(parse_radix(&pair, 8)?)),
         Rule::real => Expression::Literal(Literal::Real(parse_f64(&pair)?)),
         Rule::string => Expression::Literal(Literal::Text(parse_string(&pair)?)),
         Rule::TRUE => Expression::Literal(Literal::Boolean(true)),
@@ -474,6 +479,7 @@ fn walk_expression(pair: Pair<'_, Rule>) -> Result<Spanned<Expression>, ParseErr
         Rule::identifier => Expression::Variable(identifier_text(pair.as_str())),
         Rule::parameter => Expression::Parameter(pair.as_str()[1..].to_owned()),
         Rule::function_call => walk_function(pair)?,
+        Rule::case_expression => walk_case(pair)?,
         Rule::list_literal => Expression::List(
             pair.into_inner()
                 .filter(|item| item.as_rule() == Rule::expression_list)
@@ -515,6 +521,7 @@ fn walk_binary(pair: Pair<'_, Rule>) -> Result<Expression, ParseError> {
 fn binary_operator(pair: &Pair<'_, Rule>) -> Result<BinaryOperator, ParseError> {
     match pair.as_str().to_ascii_lowercase().as_str() {
         "or" => Ok(BinaryOperator::Or),
+        "xor" => Ok(BinaryOperator::Xor),
         "and" => Ok(BinaryOperator::And),
         "=" => Ok(BinaryOperator::Equal),
         "<>" | "!=" => Ok(BinaryOperator::NotEqual),
@@ -527,11 +534,131 @@ fn binary_operator(pair: &Pair<'_, Rule>) -> Result<BinaryOperator, ParseError> 
         "-" => Ok(BinaryOperator::Subtract),
         "*" => Ok(BinaryOperator::Multiply),
         "/" => Ok(BinaryOperator::Divide),
+        "%" => Ok(BinaryOperator::Modulo),
+        "^" => Ok(BinaryOperator::Power),
         _ => Err(ParseError::at(
             pair_span(pair),
             "unsupported binary operator",
         )),
     }
+}
+
+fn walk_not(pair: Pair<'_, Rule>) -> Result<Expression, ParseError> {
+    let span = pair_span(&pair);
+    let mut negations = 0usize;
+    let mut operand = None;
+    for child in pair.into_inner() {
+        match child.as_rule() {
+            Rule::not_op => negations += 1,
+            _ => operand = Some(walk_expression(child)?),
+        }
+    }
+    let operand = operand.ok_or_else(|| ParseError::at(span, "NOT has no operand"))?;
+    let mut expression = operand;
+    for _ in 0..negations {
+        expression = Spanned::new(
+            Expression::Unary {
+                operator: UnaryOperator::Not,
+                operand: Box::new(expression),
+            },
+            span,
+        );
+    }
+    Ok(expression.value)
+}
+
+fn walk_case(pair: Pair<'_, Rule>) -> Result<Expression, ParseError> {
+    let span = pair_span(&pair);
+    let mut subject = None;
+    let mut branches = Vec::new();
+    let mut default = None;
+    for child in pair.into_inner() {
+        match child.as_rule() {
+            Rule::case_subject => {
+                let expression = child
+                    .into_inner()
+                    .find(|item| item.as_rule() == Rule::expression)
+                    .ok_or_else(|| ParseError::at(span, "CASE subject has no expression"))?;
+                subject = Some(Box::new(walk_expression(expression)?));
+            }
+            Rule::when_clause => {
+                let clause_span = pair_span(&child);
+                let mut expressions = child
+                    .into_inner()
+                    .filter(|item| item.as_rule() == Rule::expression);
+                let condition = expressions
+                    .next()
+                    .ok_or_else(|| ParseError::at(clause_span, "WHEN has no condition"))?;
+                let result = expressions
+                    .next()
+                    .ok_or_else(|| ParseError::at(clause_span, "WHEN has no THEN result"))?;
+                branches.push((walk_expression(condition)?, walk_expression(result)?));
+            }
+            Rule::case_else => {
+                let expression = child
+                    .into_inner()
+                    .find(|item| item.as_rule() == Rule::expression)
+                    .ok_or_else(|| ParseError::at(span, "ELSE has no expression"))?;
+                default = Some(Box::new(walk_expression(expression)?));
+            }
+            _ => {}
+        }
+    }
+    Ok(Expression::Case {
+        subject,
+        branches,
+        default,
+    })
+}
+
+fn walk_predicate(pair: Pair<'_, Rule>) -> Result<Expression, ParseError> {
+    let span = pair_span(&pair);
+    let mut inner = pair.into_inner();
+    let base = inner
+        .next()
+        .ok_or_else(|| ParseError::at(span, "predicate has no operand"))?;
+    let mut left = walk_expression(base)?;
+    for suffix in inner {
+        let suffix_span = pair_span(&suffix);
+        let combined = Span::new(left.span.start, suffix_span.end);
+        let suffix = only_child(suffix)?;
+        let value = match suffix.as_rule() {
+            Rule::in_suffix | Rule::starts_suffix | Rule::ends_suffix | Rule::contains_suffix => {
+                let rule = suffix.as_rule();
+                let operator = match rule {
+                    Rule::in_suffix => BinaryOperator::In,
+                    Rule::starts_suffix => BinaryOperator::StartsWith,
+                    Rule::ends_suffix => BinaryOperator::EndsWith,
+                    _ => BinaryOperator::Contains,
+                };
+                let right = suffix
+                    .into_inner()
+                    .find(|item| item.as_rule() == Rule::additive_expression)
+                    .ok_or_else(|| ParseError::at(suffix_span, "predicate has no right operand"))?;
+                Expression::Binary {
+                    left: Box::new(left),
+                    operator,
+                    right: Box::new(walk_expression(right)?),
+                }
+            }
+            Rule::null_suffix => {
+                let negated = suffix
+                    .into_inner()
+                    .any(|item| item.as_rule() == Rule::not_op);
+                Expression::Unary {
+                    operator: if negated {
+                        UnaryOperator::IsNotNull
+                    } else {
+                        UnaryOperator::IsNull
+                    },
+                    operand: Box::new(left),
+                }
+            }
+            rule => return Err(unexpected(&suffix, "predicate suffix", rule)),
+        };
+        left = Spanned::new(value, combined);
+    }
+    Ok(left.value)
 }
 
 fn walk_postfix(pair: Pair<'_, Rule>) -> Result<Expression, ParseError> {
@@ -617,6 +744,25 @@ fn identifier_text(text: &str) -> String {
 
 fn parse_i64(pair: &Pair<'_, Rule>) -> Result<i64, ParseError> {
     pair.as_str().replace('_', "").parse().map_err(|_| {
+        ParseError::at(
+            pair_span(pair),
+            "integer literal is outside the supported i64 range",
+        )
+    })
+}
+
+fn parse_radix(pair: &Pair<'_, Rule>, radix: u32) -> Result<i64, ParseError> {
+    let text = pair.as_str();
+    let (negative, body) = match text.strip_prefix('-') {
+        Some(rest) => (true, rest),
+        None => (false, text),
+    };
+    let digits = &body[2..];
+    i64::from_str_radix(
+        &format!("{}{digits}", if negative { "-" } else { "" }),
+        radix,
+    )
+    .map_err(|_| {
         ParseError::at(
             pair_span(pair),
             "integer literal is outside the supported i64 range",

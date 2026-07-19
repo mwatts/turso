@@ -75,9 +75,15 @@ pub enum BinaryOp {
     Subtract,
     Multiply,
     Divide,
+    Modulo,
+    Power,
     And,
     Or,
+    Xor,
     In,
+    StartsWith,
+    EndsWith,
+    Contains,
 }
 
 /// Bound function identity. Resolution happens before this reaches execution.
@@ -114,6 +120,11 @@ pub enum Expression {
         left: Box<TypedExpression>,
         op: BinaryOp,
         right: Box<TypedExpression>,
+    },
+    Case {
+        subject: Option<Box<TypedExpression>>,
+        branches: Vec<(TypedExpression, TypedExpression)>,
+        default: Option<Box<TypedExpression>>,
     },
     Function {
         function: FunctionName,
