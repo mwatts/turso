@@ -1,4 +1,18 @@
-# Graph frontend: pending design decisions
+# Graph frontend: design decisions
+
+Status: all four decisions were made and, except path values, are
+implemented on this branch.
+
+- Labels: **junction table** (chosen, implemented — filtered scans,
+  labels()/label(), ±labels side effects; extended to a relationship-type
+  junction with a persistent identity registry).
+- Path values: **first-class Path IR** (chosen, not yet implemented).
+- Temporal: **core time_* functions** (chosen, implemented — constructors,
+  accessors, ISO rendering; durations remain).
+- CALL: **minimal registry** (chosen, implemented — db.labels,
+  db.relationshipTypes).
+
+Original option analysis below.
 
 Corpus state when written: 6,161 / 10,392 passing. Each decision below
 blocks a measured family of remaining failures. Options are ordered by
