@@ -306,6 +306,33 @@ impl RelationalCatalogSnapshot for SchemaCatalog {
             .map(|source| source.name.clone())
     }
 
+    fn relationship_types_table(&self) -> Option<String> {
+        Some(crate::catalog::relationship_types_table_name(self.graph.id))
+    }
+
+    fn relationship_type_name(&self, relationship_type: ir::RelationshipTypeId) -> Option<String> {
+        if let Some(source) = self
+            .graph
+            .relationship_sources
+            .get((relationship_type.get() as usize).checked_sub(1)?)
+        {
+            return Some(source.name.clone());
+        }
+        let rows = self
+            .connection
+            .prepare(format!(
+                "SELECT name FROM \"{}\" WHERE id = {}",
+                crate::catalog::relationship_type_registry_table_name(self.graph.id),
+                relationship_type.get()
+            ))
+            .and_then(|mut statement| statement.run_collect_rows())
+            .ok()?;
+        match rows.first().and_then(|row| row.first()) {
+            Some(turso_core::Value::Text(name)) => Some(name.to_string()),
+            _ => None,
+        }
+    }
+
     fn node_layout(&self, source: ir::SourceTableId) -> Option<NodeTableLayout> {
         let entry = self
             .node_source_entry()

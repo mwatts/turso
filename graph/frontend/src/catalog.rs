@@ -398,12 +398,49 @@ fn register_graph_in_transaction(
             labels_table_name(graph_id)
         ),
     )?;
+    execute_internal(
+        connection,
+        format!(
+            "CREATE TABLE IF NOT EXISTS \"{}\"(relationship_id INTEGER NOT NULL, type TEXT NOT NULL)",
+            relationship_types_table_name(graph_id)
+        ),
+    )?;
+    execute_internal(
+        connection,
+        format!(
+            "CREATE TABLE IF NOT EXISTS \"{}\"(id INTEGER PRIMARY KEY, name TEXT NOT NULL UNIQUE)",
+            relationship_type_registry_table_name(graph_id)
+        ),
+    )?;
+    // Registered relationship sources keep their index-based identities so
+    // the registry agrees with the schema catalog's static resolution.
+    for (index, relationship) in registration.relationship_sources.iter().enumerate() {
+        execute_internal(
+            connection,
+            format!(
+                "INSERT INTO \"{}\"(id, name) VALUES ({}, {})",
+                relationship_type_registry_table_name(graph_id),
+                index + 1,
+                sql_string(&relationship.name)
+            ),
+        )?;
+    }
     load_registered_graph(connection, &registration.name)
 }
 
 /// Name of the per-graph node-label junction table.
 pub fn labels_table_name(graph: GraphId) -> String {
     format!("__turso_graph_node_labels_{}", graph.get())
+}
+
+/// Name of the per-graph relationship-type junction table.
+pub fn relationship_types_table_name(graph: GraphId) -> String {
+    format!("__turso_graph_relationship_types_{}", graph.get())
+}
+
+/// Name of the per-graph relationship-type identity registry.
+pub fn relationship_type_registry_table_name(graph: GraphId) -> String {
+    format!("__turso_graph_relationship_type_registry_{}", graph.get())
 }
 
 fn create_catalog(connection: &Arc<Connection>) -> Result<(), CatalogError> {

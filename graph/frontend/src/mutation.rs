@@ -719,6 +719,13 @@ fn execute_operation(
                 entity_layouts,
                 false,
             )?;
+            record_relationship_type(
+                connection,
+                catalog,
+                &create.relationship_types,
+                &identity,
+                parameters,
+            )?;
             values.insert(create.binding.id(), identity);
             entity_layouts.insert(
                 create.binding.id(),
@@ -735,6 +742,13 @@ fn execute_operation(
                 values,
                 entity_layouts,
                 true,
+            )?;
+            record_relationship_type(
+                connection,
+                catalog,
+                &merge.create.relationship_types,
+                &identity,
+                parameters,
             )?;
             values.insert(merge.create.binding.id(), identity);
             entity_layouts.insert(
@@ -824,6 +838,40 @@ fn record_node_labels(
                 "INSERT INTO \"{table}\"(node_id, label) SELECT ${parameter}, '{name}' \
                  WHERE NOT EXISTS (SELECT 1 FROM \"{table}\" \
                  WHERE node_id = ${parameter} AND label = '{name}')"
+            ),
+            parameters,
+            &internal,
+        )?;
+    }
+    Ok(())
+}
+
+/// Records a created or merged relationship's type in the graph's junction
+/// table; idempotent so MERGE matches do not duplicate rows.
+fn record_relationship_type(
+    connection: &Arc<Connection>,
+    catalog: &dyn GraphCompilationCatalog,
+    relationship_types: &[ir::RelationshipTypeId],
+    identity: &Value,
+    parameters: &MutationParameters,
+) -> Result<(), MutationError> {
+    let Some(table) = catalog.relationship_types_table() else {
+        return Ok(());
+    };
+    let table = table.replace('"', "\"\"");
+    for relationship_type in relationship_types {
+        let Some(name) = catalog.relationship_type_name(*relationship_type) else {
+            continue;
+        };
+        let name = name.replace('\'', "''");
+        let parameter = format!("{INTERNAL_PARAMETER_PREFIX}type_relationship");
+        let internal = HashMap::from([(parameter.clone(), identity.clone())]);
+        run_ignore(
+            connection,
+            &format!(
+                "INSERT INTO \"{table}\"(relationship_id, type) SELECT ${parameter}, '{name}' \
+                 WHERE NOT EXISTS (SELECT 1 FROM \"{table}\" \
+                 WHERE relationship_id = ${parameter} AND type = '{name}')"
             ),
             parameters,
             &internal,
@@ -1063,6 +1111,18 @@ fn delete_entity(
         let layout = catalog
             .relationship_layout(delete.source)
             .ok_or(LowerError::MissingSource(delete.source))?;
+        if let Some(types_table) = catalog.relationship_types_table() {
+            run_ignore(
+                connection,
+                &format!(
+                    "DELETE FROM \"{}\" WHERE relationship_id = ${}",
+                    types_table.replace('"', "\"\""),
+                    identity_parameter(delete.entity),
+                ),
+                parameters,
+                &internal,
+            )?;
+        }
         Ok(run_ignore(
             connection,
             &format!(

@@ -35,6 +35,14 @@ pub trait RelationalCatalogSnapshot {
     fn label_name(&self, _label: ir::LabelId) -> Option<String> {
         None
     }
+    /// Junction table recording each relationship's type, when present.
+    fn relationship_types_table(&self) -> Option<String> {
+        None
+    }
+    /// Human-readable name of a relationship-type identity, when known.
+    fn relationship_type_name(&self, _relationship_type: ir::RelationshipTypeId) -> Option<String> {
+        None
+    }
 }
 
 #[derive(Debug, Error)]
@@ -623,6 +631,32 @@ fn lower_fixed_expand(
                 quote_identifier(&relationship.start_column)
             ),
         ),
+    };
+    // Filter typed hops through the relationship-type junction; recorded
+    // types are authoritative, untyped rows only match untyped patterns.
+    let relationship_on = if expand.relationship_types.is_empty() {
+        relationship_on
+    } else if let Some(types_table) = catalog.relationship_types_table() {
+        let names = expand
+            .relationship_types
+            .iter()
+            .filter_map(|relationship_type| catalog.relationship_type_name(*relationship_type))
+            .map(|name| format!("'{}'", name.replace('\'', "''")))
+            .collect::<Vec<_>>();
+        if names.is_empty() {
+            relationship_on
+        } else {
+            format!(
+                "({relationship_on}) AND EXISTS (SELECT 1 FROM {} AS jt \
+                 WHERE jt.relationship_id = {relationship_alias}.{} \
+                 AND jt.type IN ({}))",
+                quote_identifier(&types_table),
+                quote_identifier(&relationship.identity_column),
+                names.join(", ")
+            )
+        }
+    } else {
+        relationship_on
     };
     let mut bindings = input.bindings;
     bindings.insert(

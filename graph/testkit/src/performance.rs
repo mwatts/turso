@@ -339,6 +339,12 @@ fn seed_labels(fixture: &crate::runner::GraphFixture) -> Result<(), turso_core::
          WHERE id NOT IN (SELECT node_id FROM \"{}\")",
         turso_graph_frontend::labels_table_name(fixture.session.graph_id()),
         turso_graph_frontend::labels_table_name(fixture.session.graph_id()),
+    ))?;
+    fixture.connection.execute(format!(
+        "INSERT INTO \"{}\"(relationship_id, type) SELECT id, 'KNOWS' FROM relationships \
+         WHERE id NOT IN (SELECT relationship_id FROM \"{}\")",
+        turso_graph_frontend::relationship_types_table_name(fixture.session.graph_id()),
+        turso_graph_frontend::relationship_types_table_name(fixture.session.graph_id()),
     ))
 }
 

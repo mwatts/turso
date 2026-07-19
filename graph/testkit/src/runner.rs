@@ -172,6 +172,12 @@ fn build_fixture(
             turso_graph_frontend::labels_table_name(registered.id)
         ))
         .map_err(|error| RunnerError::Fixture(error.to_string()))?;
+    connection
+        .execute(format!(
+            "INSERT INTO \"{}\"(relationship_id, type) SELECT id, 'KNOWS' FROM relationships",
+            turso_graph_frontend::relationship_types_table_name(registered.id)
+        ))
+        .map_err(|error| RunnerError::Fixture(error.to_string()))?;
     let catalog: Arc<dyn GraphCompilationCatalog> =
         Arc::new(crate::dynamic_catalog::DynamicCatalog::new(
             connection.clone(),

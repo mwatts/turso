@@ -4,17 +4,17 @@ Generated from `graph/test-results/history.jsonl`. Results are grouped by stable
 
 ## Latest complete corpus run
 
-- Run: `20260719T120334.258645Z-092f9c22ac20-corpus-deep`
+- Run: `20260719T121409.700004Z-439fd7a614b9-corpus-deep`
 - Records: 10392
-- Passed: 6236
-- Failed: 4156
+- Passed: 6266
+- Failed: 4126
 
 ### Failure-reason histogram
 
 | Failure family | Count |
 |---|---:|
 | `execution`: mutation projection unsupported | 1068 |
-| `execution`: other | 676 |
+| `execution`: other | 646 |
 | `execution`: runtime scalar function missing | 538 |
 | `parser`: other grammar | 511 |
 | `parser`: expression/operator continuation grammar | 270 |
@@ -36,8 +36,8 @@ Generated from `graph/test-results/history.jsonl`. Results are grouped by stable
 
 ## Latest `age-deep` run
 
-- Run: `20260719T120334.258645Z-092f9c22ac20-corpus-deep`
-- Commit: `092f9c22ac2065c0a0ab343876748d9c7d511b31` (dirty)
+- Run: `20260719T121409.700004Z-439fd7a614b9-corpus-deep`
+- Commit: `439fd7a614b97d2bfedd9b44c5a738aae190eaf5` (dirty)
 - Package: `0.7.0`
 - Environment: `macos/aarch64` (`dev`)
 - Records: 3677
@@ -45,7 +45,7 @@ Generated from `graph/test-results/history.jsonl`. Results are grouped by stable
 - Unsupported: 0
 - Failed or changed: 1561
 
-### Outcome changes from `20260719T115631.776885Z-092f9c22ac20-corpus-deep`
+### Outcome changes from `20260719T120334.258645Z-092f9c22ac20-corpus-deep`
 
 - No outcome changes.
 
@@ -1699,8 +1699,8 @@ Generated from `graph/test-results/history.jsonl`. Results are grouped by stable
 
 ## Latest `cqlite-deep` run
 
-- Run: `20260719T120334.258645Z-092f9c22ac20-corpus-deep`
-- Commit: `092f9c22ac2065c0a0ab343876748d9c7d511b31` (dirty)
+- Run: `20260719T121409.700004Z-439fd7a614b9-corpus-deep`
+- Commit: `439fd7a614b97d2bfedd9b44c5a738aae190eaf5` (dirty)
 - Package: `0.7.0`
 - Environment: `macos/aarch64` (`dev`)
 - Records: 137
@@ -1708,146 +1708,146 @@ Generated from `graph/test-results/history.jsonl`. Results are grouped by stable
 - Unsupported: 0
 - Failed or changed: 24
 
-### Outcome changes from `20260719T115631.776885Z-092f9c22ac20-corpus-deep`
+### Outcome changes from `20260719T120334.258645Z-092f9c22ac20-corpus-deep`
 
 - No outcome changes.
 
 | Test | Kind | Area | Outcome | Duration |
 |---|---|---|---|---:|
-| `cqlite.basic-queries.run-a-to-b.query-1` | `Conformance` | basic_queries | `Passed` | 6.390 ms |
-| `cqlite.basic-queries.run-a-to-b.query-2` | `Conformance` | basic_queries | `Passed` | 5.899 ms |
-| `cqlite.basic-queries.run-a-to-b.query-3` | `Conformance` | basic_queries | `Passed` | 5.973 ms |
-| `cqlite.basic-queries.run-a-edge-b.query-1` | `Conformance` | basic_queries | `Passed` | 6.754 ms |
-| `cqlite.basic-queries.run-a-edge-b.query-2` | `Conformance` | basic_queries | `Passed` | 6.010 ms |
-| `cqlite.basic-queries.run-a-to-a.query-1` | `Conformance` | basic_queries | `Passed` | 7.053 ms |
-| `cqlite.basic-queries.run-a-to-a.query-2` | `Conformance` | basic_queries | `Passed` | 5.968 ms |
-| `cqlite.basic-queries.run-a-edge-a.query-1` | `Conformance` | basic_queries | `Passed` | 7.676 ms |
-| `cqlite.basic-queries.run-a-edge-a.query-2` | `Conformance` | basic_queries | `Passed` | 5.959 ms |
-| `cqlite.basic-queries.run-a-knows-b.query-1` | `Conformance` | basic_queries | `Passed` | 7.047 ms |
-| `cqlite.basic-queries.run-a-knows-b.query-2` | `Conformance` | basic_queries | `Passed` | 6.049 ms |
-| `cqlite.basic-queries.run-a-edge-b-with-where-property.query-1` | `Conformance` | basic_queries | `Passed` | 7.469 ms |
-| `cqlite.basic-queries.run-a-edge-b-with-where-property.query-2` | `Conformance` | basic_queries | `Passed` | 6.467 ms |
-| `cqlite.basic-queries.run-a-edge-b-with-property-map.query-1` | `Conformance` | basic_queries | `Passed` | 7.094 ms |
-| `cqlite.basic-queries.run-a-edge-b-with-property-map.query-2` | `Conformance` | basic_queries | `Passed` | 6.376 ms |
-| `cqlite.basic-queries.run-a-edge-b-with-where-id.query-1` | `Conformance` | basic_queries | `Passed` | 6.285 ms |
-| `cqlite.basic-queries.run-a-edge-b-with-where-id.query-2` | `Conformance` | basic_queries | `Passed` | 5.701 ms |
-| `cqlite.basic-queries.run-a-where-with-parameters.query-1` | `Conformance` | basic_queries | `Passed` | 6.843 ms |
-| `cqlite.basic-queries.run-a-where-with-parameters.query-2` | `Conformance` | basic_queries | `Failed` | 5.712 ms |
-| `cqlite.basic-queries.run-set.query-1` | `Conformance` | basic_queries | `Passed` | 5.915 ms |
-| `cqlite.basic-queries.run-set.query-2` | `Conformance` | basic_queries | `Failed` | 5.686 ms |
-| `cqlite.basic-queries.run-set.query-3` | `Conformance` | basic_queries | `Passed` | 5.967 ms |
-| `cqlite.basic-queries.return-from-set.query-1` | `Conformance` | basic_queries | `Passed` | 5.823 ms |
-| `cqlite.basic-queries.return-from-set.query-2` | `Conformance` | basic_queries | `Passed` | 6.095 ms |
-| `cqlite.basic-queries.return-from-set.query-3` | `Conformance` | basic_queries | `Passed` | 6.067 ms |
-| `cqlite.basic-queries.run-delete-node.query-1` | `Conformance` | basic_queries | `Passed` | 5.905 ms |
-| `cqlite.basic-queries.run-delete-node.query-2` | `Conformance` | basic_queries | `Passed` | 5.675 ms |
-| `cqlite.basic-queries.run-delete-node.query-3` | `Conformance` | basic_queries | `Passed` | 5.476 ms |
-| `cqlite.basic-queries.run-delete-edge.query-1` | `Conformance` | basic_queries | `Passed` | 6.270 ms |
-| `cqlite.basic-queries.run-delete-edge.query-2` | `Conformance` | basic_queries | `Passed` | 5.817 ms |
-| `cqlite.basic-queries.run-delete-edge.query-3` | `Conformance` | basic_queries | `Passed` | 5.724 ms |
-| `cqlite.basic-queries.run-bad-delete.query-1` | `Conformance` | basic_queries | `Passed` | 6.160 ms |
-| `cqlite.basic-queries.run-bad-delete.query-2` | `Conformance` | basic_queries | `Passed` | 5.496 ms |
-| `cqlite.basic-queries.run-return-label.query-1` | `Conformance` | basic_queries | `Passed` | 6.199 ms |
-| `cqlite.basic-queries.run-return-label.query-2` | `Conformance` | basic_queries | `Failed` | 5.997 ms |
-| `cqlite.basic-queries.match-return-count.query-1` | `Conformance` | basic_queries | `Passed` | 5.690 ms |
-| `cqlite.basic-queries.match-return-count.query-2` | `Conformance` | basic_queries | `Passed` | 5.654 ms |
-| `cqlite.basic-queries.match-return-count.query-3` | `Conformance` | basic_queries | `Passed` | 5.412 ms |
-| `cqlite.basic-queries.match-multiple-edges.query-1` | `Conformance` | basic_queries | `Passed` | 7.842 ms |
-| `cqlite.basic-queries.match-multiple-edges.query-2` | `Conformance` | basic_queries | `Failed` | 0.036 ms |
-| `cqlite.create-queries.create-label-only.query-1` | `Conformance` | create_queries | `Passed` | 6.227 ms |
-| `cqlite.create-queries.create-label-only.query-2` | `Conformance` | create_queries | `Passed` | 5.570 ms |
-| `cqlite.create-queries.create-with-properties.query-1` | `Conformance` | create_queries | `Passed` | 6.777 ms |
-| `cqlite.create-queries.create-with-properties.query-2` | `Conformance` | create_queries | `Passed` | 6.020 ms |
-| `cqlite.create-queries.create-with-properties-from-parameters.query-1` | `Conformance` | create_queries | `Failed` | 5.929 ms |
-| `cqlite.create-queries.create-with-properties-from-parameters.query-2` | `Conformance` | create_queries | `Passed` | 5.946 ms |
-| `cqlite.create-queries.create-edges-with-label.query-1` | `Conformance` | create_queries | `Passed` | 6.693 ms |
-| `cqlite.create-queries.create-edges-with-label.query-2` | `Conformance` | create_queries | `Failed` | 6.168 ms |
-| `cqlite.delete-queries.delete-node.query-1` | `Conformance` | delete_queries | `Passed` | 5.894 ms |
-| `cqlite.delete-queries.delete-node.query-2` | `Conformance` | delete_queries | `Passed` | 5.549 ms |
-| `cqlite.delete-queries.delete-node.query-3` | `Conformance` | delete_queries | `Passed` | 5.354 ms |
-| `cqlite.delete-queries.delete-node.query-4` | `Conformance` | delete_queries | `Passed` | 5.366 ms |
-| `cqlite.delete-queries.double-delete-node.query-1` | `Conformance` | delete_queries | `Passed` | 5.735 ms |
-| `cqlite.delete-queries.double-delete-node.query-2` | `Conformance` | delete_queries | `Passed` | 5.379 ms |
-| `cqlite.delete-queries.double-delete-node.query-3` | `Conformance` | delete_queries | `Passed` | 5.443 ms |
-| `cqlite.delete-queries.double-delete-node.query-4` | `Conformance` | delete_queries | `Passed` | 5.325 ms |
-| `cqlite.delete-queries.delete-edge.query-1` | `Conformance` | delete_queries | `Passed` | 6.649 ms |
+| `cqlite.basic-queries.run-a-to-b.query-1` | `Conformance` | basic_queries | `Passed` | 7.424 ms |
+| `cqlite.basic-queries.run-a-to-b.query-2` | `Conformance` | basic_queries | `Passed` | 6.754 ms |
+| `cqlite.basic-queries.run-a-to-b.query-3` | `Conformance` | basic_queries | `Passed` | 6.869 ms |
+| `cqlite.basic-queries.run-a-edge-b.query-1` | `Conformance` | basic_queries | `Passed` | 8.009 ms |
+| `cqlite.basic-queries.run-a-edge-b.query-2` | `Conformance` | basic_queries | `Passed` | 7.158 ms |
+| `cqlite.basic-queries.run-a-to-a.query-1` | `Conformance` | basic_queries | `Passed` | 8.524 ms |
+| `cqlite.basic-queries.run-a-to-a.query-2` | `Conformance` | basic_queries | `Passed` | 6.758 ms |
+| `cqlite.basic-queries.run-a-edge-a.query-1` | `Conformance` | basic_queries | `Passed` | 8.790 ms |
+| `cqlite.basic-queries.run-a-edge-a.query-2` | `Conformance` | basic_queries | `Passed` | 6.666 ms |
+| `cqlite.basic-queries.run-a-knows-b.query-1` | `Conformance` | basic_queries | `Passed` | 8.303 ms |
+| `cqlite.basic-queries.run-a-knows-b.query-2` | `Conformance` | basic_queries | `Passed` | 6.711 ms |
+| `cqlite.basic-queries.run-a-edge-b-with-where-property.query-1` | `Conformance` | basic_queries | `Passed` | 8.287 ms |
+| `cqlite.basic-queries.run-a-edge-b-with-where-property.query-2` | `Conformance` | basic_queries | `Passed` | 7.484 ms |
+| `cqlite.basic-queries.run-a-edge-b-with-property-map.query-1` | `Conformance` | basic_queries | `Passed` | 8.104 ms |
+| `cqlite.basic-queries.run-a-edge-b-with-property-map.query-2` | `Conformance` | basic_queries | `Passed` | 7.340 ms |
+| `cqlite.basic-queries.run-a-edge-b-with-where-id.query-1` | `Conformance` | basic_queries | `Passed` | 6.930 ms |
+| `cqlite.basic-queries.run-a-edge-b-with-where-id.query-2` | `Conformance` | basic_queries | `Passed` | 6.401 ms |
+| `cqlite.basic-queries.run-a-where-with-parameters.query-1` | `Conformance` | basic_queries | `Passed` | 7.762 ms |
+| `cqlite.basic-queries.run-a-where-with-parameters.query-2` | `Conformance` | basic_queries | `Failed` | 6.367 ms |
+| `cqlite.basic-queries.run-set.query-1` | `Conformance` | basic_queries | `Passed` | 6.481 ms |
+| `cqlite.basic-queries.run-set.query-2` | `Conformance` | basic_queries | `Failed` | 6.302 ms |
+| `cqlite.basic-queries.run-set.query-3` | `Conformance` | basic_queries | `Passed` | 6.599 ms |
+| `cqlite.basic-queries.return-from-set.query-1` | `Conformance` | basic_queries | `Passed` | 6.483 ms |
+| `cqlite.basic-queries.return-from-set.query-2` | `Conformance` | basic_queries | `Passed` | 6.657 ms |
+| `cqlite.basic-queries.return-from-set.query-3` | `Conformance` | basic_queries | `Passed` | 6.595 ms |
+| `cqlite.basic-queries.run-delete-node.query-1` | `Conformance` | basic_queries | `Passed` | 6.461 ms |
+| `cqlite.basic-queries.run-delete-node.query-2` | `Conformance` | basic_queries | `Passed` | 6.149 ms |
+| `cqlite.basic-queries.run-delete-node.query-3` | `Conformance` | basic_queries | `Passed` | 6.026 ms |
+| `cqlite.basic-queries.run-delete-edge.query-1` | `Conformance` | basic_queries | `Passed` | 6.985 ms |
+| `cqlite.basic-queries.run-delete-edge.query-2` | `Conformance` | basic_queries | `Passed` | 6.424 ms |
+| `cqlite.basic-queries.run-delete-edge.query-3` | `Conformance` | basic_queries | `Passed` | 6.351 ms |
+| `cqlite.basic-queries.run-bad-delete.query-1` | `Conformance` | basic_queries | `Passed` | 7.071 ms |
+| `cqlite.basic-queries.run-bad-delete.query-2` | `Conformance` | basic_queries | `Passed` | 6.383 ms |
+| `cqlite.basic-queries.run-return-label.query-1` | `Conformance` | basic_queries | `Passed` | 7.308 ms |
+| `cqlite.basic-queries.run-return-label.query-2` | `Conformance` | basic_queries | `Failed` | 6.683 ms |
+| `cqlite.basic-queries.match-return-count.query-1` | `Conformance` | basic_queries | `Passed` | 6.276 ms |
+| `cqlite.basic-queries.match-return-count.query-2` | `Conformance` | basic_queries | `Passed` | 6.285 ms |
+| `cqlite.basic-queries.match-return-count.query-3` | `Conformance` | basic_queries | `Passed` | 6.041 ms |
+| `cqlite.basic-queries.match-multiple-edges.query-1` | `Conformance` | basic_queries | `Passed` | 8.497 ms |
+| `cqlite.basic-queries.match-multiple-edges.query-2` | `Conformance` | basic_queries | `Failed` | 0.035 ms |
+| `cqlite.create-queries.create-label-only.query-1` | `Conformance` | create_queries | `Passed` | 6.745 ms |
+| `cqlite.create-queries.create-label-only.query-2` | `Conformance` | create_queries | `Passed` | 6.228 ms |
+| `cqlite.create-queries.create-with-properties.query-1` | `Conformance` | create_queries | `Passed` | 7.498 ms |
+| `cqlite.create-queries.create-with-properties.query-2` | `Conformance` | create_queries | `Passed` | 6.772 ms |
+| `cqlite.create-queries.create-with-properties-from-parameters.query-1` | `Conformance` | create_queries | `Failed` | 6.587 ms |
+| `cqlite.create-queries.create-with-properties-from-parameters.query-2` | `Conformance` | create_queries | `Passed` | 6.600 ms |
+| `cqlite.create-queries.create-edges-with-label.query-1` | `Conformance` | create_queries | `Passed` | 7.795 ms |
+| `cqlite.create-queries.create-edges-with-label.query-2` | `Conformance` | create_queries | `Failed` | 6.761 ms |
+| `cqlite.delete-queries.delete-node.query-1` | `Conformance` | delete_queries | `Passed` | 6.459 ms |
+| `cqlite.delete-queries.delete-node.query-2` | `Conformance` | delete_queries | `Passed` | 6.061 ms |
+| `cqlite.delete-queries.delete-node.query-3` | `Conformance` | delete_queries | `Passed` | 5.930 ms |
+| `cqlite.delete-queries.delete-node.query-4` | `Conformance` | delete_queries | `Passed` | 6.037 ms |
+| `cqlite.delete-queries.double-delete-node.query-1` | `Conformance` | delete_queries | `Passed` | 6.363 ms |
+| `cqlite.delete-queries.double-delete-node.query-2` | `Conformance` | delete_queries | `Passed` | 6.296 ms |
+| `cqlite.delete-queries.double-delete-node.query-3` | `Conformance` | delete_queries | `Passed` | 6.586 ms |
+| `cqlite.delete-queries.double-delete-node.query-4` | `Conformance` | delete_queries | `Passed` | 6.355 ms |
+| `cqlite.delete-queries.delete-edge.query-1` | `Conformance` | delete_queries | `Passed` | 7.841 ms |
 | `cqlite.delete-queries.delete-edge.query-2` | `Conformance` | delete_queries | `Failed` | 0.034 ms |
-| `cqlite.delete-queries.delete-edge.query-3` | `Conformance` | delete_queries | `Passed` | 5.713 ms |
+| `cqlite.delete-queries.delete-edge.query-3` | `Conformance` | delete_queries | `Passed` | 11.964 ms |
 | `cqlite.delete-queries.delete-edge.query-4` | `Conformance` | delete_queries | `Failed` | 0.004 ms |
-| `cqlite.delete-queries.connected-delete-fails.query-1` | `Conformance` | delete_queries | `Passed` | 6.674 ms |
-| `cqlite.delete-queries.connected-delete-fails.query-2` | `Conformance` | delete_queries | `Passed` | 5.440 ms |
-| `cqlite.delete-queries.connected-delete-fails.query-3` | `Conformance` | delete_queries | `Passed` | 5.608 ms |
-| `cqlite.delete-queries.connected-delete-fails.query-4` | `Conformance` | delete_queries | `Passed` | 5.420 ms |
-| `cqlite.match-queries.create-test-graph.query-1` | `Conformance` | match_queries | `Passed` | 9.232 ms |
-| `cqlite.match-queries.match-all-nodes.query-1` | `Conformance` | match_queries | `Passed` | 5.663 ms |
-| `cqlite.match-queries.match-multiple-nodes.query-1` | `Conformance` | match_queries | `Passed` | 5.673 ms |
-| `cqlite.match-queries.match-multiple-nodes.query-2` | `Conformance` | match_queries | `Passed` | 5.572 ms |
-| `cqlite.match-queries.match-single-directed-edge.query-1` | `Conformance` | match_queries | `Passed` | 5.795 ms |
-| `cqlite.match-queries.match-single-undirected-edge.query-1` | `Conformance` | match_queries | `Passed` | 5.839 ms |
+| `cqlite.delete-queries.connected-delete-fails.query-1` | `Conformance` | delete_queries | `Passed` | 10.583 ms |
+| `cqlite.delete-queries.connected-delete-fails.query-2` | `Conformance` | delete_queries | `Passed` | 6.037 ms |
+| `cqlite.delete-queries.connected-delete-fails.query-3` | `Conformance` | delete_queries | `Passed` | 6.189 ms |
+| `cqlite.delete-queries.connected-delete-fails.query-4` | `Conformance` | delete_queries | `Passed` | 5.969 ms |
+| `cqlite.match-queries.create-test-graph.query-1` | `Conformance` | match_queries | `Passed` | 10.811 ms |
+| `cqlite.match-queries.match-all-nodes.query-1` | `Conformance` | match_queries | `Passed` | 6.305 ms |
+| `cqlite.match-queries.match-multiple-nodes.query-1` | `Conformance` | match_queries | `Passed` | 6.261 ms |
+| `cqlite.match-queries.match-multiple-nodes.query-2` | `Conformance` | match_queries | `Passed` | 6.187 ms |
+| `cqlite.match-queries.match-single-directed-edge.query-1` | `Conformance` | match_queries | `Passed` | 6.402 ms |
+| `cqlite.match-queries.match-single-undirected-edge.query-1` | `Conformance` | match_queries | `Passed` | 6.537 ms |
 | `cqlite.match-queries.match-single-path.query-1` | `Conformance` | match_queries | `Failed` | 0.033 ms |
 | `cqlite.match-queries.match-path-with-multiple-clauses.query-1` | `Conformance` | match_queries | `Failed` | 0.028 ms |
-| `cqlite.match-queries.match-long-path.query-1` | `Conformance` | match_queries | `Failed` | 0.026 ms |
-| `cqlite.match-queries.match-labeled-nodes.query-1` | `Conformance` | match_queries | `Passed` | 5.482 ms |
-| `cqlite.match-queries.match-labeled-nodes.query-2` | `Conformance` | match_queries | `Passed` | 5.521 ms |
-| `cqlite.match-queries.match-labeled-nodes.query-3` | `Conformance` | match_queries | `Passed` | 5.502 ms |
-| `cqlite.match-queries.match-labeled-edges.query-1` | `Conformance` | match_queries | `Passed` | 6.107 ms |
-| `cqlite.match-queries.match-labeled-edges.query-2` | `Conformance` | match_queries | `Passed` | 5.795 ms |
-| `cqlite.match-queries.match-nodes-with-properties.query-1` | `Conformance` | match_queries | `Passed` | 5.674 ms |
-| `cqlite.match-queries.match-nodes-with-properties.query-2` | `Conformance` | match_queries | `Passed` | 5.663 ms |
-| `cqlite.match-queries.match-nodes-with-properties.query-3` | `Conformance` | match_queries | `Passed` | 6.042 ms |
-| `cqlite.match-queries.match-edges-with-properties.query-1` | `Conformance` | match_queries | `Passed` | 6.101 ms |
-| `cqlite.match-queries.match-nodes-with-label.query-1` | `Conformance` | match_queries | `Passed` | 5.479 ms |
-| `cqlite.match-queries-where.create-test-graph.query-1` | `Conformance` | match_queries_where | `Passed` | 22.140 ms |
-| `cqlite.match-queries-where.match-where-node-id-eq.query-1` | `Conformance` | match_queries_where | `Failed` | 5.713 ms |
-| `cqlite.match-queries-where.match-where-node-id-eq.query-2` | `Conformance` | match_queries_where | `Failed` | 5.570 ms |
-| `cqlite.match-queries-where.match-where-node-id-eq-non-id.query-1` | `Conformance` | match_queries_where | `Passed` | 5.704 ms |
-| `cqlite.match-queries-where.match-where-node-label-eq.query-1` | `Conformance` | match_queries_where | `Passed` | 5.558 ms |
-| `cqlite.match-queries-where.match-where-node-label-eq.query-2` | `Conformance` | match_queries_where | `Passed` | 5.748 ms |
-| `cqlite.match-queries-where.match-where-node-prop-eq.query-1` | `Conformance` | match_queries_where | `Failed` | 5.689 ms |
-| `cqlite.match-queries-where.match-where-node-prop.query-1` | `Conformance` | match_queries_where | `Passed` | 5.828 ms |
-| `cqlite.match-queries-where.match-where-not-node-prop.query-1` | `Conformance` | match_queries_where | `Passed` | 5.833 ms |
-| `cqlite.match-queries-where.match-where-node-prop-eq-true-false.query-1` | `Conformance` | match_queries_where | `Passed` | 5.918 ms |
-| `cqlite.match-queries-where.match-where-node-prop-eq-true-false.query-2` | `Conformance` | match_queries_where | `Passed` | 5.831 ms |
-| `cqlite.match-queries-where.match-where-node-prop-ne-null.query-1` | `Conformance` | match_queries_where | `Passed` | 5.771 ms |
-| `cqlite.match-queries-where.match-where-node-prop-lt-or-gt.query-1` | `Conformance` | match_queries_where | `Passed` | 5.998 ms |
-| `cqlite.match-queries-where.match-where-node-prop-lt-or-gt.query-2` | `Conformance` | match_queries_where | `Passed` | 6.808 ms |
-| `cqlite.match-queries-where.match-where-node-prop-lt-or-gt.query-3` | `Conformance` | match_queries_where | `Passed` | 6.598 ms |
-| `cqlite.match-queries-where.match-where-edge-id-eq.query-1` | `Conformance` | match_queries_where | `Failed` | 5.924 ms |
-| `cqlite.match-queries-where.match-where-edge-id-eq.query-2` | `Conformance` | match_queries_where | `Failed` | 6.006 ms |
-| `cqlite.match-queries-where.match-where-edge-prop-eq.query-1` | `Conformance` | match_queries_where | `Passed` | 6.323 ms |
-| `cqlite.match-queries-where.match-where-edge-prop-gt.query-1` | `Conformance` | match_queries_where | `Passed` | 6.348 ms |
-| `cqlite.match-queries-where.match-where-a-or-b.query-1` | `Conformance` | match_queries_where | `Passed` | 6.514 ms |
+| `cqlite.match-queries.match-long-path.query-1` | `Conformance` | match_queries | `Failed` | 0.027 ms |
+| `cqlite.match-queries.match-labeled-nodes.query-1` | `Conformance` | match_queries | `Passed` | 6.068 ms |
+| `cqlite.match-queries.match-labeled-nodes.query-2` | `Conformance` | match_queries | `Passed` | 6.142 ms |
+| `cqlite.match-queries.match-labeled-nodes.query-3` | `Conformance` | match_queries | `Passed` | 6.079 ms |
+| `cqlite.match-queries.match-labeled-edges.query-1` | `Conformance` | match_queries | `Passed` | 6.717 ms |
+| `cqlite.match-queries.match-labeled-edges.query-2` | `Conformance` | match_queries | `Passed` | 6.337 ms |
+| `cqlite.match-queries.match-nodes-with-properties.query-1` | `Conformance` | match_queries | `Passed` | 6.195 ms |
+| `cqlite.match-queries.match-nodes-with-properties.query-2` | `Conformance` | match_queries | `Passed` | 6.169 ms |
+| `cqlite.match-queries.match-nodes-with-properties.query-3` | `Conformance` | match_queries | `Passed` | 6.695 ms |
+| `cqlite.match-queries.match-edges-with-properties.query-1` | `Conformance` | match_queries | `Passed` | 6.724 ms |
+| `cqlite.match-queries.match-nodes-with-label.query-1` | `Conformance` | match_queries | `Passed` | 6.059 ms |
+| `cqlite.match-queries-where.create-test-graph.query-1` | `Conformance` | match_queries_where | `Passed` | 14.763 ms |
+| `cqlite.match-queries-where.match-where-node-id-eq.query-1` | `Conformance` | match_queries_where | `Failed` | 6.234 ms |
+| `cqlite.match-queries-where.match-where-node-id-eq.query-2` | `Conformance` | match_queries_where | `Failed` | 6.200 ms |
+| `cqlite.match-queries-where.match-where-node-id-eq-non-id.query-1` | `Conformance` | match_queries_where | `Passed` | 6.259 ms |
+| `cqlite.match-queries-where.match-where-node-label-eq.query-1` | `Conformance` | match_queries_where | `Passed` | 6.100 ms |
+| `cqlite.match-queries-where.match-where-node-label-eq.query-2` | `Conformance` | match_queries_where | `Passed` | 6.275 ms |
+| `cqlite.match-queries-where.match-where-node-prop-eq.query-1` | `Conformance` | match_queries_where | `Failed` | 6.181 ms |
+| `cqlite.match-queries-where.match-where-node-prop.query-1` | `Conformance` | match_queries_where | `Passed` | 6.473 ms |
+| `cqlite.match-queries-where.match-where-not-node-prop.query-1` | `Conformance` | match_queries_where | `Passed` | 6.556 ms |
+| `cqlite.match-queries-where.match-where-node-prop-eq-true-false.query-1` | `Conformance` | match_queries_where | `Passed` | 6.568 ms |
+| `cqlite.match-queries-where.match-where-node-prop-eq-true-false.query-2` | `Conformance` | match_queries_where | `Passed` | 6.470 ms |
+| `cqlite.match-queries-where.match-where-node-prop-ne-null.query-1` | `Conformance` | match_queries_where | `Passed` | 6.392 ms |
+| `cqlite.match-queries-where.match-where-node-prop-lt-or-gt.query-1` | `Conformance` | match_queries_where | `Passed` | 6.556 ms |
+| `cqlite.match-queries-where.match-where-node-prop-lt-or-gt.query-2` | `Conformance` | match_queries_where | `Passed` | 6.520 ms |
+| `cqlite.match-queries-where.match-where-node-prop-lt-or-gt.query-3` | `Conformance` | match_queries_where | `Passed` | 6.525 ms |
+| `cqlite.match-queries-where.match-where-edge-id-eq.query-1` | `Conformance` | match_queries_where | `Failed` | 6.571 ms |
+| `cqlite.match-queries-where.match-where-edge-id-eq.query-2` | `Conformance` | match_queries_where | `Failed` | 6.495 ms |
+| `cqlite.match-queries-where.match-where-edge-prop-eq.query-1` | `Conformance` | match_queries_where | `Passed` | 6.976 ms |
+| `cqlite.match-queries-where.match-where-edge-prop-gt.query-1` | `Conformance` | match_queries_where | `Passed` | 6.992 ms |
+| `cqlite.match-queries-where.match-where-a-or-b.query-1` | `Conformance` | match_queries_where | `Passed` | 7.203 ms |
 | `cqlite.match-queries-where.match-long-path-with-id-constraint.query-1` | `Conformance` | match_queries_where | `Failed` | 0.037 ms |
 | `cqlite.match-queries-where.match-long-path-with-id-constraint.query-2` | `Conformance` | match_queries_where | `Failed` | 0.030 ms |
 | `cqlite.match-queries-where.match-short-path-with-id-constraint.query-1` | `Conformance` | match_queries_where | `Failed` | 0.026 ms |
-| `cqlite.return-queries.return-parameter.query-1` | `Conformance` | return_queries | `Failed` | 5.345 ms |
-| `cqlite.return-queries.return-id-of.query-1` | `Conformance` | return_queries | `Passed` | 6.758 ms |
-| `cqlite.return-queries.return-id-of.query-2` | `Conformance` | return_queries | `Passed` | 5.522 ms |
-| `cqlite.return-queries.return-label-of.query-1` | `Conformance` | return_queries | `Passed` | 6.753 ms |
-| `cqlite.return-queries.return-label-of.query-2` | `Conformance` | return_queries | `Passed` | 5.534 ms |
-| `cqlite.return-queries.create-and-return.query-1` | `Conformance` | return_queries | `Passed` | 6.351 ms |
-| `cqlite.return-queries.create-and-return.query-2` | `Conformance` | return_queries | `Passed` | 5.575 ms |
-| `cqlite.return-queries.set-and-return.query-1` | `Conformance` | return_queries | `Passed` | 5.768 ms |
-| `cqlite.return-queries.set-and-return.query-2` | `Conformance` | return_queries | `Passed` | 5.608 ms |
-| `cqlite.return-queries.delete-and-return.query-1` | `Conformance` | return_queries | `Passed` | 5.929 ms |
-| `cqlite.return-queries.delete-and-return.query-2` | `Conformance` | return_queries | `Passed` | 5.585 ms |
-| `cqlite.return-queries.return-out-of-bounds.query-1` | `Conformance` | return_queries | `Passed` | 5.388 ms |
-| `cqlite.set-queries.set-once.query-1` | `Conformance` | set_queries | `Passed` | 6.087 ms |
-| `cqlite.set-queries.set-once.query-2` | `Conformance` | set_queries | `Passed` | 5.625 ms |
-| `cqlite.set-queries.set-once.query-3` | `Conformance` | set_queries | `Passed` | 5.421 ms |
-| `cqlite.set-queries.set-after-create.query-1` | `Conformance` | set_queries | `Passed` | 6.512 ms |
-| `cqlite.set-queries.set-after-create.query-2` | `Conformance` | set_queries | `Passed` | 5.465 ms |
-| `cqlite.set-queries.set-multiple-times.query-1` | `Conformance` | set_queries | `Passed` | 7.182 ms |
-| `cqlite.set-queries.set-multiple-times.query-2` | `Conformance` | set_queries | `Passed` | 5.509 ms |
-| `cqlite.set-queries.delete-property.query-1` | `Conformance` | set_queries | `Passed` | 6.024 ms |
-| `cqlite.set-queries.delete-property.query-2` | `Conformance` | set_queries | `Passed` | 5.623 ms |
-| `cqlite.set-queries.delete-property.query-3` | `Conformance` | set_queries | `Passed` | 5.442 ms |
-| `cqlite.txn-semantics.concurrent-reader-and-writer.query-1` | `Conformance` | txn_semantics | `Passed` | 6.158 ms |
-| `cqlite.txn-semantics.concurrent-reader-and-writer.query-2` | `Conformance` | txn_semantics | `Passed` | 5.722 ms |
-| `cqlite.txn-semantics.concurrent-reader-and-writer.query-3` | `Conformance` | txn_semantics | `Passed` | 6.213 ms |
-| `cqlite.txn-semantics.concurrent-reader-and-writer.query-4` | `Conformance` | txn_semantics | `Passed` | 5.917 ms |
-| `cqlite.txn-semantics.concurrent-reader-and-writer.query-5` | `Conformance` | txn_semantics | `Passed` | 5.656 ms |
-| `cqlite.where-conditions.where-a-and-b.query-1` | `Conformance` | where_conditions | `Failed` | 0.017 ms |
+| `cqlite.return-queries.return-parameter.query-1` | `Conformance` | return_queries | `Failed` | 5.997 ms |
+| `cqlite.return-queries.return-id-of.query-1` | `Conformance` | return_queries | `Passed` | 7.413 ms |
+| `cqlite.return-queries.return-id-of.query-2` | `Conformance` | return_queries | `Passed` | 6.107 ms |
+| `cqlite.return-queries.return-label-of.query-1` | `Conformance` | return_queries | `Passed` | 11.963 ms |
+| `cqlite.return-queries.return-label-of.query-2` | `Conformance` | return_queries | `Passed` | 7.870 ms |
+| `cqlite.return-queries.create-and-return.query-1` | `Conformance` | return_queries | `Passed` | 6.916 ms |
+| `cqlite.return-queries.create-and-return.query-2` | `Conformance` | return_queries | `Passed` | 6.183 ms |
+| `cqlite.return-queries.set-and-return.query-1` | `Conformance` | return_queries | `Passed` | 6.391 ms |
+| `cqlite.return-queries.set-and-return.query-2` | `Conformance` | return_queries | `Passed` | 6.227 ms |
+| `cqlite.return-queries.delete-and-return.query-1` | `Conformance` | return_queries | `Passed` | 6.481 ms |
+| `cqlite.return-queries.delete-and-return.query-2` | `Conformance` | return_queries | `Passed` | 6.145 ms |
+| `cqlite.return-queries.return-out-of-bounds.query-1` | `Conformance` | return_queries | `Passed` | 6.030 ms |
+| `cqlite.set-queries.set-once.query-1` | `Conformance` | set_queries | `Passed` | 6.724 ms |
+| `cqlite.set-queries.set-once.query-2` | `Conformance` | set_queries | `Passed` | 6.214 ms |
+| `cqlite.set-queries.set-once.query-3` | `Conformance` | set_queries | `Passed` | 6.020 ms |
+| `cqlite.set-queries.set-after-create.query-1` | `Conformance` | set_queries | `Passed` | 7.156 ms |
+| `cqlite.set-queries.set-after-create.query-2` | `Conformance` | set_queries | `Passed` | 6.095 ms |
+| `cqlite.set-queries.set-multiple-times.query-1` | `Conformance` | set_queries | `Passed` | 7.755 ms |
+| `cqlite.set-queries.set-multiple-times.query-2` | `Conformance` | set_queries | `Passed` | 6.088 ms |
+| `cqlite.set-queries.delete-property.query-1` | `Conformance` | set_queries | `Passed` | 6.616 ms |
+| `cqlite.set-queries.delete-property.query-2` | `Conformance` | set_queries | `Passed` | 6.215 ms |
+| `cqlite.set-queries.delete-property.query-3` | `Conformance` | set_queries | `Passed` | 5.979 ms |
+| `cqlite.txn-semantics.concurrent-reader-and-writer.query-1` | `Conformance` | txn_semantics | `Passed` | 6.796 ms |
+| `cqlite.txn-semantics.concurrent-reader-and-writer.query-2` | `Conformance` | txn_semantics | `Passed` | 6.379 ms |
+| `cqlite.txn-semantics.concurrent-reader-and-writer.query-3` | `Conformance` | txn_semantics | `Passed` | 6.842 ms |
+| `cqlite.txn-semantics.concurrent-reader-and-writer.query-4` | `Conformance` | txn_semantics | `Passed` | 6.349 ms |
+| `cqlite.txn-semantics.concurrent-reader-and-writer.query-5` | `Conformance` | txn_semantics | `Passed` | 6.267 ms |
+| `cqlite.where-conditions.where-a-and-b.query-1` | `Conformance` | where_conditions | `Failed` | 0.016 ms |
 | `cqlite.where-conditions.where-a-or-b.query-1` | `Conformance` | where_conditions | `Failed` | 0.011 ms |
 | `cqlite.where-conditions.where-a.query-1` | `Conformance` | where_conditions | `Failed` | 0.009 ms |
 | `cqlite.where-conditions.where-not-a.query-1` | `Conformance` | where_conditions | `Failed` | 0.009 ms |
@@ -1902,420 +1902,426 @@ Generated from `graph/test-results/history.jsonl`. Results are grouped by stable
 
 ## Latest `grafeo-deep` run
 
-- Run: `20260719T120334.258645Z-092f9c22ac20-corpus-deep`
-- Commit: `092f9c22ac2065c0a0ab343876748d9c7d511b31` (dirty)
+- Run: `20260719T121409.700004Z-439fd7a614b9-corpus-deep`
+- Commit: `439fd7a614b97d2bfedd9b44c5a738aae190eaf5` (dirty)
 - Package: `0.7.0`
 - Environment: `macos/aarch64` (`dev`)
 - Records: 399
-- Passed: 231
+- Passed: 238
 - Unsupported: 0
-- Failed or changed: 168
+- Failed or changed: 161
 
-### Outcome changes from `20260719T115631.776885Z-092f9c22ac20-corpus-deep`
+### Outcome changes from `20260719T120334.258645Z-092f9c22ac20-corpus-deep`
 
-- No outcome changes.
+- `grafeo.spec.lpg.cypher.patterns.variable.length.exact`: Passed
+- `grafeo.spec.lpg.cypher.patterns.variable.length.range`: Passed
+- `grafeo.spec.lpg.cypher.patterns.variable.length.max.only`: Passed
+- `grafeo.spec.lpg.cypher.patterns.variable.length.min.only`: Passed
+- `grafeo.spec.lpg.cypher.regression.two.hop.equivalence`: Passed
+- `grafeo.spec.rosetta.basic.queries.edge.traversal.cypher-variant`: Passed
+- `grafeo.spec.rosetta.basic.queries.aggregation.group.by.cypher-variant`: Passed
 
 | Test | Kind | Area | Outcome | Duration |
 |---|---|---|---|---:|
-| `grafeo.spec.common.index.correctness.create.index.then.query` | `Conformance` | common | `Failed` | 0.025 ms |
-| `grafeo.spec.common.index.correctness.index.query.no.match` | `Conformance` | common | `Failed` | 0.019 ms |
+| `grafeo.spec.common.index.correctness.create.index.then.query` | `Conformance` | common | `Failed` | 0.023 ms |
+| `grafeo.spec.common.index.correctness.index.query.no.match` | `Conformance` | common | `Failed` | 0.020 ms |
 | `grafeo.spec.common.index.correctness.index.multiple.matches` | `Conformance` | common | `Failed` | 0.017 ms |
 | `grafeo.spec.common.index.correctness.index.with.null.property` | `Conformance` | common | `Failed` | 0.017 ms |
 | `grafeo.spec.common.index.correctness.index.after.property.update` | `Conformance` | common | `Failed` | 0.003 ms |
 | `grafeo.spec.common.index.correctness.index.old.value.gone.after.update` | `Conformance` | common | `Failed` | 0.003 ms |
 | `grafeo.spec.common.index.correctness.index.after.delete` | `Conformance` | common | `Failed` | 0.002 ms |
 | `grafeo.spec.common.index.correctness.index.remaining.after.delete` | `Conformance` | common | `Failed` | 0.002 ms |
-| `grafeo.spec.common.index.correctness.index.reinsert.after.delete` | `Conformance` | common | `Failed` | 0.003 ms |
+| `grafeo.spec.common.index.correctness.index.reinsert.after.delete` | `Conformance` | common | `Failed` | 0.002 ms |
 | `grafeo.spec.common.index.correctness.numeric.index.exact.lookup` | `Conformance` | common | `Failed` | 0.015 ms |
 | `grafeo.spec.common.index.correctness.numeric.index.range.query` | `Conformance` | common | `Failed` | 0.003 ms |
-| `grafeo.spec.common.index.correctness.bulk.insert.then.index` | `Conformance` | common | `Failed` | 0.322 ms |
-| `grafeo.spec.common.index.correctness.index.count.all` | `Conformance` | common | `Failed` | 0.016 ms |
+| `grafeo.spec.common.index.correctness.bulk.insert.then.index` | `Conformance` | common | `Failed` | 0.323 ms |
+| `grafeo.spec.common.index.correctness.index.count.all` | `Conformance` | common | `Failed` | 0.015 ms |
 | `grafeo.spec.common.index.correctness.drop.index.query.still.works` | `Conformance` | common | `Failed` | 0.003 ms |
-| `grafeo.spec.common.null.semantics.negative.limit.returns.empty.cypher.cypher-variant` | `Conformance` | common | `Failed` | 5.313 ms |
-| `grafeo.spec.common.numeric.edge.cases.min.int64.cypher.cypher-variant` | `Conformance` | common | `Failed` | 5.264 ms |
-| `grafeo.spec.common.numeric.edge.cases.nan.literal.keyword.cypher.cypher-variant` | `Conformance` | common | `Failed` | 5.309 ms |
-| `grafeo.spec.common.numeric.edge.cases.inf.literal.keyword.cypher.cypher-variant` | `Conformance` | common | `Failed` | 5.317 ms |
+| `grafeo.spec.common.null.semantics.negative.limit.returns.empty.cypher.cypher-variant` | `Conformance` | common | `Failed` | 5.980 ms |
+| `grafeo.spec.common.numeric.edge.cases.min.int64.cypher.cypher-variant` | `Conformance` | common | `Failed` | 5.859 ms |
+| `grafeo.spec.common.numeric.edge.cases.nan.literal.keyword.cypher.cypher-variant` | `Conformance` | common | `Failed` | 5.984 ms |
+| `grafeo.spec.common.numeric.edge.cases.inf.literal.keyword.cypher.cypher-variant` | `Conformance` | common | `Failed` | 6.778 ms |
 | `grafeo.spec.lpg.cypher.admin.create.index.on.label.property` | `Conformance` | lpg | `Failed` | 0.004 ms |
-| `grafeo.spec.lpg.cypher.admin.create.index.and.query` | `Conformance` | lpg | `Failed` | 0.022 ms |
+| `grafeo.spec.lpg.cypher.admin.create.index.and.query` | `Conformance` | lpg | `Failed` | 0.023 ms |
 | `grafeo.spec.lpg.cypher.admin.drop.index` | `Conformance` | lpg | `Failed` | 0.003 ms |
 | `grafeo.spec.lpg.cypher.admin.show.indexes.empty` | `Conformance` | lpg | `Failed` | 0.008 ms |
 | `grafeo.spec.lpg.cypher.admin.show.indexes.after.create` | `Conformance` | lpg | `Failed` | 0.003 ms |
 | `grafeo.spec.lpg.cypher.admin.explain.match` | `Conformance` | lpg | `Failed` | 0.011 ms |
-| `grafeo.spec.lpg.cypher.admin.profile.match` | `Conformance` | lpg | `Failed` | 0.011 ms |
+| `grafeo.spec.lpg.cypher.admin.profile.match` | `Conformance` | lpg | `Failed` | 0.010 ms |
 | `grafeo.spec.lpg.cypher.comprehensions.advanced.pattern.comprehension.basic` | `Conformance` | lpg | `Failed` | 0.117 ms |
-| `grafeo.spec.lpg.cypher.comprehensions.advanced.pattern.comprehension.with.filter` | `Conformance` | lpg | `Failed` | 0.108 ms |
-| `grafeo.spec.lpg.cypher.comprehensions.advanced.pattern.comprehension.size` | `Conformance` | lpg | `Failed` | 0.169 ms |
-| `grafeo.spec.lpg.cypher.comprehensions.advanced.pattern.comprehension.with.property.extraction` | `Conformance` | lpg | `Failed` | 0.103 ms |
-| `grafeo.spec.lpg.cypher.comprehensions.advanced.list.comprehension.basic` | `Conformance` | lpg | `Passed` | 55.358 ms |
-| `grafeo.spec.lpg.cypher.comprehensions.advanced.list.comprehension.transform` | `Conformance` | lpg | `Passed` | 53.690 ms |
-| `grafeo.spec.lpg.cypher.comprehensions.advanced.list.comprehension.filter.and.transform` | `Conformance` | lpg | `Failed` | 53.957 ms |
-| `grafeo.spec.lpg.cypher.comprehensions.advanced.list.comprehension.nested` | `Conformance` | lpg | `Failed` | 54.306 ms |
-| `grafeo.spec.lpg.cypher.comprehensions.advanced.exists.subquery.actors.with.action.movies` | `Conformance` | lpg | `Passed` | 69.335 ms |
-| `grafeo.spec.lpg.cypher.comprehensions.advanced.not.exists.subquery` | `Conformance` | lpg | `Failed` | 64.703 ms |
-| `grafeo.spec.lpg.cypher.comprehensions.advanced.count.subquery.movies.per.actor` | `Conformance` | lpg | `Passed` | 56.677 ms |
-| `grafeo.spec.lpg.cypher.comprehensions.advanced.count.subquery.prolific.directors` | `Conformance` | lpg | `Passed` | 62.771 ms |
-| `grafeo.spec.lpg.cypher.comprehensions.advanced.call.subquery.basic` | `Conformance` | lpg | `Failed` | 0.041 ms |
+| `grafeo.spec.lpg.cypher.comprehensions.advanced.pattern.comprehension.with.filter` | `Conformance` | lpg | `Failed` | 0.111 ms |
+| `grafeo.spec.lpg.cypher.comprehensions.advanced.pattern.comprehension.size` | `Conformance` | lpg | `Failed` | 0.170 ms |
+| `grafeo.spec.lpg.cypher.comprehensions.advanced.pattern.comprehension.with.property.extraction` | `Conformance` | lpg | `Failed` | 0.106 ms |
+| `grafeo.spec.lpg.cypher.comprehensions.advanced.list.comprehension.basic` | `Conformance` | lpg | `Passed` | 65.334 ms |
+| `grafeo.spec.lpg.cypher.comprehensions.advanced.list.comprehension.transform` | `Conformance` | lpg | `Passed` | 64.019 ms |
+| `grafeo.spec.lpg.cypher.comprehensions.advanced.list.comprehension.filter.and.transform` | `Conformance` | lpg | `Failed` | 63.190 ms |
+| `grafeo.spec.lpg.cypher.comprehensions.advanced.list.comprehension.nested` | `Conformance` | lpg | `Failed` | 69.163 ms |
+| `grafeo.spec.lpg.cypher.comprehensions.advanced.exists.subquery.actors.with.action.movies` | `Conformance` | lpg | `Passed` | 66.439 ms |
+| `grafeo.spec.lpg.cypher.comprehensions.advanced.not.exists.subquery` | `Conformance` | lpg | `Failed` | 66.475 ms |
+| `grafeo.spec.lpg.cypher.comprehensions.advanced.count.subquery.movies.per.actor` | `Conformance` | lpg | `Passed` | 67.284 ms |
+| `grafeo.spec.lpg.cypher.comprehensions.advanced.count.subquery.prolific.directors` | `Conformance` | lpg | `Passed` | 75.857 ms |
+| `grafeo.spec.lpg.cypher.comprehensions.advanced.call.subquery.basic` | `Conformance` | lpg | `Failed` | 0.046 ms |
 | `grafeo.spec.lpg.cypher.comprehensions.advanced.call.subquery.with.aggregation` | `Conformance` | lpg | `Failed` | 0.033 ms |
-| `grafeo.spec.lpg.cypher.comprehensions.advanced.foreach.set.property` | `Conformance` | lpg | `Failed` | 55.250 ms |
-| `grafeo.spec.lpg.cypher.comprehensions.advanced.foreach.create.relationships` | `Conformance` | lpg | `Failed` | 0.282 ms |
+| `grafeo.spec.lpg.cypher.comprehensions.advanced.foreach.set.property` | `Conformance` | lpg | `Failed` | 64.910 ms |
+| `grafeo.spec.lpg.cypher.comprehensions.advanced.foreach.create.relationships` | `Conformance` | lpg | `Failed` | 0.277 ms |
 | `grafeo.spec.lpg.cypher.comprehensions.advanced.actor.collaboration.via.comprehension` | `Conformance` | lpg | `Failed` | 0.141 ms |
 | `grafeo.spec.lpg.cypher.comprehensions.advanced.genre.diversity.per.actor` | `Conformance` | lpg | `Failed` | 0.199 ms |
 | `grafeo.spec.lpg.cypher.constraints.create.unique.constraint` | `Conformance` | lpg | `Failed` | 0.022 ms |
-| `grafeo.spec.lpg.cypher.constraints.unique.constraint.allows.distinct.values` | `Conformance` | lpg | `Failed` | 5.502 ms |
-| `grafeo.spec.lpg.cypher.constraints.unique.constraint.violation` | `Conformance` | lpg | `Failed` | 5.448 ms |
-| `grafeo.spec.lpg.cypher.constraints.unique.constraint.null.allowed` | `Conformance` | lpg | `Failed` | 5.458 ms |
+| `grafeo.spec.lpg.cypher.constraints.unique.constraint.allows.distinct.values` | `Conformance` | lpg | `Failed` | 6.136 ms |
+| `grafeo.spec.lpg.cypher.constraints.unique.constraint.violation` | `Conformance` | lpg | `Failed` | 6.063 ms |
+| `grafeo.spec.lpg.cypher.constraints.unique.constraint.null.allowed` | `Conformance` | lpg | `Failed` | 5.999 ms |
 | `grafeo.spec.lpg.cypher.constraints.create.not.null.constraint` | `Conformance` | lpg | `Failed` | 0.024 ms |
-| `grafeo.spec.lpg.cypher.constraints.not.null.constraint.satisfied` | `Conformance` | lpg | `Failed` | 5.502 ms |
-| `grafeo.spec.lpg.cypher.constraints.not.null.constraint.violation` | `Conformance` | lpg | `Failed` | 5.309 ms |
-| `grafeo.spec.lpg.cypher.constraints.not.null.constraint.violation.on.set` | `Conformance` | lpg | `Failed` | 5.366 ms |
-| `grafeo.spec.lpg.cypher.constraints.create.node.key.constraint` | `Conformance` | lpg | `Failed` | 0.024 ms |
-| `grafeo.spec.lpg.cypher.constraints.node.key.allows.different.combinations` | `Conformance` | lpg | `Failed` | 5.450 ms |
-| `grafeo.spec.lpg.cypher.constraints.node.key.violation.duplicate` | `Conformance` | lpg | `Failed` | 5.365 ms |
-| `grafeo.spec.lpg.cypher.constraints.node.key.violation.missing.property` | `Conformance` | lpg | `Failed` | 5.391 ms |
+| `grafeo.spec.lpg.cypher.constraints.not.null.constraint.satisfied` | `Conformance` | lpg | `Failed` | 6.047 ms |
+| `grafeo.spec.lpg.cypher.constraints.not.null.constraint.violation` | `Conformance` | lpg | `Failed` | 6.071 ms |
+| `grafeo.spec.lpg.cypher.constraints.not.null.constraint.violation.on.set` | `Conformance` | lpg | `Failed` | 6.077 ms |
+| `grafeo.spec.lpg.cypher.constraints.create.node.key.constraint` | `Conformance` | lpg | `Failed` | 0.025 ms |
+| `grafeo.spec.lpg.cypher.constraints.node.key.allows.different.combinations` | `Conformance` | lpg | `Failed` | 6.003 ms |
+| `grafeo.spec.lpg.cypher.constraints.node.key.violation.duplicate` | `Conformance` | lpg | `Failed` | 5.923 ms |
+| `grafeo.spec.lpg.cypher.constraints.node.key.violation.missing.property` | `Conformance` | lpg | `Failed` | 5.939 ms |
 | `grafeo.spec.lpg.cypher.constraints.drop.constraint` | `Conformance` | lpg | `Failed` | 0.013 ms |
 | `grafeo.spec.lpg.cypher.constraints.drop.nonexistent.constraint` | `Conformance` | lpg | `Passed` | 0.011 ms |
 | `grafeo.spec.lpg.cypher.constraints.drop.constraint.if.exists` | `Conformance` | lpg | `Failed` | 0.011 ms |
-| `grafeo.spec.lpg.cypher.constraints.show.constraints.after.create` | `Conformance` | lpg | `Failed` | 0.009 ms |
+| `grafeo.spec.lpg.cypher.constraints.show.constraints.after.create` | `Conformance` | lpg | `Failed` | 0.008 ms |
 | `grafeo.spec.lpg.cypher.constraints.show.constraints.empty` | `Conformance` | lpg | `Failed` | 0.001 ms |
-| `grafeo.spec.lpg.cypher.expressions.addition` | `Conformance` | lpg | `Passed` | 6.633 ms |
-| `grafeo.spec.lpg.cypher.expressions.subtraction` | `Conformance` | lpg | `Passed` | 6.625 ms |
-| `grafeo.spec.lpg.cypher.expressions.multiplication` | `Conformance` | lpg | `Passed` | 6.619 ms |
-| `grafeo.spec.lpg.cypher.expressions.division` | `Conformance` | lpg | `Passed` | 6.621 ms |
-| `grafeo.spec.lpg.cypher.expressions.modulo` | `Conformance` | lpg | `Passed` | 6.657 ms |
-| `grafeo.spec.lpg.cypher.expressions.power` | `Conformance` | lpg | `Passed` | 6.638 ms |
+| `grafeo.spec.lpg.cypher.expressions.addition` | `Conformance` | lpg | `Passed` | 7.297 ms |
+| `grafeo.spec.lpg.cypher.expressions.subtraction` | `Conformance` | lpg | `Passed` | 7.238 ms |
+| `grafeo.spec.lpg.cypher.expressions.multiplication` | `Conformance` | lpg | `Passed` | 7.398 ms |
+| `grafeo.spec.lpg.cypher.expressions.division` | `Conformance` | lpg | `Passed` | 7.225 ms |
+| `grafeo.spec.lpg.cypher.expressions.modulo` | `Conformance` | lpg | `Passed` | 7.213 ms |
+| `grafeo.spec.lpg.cypher.expressions.power` | `Conformance` | lpg | `Passed` | 7.237 ms |
 | `grafeo.spec.lpg.cypher.expressions.unary.minus` | `Conformance` | lpg | `Failed` | 0.044 ms |
-| `grafeo.spec.lpg.cypher.expressions.string.concat` | `Conformance` | lpg | `Failed` | 7.201 ms |
-| `grafeo.spec.lpg.cypher.expressions.equals` | `Conformance` | lpg | `Passed` | 7.102 ms |
-| `grafeo.spec.lpg.cypher.expressions.not.equals` | `Conformance` | lpg | `Passed` | 7.388 ms |
-| `grafeo.spec.lpg.cypher.expressions.less.than` | `Conformance` | lpg | `Passed` | 7.586 ms |
-| `grafeo.spec.lpg.cypher.expressions.greater.equal` | `Conformance` | lpg | `Passed` | 7.461 ms |
-| `grafeo.spec.lpg.cypher.expressions.starts.with` | `Conformance` | lpg | `Passed` | 7.469 ms |
-| `grafeo.spec.lpg.cypher.expressions.ends.with` | `Conformance` | lpg | `Passed` | 7.516 ms |
-| `grafeo.spec.lpg.cypher.expressions.contains` | `Conformance` | lpg | `Passed` | 7.485 ms |
-| `grafeo.spec.lpg.cypher.expressions.in.list` | `Conformance` | lpg | `Passed` | 8.328 ms |
-| `grafeo.spec.lpg.cypher.expressions.regex.match` | `Conformance` | lpg | `Failed` | 0.063 ms |
-| `grafeo.spec.lpg.cypher.expressions.is.null` | `Conformance` | lpg | `Passed` | 7.639 ms |
-| `grafeo.spec.lpg.cypher.expressions.is.not.null` | `Conformance` | lpg | `Passed` | 7.529 ms |
-| `grafeo.spec.lpg.cypher.expressions.case.simple` | `Conformance` | lpg | `Passed` | 6.877 ms |
-| `grafeo.spec.lpg.cypher.expressions.case.searched` | `Conformance` | lpg | `Passed` | 6.803 ms |
-| `grafeo.spec.lpg.cypher.expressions.list.literal` | `Conformance` | lpg | `Failed` | 6.640 ms |
-| `grafeo.spec.lpg.cypher.expressions.list.comprehension` | `Conformance` | lpg | `Failed` | 8.453 ms |
-| `grafeo.spec.lpg.cypher.expressions.list.comprehension.filter.only` | `Conformance` | lpg | `Failed` | 7.475 ms |
-| `grafeo.spec.lpg.cypher.expressions.list.slice` | `Conformance` | lpg | `Failed` | 6.980 ms |
-| `grafeo.spec.lpg.cypher.expressions.index.access` | `Conformance` | lpg | `Passed` | 6.853 ms |
-| `grafeo.spec.lpg.cypher.expressions.coalesce` | `Conformance` | lpg | `Passed` | 7.038 ms |
-| `grafeo.spec.lpg.cypher.expressions.reduce` | `Conformance` | lpg | `Failed` | 0.249 ms |
-| `grafeo.spec.lpg.cypher.expressions.all.predicate` | `Conformance` | lpg | `Passed` | 6.942 ms |
-| `grafeo.spec.lpg.cypher.expressions.any.predicate` | `Conformance` | lpg | `Passed` | 6.932 ms |
-| `grafeo.spec.lpg.cypher.expressions.none.predicate` | `Conformance` | lpg | `Passed` | 6.898 ms |
-| `grafeo.spec.lpg.cypher.expressions.single.predicate` | `Conformance` | lpg | `Passed` | 6.901 ms |
-| `grafeo.spec.lpg.cypher.expressions.any.with.labels.in.where` | `Conformance` | lpg | `Passed` | 7.794 ms |
-| `grafeo.spec.lpg.cypher.expressions.comparison.in.return` | `Conformance` | lpg | `Passed` | 6.728 ms |
-| `grafeo.spec.lpg.cypher.expressions.aggregate.comparison.in.return` | `Conformance` | lpg | `Passed` | 6.611 ms |
-| `grafeo.spec.lpg.cypher.functions.id.of.node` | `Conformance` | lpg | `Passed` | 6.508 ms |
-| `grafeo.spec.lpg.cypher.functions.labels.single` | `Conformance` | lpg | `Failed` | 6.886 ms |
-| `grafeo.spec.lpg.cypher.functions.labels.multiple` | `Conformance` | lpg | `Passed` | 7.210 ms |
-| `grafeo.spec.lpg.cypher.functions.type.of.relationship` | `Conformance` | lpg | `Failed` | 7.416 ms |
-| `grafeo.spec.lpg.cypher.functions.keys.of.node` | `Conformance` | lpg | `Failed` | 6.819 ms |
-| `grafeo.spec.lpg.cypher.functions.properties.of.node` | `Conformance` | lpg | `Failed` | 6.580 ms |
-| `grafeo.spec.lpg.cypher.functions.exists.property.true` | `Conformance` | lpg | `Failed` | 6.455 ms |
-| `grafeo.spec.lpg.cypher.functions.exists.property.false` | `Conformance` | lpg | `Failed` | 6.227 ms |
-| `grafeo.spec.lpg.cypher.functions.head.of.list` | `Conformance` | lpg | `Passed` | 6.759 ms |
-| `grafeo.spec.lpg.cypher.functions.last.of.list` | `Conformance` | lpg | `Passed` | 6.712 ms |
-| `grafeo.spec.lpg.cypher.functions.tail.of.list` | `Conformance` | lpg | `Failed` | 6.861 ms |
-| `grafeo.spec.lpg.cypher.functions.range.default.step` | `Conformance` | lpg | `Failed` | 6.673 ms |
-| `grafeo.spec.lpg.cypher.functions.range.with.step` | `Conformance` | lpg | `Failed` | 6.698 ms |
-| `grafeo.spec.lpg.cypher.functions.size.of.list` | `Conformance` | lpg | `Passed` | 6.762 ms |
-| `grafeo.spec.lpg.cypher.functions.size.of.string` | `Conformance` | lpg | `Failed` | 6.682 ms |
-| `grafeo.spec.lpg.cypher.functions.to.lower` | `Conformance` | lpg | `Passed` | 6.626 ms |
-| `grafeo.spec.lpg.cypher.functions.to.upper` | `Conformance` | lpg | `Passed` | 6.606 ms |
-| `grafeo.spec.lpg.cypher.functions.trim.whitespace` | `Conformance` | lpg | `Passed` | 6.613 ms |
-| `grafeo.spec.lpg.cypher.functions.replace.substring` | `Conformance` | lpg | `Passed` | 6.755 ms |
-| `grafeo.spec.lpg.cypher.functions.substring.from.start` | `Conformance` | lpg | `Failed` | 6.727 ms |
-| `grafeo.spec.lpg.cypher.functions.substring.to.end` | `Conformance` | lpg | `Failed` | 6.661 ms |
-| `grafeo.spec.lpg.cypher.functions.split.string` | `Conformance` | lpg | `Failed` | 6.663 ms |
-| `grafeo.spec.lpg.cypher.functions.left.string` | `Conformance` | lpg | `Passed` | 6.669 ms |
-| `grafeo.spec.lpg.cypher.functions.right.string` | `Conformance` | lpg | `Passed` | 6.638 ms |
-| `grafeo.spec.lpg.cypher.functions.reverse.string` | `Conformance` | lpg | `Passed` | 6.582 ms |
-| `grafeo.spec.lpg.cypher.functions.abs.positive` | `Conformance` | lpg | `Passed` | 6.592 ms |
-| `grafeo.spec.lpg.cypher.functions.ceil.float` | `Conformance` | lpg | `Passed` | 6.570 ms |
-| `grafeo.spec.lpg.cypher.functions.floor.float` | `Conformance` | lpg | `Passed` | 6.551 ms |
-| `grafeo.spec.lpg.cypher.functions.round.float` | `Conformance` | lpg | `Passed` | 6.543 ms |
-| `grafeo.spec.lpg.cypher.functions.sign.positive` | `Conformance` | lpg | `Passed` | 6.593 ms |
-| `grafeo.spec.lpg.cypher.functions.sign.negative` | `Conformance` | lpg | `Passed` | 6.507 ms |
-| `grafeo.spec.lpg.cypher.functions.sign.zero` | `Conformance` | lpg | `Passed` | 6.524 ms |
-| `grafeo.spec.lpg.cypher.functions.sqrt.perfect.square` | `Conformance` | lpg | `Passed` | 6.488 ms |
-| `grafeo.spec.lpg.cypher.functions.to.integer.from.string` | `Conformance` | lpg | `Passed` | 6.581 ms |
-| `grafeo.spec.lpg.cypher.functions.to.integer.from.float` | `Conformance` | lpg | `Passed` | 6.554 ms |
-| `grafeo.spec.lpg.cypher.functions.to.float.from.string` | `Conformance` | lpg | `Passed` | 6.584 ms |
-| `grafeo.spec.lpg.cypher.functions.to.float.from.integer` | `Conformance` | lpg | `Passed` | 6.551 ms |
-| `grafeo.spec.lpg.cypher.functions.to.string.from.integer` | `Conformance` | lpg | `Passed` | 6.541 ms |
-| `grafeo.spec.lpg.cypher.functions.to.boolean.from.string.true` | `Conformance` | lpg | `Passed` | 6.771 ms |
-| `grafeo.spec.lpg.cypher.functions.to.boolean.from.string.false` | `Conformance` | lpg | `Passed` | 6.687 ms |
-| `grafeo.spec.lpg.cypher.functions.date.from.string` | `Conformance` | lpg | `Passed` | 6.530 ms |
-| `grafeo.spec.lpg.cypher.functions.date.from.map` | `Conformance` | lpg | `Failed` | 6.714 ms |
-| `grafeo.spec.lpg.cypher.functions.datetime.from.string` | `Conformance` | lpg | `Passed` | 6.494 ms |
-| `grafeo.spec.lpg.cypher.functions.duration.from.string` | `Conformance` | lpg | `Failed` | 6.473 ms |
-| `grafeo.spec.lpg.cypher.functions.path.length` | `Conformance` | lpg | `Failed` | 9.309 ms |
-| `grafeo.spec.lpg.cypher.functions.path.length.single.hop` | `Conformance` | lpg | `Failed` | 7.252 ms |
-| `grafeo.spec.lpg.cypher.functions.collect.names` | `Conformance` | lpg | `Passed` | 7.302 ms |
-| `grafeo.spec.lpg.cypher.functions.collect.distinct` | `Conformance` | lpg | `Failed` | 7.773 ms |
-| `grafeo.spec.lpg.cypher.functions.count.with.distinct` | `Conformance` | lpg | `Passed` | 7.872 ms |
-| `grafeo.spec.lpg.cypher.functions.sum.values` | `Conformance` | lpg | `Passed` | 8.184 ms |
-| `grafeo.spec.lpg.cypher.functions.avg.values` | `Conformance` | lpg | `Passed` | 7.875 ms |
-| `grafeo.spec.lpg.cypher.functions.min.values` | `Conformance` | lpg | `Passed` | 7.851 ms |
-| `grafeo.spec.lpg.cypher.functions.max.values` | `Conformance` | lpg | `Passed` | 7.796 ms |
-| `grafeo.spec.lpg.cypher.functions.chained.string.functions` | `Conformance` | lpg | `Passed` | 6.696 ms |
-| `grafeo.spec.lpg.cypher.functions.nested.list.functions` | `Conformance` | lpg | `Passed` | 6.974 ms |
-| `grafeo.spec.lpg.cypher.functions.extended.log.of.e` | `Conformance` | lpg | `Failed` | 6.776 ms |
-| `grafeo.spec.lpg.cypher.functions.extended.log10.of.100` | `Conformance` | lpg | `Passed` | 6.497 ms |
-| `grafeo.spec.lpg.cypher.functions.extended.exp.of.zero` | `Conformance` | lpg | `Passed` | 6.486 ms |
-| `grafeo.spec.lpg.cypher.functions.extended.e.constant` | `Conformance` | lpg | `Failed` | 6.525 ms |
-| `grafeo.spec.lpg.cypher.functions.extended.pi.constant` | `Conformance` | lpg | `Passed` | 6.580 ms |
-| `grafeo.spec.lpg.cypher.functions.extended.rand.in.range` | `Conformance` | lpg | `Passed` | 6.895 ms |
-| `grafeo.spec.lpg.cypher.functions.extended.sin.of.zero` | `Conformance` | lpg | `Passed` | 6.563 ms |
-| `grafeo.spec.lpg.cypher.functions.extended.cos.of.zero` | `Conformance` | lpg | `Passed` | 6.509 ms |
-| `grafeo.spec.lpg.cypher.functions.extended.tan.of.zero` | `Conformance` | lpg | `Passed` | 6.537 ms |
-| `grafeo.spec.lpg.cypher.functions.extended.asin.of.one` | `Conformance` | lpg | `Passed` | 9.812 ms |
-| `grafeo.spec.lpg.cypher.functions.extended.acos.of.one` | `Conformance` | lpg | `Passed` | 16.436 ms |
-| `grafeo.spec.lpg.cypher.functions.extended.atan.of.one` | `Conformance` | lpg | `Passed` | 7.252 ms |
-| `grafeo.spec.lpg.cypher.functions.extended.atan2.unit` | `Conformance` | lpg | `Passed` | 7.048 ms |
-| `grafeo.spec.lpg.cypher.functions.extended.degrees.from.pi` | `Conformance` | lpg | `Passed` | 6.837 ms |
-| `grafeo.spec.lpg.cypher.functions.extended.radians.from.180` | `Conformance` | lpg | `Passed` | 6.625 ms |
-| `grafeo.spec.lpg.cypher.functions.extended.ltrim.whitespace` | `Conformance` | lpg | `Passed` | 6.603 ms |
-| `grafeo.spec.lpg.cypher.functions.extended.rtrim.whitespace` | `Conformance` | lpg | `Passed` | 6.650 ms |
-| `grafeo.spec.lpg.cypher.functions.extended.char.length.string` | `Conformance` | lpg | `Passed` | 6.583 ms |
-| `grafeo.spec.lpg.cypher.functions.extended.length.of.string` | `Conformance` | lpg | `Passed` | 6.633 ms |
-| `grafeo.spec.lpg.cypher.functions.extended.reverse.list` | `Conformance` | lpg | `Failed` | 6.774 ms |
-| `grafeo.spec.lpg.cypher.functions.extended.keys.of.map` | `Conformance` | lpg | `Passed` | 6.996 ms |
-| `grafeo.spec.lpg.cypher.functions.extended.stdev.sample` | `Conformance` | lpg | `Failed` | 10.744 ms |
-| `grafeo.spec.lpg.cypher.functions.extended.stdevp.population` | `Conformance` | lpg | `Failed` | 11.370 ms |
-| `grafeo.spec.lpg.cypher.functions.extended.percentile.cont.median` | `Conformance` | lpg | `Failed` | 9.061 ms |
-| `grafeo.spec.lpg.cypher.functions.extended.percentile.disc.median` | `Conformance` | lpg | `Failed` | 9.122 ms |
-| `grafeo.spec.lpg.cypher.functions.extended.element.id.not.null` | `Conformance` | lpg | `Failed` | 6.498 ms |
-| `grafeo.spec.lpg.cypher.functions.extended.count.star` | `Conformance` | lpg | `Passed` | 7.104 ms |
-| `grafeo.spec.lpg.cypher.functions.extended.count.expr` | `Conformance` | lpg | `Passed` | 7.146 ms |
-| `grafeo.spec.lpg.cypher.functions.extended.nodes.of.path` | `Conformance` | lpg | `Failed` | 7.504 ms |
-| `grafeo.spec.lpg.cypher.functions.extended.relationships.of.path` | `Conformance` | lpg | `Failed` | 7.541 ms |
-| `grafeo.spec.lpg.cypher.functions.extended.nodes.of.multi.hop.path` | `Conformance` | lpg | `Failed` | 9.391 ms |
-| `grafeo.spec.lpg.cypher.functions.extended.relationships.of.multi.hop.path` | `Conformance` | lpg | `Failed` | 9.403 ms |
-| `grafeo.spec.lpg.cypher.functions.extended.date.no.args` | `Conformance` | lpg | `Passed` | 6.677 ms |
-| `grafeo.spec.lpg.cypher.functions.extended.now.returns.value` | `Conformance` | lpg | `Failed` | 10.141 ms |
-| `grafeo.spec.lpg.cypher.functions.extended.year.accessor` | `Conformance` | lpg | `Failed` | 6.573 ms |
-| `grafeo.spec.lpg.cypher.functions.extended.month.accessor` | `Conformance` | lpg | `Failed` | 6.553 ms |
-| `grafeo.spec.lpg.cypher.functions.extended.day.accessor` | `Conformance` | lpg | `Failed` | 6.537 ms |
-| `grafeo.spec.lpg.cypher.functions.extended.time.from.string` | `Conformance` | lpg | `Passed` | 6.552 ms |
-| `grafeo.spec.lpg.cypher.functions.extended.duration.from.map` | `Conformance` | lpg | `Failed` | 6.644 ms |
-| `grafeo.spec.lpg.cypher.patterns.anonymous.node` | `Conformance` | lpg | `Passed` | 6.481 ms |
-| `grafeo.spec.lpg.cypher.patterns.variable.binding` | `Conformance` | lpg | `Passed` | 6.255 ms |
-| `grafeo.spec.lpg.cypher.patterns.single.label` | `Conformance` | lpg | `Passed` | 6.943 ms |
-| `grafeo.spec.lpg.cypher.patterns.multiple.labels` | `Conformance` | lpg | `Passed` | 7.375 ms |
-| `grafeo.spec.lpg.cypher.patterns.property.filter` | `Conformance` | lpg | `Passed` | 7.202 ms |
-| `grafeo.spec.lpg.cypher.patterns.outgoing.relationship` | `Conformance` | lpg | `Passed` | 7.532 ms |
-| `grafeo.spec.lpg.cypher.patterns.incoming.relationship` | `Conformance` | lpg | `Passed` | 7.404 ms |
-| `grafeo.spec.lpg.cypher.patterns.undirected.relationship` | `Conformance` | lpg | `Passed` | 7.674 ms |
-| `grafeo.spec.lpg.cypher.patterns.multiple.relationship.types` | `Conformance` | lpg | `Passed` | 9.300 ms |
-| `grafeo.spec.lpg.cypher.patterns.relationship.properties` | `Conformance` | lpg | `Passed` | 8.009 ms |
-| `grafeo.spec.lpg.cypher.patterns.untyped.relationship` | `Conformance` | lpg | `Failed` | 7.475 ms |
-| `grafeo.spec.lpg.cypher.patterns.anonymous.relationship` | `Conformance` | lpg | `Passed` | 7.554 ms |
-| `grafeo.spec.lpg.cypher.patterns.variable.length.unbounded` | `Conformance` | lpg | `Passed` | 9.755 ms |
-| `grafeo.spec.lpg.cypher.patterns.variable.length.exact` | `Conformance` | lpg | `Failed` | 10.629 ms |
-| `grafeo.spec.lpg.cypher.patterns.variable.length.range` | `Conformance` | lpg | `Failed` | 9.915 ms |
-| `grafeo.spec.lpg.cypher.patterns.variable.length.max.only` | `Conformance` | lpg | `Failed` | 9.859 ms |
-| `grafeo.spec.lpg.cypher.patterns.variable.length.min.only` | `Conformance` | lpg | `Failed` | 9.955 ms |
-| `grafeo.spec.lpg.cypher.patterns.path.alias` | `Conformance` | lpg | `Failed` | 7.407 ms |
-| `grafeo.spec.lpg.cypher.patterns.shortest.path` | `Conformance` | lpg | `Failed` | 0.030 ms |
+| `grafeo.spec.lpg.cypher.expressions.string.concat` | `Conformance` | lpg | `Failed` | 7.625 ms |
+| `grafeo.spec.lpg.cypher.expressions.equals` | `Conformance` | lpg | `Passed` | 7.391 ms |
+| `grafeo.spec.lpg.cypher.expressions.not.equals` | `Conformance` | lpg | `Passed` | 8.014 ms |
+| `grafeo.spec.lpg.cypher.expressions.less.than` | `Conformance` | lpg | `Passed` | 7.980 ms |
+| `grafeo.spec.lpg.cypher.expressions.greater.equal` | `Conformance` | lpg | `Passed` | 7.973 ms |
+| `grafeo.spec.lpg.cypher.expressions.starts.with` | `Conformance` | lpg | `Passed` | 8.121 ms |
+| `grafeo.spec.lpg.cypher.expressions.ends.with` | `Conformance` | lpg | `Passed` | 8.152 ms |
+| `grafeo.spec.lpg.cypher.expressions.contains` | `Conformance` | lpg | `Passed` | 8.139 ms |
+| `grafeo.spec.lpg.cypher.expressions.in.list` | `Conformance` | lpg | `Passed` | 9.020 ms |
+| `grafeo.spec.lpg.cypher.expressions.regex.match` | `Conformance` | lpg | `Failed` | 0.062 ms |
+| `grafeo.spec.lpg.cypher.expressions.is.null` | `Conformance` | lpg | `Passed` | 8.272 ms |
+| `grafeo.spec.lpg.cypher.expressions.is.not.null` | `Conformance` | lpg | `Passed` | 8.078 ms |
+| `grafeo.spec.lpg.cypher.expressions.case.simple` | `Conformance` | lpg | `Passed` | 7.449 ms |
+| `grafeo.spec.lpg.cypher.expressions.case.searched` | `Conformance` | lpg | `Passed` | 9.708 ms |
+| `grafeo.spec.lpg.cypher.expressions.list.literal` | `Conformance` | lpg | `Failed` | 15.326 ms |
+| `grafeo.spec.lpg.cypher.expressions.list.comprehension` | `Conformance` | lpg | `Failed` | 8.073 ms |
+| `grafeo.spec.lpg.cypher.expressions.list.comprehension.filter.only` | `Conformance` | lpg | `Failed` | 7.537 ms |
+| `grafeo.spec.lpg.cypher.expressions.list.slice` | `Conformance` | lpg | `Failed` | 8.041 ms |
+| `grafeo.spec.lpg.cypher.expressions.index.access` | `Conformance` | lpg | `Passed` | 7.705 ms |
+| `grafeo.spec.lpg.cypher.expressions.coalesce` | `Conformance` | lpg | `Passed` | 7.671 ms |
+| `grafeo.spec.lpg.cypher.expressions.reduce` | `Conformance` | lpg | `Failed` | 0.248 ms |
+| `grafeo.spec.lpg.cypher.expressions.all.predicate` | `Conformance` | lpg | `Passed` | 7.965 ms |
+| `grafeo.spec.lpg.cypher.expressions.any.predicate` | `Conformance` | lpg | `Passed` | 8.161 ms |
+| `grafeo.spec.lpg.cypher.expressions.none.predicate` | `Conformance` | lpg | `Passed` | 8.171 ms |
+| `grafeo.spec.lpg.cypher.expressions.single.predicate` | `Conformance` | lpg | `Passed` | 7.942 ms |
+| `grafeo.spec.lpg.cypher.expressions.any.with.labels.in.where` | `Conformance` | lpg | `Passed` | 8.471 ms |
+| `grafeo.spec.lpg.cypher.expressions.comparison.in.return` | `Conformance` | lpg | `Passed` | 7.332 ms |
+| `grafeo.spec.lpg.cypher.expressions.aggregate.comparison.in.return` | `Conformance` | lpg | `Passed` | 7.431 ms |
+| `grafeo.spec.lpg.cypher.functions.id.of.node` | `Conformance` | lpg | `Passed` | 7.288 ms |
+| `grafeo.spec.lpg.cypher.functions.labels.single` | `Conformance` | lpg | `Failed` | 7.242 ms |
+| `grafeo.spec.lpg.cypher.functions.labels.multiple` | `Conformance` | lpg | `Passed` | 7.677 ms |
+| `grafeo.spec.lpg.cypher.functions.type.of.relationship` | `Conformance` | lpg | `Failed` | 8.249 ms |
+| `grafeo.spec.lpg.cypher.functions.keys.of.node` | `Conformance` | lpg | `Failed` | 7.556 ms |
+| `grafeo.spec.lpg.cypher.functions.properties.of.node` | `Conformance` | lpg | `Failed` | 7.215 ms |
+| `grafeo.spec.lpg.cypher.functions.exists.property.true` | `Conformance` | lpg | `Failed` | 7.069 ms |
+| `grafeo.spec.lpg.cypher.functions.exists.property.false` | `Conformance` | lpg | `Failed` | 6.824 ms |
+| `grafeo.spec.lpg.cypher.functions.head.of.list` | `Conformance` | lpg | `Passed` | 7.416 ms |
+| `grafeo.spec.lpg.cypher.functions.last.of.list` | `Conformance` | lpg | `Passed` | 7.354 ms |
+| `grafeo.spec.lpg.cypher.functions.tail.of.list` | `Conformance` | lpg | `Failed` | 8.839 ms |
+| `grafeo.spec.lpg.cypher.functions.range.default.step` | `Conformance` | lpg | `Failed` | 8.824 ms |
+| `grafeo.spec.lpg.cypher.functions.range.with.step` | `Conformance` | lpg | `Failed` | 7.477 ms |
+| `grafeo.spec.lpg.cypher.functions.size.of.list` | `Conformance` | lpg | `Passed` | 7.456 ms |
+| `grafeo.spec.lpg.cypher.functions.size.of.string` | `Conformance` | lpg | `Failed` | 7.353 ms |
+| `grafeo.spec.lpg.cypher.functions.to.lower` | `Conformance` | lpg | `Passed` | 7.315 ms |
+| `grafeo.spec.lpg.cypher.functions.to.upper` | `Conformance` | lpg | `Passed` | 7.276 ms |
+| `grafeo.spec.lpg.cypher.functions.trim.whitespace` | `Conformance` | lpg | `Passed` | 7.243 ms |
+| `grafeo.spec.lpg.cypher.functions.replace.substring` | `Conformance` | lpg | `Passed` | 7.338 ms |
+| `grafeo.spec.lpg.cypher.functions.substring.from.start` | `Conformance` | lpg | `Failed` | 7.325 ms |
+| `grafeo.spec.lpg.cypher.functions.substring.to.end` | `Conformance` | lpg | `Failed` | 7.252 ms |
+| `grafeo.spec.lpg.cypher.functions.split.string` | `Conformance` | lpg | `Failed` | 7.237 ms |
+| `grafeo.spec.lpg.cypher.functions.left.string` | `Conformance` | lpg | `Passed` | 7.683 ms |
+| `grafeo.spec.lpg.cypher.functions.right.string` | `Conformance` | lpg | `Passed` | 7.575 ms |
+| `grafeo.spec.lpg.cypher.functions.reverse.string` | `Conformance` | lpg | `Passed` | 7.301 ms |
+| `grafeo.spec.lpg.cypher.functions.abs.positive` | `Conformance` | lpg | `Passed` | 7.217 ms |
+| `grafeo.spec.lpg.cypher.functions.ceil.float` | `Conformance` | lpg | `Passed` | 7.209 ms |
+| `grafeo.spec.lpg.cypher.functions.floor.float` | `Conformance` | lpg | `Passed` | 7.131 ms |
+| `grafeo.spec.lpg.cypher.functions.round.float` | `Conformance` | lpg | `Passed` | 7.149 ms |
+| `grafeo.spec.lpg.cypher.functions.sign.positive` | `Conformance` | lpg | `Passed` | 7.379 ms |
+| `grafeo.spec.lpg.cypher.functions.sign.negative` | `Conformance` | lpg | `Passed` | 7.213 ms |
+| `grafeo.spec.lpg.cypher.functions.sign.zero` | `Conformance` | lpg | `Passed` | 7.078 ms |
+| `grafeo.spec.lpg.cypher.functions.sqrt.perfect.square` | `Conformance` | lpg | `Passed` | 7.115 ms |
+| `grafeo.spec.lpg.cypher.functions.to.integer.from.string` | `Conformance` | lpg | `Passed` | 7.222 ms |
+| `grafeo.spec.lpg.cypher.functions.to.integer.from.float` | `Conformance` | lpg | `Passed` | 7.163 ms |
+| `grafeo.spec.lpg.cypher.functions.to.float.from.string` | `Conformance` | lpg | `Passed` | 7.296 ms |
+| `grafeo.spec.lpg.cypher.functions.to.float.from.integer` | `Conformance` | lpg | `Passed` | 7.144 ms |
+| `grafeo.spec.lpg.cypher.functions.to.string.from.integer` | `Conformance` | lpg | `Passed` | 7.178 ms |
+| `grafeo.spec.lpg.cypher.functions.to.boolean.from.string.true` | `Conformance` | lpg | `Passed` | 7.370 ms |
+| `grafeo.spec.lpg.cypher.functions.to.boolean.from.string.false` | `Conformance` | lpg | `Passed` | 7.332 ms |
+| `grafeo.spec.lpg.cypher.functions.date.from.string` | `Conformance` | lpg | `Passed` | 7.222 ms |
+| `grafeo.spec.lpg.cypher.functions.date.from.map` | `Conformance` | lpg | `Failed` | 7.386 ms |
+| `grafeo.spec.lpg.cypher.functions.datetime.from.string` | `Conformance` | lpg | `Passed` | 7.151 ms |
+| `grafeo.spec.lpg.cypher.functions.duration.from.string` | `Conformance` | lpg | `Failed` | 7.131 ms |
+| `grafeo.spec.lpg.cypher.functions.path.length` | `Conformance` | lpg | `Failed` | 10.851 ms |
+| `grafeo.spec.lpg.cypher.functions.path.length.single.hop` | `Conformance` | lpg | `Failed` | 8.175 ms |
+| `grafeo.spec.lpg.cypher.functions.collect.names` | `Conformance` | lpg | `Passed` | 7.652 ms |
+| `grafeo.spec.lpg.cypher.functions.collect.distinct` | `Conformance` | lpg | `Failed` | 8.328 ms |
+| `grafeo.spec.lpg.cypher.functions.count.with.distinct` | `Conformance` | lpg | `Passed` | 8.576 ms |
+| `grafeo.spec.lpg.cypher.functions.sum.values` | `Conformance` | lpg | `Passed` | 8.546 ms |
+| `grafeo.spec.lpg.cypher.functions.avg.values` | `Conformance` | lpg | `Passed` | 8.515 ms |
+| `grafeo.spec.lpg.cypher.functions.min.values` | `Conformance` | lpg | `Passed` | 8.481 ms |
+| `grafeo.spec.lpg.cypher.functions.max.values` | `Conformance` | lpg | `Passed` | 8.513 ms |
+| `grafeo.spec.lpg.cypher.functions.chained.string.functions` | `Conformance` | lpg | `Passed` | 7.323 ms |
+| `grafeo.spec.lpg.cypher.functions.nested.list.functions` | `Conformance` | lpg | `Passed` | 7.602 ms |
+| `grafeo.spec.lpg.cypher.functions.extended.log.of.e` | `Conformance` | lpg | `Failed` | 7.370 ms |
+| `grafeo.spec.lpg.cypher.functions.extended.log10.of.100` | `Conformance` | lpg | `Passed` | 7.130 ms |
+| `grafeo.spec.lpg.cypher.functions.extended.exp.of.zero` | `Conformance` | lpg | `Passed` | 7.119 ms |
+| `grafeo.spec.lpg.cypher.functions.extended.e.constant` | `Conformance` | lpg | `Failed` | 7.155 ms |
+| `grafeo.spec.lpg.cypher.functions.extended.pi.constant` | `Conformance` | lpg | `Passed` | 7.256 ms |
+| `grafeo.spec.lpg.cypher.functions.extended.rand.in.range` | `Conformance` | lpg | `Passed` | 7.364 ms |
+| `grafeo.spec.lpg.cypher.functions.extended.sin.of.zero` | `Conformance` | lpg | `Passed` | 7.242 ms |
+| `grafeo.spec.lpg.cypher.functions.extended.cos.of.zero` | `Conformance` | lpg | `Passed` | 7.115 ms |
+| `grafeo.spec.lpg.cypher.functions.extended.tan.of.zero` | `Conformance` | lpg | `Passed` | 7.150 ms |
+| `grafeo.spec.lpg.cypher.functions.extended.asin.of.one` | `Conformance` | lpg | `Passed` | 7.214 ms |
+| `grafeo.spec.lpg.cypher.functions.extended.acos.of.one` | `Conformance` | lpg | `Passed` | 7.117 ms |
+| `grafeo.spec.lpg.cypher.functions.extended.atan.of.one` | `Conformance` | lpg | `Passed` | 7.236 ms |
+| `grafeo.spec.lpg.cypher.functions.extended.atan2.unit` | `Conformance` | lpg | `Passed` | 7.482 ms |
+| `grafeo.spec.lpg.cypher.functions.extended.degrees.from.pi` | `Conformance` | lpg | `Passed` | 7.461 ms |
+| `grafeo.spec.lpg.cypher.functions.extended.radians.from.180` | `Conformance` | lpg | `Passed` | 7.231 ms |
+| `grafeo.spec.lpg.cypher.functions.extended.ltrim.whitespace` | `Conformance` | lpg | `Passed` | 7.266 ms |
+| `grafeo.spec.lpg.cypher.functions.extended.rtrim.whitespace` | `Conformance` | lpg | `Passed` | 7.267 ms |
+| `grafeo.spec.lpg.cypher.functions.extended.char.length.string` | `Conformance` | lpg | `Passed` | 7.293 ms |
+| `grafeo.spec.lpg.cypher.functions.extended.length.of.string` | `Conformance` | lpg | `Passed` | 7.270 ms |
+| `grafeo.spec.lpg.cypher.functions.extended.reverse.list` | `Conformance` | lpg | `Failed` | 7.371 ms |
+| `grafeo.spec.lpg.cypher.functions.extended.keys.of.map` | `Conformance` | lpg | `Passed` | 7.643 ms |
+| `grafeo.spec.lpg.cypher.functions.extended.stdev.sample` | `Conformance` | lpg | `Failed` | 11.370 ms |
+| `grafeo.spec.lpg.cypher.functions.extended.stdevp.population` | `Conformance` | lpg | `Failed` | 11.383 ms |
+| `grafeo.spec.lpg.cypher.functions.extended.percentile.cont.median` | `Conformance` | lpg | `Failed` | 9.746 ms |
+| `grafeo.spec.lpg.cypher.functions.extended.percentile.disc.median` | `Conformance` | lpg | `Failed` | 9.659 ms |
+| `grafeo.spec.lpg.cypher.functions.extended.element.id.not.null` | `Conformance` | lpg | `Failed` | 7.037 ms |
+| `grafeo.spec.lpg.cypher.functions.extended.count.star` | `Conformance` | lpg | `Passed` | 7.674 ms |
+| `grafeo.spec.lpg.cypher.functions.extended.count.expr` | `Conformance` | lpg | `Passed` | 7.782 ms |
+| `grafeo.spec.lpg.cypher.functions.extended.nodes.of.path` | `Conformance` | lpg | `Failed` | 8.792 ms |
+| `grafeo.spec.lpg.cypher.functions.extended.relationships.of.path` | `Conformance` | lpg | `Failed` | 8.791 ms |
+| `grafeo.spec.lpg.cypher.functions.extended.nodes.of.multi.hop.path` | `Conformance` | lpg | `Failed` | 11.026 ms |
+| `grafeo.spec.lpg.cypher.functions.extended.relationships.of.multi.hop.path` | `Conformance` | lpg | `Failed` | 11.426 ms |
+| `grafeo.spec.lpg.cypher.functions.extended.date.no.args` | `Conformance` | lpg | `Passed` | 7.214 ms |
+| `grafeo.spec.lpg.cypher.functions.extended.now.returns.value` | `Conformance` | lpg | `Failed` | 7.079 ms |
+| `grafeo.spec.lpg.cypher.functions.extended.year.accessor` | `Conformance` | lpg | `Failed` | 7.397 ms |
+| `grafeo.spec.lpg.cypher.functions.extended.month.accessor` | `Conformance` | lpg | `Failed` | 7.333 ms |
+| `grafeo.spec.lpg.cypher.functions.extended.day.accessor` | `Conformance` | lpg | `Failed` | 7.291 ms |
+| `grafeo.spec.lpg.cypher.functions.extended.time.from.string` | `Conformance` | lpg | `Passed` | 7.225 ms |
+| `grafeo.spec.lpg.cypher.functions.extended.duration.from.map` | `Conformance` | lpg | `Failed` | 7.336 ms |
+| `grafeo.spec.lpg.cypher.patterns.anonymous.node` | `Conformance` | lpg | `Passed` | 6.811 ms |
+| `grafeo.spec.lpg.cypher.patterns.variable.binding` | `Conformance` | lpg | `Passed` | 6.862 ms |
+| `grafeo.spec.lpg.cypher.patterns.single.label` | `Conformance` | lpg | `Passed` | 7.522 ms |
+| `grafeo.spec.lpg.cypher.patterns.multiple.labels` | `Conformance` | lpg | `Passed` | 8.010 ms |
+| `grafeo.spec.lpg.cypher.patterns.property.filter` | `Conformance` | lpg | `Passed` | 7.873 ms |
+| `grafeo.spec.lpg.cypher.patterns.outgoing.relationship` | `Conformance` | lpg | `Passed` | 8.512 ms |
+| `grafeo.spec.lpg.cypher.patterns.incoming.relationship` | `Conformance` | lpg | `Passed` | 8.414 ms |
+| `grafeo.spec.lpg.cypher.patterns.undirected.relationship` | `Conformance` | lpg | `Passed` | 8.910 ms |
+| `grafeo.spec.lpg.cypher.patterns.multiple.relationship.types` | `Conformance` | lpg | `Passed` | 10.861 ms |
+| `grafeo.spec.lpg.cypher.patterns.relationship.properties` | `Conformance` | lpg | `Passed` | 9.048 ms |
+| `grafeo.spec.lpg.cypher.patterns.untyped.relationship` | `Conformance` | lpg | `Failed` | 8.302 ms |
+| `grafeo.spec.lpg.cypher.patterns.anonymous.relationship` | `Conformance` | lpg | `Passed` | 8.374 ms |
+| `grafeo.spec.lpg.cypher.patterns.variable.length.unbounded` | `Conformance` | lpg | `Passed` | 10.948 ms |
+| `grafeo.spec.lpg.cypher.patterns.variable.length.exact` | `Conformance` | lpg | `Passed` | 12.586 ms |
+| `grafeo.spec.lpg.cypher.patterns.variable.length.range` | `Conformance` | lpg | `Passed` | 21.846 ms |
+| `grafeo.spec.lpg.cypher.patterns.variable.length.max.only` | `Conformance` | lpg | `Passed` | 11.715 ms |
+| `grafeo.spec.lpg.cypher.patterns.variable.length.min.only` | `Conformance` | lpg | `Passed` | 15.315 ms |
+| `grafeo.spec.lpg.cypher.patterns.path.alias` | `Conformance` | lpg | `Failed` | 8.351 ms |
+| `grafeo.spec.lpg.cypher.patterns.shortest.path` | `Conformance` | lpg | `Failed` | 0.029 ms |
 | `grafeo.spec.lpg.cypher.patterns.all.shortest.paths` | `Conformance` | lpg | `Failed` | 0.023 ms |
 | `grafeo.spec.lpg.cypher.patterns.pattern.comprehension` | `Conformance` | lpg | `Failed` | 0.102 ms |
-| `grafeo.spec.lpg.cypher.patterns.exists.subquery` | `Conformance` | lpg | `Passed` | 8.509 ms |
-| `grafeo.spec.lpg.cypher.patterns.not.exists` | `Conformance` | lpg | `Passed` | 7.764 ms |
-| `grafeo.spec.lpg.cypher.patterns.count.subquery` | `Conformance` | lpg | `Passed` | 9.006 ms |
-| `grafeo.spec.lpg.cypher.reading.clauses.match.single.node` | `Conformance` | lpg | `Passed` | 7.067 ms |
-| `grafeo.spec.lpg.cypher.reading.clauses.match.by.label` | `Conformance` | lpg | `Passed` | 6.886 ms |
-| `grafeo.spec.lpg.cypher.reading.clauses.match.by.property` | `Conformance` | lpg | `Passed` | 7.189 ms |
-| `grafeo.spec.lpg.cypher.reading.clauses.match.multi.label` | `Conformance` | lpg | `Passed` | 7.321 ms |
-| `grafeo.spec.lpg.cypher.reading.clauses.match.comma.patterns` | `Conformance` | lpg | `Passed` | 7.205 ms |
-| `grafeo.spec.lpg.cypher.reading.clauses.match.multiple.clauses` | `Conformance` | lpg | `Passed` | 7.201 ms |
-| `grafeo.spec.lpg.cypher.reading.clauses.match.edge.outgoing` | `Conformance` | lpg | `Passed` | 7.551 ms |
-| `grafeo.spec.lpg.cypher.reading.clauses.match.edge.incoming` | `Conformance` | lpg | `Passed` | 7.589 ms |
-| `grafeo.spec.lpg.cypher.reading.clauses.match.edge.undirected` | `Conformance` | lpg | `Passed` | 7.615 ms |
-| `grafeo.spec.lpg.cypher.reading.clauses.optional.match.with.result` | `Conformance` | lpg | `Passed` | 7.529 ms |
-| `grafeo.spec.lpg.cypher.reading.clauses.optional.match.null` | `Conformance` | lpg | `Passed` | 6.963 ms |
-| `grafeo.spec.lpg.cypher.reading.clauses.where.comparison` | `Conformance` | lpg | `Passed` | 7.257 ms |
-| `grafeo.spec.lpg.cypher.reading.clauses.where.and` | `Conformance` | lpg | `Passed` | 7.816 ms |
-| `grafeo.spec.lpg.cypher.reading.clauses.where.or` | `Conformance` | lpg | `Passed` | 7.916 ms |
-| `grafeo.spec.lpg.cypher.reading.clauses.where.not` | `Conformance` | lpg | `Passed` | 7.504 ms |
-| `grafeo.spec.lpg.cypher.reading.clauses.where.xor` | `Conformance` | lpg | `Passed` | 8.643 ms |
-| `grafeo.spec.lpg.cypher.reading.clauses.with.projection` | `Conformance` | lpg | `Passed` | 6.792 ms |
-| `grafeo.spec.lpg.cypher.reading.clauses.with.distinct` | `Conformance` | lpg | `Passed` | 7.522 ms |
-| `grafeo.spec.lpg.cypher.reading.clauses.with.where` | `Conformance` | lpg | `Passed` | 7.409 ms |
-| `grafeo.spec.lpg.cypher.reading.clauses.with.star` | `Conformance` | lpg | `Passed` | 6.356 ms |
-| `grafeo.spec.lpg.cypher.reading.clauses.unwind.list` | `Conformance` | lpg | `Passed` | 5.702 ms |
-| `grafeo.spec.lpg.cypher.reading.clauses.unwind.with.match` | `Conformance` | lpg | `Passed` | 7.522 ms |
-| `grafeo.spec.lpg.cypher.reading.clauses.union` | `Conformance` | lpg | `Passed` | 8.084 ms |
-| `grafeo.spec.lpg.cypher.reading.clauses.union.all` | `Conformance` | lpg | `Passed` | 7.162 ms |
-| `grafeo.spec.lpg.cypher.reading.clauses.call.db.labels` | `Conformance` | lpg | `Failed` | 0.017 ms |
+| `grafeo.spec.lpg.cypher.patterns.exists.subquery` | `Conformance` | lpg | `Passed` | 9.508 ms |
+| `grafeo.spec.lpg.cypher.patterns.not.exists` | `Conformance` | lpg | `Passed` | 8.715 ms |
+| `grafeo.spec.lpg.cypher.patterns.count.subquery` | `Conformance` | lpg | `Passed` | 10.264 ms |
+| `grafeo.spec.lpg.cypher.reading.clauses.match.single.node` | `Conformance` | lpg | `Passed` | 7.661 ms |
+| `grafeo.spec.lpg.cypher.reading.clauses.match.by.label` | `Conformance` | lpg | `Passed` | 7.460 ms |
+| `grafeo.spec.lpg.cypher.reading.clauses.match.by.property` | `Conformance` | lpg | `Passed` | 7.950 ms |
+| `grafeo.spec.lpg.cypher.reading.clauses.match.multi.label` | `Conformance` | lpg | `Passed` | 8.672 ms |
+| `grafeo.spec.lpg.cypher.reading.clauses.match.comma.patterns` | `Conformance` | lpg | `Passed` | 14.542 ms |
+| `grafeo.spec.lpg.cypher.reading.clauses.match.multiple.clauses` | `Conformance` | lpg | `Passed` | 11.491 ms |
+| `grafeo.spec.lpg.cypher.reading.clauses.match.edge.outgoing` | `Conformance` | lpg | `Passed` | 8.727 ms |
+| `grafeo.spec.lpg.cypher.reading.clauses.match.edge.incoming` | `Conformance` | lpg | `Passed` | 14.573 ms |
+| `grafeo.spec.lpg.cypher.reading.clauses.match.edge.undirected` | `Conformance` | lpg | `Passed` | 8.906 ms |
+| `grafeo.spec.lpg.cypher.reading.clauses.optional.match.with.result` | `Conformance` | lpg | `Passed` | 8.517 ms |
+| `grafeo.spec.lpg.cypher.reading.clauses.optional.match.null` | `Conformance` | lpg | `Passed` | 7.857 ms |
+| `grafeo.spec.lpg.cypher.reading.clauses.where.comparison` | `Conformance` | lpg | `Passed` | 7.930 ms |
+| `grafeo.spec.lpg.cypher.reading.clauses.where.and` | `Conformance` | lpg | `Passed` | 8.499 ms |
+| `grafeo.spec.lpg.cypher.reading.clauses.where.or` | `Conformance` | lpg | `Passed` | 8.590 ms |
+| `grafeo.spec.lpg.cypher.reading.clauses.where.not` | `Conformance` | lpg | `Passed` | 8.168 ms |
+| `grafeo.spec.lpg.cypher.reading.clauses.where.xor` | `Conformance` | lpg | `Passed` | 9.273 ms |
+| `grafeo.spec.lpg.cypher.reading.clauses.with.projection` | `Conformance` | lpg | `Passed` | 7.385 ms |
+| `grafeo.spec.lpg.cypher.reading.clauses.with.distinct` | `Conformance` | lpg | `Passed` | 8.106 ms |
+| `grafeo.spec.lpg.cypher.reading.clauses.with.where` | `Conformance` | lpg | `Passed` | 8.015 ms |
+| `grafeo.spec.lpg.cypher.reading.clauses.with.star` | `Conformance` | lpg | `Passed` | 6.976 ms |
+| `grafeo.spec.lpg.cypher.reading.clauses.unwind.list` | `Conformance` | lpg | `Passed` | 6.310 ms |
+| `grafeo.spec.lpg.cypher.reading.clauses.unwind.with.match` | `Conformance` | lpg | `Passed` | 8.058 ms |
+| `grafeo.spec.lpg.cypher.reading.clauses.union` | `Conformance` | lpg | `Passed` | 8.052 ms |
+| `grafeo.spec.lpg.cypher.reading.clauses.union.all` | `Conformance` | lpg | `Passed` | 7.383 ms |
+| `grafeo.spec.lpg.cypher.reading.clauses.call.db.labels` | `Conformance` | lpg | `Failed` | 0.015 ms |
 | `grafeo.spec.lpg.cypher.reading.clauses.call.db.relationship.types` | `Conformance` | lpg | `Failed` | 0.013 ms |
 | `grafeo.spec.lpg.cypher.reading.clauses.call.db.property.keys` | `Conformance` | lpg | `Failed` | 0.011 ms |
 | `grafeo.spec.lpg.cypher.reading.clauses.call.subquery.basic` | `Conformance` | lpg | `Failed` | 0.014 ms |
-| `grafeo.spec.lpg.cypher.reading.clauses.call.subquery.with.outer.scope` | `Conformance` | lpg | `Failed` | 0.056 ms |
-| `grafeo.spec.lpg.cypher.regression.not.exists.with.type.filter` | `Conformance` | lpg | `Failed` | 9.406 ms |
-| `grafeo.spec.lpg.cypher.regression.sum.case.when` | `Conformance` | lpg | `Passed` | 13.044 ms |
-| `grafeo.spec.lpg.cypher.regression.any.labels.in.list.matches` | `Conformance` | lpg | `Passed` | 7.690 ms |
-| `grafeo.spec.lpg.cypher.regression.any.labels.in.list.no.match` | `Conformance` | lpg | `Passed` | 7.454 ms |
-| `grafeo.spec.lpg.cypher.regression.any.with.single.match` | `Conformance` | lpg | `Passed` | 7.222 ms |
-| `grafeo.spec.lpg.cypher.regression.reduce.with.case.max` | `Conformance` | lpg | `Failed` | 0.234 ms |
-| `grafeo.spec.lpg.cypher.regression.reduce.with.case.min` | `Conformance` | lpg | `Failed` | 0.223 ms |
-| `grafeo.spec.lpg.cypher.regression.reduce.with.case.conditional.sum` | `Conformance` | lpg | `Failed` | 0.216 ms |
-| `grafeo.spec.lpg.cypher.regression.outgoing.target.property.filter` | `Conformance` | lpg | `Passed` | 9.805 ms |
-| `grafeo.spec.lpg.cypher.regression.target.property.filter.count` | `Conformance` | lpg | `Passed` | 10.179 ms |
-| `grafeo.spec.lpg.cypher.regression.target.property.filter.no.match` | `Conformance` | lpg | `Passed` | 7.709 ms |
-| `grafeo.spec.lpg.cypher.regression.edge.property.filter` | `Conformance` | lpg | `Passed` | 10.304 ms |
-| `grafeo.spec.lpg.cypher.regression.optional.match.count.preserves.all.rows` | `Conformance` | lpg | `Passed` | 8.338 ms |
-| `grafeo.spec.lpg.cypher.regression.union.deduplicates` | `Conformance` | lpg | `Passed` | 5.837 ms |
-| `grafeo.spec.lpg.cypher.regression.union.all.preserves` | `Conformance` | lpg | `Passed` | 5.630 ms |
-| `grafeo.spec.lpg.cypher.regression.two.hop.equivalence` | `Conformance` | lpg | `Failed` | 9.649 ms |
-| `grafeo.spec.lpg.cypher.regression.merge.creates.new.after.delete` | `Conformance` | lpg | `Passed` | 7.967 ms |
-| `grafeo.spec.lpg.cypher.regression.replace.edge` | `Conformance` | lpg | `Passed` | 10.448 ms |
-| `grafeo.spec.lpg.cypher.regression.backward.arrow.forward` | `Conformance` | lpg | `Passed` | 7.560 ms |
-| `grafeo.spec.lpg.cypher.regression.backward.arrow.reverse` | `Conformance` | lpg | `Passed` | 7.397 ms |
-| `grafeo.spec.lpg.cypher.regression.backward.arrow.wrong.direction` | `Conformance` | lpg | `Passed` | 7.445 ms |
-| `grafeo.spec.lpg.cypher.regression.null.equals.null.is.unknown` | `Conformance` | lpg | `Passed` | 6.621 ms |
-| `grafeo.spec.lpg.cypher.regression.null.is.null.is.true` | `Conformance` | lpg | `Passed` | 6.641 ms |
-| `grafeo.spec.lpg.cypher.regression.bool.to.string` | `Conformance` | lpg | `Passed` | 7.164 ms |
-| `grafeo.spec.lpg.cypher.regression.int.to.string` | `Conformance` | lpg | `Passed` | 7.276 ms |
-| `grafeo.spec.lpg.cypher.regression.string.false.ne.bool.false` | `Conformance` | lpg | `Failed` | 7.695 ms |
-| `grafeo.spec.lpg.cypher.regression.neq.excludes.null` | `Conformance` | lpg | `Passed` | 7.816 ms |
-| `grafeo.spec.lpg.cypher.regression.skip.plus.limit` | `Conformance` | lpg | `Passed` | 12.253 ms |
-| `grafeo.spec.lpg.cypher.regression.distinct.values` | `Conformance` | lpg | `Passed` | 7.973 ms |
-| `grafeo.spec.lpg.cypher.regression.distinct.collapses.nulls` | `Conformance` | lpg | `Passed` | 8.204 ms |
-| `grafeo.spec.lpg.cypher.regression.order.by.property.matching.return.alias.with.edge` | `Conformance` | lpg | `Passed` | 10.696 ms |
-| `grafeo.spec.lpg.cypher.regression.order.by.desc.with.relationship.traversal` | `Conformance` | lpg | `Passed` | 10.731 ms |
-| `grafeo.spec.lpg.cypher.return.ordering.return.expression` | `Conformance` | lpg | `Passed` | 6.574 ms |
-| `grafeo.spec.lpg.cypher.return.ordering.return.alias` | `Conformance` | lpg | `Passed` | 6.357 ms |
-| `grafeo.spec.lpg.cypher.return.ordering.return.distinct` | `Conformance` | lpg | `Passed` | 7.373 ms |
-| `grafeo.spec.lpg.cypher.return.ordering.return.star` | `Conformance` | lpg | `Passed` | 6.276 ms |
-| `grafeo.spec.lpg.cypher.return.ordering.return.count.star` | `Conformance` | lpg | `Passed` | 6.902 ms |
-| `grafeo.spec.lpg.cypher.return.ordering.return.arithmetic` | `Conformance` | lpg | `Passed` | 6.550 ms |
-| `grafeo.spec.lpg.cypher.return.ordering.return.boolean.expression` | `Conformance` | lpg | `Passed` | 6.533 ms |
-| `grafeo.spec.lpg.cypher.return.ordering.order.by.asc` | `Conformance` | lpg | `Passed` | 7.144 ms |
-| `grafeo.spec.lpg.cypher.return.ordering.order.by.desc` | `Conformance` | lpg | `Passed` | 7.194 ms |
-| `grafeo.spec.lpg.cypher.return.ordering.order.by.multiple.keys` | `Conformance` | lpg | `Passed` | 8.412 ms |
-| `grafeo.spec.lpg.cypher.return.ordering.limit` | `Conformance` | lpg | `Passed` | 8.976 ms |
-| `grafeo.spec.lpg.cypher.return.ordering.skip` | `Conformance` | lpg | `Passed` | 9.170 ms |
-| `grafeo.spec.lpg.cypher.return.ordering.skip.and.limit` | `Conformance` | lpg | `Passed` | 9.208 ms |
-| `grafeo.spec.lpg.cypher.types.integer.decimal` | `Conformance` | lpg | `Passed` | 6.444 ms |
-| `grafeo.spec.lpg.cypher.types.integer.negative` | `Conformance` | lpg | `Passed` | 6.406 ms |
-| `grafeo.spec.lpg.cypher.types.integer.zero` | `Conformance` | lpg | `Passed` | 6.414 ms |
-| `grafeo.spec.lpg.cypher.types.integer.hex` | `Conformance` | lpg | `Passed` | 6.437 ms |
-| `grafeo.spec.lpg.cypher.types.integer.octal` | `Conformance` | lpg | `Passed` | 6.399 ms |
-| `grafeo.spec.lpg.cypher.types.float.decimal` | `Conformance` | lpg | `Passed` | 6.433 ms |
-| `grafeo.spec.lpg.cypher.types.float.scientific` | `Conformance` | lpg | `Passed` | 6.381 ms |
-| `grafeo.spec.lpg.cypher.types.float.negative` | `Conformance` | lpg | `Passed` | 6.449 ms |
-| `grafeo.spec.lpg.cypher.types.string.single.quoted` | `Conformance` | lpg | `Passed` | 6.581 ms |
-| `grafeo.spec.lpg.cypher.types.string.double.quoted` | `Conformance` | lpg | `Failed` | 0.046 ms |
-| `grafeo.spec.lpg.cypher.types.string.empty` | `Conformance` | lpg | `Passed` | 6.438 ms |
-| `grafeo.spec.lpg.cypher.types.boolean.true` | `Conformance` | lpg | `Passed` | 6.451 ms |
-| `grafeo.spec.lpg.cypher.types.boolean.false` | `Conformance` | lpg | `Passed` | 16.089 ms |
-| `grafeo.spec.lpg.cypher.types.null.literal` | `Conformance` | lpg | `Passed` | 15.362 ms |
-| `grafeo.spec.lpg.cypher.types.null.comparison.is.null` | `Conformance` | lpg | `Passed` | 6.730 ms |
-| `grafeo.spec.lpg.cypher.types.null.comparison.is.not.null` | `Conformance` | lpg | `Passed` | 6.576 ms |
-| `grafeo.spec.lpg.cypher.types.null.equality.returns.null` | `Conformance` | lpg | `Failed` | 6.696 ms |
-| `grafeo.spec.lpg.cypher.types.missing.property.is.null` | `Conformance` | lpg | `Passed` | 6.744 ms |
-| `grafeo.spec.lpg.cypher.types.list.of.integers` | `Conformance` | lpg | `Failed` | 6.551 ms |
-| `grafeo.spec.lpg.cypher.types.list.empty` | `Conformance` | lpg | `Passed` | 6.515 ms |
-| `grafeo.spec.lpg.cypher.types.list.nested` | `Conformance` | lpg | `Passed` | 6.801 ms |
-| `grafeo.spec.lpg.cypher.types.list.size` | `Conformance` | lpg | `Passed` | 6.825 ms |
-| `grafeo.spec.lpg.cypher.types.map.literal` | `Conformance` | lpg | `Passed` | 6.608 ms |
-| `grafeo.spec.lpg.cypher.types.map.key.count` | `Conformance` | lpg | `Passed` | 6.999 ms |
-| `grafeo.spec.lpg.cypher.types.node.return` | `Conformance` | lpg | `Passed` | 6.233 ms |
-| `grafeo.spec.lpg.cypher.types.relationship.return` | `Conformance` | lpg | `Passed` | 7.562 ms |
-| `grafeo.spec.lpg.cypher.types.path.return` | `Conformance` | lpg | `Failed` | 7.029 ms |
-| `grafeo.spec.lpg.cypher.types.date.from.string` | `Conformance` | lpg | `Passed` | 6.567 ms |
-| `grafeo.spec.lpg.cypher.types.time.from.string` | `Conformance` | lpg | `Passed` | 6.532 ms |
-| `grafeo.spec.lpg.cypher.types.datetime.from.string` | `Conformance` | lpg | `Passed` | 6.523 ms |
-| `grafeo.spec.lpg.cypher.types.duration.from.string` | `Conformance` | lpg | `Failed` | 6.455 ms |
-| `grafeo.spec.lpg.cypher.types.date.stored.as.property` | `Conformance` | lpg | `Passed` | 6.784 ms |
-| `grafeo.spec.lpg.cypher.types.integer.to.float.arithmetic` | `Conformance` | lpg | `Passed` | 6.457 ms |
-| `grafeo.spec.lpg.cypher.types.to.integer.truncation` | `Conformance` | lpg | `Passed` | 6.540 ms |
-| `grafeo.spec.lpg.cypher.types.to.float.from.integer` | `Conformance` | lpg | `Passed` | 6.506 ms |
-| `grafeo.spec.lpg.cypher.types.to.string.from.boolean` | `Conformance` | lpg | `Failed` | 6.752 ms |
-| `grafeo.spec.lpg.cypher.types.to.boolean.from.string.false` | `Conformance` | lpg | `Passed` | 6.712 ms |
-| `grafeo.spec.lpg.cypher.writing.clauses.create.node` | `Conformance` | lpg | `Passed` | 6.294 ms |
-| `grafeo.spec.lpg.cypher.writing.clauses.create.node.multi.label` | `Conformance` | lpg | `Passed` | 8.841 ms |
-| `grafeo.spec.lpg.cypher.writing.clauses.create.relationship` | `Conformance` | lpg | `Passed` | 8.321 ms |
-| `grafeo.spec.lpg.cypher.writing.clauses.create.relationship.with.properties` | `Conformance` | lpg | `Passed` | 8.279 ms |
-| `grafeo.spec.lpg.cypher.writing.clauses.create.path.pattern` | `Conformance` | lpg | `Passed` | 8.171 ms |
-| `grafeo.spec.lpg.cypher.writing.clauses.delete.node` | `Conformance` | lpg | `Passed` | 7.237 ms |
-| `grafeo.spec.lpg.cypher.writing.clauses.delete.multiple` | `Conformance` | lpg | `Passed` | 7.899 ms |
-| `grafeo.spec.lpg.cypher.writing.clauses.detach.delete` | `Conformance` | lpg | `Passed` | 8.045 ms |
-| `grafeo.spec.lpg.cypher.writing.clauses.detach.delete.with.return` | `Conformance` | lpg | `Passed` | 7.879 ms |
-| `grafeo.spec.lpg.cypher.writing.clauses.set.property` | `Conformance` | lpg | `Passed` | 7.188 ms |
-| `grafeo.spec.lpg.cypher.writing.clauses.set.multiple.properties` | `Conformance` | lpg | `Passed` | 7.882 ms |
-| `grafeo.spec.lpg.cypher.writing.clauses.set.replace.all` | `Conformance` | lpg | `Failed` | 0.119 ms |
-| `grafeo.spec.lpg.cypher.writing.clauses.set.merge.map` | `Conformance` | lpg | `Failed` | 0.050 ms |
+| `grafeo.spec.lpg.cypher.reading.clauses.call.subquery.with.outer.scope` | `Conformance` | lpg | `Failed` | 0.054 ms |
+| `grafeo.spec.lpg.cypher.regression.not.exists.with.type.filter` | `Conformance` | lpg | `Failed` | 10.756 ms |
+| `grafeo.spec.lpg.cypher.regression.sum.case.when` | `Conformance` | lpg | `Passed` | 14.838 ms |
+| `grafeo.spec.lpg.cypher.regression.any.labels.in.list.matches` | `Conformance` | lpg | `Passed` | 8.173 ms |
+| `grafeo.spec.lpg.cypher.regression.any.labels.in.list.no.match` | `Conformance` | lpg | `Passed` | 8.094 ms |
+| `grafeo.spec.lpg.cypher.regression.any.with.single.match` | `Conformance` | lpg | `Passed` | 7.890 ms |
+| `grafeo.spec.lpg.cypher.regression.reduce.with.case.max` | `Conformance` | lpg | `Failed` | 0.235 ms |
+| `grafeo.spec.lpg.cypher.regression.reduce.with.case.min` | `Conformance` | lpg | `Failed` | 0.219 ms |
+| `grafeo.spec.lpg.cypher.regression.reduce.with.case.conditional.sum` | `Conformance` | lpg | `Failed` | 0.215 ms |
+| `grafeo.spec.lpg.cypher.regression.outgoing.target.property.filter` | `Conformance` | lpg | `Passed` | 10.846 ms |
+| `grafeo.spec.lpg.cypher.regression.target.property.filter.count` | `Conformance` | lpg | `Passed` | 10.784 ms |
+| `grafeo.spec.lpg.cypher.regression.target.property.filter.no.match` | `Conformance` | lpg | `Passed` | 8.740 ms |
+| `grafeo.spec.lpg.cypher.regression.edge.property.filter` | `Conformance` | lpg | `Passed` | 11.410 ms |
+| `grafeo.spec.lpg.cypher.regression.optional.match.count.preserves.all.rows` | `Conformance` | lpg | `Passed` | 10.248 ms |
+| `grafeo.spec.lpg.cypher.regression.union.deduplicates` | `Conformance` | lpg | `Passed` | 6.540 ms |
+| `grafeo.spec.lpg.cypher.regression.union.all.preserves` | `Conformance` | lpg | `Passed` | 6.186 ms |
+| `grafeo.spec.lpg.cypher.regression.two.hop.equivalence` | `Conformance` | lpg | `Passed` | 11.286 ms |
+| `grafeo.spec.lpg.cypher.regression.merge.creates.new.after.delete` | `Conformance` | lpg | `Passed` | 8.630 ms |
+| `grafeo.spec.lpg.cypher.regression.replace.edge` | `Conformance` | lpg | `Passed` | 12.236 ms |
+| `grafeo.spec.lpg.cypher.regression.backward.arrow.forward` | `Conformance` | lpg | `Passed` | 8.977 ms |
+| `grafeo.spec.lpg.cypher.regression.backward.arrow.reverse` | `Conformance` | lpg | `Passed` | 8.901 ms |
+| `grafeo.spec.lpg.cypher.regression.backward.arrow.wrong.direction` | `Conformance` | lpg | `Passed` | 8.808 ms |
+| `grafeo.spec.lpg.cypher.regression.null.equals.null.is.unknown` | `Conformance` | lpg | `Passed` | 7.327 ms |
+| `grafeo.spec.lpg.cypher.regression.null.is.null.is.true` | `Conformance` | lpg | `Passed` | 7.230 ms |
+| `grafeo.spec.lpg.cypher.regression.bool.to.string` | `Conformance` | lpg | `Passed` | 7.833 ms |
+| `grafeo.spec.lpg.cypher.regression.int.to.string` | `Conformance` | lpg | `Passed` | 7.881 ms |
+| `grafeo.spec.lpg.cypher.regression.string.false.ne.bool.false` | `Conformance` | lpg | `Failed` | 8.061 ms |
+| `grafeo.spec.lpg.cypher.regression.neq.excludes.null` | `Conformance` | lpg | `Passed` | 8.426 ms |
+| `grafeo.spec.lpg.cypher.regression.skip.plus.limit` | `Conformance` | lpg | `Passed` | 12.997 ms |
+| `grafeo.spec.lpg.cypher.regression.distinct.values` | `Conformance` | lpg | `Passed` | 8.854 ms |
+| `grafeo.spec.lpg.cypher.regression.distinct.collapses.nulls` | `Conformance` | lpg | `Passed` | 9.018 ms |
+| `grafeo.spec.lpg.cypher.regression.order.by.property.matching.return.alias.with.edge` | `Conformance` | lpg | `Passed` | 12.456 ms |
+| `grafeo.spec.lpg.cypher.regression.order.by.desc.with.relationship.traversal` | `Conformance` | lpg | `Passed` | 12.446 ms |
+| `grafeo.spec.lpg.cypher.return.ordering.return.expression` | `Conformance` | lpg | `Passed` | 7.208 ms |
+| `grafeo.spec.lpg.cypher.return.ordering.return.alias` | `Conformance` | lpg | `Passed` | 6.915 ms |
+| `grafeo.spec.lpg.cypher.return.ordering.return.distinct` | `Conformance` | lpg | `Passed` | 7.957 ms |
+| `grafeo.spec.lpg.cypher.return.ordering.return.star` | `Conformance` | lpg | `Passed` | 6.758 ms |
+| `grafeo.spec.lpg.cypher.return.ordering.return.count.star` | `Conformance` | lpg | `Passed` | 7.397 ms |
+| `grafeo.spec.lpg.cypher.return.ordering.return.arithmetic` | `Conformance` | lpg | `Passed` | 7.112 ms |
+| `grafeo.spec.lpg.cypher.return.ordering.return.boolean.expression` | `Conformance` | lpg | `Passed` | 7.158 ms |
+| `grafeo.spec.lpg.cypher.return.ordering.order.by.asc` | `Conformance` | lpg | `Passed` | 7.909 ms |
+| `grafeo.spec.lpg.cypher.return.ordering.order.by.desc` | `Conformance` | lpg | `Passed` | 7.871 ms |
+| `grafeo.spec.lpg.cypher.return.ordering.order.by.multiple.keys` | `Conformance` | lpg | `Passed` | 9.020 ms |
+| `grafeo.spec.lpg.cypher.return.ordering.limit` | `Conformance` | lpg | `Passed` | 9.613 ms |
+| `grafeo.spec.lpg.cypher.return.ordering.skip` | `Conformance` | lpg | `Passed` | 10.170 ms |
+| `grafeo.spec.lpg.cypher.return.ordering.skip.and.limit` | `Conformance` | lpg | `Passed` | 10.132 ms |
+| `grafeo.spec.lpg.cypher.types.integer.decimal` | `Conformance` | lpg | `Passed` | 7.740 ms |
+| `grafeo.spec.lpg.cypher.types.integer.negative` | `Conformance` | lpg | `Passed` | 7.696 ms |
+| `grafeo.spec.lpg.cypher.types.integer.zero` | `Conformance` | lpg | `Passed` | 7.737 ms |
+| `grafeo.spec.lpg.cypher.types.integer.hex` | `Conformance` | lpg | `Passed` | 7.713 ms |
+| `grafeo.spec.lpg.cypher.types.integer.octal` | `Conformance` | lpg | `Passed` | 7.596 ms |
+| `grafeo.spec.lpg.cypher.types.float.decimal` | `Conformance` | lpg | `Passed` | 7.863 ms |
+| `grafeo.spec.lpg.cypher.types.float.scientific` | `Conformance` | lpg | `Passed` | 16.961 ms |
+| `grafeo.spec.lpg.cypher.types.float.negative` | `Conformance` | lpg | `Passed` | 10.249 ms |
+| `grafeo.spec.lpg.cypher.types.string.single.quoted` | `Conformance` | lpg | `Passed` | 7.930 ms |
+| `grafeo.spec.lpg.cypher.types.string.double.quoted` | `Conformance` | lpg | `Failed` | 0.052 ms |
+| `grafeo.spec.lpg.cypher.types.string.empty` | `Conformance` | lpg | `Passed` | 7.857 ms |
+| `grafeo.spec.lpg.cypher.types.boolean.true` | `Conformance` | lpg | `Passed` | 7.646 ms |
+| `grafeo.spec.lpg.cypher.types.boolean.false` | `Conformance` | lpg | `Passed` | 7.594 ms |
+| `grafeo.spec.lpg.cypher.types.null.literal` | `Conformance` | lpg | `Passed` | 7.661 ms |
+| `grafeo.spec.lpg.cypher.types.null.comparison.is.null` | `Conformance` | lpg | `Passed` | 7.722 ms |
+| `grafeo.spec.lpg.cypher.types.null.comparison.is.not.null` | `Conformance` | lpg | `Passed` | 7.688 ms |
+| `grafeo.spec.lpg.cypher.types.null.equality.returns.null` | `Conformance` | lpg | `Failed` | 7.739 ms |
+| `grafeo.spec.lpg.cypher.types.missing.property.is.null` | `Conformance` | lpg | `Passed` | 8.052 ms |
+| `grafeo.spec.lpg.cypher.types.list.of.integers` | `Conformance` | lpg | `Failed` | 7.902 ms |
+| `grafeo.spec.lpg.cypher.types.list.empty` | `Conformance` | lpg | `Passed` | 7.730 ms |
+| `grafeo.spec.lpg.cypher.types.list.nested` | `Conformance` | lpg | `Passed` | 7.930 ms |
+| `grafeo.spec.lpg.cypher.types.list.size` | `Conformance` | lpg | `Passed` | 8.006 ms |
+| `grafeo.spec.lpg.cypher.types.map.literal` | `Conformance` | lpg | `Passed` | 7.261 ms |
+| `grafeo.spec.lpg.cypher.types.map.key.count` | `Conformance` | lpg | `Passed` | 7.811 ms |
+| `grafeo.spec.lpg.cypher.types.node.return` | `Conformance` | lpg | `Passed` | 7.090 ms |
+| `grafeo.spec.lpg.cypher.types.relationship.return` | `Conformance` | lpg | `Passed` | 8.689 ms |
+| `grafeo.spec.lpg.cypher.types.path.return` | `Conformance` | lpg | `Failed` | 7.951 ms |
+| `grafeo.spec.lpg.cypher.types.date.from.string` | `Conformance` | lpg | `Passed` | 7.228 ms |
+| `grafeo.spec.lpg.cypher.types.time.from.string` | `Conformance` | lpg | `Passed` | 7.140 ms |
+| `grafeo.spec.lpg.cypher.types.datetime.from.string` | `Conformance` | lpg | `Passed` | 7.296 ms |
+| `grafeo.spec.lpg.cypher.types.duration.from.string` | `Conformance` | lpg | `Failed` | 7.224 ms |
+| `grafeo.spec.lpg.cypher.types.date.stored.as.property` | `Conformance` | lpg | `Passed` | 7.380 ms |
+| `grafeo.spec.lpg.cypher.types.integer.to.float.arithmetic` | `Conformance` | lpg | `Passed` | 7.123 ms |
+| `grafeo.spec.lpg.cypher.types.to.integer.truncation` | `Conformance` | lpg | `Passed` | 7.121 ms |
+| `grafeo.spec.lpg.cypher.types.to.float.from.integer` | `Conformance` | lpg | `Passed` | 7.178 ms |
+| `grafeo.spec.lpg.cypher.types.to.string.from.boolean` | `Conformance` | lpg | `Failed` | 7.345 ms |
+| `grafeo.spec.lpg.cypher.types.to.boolean.from.string.false` | `Conformance` | lpg | `Passed` | 7.343 ms |
+| `grafeo.spec.lpg.cypher.writing.clauses.create.node` | `Conformance` | lpg | `Passed` | 6.832 ms |
+| `grafeo.spec.lpg.cypher.writing.clauses.create.node.multi.label` | `Conformance` | lpg | `Passed` | 7.494 ms |
+| `grafeo.spec.lpg.cypher.writing.clauses.create.relationship` | `Conformance` | lpg | `Passed` | 8.829 ms |
+| `grafeo.spec.lpg.cypher.writing.clauses.create.relationship.with.properties` | `Conformance` | lpg | `Passed` | 9.480 ms |
+| `grafeo.spec.lpg.cypher.writing.clauses.create.path.pattern` | `Conformance` | lpg | `Passed` | 9.283 ms |
+| `grafeo.spec.lpg.cypher.writing.clauses.delete.node` | `Conformance` | lpg | `Passed` | 8.352 ms |
+| `grafeo.spec.lpg.cypher.writing.clauses.delete.multiple` | `Conformance` | lpg | `Passed` | 8.732 ms |
+| `grafeo.spec.lpg.cypher.writing.clauses.detach.delete` | `Conformance` | lpg | `Passed` | 8.896 ms |
+| `grafeo.spec.lpg.cypher.writing.clauses.detach.delete.with.return` | `Conformance` | lpg | `Passed` | 9.523 ms |
+| `grafeo.spec.lpg.cypher.writing.clauses.set.property` | `Conformance` | lpg | `Passed` | 8.620 ms |
+| `grafeo.spec.lpg.cypher.writing.clauses.set.multiple.properties` | `Conformance` | lpg | `Passed` | 8.495 ms |
+| `grafeo.spec.lpg.cypher.writing.clauses.set.replace.all` | `Conformance` | lpg | `Failed` | 0.120 ms |
+| `grafeo.spec.lpg.cypher.writing.clauses.set.merge.map` | `Conformance` | lpg | `Failed` | 0.055 ms |
 | `grafeo.spec.lpg.cypher.writing.clauses.set.label` | `Conformance` | lpg | `Failed` | 0.047 ms |
 | `grafeo.spec.lpg.cypher.writing.clauses.set.multiple.labels` | `Conformance` | lpg | `Failed` | 0.047 ms |
 | `grafeo.spec.lpg.cypher.writing.clauses.set.label.preserves.variable.binding` | `Conformance` | lpg | `Failed` | 0.046 ms |
 | `grafeo.spec.lpg.cypher.writing.clauses.count.star.after.set.label` | `Conformance` | lpg | `Failed` | 0.029 ms |
 | `grafeo.spec.lpg.cypher.writing.clauses.count.var.after.set.label` | `Conformance` | lpg | `Failed` | 0.028 ms |
-| `grafeo.spec.lpg.cypher.writing.clauses.remove.property` | `Conformance` | lpg | `Passed` | 7.204 ms |
-| `grafeo.spec.lpg.cypher.writing.clauses.remove.label` | `Conformance` | lpg | `Failed` | 0.099 ms |
+| `grafeo.spec.lpg.cypher.writing.clauses.remove.property` | `Conformance` | lpg | `Passed` | 7.934 ms |
+| `grafeo.spec.lpg.cypher.writing.clauses.remove.label` | `Conformance` | lpg | `Failed` | 0.098 ms |
 | `grafeo.spec.lpg.cypher.writing.clauses.remove.label.preserves.variable.binding` | `Conformance` | lpg | `Failed` | 0.048 ms |
-| `grafeo.spec.lpg.cypher.writing.clauses.match.create.edge.no.phantoms` | `Conformance` | lpg | `Passed` | 8.001 ms |
-| `grafeo.spec.lpg.cypher.writing.clauses.match.create.edge.correct.endpoints` | `Conformance` | lpg | `Passed` | 8.292 ms |
-| `grafeo.spec.lpg.cypher.writing.clauses.merge.create` | `Conformance` | lpg | `Passed` | 6.469 ms |
-| `grafeo.spec.lpg.cypher.writing.clauses.merge.match` | `Conformance` | lpg | `Passed` | 6.594 ms |
+| `grafeo.spec.lpg.cypher.writing.clauses.match.create.edge.no.phantoms` | `Conformance` | lpg | `Passed` | 8.728 ms |
+| `grafeo.spec.lpg.cypher.writing.clauses.match.create.edge.correct.endpoints` | `Conformance` | lpg | `Passed` | 9.340 ms |
+| `grafeo.spec.lpg.cypher.writing.clauses.merge.create` | `Conformance` | lpg | `Passed` | 7.049 ms |
+| `grafeo.spec.lpg.cypher.writing.clauses.merge.match` | `Conformance` | lpg | `Passed` | 7.131 ms |
 | `grafeo.spec.lpg.cypher.writing.clauses.merge.on.create.set` | `Conformance` | lpg | `Failed` | 0.051 ms |
-| `grafeo.spec.lpg.cypher.writing.clauses.merge.on.match.set` | `Conformance` | lpg | `Failed` | 0.109 ms |
-| `grafeo.spec.lpg.cypher.writing.clauses.merge.on.match.set.self.reference.increment` | `Conformance` | lpg | `Failed` | 0.050 ms |
+| `grafeo.spec.lpg.cypher.writing.clauses.merge.on.match.set` | `Conformance` | lpg | `Failed` | 0.110 ms |
+| `grafeo.spec.lpg.cypher.writing.clauses.merge.on.match.set.self.reference.increment` | `Conformance` | lpg | `Failed` | 0.048 ms |
 | `grafeo.spec.lpg.cypher.writing.clauses.merge.on.create.set.self.reference.coalesce` | `Conformance` | lpg | `Failed` | 0.048 ms |
-| `grafeo.spec.lpg.cypher.writing.clauses.merge.relationship` | `Conformance` | lpg | `Passed` | 8.464 ms |
-| `grafeo.spec.lpg.cypher.writing.clauses.merge.relationship.set` | `Conformance` | lpg | `Passed` | 9.591 ms |
-| `grafeo.spec.lpg.cypher.writing.clauses.foreach.create` | `Conformance` | lpg | `Passed` | 8.645 ms |
-| `grafeo.spec.regression.edge.cases.cyclic.vlp.same.source.and.target.variable.cypher-variant` | `Conformance` | regression | `Failed` | 5.432 ms |
-| `grafeo.spec.regression.edge.cases.cyclic.vlp.no.cycle.returns.empty.cypher-variant` | `Conformance` | regression | `Failed` | 5.341 ms |
-| `grafeo.spec.rosetta.aggregation.count.products.cypher-variant` | `Conformance` | rosetta | `Failed` | 19.886 ms |
+| `grafeo.spec.lpg.cypher.writing.clauses.merge.relationship` | `Conformance` | lpg | `Passed` | 9.623 ms |
+| `grafeo.spec.lpg.cypher.writing.clauses.merge.relationship.set` | `Conformance` | lpg | `Passed` | 10.684 ms |
+| `grafeo.spec.lpg.cypher.writing.clauses.foreach.create` | `Conformance` | lpg | `Passed` | 9.239 ms |
+| `grafeo.spec.regression.edge.cases.cyclic.vlp.same.source.and.target.variable.cypher-variant` | `Conformance` | regression | `Failed` | 6.006 ms |
+| `grafeo.spec.regression.edge.cases.cyclic.vlp.no.cycle.returns.empty.cypher-variant` | `Conformance` | regression | `Failed` | 5.892 ms |
+| `grafeo.spec.rosetta.aggregation.count.products.cypher-variant` | `Conformance` | rosetta | `Failed` | 22.439 ms |
 | `grafeo.spec.rosetta.aggregation.sum.order.totals.cypher.cypher-variant` | `Conformance` | rosetta | `Failed` | 0.027 ms |
-| `grafeo.spec.rosetta.aggregation.avg.product.price.cypher-variant` | `Conformance` | rosetta | `Failed` | 20.448 ms |
-| `grafeo.spec.rosetta.aggregation.min.max.price.cypher.cypher-variant` | `Conformance` | rosetta | `Failed` | 20.092 ms |
-| `grafeo.spec.rosetta.aggregation.count.by.status.cypher.cypher-variant` | `Conformance` | rosetta | `Failed` | 0.026 ms |
+| `grafeo.spec.rosetta.aggregation.avg.product.price.cypher-variant` | `Conformance` | rosetta | `Failed` | 22.476 ms |
+| `grafeo.spec.rosetta.aggregation.min.max.price.cypher.cypher-variant` | `Conformance` | rosetta | `Failed` | 22.573 ms |
+| `grafeo.spec.rosetta.aggregation.count.by.status.cypher.cypher-variant` | `Conformance` | rosetta | `Failed` | 0.025 ms |
 | `grafeo.spec.rosetta.aggregation.orders.per.customer.cypher.cypher-variant` | `Conformance` | rosetta | `Failed` | 0.042 ms |
-| `grafeo.spec.rosetta.aggregation.total.spend.per.customer.cypher.cypher-variant` | `Conformance` | rosetta | `Failed` | 0.042 ms |
+| `grafeo.spec.rosetta.aggregation.total.spend.per.customer.cypher.cypher-variant` | `Conformance` | rosetta | `Failed` | 0.043 ms |
 | `grafeo.spec.rosetta.aggregation.customers.with.multiple.orders.cypher.cypher-variant` | `Conformance` | rosetta | `Failed` | 0.041 ms |
-| `grafeo.spec.rosetta.aggregation.avg.review.rating.cypher-variant` | `Conformance` | rosetta | `Failed` | 19.961 ms |
-| `grafeo.spec.rosetta.basic.queries.count.all.nodes.cypher-variant` | `Conformance` | rosetta | `Passed` | 12.609 ms |
-| `grafeo.spec.rosetta.basic.queries.match.by.label.cypher-variant` | `Conformance` | rosetta | `Passed` | 12.989 ms |
-| `grafeo.spec.rosetta.basic.queries.filter.by.age.cypher-variant` | `Conformance` | rosetta | `Passed` | 13.122 ms |
-| `grafeo.spec.rosetta.basic.queries.edge.traversal.cypher-variant` | `Conformance` | rosetta | `Failed` | 13.294 ms |
-| `grafeo.spec.rosetta.basic.queries.two.hop.path.cypher-variant` | `Conformance` | rosetta | `Passed` | 13.589 ms |
-| `grafeo.spec.rosetta.basic.queries.aggregation.group.by.cypher-variant` | `Conformance` | rosetta | `Failed` | 13.283 ms |
-| `grafeo.spec.rosetta.crud.operations.create.node.and.count.cypher-variant` | `Conformance` | rosetta | `Failed` | 5.383 ms |
-| `grafeo.spec.rosetta.crud.operations.create.node.read.properties.cypher-variant` | `Conformance` | rosetta | `Failed` | 5.385 ms |
-| `grafeo.spec.rosetta.crud.operations.create.edge.and.traverse.cypher-variant` | `Conformance` | rosetta | `Failed` | 5.340 ms |
-| `grafeo.spec.rosetta.crud.operations.match.count.multiple.nodes.cypher-variant` | `Conformance` | rosetta | `Failed` | 5.202 ms |
-| `grafeo.spec.rosetta.crud.operations.set.property.and.read.cypher-variant` | `Conformance` | rosetta | `Failed` | 5.263 ms |
-| `grafeo.spec.rosetta.crud.operations.delete.node.and.count.cypher-variant` | `Conformance` | rosetta | `Failed` | 5.314 ms |
-| `grafeo.spec.rosetta.crud.operations.aggregate.sum.cypher-variant` | `Conformance` | rosetta | `Failed` | 5.333 ms |
-| `grafeo.spec.rosetta.crud.operations.aggregate.count.cypher-variant` | `Conformance` | rosetta | `Failed` | 5.336 ms |
-| `grafeo.spec.rosetta.crud.operations.aggregate.avg.cypher-variant` | `Conformance` | rosetta | `Failed` | 5.274 ms |
-| `grafeo.spec.rosetta.data.fidelity.gql.insert.cypher.read.name.cypher-variant` | `Conformance` | rosetta | `Failed` | 5.354 ms |
-| `grafeo.spec.rosetta.data.fidelity.gql.insert.cypher.read.count.cypher-variant` | `Conformance` | rosetta | `Failed` | 5.352 ms |
-| `grafeo.spec.rosetta.data.fidelity.gql.insert.cypher.read.edge.cypher-variant` | `Conformance` | rosetta | `Failed` | 5.184 ms |
-| `grafeo.spec.rosetta.data.fidelity.int.property.preserved.in.cypher.cypher-variant` | `Conformance` | rosetta | `Failed` | 5.224 ms |
-| `grafeo.spec.rosetta.data.fidelity.bool.property.preserved.in.cypher.cypher-variant` | `Conformance` | rosetta | `Failed` | 5.565 ms |
-| `grafeo.spec.rosetta.data.fidelity.string.property.preserved.in.cypher.cypher-variant` | `Conformance` | rosetta | `Failed` | 5.354 ms |
-| `grafeo.spec.rosetta.data.fidelity.missing.property.null.in.cypher.cypher-variant` | `Conformance` | rosetta | `Failed` | 5.281 ms |
-| `grafeo.spec.rosetta.data.fidelity.multi.label.visible.in.cypher.cypher-variant` | `Conformance` | rosetta | `Failed` | 5.345 ms |
-| `grafeo.spec.rosetta.data.fidelity.edge.type.in.cypher.cypher-variant` | `Conformance` | rosetta | `Failed` | 5.276 ms |
-| `grafeo.spec.rosetta.data.fidelity.gql.insert.all.read.count.cypher-variant` | `Conformance` | rosetta | `Failed` | 5.211 ms |
-| `grafeo.spec.rosetta.pattern.matching.count.actors.cypher-variant` | `Conformance` | rosetta | `Passed` | 54.674 ms |
-| `grafeo.spec.rosetta.pattern.matching.find.actor.by.name.cypher-variant` | `Conformance` | rosetta | `Passed` | 68.301 ms |
-| `grafeo.spec.rosetta.pattern.matching.actors.in.heist.cypher-variant` | `Conformance` | rosetta | `Passed` | 54.607 ms |
-| `grafeo.spec.rosetta.pattern.matching.genres.of.vincent.cypher-variant` | `Conformance` | rosetta | `Passed` | 55.009 ms |
-| `grafeo.spec.rosetta.pattern.matching.movies.per.director.cypher.cypher-variant` | `Conformance` | rosetta | `Passed` | 54.443 ms |
-| `grafeo.spec.rosetta.pattern.matching.actor.roles.in.movie.cypher-variant` | `Conformance` | rosetta | `Passed` | 54.803 ms |
-| `grafeo.spec.rosetta.pattern.matching.high.rated.movies.cypher-variant` | `Conformance` | rosetta | `Passed` | 61.415 ms |
+| `grafeo.spec.rosetta.aggregation.avg.review.rating.cypher-variant` | `Conformance` | rosetta | `Failed` | 32.598 ms |
+| `grafeo.spec.rosetta.basic.queries.count.all.nodes.cypher-variant` | `Conformance` | rosetta | `Passed` | 18.120 ms |
+| `grafeo.spec.rosetta.basic.queries.match.by.label.cypher-variant` | `Conformance` | rosetta | `Passed` | 14.306 ms |
+| `grafeo.spec.rosetta.basic.queries.filter.by.age.cypher-variant` | `Conformance` | rosetta | `Passed` | 14.613 ms |
+| `grafeo.spec.rosetta.basic.queries.edge.traversal.cypher-variant` | `Conformance` | rosetta | `Passed` | 15.046 ms |
+| `grafeo.spec.rosetta.basic.queries.two.hop.path.cypher-variant` | `Conformance` | rosetta | `Passed` | 15.430 ms |
+| `grafeo.spec.rosetta.basic.queries.aggregation.group.by.cypher-variant` | `Conformance` | rosetta | `Passed` | 14.918 ms |
+| `grafeo.spec.rosetta.crud.operations.create.node.and.count.cypher-variant` | `Conformance` | rosetta | `Failed` | 5.989 ms |
+| `grafeo.spec.rosetta.crud.operations.create.node.read.properties.cypher-variant` | `Conformance` | rosetta | `Failed` | 6.014 ms |
+| `grafeo.spec.rosetta.crud.operations.create.edge.and.traverse.cypher-variant` | `Conformance` | rosetta | `Failed` | 6.055 ms |
+| `grafeo.spec.rosetta.crud.operations.match.count.multiple.nodes.cypher-variant` | `Conformance` | rosetta | `Failed` | 5.779 ms |
+| `grafeo.spec.rosetta.crud.operations.set.property.and.read.cypher-variant` | `Conformance` | rosetta | `Failed` | 5.814 ms |
+| `grafeo.spec.rosetta.crud.operations.delete.node.and.count.cypher-variant` | `Conformance` | rosetta | `Failed` | 5.848 ms |
+| `grafeo.spec.rosetta.crud.operations.aggregate.sum.cypher-variant` | `Conformance` | rosetta | `Failed` | 5.935 ms |
+| `grafeo.spec.rosetta.crud.operations.aggregate.count.cypher-variant` | `Conformance` | rosetta | `Failed` | 5.964 ms |
+| `grafeo.spec.rosetta.crud.operations.aggregate.avg.cypher-variant` | `Conformance` | rosetta | `Failed` | 5.866 ms |
+| `grafeo.spec.rosetta.data.fidelity.gql.insert.cypher.read.name.cypher-variant` | `Conformance` | rosetta | `Failed` | 5.948 ms |
+| `grafeo.spec.rosetta.data.fidelity.gql.insert.cypher.read.count.cypher-variant` | `Conformance` | rosetta | `Failed` | 5.930 ms |
+| `grafeo.spec.rosetta.data.fidelity.gql.insert.cypher.read.edge.cypher-variant` | `Conformance` | rosetta | `Failed` | 5.780 ms |
+| `grafeo.spec.rosetta.data.fidelity.int.property.preserved.in.cypher.cypher-variant` | `Conformance` | rosetta | `Failed` | 5.831 ms |
+| `grafeo.spec.rosetta.data.fidelity.bool.property.preserved.in.cypher.cypher-variant` | `Conformance` | rosetta | `Failed` | 5.826 ms |
+| `grafeo.spec.rosetta.data.fidelity.string.property.preserved.in.cypher.cypher-variant` | `Conformance` | rosetta | `Failed` | 5.986 ms |
+| `grafeo.spec.rosetta.data.fidelity.missing.property.null.in.cypher.cypher-variant` | `Conformance` | rosetta | `Failed` | 5.924 ms |
+| `grafeo.spec.rosetta.data.fidelity.multi.label.visible.in.cypher.cypher-variant` | `Conformance` | rosetta | `Failed` | 5.852 ms |
+| `grafeo.spec.rosetta.data.fidelity.edge.type.in.cypher.cypher-variant` | `Conformance` | rosetta | `Failed` | 5.889 ms |
+| `grafeo.spec.rosetta.data.fidelity.gql.insert.all.read.count.cypher-variant` | `Conformance` | rosetta | `Failed` | 5.799 ms |
+| `grafeo.spec.rosetta.pattern.matching.count.actors.cypher-variant` | `Conformance` | rosetta | `Passed` | 63.879 ms |
+| `grafeo.spec.rosetta.pattern.matching.find.actor.by.name.cypher-variant` | `Conformance` | rosetta | `Passed` | 70.421 ms |
+| `grafeo.spec.rosetta.pattern.matching.actors.in.heist.cypher-variant` | `Conformance` | rosetta | `Passed` | 63.679 ms |
+| `grafeo.spec.rosetta.pattern.matching.genres.of.vincent.cypher-variant` | `Conformance` | rosetta | `Passed` | 65.815 ms |
+| `grafeo.spec.rosetta.pattern.matching.movies.per.director.cypher.cypher-variant` | `Conformance` | rosetta | `Passed` | 74.871 ms |
+| `grafeo.spec.rosetta.pattern.matching.actor.roles.in.movie.cypher-variant` | `Conformance` | rosetta | `Passed` | 64.765 ms |
+| `grafeo.spec.rosetta.pattern.matching.high.rated.movies.cypher-variant` | `Conformance` | rosetta | `Passed` | 63.743 ms |
 
 ## Latest `performance-deep` run
 
@@ -2392,8 +2398,8 @@ Generated from `graph/test-results/history.jsonl`. Results are grouped by stable
 
 ## Latest `sparrowdb-deep` run
 
-- Run: `20260719T120334.258645Z-092f9c22ac20-corpus-deep`
-- Commit: `092f9c22ac2065c0a0ab343876748d9c7d511b31` (dirty)
+- Run: `20260719T121409.700004Z-439fd7a614b9-corpus-deep`
+- Commit: `439fd7a614b97d2bfedd9b44c5a738aae190eaf5` (dirty)
 - Package: `0.7.0`
 - Environment: `macos/aarch64` (`dev`)
 - Records: 2253
@@ -2401,7 +2407,7 @@ Generated from `graph/test-results/history.jsonl`. Results are grouped by stable
 - Unsupported: 0
 - Failed or changed: 218
 
-### Outcome changes from `20260719T115631.776885Z-092f9c22ac20-corpus-deep`
+### Outcome changes from `20260719T120334.258645Z-092f9c22ac20-corpus-deep`
 
 - No outcome changes.
 
@@ -2828,42 +2834,49 @@ Generated from `graph/test-results/history.jsonl`. Results are grouped by stable
 
 ## Latest `tck-deep` run
 
-- Run: `20260719T120334.258645Z-092f9c22ac20-corpus-deep`
-- Commit: `092f9c22ac2065c0a0ab343876748d9c7d511b31` (dirty)
+- Run: `20260719T121409.700004Z-439fd7a614b9-corpus-deep`
+- Commit: `439fd7a614b97d2bfedd9b44c5a738aae190eaf5` (dirty)
 - Package: `0.7.0`
 - Environment: `macos/aarch64` (`dev`)
 - Records: 3926
-- Passed: 1741
+- Passed: 1764
 - Unsupported: 0
-- Failed or changed: 2185
+- Failed or changed: 2162
 
-### Outcome changes from `20260719T115631.776885Z-092f9c22ac20-corpus-deep`
+### Outcome changes from `20260719T120334.258645Z-092f9c22ac20-corpus-deep`
 
-- `tck.clauses.create.create1.scenario-4`: Passed
-- `tck.clauses.create.create1.scenario-6`: Passed
-- `tck.clauses.create.create4.scenario-2`: Passed
-- `tck.clauses.create.create6.scenario-3`: Passed
-- `tck.clauses.create.create6.scenario-4`: Passed
-- `tck.clauses.create.create6.scenario-5`: Passed
-- `tck.clauses.create.create6.scenario-6`: Passed
-- `tck.clauses.create.create6.scenario-7`: Passed
-- `tck.clauses.delete.delete6.scenario-3`: Passed
-- `tck.clauses.delete.delete6.scenario-4`: Passed
-- `tck.clauses.delete.delete6.scenario-5`: Passed
-- `tck.clauses.delete.delete6.scenario-6`: Passed
-- `tck.clauses.delete.delete6.scenario-7`: Passed
-- `tck.clauses.merge.merge1.scenario-5`: Passed
-- `tck.clauses.merge.merge1.scenario-11`: Passed
-- `tck.clauses.merge.merge9.scenario-2`: Passed
+- `tck.clauses.match.match3.scenario-17`: Passed
+- `tck.clauses.match.match3.scenario-18`: Passed
+- `tck.clauses.match.match5.scenario-1`: Passed
+- `tck.clauses.match.match5.scenario-2`: Passed
+- `tck.clauses.match.match5.scenario-4`: Passed
+- `tck.clauses.match.match5.scenario-5`: Passed
+- `tck.clauses.match.match5.scenario-6`: Passed
+- `tck.clauses.match.match5.scenario-7`: Passed
+- `tck.clauses.match.match5.scenario-9`: Passed
+- `tck.clauses.match.match5.scenario-10`: Passed
+- `tck.clauses.match.match5.scenario-14`: Passed
+- `tck.clauses.match.match5.scenario-15`: Passed
+- `tck.clauses.match.match5.scenario-16`: Passed
+- `tck.clauses.match.match5.scenario-17`: Passed
+- `tck.clauses.match.match5.scenario-18`: Passed
+- `tck.clauses.match.match5.scenario-21`: Passed
+- `tck.clauses.match.match5.scenario-22`: Passed
+- `tck.clauses.match.match5.scenario-23`: Passed
+- `tck.clauses.match.match5.scenario-24`: Passed
+- `tck.clauses.match.match7.scenario-29`: Passed
+- `tck.clauses.match.match7.scenario-30`: Passed
+- `tck.clauses.match.match7.scenario-31`: Passed
+- `tck.expressions.existentialsubqueries.existentialsubquery1.scenario-3`: Passed
 
 ### Results by source area
 
 | Area | Outcome | Count |
 |---|---|---:|
-| clauses | `failed` | 642 |
-| clauses | `passed` | 609 |
-| expressions | `failed` | 1522 |
-| expressions | `passed` | 1123 |
+| clauses | `failed` | 620 |
+| clauses | `passed` | 631 |
+| expressions | `failed` | 1521 |
+| expressions | `passed` | 1124 |
 | useCases | `failed` | 21 |
 | useCases | `passed` | 9 |
 
@@ -2871,8 +2884,8 @@ Generated from `graph/test-results/history.jsonl`. Results are grouped by stable
 
 | Boundary | Outcome | Count |
 |---|---|---:|
-| `execution` | `failed` | 1637 |
-| `execution` | `passed` | 1685 |
+| `execution` | `failed` | 1614 |
+| `execution` | `passed` | 1708 |
 | `fixture-execution` | `failed` | 19 |
 | `parameter-binding` | `failed` | 20 |
 | `parser` | `failed` | 156 |
@@ -2881,7 +2894,7 @@ Generated from `graph/test-results/history.jsonl`. Results are grouped by stable
 | `setup-execution` | `failed` | 61 |
 | `side-effect-comparison` | `failed` | 32 |
 
-### Failures (2185)
+### Failures (2162)
 
 - `tck.clauses.call.call1.scenario-1`: expected clause at byte 0..0
 - `tck.clauses.call.call1.scenario-2`: expected clause at byte 0..0
@@ -2984,7 +2997,7 @@ RETURN type(r) AS r
 MATCH ()-[r]->()
 RETURN type(r) AS r
 - `tck.clauses.match.match2.scenario-5`: result expectation is not representable by the scalar adapter
-- `tck.clauses.match.match2.scenario-6`: expected [["[:HATES]"], ["[:KNOWS]"]], observed [["1"], ["2"], ["3"]]
+- `tck.clauses.match.match2.scenario-6`: expected [["[:HATES]"], ["[:KNOWS]"]], observed [["1"], ["2"]]
 - `tck.clauses.match.match2.scenario-7`: query execution failed: Parse error: duplicate variable `r` at byte 45..46; mutation execution failed: Cypher mutation binding failed: duplicate variable `r` at byte 45..46; query:
 MATCH (a1)-[r:T]->()
 WITH r, a1
@@ -3005,8 +3018,6 @@ RETURN a1, r, b2
 - `tck.clauses.match.match3.scenario-14`: result expectation is not representable by the scalar adapter
 - `tck.clauses.match.match3.scenario-15`: result expectation is not representable by the scalar adapter
 - `tck.clauses.match.match3.scenario-16`: result expectation is not representable by the scalar adapter
-- `tck.clauses.match.match3.scenario-17`: expected [["a"]], observed [["a"], ["b"]]
-- `tck.clauses.match.match3.scenario-18`: expected [["a"]], observed [["a"], ["b"]]
 - `tck.clauses.match.match3.scenario-19`: expected EOI, WHERE, UNION, clause, or relationship_pattern at byte 54..54
 - `tck.clauses.match.match3.scenario-20`: result expectation is not representable by the scalar adapter
 - `tck.clauses.match.match3.scenario-21`: result expectation is not representable by the scalar adapter
@@ -3065,14 +3076,6 @@ WITH [r1, r2] AS rs
   LIMIT 1
 MATCH (first)-[rs*]->(second)
 RETURN first, second
-- `tck.clauses.match.match5.scenario-1`: expected [["n00"], ["n000"], ["n0000"], ["n0001"], ["n001"], ["n0010"], ["n0011"], ["n01"], ["n010"], ["n0100"], ["n0101"], ["n011"], ["n0110"], ["n0111"]], observed []
-- `tck.clauses.match.match5.scenario-2`: expected [["n00"], ["n000"], ["n0000"], ["n0001"], ["n001"], ["n0010"], ["n0011"], ["n01"], ["n010"], ["n0100"], ["n0101"], ["n011"], ["n0110"], ["n0111"]], observed []
-- `tck.clauses.match.match5.scenario-4`: expected [["n00"], ["n01"]], observed []
-- `tck.clauses.match.match5.scenario-5`: expected [["n000"], ["n001"], ["n010"], ["n011"]], observed []
-- `tck.clauses.match.match5.scenario-6`: expected [["n0"], ["n00"], ["n000"], ["n001"], ["n01"], ["n010"], ["n011"]], observed [["n0"]]
-- `tck.clauses.match.match5.scenario-7`: expected [["n00"], ["n000"], ["n001"], ["n01"], ["n010"], ["n011"]], observed []
-- `tck.clauses.match.match5.scenario-9`: expected [["n00"], ["n01"]], observed []
-- `tck.clauses.match.match5.scenario-10`: expected [["n000"], ["n001"], ["n010"], ["n011"]], observed []
 - `tck.clauses.match.match5.scenario-11`: query execution failed: Parse error: invalid relationship range 2..1 at byte 30..35; mutation execution failed: Cypher mutation binding failed: invalid relationship range 2..1 at byte 30..35; query:
 MATCH (a:A)
 MATCH (a)-[:LIKES*2..1]->(c)
@@ -3085,20 +3088,11 @@ RETURN c.name
 MATCH (a:A)
 MATCH (a)-[:LIKES*..0]->(c)
 RETURN c.name
-- `tck.clauses.match.match5.scenario-14`: expected [["n00"], ["n01"]], observed []
-- `tck.clauses.match.match5.scenario-15`: expected [["n00"], ["n000"], ["n001"], ["n01"], ["n010"], ["n011"]], observed []
-- `tck.clauses.match.match5.scenario-16`: expected [["n0"], ["n00"], ["n000"], ["n0000"], ["n0001"], ["n001"], ["n0010"], ["n0011"], ["n01"], ["n010"], ["n0100"], ["n0101"], ["n011"], ["n0110"], ["n0111"]], observed [["n0"]]
-- `tck.clauses.match.match5.scenario-17`: expected [["n00"], ["n000"], ["n0000"], ["n0001"], ["n001"], ["n0010"], ["n0011"], ["n01"], ["n010"], ["n0100"], ["n0101"], ["n011"], ["n0110"], ["n0111"]], observed []
-- `tck.clauses.match.match5.scenario-18`: expected [["n000"], ["n0000"], ["n0001"], ["n001"], ["n0010"], ["n0011"], ["n010"], ["n0100"], ["n0101"], ["n011"], ["n0110"], ["n0111"]], observed []
-- `tck.clauses.match.match5.scenario-21`: expected [["n000"], ["n001"], ["n010"], ["n011"]], observed []
-- `tck.clauses.match.match5.scenario-22`: expected [["n000"], ["n001"], ["n010"], ["n011"]], observed []
-- `tck.clauses.match.match5.scenario-23`: expected [["n0000"], ["n0001"], ["n0010"], ["n0011"], ["n0100"], ["n0101"], ["n0110"], ["n0111"]], observed []
-- `tck.clauses.match.match5.scenario-24`: expected [["n0000"], ["n0001"], ["n0010"], ["n0011"], ["n0100"], ["n0101"], ["n0110"], ["n0111"]], observed []
-- `tck.clauses.match.match5.scenario-25`: expected [["n00000"], ["n00001"], ["n00010"], ["n00011"], ["n00100"], ["n00101"], ["n00110"], ["n00111"], ["n01000"], ["n01001"], ["n01010"], ["n01011"], ["n01100"], ["n01101"], ["n01110"], ["n01111"]], observed []
+- `tck.clauses.match.match5.scenario-25`: expected [["n00000"], ["n00001"], ["n00010"], ["n00011"], ["n00100"], ["n00101"], ["n00110"], ["n00111"], ["n01000"], ["n01001"], ["n01010"], ["n01011"], ["n01100"], ["n01101"], ["n01110"], ["n01111"]], observed [["0"], ["0"], ["0"], ["0"], ["0"], ["0"], ["0"], ["0"], ["1"], ["1"], ["1"], ["1"], ["1"], ["1"], ["1"], ["1"]]
 - `tck.clauses.match.match5.scenario-26`: expected EOI, WHERE, UNION, clause, or relationship_pattern at byte 21..21
 - `tck.clauses.match.match5.scenario-27`: expected EOI, WHERE, UNION, clause, or relationship_pattern at byte 34..34
-- `tck.clauses.match.match5.scenario-28`: expected [["n00000"], ["n00001"], ["n00010"], ["n00011"], ["n00100"], ["n00101"], ["n00110"], ["n00111"], ["n01000"], ["n01001"], ["n01010"], ["n01011"], ["n01100"], ["n01101"], ["n01110"], ["n01111"]], observed []
-- `tck.clauses.match.match5.scenario-29`: expected [["n00000"], ["n00001"], ["n00010"], ["n00011"], ["n00100"], ["n00101"], ["n00110"], ["n00111"], ["n01000"], ["n01001"], ["n01010"], ["n01011"], ["n01100"], ["n01101"], ["n01110"], ["n01111"]], observed []
+- `tck.clauses.match.match5.scenario-28`: expected [["n00000"], ["n00001"], ["n00010"], ["n00011"], ["n00100"], ["n00101"], ["n00110"], ["n00111"], ["n01000"], ["n01001"], ["n01010"], ["n01011"], ["n01100"], ["n01101"], ["n01110"], ["n01111"]], observed [["0"], ["0"], ["0"], ["0"], ["0"], ["0"], ["0"], ["0"], ["1"], ["1"], ["1"], ["1"], ["1"], ["1"], ["1"], ["1"]]
+- `tck.clauses.match.match5.scenario-29`: expected [["n00000"], ["n00001"], ["n00010"], ["n00011"], ["n00100"], ["n00101"], ["n00110"], ["n00111"], ["n01000"], ["n01001"], ["n01010"], ["n01011"], ["n01100"], ["n01101"], ["n01110"], ["n01111"]], observed [["0"], ["0"], ["0"], ["0"], ["0"], ["0"], ["0"], ["0"], ["1"], ["1"], ["1"], ["1"], ["1"], ["1"], ["1"], ["1"]]
 - `tck.clauses.match.match6.scenario-1`: query execution failed: Parse error: no such column: b1; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 15..24; query:
 MATCH p = (a)
 RETURN p
@@ -3235,9 +3229,6 @@ RETURN d
 - `tck.clauses.match.match7.scenario-26`: result expectation is not representable by the scalar adapter
 - `tck.clauses.match.match7.scenario-27`: result expectation is not representable by the scalar adapter
 - `tck.clauses.match.match7.scenario-28`: expected [["<null>"]], observed [["1"], ["2"]]
-- `tck.clauses.match.match7.scenario-29`: expected [["1", "false"]], observed [["4", "false"]]
-- `tck.clauses.match.match7.scenario-30`: expected [["1", "true"]], observed [["1", "false"]]
-- `tck.clauses.match.match7.scenario-31`: expected [["1", "true"]], observed [["2", "false"], ["2", "true"]]
 - `tck.clauses.match.match8.scenario-1`: result expectation is not representable by the scalar adapter
 - `tck.clauses.match.match8.scenario-2`: query execution failed: Parse error: mutation clauses in read queries is not supported in the initial graph slice at byte 11..21; mutation execution failed: Cypher mutation binding failed: MATCH after a mutation clause is not supported in the initial graph slice at byte 28..52; query:
 MATCH (a)
@@ -4627,7 +4618,6 @@ RETURN lhs, rhs
 - `tck.expressions.conditional.conditional2.scenario-1.examples-1-row-11`: expected [["something else"]], observed [["one"]]
 - `tck.expressions.existentialsubqueries.existentialsubquery1.scenario-1`: result expectation is not representable by the scalar adapter
 - `tck.expressions.existentialsubqueries.existentialsubquery1.scenario-2`: result expectation is not representable by the scalar adapter
-- `tck.expressions.existentialsubqueries.existentialsubquery1.scenario-3`: expected [], observed [["1"]]
 - `tck.expressions.existentialsubqueries.existentialsubquery1.scenario-4`: query execution failed: Parse error: no such function: type; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 63..72; query:
 MATCH (n) WHERE exists {
   (n)-[r]->() WHERE type(r) = 'NA'
@@ -8387,6 +8377,6 @@ CREATE (b1)-[:FRIEND]->(b2),
 
 ## Longitudinal inventory
 
-- Runs: 214
-- Result records: 436529
+- Runs: 219
+- Result records: 446921
 - Unique test identities: 10441

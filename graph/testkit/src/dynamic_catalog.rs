@@ -91,12 +91,37 @@ impl GraphCatalogSnapshot for DynamicCatalog {
         if let Some(relationship_type) = self.inner.relationship_type(graph, name) {
             return Some(relationship_type);
         }
-        let mut state = self.state.lock().expect("catalog state lock");
-        if let Some(relationship_type) = state.relationship_types.get(name) {
-            return Some(*relationship_type);
+        {
+            let state = self.state.lock().expect("catalog state lock");
+            if let Some(relationship_type) = state.relationship_types.get(name) {
+                return Some(*relationship_type);
+            }
         }
-        let relationship_type = ir::RelationshipTypeId::new(Self::next_id(&mut state)).ok()?;
-        state
+        // Allocate through the persistent registry so the traversal
+        // snapshot resolves the same identity from storage.
+        let registry = turso_graph_frontend::relationship_type_registry_table_name(graph);
+        let escaped = name.replace('\'', "''");
+        self.connection
+            .execute(format!(
+                "INSERT INTO \"{registry}\"(name) SELECT '{escaped}' \
+                 WHERE NOT EXISTS (SELECT 1 FROM \"{registry}\" WHERE name = '{escaped}')"
+            ))
+            .ok()?;
+        let rows = self
+            .connection
+            .prepare(format!(
+                "SELECT id FROM \"{registry}\" WHERE name = '{escaped}'"
+            ))
+            .and_then(|mut statement| statement.run_collect_rows())
+            .ok()?;
+        let id = match rows.first().and_then(|row| row.first()) {
+            Some(turso_core::Value::Numeric(turso_core::Numeric::Integer(id))) => *id,
+            _ => return None,
+        };
+        let relationship_type = ir::RelationshipTypeId::new(u32::try_from(id).ok()?).ok()?;
+        self.state
+            .lock()
+            .expect("catalog state lock")
             .relationship_types
             .insert(name.to_owned(), relationship_type);
         Some(relationship_type)
@@ -146,6 +171,23 @@ impl GraphCatalogSnapshot for DynamicCatalog {
 impl RelationalCatalogSnapshot for DynamicCatalog {
     fn labels_table(&self) -> Option<String> {
         self.inner.labels_table()
+    }
+
+    fn relationship_types_table(&self) -> Option<String> {
+        self.inner.relationship_types_table()
+    }
+
+    fn relationship_type_name(&self, relationship_type: ir::RelationshipTypeId) -> Option<String> {
+        if let Some(name) = self.inner.relationship_type_name(relationship_type) {
+            return Some(name);
+        }
+        self.state
+            .lock()
+            .expect("catalog state lock")
+            .relationship_types
+            .iter()
+            .find(|(_, id)| **id == relationship_type)
+            .map(|(name, _)| name.clone())
     }
 
     fn label_name(&self, label: ir::LabelId) -> Option<String> {

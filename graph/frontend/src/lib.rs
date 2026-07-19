@@ -22,7 +22,8 @@ pub use binder::{
     ParameterTypes, ResolvedProperty,
 };
 pub use catalog::{
-    graph_generation, labels_table_name, load_registered_graph, register_graph, CatalogError,
+    graph_generation, labels_table_name, load_registered_graph, register_graph,
+    relationship_type_registry_table_name, relationship_types_table_name, CatalogError,
     GraphRegistration, NodeSourceRegistration, RegisteredGraph, RegisteredNodeSource,
     RegisteredRelationshipSource, RelationshipSourceRegistration, GRAPH_CATALOG_VERSION,
 };
