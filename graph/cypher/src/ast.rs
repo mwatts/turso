@@ -27,6 +27,14 @@ impl<T> Spanned<T> {
 #[derive(Clone, Debug, PartialEq)]
 pub struct Query {
     pub clauses: Vec<Spanned<Clause>>,
+    pub unions: Vec<UnionBranch>,
+    pub span: Span,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct UnionBranch {
+    pub all: bool,
+    pub clauses: Vec<Spanned<Clause>>,
     pub span: Span,
 }
 
@@ -233,6 +241,14 @@ pub enum Expression {
         variable: Spanned<String>,
         list: Box<Spanned<Expression>>,
         predicate: Box<Spanned<Expression>>,
+    },
+    PatternSubquery {
+        count: bool,
+        paths: Vec<PathPattern>,
+        predicate: Option<Box<Spanned<Expression>>>,
+    },
+    PatternPredicate {
+        path: Box<PathPattern>,
     },
     Index {
         base: Box<Spanned<Expression>>,

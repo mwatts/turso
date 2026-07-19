@@ -172,7 +172,54 @@ impl<'a> Binder<'a> {
     }
 
     fn bind_query(mut self, query: &cypher::Query) -> Result<BoundQuery, BindError> {
-        for clause in &query.clauses {
+        let graph = self.graph;
+        let catalog = self.catalog;
+        let parameters = self.parameters;
+        if query
+            .unions
+            .windows(2)
+            .any(|pair| pair[0].all != pair[1].all)
+        {
+            return Err(at_unsupported(
+                query.span,
+                "mixing UNION and UNION ALL in one query",
+            ));
+        }
+        self.bind_read_clauses(&query.clauses, query)?;
+        let mut plan = self.plan.ok_or(BindError::EmptyQuery)?;
+        for branch in &query.unions {
+            let mut branch_binder = Binder::new(graph, catalog, parameters);
+            branch_binder.bind_read_clauses(&branch.clauses, query)?;
+            let branch_plan = branch_binder.plan.ok_or(BindError::EmptyQuery)?;
+            let names = |plan: &ir::Plan| {
+                plan.result_shape()
+                    .iter()
+                    .map(|column| column.name().to_owned())
+                    .collect::<Vec<_>>()
+            };
+            if names(&plan) != names(&branch_plan) {
+                return Err(at_unsupported(
+                    branch.span,
+                    "UNION branches with different result columns",
+                ));
+            }
+            let scope = plan.scope().clone();
+            let result_shape = plan.result_shape().clone();
+            plan = ir::Plan::new(
+                ir::PlanKind::Union(ir::Union::new(vec![plan, branch_plan], branch.all)?),
+                scope,
+                result_shape,
+            )?;
+        }
+        Ok(BoundQuery { plan })
+    }
+
+    fn bind_read_clauses(
+        &mut self,
+        clauses: &[cypher::Spanned<cypher::Clause>],
+        query: &cypher::Query,
+    ) -> Result<(), BindError> {
+        for clause in clauses {
             match &clause.value {
                 cypher::Clause::Match(clause) => {
                     self.bind_match(clause, clause_span(clause, query))?
@@ -192,12 +239,13 @@ impl<'a> Binder<'a> {
                 cypher::Clause::Return(clause) => self.bind_projection(clause, true)?,
             }
         }
-        Ok(BoundQuery {
-            plan: self.plan.ok_or(BindError::EmptyQuery)?,
-        })
+        Ok(())
     }
 
     fn bind_mutation_query(mut self, query: &cypher::Query) -> Result<BoundMutation, BindError> {
+        if let Some(branch) = query.unions.first() {
+            return Err(at_unsupported(branch.span, "UNION in mutation queries"));
+        }
         let mut operations = Vec::new();
         let mut mutation_started = false;
         for clause in &query.clauses {
@@ -256,8 +304,16 @@ impl<'a> Binder<'a> {
         merge: bool,
         operations: &mut Vec<ir::Mutation>,
     ) -> Result<(), BindError> {
-        if path.variable.is_some() {
-            return Err(at_unsupported(path.span, "named mutation paths"));
+        if let Some(variable) = &path.variable {
+            // Register the path name so later clauses can reference it; the
+            // path value itself is not materialized in the initial slice.
+            let binding = ir::Binding::new(
+                self.next_id()?,
+                variable.value.clone(),
+                ir::ValueType::Path,
+                ir::Nullability::NonNull,
+            )?;
+            self.scope.push(binding);
         }
         let mut from = self.bind_created_node(&path.start, merge, operations)?;
         for (relationship, node) in &path.steps {
@@ -861,6 +917,21 @@ impl<'a> Binder<'a> {
         clause: &cypher::ProjectionClause,
         is_return: bool,
     ) -> Result<(), BindError> {
+        for item in &clause.items {
+            if let cypher::ProjectionItem::Expression { expression, .. } = item {
+                // openCypher forbids bare pattern expressions in RETURN and
+                // WITH projections (TCK Pattern1 [22]/[23]).
+                if matches!(
+                    expression.value,
+                    cypher::Expression::PatternPredicate { .. }
+                ) {
+                    return Err(at_unsupported(
+                        expression.span,
+                        "pattern expressions in projections",
+                    ));
+                }
+            }
+        }
         let mut input = match self.plan.take() {
             Some(input) => input,
             None => ir::Plan::new(
@@ -1042,6 +1113,62 @@ impl<'a> Binder<'a> {
         Ok(())
     }
 
+    fn bind_pattern_subquery(
+        &self,
+        count: bool,
+        clause: &cypher::MatchClause,
+        span: cypher::Span,
+    ) -> Result<(ir::Expression, ir::ValueType, ir::Nullability), BindError> {
+        let mut sub = Binder::new(self.graph, self.catalog, self.parameters);
+        sub.bind_match(clause, span)?;
+        let plan = sub.plan.ok_or(BindError::EmptyQuery)?;
+        let mut correlations: Vec<(ir::BindingId, ir::BindingId)> = Vec::new();
+        for path in &clause.paths {
+            let mut names: Vec<&str> = Vec::new();
+            if let Some(variable) = &path.variable {
+                names.push(&variable.value);
+            }
+            if let Some(variable) = &path.start.variable {
+                names.push(&variable.value);
+            }
+            for (relationship, node) in &path.steps {
+                if let Some(variable) = &relationship.variable {
+                    names.push(&variable.value);
+                }
+                if let Some(variable) = &node.variable {
+                    names.push(&variable.value);
+                }
+            }
+            for name in names {
+                let Some(outer) = self.scope.iter().find(|binding| binding.name() == name) else {
+                    continue;
+                };
+                let Some(inner) = plan.scope().resolve(name) else {
+                    continue;
+                };
+                if !correlations
+                    .iter()
+                    .any(|(existing, _)| *existing == outer.id())
+                {
+                    correlations.push((outer.id(), inner.id()));
+                }
+            }
+        }
+        Ok((
+            ir::Expression::PatternSubquery {
+                count,
+                plan: Box::new(plan),
+                correlations,
+            },
+            if count {
+                ir::ValueType::Integer
+            } else {
+                ir::ValueType::Boolean
+            },
+            ir::Nullability::NonNull,
+        ))
+    }
+
     fn bind_expression(
         &self,
         expression: &cypher::Spanned<cypher::Expression>,
@@ -1164,6 +1291,47 @@ impl<'a> Binder<'a> {
                     ir::ValueType::Boolean,
                     nullability,
                 )
+            }
+            cypher::Expression::PatternSubquery {
+                count,
+                paths,
+                predicate,
+            } => {
+                let clause = cypher::MatchClause {
+                    optional: false,
+                    paths: paths.clone(),
+                    predicate: predicate.as_deref().cloned(),
+                };
+                self.bind_pattern_subquery(*count, &clause, expression.span)?
+            }
+            cypher::Expression::PatternPredicate { path } => {
+                // openCypher: a bare pattern predicate may only use already
+                // bound variables (TCK Pattern1 [10]).
+                let mut variables: Vec<&cypher::Spanned<String>> = Vec::new();
+                variables.extend(&path.start.variable);
+                for (relationship, node) in &path.steps {
+                    variables.extend(&relationship.variable);
+                    variables.extend(&node.variable);
+                }
+                for variable in variables {
+                    if !self
+                        .scope
+                        .iter()
+                        .any(|binding| binding.name() == variable.value)
+                    {
+                        return Err(BindError::UnknownVariable {
+                            name: variable.value.clone(),
+                            span_start: variable.span.start,
+                            span_end: variable.span.end,
+                        });
+                    }
+                }
+                let clause = cypher::MatchClause {
+                    optional: false,
+                    paths: vec![path.as_ref().clone()],
+                    predicate: None,
+                };
+                self.bind_pattern_subquery(false, &clause, expression.span)?
             }
             cypher::Expression::Index { base, index } => {
                 let base_span = base.span;

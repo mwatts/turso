@@ -137,6 +137,14 @@ pub enum Expression {
     /// The loop variable of the list scope at the recorded depth (1-based).
     /// Only the innermost scope is addressable; the binder enforces this.
     ListElement(usize),
+    /// EXISTS/COUNT over a correlated graph-pattern subquery. Correlations
+    /// pair an outer-scope binding with the subquery binding carrying the
+    /// same user variable; lowering equates their identity columns.
+    PatternSubquery {
+        count: bool,
+        plan: Box<crate::Plan>,
+        correlations: Vec<(BindingId, BindingId)>,
+    },
     Index {
         base: Box<TypedExpression>,
         index: Box<TypedExpression>,

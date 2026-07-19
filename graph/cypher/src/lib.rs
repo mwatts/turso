@@ -12,6 +12,6 @@ pub use ast::{
     BinaryOperator, Clause, CreateClause, DeleteClause, Direction, Expression, Literal,
     MatchClause, MergeClause, NodePattern, PathPattern, ProjectionClause, ProjectionItem,
     PropertyTarget, QuantifierKind, Query, RelationshipPattern, RelationshipRange, RemoveClause,
-    SetClause, SetItem, SortItem, Span, Spanned, UnaryOperator, UnwindClause,
+    SetClause, SetItem, SortItem, Span, Spanned, UnaryOperator, UnionBranch, UnwindClause,
 };
 pub use parser::{parse, ParseError};

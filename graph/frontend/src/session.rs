@@ -179,14 +179,20 @@ impl GraphSession {
 }
 
 fn requires_traversal_snapshot(query: &turso_graph_cypher::Query) -> bool {
-    query.clauses.iter().any(|clause| match &clause.value {
-        turso_graph_cypher::Clause::Match(value) => value.paths.iter().any(|path| {
-            path.steps
-                .iter()
-                .any(|(relationship, _)| relationship.range.is_some())
-        }),
-        _ => false,
-    })
+    let clause_needs =
+        |clause: &turso_graph_cypher::Spanned<turso_graph_cypher::Clause>| match &clause.value {
+            turso_graph_cypher::Clause::Match(value) => value.paths.iter().any(|path| {
+                path.steps
+                    .iter()
+                    .any(|(relationship, _)| relationship.range.is_some())
+            }),
+            _ => false,
+        };
+    query.clauses.iter().any(clause_needs)
+        || query
+            .unions
+            .iter()
+            .any(|branch| branch.clauses.iter().any(clause_needs))
 }
 
 fn bind_query_parameters(

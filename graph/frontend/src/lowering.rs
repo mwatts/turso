@@ -238,7 +238,29 @@ fn lower_plan(
                 bindings: input.bindings,
             })
         }
-        ir::PlanKind::Union(_) => Err(LowerError::UnsupportedOperator("union")),
+        ir::PlanKind::Union(union) => {
+            let mut parts = Vec::new();
+            let mut bindings = None;
+            for input in union.inputs() {
+                let lowered = lower_plan(input, catalog, optional)?;
+                // Branch column names differ (per-branch binding ids); SQL
+                // set operators combine positionally and the first branch's
+                // names win, matching this Union node's scope.
+                parts.push(format!("SELECT q.* FROM ({}) AS q", lowered.sql));
+                if bindings.is_none() {
+                    bindings = Some(lowered.bindings);
+                }
+            }
+            let separator = if union.is_all() {
+                " UNION ALL "
+            } else {
+                " UNION "
+            };
+            Ok(Lowered {
+                sql: parts.join(separator),
+                bindings: bindings.unwrap_or_default(),
+            })
+        }
     }
 }
 
@@ -708,6 +730,33 @@ fn lower_expression_with_references(
             })
         }
         ir::Expression::ListElement(depth) => Ok(format!("lst{depth}.value")),
+        ir::Expression::PatternSubquery {
+            count,
+            plan,
+            correlations,
+        } => {
+            let sub = lower_plan(plan, catalog, false)?;
+            let conditions = correlations
+                .iter()
+                .map(|(outer, inner)| {
+                    format!(
+                        "sub.{} = {input_alias}.{}",
+                        binding_column(*inner),
+                        binding_column(*outer)
+                    )
+                })
+                .collect::<Vec<_>>();
+            let filter = if conditions.is_empty() {
+                String::new()
+            } else {
+                format!(" WHERE {}", conditions.join(" AND "))
+            };
+            Ok(if *count {
+                format!("(SELECT count(*) FROM ({}) AS sub{filter})", sub.sql)
+            } else {
+                format!("EXISTS (SELECT 1 FROM ({}) AS sub{filter})", sub.sql)
+            })
+        }
         ir::Expression::Index { base, index } => {
             let base =
                 lower_expression_with_references(base, bindings, catalog, input_alias, references)?;

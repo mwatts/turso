@@ -16,7 +16,7 @@ use crate::{
     BinaryOperator, Clause, CreateClause, DeleteClause, Direction, Expression, Literal,
     MatchClause, MergeClause, NodePattern, PathPattern, ProjectionClause, ProjectionItem,
     PropertyTarget, QuantifierKind, Query, RelationshipPattern, RelationshipRange, RemoveClause,
-    SetClause, SetItem, SortItem, Span, Spanned, UnaryOperator, UnwindClause,
+    SetClause, SetItem, SortItem, Span, Spanned, UnaryOperator, UnionBranch, UnwindClause,
 };
 
 #[derive(Parser)]
@@ -65,12 +65,36 @@ fn parse_error(error: pest::error::Error<Rule>) -> ParseError {
 
 fn walk_query(pair: Pair<'_, Rule>) -> Result<Query, ParseError> {
     let span = pair_span(&pair);
-    let clauses = pair
-        .into_inner()
-        .filter(|pair| pair.as_rule() == Rule::clause)
-        .map(walk_clause)
-        .collect::<Result<Vec<_>, _>>()?;
-    Ok(Query { clauses, span })
+    let mut clauses = Vec::new();
+    let mut unions = Vec::new();
+    for child in pair.into_inner() {
+        match child.as_rule() {
+            Rule::clause => clauses.push(walk_clause(child)?),
+            Rule::union_branch => {
+                let branch_span = pair_span(&child);
+                let all = child
+                    .clone()
+                    .into_inner()
+                    .any(|item| item.as_rule() == Rule::ALL);
+                let branch_clauses = child
+                    .into_inner()
+                    .filter(|item| item.as_rule() == Rule::clause)
+                    .map(walk_clause)
+                    .collect::<Result<Vec<_>, _>>()?;
+                unions.push(UnionBranch {
+                    all,
+                    clauses: branch_clauses,
+                    span: branch_span,
+                });
+            }
+            _ => {}
+        }
+    }
+    Ok(Query {
+        clauses,
+        unions,
+        span,
+    })
 }
 
 fn walk_clause(pair: Pair<'_, Rule>) -> Result<Spanned<Clause>, ParseError> {
@@ -482,6 +506,8 @@ fn walk_expression(pair: Pair<'_, Rule>) -> Result<Spanned<Expression>, ParseErr
         Rule::case_expression => walk_case(pair)?,
         Rule::quantifier_expression => walk_quantifier(pair)?,
         Rule::list_comprehension => walk_list_comprehension(pair)?,
+        Rule::pattern_subquery => walk_pattern_subquery(pair)?,
+        Rule::pattern_predicate => walk_pattern_predicate(pair)?,
         Rule::list_literal => Expression::List(
             pair.into_inner()
                 .filter(|item| item.as_rule() == Rule::expression_list)
@@ -567,6 +593,63 @@ fn walk_not(pair: Pair<'_, Rule>) -> Result<Expression, ParseError> {
         );
     }
     Ok(expression.value)
+}
+
+fn walk_pattern_subquery(pair: Pair<'_, Rule>) -> Result<Expression, ParseError> {
+    let span = pair_span(&pair);
+    let mut count = false;
+    let mut paths = Vec::new();
+    let mut predicate = None;
+    for child in pair.into_inner() {
+        match child.as_rule() {
+            Rule::subquery_kind => {
+                count = child.as_str().eq_ignore_ascii_case("count");
+            }
+            Rule::pattern => {
+                paths = child
+                    .into_inner()
+                    .filter(|item| item.as_rule() == Rule::path_pattern)
+                    .map(walk_path)
+                    .collect::<Result<Vec<_>, _>>()?;
+            }
+            Rule::where_clause => predicate = Some(Box::new(walk_where(child)?)),
+            _ => {}
+        }
+    }
+    if paths.is_empty() {
+        return Err(ParseError::at(span, "pattern subquery has no pattern"));
+    }
+    Ok(Expression::PatternSubquery {
+        count,
+        paths,
+        predicate,
+    })
+}
+
+fn walk_pattern_predicate(pair: Pair<'_, Rule>) -> Result<Expression, ParseError> {
+    let span = pair_span(&pair);
+    let mut nodes = Vec::new();
+    let mut relationships = Vec::new();
+    for child in pair.into_inner() {
+        match child.as_rule() {
+            Rule::node_pattern => nodes.push(walk_node(child)?),
+            Rule::relationship_pattern => relationships.push(walk_relationship(child)?),
+            _ => {}
+        }
+    }
+    let mut nodes = nodes.into_iter();
+    let start = nodes
+        .next()
+        .ok_or_else(|| ParseError::at(span, "pattern predicate has no start node"))?;
+    let steps = relationships.into_iter().zip(nodes).collect();
+    Ok(Expression::PatternPredicate {
+        path: Box::new(PathPattern {
+            variable: None,
+            start,
+            steps,
+            span,
+        }),
+    })
 }
 
 fn walk_quantifier(pair: Pair<'_, Rule>) -> Result<Expression, ParseError> {
