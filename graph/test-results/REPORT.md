@@ -4,26 +4,25 @@ Generated from `graph/test-results/history.jsonl`. Results are grouped by stable
 
 ## Latest complete corpus run
 
-- Run: `20260719T194200.705171Z-c9496b51762d-corpus-deep`
+- Run: `20260719T205715.944885Z-27369e5a052c-corpus-deep`
 - Records: 10392
-- Passed: 6467
-- Failed: 3925
+- Passed: 6865
+- Failed: 3527
 
 ### Failure-reason histogram
 
 | Failure family | Count |
 |---|---:|
-| `execution`: mutation projection unsupported | 1136 |
-| `execution`: other | 712 |
+| `execution`: mutation projection unsupported | 795 |
+| `execution`: other | 653 |
 | `parser`: other grammar | 550 |
-| `execution`: runtime scalar function missing | 273 |
+| `result-comparison`: result oracle missing | 304 |
+| `execution`: runtime scalar function missing | 279 |
 | `parser`: expression/operator continuation grammar | 270 |
-| `result-comparison`: result oracle missing | 264 |
 | `execution`: mutation operation unsupported | 215 |
 | `parser`: graph-pattern grammar | 110 |
 | `parser`: unsupported starting clause | 85 |
 | `parser`: projection/expression item grammar | 53 |
-| `setup-execution`: mutation operation unsupported | 51 |
 | `parser`: map-literal grammar | 41 |
 | `execution`: expected-error mismatch | 38 |
 | `setup-execution`: other | 34 |
@@ -31,13 +30,14 @@ Generated from `graph/test-results/history.jsonl`. Results are grouped by stable
 | `parameter-binding`: other | 20 |
 | `execution`: parameter binding/declaration | 19 |
 | `fixture-execution`: other | 19 |
+| `setup-execution`: mutation operation unsupported | 7 |
 | `dataset-execution`: other | 4 |
 | `setup-execution`: runtime scalar function missing | 2 |
 
 ## Latest `age-deep` run
 
-- Run: `20260719T194200.705171Z-c9496b51762d-corpus-deep`
-- Commit: `c9496b51762d76bc04065390219a9c955d692f11` (dirty)
+- Run: `20260719T205715.944885Z-27369e5a052c-corpus-deep`
+- Commit: `27369e5a052cafa02014ef37141e4e24093062cf` (dirty)
 - Package: `0.7.0`
 - Environment: `macos/aarch64` (`dev`)
 - Records: 3677
@@ -45,7 +45,7 @@ Generated from `graph/test-results/history.jsonl`. Results are grouped by stable
 - Unsupported: 0
 - Failed or changed: 1478
 
-### Outcome changes from `20260719T192159.606478Z-c9496b51762d-corpus-deep`
+### Outcome changes from `20260719T194200.705171Z-c9496b51762d-corpus-deep`
 
 - No outcome changes.
 
@@ -1615,8 +1615,8 @@ Generated from `graph/test-results/history.jsonl`. Results are grouped by stable
 
 ## Latest `cqlite-deep` run
 
-- Run: `20260719T194200.705171Z-c9496b51762d-corpus-deep`
-- Commit: `c9496b51762d76bc04065390219a9c955d692f11` (dirty)
+- Run: `20260719T205715.944885Z-27369e5a052c-corpus-deep`
+- Commit: `27369e5a052cafa02014ef37141e4e24093062cf` (dirty)
 - Package: `0.7.0`
 - Environment: `macos/aarch64` (`dev`)
 - Records: 137
@@ -1624,146 +1624,146 @@ Generated from `graph/test-results/history.jsonl`. Results are grouped by stable
 - Unsupported: 0
 - Failed or changed: 24
 
-### Outcome changes from `20260719T192159.606478Z-c9496b51762d-corpus-deep`
+### Outcome changes from `20260719T194200.705171Z-c9496b51762d-corpus-deep`
 
 - No outcome changes.
 
 | Test | Kind | Area | Outcome | Duration |
 |---|---|---|---|---:|
-| `cqlite.basic-queries.run-a-to-b.query-1` | `Conformance` | basic_queries | `Passed` | 7.727 ms |
-| `cqlite.basic-queries.run-a-to-b.query-2` | `Conformance` | basic_queries | `Passed` | 7.333 ms |
-| `cqlite.basic-queries.run-a-to-b.query-3` | `Conformance` | basic_queries | `Passed` | 7.782 ms |
-| `cqlite.basic-queries.run-a-edge-b.query-1` | `Conformance` | basic_queries | `Passed` | 8.436 ms |
-| `cqlite.basic-queries.run-a-edge-b.query-2` | `Conformance` | basic_queries | `Passed` | 7.527 ms |
-| `cqlite.basic-queries.run-a-to-a.query-1` | `Conformance` | basic_queries | `Passed` | 9.494 ms |
-| `cqlite.basic-queries.run-a-to-a.query-2` | `Conformance` | basic_queries | `Passed` | 10.614 ms |
-| `cqlite.basic-queries.run-a-edge-a.query-1` | `Conformance` | basic_queries | `Passed` | 10.897 ms |
-| `cqlite.basic-queries.run-a-edge-a.query-2` | `Conformance` | basic_queries | `Passed` | 7.502 ms |
-| `cqlite.basic-queries.run-a-knows-b.query-1` | `Conformance` | basic_queries | `Passed` | 9.120 ms |
-| `cqlite.basic-queries.run-a-knows-b.query-2` | `Conformance` | basic_queries | `Passed` | 7.460 ms |
-| `cqlite.basic-queries.run-a-edge-b-with-where-property.query-1` | `Conformance` | basic_queries | `Passed` | 9.134 ms |
-| `cqlite.basic-queries.run-a-edge-b-with-where-property.query-2` | `Conformance` | basic_queries | `Passed` | 8.199 ms |
-| `cqlite.basic-queries.run-a-edge-b-with-property-map.query-1` | `Conformance` | basic_queries | `Passed` | 8.713 ms |
-| `cqlite.basic-queries.run-a-edge-b-with-property-map.query-2` | `Conformance` | basic_queries | `Passed` | 8.073 ms |
-| `cqlite.basic-queries.run-a-edge-b-with-where-id.query-1` | `Conformance` | basic_queries | `Passed` | 7.764 ms |
-| `cqlite.basic-queries.run-a-edge-b-with-where-id.query-2` | `Conformance` | basic_queries | `Passed` | 7.170 ms |
-| `cqlite.basic-queries.run-a-where-with-parameters.query-1` | `Conformance` | basic_queries | `Passed` | 9.133 ms |
-| `cqlite.basic-queries.run-a-where-with-parameters.query-2` | `Conformance` | basic_queries | `Failed` | 7.651 ms |
-| `cqlite.basic-queries.run-set.query-1` | `Conformance` | basic_queries | `Passed` | 7.381 ms |
-| `cqlite.basic-queries.run-set.query-2` | `Conformance` | basic_queries | `Failed` | 7.486 ms |
-| `cqlite.basic-queries.run-set.query-3` | `Conformance` | basic_queries | `Passed` | 7.900 ms |
-| `cqlite.basic-queries.return-from-set.query-1` | `Conformance` | basic_queries | `Passed` | 7.481 ms |
-| `cqlite.basic-queries.return-from-set.query-2` | `Conformance` | basic_queries | `Passed` | 7.651 ms |
-| `cqlite.basic-queries.return-from-set.query-3` | `Conformance` | basic_queries | `Passed` | 7.659 ms |
-| `cqlite.basic-queries.run-delete-node.query-1` | `Conformance` | basic_queries | `Passed` | 7.295 ms |
-| `cqlite.basic-queries.run-delete-node.query-2` | `Conformance` | basic_queries | `Passed` | 6.967 ms |
-| `cqlite.basic-queries.run-delete-node.query-3` | `Conformance` | basic_queries | `Passed` | 6.826 ms |
-| `cqlite.basic-queries.run-delete-edge.query-1` | `Conformance` | basic_queries | `Passed` | 7.791 ms |
-| `cqlite.basic-queries.run-delete-edge.query-2` | `Conformance` | basic_queries | `Passed` | 7.260 ms |
-| `cqlite.basic-queries.run-delete-edge.query-3` | `Conformance` | basic_queries | `Passed` | 7.226 ms |
-| `cqlite.basic-queries.run-bad-delete.query-1` | `Conformance` | basic_queries | `Passed` | 8.288 ms |
-| `cqlite.basic-queries.run-bad-delete.query-2` | `Conformance` | basic_queries | `Passed` | 6.830 ms |
-| `cqlite.basic-queries.run-return-label.query-1` | `Conformance` | basic_queries | `Passed` | 8.211 ms |
-| `cqlite.basic-queries.run-return-label.query-2` | `Conformance` | basic_queries | `Failed` | 7.873 ms |
-| `cqlite.basic-queries.match-return-count.query-1` | `Conformance` | basic_queries | `Passed` | 7.151 ms |
-| `cqlite.basic-queries.match-return-count.query-2` | `Conformance` | basic_queries | `Passed` | 7.335 ms |
-| `cqlite.basic-queries.match-return-count.query-3` | `Conformance` | basic_queries | `Passed` | 6.893 ms |
-| `cqlite.basic-queries.match-multiple-edges.query-1` | `Conformance` | basic_queries | `Passed` | 9.413 ms |
-| `cqlite.basic-queries.match-multiple-edges.query-2` | `Conformance` | basic_queries | `Failed` | 0.038 ms |
-| `cqlite.create-queries.create-label-only.query-1` | `Conformance` | create_queries | `Passed` | 7.695 ms |
-| `cqlite.create-queries.create-label-only.query-2` | `Conformance` | create_queries | `Passed` | 6.931 ms |
-| `cqlite.create-queries.create-with-properties.query-1` | `Conformance` | create_queries | `Passed` | 8.182 ms |
-| `cqlite.create-queries.create-with-properties.query-2` | `Conformance` | create_queries | `Passed` | 7.544 ms |
-| `cqlite.create-queries.create-with-properties-from-parameters.query-1` | `Conformance` | create_queries | `Failed` | 7.307 ms |
-| `cqlite.create-queries.create-with-properties-from-parameters.query-2` | `Conformance` | create_queries | `Passed` | 7.578 ms |
-| `cqlite.create-queries.create-edges-with-label.query-1` | `Conformance` | create_queries | `Passed` | 12.247 ms |
-| `cqlite.create-queries.create-edges-with-label.query-2` | `Conformance` | create_queries | `Failed` | 8.179 ms |
-| `cqlite.delete-queries.delete-node.query-1` | `Conformance` | delete_queries | `Passed` | 7.184 ms |
-| `cqlite.delete-queries.delete-node.query-2` | `Conformance` | delete_queries | `Passed` | 6.866 ms |
-| `cqlite.delete-queries.delete-node.query-3` | `Conformance` | delete_queries | `Passed` | 6.723 ms |
-| `cqlite.delete-queries.delete-node.query-4` | `Conformance` | delete_queries | `Passed` | 6.802 ms |
-| `cqlite.delete-queries.double-delete-node.query-1` | `Conformance` | delete_queries | `Passed` | 7.185 ms |
-| `cqlite.delete-queries.double-delete-node.query-2` | `Conformance` | delete_queries | `Passed` | 9.060 ms |
-| `cqlite.delete-queries.double-delete-node.query-3` | `Conformance` | delete_queries | `Passed` | 7.189 ms |
-| `cqlite.delete-queries.double-delete-node.query-4` | `Conformance` | delete_queries | `Passed` | 6.987 ms |
-| `cqlite.delete-queries.delete-edge.query-1` | `Conformance` | delete_queries | `Passed` | 8.665 ms |
-| `cqlite.delete-queries.delete-edge.query-2` | `Conformance` | delete_queries | `Failed` | 0.036 ms |
-| `cqlite.delete-queries.delete-edge.query-3` | `Conformance` | delete_queries | `Passed` | 7.213 ms |
+| `cqlite.basic-queries.run-a-to-b.query-1` | `Conformance` | basic_queries | `Passed` | 7.680 ms |
+| `cqlite.basic-queries.run-a-to-b.query-2` | `Conformance` | basic_queries | `Passed` | 7.312 ms |
+| `cqlite.basic-queries.run-a-to-b.query-3` | `Conformance` | basic_queries | `Passed` | 7.402 ms |
+| `cqlite.basic-queries.run-a-edge-b.query-1` | `Conformance` | basic_queries | `Passed` | 8.304 ms |
+| `cqlite.basic-queries.run-a-edge-b.query-2` | `Conformance` | basic_queries | `Passed` | 7.427 ms |
+| `cqlite.basic-queries.run-a-to-a.query-1` | `Conformance` | basic_queries | `Passed` | 9.646 ms |
+| `cqlite.basic-queries.run-a-to-a.query-2` | `Conformance` | basic_queries | `Passed` | 9.098 ms |
+| `cqlite.basic-queries.run-a-edge-a.query-1` | `Conformance` | basic_queries | `Passed` | 9.391 ms |
+| `cqlite.basic-queries.run-a-edge-a.query-2` | `Conformance` | basic_queries | `Passed` | 7.347 ms |
+| `cqlite.basic-queries.run-a-knows-b.query-1` | `Conformance` | basic_queries | `Passed` | 9.246 ms |
+| `cqlite.basic-queries.run-a-knows-b.query-2` | `Conformance` | basic_queries | `Passed` | 7.607 ms |
+| `cqlite.basic-queries.run-a-edge-b-with-where-property.query-1` | `Conformance` | basic_queries | `Passed` | 8.938 ms |
+| `cqlite.basic-queries.run-a-edge-b-with-where-property.query-2` | `Conformance` | basic_queries | `Passed` | 8.143 ms |
+| `cqlite.basic-queries.run-a-edge-b-with-property-map.query-1` | `Conformance` | basic_queries | `Passed` | 8.659 ms |
+| `cqlite.basic-queries.run-a-edge-b-with-property-map.query-2` | `Conformance` | basic_queries | `Passed` | 8.035 ms |
+| `cqlite.basic-queries.run-a-edge-b-with-where-id.query-1` | `Conformance` | basic_queries | `Passed` | 7.723 ms |
+| `cqlite.basic-queries.run-a-edge-b-with-where-id.query-2` | `Conformance` | basic_queries | `Passed` | 7.131 ms |
+| `cqlite.basic-queries.run-a-where-with-parameters.query-1` | `Conformance` | basic_queries | `Passed` | 8.470 ms |
+| `cqlite.basic-queries.run-a-where-with-parameters.query-2` | `Conformance` | basic_queries | `Failed` | 7.075 ms |
+| `cqlite.basic-queries.run-set.query-1` | `Conformance` | basic_queries | `Passed` | 7.426 ms |
+| `cqlite.basic-queries.run-set.query-2` | `Conformance` | basic_queries | `Failed` | 7.109 ms |
+| `cqlite.basic-queries.run-set.query-3` | `Conformance` | basic_queries | `Passed` | 7.319 ms |
+| `cqlite.basic-queries.return-from-set.query-1` | `Conformance` | basic_queries | `Passed` | 7.124 ms |
+| `cqlite.basic-queries.return-from-set.query-2` | `Conformance` | basic_queries | `Passed` | 7.448 ms |
+| `cqlite.basic-queries.return-from-set.query-3` | `Conformance` | basic_queries | `Passed` | 7.321 ms |
+| `cqlite.basic-queries.run-delete-node.query-1` | `Conformance` | basic_queries | `Passed` | 7.217 ms |
+| `cqlite.basic-queries.run-delete-node.query-2` | `Conformance` | basic_queries | `Passed` | 6.975 ms |
+| `cqlite.basic-queries.run-delete-node.query-3` | `Conformance` | basic_queries | `Passed` | 6.852 ms |
+| `cqlite.basic-queries.run-delete-edge.query-1` | `Conformance` | basic_queries | `Passed` | 7.768 ms |
+| `cqlite.basic-queries.run-delete-edge.query-2` | `Conformance` | basic_queries | `Passed` | 7.179 ms |
+| `cqlite.basic-queries.run-delete-edge.query-3` | `Conformance` | basic_queries | `Passed` | 7.121 ms |
+| `cqlite.basic-queries.run-bad-delete.query-1` | `Conformance` | basic_queries | `Passed` | 7.767 ms |
+| `cqlite.basic-queries.run-bad-delete.query-2` | `Conformance` | basic_queries | `Passed` | 6.892 ms |
+| `cqlite.basic-queries.run-return-label.query-1` | `Conformance` | basic_queries | `Passed` | 8.124 ms |
+| `cqlite.basic-queries.run-return-label.query-2` | `Conformance` | basic_queries | `Failed` | 7.391 ms |
+| `cqlite.basic-queries.match-return-count.query-1` | `Conformance` | basic_queries | `Passed` | 6.937 ms |
+| `cqlite.basic-queries.match-return-count.query-2` | `Conformance` | basic_queries | `Passed` | 7.051 ms |
+| `cqlite.basic-queries.match-return-count.query-3` | `Conformance` | basic_queries | `Passed` | 6.812 ms |
+| `cqlite.basic-queries.match-multiple-edges.query-1` | `Conformance` | basic_queries | `Passed` | 9.231 ms |
+| `cqlite.basic-queries.match-multiple-edges.query-2` | `Conformance` | basic_queries | `Failed` | 0.036 ms |
+| `cqlite.create-queries.create-label-only.query-1` | `Conformance` | create_queries | `Passed` | 7.543 ms |
+| `cqlite.create-queries.create-label-only.query-2` | `Conformance` | create_queries | `Passed` | 6.940 ms |
+| `cqlite.create-queries.create-with-properties.query-1` | `Conformance` | create_queries | `Passed` | 8.284 ms |
+| `cqlite.create-queries.create-with-properties.query-2` | `Conformance` | create_queries | `Passed` | 7.516 ms |
+| `cqlite.create-queries.create-with-properties-from-parameters.query-1` | `Conformance` | create_queries | `Failed` | 7.330 ms |
+| `cqlite.create-queries.create-with-properties-from-parameters.query-2` | `Conformance` | create_queries | `Passed` | 7.381 ms |
+| `cqlite.create-queries.create-edges-with-label.query-1` | `Conformance` | create_queries | `Passed` | 9.662 ms |
+| `cqlite.create-queries.create-edges-with-label.query-2` | `Conformance` | create_queries | `Failed` | 10.244 ms |
+| `cqlite.delete-queries.delete-node.query-1` | `Conformance` | delete_queries | `Passed` | 7.164 ms |
+| `cqlite.delete-queries.delete-node.query-2` | `Conformance` | delete_queries | `Passed` | 6.841 ms |
+| `cqlite.delete-queries.delete-node.query-3` | `Conformance` | delete_queries | `Passed` | 6.731 ms |
+| `cqlite.delete-queries.delete-node.query-4` | `Conformance` | delete_queries | `Passed` | 6.747 ms |
+| `cqlite.delete-queries.double-delete-node.query-1` | `Conformance` | delete_queries | `Passed` | 7.192 ms |
+| `cqlite.delete-queries.double-delete-node.query-2` | `Conformance` | delete_queries | `Passed` | 6.916 ms |
+| `cqlite.delete-queries.double-delete-node.query-3` | `Conformance` | delete_queries | `Passed` | 6.928 ms |
+| `cqlite.delete-queries.double-delete-node.query-4` | `Conformance` | delete_queries | `Passed` | 6.889 ms |
+| `cqlite.delete-queries.delete-edge.query-1` | `Conformance` | delete_queries | `Passed` | 8.690 ms |
+| `cqlite.delete-queries.delete-edge.query-2` | `Conformance` | delete_queries | `Failed` | 0.035 ms |
+| `cqlite.delete-queries.delete-edge.query-3` | `Conformance` | delete_queries | `Passed` | 7.134 ms |
 | `cqlite.delete-queries.delete-edge.query-4` | `Conformance` | delete_queries | `Failed` | 0.004 ms |
-| `cqlite.delete-queries.connected-delete-fails.query-1` | `Conformance` | delete_queries | `Passed` | 8.597 ms |
-| `cqlite.delete-queries.connected-delete-fails.query-2` | `Conformance` | delete_queries | `Passed` | 6.926 ms |
-| `cqlite.delete-queries.connected-delete-fails.query-3` | `Conformance` | delete_queries | `Passed` | 6.963 ms |
-| `cqlite.delete-queries.connected-delete-fails.query-4` | `Conformance` | delete_queries | `Passed` | 6.749 ms |
-| `cqlite.match-queries.create-test-graph.query-1` | `Conformance` | match_queries | `Passed` | 12.823 ms |
-| `cqlite.match-queries.match-all-nodes.query-1` | `Conformance` | match_queries | `Passed` | 7.253 ms |
-| `cqlite.match-queries.match-multiple-nodes.query-1` | `Conformance` | match_queries | `Passed` | 7.136 ms |
-| `cqlite.match-queries.match-multiple-nodes.query-2` | `Conformance` | match_queries | `Passed` | 6.985 ms |
-| `cqlite.match-queries.match-single-directed-edge.query-1` | `Conformance` | match_queries | `Passed` | 7.190 ms |
-| `cqlite.match-queries.match-single-undirected-edge.query-1` | `Conformance` | match_queries | `Passed` | 7.283 ms |
-| `cqlite.match-queries.match-single-path.query-1` | `Conformance` | match_queries | `Failed` | 0.036 ms |
+| `cqlite.delete-queries.connected-delete-fails.query-1` | `Conformance` | delete_queries | `Passed` | 8.547 ms |
+| `cqlite.delete-queries.connected-delete-fails.query-2` | `Conformance` | delete_queries | `Passed` | 6.791 ms |
+| `cqlite.delete-queries.connected-delete-fails.query-3` | `Conformance` | delete_queries | `Passed` | 7.041 ms |
+| `cqlite.delete-queries.connected-delete-fails.query-4` | `Conformance` | delete_queries | `Passed` | 6.816 ms |
+| `cqlite.match-queries.create-test-graph.query-1` | `Conformance` | match_queries | `Passed` | 11.710 ms |
+| `cqlite.match-queries.match-all-nodes.query-1` | `Conformance` | match_queries | `Passed` | 7.184 ms |
+| `cqlite.match-queries.match-multiple-nodes.query-1` | `Conformance` | match_queries | `Passed` | 7.054 ms |
+| `cqlite.match-queries.match-multiple-nodes.query-2` | `Conformance` | match_queries | `Passed` | 6.971 ms |
+| `cqlite.match-queries.match-single-directed-edge.query-1` | `Conformance` | match_queries | `Passed` | 7.219 ms |
+| `cqlite.match-queries.match-single-undirected-edge.query-1` | `Conformance` | match_queries | `Passed` | 7.250 ms |
+| `cqlite.match-queries.match-single-path.query-1` | `Conformance` | match_queries | `Failed` | 0.035 ms |
 | `cqlite.match-queries.match-path-with-multiple-clauses.query-1` | `Conformance` | match_queries | `Failed` | 0.029 ms |
 | `cqlite.match-queries.match-long-path.query-1` | `Conformance` | match_queries | `Failed` | 0.027 ms |
-| `cqlite.match-queries.match-labeled-nodes.query-1` | `Conformance` | match_queries | `Passed` | 6.948 ms |
-| `cqlite.match-queries.match-labeled-nodes.query-2` | `Conformance` | match_queries | `Passed` | 6.894 ms |
-| `cqlite.match-queries.match-labeled-nodes.query-3` | `Conformance` | match_queries | `Passed` | 6.894 ms |
-| `cqlite.match-queries.match-labeled-edges.query-1` | `Conformance` | match_queries | `Passed` | 7.845 ms |
-| `cqlite.match-queries.match-labeled-edges.query-2` | `Conformance` | match_queries | `Passed` | 9.553 ms |
-| `cqlite.match-queries.match-nodes-with-properties.query-1` | `Conformance` | match_queries | `Passed` | 7.237 ms |
-| `cqlite.match-queries.match-nodes-with-properties.query-2` | `Conformance` | match_queries | `Passed` | 7.020 ms |
-| `cqlite.match-queries.match-nodes-with-properties.query-3` | `Conformance` | match_queries | `Passed` | 7.795 ms |
-| `cqlite.match-queries.match-edges-with-properties.query-1` | `Conformance` | match_queries | `Passed` | 7.923 ms |
-| `cqlite.match-queries.match-nodes-with-label.query-1` | `Conformance` | match_queries | `Passed` | 7.107 ms |
-| `cqlite.match-queries-where.create-test-graph.query-1` | `Conformance` | match_queries_where | `Passed` | 15.791 ms |
-| `cqlite.match-queries-where.match-where-node-id-eq.query-1` | `Conformance` | match_queries_where | `Failed` | 7.177 ms |
-| `cqlite.match-queries-where.match-where-node-id-eq.query-2` | `Conformance` | match_queries_where | `Failed` | 7.007 ms |
-| `cqlite.match-queries-where.match-where-node-id-eq-non-id.query-1` | `Conformance` | match_queries_where | `Passed` | 7.045 ms |
-| `cqlite.match-queries-where.match-where-node-label-eq.query-1` | `Conformance` | match_queries_where | `Passed` | 6.913 ms |
-| `cqlite.match-queries-where.match-where-node-label-eq.query-2` | `Conformance` | match_queries_where | `Passed` | 7.172 ms |
-| `cqlite.match-queries-where.match-where-node-prop-eq.query-1` | `Conformance` | match_queries_where | `Failed` | 7.004 ms |
-| `cqlite.match-queries-where.match-where-node-prop.query-1` | `Conformance` | match_queries_where | `Passed` | 7.253 ms |
-| `cqlite.match-queries-where.match-where-not-node-prop.query-1` | `Conformance` | match_queries_where | `Passed` | 7.339 ms |
-| `cqlite.match-queries-where.match-where-node-prop-eq-true-false.query-1` | `Conformance` | match_queries_where | `Passed` | 7.369 ms |
-| `cqlite.match-queries-where.match-where-node-prop-eq-true-false.query-2` | `Conformance` | match_queries_where | `Passed` | 7.598 ms |
-| `cqlite.match-queries-where.match-where-node-prop-ne-null.query-1` | `Conformance` | match_queries_where | `Passed` | 7.452 ms |
+| `cqlite.match-queries.match-labeled-nodes.query-1` | `Conformance` | match_queries | `Passed` | 6.864 ms |
+| `cqlite.match-queries.match-labeled-nodes.query-2` | `Conformance` | match_queries | `Passed` | 6.887 ms |
+| `cqlite.match-queries.match-labeled-nodes.query-3` | `Conformance` | match_queries | `Passed` | 6.917 ms |
+| `cqlite.match-queries.match-labeled-edges.query-1` | `Conformance` | match_queries | `Passed` | 7.518 ms |
+| `cqlite.match-queries.match-labeled-edges.query-2` | `Conformance` | match_queries | `Passed` | 9.981 ms |
+| `cqlite.match-queries.match-nodes-with-properties.query-1` | `Conformance` | match_queries | `Passed` | 7.888 ms |
+| `cqlite.match-queries.match-nodes-with-properties.query-2` | `Conformance` | match_queries | `Passed` | 6.948 ms |
+| `cqlite.match-queries.match-nodes-with-properties.query-3` | `Conformance` | match_queries | `Passed` | 7.440 ms |
+| `cqlite.match-queries.match-edges-with-properties.query-1` | `Conformance` | match_queries | `Passed` | 7.636 ms |
+| `cqlite.match-queries.match-nodes-with-label.query-1` | `Conformance` | match_queries | `Passed` | 6.845 ms |
+| `cqlite.match-queries-where.create-test-graph.query-1` | `Conformance` | match_queries_where | `Passed` | 16.693 ms |
+| `cqlite.match-queries-where.match-where-node-id-eq.query-1` | `Conformance` | match_queries_where | `Failed` | 7.046 ms |
+| `cqlite.match-queries-where.match-where-node-id-eq.query-2` | `Conformance` | match_queries_where | `Failed` | 6.932 ms |
+| `cqlite.match-queries-where.match-where-node-id-eq-non-id.query-1` | `Conformance` | match_queries_where | `Passed` | 7.084 ms |
+| `cqlite.match-queries-where.match-where-node-label-eq.query-1` | `Conformance` | match_queries_where | `Passed` | 6.914 ms |
+| `cqlite.match-queries-where.match-where-node-label-eq.query-2` | `Conformance` | match_queries_where | `Passed` | 7.106 ms |
+| `cqlite.match-queries-where.match-where-node-prop-eq.query-1` | `Conformance` | match_queries_where | `Failed` | 6.974 ms |
+| `cqlite.match-queries-where.match-where-node-prop.query-1` | `Conformance` | match_queries_where | `Passed` | 7.258 ms |
+| `cqlite.match-queries-where.match-where-not-node-prop.query-1` | `Conformance` | match_queries_where | `Passed` | 7.304 ms |
+| `cqlite.match-queries-where.match-where-node-prop-eq-true-false.query-1` | `Conformance` | match_queries_where | `Passed` | 7.397 ms |
+| `cqlite.match-queries-where.match-where-node-prop-eq-true-false.query-2` | `Conformance` | match_queries_where | `Passed` | 7.256 ms |
+| `cqlite.match-queries-where.match-where-node-prop-ne-null.query-1` | `Conformance` | match_queries_where | `Passed` | 7.160 ms |
 | `cqlite.match-queries-where.match-where-node-prop-lt-or-gt.query-1` | `Conformance` | match_queries_where | `Passed` | 7.368 ms |
-| `cqlite.match-queries-where.match-where-node-prop-lt-or-gt.query-2` | `Conformance` | match_queries_where | `Passed` | 7.839 ms |
-| `cqlite.match-queries-where.match-where-node-prop-lt-or-gt.query-3` | `Conformance` | match_queries_where | `Passed` | 7.419 ms |
-| `cqlite.match-queries-where.match-where-edge-id-eq.query-1` | `Conformance` | match_queries_where | `Failed` | 7.482 ms |
-| `cqlite.match-queries-where.match-where-edge-id-eq.query-2` | `Conformance` | match_queries_where | `Failed` | 7.326 ms |
-| `cqlite.match-queries-where.match-where-edge-prop-eq.query-1` | `Conformance` | match_queries_where | `Passed` | 7.867 ms |
-| `cqlite.match-queries-where.match-where-edge-prop-gt.query-1` | `Conformance` | match_queries_where | `Passed` | 7.808 ms |
-| `cqlite.match-queries-where.match-where-a-or-b.query-1` | `Conformance` | match_queries_where | `Passed` | 8.057 ms |
-| `cqlite.match-queries-where.match-long-path-with-id-constraint.query-1` | `Conformance` | match_queries_where | `Failed` | 0.042 ms |
-| `cqlite.match-queries-where.match-long-path-with-id-constraint.query-2` | `Conformance` | match_queries_where | `Failed` | 0.033 ms |
-| `cqlite.match-queries-where.match-short-path-with-id-constraint.query-1` | `Conformance` | match_queries_where | `Failed` | 0.035 ms |
-| `cqlite.return-queries.return-parameter.query-1` | `Conformance` | return_queries | `Failed` | 6.838 ms |
-| `cqlite.return-queries.return-id-of.query-1` | `Conformance` | return_queries | `Passed` | 8.214 ms |
-| `cqlite.return-queries.return-id-of.query-2` | `Conformance` | return_queries | `Passed` | 6.948 ms |
-| `cqlite.return-queries.return-label-of.query-1` | `Conformance` | return_queries | `Passed` | 8.086 ms |
-| `cqlite.return-queries.return-label-of.query-2` | `Conformance` | return_queries | `Passed` | 6.929 ms |
-| `cqlite.return-queries.create-and-return.query-1` | `Conformance` | return_queries | `Passed` | 7.768 ms |
-| `cqlite.return-queries.create-and-return.query-2` | `Conformance` | return_queries | `Passed` | 7.027 ms |
-| `cqlite.return-queries.set-and-return.query-1` | `Conformance` | return_queries | `Passed` | 7.204 ms |
-| `cqlite.return-queries.set-and-return.query-2` | `Conformance` | return_queries | `Passed` | 7.055 ms |
-| `cqlite.return-queries.delete-and-return.query-1` | `Conformance` | return_queries | `Passed` | 7.291 ms |
-| `cqlite.return-queries.delete-and-return.query-2` | `Conformance` | return_queries | `Passed` | 6.931 ms |
-| `cqlite.return-queries.return-out-of-bounds.query-1` | `Conformance` | return_queries | `Passed` | 7.168 ms |
-| `cqlite.set-queries.set-once.query-1` | `Conformance` | set_queries | `Passed` | 7.566 ms |
-| `cqlite.set-queries.set-once.query-2` | `Conformance` | set_queries | `Passed` | 7.206 ms |
-| `cqlite.set-queries.set-once.query-3` | `Conformance` | set_queries | `Passed` | 6.783 ms |
-| `cqlite.set-queries.set-after-create.query-1` | `Conformance` | set_queries | `Passed` | 7.899 ms |
-| `cqlite.set-queries.set-after-create.query-2` | `Conformance` | set_queries | `Passed` | 6.801 ms |
-| `cqlite.set-queries.set-multiple-times.query-1` | `Conformance` | set_queries | `Passed` | 8.597 ms |
-| `cqlite.set-queries.set-multiple-times.query-2` | `Conformance` | set_queries | `Passed` | 6.919 ms |
-| `cqlite.set-queries.delete-property.query-1` | `Conformance` | set_queries | `Passed` | 7.441 ms |
-| `cqlite.set-queries.delete-property.query-2` | `Conformance` | set_queries | `Passed` | 6.998 ms |
-| `cqlite.set-queries.delete-property.query-3` | `Conformance` | set_queries | `Passed` | 6.780 ms |
-| `cqlite.txn-semantics.concurrent-reader-and-writer.query-1` | `Conformance` | txn_semantics | `Passed` | 7.867 ms |
-| `cqlite.txn-semantics.concurrent-reader-and-writer.query-2` | `Conformance` | txn_semantics | `Passed` | 7.397 ms |
-| `cqlite.txn-semantics.concurrent-reader-and-writer.query-3` | `Conformance` | txn_semantics | `Passed` | 7.557 ms |
-| `cqlite.txn-semantics.concurrent-reader-and-writer.query-4` | `Conformance` | txn_semantics | `Passed` | 7.230 ms |
-| `cqlite.txn-semantics.concurrent-reader-and-writer.query-5` | `Conformance` | txn_semantics | `Passed` | 7.068 ms |
-| `cqlite.where-conditions.where-a-and-b.query-1` | `Conformance` | where_conditions | `Failed` | 0.018 ms |
+| `cqlite.match-queries-where.match-where-node-prop-lt-or-gt.query-2` | `Conformance` | match_queries_where | `Passed` | 7.321 ms |
+| `cqlite.match-queries-where.match-where-node-prop-lt-or-gt.query-3` | `Conformance` | match_queries_where | `Passed` | 7.314 ms |
+| `cqlite.match-queries-where.match-where-edge-id-eq.query-1` | `Conformance` | match_queries_where | `Failed` | 7.375 ms |
+| `cqlite.match-queries-where.match-where-edge-id-eq.query-2` | `Conformance` | match_queries_where | `Failed` | 7.362 ms |
+| `cqlite.match-queries-where.match-where-edge-prop-eq.query-1` | `Conformance` | match_queries_where | `Passed` | 7.835 ms |
+| `cqlite.match-queries-where.match-where-edge-prop-gt.query-1` | `Conformance` | match_queries_where | `Passed` | 7.758 ms |
+| `cqlite.match-queries-where.match-where-a-or-b.query-1` | `Conformance` | match_queries_where | `Passed` | 7.963 ms |
+| `cqlite.match-queries-where.match-long-path-with-id-constraint.query-1` | `Conformance` | match_queries_where | `Failed` | 0.037 ms |
+| `cqlite.match-queries-where.match-long-path-with-id-constraint.query-2` | `Conformance` | match_queries_where | `Failed` | 0.031 ms |
+| `cqlite.match-queries-where.match-short-path-with-id-constraint.query-1` | `Conformance` | match_queries_where | `Failed` | 0.026 ms |
+| `cqlite.return-queries.return-parameter.query-1` | `Conformance` | return_queries | `Failed` | 6.739 ms |
+| `cqlite.return-queries.return-id-of.query-1` | `Conformance` | return_queries | `Passed` | 8.172 ms |
+| `cqlite.return-queries.return-id-of.query-2` | `Conformance` | return_queries | `Passed` | 6.877 ms |
+| `cqlite.return-queries.return-label-of.query-1` | `Conformance` | return_queries | `Passed` | 8.071 ms |
+| `cqlite.return-queries.return-label-of.query-2` | `Conformance` | return_queries | `Passed` | 6.917 ms |
+| `cqlite.return-queries.create-and-return.query-1` | `Conformance` | return_queries | `Passed` | 7.780 ms |
+| `cqlite.return-queries.create-and-return.query-2` | `Conformance` | return_queries | `Passed` | 7.003 ms |
+| `cqlite.return-queries.set-and-return.query-1` | `Conformance` | return_queries | `Passed` | 7.206 ms |
+| `cqlite.return-queries.set-and-return.query-2` | `Conformance` | return_queries | `Passed` | 6.999 ms |
+| `cqlite.return-queries.delete-and-return.query-1` | `Conformance` | return_queries | `Passed` | 7.352 ms |
+| `cqlite.return-queries.delete-and-return.query-2` | `Conformance` | return_queries | `Passed` | 6.928 ms |
+| `cqlite.return-queries.return-out-of-bounds.query-1` | `Conformance` | return_queries | `Passed` | 6.807 ms |
+| `cqlite.set-queries.set-once.query-1` | `Conformance` | set_queries | `Passed` | 7.513 ms |
+| `cqlite.set-queries.set-once.query-2` | `Conformance` | set_queries | `Passed` | 7.059 ms |
+| `cqlite.set-queries.set-once.query-3` | `Conformance` | set_queries | `Passed` | 6.762 ms |
+| `cqlite.set-queries.set-after-create.query-1` | `Conformance` | set_queries | `Passed` | 7.861 ms |
+| `cqlite.set-queries.set-after-create.query-2` | `Conformance` | set_queries | `Passed` | 6.853 ms |
+| `cqlite.set-queries.set-multiple-times.query-1` | `Conformance` | set_queries | `Passed` | 8.585 ms |
+| `cqlite.set-queries.set-multiple-times.query-2` | `Conformance` | set_queries | `Passed` | 7.291 ms |
+| `cqlite.set-queries.delete-property.query-1` | `Conformance` | set_queries | `Passed` | 7.529 ms |
+| `cqlite.set-queries.delete-property.query-2` | `Conformance` | set_queries | `Passed` | 7.035 ms |
+| `cqlite.set-queries.delete-property.query-3` | `Conformance` | set_queries | `Passed` | 6.816 ms |
+| `cqlite.txn-semantics.concurrent-reader-and-writer.query-1` | `Conformance` | txn_semantics | `Passed` | 7.561 ms |
+| `cqlite.txn-semantics.concurrent-reader-and-writer.query-2` | `Conformance` | txn_semantics | `Passed` | 7.081 ms |
+| `cqlite.txn-semantics.concurrent-reader-and-writer.query-3` | `Conformance` | txn_semantics | `Passed` | 7.583 ms |
+| `cqlite.txn-semantics.concurrent-reader-and-writer.query-4` | `Conformance` | txn_semantics | `Passed` | 7.154 ms |
+| `cqlite.txn-semantics.concurrent-reader-and-writer.query-5` | `Conformance` | txn_semantics | `Passed` | 7.067 ms |
+| `cqlite.where-conditions.where-a-and-b.query-1` | `Conformance` | where_conditions | `Failed` | 0.017 ms |
 | `cqlite.where-conditions.where-a-or-b.query-1` | `Conformance` | where_conditions | `Failed` | 0.012 ms |
 | `cqlite.where-conditions.where-a.query-1` | `Conformance` | where_conditions | `Failed` | 0.009 ms |
 | `cqlite.where-conditions.where-not-a.query-1` | `Conformance` | where_conditions | `Failed` | 0.009 ms |
@@ -1818,8 +1818,8 @@ Generated from `graph/test-results/history.jsonl`. Results are grouped by stable
 
 ## Latest `grafeo-deep` run
 
-- Run: `20260719T194200.705171Z-c9496b51762d-corpus-deep`
-- Commit: `c9496b51762d76bc04065390219a9c955d692f11` (dirty)
+- Run: `20260719T205715.944885Z-27369e5a052c-corpus-deep`
+- Commit: `27369e5a052cafa02014ef37141e4e24093062cf` (dirty)
 - Package: `0.7.0`
 - Environment: `macos/aarch64` (`dev`)
 - Records: 399
@@ -1827,17 +1827,15 @@ Generated from `graph/test-results/history.jsonl`. Results are grouped by stable
 - Unsupported: 0
 - Failed or changed: 146
 
-### Outcome changes from `20260719T192159.606478Z-c9496b51762d-corpus-deep`
+### Outcome changes from `20260719T194200.705171Z-c9496b51762d-corpus-deep`
 
-- `grafeo.spec.lpg.cypher.functions.duration.from.string`: Passed
-- `grafeo.spec.lpg.cypher.functions.extended.duration.from.map`: Passed
-- `grafeo.spec.lpg.cypher.types.duration.from.string`: Passed
+- No outcome changes.
 
 | Test | Kind | Area | Outcome | Duration |
 |---|---|---|---|---:|
-| `grafeo.spec.common.index.correctness.create.index.then.query` | `Conformance` | common | `Failed` | 0.025 ms |
-| `grafeo.spec.common.index.correctness.index.query.no.match` | `Conformance` | common | `Failed` | 0.019 ms |
-| `grafeo.spec.common.index.correctness.index.multiple.matches` | `Conformance` | common | `Failed` | 0.017 ms |
+| `grafeo.spec.common.index.correctness.create.index.then.query` | `Conformance` | common | `Failed` | 0.024 ms |
+| `grafeo.spec.common.index.correctness.index.query.no.match` | `Conformance` | common | `Failed` | 0.018 ms |
+| `grafeo.spec.common.index.correctness.index.multiple.matches` | `Conformance` | common | `Failed` | 0.031 ms |
 | `grafeo.spec.common.index.correctness.index.with.null.property` | `Conformance` | common | `Failed` | 0.017 ms |
 | `grafeo.spec.common.index.correctness.index.after.property.update` | `Conformance` | common | `Failed` | 0.003 ms |
 | `grafeo.spec.common.index.correctness.index.old.value.gone.after.update` | `Conformance` | common | `Failed` | 0.003 ms |
@@ -1849,12 +1847,12 @@ Generated from `graph/test-results/history.jsonl`. Results are grouped by stable
 | `grafeo.spec.common.index.correctness.bulk.insert.then.index` | `Conformance` | common | `Failed` | 0.329 ms |
 | `grafeo.spec.common.index.correctness.index.count.all` | `Conformance` | common | `Failed` | 0.016 ms |
 | `grafeo.spec.common.index.correctness.drop.index.query.still.works` | `Conformance` | common | `Failed` | 0.003 ms |
-| `grafeo.spec.common.null.semantics.negative.limit.returns.empty.cypher.cypher-variant` | `Conformance` | common | `Failed` | 6.868 ms |
-| `grafeo.spec.common.numeric.edge.cases.min.int64.cypher.cypher-variant` | `Conformance` | common | `Failed` | 6.775 ms |
-| `grafeo.spec.common.numeric.edge.cases.nan.literal.keyword.cypher.cypher-variant` | `Conformance` | common | `Failed` | 6.718 ms |
-| `grafeo.spec.common.numeric.edge.cases.inf.literal.keyword.cypher.cypher-variant` | `Conformance` | common | `Failed` | 6.842 ms |
-| `grafeo.spec.lpg.cypher.admin.create.index.on.label.property` | `Conformance` | lpg | `Failed` | 0.005 ms |
-| `grafeo.spec.lpg.cypher.admin.create.index.and.query` | `Conformance` | lpg | `Failed` | 0.025 ms |
+| `grafeo.spec.common.null.semantics.negative.limit.returns.empty.cypher.cypher-variant` | `Conformance` | common | `Failed` | 6.807 ms |
+| `grafeo.spec.common.numeric.edge.cases.min.int64.cypher.cypher-variant` | `Conformance` | common | `Failed` | 6.684 ms |
+| `grafeo.spec.common.numeric.edge.cases.nan.literal.keyword.cypher.cypher-variant` | `Conformance` | common | `Failed` | 6.808 ms |
+| `grafeo.spec.common.numeric.edge.cases.inf.literal.keyword.cypher.cypher-variant` | `Conformance` | common | `Failed` | 6.778 ms |
+| `grafeo.spec.lpg.cypher.admin.create.index.on.label.property` | `Conformance` | lpg | `Failed` | 0.004 ms |
+| `grafeo.spec.lpg.cypher.admin.create.index.and.query` | `Conformance` | lpg | `Failed` | 0.024 ms |
 | `grafeo.spec.lpg.cypher.admin.drop.index` | `Conformance` | lpg | `Failed` | 0.003 ms |
 | `grafeo.spec.lpg.cypher.admin.show.indexes.empty` | `Conformance` | lpg | `Failed` | 0.009 ms |
 | `grafeo.spec.lpg.cypher.admin.show.indexes.after.create` | `Conformance` | lpg | `Failed` | 0.003 ms |
@@ -1862,378 +1860,378 @@ Generated from `graph/test-results/history.jsonl`. Results are grouped by stable
 | `grafeo.spec.lpg.cypher.admin.profile.match` | `Conformance` | lpg | `Failed` | 0.011 ms |
 | `grafeo.spec.lpg.cypher.comprehensions.advanced.pattern.comprehension.basic` | `Conformance` | lpg | `Failed` | 0.120 ms |
 | `grafeo.spec.lpg.cypher.comprehensions.advanced.pattern.comprehension.with.filter` | `Conformance` | lpg | `Failed` | 0.110 ms |
-| `grafeo.spec.lpg.cypher.comprehensions.advanced.pattern.comprehension.size` | `Conformance` | lpg | `Failed` | 0.171 ms |
-| `grafeo.spec.lpg.cypher.comprehensions.advanced.pattern.comprehension.with.property.extraction` | `Conformance` | lpg | `Failed` | 0.103 ms |
-| `grafeo.spec.lpg.cypher.comprehensions.advanced.list.comprehension.basic` | `Conformance` | lpg | `Passed` | 68.333 ms |
-| `grafeo.spec.lpg.cypher.comprehensions.advanced.list.comprehension.transform` | `Conformance` | lpg | `Passed` | 66.783 ms |
-| `grafeo.spec.lpg.cypher.comprehensions.advanced.list.comprehension.filter.and.transform` | `Conformance` | lpg | `Failed` | 87.684 ms |
-| `grafeo.spec.lpg.cypher.comprehensions.advanced.list.comprehension.nested` | `Conformance` | lpg | `Failed` | 68.447 ms |
-| `grafeo.spec.lpg.cypher.comprehensions.advanced.exists.subquery.actors.with.action.movies` | `Conformance` | lpg | `Passed` | 79.501 ms |
-| `grafeo.spec.lpg.cypher.comprehensions.advanced.not.exists.subquery` | `Conformance` | lpg | `Failed` | 71.598 ms |
-| `grafeo.spec.lpg.cypher.comprehensions.advanced.count.subquery.movies.per.actor` | `Conformance` | lpg | `Passed` | 71.333 ms |
-| `grafeo.spec.lpg.cypher.comprehensions.advanced.count.subquery.prolific.directors` | `Conformance` | lpg | `Passed` | 68.833 ms |
-| `grafeo.spec.lpg.cypher.comprehensions.advanced.call.subquery.basic` | `Conformance` | lpg | `Failed` | 0.048 ms |
+| `grafeo.spec.lpg.cypher.comprehensions.advanced.pattern.comprehension.size` | `Conformance` | lpg | `Failed` | 0.172 ms |
+| `grafeo.spec.lpg.cypher.comprehensions.advanced.pattern.comprehension.with.property.extraction` | `Conformance` | lpg | `Failed` | 0.110 ms |
+| `grafeo.spec.lpg.cypher.comprehensions.advanced.list.comprehension.basic` | `Conformance` | lpg | `Passed` | 65.957 ms |
+| `grafeo.spec.lpg.cypher.comprehensions.advanced.list.comprehension.transform` | `Conformance` | lpg | `Passed` | 71.166 ms |
+| `grafeo.spec.lpg.cypher.comprehensions.advanced.list.comprehension.filter.and.transform` | `Conformance` | lpg | `Failed` | 64.276 ms |
+| `grafeo.spec.lpg.cypher.comprehensions.advanced.list.comprehension.nested` | `Conformance` | lpg | `Failed` | 64.738 ms |
+| `grafeo.spec.lpg.cypher.comprehensions.advanced.exists.subquery.actors.with.action.movies` | `Conformance` | lpg | `Passed` | 67.795 ms |
+| `grafeo.spec.lpg.cypher.comprehensions.advanced.not.exists.subquery` | `Conformance` | lpg | `Failed` | 67.573 ms |
+| `grafeo.spec.lpg.cypher.comprehensions.advanced.count.subquery.movies.per.actor` | `Conformance` | lpg | `Passed` | 67.514 ms |
+| `grafeo.spec.lpg.cypher.comprehensions.advanced.count.subquery.prolific.directors` | `Conformance` | lpg | `Passed` | 66.585 ms |
+| `grafeo.spec.lpg.cypher.comprehensions.advanced.call.subquery.basic` | `Conformance` | lpg | `Failed` | 0.049 ms |
 | `grafeo.spec.lpg.cypher.comprehensions.advanced.call.subquery.with.aggregation` | `Conformance` | lpg | `Failed` | 0.035 ms |
-| `grafeo.spec.lpg.cypher.comprehensions.advanced.foreach.set.property` | `Conformance` | lpg | `Failed` | 69.847 ms |
-| `grafeo.spec.lpg.cypher.comprehensions.advanced.foreach.create.relationships` | `Conformance` | lpg | `Failed` | 0.281 ms |
+| `grafeo.spec.lpg.cypher.comprehensions.advanced.foreach.set.property` | `Conformance` | lpg | `Failed` | 66.039 ms |
+| `grafeo.spec.lpg.cypher.comprehensions.advanced.foreach.create.relationships` | `Conformance` | lpg | `Failed` | 0.286 ms |
 | `grafeo.spec.lpg.cypher.comprehensions.advanced.actor.collaboration.via.comprehension` | `Conformance` | lpg | `Failed` | 0.143 ms |
-| `grafeo.spec.lpg.cypher.comprehensions.advanced.genre.diversity.per.actor` | `Conformance` | lpg | `Failed` | 0.205 ms |
+| `grafeo.spec.lpg.cypher.comprehensions.advanced.genre.diversity.per.actor` | `Conformance` | lpg | `Failed` | 0.200 ms |
 | `grafeo.spec.lpg.cypher.constraints.create.unique.constraint` | `Conformance` | lpg | `Failed` | 0.022 ms |
-| `grafeo.spec.lpg.cypher.constraints.unique.constraint.allows.distinct.values` | `Conformance` | lpg | `Failed` | 7.139 ms |
-| `grafeo.spec.lpg.cypher.constraints.unique.constraint.violation` | `Conformance` | lpg | `Failed` | 6.953 ms |
-| `grafeo.spec.lpg.cypher.constraints.unique.constraint.null.allowed` | `Conformance` | lpg | `Failed` | 6.947 ms |
-| `grafeo.spec.lpg.cypher.constraints.create.not.null.constraint` | `Conformance` | lpg | `Failed` | 0.026 ms |
-| `grafeo.spec.lpg.cypher.constraints.not.null.constraint.satisfied` | `Conformance` | lpg | `Failed` | 7.061 ms |
-| `grafeo.spec.lpg.cypher.constraints.not.null.constraint.violation` | `Conformance` | lpg | `Failed` | 7.118 ms |
-| `grafeo.spec.lpg.cypher.constraints.not.null.constraint.violation.on.set` | `Conformance` | lpg | `Failed` | 6.854 ms |
-| `grafeo.spec.lpg.cypher.constraints.create.node.key.constraint` | `Conformance` | lpg | `Failed` | 0.026 ms |
-| `grafeo.spec.lpg.cypher.constraints.node.key.allows.different.combinations` | `Conformance` | lpg | `Failed` | 6.797 ms |
-| `grafeo.spec.lpg.cypher.constraints.node.key.violation.duplicate` | `Conformance` | lpg | `Failed` | 7.033 ms |
-| `grafeo.spec.lpg.cypher.constraints.node.key.violation.missing.property` | `Conformance` | lpg | `Failed` | 7.505 ms |
-| `grafeo.spec.lpg.cypher.constraints.drop.constraint` | `Conformance` | lpg | `Failed` | 0.018 ms |
-| `grafeo.spec.lpg.cypher.constraints.drop.nonexistent.constraint` | `Conformance` | lpg | `Passed` | 0.012 ms |
+| `grafeo.spec.lpg.cypher.constraints.unique.constraint.allows.distinct.values` | `Conformance` | lpg | `Failed` | 6.972 ms |
+| `grafeo.spec.lpg.cypher.constraints.unique.constraint.violation` | `Conformance` | lpg | `Failed` | 6.795 ms |
+| `grafeo.spec.lpg.cypher.constraints.unique.constraint.null.allowed` | `Conformance` | lpg | `Failed` | 6.809 ms |
+| `grafeo.spec.lpg.cypher.constraints.create.not.null.constraint` | `Conformance` | lpg | `Failed` | 0.025 ms |
+| `grafeo.spec.lpg.cypher.constraints.not.null.constraint.satisfied` | `Conformance` | lpg | `Failed` | 6.855 ms |
+| `grafeo.spec.lpg.cypher.constraints.not.null.constraint.violation` | `Conformance` | lpg | `Failed` | 6.768 ms |
+| `grafeo.spec.lpg.cypher.constraints.not.null.constraint.violation.on.set` | `Conformance` | lpg | `Failed` | 6.788 ms |
+| `grafeo.spec.lpg.cypher.constraints.create.node.key.constraint` | `Conformance` | lpg | `Failed` | 0.025 ms |
+| `grafeo.spec.lpg.cypher.constraints.node.key.allows.different.combinations` | `Conformance` | lpg | `Failed` | 6.770 ms |
+| `grafeo.spec.lpg.cypher.constraints.node.key.violation.duplicate` | `Conformance` | lpg | `Failed` | 6.715 ms |
+| `grafeo.spec.lpg.cypher.constraints.node.key.violation.missing.property` | `Conformance` | lpg | `Failed` | 6.644 ms |
+| `grafeo.spec.lpg.cypher.constraints.drop.constraint` | `Conformance` | lpg | `Failed` | 0.014 ms |
+| `grafeo.spec.lpg.cypher.constraints.drop.nonexistent.constraint` | `Conformance` | lpg | `Passed` | 0.011 ms |
 | `grafeo.spec.lpg.cypher.constraints.drop.constraint.if.exists` | `Conformance` | lpg | `Failed` | 0.012 ms |
 | `grafeo.spec.lpg.cypher.constraints.show.constraints.after.create` | `Conformance` | lpg | `Failed` | 0.008 ms |
-| `grafeo.spec.lpg.cypher.constraints.show.constraints.empty` | `Conformance` | lpg | `Failed` | 0.002 ms |
-| `grafeo.spec.lpg.cypher.expressions.addition` | `Conformance` | lpg | `Passed` | 8.475 ms |
-| `grafeo.spec.lpg.cypher.expressions.subtraction` | `Conformance` | lpg | `Passed` | 9.559 ms |
-| `grafeo.spec.lpg.cypher.expressions.multiplication` | `Conformance` | lpg | `Passed` | 9.325 ms |
-| `grafeo.spec.lpg.cypher.expressions.division` | `Conformance` | lpg | `Passed` | 8.298 ms |
-| `grafeo.spec.lpg.cypher.expressions.modulo` | `Conformance` | lpg | `Passed` | 8.465 ms |
-| `grafeo.spec.lpg.cypher.expressions.power` | `Conformance` | lpg | `Passed` | 8.460 ms |
-| `grafeo.spec.lpg.cypher.expressions.unary.minus` | `Conformance` | lpg | `Failed` | 0.048 ms |
-| `grafeo.spec.lpg.cypher.expressions.string.concat` | `Conformance` | lpg | `Failed` | 8.626 ms |
-| `grafeo.spec.lpg.cypher.expressions.equals` | `Conformance` | lpg | `Passed` | 8.186 ms |
-| `grafeo.spec.lpg.cypher.expressions.not.equals` | `Conformance` | lpg | `Passed` | 9.036 ms |
-| `grafeo.spec.lpg.cypher.expressions.less.than` | `Conformance` | lpg | `Passed` | 8.887 ms |
-| `grafeo.spec.lpg.cypher.expressions.greater.equal` | `Conformance` | lpg | `Passed` | 8.883 ms |
-| `grafeo.spec.lpg.cypher.expressions.starts.with` | `Conformance` | lpg | `Passed` | 8.931 ms |
-| `grafeo.spec.lpg.cypher.expressions.ends.with` | `Conformance` | lpg | `Passed` | 9.367 ms |
-| `grafeo.spec.lpg.cypher.expressions.contains` | `Conformance` | lpg | `Passed` | 10.370 ms |
-| `grafeo.spec.lpg.cypher.expressions.in.list` | `Conformance` | lpg | `Passed` | 10.395 ms |
-| `grafeo.spec.lpg.cypher.expressions.regex.match` | `Conformance` | lpg | `Failed` | 0.067 ms |
-| `grafeo.spec.lpg.cypher.expressions.is.null` | `Conformance` | lpg | `Passed` | 9.391 ms |
-| `grafeo.spec.lpg.cypher.expressions.is.not.null` | `Conformance` | lpg | `Passed` | 10.370 ms |
-| `grafeo.spec.lpg.cypher.expressions.case.simple` | `Conformance` | lpg | `Passed` | 9.228 ms |
-| `grafeo.spec.lpg.cypher.expressions.case.searched` | `Conformance` | lpg | `Passed` | 8.764 ms |
-| `grafeo.spec.lpg.cypher.expressions.list.literal` | `Conformance` | lpg | `Failed` | 8.312 ms |
-| `grafeo.spec.lpg.cypher.expressions.list.comprehension` | `Conformance` | lpg | `Failed` | 9.421 ms |
-| `grafeo.spec.lpg.cypher.expressions.list.comprehension.filter.only` | `Conformance` | lpg | `Failed` | 8.787 ms |
-| `grafeo.spec.lpg.cypher.expressions.list.slice` | `Conformance` | lpg | `Failed` | 8.746 ms |
-| `grafeo.spec.lpg.cypher.expressions.index.access` | `Conformance` | lpg | `Passed` | 8.275 ms |
-| `grafeo.spec.lpg.cypher.expressions.coalesce` | `Conformance` | lpg | `Passed` | 8.526 ms |
-| `grafeo.spec.lpg.cypher.expressions.reduce` | `Conformance` | lpg | `Failed` | 0.253 ms |
-| `grafeo.spec.lpg.cypher.expressions.all.predicate` | `Conformance` | lpg | `Passed` | 8.584 ms |
-| `grafeo.spec.lpg.cypher.expressions.any.predicate` | `Conformance` | lpg | `Passed` | 9.636 ms |
-| `grafeo.spec.lpg.cypher.expressions.none.predicate` | `Conformance` | lpg | `Passed` | 9.160 ms |
-| `grafeo.spec.lpg.cypher.expressions.single.predicate` | `Conformance` | lpg | `Passed` | 9.319 ms |
-| `grafeo.spec.lpg.cypher.expressions.any.with.labels.in.where` | `Conformance` | lpg | `Passed` | 10.443 ms |
-| `grafeo.spec.lpg.cypher.expressions.comparison.in.return` | `Conformance` | lpg | `Passed` | 8.391 ms |
-| `grafeo.spec.lpg.cypher.expressions.aggregate.comparison.in.return` | `Conformance` | lpg | `Passed` | 8.417 ms |
-| `grafeo.spec.lpg.cypher.functions.id.of.node` | `Conformance` | lpg | `Passed` | 8.157 ms |
-| `grafeo.spec.lpg.cypher.functions.labels.single` | `Conformance` | lpg | `Failed` | 8.076 ms |
-| `grafeo.spec.lpg.cypher.functions.labels.multiple` | `Conformance` | lpg | `Passed` | 8.579 ms |
-| `grafeo.spec.lpg.cypher.functions.type.of.relationship` | `Conformance` | lpg | `Failed` | 9.081 ms |
-| `grafeo.spec.lpg.cypher.functions.keys.of.node` | `Conformance` | lpg | `Failed` | 9.087 ms |
-| `grafeo.spec.lpg.cypher.functions.properties.of.node` | `Conformance` | lpg | `Failed` | 9.004 ms |
-| `grafeo.spec.lpg.cypher.functions.exists.property.true` | `Conformance` | lpg | `Failed` | 8.614 ms |
-| `grafeo.spec.lpg.cypher.functions.exists.property.false` | `Conformance` | lpg | `Failed` | 8.131 ms |
-| `grafeo.spec.lpg.cypher.functions.head.of.list` | `Conformance` | lpg | `Passed` | 8.413 ms |
-| `grafeo.spec.lpg.cypher.functions.last.of.list` | `Conformance` | lpg | `Passed` | 8.319 ms |
-| `grafeo.spec.lpg.cypher.functions.tail.of.list` | `Conformance` | lpg | `Failed` | 8.376 ms |
-| `grafeo.spec.lpg.cypher.functions.range.default.step` | `Conformance` | lpg | `Failed` | 8.821 ms |
-| `grafeo.spec.lpg.cypher.functions.range.with.step` | `Conformance` | lpg | `Failed` | 8.997 ms |
-| `grafeo.spec.lpg.cypher.functions.size.of.list` | `Conformance` | lpg | `Passed` | 8.616 ms |
-| `grafeo.spec.lpg.cypher.functions.size.of.string` | `Conformance` | lpg | `Passed` | 8.280 ms |
-| `grafeo.spec.lpg.cypher.functions.to.lower` | `Conformance` | lpg | `Passed` | 8.070 ms |
-| `grafeo.spec.lpg.cypher.functions.to.upper` | `Conformance` | lpg | `Passed` | 28.080 ms |
-| `grafeo.spec.lpg.cypher.functions.trim.whitespace` | `Conformance` | lpg | `Passed` | 9.064 ms |
-| `grafeo.spec.lpg.cypher.functions.replace.substring` | `Conformance` | lpg | `Passed` | 9.166 ms |
-| `grafeo.spec.lpg.cypher.functions.substring.from.start` | `Conformance` | lpg | `Failed` | 9.387 ms |
-| `grafeo.spec.lpg.cypher.functions.substring.to.end` | `Conformance` | lpg | `Failed` | 8.889 ms |
-| `grafeo.spec.lpg.cypher.functions.split.string` | `Conformance` | lpg | `Failed` | 8.980 ms |
-| `grafeo.spec.lpg.cypher.functions.left.string` | `Conformance` | lpg | `Passed` | 8.572 ms |
-| `grafeo.spec.lpg.cypher.functions.right.string` | `Conformance` | lpg | `Passed` | 8.822 ms |
-| `grafeo.spec.lpg.cypher.functions.reverse.string` | `Conformance` | lpg | `Passed` | 8.703 ms |
-| `grafeo.spec.lpg.cypher.functions.abs.positive` | `Conformance` | lpg | `Passed` | 8.986 ms |
-| `grafeo.spec.lpg.cypher.functions.ceil.float` | `Conformance` | lpg | `Passed` | 8.573 ms |
-| `grafeo.spec.lpg.cypher.functions.floor.float` | `Conformance` | lpg | `Passed` | 9.071 ms |
-| `grafeo.spec.lpg.cypher.functions.round.float` | `Conformance` | lpg | `Passed` | 9.284 ms |
-| `grafeo.spec.lpg.cypher.functions.sign.positive` | `Conformance` | lpg | `Passed` | 8.443 ms |
-| `grafeo.spec.lpg.cypher.functions.sign.negative` | `Conformance` | lpg | `Passed` | 8.223 ms |
-| `grafeo.spec.lpg.cypher.functions.sign.zero` | `Conformance` | lpg | `Passed` | 8.145 ms |
-| `grafeo.spec.lpg.cypher.functions.sqrt.perfect.square` | `Conformance` | lpg | `Passed` | 8.027 ms |
-| `grafeo.spec.lpg.cypher.functions.to.integer.from.string` | `Conformance` | lpg | `Passed` | 8.107 ms |
-| `grafeo.spec.lpg.cypher.functions.to.integer.from.float` | `Conformance` | lpg | `Passed` | 8.081 ms |
-| `grafeo.spec.lpg.cypher.functions.to.float.from.string` | `Conformance` | lpg | `Passed` | 8.278 ms |
-| `grafeo.spec.lpg.cypher.functions.to.float.from.integer` | `Conformance` | lpg | `Passed` | 9.841 ms |
-| `grafeo.spec.lpg.cypher.functions.to.string.from.integer` | `Conformance` | lpg | `Passed` | 8.522 ms |
-| `grafeo.spec.lpg.cypher.functions.to.boolean.from.string.true` | `Conformance` | lpg | `Passed` | 8.188 ms |
-| `grafeo.spec.lpg.cypher.functions.to.boolean.from.string.false` | `Conformance` | lpg | `Passed` | 11.988 ms |
-| `grafeo.spec.lpg.cypher.functions.date.from.string` | `Conformance` | lpg | `Passed` | 9.548 ms |
-| `grafeo.spec.lpg.cypher.functions.date.from.map` | `Conformance` | lpg | `Passed` | 9.137 ms |
-| `grafeo.spec.lpg.cypher.functions.datetime.from.string` | `Conformance` | lpg | `Passed` | 8.739 ms |
-| `grafeo.spec.lpg.cypher.functions.duration.from.string` | `Conformance` | lpg | `Passed` | 9.226 ms |
-| `grafeo.spec.lpg.cypher.functions.path.length` | `Conformance` | lpg | `Passed` | 14.520 ms |
-| `grafeo.spec.lpg.cypher.functions.path.length.single.hop` | `Conformance` | lpg | `Passed` | 10.133 ms |
-| `grafeo.spec.lpg.cypher.functions.collect.names` | `Conformance` | lpg | `Passed` | 9.261 ms |
-| `grafeo.spec.lpg.cypher.functions.collect.distinct` | `Conformance` | lpg | `Failed` | 9.235 ms |
-| `grafeo.spec.lpg.cypher.functions.count.with.distinct` | `Conformance` | lpg | `Passed` | 9.815 ms |
-| `grafeo.spec.lpg.cypher.functions.sum.values` | `Conformance` | lpg | `Passed` | 9.392 ms |
-| `grafeo.spec.lpg.cypher.functions.avg.values` | `Conformance` | lpg | `Passed` | 9.391 ms |
-| `grafeo.spec.lpg.cypher.functions.min.values` | `Conformance` | lpg | `Passed` | 9.957 ms |
-| `grafeo.spec.lpg.cypher.functions.max.values` | `Conformance` | lpg | `Passed` | 10.487 ms |
-| `grafeo.spec.lpg.cypher.functions.chained.string.functions` | `Conformance` | lpg | `Passed` | 8.690 ms |
-| `grafeo.spec.lpg.cypher.functions.nested.list.functions` | `Conformance` | lpg | `Passed` | 8.876 ms |
-| `grafeo.spec.lpg.cypher.functions.extended.log.of.e` | `Conformance` | lpg | `Failed` | 8.753 ms |
-| `grafeo.spec.lpg.cypher.functions.extended.log10.of.100` | `Conformance` | lpg | `Passed` | 8.725 ms |
-| `grafeo.spec.lpg.cypher.functions.extended.exp.of.zero` | `Conformance` | lpg | `Passed` | 8.635 ms |
-| `grafeo.spec.lpg.cypher.functions.extended.e.constant` | `Conformance` | lpg | `Failed` | 8.185 ms |
-| `grafeo.spec.lpg.cypher.functions.extended.pi.constant` | `Conformance` | lpg | `Passed` | 8.229 ms |
-| `grafeo.spec.lpg.cypher.functions.extended.rand.in.range` | `Conformance` | lpg | `Passed` | 8.264 ms |
-| `grafeo.spec.lpg.cypher.functions.extended.sin.of.zero` | `Conformance` | lpg | `Passed` | 8.091 ms |
-| `grafeo.spec.lpg.cypher.functions.extended.cos.of.zero` | `Conformance` | lpg | `Passed` | 8.620 ms |
-| `grafeo.spec.lpg.cypher.functions.extended.tan.of.zero` | `Conformance` | lpg | `Passed` | 8.463 ms |
-| `grafeo.spec.lpg.cypher.functions.extended.asin.of.one` | `Conformance` | lpg | `Passed` | 8.606 ms |
-| `grafeo.spec.lpg.cypher.functions.extended.acos.of.one` | `Conformance` | lpg | `Passed` | 8.731 ms |
-| `grafeo.spec.lpg.cypher.functions.extended.atan.of.one` | `Conformance` | lpg | `Passed` | 8.328 ms |
-| `grafeo.spec.lpg.cypher.functions.extended.atan2.unit` | `Conformance` | lpg | `Passed` | 8.199 ms |
-| `grafeo.spec.lpg.cypher.functions.extended.degrees.from.pi` | `Conformance` | lpg | `Passed` | 8.559 ms |
-| `grafeo.spec.lpg.cypher.functions.extended.radians.from.180` | `Conformance` | lpg | `Passed` | 8.962 ms |
-| `grafeo.spec.lpg.cypher.functions.extended.ltrim.whitespace` | `Conformance` | lpg | `Passed` | 8.423 ms |
-| `grafeo.spec.lpg.cypher.functions.extended.rtrim.whitespace` | `Conformance` | lpg | `Passed` | 8.198 ms |
-| `grafeo.spec.lpg.cypher.functions.extended.char.length.string` | `Conformance` | lpg | `Passed` | 8.131 ms |
-| `grafeo.spec.lpg.cypher.functions.extended.length.of.string` | `Conformance` | lpg | `Passed` | 8.262 ms |
-| `grafeo.spec.lpg.cypher.functions.extended.reverse.list` | `Conformance` | lpg | `Failed` | 8.285 ms |
-| `grafeo.spec.lpg.cypher.functions.extended.keys.of.map` | `Conformance` | lpg | `Passed` | 8.963 ms |
-| `grafeo.spec.lpg.cypher.functions.extended.stdev.sample` | `Conformance` | lpg | `Failed` | 13.511 ms |
-| `grafeo.spec.lpg.cypher.functions.extended.stdevp.population` | `Conformance` | lpg | `Failed` | 12.559 ms |
-| `grafeo.spec.lpg.cypher.functions.extended.percentile.cont.median` | `Conformance` | lpg | `Failed` | 10.758 ms |
-| `grafeo.spec.lpg.cypher.functions.extended.percentile.disc.median` | `Conformance` | lpg | `Failed` | 11.656 ms |
-| `grafeo.spec.lpg.cypher.functions.extended.element.id.not.null` | `Conformance` | lpg | `Failed` | 8.133 ms |
-| `grafeo.spec.lpg.cypher.functions.extended.count.star` | `Conformance` | lpg | `Passed` | 8.864 ms |
-| `grafeo.spec.lpg.cypher.functions.extended.count.expr` | `Conformance` | lpg | `Passed` | 8.736 ms |
-| `grafeo.spec.lpg.cypher.functions.extended.nodes.of.path` | `Conformance` | lpg | `Passed` | 11.016 ms |
-| `grafeo.spec.lpg.cypher.functions.extended.relationships.of.path` | `Conformance` | lpg | `Passed` | 11.106 ms |
-| `grafeo.spec.lpg.cypher.functions.extended.nodes.of.multi.hop.path` | `Conformance` | lpg | `Passed` | 13.867 ms |
-| `grafeo.spec.lpg.cypher.functions.extended.relationships.of.multi.hop.path` | `Conformance` | lpg | `Passed` | 12.969 ms |
-| `grafeo.spec.lpg.cypher.functions.extended.date.no.args` | `Conformance` | lpg | `Passed` | 8.420 ms |
-| `grafeo.spec.lpg.cypher.functions.extended.now.returns.value` | `Conformance` | lpg | `Failed` | 14.232 ms |
-| `grafeo.spec.lpg.cypher.functions.extended.year.accessor` | `Conformance` | lpg | `Failed` | 12.853 ms |
-| `grafeo.spec.lpg.cypher.functions.extended.month.accessor` | `Conformance` | lpg | `Failed` | 8.242 ms |
-| `grafeo.spec.lpg.cypher.functions.extended.day.accessor` | `Conformance` | lpg | `Failed` | 8.655 ms |
-| `grafeo.spec.lpg.cypher.functions.extended.time.from.string` | `Conformance` | lpg | `Passed` | 9.089 ms |
-| `grafeo.spec.lpg.cypher.functions.extended.duration.from.map` | `Conformance` | lpg | `Passed` | 8.484 ms |
-| `grafeo.spec.lpg.cypher.patterns.anonymous.node` | `Conformance` | lpg | `Passed` | 8.012 ms |
-| `grafeo.spec.lpg.cypher.patterns.variable.binding` | `Conformance` | lpg | `Passed` | 8.232 ms |
-| `grafeo.spec.lpg.cypher.patterns.single.label` | `Conformance` | lpg | `Passed` | 8.866 ms |
-| `grafeo.spec.lpg.cypher.patterns.multiple.labels` | `Conformance` | lpg | `Passed` | 9.879 ms |
-| `grafeo.spec.lpg.cypher.patterns.property.filter` | `Conformance` | lpg | `Passed` | 9.405 ms |
-| `grafeo.spec.lpg.cypher.patterns.outgoing.relationship` | `Conformance` | lpg | `Passed` | 10.281 ms |
-| `grafeo.spec.lpg.cypher.patterns.incoming.relationship` | `Conformance` | lpg | `Passed` | 9.516 ms |
-| `grafeo.spec.lpg.cypher.patterns.undirected.relationship` | `Conformance` | lpg | `Passed` | 10.052 ms |
-| `grafeo.spec.lpg.cypher.patterns.multiple.relationship.types` | `Conformance` | lpg | `Passed` | 12.228 ms |
-| `grafeo.spec.lpg.cypher.patterns.relationship.properties` | `Conformance` | lpg | `Passed` | 10.097 ms |
-| `grafeo.spec.lpg.cypher.patterns.untyped.relationship` | `Conformance` | lpg | `Failed` | 14.928 ms |
-| `grafeo.spec.lpg.cypher.patterns.anonymous.relationship` | `Conformance` | lpg | `Passed` | 9.300 ms |
-| `grafeo.spec.lpg.cypher.patterns.variable.length.unbounded` | `Conformance` | lpg | `Passed` | 11.893 ms |
-| `grafeo.spec.lpg.cypher.patterns.variable.length.exact` | `Conformance` | lpg | `Passed` | 13.357 ms |
-| `grafeo.spec.lpg.cypher.patterns.variable.length.range` | `Conformance` | lpg | `Passed` | 12.436 ms |
-| `grafeo.spec.lpg.cypher.patterns.variable.length.max.only` | `Conformance` | lpg | `Passed` | 13.675 ms |
-| `grafeo.spec.lpg.cypher.patterns.variable.length.min.only` | `Conformance` | lpg | `Passed` | 13.043 ms |
-| `grafeo.spec.lpg.cypher.patterns.path.alias` | `Conformance` | lpg | `Passed` | 10.145 ms |
-| `grafeo.spec.lpg.cypher.patterns.shortest.path` | `Conformance` | lpg | `Failed` | 0.040 ms |
+| `grafeo.spec.lpg.cypher.constraints.show.constraints.empty` | `Conformance` | lpg | `Failed` | 0.001 ms |
+| `grafeo.spec.lpg.cypher.expressions.addition` | `Conformance` | lpg | `Passed` | 8.034 ms |
+| `grafeo.spec.lpg.cypher.expressions.subtraction` | `Conformance` | lpg | `Passed` | 8.048 ms |
+| `grafeo.spec.lpg.cypher.expressions.multiplication` | `Conformance` | lpg | `Passed` | 8.012 ms |
+| `grafeo.spec.lpg.cypher.expressions.division` | `Conformance` | lpg | `Passed` | 8.040 ms |
+| `grafeo.spec.lpg.cypher.expressions.modulo` | `Conformance` | lpg | `Passed` | 8.013 ms |
+| `grafeo.spec.lpg.cypher.expressions.power` | `Conformance` | lpg | `Passed` | 8.043 ms |
+| `grafeo.spec.lpg.cypher.expressions.unary.minus` | `Conformance` | lpg | `Failed` | 0.045 ms |
+| `grafeo.spec.lpg.cypher.expressions.string.concat` | `Conformance` | lpg | `Failed` | 8.381 ms |
+| `grafeo.spec.lpg.cypher.expressions.equals` | `Conformance` | lpg | `Passed` | 8.119 ms |
+| `grafeo.spec.lpg.cypher.expressions.not.equals` | `Conformance` | lpg | `Passed` | 8.879 ms |
+| `grafeo.spec.lpg.cypher.expressions.less.than` | `Conformance` | lpg | `Passed` | 8.861 ms |
+| `grafeo.spec.lpg.cypher.expressions.greater.equal` | `Conformance` | lpg | `Passed` | 8.819 ms |
+| `grafeo.spec.lpg.cypher.expressions.starts.with` | `Conformance` | lpg | `Passed` | 8.975 ms |
+| `grafeo.spec.lpg.cypher.expressions.ends.with` | `Conformance` | lpg | `Passed` | 23.294 ms |
+| `grafeo.spec.lpg.cypher.expressions.contains` | `Conformance` | lpg | `Passed` | 16.382 ms |
+| `grafeo.spec.lpg.cypher.expressions.in.list` | `Conformance` | lpg | `Passed` | 10.064 ms |
+| `grafeo.spec.lpg.cypher.expressions.regex.match` | `Conformance` | lpg | `Failed` | 0.068 ms |
+| `grafeo.spec.lpg.cypher.expressions.is.null` | `Conformance` | lpg | `Passed` | 9.439 ms |
+| `grafeo.spec.lpg.cypher.expressions.is.not.null` | `Conformance` | lpg | `Passed` | 9.003 ms |
+| `grafeo.spec.lpg.cypher.expressions.case.simple` | `Conformance` | lpg | `Passed` | 8.351 ms |
+| `grafeo.spec.lpg.cypher.expressions.case.searched` | `Conformance` | lpg | `Passed` | 8.232 ms |
+| `grafeo.spec.lpg.cypher.expressions.list.literal` | `Conformance` | lpg | `Failed` | 8.147 ms |
+| `grafeo.spec.lpg.cypher.expressions.list.comprehension` | `Conformance` | lpg | `Failed` | 8.872 ms |
+| `grafeo.spec.lpg.cypher.expressions.list.comprehension.filter.only` | `Conformance` | lpg | `Failed` | 8.605 ms |
+| `grafeo.spec.lpg.cypher.expressions.list.slice` | `Conformance` | lpg | `Failed` | 8.604 ms |
+| `grafeo.spec.lpg.cypher.expressions.index.access` | `Conformance` | lpg | `Passed` | 8.388 ms |
+| `grafeo.spec.lpg.cypher.expressions.coalesce` | `Conformance` | lpg | `Passed` | 8.680 ms |
+| `grafeo.spec.lpg.cypher.expressions.reduce` | `Conformance` | lpg | `Failed` | 0.255 ms |
+| `grafeo.spec.lpg.cypher.expressions.all.predicate` | `Conformance` | lpg | `Passed` | 8.409 ms |
+| `grafeo.spec.lpg.cypher.expressions.any.predicate` | `Conformance` | lpg | `Passed` | 8.506 ms |
+| `grafeo.spec.lpg.cypher.expressions.none.predicate` | `Conformance` | lpg | `Passed` | 8.582 ms |
+| `grafeo.spec.lpg.cypher.expressions.single.predicate` | `Conformance` | lpg | `Passed` | 8.531 ms |
+| `grafeo.spec.lpg.cypher.expressions.any.with.labels.in.where` | `Conformance` | lpg | `Passed` | 9.439 ms |
+| `grafeo.spec.lpg.cypher.expressions.comparison.in.return` | `Conformance` | lpg | `Passed` | 8.201 ms |
+| `grafeo.spec.lpg.cypher.expressions.aggregate.comparison.in.return` | `Conformance` | lpg | `Passed` | 8.206 ms |
+| `grafeo.spec.lpg.cypher.functions.id.of.node` | `Conformance` | lpg | `Passed` | 7.965 ms |
+| `grafeo.spec.lpg.cypher.functions.labels.single` | `Conformance` | lpg | `Failed` | 8.088 ms |
+| `grafeo.spec.lpg.cypher.functions.labels.multiple` | `Conformance` | lpg | `Passed` | 8.609 ms |
+| `grafeo.spec.lpg.cypher.functions.type.of.relationship` | `Conformance` | lpg | `Failed` | 9.114 ms |
+| `grafeo.spec.lpg.cypher.functions.keys.of.node` | `Conformance` | lpg | `Failed` | 8.482 ms |
+| `grafeo.spec.lpg.cypher.functions.properties.of.node` | `Conformance` | lpg | `Failed` | 8.254 ms |
+| `grafeo.spec.lpg.cypher.functions.exists.property.true` | `Conformance` | lpg | `Failed` | 7.904 ms |
+| `grafeo.spec.lpg.cypher.functions.exists.property.false` | `Conformance` | lpg | `Failed` | 7.724 ms |
+| `grafeo.spec.lpg.cypher.functions.head.of.list` | `Conformance` | lpg | `Passed` | 8.446 ms |
+| `grafeo.spec.lpg.cypher.functions.last.of.list` | `Conformance` | lpg | `Passed` | 8.290 ms |
+| `grafeo.spec.lpg.cypher.functions.tail.of.list` | `Conformance` | lpg | `Failed` | 8.557 ms |
+| `grafeo.spec.lpg.cypher.functions.range.default.step` | `Conformance` | lpg | `Failed` | 8.316 ms |
+| `grafeo.spec.lpg.cypher.functions.range.with.step` | `Conformance` | lpg | `Failed` | 8.278 ms |
+| `grafeo.spec.lpg.cypher.functions.size.of.list` | `Conformance` | lpg | `Passed` | 10.987 ms |
+| `grafeo.spec.lpg.cypher.functions.size.of.string` | `Conformance` | lpg | `Passed` | 8.850 ms |
+| `grafeo.spec.lpg.cypher.functions.to.lower` | `Conformance` | lpg | `Passed` | 8.520 ms |
+| `grafeo.spec.lpg.cypher.functions.to.upper` | `Conformance` | lpg | `Passed` | 8.259 ms |
+| `grafeo.spec.lpg.cypher.functions.trim.whitespace` | `Conformance` | lpg | `Passed` | 8.301 ms |
+| `grafeo.spec.lpg.cypher.functions.replace.substring` | `Conformance` | lpg | `Passed` | 8.245 ms |
+| `grafeo.spec.lpg.cypher.functions.substring.from.start` | `Conformance` | lpg | `Failed` | 8.349 ms |
+| `grafeo.spec.lpg.cypher.functions.substring.to.end` | `Conformance` | lpg | `Failed` | 8.236 ms |
+| `grafeo.spec.lpg.cypher.functions.split.string` | `Conformance` | lpg | `Failed` | 8.259 ms |
+| `grafeo.spec.lpg.cypher.functions.left.string` | `Conformance` | lpg | `Passed` | 8.165 ms |
+| `grafeo.spec.lpg.cypher.functions.right.string` | `Conformance` | lpg | `Passed` | 8.381 ms |
+| `grafeo.spec.lpg.cypher.functions.reverse.string` | `Conformance` | lpg | `Passed` | 8.161 ms |
+| `grafeo.spec.lpg.cypher.functions.abs.positive` | `Conformance` | lpg | `Passed` | 8.363 ms |
+| `grafeo.spec.lpg.cypher.functions.ceil.float` | `Conformance` | lpg | `Passed` | 8.126 ms |
+| `grafeo.spec.lpg.cypher.functions.floor.float` | `Conformance` | lpg | `Passed` | 9.500 ms |
+| `grafeo.spec.lpg.cypher.functions.round.float` | `Conformance` | lpg | `Passed` | 8.172 ms |
+| `grafeo.spec.lpg.cypher.functions.sign.positive` | `Conformance` | lpg | `Passed` | 8.155 ms |
+| `grafeo.spec.lpg.cypher.functions.sign.negative` | `Conformance` | lpg | `Passed` | 8.199 ms |
+| `grafeo.spec.lpg.cypher.functions.sign.zero` | `Conformance` | lpg | `Passed` | 8.138 ms |
+| `grafeo.spec.lpg.cypher.functions.sqrt.perfect.square` | `Conformance` | lpg | `Passed` | 8.322 ms |
+| `grafeo.spec.lpg.cypher.functions.to.integer.from.string` | `Conformance` | lpg | `Passed` | 8.456 ms |
+| `grafeo.spec.lpg.cypher.functions.to.integer.from.float` | `Conformance` | lpg | `Passed` | 8.202 ms |
+| `grafeo.spec.lpg.cypher.functions.to.float.from.string` | `Conformance` | lpg | `Passed` | 8.326 ms |
+| `grafeo.spec.lpg.cypher.functions.to.float.from.integer` | `Conformance` | lpg | `Passed` | 8.615 ms |
+| `grafeo.spec.lpg.cypher.functions.to.string.from.integer` | `Conformance` | lpg | `Passed` | 9.122 ms |
+| `grafeo.spec.lpg.cypher.functions.to.boolean.from.string.true` | `Conformance` | lpg | `Passed` | 8.603 ms |
+| `grafeo.spec.lpg.cypher.functions.to.boolean.from.string.false` | `Conformance` | lpg | `Passed` | 8.236 ms |
+| `grafeo.spec.lpg.cypher.functions.date.from.string` | `Conformance` | lpg | `Passed` | 8.374 ms |
+| `grafeo.spec.lpg.cypher.functions.date.from.map` | `Conformance` | lpg | `Passed` | 8.483 ms |
+| `grafeo.spec.lpg.cypher.functions.datetime.from.string` | `Conformance` | lpg | `Passed` | 8.603 ms |
+| `grafeo.spec.lpg.cypher.functions.duration.from.string` | `Conformance` | lpg | `Passed` | 8.121 ms |
+| `grafeo.spec.lpg.cypher.functions.path.length` | `Conformance` | lpg | `Passed` | 13.420 ms |
+| `grafeo.spec.lpg.cypher.functions.path.length.single.hop` | `Conformance` | lpg | `Passed` | 9.778 ms |
+| `grafeo.spec.lpg.cypher.functions.collect.names` | `Conformance` | lpg | `Passed` | 8.632 ms |
+| `grafeo.spec.lpg.cypher.functions.collect.distinct` | `Conformance` | lpg | `Failed` | 9.166 ms |
+| `grafeo.spec.lpg.cypher.functions.count.with.distinct` | `Conformance` | lpg | `Passed` | 9.704 ms |
+| `grafeo.spec.lpg.cypher.functions.sum.values` | `Conformance` | lpg | `Passed` | 9.647 ms |
+| `grafeo.spec.lpg.cypher.functions.avg.values` | `Conformance` | lpg | `Passed` | 9.419 ms |
+| `grafeo.spec.lpg.cypher.functions.min.values` | `Conformance` | lpg | `Passed` | 9.611 ms |
+| `grafeo.spec.lpg.cypher.functions.max.values` | `Conformance` | lpg | `Passed` | 9.513 ms |
+| `grafeo.spec.lpg.cypher.functions.chained.string.functions` | `Conformance` | lpg | `Passed` | 8.355 ms |
+| `grafeo.spec.lpg.cypher.functions.nested.list.functions` | `Conformance` | lpg | `Passed` | 8.737 ms |
+| `grafeo.spec.lpg.cypher.functions.extended.log.of.e` | `Conformance` | lpg | `Failed` | 8.186 ms |
+| `grafeo.spec.lpg.cypher.functions.extended.log10.of.100` | `Conformance` | lpg | `Passed` | 8.155 ms |
+| `grafeo.spec.lpg.cypher.functions.extended.exp.of.zero` | `Conformance` | lpg | `Passed` | 8.081 ms |
+| `grafeo.spec.lpg.cypher.functions.extended.e.constant` | `Conformance` | lpg | `Failed` | 8.275 ms |
+| `grafeo.spec.lpg.cypher.functions.extended.pi.constant` | `Conformance` | lpg | `Passed` | 8.148 ms |
+| `grafeo.spec.lpg.cypher.functions.extended.rand.in.range` | `Conformance` | lpg | `Passed` | 8.426 ms |
+| `grafeo.spec.lpg.cypher.functions.extended.sin.of.zero` | `Conformance` | lpg | `Passed` | 8.026 ms |
+| `grafeo.spec.lpg.cypher.functions.extended.cos.of.zero` | `Conformance` | lpg | `Passed` | 8.155 ms |
+| `grafeo.spec.lpg.cypher.functions.extended.tan.of.zero` | `Conformance` | lpg | `Passed` | 8.477 ms |
+| `grafeo.spec.lpg.cypher.functions.extended.asin.of.one` | `Conformance` | lpg | `Passed` | 8.772 ms |
+| `grafeo.spec.lpg.cypher.functions.extended.acos.of.one` | `Conformance` | lpg | `Passed` | 8.225 ms |
+| `grafeo.spec.lpg.cypher.functions.extended.atan.of.one` | `Conformance` | lpg | `Passed` | 8.149 ms |
+| `grafeo.spec.lpg.cypher.functions.extended.atan2.unit` | `Conformance` | lpg | `Passed` | 8.357 ms |
+| `grafeo.spec.lpg.cypher.functions.extended.degrees.from.pi` | `Conformance` | lpg | `Passed` | 8.224 ms |
+| `grafeo.spec.lpg.cypher.functions.extended.radians.from.180` | `Conformance` | lpg | `Passed` | 8.364 ms |
+| `grafeo.spec.lpg.cypher.functions.extended.ltrim.whitespace` | `Conformance` | lpg | `Passed` | 8.215 ms |
+| `grafeo.spec.lpg.cypher.functions.extended.rtrim.whitespace` | `Conformance` | lpg | `Passed` | 8.285 ms |
+| `grafeo.spec.lpg.cypher.functions.extended.char.length.string` | `Conformance` | lpg | `Passed` | 8.254 ms |
+| `grafeo.spec.lpg.cypher.functions.extended.length.of.string` | `Conformance` | lpg | `Passed` | 8.398 ms |
+| `grafeo.spec.lpg.cypher.functions.extended.reverse.list` | `Conformance` | lpg | `Failed` | 8.544 ms |
+| `grafeo.spec.lpg.cypher.functions.extended.keys.of.map` | `Conformance` | lpg | `Passed` | 8.860 ms |
+| `grafeo.spec.lpg.cypher.functions.extended.stdev.sample` | `Conformance` | lpg | `Failed` | 13.024 ms |
+| `grafeo.spec.lpg.cypher.functions.extended.stdevp.population` | `Conformance` | lpg | `Failed` | 12.793 ms |
+| `grafeo.spec.lpg.cypher.functions.extended.percentile.cont.median` | `Conformance` | lpg | `Failed` | 10.781 ms |
+| `grafeo.spec.lpg.cypher.functions.extended.percentile.disc.median` | `Conformance` | lpg | `Failed` | 10.945 ms |
+| `grafeo.spec.lpg.cypher.functions.extended.element.id.not.null` | `Conformance` | lpg | `Failed` | 8.021 ms |
+| `grafeo.spec.lpg.cypher.functions.extended.count.star` | `Conformance` | lpg | `Passed` | 8.656 ms |
+| `grafeo.spec.lpg.cypher.functions.extended.count.expr` | `Conformance` | lpg | `Passed` | 8.789 ms |
+| `grafeo.spec.lpg.cypher.functions.extended.nodes.of.path` | `Conformance` | lpg | `Passed` | 10.534 ms |
+| `grafeo.spec.lpg.cypher.functions.extended.relationships.of.path` | `Conformance` | lpg | `Passed` | 10.701 ms |
+| `grafeo.spec.lpg.cypher.functions.extended.nodes.of.multi.hop.path` | `Conformance` | lpg | `Passed` | 13.312 ms |
+| `grafeo.spec.lpg.cypher.functions.extended.relationships.of.multi.hop.path` | `Conformance` | lpg | `Passed` | 13.690 ms |
+| `grafeo.spec.lpg.cypher.functions.extended.date.no.args` | `Conformance` | lpg | `Passed` | 8.219 ms |
+| `grafeo.spec.lpg.cypher.functions.extended.now.returns.value` | `Conformance` | lpg | `Failed` | 8.278 ms |
+| `grafeo.spec.lpg.cypher.functions.extended.year.accessor` | `Conformance` | lpg | `Failed` | 8.103 ms |
+| `grafeo.spec.lpg.cypher.functions.extended.month.accessor` | `Conformance` | lpg | `Failed` | 8.207 ms |
+| `grafeo.spec.lpg.cypher.functions.extended.day.accessor` | `Conformance` | lpg | `Failed` | 8.194 ms |
+| `grafeo.spec.lpg.cypher.functions.extended.time.from.string` | `Conformance` | lpg | `Passed` | 8.119 ms |
+| `grafeo.spec.lpg.cypher.functions.extended.duration.from.map` | `Conformance` | lpg | `Passed` | 8.605 ms |
+| `grafeo.spec.lpg.cypher.patterns.anonymous.node` | `Conformance` | lpg | `Passed` | 7.921 ms |
+| `grafeo.spec.lpg.cypher.patterns.variable.binding` | `Conformance` | lpg | `Passed` | 7.852 ms |
+| `grafeo.spec.lpg.cypher.patterns.single.label` | `Conformance` | lpg | `Passed` | 8.573 ms |
+| `grafeo.spec.lpg.cypher.patterns.multiple.labels` | `Conformance` | lpg | `Passed` | 9.023 ms |
+| `grafeo.spec.lpg.cypher.patterns.property.filter` | `Conformance` | lpg | `Passed` | 8.844 ms |
+| `grafeo.spec.lpg.cypher.patterns.outgoing.relationship` | `Conformance` | lpg | `Passed` | 9.549 ms |
+| `grafeo.spec.lpg.cypher.patterns.incoming.relationship` | `Conformance` | lpg | `Passed` | 9.413 ms |
+| `grafeo.spec.lpg.cypher.patterns.undirected.relationship` | `Conformance` | lpg | `Passed` | 9.737 ms |
+| `grafeo.spec.lpg.cypher.patterns.multiple.relationship.types` | `Conformance` | lpg | `Passed` | 11.619 ms |
+| `grafeo.spec.lpg.cypher.patterns.relationship.properties` | `Conformance` | lpg | `Passed` | 9.841 ms |
+| `grafeo.spec.lpg.cypher.patterns.untyped.relationship` | `Conformance` | lpg | `Failed` | 9.255 ms |
+| `grafeo.spec.lpg.cypher.patterns.anonymous.relationship` | `Conformance` | lpg | `Passed` | 9.186 ms |
+| `grafeo.spec.lpg.cypher.patterns.variable.length.unbounded` | `Conformance` | lpg | `Passed` | 11.665 ms |
+| `grafeo.spec.lpg.cypher.patterns.variable.length.exact` | `Conformance` | lpg | `Passed` | 13.254 ms |
+| `grafeo.spec.lpg.cypher.patterns.variable.length.range` | `Conformance` | lpg | `Passed` | 12.231 ms |
+| `grafeo.spec.lpg.cypher.patterns.variable.length.max.only` | `Conformance` | lpg | `Passed` | 12.310 ms |
+| `grafeo.spec.lpg.cypher.patterns.variable.length.min.only` | `Conformance` | lpg | `Passed` | 12.342 ms |
+| `grafeo.spec.lpg.cypher.patterns.path.alias` | `Conformance` | lpg | `Passed` | 9.495 ms |
+| `grafeo.spec.lpg.cypher.patterns.shortest.path` | `Conformance` | lpg | `Failed` | 0.030 ms |
 | `grafeo.spec.lpg.cypher.patterns.all.shortest.paths` | `Conformance` | lpg | `Failed` | 0.024 ms |
-| `grafeo.spec.lpg.cypher.patterns.pattern.comprehension` | `Conformance` | lpg | `Failed` | 0.118 ms |
-| `grafeo.spec.lpg.cypher.patterns.exists.subquery` | `Conformance` | lpg | `Passed` | 10.902 ms |
-| `grafeo.spec.lpg.cypher.patterns.not.exists` | `Conformance` | lpg | `Passed` | 9.733 ms |
-| `grafeo.spec.lpg.cypher.patterns.count.subquery` | `Conformance` | lpg | `Passed` | 11.067 ms |
-| `grafeo.spec.lpg.cypher.reading.clauses.match.single.node` | `Conformance` | lpg | `Passed` | 8.461 ms |
-| `grafeo.spec.lpg.cypher.reading.clauses.match.by.label` | `Conformance` | lpg | `Passed` | 8.363 ms |
-| `grafeo.spec.lpg.cypher.reading.clauses.match.by.property` | `Conformance` | lpg | `Passed` | 8.838 ms |
-| `grafeo.spec.lpg.cypher.reading.clauses.match.multi.label` | `Conformance` | lpg | `Passed` | 14.371 ms |
-| `grafeo.spec.lpg.cypher.reading.clauses.match.comma.patterns` | `Conformance` | lpg | `Passed` | 8.552 ms |
-| `grafeo.spec.lpg.cypher.reading.clauses.match.multiple.clauses` | `Conformance` | lpg | `Passed` | 8.579 ms |
-| `grafeo.spec.lpg.cypher.reading.clauses.match.edge.outgoing` | `Conformance` | lpg | `Passed` | 11.115 ms |
-| `grafeo.spec.lpg.cypher.reading.clauses.match.edge.incoming` | `Conformance` | lpg | `Passed` | 10.804 ms |
-| `grafeo.spec.lpg.cypher.reading.clauses.match.edge.undirected` | `Conformance` | lpg | `Passed` | 10.677 ms |
-| `grafeo.spec.lpg.cypher.reading.clauses.optional.match.with.result` | `Conformance` | lpg | `Passed` | 10.315 ms |
-| `grafeo.spec.lpg.cypher.reading.clauses.optional.match.null` | `Conformance` | lpg | `Passed` | 8.857 ms |
-| `grafeo.spec.lpg.cypher.reading.clauses.where.comparison` | `Conformance` | lpg | `Passed` | 9.391 ms |
-| `grafeo.spec.lpg.cypher.reading.clauses.where.and` | `Conformance` | lpg | `Passed` | 9.679 ms |
-| `grafeo.spec.lpg.cypher.reading.clauses.where.or` | `Conformance` | lpg | `Passed` | 9.738 ms |
-| `grafeo.spec.lpg.cypher.reading.clauses.where.not` | `Conformance` | lpg | `Passed` | 9.195 ms |
-| `grafeo.spec.lpg.cypher.reading.clauses.where.xor` | `Conformance` | lpg | `Passed` | 10.121 ms |
-| `grafeo.spec.lpg.cypher.reading.clauses.with.projection` | `Conformance` | lpg | `Passed` | 8.611 ms |
-| `grafeo.spec.lpg.cypher.reading.clauses.with.distinct` | `Conformance` | lpg | `Passed` | 9.555 ms |
-| `grafeo.spec.lpg.cypher.reading.clauses.with.where` | `Conformance` | lpg | `Passed` | 9.429 ms |
-| `grafeo.spec.lpg.cypher.reading.clauses.with.star` | `Conformance` | lpg | `Passed` | 7.922 ms |
-| `grafeo.spec.lpg.cypher.reading.clauses.unwind.list` | `Conformance` | lpg | `Passed` | 7.635 ms |
-| `grafeo.spec.lpg.cypher.reading.clauses.unwind.with.match` | `Conformance` | lpg | `Passed` | 9.854 ms |
-| `grafeo.spec.lpg.cypher.reading.clauses.union` | `Conformance` | lpg | `Passed` | 9.393 ms |
-| `grafeo.spec.lpg.cypher.reading.clauses.union.all` | `Conformance` | lpg | `Passed` | 8.680 ms |
-| `grafeo.spec.lpg.cypher.reading.clauses.call.db.labels` | `Conformance` | lpg | `Passed` | 10.639 ms |
-| `grafeo.spec.lpg.cypher.reading.clauses.call.db.relationship.types` | `Conformance` | lpg | `Passed` | 9.069 ms |
-| `grafeo.spec.lpg.cypher.reading.clauses.call.db.property.keys` | `Conformance` | lpg | `Failed` | 8.358 ms |
-| `grafeo.spec.lpg.cypher.reading.clauses.call.subquery.basic` | `Conformance` | lpg | `Failed` | 0.027 ms |
-| `grafeo.spec.lpg.cypher.reading.clauses.call.subquery.with.outer.scope` | `Conformance` | lpg | `Failed` | 0.058 ms |
-| `grafeo.spec.lpg.cypher.regression.not.exists.with.type.filter` | `Conformance` | lpg | `Failed` | 11.863 ms |
-| `grafeo.spec.lpg.cypher.regression.sum.case.when` | `Conformance` | lpg | `Passed` | 16.558 ms |
-| `grafeo.spec.lpg.cypher.regression.any.labels.in.list.matches` | `Conformance` | lpg | `Passed` | 10.087 ms |
-| `grafeo.spec.lpg.cypher.regression.any.labels.in.list.no.match` | `Conformance` | lpg | `Passed` | 9.342 ms |
-| `grafeo.spec.lpg.cypher.regression.any.with.single.match` | `Conformance` | lpg | `Passed` | 9.273 ms |
-| `grafeo.spec.lpg.cypher.regression.reduce.with.case.max` | `Conformance` | lpg | `Failed` | 0.243 ms |
-| `grafeo.spec.lpg.cypher.regression.reduce.with.case.min` | `Conformance` | lpg | `Failed` | 0.225 ms |
-| `grafeo.spec.lpg.cypher.regression.reduce.with.case.conditional.sum` | `Conformance` | lpg | `Failed` | 0.218 ms |
-| `grafeo.spec.lpg.cypher.regression.outgoing.target.property.filter` | `Conformance` | lpg | `Passed` | 12.391 ms |
-| `grafeo.spec.lpg.cypher.regression.target.property.filter.count` | `Conformance` | lpg | `Passed` | 12.647 ms |
-| `grafeo.spec.lpg.cypher.regression.target.property.filter.no.match` | `Conformance` | lpg | `Passed` | 9.516 ms |
-| `grafeo.spec.lpg.cypher.regression.edge.property.filter` | `Conformance` | lpg | `Passed` | 12.440 ms |
-| `grafeo.spec.lpg.cypher.regression.optional.match.count.preserves.all.rows` | `Conformance` | lpg | `Passed` | 10.565 ms |
-| `grafeo.spec.lpg.cypher.regression.union.deduplicates` | `Conformance` | lpg | `Passed` | 7.334 ms |
-| `grafeo.spec.lpg.cypher.regression.union.all.preserves` | `Conformance` | lpg | `Passed` | 7.096 ms |
-| `grafeo.spec.lpg.cypher.regression.two.hop.equivalence` | `Conformance` | lpg | `Passed` | 11.969 ms |
-| `grafeo.spec.lpg.cypher.regression.merge.creates.new.after.delete` | `Conformance` | lpg | `Passed` | 9.947 ms |
-| `grafeo.spec.lpg.cypher.regression.replace.edge` | `Conformance` | lpg | `Passed` | 13.815 ms |
-| `grafeo.spec.lpg.cypher.regression.backward.arrow.forward` | `Conformance` | lpg | `Passed` | 9.939 ms |
-| `grafeo.spec.lpg.cypher.regression.backward.arrow.reverse` | `Conformance` | lpg | `Passed` | 9.745 ms |
-| `grafeo.spec.lpg.cypher.regression.backward.arrow.wrong.direction` | `Conformance` | lpg | `Passed` | 9.604 ms |
-| `grafeo.spec.lpg.cypher.regression.null.equals.null.is.unknown` | `Conformance` | lpg | `Passed` | 8.653 ms |
-| `grafeo.spec.lpg.cypher.regression.null.is.null.is.true` | `Conformance` | lpg | `Passed` | 8.622 ms |
-| `grafeo.spec.lpg.cypher.regression.bool.to.string` | `Conformance` | lpg | `Passed` | 9.150 ms |
-| `grafeo.spec.lpg.cypher.regression.int.to.string` | `Conformance` | lpg | `Passed` | 8.758 ms |
-| `grafeo.spec.lpg.cypher.regression.string.false.ne.bool.false` | `Conformance` | lpg | `Failed` | 8.922 ms |
-| `grafeo.spec.lpg.cypher.regression.neq.excludes.null` | `Conformance` | lpg | `Passed` | 9.364 ms |
-| `grafeo.spec.lpg.cypher.regression.skip.plus.limit` | `Conformance` | lpg | `Passed` | 14.856 ms |
-| `grafeo.spec.lpg.cypher.regression.distinct.values` | `Conformance` | lpg | `Passed` | 9.839 ms |
-| `grafeo.spec.lpg.cypher.regression.distinct.collapses.nulls` | `Conformance` | lpg | `Passed` | 9.881 ms |
-| `grafeo.spec.lpg.cypher.regression.order.by.property.matching.return.alias.with.edge` | `Conformance` | lpg | `Passed` | 13.353 ms |
-| `grafeo.spec.lpg.cypher.regression.order.by.desc.with.relationship.traversal` | `Conformance` | lpg | `Passed` | 13.262 ms |
-| `grafeo.spec.lpg.cypher.return.ordering.return.expression` | `Conformance` | lpg | `Passed` | 8.021 ms |
-| `grafeo.spec.lpg.cypher.return.ordering.return.alias` | `Conformance` | lpg | `Passed` | 7.794 ms |
-| `grafeo.spec.lpg.cypher.return.ordering.return.distinct` | `Conformance` | lpg | `Passed` | 9.476 ms |
-| `grafeo.spec.lpg.cypher.return.ordering.return.star` | `Conformance` | lpg | `Passed` | 8.209 ms |
-| `grafeo.spec.lpg.cypher.return.ordering.return.count.star` | `Conformance` | lpg | `Passed` | 8.723 ms |
-| `grafeo.spec.lpg.cypher.return.ordering.return.arithmetic` | `Conformance` | lpg | `Passed` | 8.599 ms |
-| `grafeo.spec.lpg.cypher.return.ordering.return.boolean.expression` | `Conformance` | lpg | `Passed` | 8.673 ms |
-| `grafeo.spec.lpg.cypher.return.ordering.order.by.asc` | `Conformance` | lpg | `Passed` | 8.788 ms |
-| `grafeo.spec.lpg.cypher.return.ordering.order.by.desc` | `Conformance` | lpg | `Passed` | 8.688 ms |
-| `grafeo.spec.lpg.cypher.return.ordering.order.by.multiple.keys` | `Conformance` | lpg | `Passed` | 9.959 ms |
-| `grafeo.spec.lpg.cypher.return.ordering.limit` | `Conformance` | lpg | `Passed` | 10.505 ms |
-| `grafeo.spec.lpg.cypher.return.ordering.skip` | `Conformance` | lpg | `Passed` | 10.900 ms |
-| `grafeo.spec.lpg.cypher.return.ordering.skip.and.limit` | `Conformance` | lpg | `Passed` | 10.900 ms |
-| `grafeo.spec.lpg.cypher.types.integer.decimal` | `Conformance` | lpg | `Passed` | 8.007 ms |
-| `grafeo.spec.lpg.cypher.types.integer.negative` | `Conformance` | lpg | `Passed` | 7.847 ms |
-| `grafeo.spec.lpg.cypher.types.integer.zero` | `Conformance` | lpg | `Passed` | 7.966 ms |
-| `grafeo.spec.lpg.cypher.types.integer.hex` | `Conformance` | lpg | `Passed` | 8.830 ms |
-| `grafeo.spec.lpg.cypher.types.integer.octal` | `Conformance` | lpg | `Passed` | 15.314 ms |
-| `grafeo.spec.lpg.cypher.types.float.decimal` | `Conformance` | lpg | `Passed` | 8.713 ms |
-| `grafeo.spec.lpg.cypher.types.float.scientific` | `Conformance` | lpg | `Passed` | 8.659 ms |
-| `grafeo.spec.lpg.cypher.types.float.negative` | `Conformance` | lpg | `Passed` | 8.071 ms |
-| `grafeo.spec.lpg.cypher.types.string.single.quoted` | `Conformance` | lpg | `Passed` | 8.333 ms |
+| `grafeo.spec.lpg.cypher.patterns.pattern.comprehension` | `Conformance` | lpg | `Failed` | 0.103 ms |
+| `grafeo.spec.lpg.cypher.patterns.exists.subquery` | `Conformance` | lpg | `Passed` | 10.316 ms |
+| `grafeo.spec.lpg.cypher.patterns.not.exists` | `Conformance` | lpg | `Passed` | 9.539 ms |
+| `grafeo.spec.lpg.cypher.patterns.count.subquery` | `Conformance` | lpg | `Passed` | 10.939 ms |
+| `grafeo.spec.lpg.cypher.reading.clauses.match.single.node` | `Conformance` | lpg | `Passed` | 8.369 ms |
+| `grafeo.spec.lpg.cypher.reading.clauses.match.by.label` | `Conformance` | lpg | `Passed` | 8.311 ms |
+| `grafeo.spec.lpg.cypher.reading.clauses.match.by.property` | `Conformance` | lpg | `Passed` | 8.587 ms |
+| `grafeo.spec.lpg.cypher.reading.clauses.match.multi.label` | `Conformance` | lpg | `Passed` | 8.715 ms |
+| `grafeo.spec.lpg.cypher.reading.clauses.match.comma.patterns` | `Conformance` | lpg | `Passed` | 8.638 ms |
+| `grafeo.spec.lpg.cypher.reading.clauses.match.multiple.clauses` | `Conformance` | lpg | `Passed` | 8.621 ms |
+| `grafeo.spec.lpg.cypher.reading.clauses.match.edge.outgoing` | `Conformance` | lpg | `Passed` | 9.288 ms |
+| `grafeo.spec.lpg.cypher.reading.clauses.match.edge.incoming` | `Conformance` | lpg | `Passed` | 9.396 ms |
+| `grafeo.spec.lpg.cypher.reading.clauses.match.edge.undirected` | `Conformance` | lpg | `Passed` | 29.470 ms |
+| `grafeo.spec.lpg.cypher.reading.clauses.optional.match.with.result` | `Conformance` | lpg | `Passed` | 9.771 ms |
+| `grafeo.spec.lpg.cypher.reading.clauses.optional.match.null` | `Conformance` | lpg | `Passed` | 9.135 ms |
+| `grafeo.spec.lpg.cypher.reading.clauses.where.comparison` | `Conformance` | lpg | `Passed` | 8.764 ms |
+| `grafeo.spec.lpg.cypher.reading.clauses.where.and` | `Conformance` | lpg | `Passed` | 9.276 ms |
+| `grafeo.spec.lpg.cypher.reading.clauses.where.or` | `Conformance` | lpg | `Passed` | 9.388 ms |
+| `grafeo.spec.lpg.cypher.reading.clauses.where.not` | `Conformance` | lpg | `Passed` | 8.962 ms |
+| `grafeo.spec.lpg.cypher.reading.clauses.where.xor` | `Conformance` | lpg | `Passed` | 10.018 ms |
+| `grafeo.spec.lpg.cypher.reading.clauses.with.projection` | `Conformance` | lpg | `Passed` | 8.172 ms |
+| `grafeo.spec.lpg.cypher.reading.clauses.with.distinct` | `Conformance` | lpg | `Passed` | 8.887 ms |
+| `grafeo.spec.lpg.cypher.reading.clauses.with.where` | `Conformance` | lpg | `Passed` | 8.815 ms |
+| `grafeo.spec.lpg.cypher.reading.clauses.with.star` | `Conformance` | lpg | `Passed` | 7.762 ms |
+| `grafeo.spec.lpg.cypher.reading.clauses.unwind.list` | `Conformance` | lpg | `Passed` | 7.135 ms |
+| `grafeo.spec.lpg.cypher.reading.clauses.unwind.with.match` | `Conformance` | lpg | `Passed` | 8.864 ms |
+| `grafeo.spec.lpg.cypher.reading.clauses.union` | `Conformance` | lpg | `Passed` | 8.892 ms |
+| `grafeo.spec.lpg.cypher.reading.clauses.union.all` | `Conformance` | lpg | `Passed` | 8.169 ms |
+| `grafeo.spec.lpg.cypher.reading.clauses.call.db.labels` | `Conformance` | lpg | `Passed` | 8.374 ms |
+| `grafeo.spec.lpg.cypher.reading.clauses.call.db.relationship.types` | `Conformance` | lpg | `Passed` | 8.703 ms |
+| `grafeo.spec.lpg.cypher.reading.clauses.call.db.property.keys` | `Conformance` | lpg | `Failed` | 7.566 ms |
+| `grafeo.spec.lpg.cypher.reading.clauses.call.subquery.basic` | `Conformance` | lpg | `Failed` | 0.025 ms |
+| `grafeo.spec.lpg.cypher.reading.clauses.call.subquery.with.outer.scope` | `Conformance` | lpg | `Failed` | 0.057 ms |
+| `grafeo.spec.lpg.cypher.regression.not.exists.with.type.filter` | `Conformance` | lpg | `Failed` | 14.635 ms |
+| `grafeo.spec.lpg.cypher.regression.sum.case.when` | `Conformance` | lpg | `Passed` | 17.612 ms |
+| `grafeo.spec.lpg.cypher.regression.any.labels.in.list.matches` | `Conformance` | lpg | `Passed` | 8.878 ms |
+| `grafeo.spec.lpg.cypher.regression.any.labels.in.list.no.match` | `Conformance` | lpg | `Passed` | 8.859 ms |
+| `grafeo.spec.lpg.cypher.regression.any.with.single.match` | `Conformance` | lpg | `Passed` | 8.693 ms |
+| `grafeo.spec.lpg.cypher.regression.reduce.with.case.max` | `Conformance` | lpg | `Failed` | 0.236 ms |
+| `grafeo.spec.lpg.cypher.regression.reduce.with.case.min` | `Conformance` | lpg | `Failed` | 0.222 ms |
+| `grafeo.spec.lpg.cypher.regression.reduce.with.case.conditional.sum` | `Conformance` | lpg | `Failed` | 0.222 ms |
+| `grafeo.spec.lpg.cypher.regression.outgoing.target.property.filter` | `Conformance` | lpg | `Passed` | 11.688 ms |
+| `grafeo.spec.lpg.cypher.regression.target.property.filter.count` | `Conformance` | lpg | `Passed` | 12.073 ms |
+| `grafeo.spec.lpg.cypher.regression.target.property.filter.no.match` | `Conformance` | lpg | `Passed` | 9.288 ms |
+| `grafeo.spec.lpg.cypher.regression.edge.property.filter` | `Conformance` | lpg | `Passed` | 12.162 ms |
+| `grafeo.spec.lpg.cypher.regression.optional.match.count.preserves.all.rows` | `Conformance` | lpg | `Passed` | 10.331 ms |
+| `grafeo.spec.lpg.cypher.regression.union.deduplicates` | `Conformance` | lpg | `Passed` | 8.488 ms |
+| `grafeo.spec.lpg.cypher.regression.union.all.preserves` | `Conformance` | lpg | `Passed` | 7.055 ms |
+| `grafeo.spec.lpg.cypher.regression.two.hop.equivalence` | `Conformance` | lpg | `Passed` | 11.993 ms |
+| `grafeo.spec.lpg.cypher.regression.merge.creates.new.after.delete` | `Conformance` | lpg | `Passed` | 9.466 ms |
+| `grafeo.spec.lpg.cypher.regression.replace.edge` | `Conformance` | lpg | `Passed` | 13.029 ms |
+| `grafeo.spec.lpg.cypher.regression.backward.arrow.forward` | `Conformance` | lpg | `Passed` | 9.706 ms |
+| `grafeo.spec.lpg.cypher.regression.backward.arrow.reverse` | `Conformance` | lpg | `Passed` | 9.616 ms |
+| `grafeo.spec.lpg.cypher.regression.backward.arrow.wrong.direction` | `Conformance` | lpg | `Passed` | 9.441 ms |
+| `grafeo.spec.lpg.cypher.regression.null.equals.null.is.unknown` | `Conformance` | lpg | `Passed` | 8.096 ms |
+| `grafeo.spec.lpg.cypher.regression.null.is.null.is.true` | `Conformance` | lpg | `Passed` | 8.004 ms |
+| `grafeo.spec.lpg.cypher.regression.bool.to.string` | `Conformance` | lpg | `Passed` | 8.718 ms |
+| `grafeo.spec.lpg.cypher.regression.int.to.string` | `Conformance` | lpg | `Passed` | 8.645 ms |
+| `grafeo.spec.lpg.cypher.regression.string.false.ne.bool.false` | `Conformance` | lpg | `Failed` | 8.824 ms |
+| `grafeo.spec.lpg.cypher.regression.neq.excludes.null` | `Conformance` | lpg | `Passed` | 10.920 ms |
+| `grafeo.spec.lpg.cypher.regression.skip.plus.limit` | `Conformance` | lpg | `Passed` | 14.254 ms |
+| `grafeo.spec.lpg.cypher.regression.distinct.values` | `Conformance` | lpg | `Passed` | 9.569 ms |
+| `grafeo.spec.lpg.cypher.regression.distinct.collapses.nulls` | `Conformance` | lpg | `Passed` | 9.740 ms |
+| `grafeo.spec.lpg.cypher.regression.order.by.property.matching.return.alias.with.edge` | `Conformance` | lpg | `Passed` | 13.270 ms |
+| `grafeo.spec.lpg.cypher.regression.order.by.desc.with.relationship.traversal` | `Conformance` | lpg | `Passed` | 13.223 ms |
+| `grafeo.spec.lpg.cypher.return.ordering.return.expression` | `Conformance` | lpg | `Passed` | 8.027 ms |
+| `grafeo.spec.lpg.cypher.return.ordering.return.alias` | `Conformance` | lpg | `Passed` | 7.692 ms |
+| `grafeo.spec.lpg.cypher.return.ordering.return.distinct` | `Conformance` | lpg | `Passed` | 8.824 ms |
+| `grafeo.spec.lpg.cypher.return.ordering.return.star` | `Conformance` | lpg | `Passed` | 7.610 ms |
+| `grafeo.spec.lpg.cypher.return.ordering.return.count.star` | `Conformance` | lpg | `Passed` | 8.313 ms |
+| `grafeo.spec.lpg.cypher.return.ordering.return.arithmetic` | `Conformance` | lpg | `Passed` | 8.025 ms |
+| `grafeo.spec.lpg.cypher.return.ordering.return.boolean.expression` | `Conformance` | lpg | `Passed` | 7.985 ms |
+| `grafeo.spec.lpg.cypher.return.ordering.order.by.asc` | `Conformance` | lpg | `Passed` | 8.632 ms |
+| `grafeo.spec.lpg.cypher.return.ordering.order.by.desc` | `Conformance` | lpg | `Passed` | 8.665 ms |
+| `grafeo.spec.lpg.cypher.return.ordering.order.by.multiple.keys` | `Conformance` | lpg | `Passed` | 9.921 ms |
+| `grafeo.spec.lpg.cypher.return.ordering.limit` | `Conformance` | lpg | `Passed` | 10.518 ms |
+| `grafeo.spec.lpg.cypher.return.ordering.skip` | `Conformance` | lpg | `Passed` | 10.660 ms |
+| `grafeo.spec.lpg.cypher.return.ordering.skip.and.limit` | `Conformance` | lpg | `Passed` | 10.777 ms |
+| `grafeo.spec.lpg.cypher.types.integer.decimal` | `Conformance` | lpg | `Passed` | 7.938 ms |
+| `grafeo.spec.lpg.cypher.types.integer.negative` | `Conformance` | lpg | `Passed` | 7.892 ms |
+| `grafeo.spec.lpg.cypher.types.integer.zero` | `Conformance` | lpg | `Passed` | 7.917 ms |
+| `grafeo.spec.lpg.cypher.types.integer.hex` | `Conformance` | lpg | `Passed` | 8.051 ms |
+| `grafeo.spec.lpg.cypher.types.integer.octal` | `Conformance` | lpg | `Passed` | 7.994 ms |
+| `grafeo.spec.lpg.cypher.types.float.decimal` | `Conformance` | lpg | `Passed` | 8.042 ms |
+| `grafeo.spec.lpg.cypher.types.float.scientific` | `Conformance` | lpg | `Passed` | 7.904 ms |
+| `grafeo.spec.lpg.cypher.types.float.negative` | `Conformance` | lpg | `Passed` | 7.985 ms |
+| `grafeo.spec.lpg.cypher.types.string.single.quoted` | `Conformance` | lpg | `Passed` | 8.027 ms |
 | `grafeo.spec.lpg.cypher.types.string.double.quoted` | `Conformance` | lpg | `Failed` | 0.049 ms |
-| `grafeo.spec.lpg.cypher.types.string.empty` | `Conformance` | lpg | `Passed` | 8.078 ms |
-| `grafeo.spec.lpg.cypher.types.boolean.true` | `Conformance` | lpg | `Passed` | 8.216 ms |
-| `grafeo.spec.lpg.cypher.types.boolean.false` | `Conformance` | lpg | `Passed` | 8.553 ms |
-| `grafeo.spec.lpg.cypher.types.null.literal` | `Conformance` | lpg | `Passed` | 7.953 ms |
-| `grafeo.spec.lpg.cypher.types.null.comparison.is.null` | `Conformance` | lpg | `Passed` | 7.974 ms |
-| `grafeo.spec.lpg.cypher.types.null.comparison.is.not.null` | `Conformance` | lpg | `Passed` | 7.959 ms |
-| `grafeo.spec.lpg.cypher.types.null.equality.returns.null` | `Conformance` | lpg | `Failed` | 7.962 ms |
-| `grafeo.spec.lpg.cypher.types.missing.property.is.null` | `Conformance` | lpg | `Passed` | 8.285 ms |
-| `grafeo.spec.lpg.cypher.types.list.of.integers` | `Conformance` | lpg | `Failed` | 8.052 ms |
-| `grafeo.spec.lpg.cypher.types.list.empty` | `Conformance` | lpg | `Passed` | 8.376 ms |
-| `grafeo.spec.lpg.cypher.types.list.nested` | `Conformance` | lpg | `Passed` | 8.685 ms |
-| `grafeo.spec.lpg.cypher.types.list.size` | `Conformance` | lpg | `Passed` | 9.007 ms |
-| `grafeo.spec.lpg.cypher.types.map.literal` | `Conformance` | lpg | `Passed` | 8.697 ms |
-| `grafeo.spec.lpg.cypher.types.map.key.count` | `Conformance` | lpg | `Passed` | 9.260 ms |
-| `grafeo.spec.lpg.cypher.types.node.return` | `Conformance` | lpg | `Passed` | 8.338 ms |
-| `grafeo.spec.lpg.cypher.types.relationship.return` | `Conformance` | lpg | `Passed` | 9.647 ms |
-| `grafeo.spec.lpg.cypher.types.path.return` | `Conformance` | lpg | `Passed` | 9.254 ms |
-| `grafeo.spec.lpg.cypher.types.date.from.string` | `Conformance` | lpg | `Passed` | 8.297 ms |
-| `grafeo.spec.lpg.cypher.types.time.from.string` | `Conformance` | lpg | `Passed` | 8.264 ms |
-| `grafeo.spec.lpg.cypher.types.datetime.from.string` | `Conformance` | lpg | `Passed` | 8.185 ms |
-| `grafeo.spec.lpg.cypher.types.duration.from.string` | `Conformance` | lpg | `Passed` | 7.995 ms |
-| `grafeo.spec.lpg.cypher.types.date.stored.as.property` | `Conformance` | lpg | `Passed` | 9.031 ms |
-| `grafeo.spec.lpg.cypher.types.integer.to.float.arithmetic` | `Conformance` | lpg | `Passed` | 8.816 ms |
-| `grafeo.spec.lpg.cypher.types.to.integer.truncation` | `Conformance` | lpg | `Passed` | 8.204 ms |
-| `grafeo.spec.lpg.cypher.types.to.float.from.integer` | `Conformance` | lpg | `Passed` | 8.091 ms |
-| `grafeo.spec.lpg.cypher.types.to.string.from.boolean` | `Conformance` | lpg | `Failed` | 8.588 ms |
-| `grafeo.spec.lpg.cypher.types.to.boolean.from.string.false` | `Conformance` | lpg | `Passed` | 8.759 ms |
-| `grafeo.spec.lpg.cypher.writing.clauses.create.node` | `Conformance` | lpg | `Passed` | 7.717 ms |
-| `grafeo.spec.lpg.cypher.writing.clauses.create.node.multi.label` | `Conformance` | lpg | `Passed` | 8.505 ms |
-| `grafeo.spec.lpg.cypher.writing.clauses.create.relationship` | `Conformance` | lpg | `Passed` | 9.680 ms |
-| `grafeo.spec.lpg.cypher.writing.clauses.create.relationship.with.properties` | `Conformance` | lpg | `Passed` | 15.976 ms |
-| `grafeo.spec.lpg.cypher.writing.clauses.create.path.pattern` | `Conformance` | lpg | `Passed` | 10.095 ms |
-| `grafeo.spec.lpg.cypher.writing.clauses.delete.node` | `Conformance` | lpg | `Passed` | 9.347 ms |
-| `grafeo.spec.lpg.cypher.writing.clauses.delete.multiple` | `Conformance` | lpg | `Passed` | 10.759 ms |
-| `grafeo.spec.lpg.cypher.writing.clauses.detach.delete` | `Conformance` | lpg | `Passed` | 10.939 ms |
-| `grafeo.spec.lpg.cypher.writing.clauses.detach.delete.with.return` | `Conformance` | lpg | `Passed` | 10.448 ms |
-| `grafeo.spec.lpg.cypher.writing.clauses.set.property` | `Conformance` | lpg | `Passed` | 9.118 ms |
-| `grafeo.spec.lpg.cypher.writing.clauses.set.multiple.properties` | `Conformance` | lpg | `Passed` | 9.533 ms |
-| `grafeo.spec.lpg.cypher.writing.clauses.set.replace.all` | `Conformance` | lpg | `Failed` | 0.123 ms |
+| `grafeo.spec.lpg.cypher.types.string.empty` | `Conformance` | lpg | `Passed` | 7.969 ms |
+| `grafeo.spec.lpg.cypher.types.boolean.true` | `Conformance` | lpg | `Passed` | 12.560 ms |
+| `grafeo.spec.lpg.cypher.types.boolean.false` | `Conformance` | lpg | `Passed` | 8.228 ms |
+| `grafeo.spec.lpg.cypher.types.null.literal` | `Conformance` | lpg | `Passed` | 7.905 ms |
+| `grafeo.spec.lpg.cypher.types.null.comparison.is.null` | `Conformance` | lpg | `Passed` | 7.944 ms |
+| `grafeo.spec.lpg.cypher.types.null.comparison.is.not.null` | `Conformance` | lpg | `Passed` | 7.930 ms |
+| `grafeo.spec.lpg.cypher.types.null.equality.returns.null` | `Conformance` | lpg | `Failed` | 7.922 ms |
+| `grafeo.spec.lpg.cypher.types.missing.property.is.null` | `Conformance` | lpg | `Passed` | 8.151 ms |
+| `grafeo.spec.lpg.cypher.types.list.of.integers` | `Conformance` | lpg | `Failed` | 7.931 ms |
+| `grafeo.spec.lpg.cypher.types.list.empty` | `Conformance` | lpg | `Passed` | 7.929 ms |
+| `grafeo.spec.lpg.cypher.types.list.nested` | `Conformance` | lpg | `Passed` | 8.290 ms |
+| `grafeo.spec.lpg.cypher.types.list.size` | `Conformance` | lpg | `Passed` | 8.344 ms |
+| `grafeo.spec.lpg.cypher.types.map.literal` | `Conformance` | lpg | `Passed` | 8.110 ms |
+| `grafeo.spec.lpg.cypher.types.map.key.count` | `Conformance` | lpg | `Passed` | 8.579 ms |
+| `grafeo.spec.lpg.cypher.types.node.return` | `Conformance` | lpg | `Passed` | 7.664 ms |
+| `grafeo.spec.lpg.cypher.types.relationship.return` | `Conformance` | lpg | `Passed` | 9.480 ms |
+| `grafeo.spec.lpg.cypher.types.path.return` | `Conformance` | lpg | `Passed` | 9.271 ms |
+| `grafeo.spec.lpg.cypher.types.date.from.string` | `Conformance` | lpg | `Passed` | 10.554 ms |
+| `grafeo.spec.lpg.cypher.types.time.from.string` | `Conformance` | lpg | `Passed` | 8.418 ms |
+| `grafeo.spec.lpg.cypher.types.datetime.from.string` | `Conformance` | lpg | `Passed` | 7.923 ms |
+| `grafeo.spec.lpg.cypher.types.duration.from.string` | `Conformance` | lpg | `Passed` | 7.886 ms |
+| `grafeo.spec.lpg.cypher.types.date.stored.as.property` | `Conformance` | lpg | `Passed` | 8.307 ms |
+| `grafeo.spec.lpg.cypher.types.integer.to.float.arithmetic` | `Conformance` | lpg | `Passed` | 7.983 ms |
+| `grafeo.spec.lpg.cypher.types.to.integer.truncation` | `Conformance` | lpg | `Passed` | 8.003 ms |
+| `grafeo.spec.lpg.cypher.types.to.float.from.integer` | `Conformance` | lpg | `Passed` | 7.974 ms |
+| `grafeo.spec.lpg.cypher.types.to.string.from.boolean` | `Conformance` | lpg | `Failed` | 7.959 ms |
+| `grafeo.spec.lpg.cypher.types.to.boolean.from.string.false` | `Conformance` | lpg | `Passed` | 8.123 ms |
+| `grafeo.spec.lpg.cypher.writing.clauses.create.node` | `Conformance` | lpg | `Passed` | 7.652 ms |
+| `grafeo.spec.lpg.cypher.writing.clauses.create.node.multi.label` | `Conformance` | lpg | `Passed` | 8.372 ms |
+| `grafeo.spec.lpg.cypher.writing.clauses.create.relationship` | `Conformance` | lpg | `Passed` | 9.639 ms |
+| `grafeo.spec.lpg.cypher.writing.clauses.create.relationship.with.properties` | `Conformance` | lpg | `Passed` | 10.020 ms |
+| `grafeo.spec.lpg.cypher.writing.clauses.create.path.pattern` | `Conformance` | lpg | `Passed` | 10.058 ms |
+| `grafeo.spec.lpg.cypher.writing.clauses.delete.node` | `Conformance` | lpg | `Passed` | 8.630 ms |
+| `grafeo.spec.lpg.cypher.writing.clauses.delete.multiple` | `Conformance` | lpg | `Passed` | 9.403 ms |
+| `grafeo.spec.lpg.cypher.writing.clauses.detach.delete` | `Conformance` | lpg | `Passed` | 9.879 ms |
+| `grafeo.spec.lpg.cypher.writing.clauses.detach.delete.with.return` | `Conformance` | lpg | `Passed` | 9.690 ms |
+| `grafeo.spec.lpg.cypher.writing.clauses.set.property` | `Conformance` | lpg | `Passed` | 8.632 ms |
+| `grafeo.spec.lpg.cypher.writing.clauses.set.multiple.properties` | `Conformance` | lpg | `Passed` | 13.984 ms |
+| `grafeo.spec.lpg.cypher.writing.clauses.set.replace.all` | `Conformance` | lpg | `Failed` | 0.132 ms |
 | `grafeo.spec.lpg.cypher.writing.clauses.set.merge.map` | `Conformance` | lpg | `Failed` | 0.051 ms |
 | `grafeo.spec.lpg.cypher.writing.clauses.set.label` | `Conformance` | lpg | `Failed` | 0.048 ms |
-| `grafeo.spec.lpg.cypher.writing.clauses.set.multiple.labels` | `Conformance` | lpg | `Failed` | 0.047 ms |
-| `grafeo.spec.lpg.cypher.writing.clauses.set.label.preserves.variable.binding` | `Conformance` | lpg | `Failed` | 0.046 ms |
+| `grafeo.spec.lpg.cypher.writing.clauses.set.multiple.labels` | `Conformance` | lpg | `Failed` | 0.048 ms |
+| `grafeo.spec.lpg.cypher.writing.clauses.set.label.preserves.variable.binding` | `Conformance` | lpg | `Failed` | 0.047 ms |
 | `grafeo.spec.lpg.cypher.writing.clauses.count.star.after.set.label` | `Conformance` | lpg | `Failed` | 0.029 ms |
-| `grafeo.spec.lpg.cypher.writing.clauses.count.var.after.set.label` | `Conformance` | lpg | `Failed` | 0.028 ms |
-| `grafeo.spec.lpg.cypher.writing.clauses.remove.property` | `Conformance` | lpg | `Passed` | 9.295 ms |
-| `grafeo.spec.lpg.cypher.writing.clauses.remove.label` | `Conformance` | lpg | `Failed` | 0.104 ms |
+| `grafeo.spec.lpg.cypher.writing.clauses.count.var.after.set.label` | `Conformance` | lpg | `Failed` | 0.029 ms |
+| `grafeo.spec.lpg.cypher.writing.clauses.remove.property` | `Conformance` | lpg | `Passed` | 8.562 ms |
+| `grafeo.spec.lpg.cypher.writing.clauses.remove.label` | `Conformance` | lpg | `Failed` | 0.101 ms |
 | `grafeo.spec.lpg.cypher.writing.clauses.remove.label.preserves.variable.binding` | `Conformance` | lpg | `Failed` | 0.049 ms |
-| `grafeo.spec.lpg.cypher.writing.clauses.match.create.edge.no.phantoms` | `Conformance` | lpg | `Passed` | 10.786 ms |
-| `grafeo.spec.lpg.cypher.writing.clauses.match.create.edge.correct.endpoints` | `Conformance` | lpg | `Passed` | 10.460 ms |
-| `grafeo.spec.lpg.cypher.writing.clauses.merge.create` | `Conformance` | lpg | `Passed` | 8.128 ms |
-| `grafeo.spec.lpg.cypher.writing.clauses.merge.match` | `Conformance` | lpg | `Passed` | 8.337 ms |
-| `grafeo.spec.lpg.cypher.writing.clauses.merge.on.create.set` | `Conformance` | lpg | `Failed` | 0.053 ms |
-| `grafeo.spec.lpg.cypher.writing.clauses.merge.on.match.set` | `Conformance` | lpg | `Failed` | 0.113 ms |
+| `grafeo.spec.lpg.cypher.writing.clauses.match.create.edge.no.phantoms` | `Conformance` | lpg | `Passed` | 9.530 ms |
+| `grafeo.spec.lpg.cypher.writing.clauses.match.create.edge.correct.endpoints` | `Conformance` | lpg | `Passed` | 10.118 ms |
+| `grafeo.spec.lpg.cypher.writing.clauses.merge.create` | `Conformance` | lpg | `Passed` | 7.901 ms |
+| `grafeo.spec.lpg.cypher.writing.clauses.merge.match` | `Conformance` | lpg | `Passed` | 8.072 ms |
+| `grafeo.spec.lpg.cypher.writing.clauses.merge.on.create.set` | `Conformance` | lpg | `Failed` | 0.052 ms |
+| `grafeo.spec.lpg.cypher.writing.clauses.merge.on.match.set` | `Conformance` | lpg | `Failed` | 0.111 ms |
 | `grafeo.spec.lpg.cypher.writing.clauses.merge.on.match.set.self.reference.increment` | `Conformance` | lpg | `Failed` | 0.049 ms |
 | `grafeo.spec.lpg.cypher.writing.clauses.merge.on.create.set.self.reference.coalesce` | `Conformance` | lpg | `Failed` | 0.049 ms |
-| `grafeo.spec.lpg.cypher.writing.clauses.merge.relationship` | `Conformance` | lpg | `Passed` | 10.529 ms |
-| `grafeo.spec.lpg.cypher.writing.clauses.merge.relationship.set` | `Conformance` | lpg | `Passed` | 11.550 ms |
-| `grafeo.spec.lpg.cypher.writing.clauses.foreach.create` | `Conformance` | lpg | `Passed` | 10.335 ms |
-| `grafeo.spec.regression.edge.cases.cyclic.vlp.same.source.and.target.variable.cypher-variant` | `Conformance` | regression | `Failed` | 7.414 ms |
-| `grafeo.spec.regression.edge.cases.cyclic.vlp.no.cycle.returns.empty.cypher-variant` | `Conformance` | regression | `Failed` | 7.354 ms |
-| `grafeo.spec.rosetta.aggregation.count.products.cypher-variant` | `Conformance` | rosetta | `Failed` | 24.766 ms |
-| `grafeo.spec.rosetta.aggregation.sum.order.totals.cypher.cypher-variant` | `Conformance` | rosetta | `Failed` | 0.029 ms |
-| `grafeo.spec.rosetta.aggregation.avg.product.price.cypher-variant` | `Conformance` | rosetta | `Failed` | 24.167 ms |
-| `grafeo.spec.rosetta.aggregation.min.max.price.cypher.cypher-variant` | `Conformance` | rosetta | `Failed` | 24.335 ms |
-| `grafeo.spec.rosetta.aggregation.count.by.status.cypher.cypher-variant` | `Conformance` | rosetta | `Failed` | 0.030 ms |
-| `grafeo.spec.rosetta.aggregation.orders.per.customer.cypher.cypher-variant` | `Conformance` | rosetta | `Failed` | 0.044 ms |
+| `grafeo.spec.lpg.cypher.writing.clauses.merge.relationship` | `Conformance` | lpg | `Passed` | 10.267 ms |
+| `grafeo.spec.lpg.cypher.writing.clauses.merge.relationship.set` | `Conformance` | lpg | `Passed` | 11.527 ms |
+| `grafeo.spec.lpg.cypher.writing.clauses.foreach.create` | `Conformance` | lpg | `Passed` | 10.424 ms |
+| `grafeo.spec.regression.edge.cases.cyclic.vlp.same.source.and.target.variable.cypher-variant` | `Conformance` | regression | `Failed` | 6.896 ms |
+| `grafeo.spec.regression.edge.cases.cyclic.vlp.no.cycle.returns.empty.cypher-variant` | `Conformance` | regression | `Failed` | 6.682 ms |
+| `grafeo.spec.rosetta.aggregation.count.products.cypher-variant` | `Conformance` | rosetta | `Failed` | 23.861 ms |
+| `grafeo.spec.rosetta.aggregation.sum.order.totals.cypher.cypher-variant` | `Conformance` | rosetta | `Failed` | 0.027 ms |
+| `grafeo.spec.rosetta.aggregation.avg.product.price.cypher-variant` | `Conformance` | rosetta | `Failed` | 23.342 ms |
+| `grafeo.spec.rosetta.aggregation.min.max.price.cypher.cypher-variant` | `Conformance` | rosetta | `Failed` | 23.251 ms |
+| `grafeo.spec.rosetta.aggregation.count.by.status.cypher.cypher-variant` | `Conformance` | rosetta | `Failed` | 0.026 ms |
+| `grafeo.spec.rosetta.aggregation.orders.per.customer.cypher.cypher-variant` | `Conformance` | rosetta | `Failed` | 0.043 ms |
 | `grafeo.spec.rosetta.aggregation.total.spend.per.customer.cypher.cypher-variant` | `Conformance` | rosetta | `Failed` | 0.043 ms |
 | `grafeo.spec.rosetta.aggregation.customers.with.multiple.orders.cypher.cypher-variant` | `Conformance` | rosetta | `Failed` | 0.042 ms |
-| `grafeo.spec.rosetta.aggregation.avg.review.rating.cypher-variant` | `Conformance` | rosetta | `Failed` | 25.045 ms |
-| `grafeo.spec.rosetta.basic.queries.count.all.nodes.cypher-variant` | `Conformance` | rosetta | `Passed` | 16.229 ms |
-| `grafeo.spec.rosetta.basic.queries.match.by.label.cypher-variant` | `Conformance` | rosetta | `Passed` | 15.373 ms |
-| `grafeo.spec.rosetta.basic.queries.filter.by.age.cypher-variant` | `Conformance` | rosetta | `Passed` | 15.312 ms |
-| `grafeo.spec.rosetta.basic.queries.edge.traversal.cypher-variant` | `Conformance` | rosetta | `Passed` | 16.406 ms |
-| `grafeo.spec.rosetta.basic.queries.two.hop.path.cypher-variant` | `Conformance` | rosetta | `Passed` | 16.568 ms |
-| `grafeo.spec.rosetta.basic.queries.aggregation.group.by.cypher-variant` | `Conformance` | rosetta | `Passed` | 17.075 ms |
-| `grafeo.spec.rosetta.crud.operations.create.node.and.count.cypher-variant` | `Conformance` | rosetta | `Failed` | 7.678 ms |
-| `grafeo.spec.rosetta.crud.operations.create.node.read.properties.cypher-variant` | `Conformance` | rosetta | `Failed` | 7.324 ms |
-| `grafeo.spec.rosetta.crud.operations.create.edge.and.traverse.cypher-variant` | `Conformance` | rosetta | `Failed` | 7.807 ms |
-| `grafeo.spec.rosetta.crud.operations.match.count.multiple.nodes.cypher-variant` | `Conformance` | rosetta | `Failed` | 7.184 ms |
-| `grafeo.spec.rosetta.crud.operations.set.property.and.read.cypher-variant` | `Conformance` | rosetta | `Failed` | 7.004 ms |
-| `grafeo.spec.rosetta.crud.operations.delete.node.and.count.cypher-variant` | `Conformance` | rosetta | `Failed` | 7.024 ms |
-| `grafeo.spec.rosetta.crud.operations.aggregate.sum.cypher-variant` | `Conformance` | rosetta | `Failed` | 6.816 ms |
-| `grafeo.spec.rosetta.crud.operations.aggregate.count.cypher-variant` | `Conformance` | rosetta | `Failed` | 7.032 ms |
-| `grafeo.spec.rosetta.crud.operations.aggregate.avg.cypher-variant` | `Conformance` | rosetta | `Failed` | 6.940 ms |
-| `grafeo.spec.rosetta.data.fidelity.gql.insert.cypher.read.name.cypher-variant` | `Conformance` | rosetta | `Failed` | 6.812 ms |
-| `grafeo.spec.rosetta.data.fidelity.gql.insert.cypher.read.count.cypher-variant` | `Conformance` | rosetta | `Failed` | 6.754 ms |
-| `grafeo.spec.rosetta.data.fidelity.gql.insert.cypher.read.edge.cypher-variant` | `Conformance` | rosetta | `Failed` | 6.686 ms |
-| `grafeo.spec.rosetta.data.fidelity.int.property.preserved.in.cypher.cypher-variant` | `Conformance` | rosetta | `Failed` | 6.670 ms |
-| `grafeo.spec.rosetta.data.fidelity.bool.property.preserved.in.cypher.cypher-variant` | `Conformance` | rosetta | `Failed` | 6.616 ms |
-| `grafeo.spec.rosetta.data.fidelity.string.property.preserved.in.cypher.cypher-variant` | `Conformance` | rosetta | `Failed` | 7.144 ms |
-| `grafeo.spec.rosetta.data.fidelity.missing.property.null.in.cypher.cypher-variant` | `Conformance` | rosetta | `Failed` | 6.765 ms |
-| `grafeo.spec.rosetta.data.fidelity.multi.label.visible.in.cypher.cypher-variant` | `Conformance` | rosetta | `Failed` | 6.753 ms |
-| `grafeo.spec.rosetta.data.fidelity.edge.type.in.cypher.cypher-variant` | `Conformance` | rosetta | `Failed` | 6.711 ms |
-| `grafeo.spec.rosetta.data.fidelity.gql.insert.all.read.count.cypher-variant` | `Conformance` | rosetta | `Failed` | 6.631 ms |
-| `grafeo.spec.rosetta.pattern.matching.count.actors.cypher-variant` | `Conformance` | rosetta | `Passed` | 66.551 ms |
-| `grafeo.spec.rosetta.pattern.matching.find.actor.by.name.cypher-variant` | `Conformance` | rosetta | `Passed` | 65.914 ms |
-| `grafeo.spec.rosetta.pattern.matching.actors.in.heist.cypher-variant` | `Conformance` | rosetta | `Passed` | 77.839 ms |
-| `grafeo.spec.rosetta.pattern.matching.genres.of.vincent.cypher-variant` | `Conformance` | rosetta | `Passed` | 69.205 ms |
-| `grafeo.spec.rosetta.pattern.matching.movies.per.director.cypher.cypher-variant` | `Conformance` | rosetta | `Passed` | 66.873 ms |
-| `grafeo.spec.rosetta.pattern.matching.actor.roles.in.movie.cypher-variant` | `Conformance` | rosetta | `Passed` | 66.289 ms |
-| `grafeo.spec.rosetta.pattern.matching.high.rated.movies.cypher-variant` | `Conformance` | rosetta | `Passed` | 67.241 ms |
+| `grafeo.spec.rosetta.aggregation.avg.review.rating.cypher-variant` | `Conformance` | rosetta | `Failed` | 23.780 ms |
+| `grafeo.spec.rosetta.basic.queries.count.all.nodes.cypher-variant` | `Conformance` | rosetta | `Passed` | 15.254 ms |
+| `grafeo.spec.rosetta.basic.queries.match.by.label.cypher-variant` | `Conformance` | rosetta | `Passed` | 15.086 ms |
+| `grafeo.spec.rosetta.basic.queries.filter.by.age.cypher-variant` | `Conformance` | rosetta | `Passed` | 15.576 ms |
+| `grafeo.spec.rosetta.basic.queries.edge.traversal.cypher-variant` | `Conformance` | rosetta | `Passed` | 15.792 ms |
+| `grafeo.spec.rosetta.basic.queries.two.hop.path.cypher-variant` | `Conformance` | rosetta | `Passed` | 16.344 ms |
+| `grafeo.spec.rosetta.basic.queries.aggregation.group.by.cypher-variant` | `Conformance` | rosetta | `Passed` | 15.941 ms |
+| `grafeo.spec.rosetta.crud.operations.create.node.and.count.cypher-variant` | `Conformance` | rosetta | `Failed` | 6.729 ms |
+| `grafeo.spec.rosetta.crud.operations.create.node.read.properties.cypher-variant` | `Conformance` | rosetta | `Failed` | 6.798 ms |
+| `grafeo.spec.rosetta.crud.operations.create.edge.and.traverse.cypher-variant` | `Conformance` | rosetta | `Failed` | 6.828 ms |
+| `grafeo.spec.rosetta.crud.operations.match.count.multiple.nodes.cypher-variant` | `Conformance` | rosetta | `Failed` | 6.538 ms |
+| `grafeo.spec.rosetta.crud.operations.set.property.and.read.cypher-variant` | `Conformance` | rosetta | `Failed` | 6.599 ms |
+| `grafeo.spec.rosetta.crud.operations.delete.node.and.count.cypher-variant` | `Conformance` | rosetta | `Failed` | 6.552 ms |
+| `grafeo.spec.rosetta.crud.operations.aggregate.sum.cypher-variant` | `Conformance` | rosetta | `Failed` | 6.811 ms |
+| `grafeo.spec.rosetta.crud.operations.aggregate.count.cypher-variant` | `Conformance` | rosetta | `Failed` | 6.696 ms |
+| `grafeo.spec.rosetta.crud.operations.aggregate.avg.cypher-variant` | `Conformance` | rosetta | `Failed` | 6.725 ms |
+| `grafeo.spec.rosetta.data.fidelity.gql.insert.cypher.read.name.cypher-variant` | `Conformance` | rosetta | `Failed` | 6.703 ms |
+| `grafeo.spec.rosetta.data.fidelity.gql.insert.cypher.read.count.cypher-variant` | `Conformance` | rosetta | `Failed` | 6.820 ms |
+| `grafeo.spec.rosetta.data.fidelity.gql.insert.cypher.read.edge.cypher-variant` | `Conformance` | rosetta | `Failed` | 6.598 ms |
+| `grafeo.spec.rosetta.data.fidelity.int.property.preserved.in.cypher.cypher-variant` | `Conformance` | rosetta | `Failed` | 6.667 ms |
+| `grafeo.spec.rosetta.data.fidelity.bool.property.preserved.in.cypher.cypher-variant` | `Conformance` | rosetta | `Failed` | 6.603 ms |
+| `grafeo.spec.rosetta.data.fidelity.string.property.preserved.in.cypher.cypher-variant` | `Conformance` | rosetta | `Failed` | 6.633 ms |
+| `grafeo.spec.rosetta.data.fidelity.missing.property.null.in.cypher.cypher-variant` | `Conformance` | rosetta | `Failed` | 6.590 ms |
+| `grafeo.spec.rosetta.data.fidelity.multi.label.visible.in.cypher.cypher-variant` | `Conformance` | rosetta | `Failed` | 6.693 ms |
+| `grafeo.spec.rosetta.data.fidelity.edge.type.in.cypher.cypher-variant` | `Conformance` | rosetta | `Failed` | 6.633 ms |
+| `grafeo.spec.rosetta.data.fidelity.gql.insert.all.read.count.cypher-variant` | `Conformance` | rosetta | `Failed` | 6.587 ms |
+| `grafeo.spec.rosetta.pattern.matching.count.actors.cypher-variant` | `Conformance` | rosetta | `Passed` | 65.550 ms |
+| `grafeo.spec.rosetta.pattern.matching.find.actor.by.name.cypher-variant` | `Conformance` | rosetta | `Passed` | 66.439 ms |
+| `grafeo.spec.rosetta.pattern.matching.actors.in.heist.cypher-variant` | `Conformance` | rosetta | `Passed` | 65.302 ms |
+| `grafeo.spec.rosetta.pattern.matching.genres.of.vincent.cypher-variant` | `Conformance` | rosetta | `Passed` | 66.112 ms |
+| `grafeo.spec.rosetta.pattern.matching.movies.per.director.cypher.cypher-variant` | `Conformance` | rosetta | `Passed` | 65.525 ms |
+| `grafeo.spec.rosetta.pattern.matching.actor.roles.in.movie.cypher-variant` | `Conformance` | rosetta | `Passed` | 65.204 ms |
+| `grafeo.spec.rosetta.pattern.matching.high.rated.movies.cypher-variant` | `Conformance` | rosetta | `Passed` | 64.546 ms |
 
 ## Latest `performance-deep` run
 
@@ -2310,8 +2308,8 @@ Generated from `graph/test-results/history.jsonl`. Results are grouped by stable
 
 ## Latest `sparrowdb-deep` run
 
-- Run: `20260719T194200.705171Z-c9496b51762d-corpus-deep`
-- Commit: `c9496b51762d76bc04065390219a9c955d692f11` (dirty)
+- Run: `20260719T205715.944885Z-27369e5a052c-corpus-deep`
+- Commit: `27369e5a052cafa02014ef37141e4e24093062cf` (dirty)
 - Package: `0.7.0`
 - Environment: `macos/aarch64` (`dev`)
 - Records: 2253
@@ -2319,10 +2317,9 @@ Generated from `graph/test-results/history.jsonl`. Results are grouped by stable
 - Unsupported: 0
 - Failed or changed: 215
 
-### Outcome changes from `20260719T192159.606478Z-c9496b51762d-corpus-deep`
+### Outcome changes from `20260719T194200.705171Z-c9496b51762d-corpus-deep`
 
-- `sparrowdb.spa-datetime-fns.duration-one-day.query-1`: Passed
-- `sparrowdb.spa-datetime-fns.duration-complex.query-1`: Passed
+- No outcome changes.
 
 ### Results by source area
 
@@ -2744,44 +2741,424 @@ Generated from `graph/test-results/history.jsonl`. Results are grouped by stable
 
 ## Latest `tck-deep` run
 
-- Run: `20260719T194200.705171Z-c9496b51762d-corpus-deep`
-- Commit: `c9496b51762d76bc04065390219a9c955d692f11` (dirty)
+- Run: `20260719T205715.944885Z-27369e5a052c-corpus-deep`
+- Commit: `27369e5a052cafa02014ef37141e4e24093062cf` (dirty)
 - Package: `0.7.0`
 - Environment: `macos/aarch64` (`dev`)
 - Records: 3926
-- Passed: 1864
+- Passed: 2262
 - Unsupported: 0
-- Failed or changed: 2062
+- Failed or changed: 1664
 
-### Outcome changes from `20260719T192159.606478Z-c9496b51762d-corpus-deep`
+### Outcome changes from `20260719T194200.705171Z-c9496b51762d-corpus-deep`
 
-- `tck.expressions.temporal.temporal1.scenario-12.examples-1-row-1`: Passed
-- `tck.expressions.temporal.temporal1.scenario-12.examples-1-row-5`: Passed
-- `tck.expressions.temporal.temporal1.scenario-12.examples-1-row-8`: Passed
-- `tck.expressions.temporal.temporal1.scenario-12.examples-1-row-9`: Passed
-- `tck.expressions.temporal.temporal10.scenario-13.examples-1-row-1`: Passed
-- `tck.expressions.temporal.temporal2.scenario-7.examples-1-row-1`: Passed
-- `tck.expressions.temporal.temporal2.scenario-7.examples-1-row-6`: Passed
-- `tck.expressions.temporal.temporal4.scenario-11.examples-1-row-1`: Passed
-- `tck.expressions.temporal.temporal4.scenario-12.examples-1-row-1`: Passed
-- `tck.expressions.temporal.temporal4.scenario-12.examples-1-row-2`: Passed
-- `tck.expressions.temporal.temporal4.scenario-13.examples-1-row-21`: Passed
-- `tck.expressions.temporal.temporal6.scenario-6.examples-1-row-1`: Passed
-- `tck.expressions.temporal.temporal6.scenario-6.examples-1-row-2`: Passed
-- `tck.expressions.temporal.temporal6.scenario-6.examples-1-row-3`: Passed
-- `tck.expressions.temporal.temporal7.scenario-6.examples-1-row-1`: Passed
-- `tck.expressions.temporal.temporal7.scenario-6.examples-1-row-6`: Passed
-- `tck.expressions.temporal.temporal7.scenario-6.examples-1-row-7`: Passed
-- `tck.expressions.temporal.temporal7.scenario-6.examples-1-row-8`: Passed
+- `tck.clauses.with-orderby.withorderby1.scenario-13`: Passed
+- `tck.clauses.with-orderby.withorderby1.scenario-14`: Passed
+- `tck.clauses.with-orderby.withorderby1.scenario-17`: Passed
+- `tck.clauses.with-orderby.withorderby1.scenario-18`: Passed
+- `tck.clauses.with-orderby.withorderby1.scenario-45.examples-1-row-7`: Passed
+- `tck.clauses.with-orderby.withorderby1.scenario-45.examples-1-row-8`: Passed
+- `tck.clauses.with-orderby.withorderby1.scenario-45.examples-1-row-9`: Passed
+- `tck.clauses.with-orderby.withorderby1.scenario-45.examples-1-row-10`: Passed
+- `tck.expressions.temporal.temporal1.scenario-1.examples-1-row-1`: Passed
+- `tck.expressions.temporal.temporal1.scenario-1.examples-1-row-2`: Passed
+- `tck.expressions.temporal.temporal1.scenario-1.examples-1-row-3`: Passed
+- `tck.expressions.temporal.temporal1.scenario-1.examples-1-row-4`: Passed
+- `tck.expressions.temporal.temporal1.scenario-1.examples-1-row-5`: Passed
+- `tck.expressions.temporal.temporal1.scenario-1.examples-1-row-6`: Passed
+- `tck.expressions.temporal.temporal1.scenario-1.examples-1-row-7`: Passed
+- `tck.expressions.temporal.temporal1.scenario-1.examples-1-row-8`: Passed
+- `tck.expressions.temporal.temporal1.scenario-1.examples-1-row-9`: Passed
+- `tck.expressions.temporal.temporal1.scenario-1.examples-1-row-10`: Passed
+- `tck.expressions.temporal.temporal1.scenario-1.examples-1-row-11`: Passed
+- `tck.expressions.temporal.temporal1.scenario-1.examples-1-row-12`: Passed
+- `tck.expressions.temporal.temporal1.scenario-2.examples-1-row-1`: Passed
+- `tck.expressions.temporal.temporal1.scenario-2.examples-1-row-2`: Passed
+- `tck.expressions.temporal.temporal1.scenario-2.examples-1-row-3`: Passed
+- `tck.expressions.temporal.temporal1.scenario-2.examples-1-row-4`: Passed
+- `tck.expressions.temporal.temporal1.scenario-2.examples-1-row-5`: Passed
+- `tck.expressions.temporal.temporal1.scenario-2.examples-1-row-6`: Passed
+- `tck.expressions.temporal.temporal1.scenario-2.examples-1-row-7`: Passed
+- `tck.expressions.temporal.temporal1.scenario-2.examples-1-row-8`: Passed
+- `tck.expressions.temporal.temporal1.scenario-2.examples-1-row-9`: Passed
+- `tck.expressions.temporal.temporal1.scenario-2.examples-1-row-10`: Passed
+- `tck.expressions.temporal.temporal1.scenario-2.examples-1-row-11`: Passed
+- `tck.expressions.temporal.temporal1.scenario-2.examples-1-row-12`: Passed
+- `tck.expressions.temporal.temporal1.scenario-3.examples-1-row-1`: Passed
+- `tck.expressions.temporal.temporal1.scenario-3.examples-1-row-2`: Passed
+- `tck.expressions.temporal.temporal1.scenario-3.examples-1-row-3`: Passed
+- `tck.expressions.temporal.temporal1.scenario-3.examples-1-row-4`: Passed
+- `tck.expressions.temporal.temporal1.scenario-3.examples-1-row-5`: Passed
+- `tck.expressions.temporal.temporal1.scenario-3.examples-1-row-6`: Passed
+- `tck.expressions.temporal.temporal1.scenario-3.examples-1-row-7`: Passed
+- `tck.expressions.temporal.temporal1.scenario-3.examples-1-row-8`: Passed
+- `tck.expressions.temporal.temporal1.scenario-3.examples-1-row-9`: Passed
+- `tck.expressions.temporal.temporal1.scenario-3.examples-1-row-10`: Passed
+- `tck.expressions.temporal.temporal1.scenario-3.examples-1-row-11`: Passed
+- `tck.expressions.temporal.temporal1.scenario-3.examples-1-row-12`: Passed
+- `tck.expressions.temporal.temporal1.scenario-4.examples-1-row-3`: Passed
+- `tck.expressions.temporal.temporal1.scenario-4.examples-1-row-4`: Passed
+- `tck.expressions.temporal.temporal1.scenario-4.examples-1-row-6`: Passed
+- `tck.expressions.temporal.temporal1.scenario-4.examples-1-row-7`: Passed
+- `tck.expressions.temporal.temporal1.scenario-4.examples-1-row-8`: Passed
+- `tck.expressions.temporal.temporal1.scenario-5.examples-1-row-1`: Passed
+- `tck.expressions.temporal.temporal1.scenario-5.examples-1-row-2`: Passed
+- `tck.expressions.temporal.temporal1.scenario-5.examples-1-row-3`: Passed
+- `tck.expressions.temporal.temporal1.scenario-5.examples-1-row-4`: Passed
+- `tck.expressions.temporal.temporal1.scenario-5.examples-1-row-6`: Passed
+- `tck.expressions.temporal.temporal1.scenario-5.examples-1-row-7`: Passed
+- `tck.expressions.temporal.temporal1.scenario-6.examples-1-row-1`: Passed
+- `tck.expressions.temporal.temporal1.scenario-6.examples-1-row-2`: Passed
+- `tck.expressions.temporal.temporal1.scenario-6.examples-1-row-3`: Passed
+- `tck.expressions.temporal.temporal1.scenario-6.examples-1-row-4`: Passed
+- `tck.expressions.temporal.temporal1.scenario-6.examples-1-row-5`: Passed
+- `tck.expressions.temporal.temporal1.scenario-6.examples-1-row-7`: Passed
+- `tck.expressions.temporal.temporal1.scenario-6.examples-1-row-8`: Passed
+- `tck.expressions.temporal.temporal1.scenario-6.examples-1-row-9`: Passed
+- `tck.expressions.temporal.temporal1.scenario-6.examples-1-row-10`: Passed
+- `tck.expressions.temporal.temporal1.scenario-6.examples-1-row-11`: Passed
+- `tck.expressions.temporal.temporal1.scenario-6.examples-1-row-12`: Passed
+- `tck.expressions.temporal.temporal1.scenario-6.examples-1-row-13`: Passed
+- `tck.expressions.temporal.temporal1.scenario-6.examples-1-row-14`: Passed
+- `tck.expressions.temporal.temporal1.scenario-7.examples-1-row-1`: Passed
+- `tck.expressions.temporal.temporal1.scenario-7.examples-1-row-2`: Passed
+- `tck.expressions.temporal.temporal1.scenario-7.examples-1-row-3`: Passed
+- `tck.expressions.temporal.temporal1.scenario-7.examples-1-row-4`: Passed
+- `tck.expressions.temporal.temporal1.scenario-7.examples-1-row-5`: Passed
+- `tck.expressions.temporal.temporal1.scenario-7.examples-1-row-7`: Passed
+- `tck.expressions.temporal.temporal1.scenario-7.examples-1-row-8`: Passed
+- `tck.expressions.temporal.temporal1.scenario-7.examples-1-row-9`: Passed
+- `tck.expressions.temporal.temporal1.scenario-7.examples-1-row-10`: Passed
+- `tck.expressions.temporal.temporal1.scenario-7.examples-1-row-11`: Passed
+- `tck.expressions.temporal.temporal1.scenario-7.examples-1-row-12`: Passed
+- `tck.expressions.temporal.temporal1.scenario-7.examples-1-row-13`: Passed
+- `tck.expressions.temporal.temporal1.scenario-7.examples-1-row-14`: Passed
+- `tck.expressions.temporal.temporal1.scenario-7.examples-1-row-15`: Passed
+- `tck.expressions.temporal.temporal1.scenario-7.examples-1-row-16`: Passed
+- `tck.expressions.temporal.temporal1.scenario-7.examples-1-row-17`: Passed
+- `tck.expressions.temporal.temporal1.scenario-7.examples-1-row-18`: Passed
+- `tck.expressions.temporal.temporal1.scenario-7.examples-1-row-19`: Passed
+- `tck.expressions.temporal.temporal1.scenario-7.examples-1-row-20`: Passed
+- `tck.expressions.temporal.temporal1.scenario-7.examples-1-row-21`: Passed
+- `tck.expressions.temporal.temporal1.scenario-7.examples-1-row-22`: Passed
+- `tck.expressions.temporal.temporal1.scenario-7.examples-1-row-23`: Passed
+- `tck.expressions.temporal.temporal1.scenario-7.examples-1-row-24`: Passed
+- `tck.expressions.temporal.temporal1.scenario-7.examples-1-row-25`: Passed
+- `tck.expressions.temporal.temporal1.scenario-7.examples-1-row-26`: Passed
+- `tck.expressions.temporal.temporal1.scenario-7.examples-1-row-27`: Passed
+- `tck.expressions.temporal.temporal1.scenario-7.examples-1-row-28`: Passed
+- `tck.expressions.temporal.temporal1.scenario-7.examples-1-row-29`: Passed
+- `tck.expressions.temporal.temporal1.scenario-7.examples-1-row-30`: Passed
+- `tck.expressions.temporal.temporal1.scenario-7.examples-1-row-31`: Passed
+- `tck.expressions.temporal.temporal1.scenario-8.examples-1-row-1`: Passed
+- `tck.expressions.temporal.temporal1.scenario-8.examples-1-row-2`: Passed
+- `tck.expressions.temporal.temporal1.scenario-8.examples-1-row-3`: Passed
+- `tck.expressions.temporal.temporal1.scenario-8.examples-1-row-4`: Passed
+- `tck.expressions.temporal.temporal1.scenario-8.examples-1-row-6`: Passed
+- `tck.expressions.temporal.temporal1.scenario-8.examples-1-row-7`: Passed
+- `tck.expressions.temporal.temporal1.scenario-8.examples-1-row-8`: Passed
+- `tck.expressions.temporal.temporal1.scenario-8.examples-1-row-9`: Passed
+- `tck.expressions.temporal.temporal1.scenario-8.examples-1-row-10`: Passed
+- `tck.expressions.temporal.temporal1.scenario-8.examples-1-row-11`: Passed
+- `tck.expressions.temporal.temporal1.scenario-8.examples-1-row-12`: Passed
+- `tck.expressions.temporal.temporal1.scenario-8.examples-1-row-13`: Passed
+- `tck.expressions.temporal.temporal1.scenario-8.examples-1-row-14`: Passed
+- `tck.expressions.temporal.temporal1.scenario-8.examples-1-row-15`: Passed
+- `tck.expressions.temporal.temporal1.scenario-8.examples-1-row-16`: Passed
+- `tck.expressions.temporal.temporal1.scenario-8.examples-1-row-17`: Passed
+- `tck.expressions.temporal.temporal1.scenario-8.examples-1-row-18`: Passed
+- `tck.expressions.temporal.temporal1.scenario-8.examples-1-row-19`: Passed
+- `tck.expressions.temporal.temporal1.scenario-8.examples-1-row-20`: Passed
+- `tck.expressions.temporal.temporal1.scenario-8.examples-1-row-21`: Passed
+- `tck.expressions.temporal.temporal1.scenario-8.examples-1-row-22`: Passed
+- `tck.expressions.temporal.temporal1.scenario-8.examples-1-row-23`: Passed
+- `tck.expressions.temporal.temporal1.scenario-8.examples-1-row-24`: Passed
+- `tck.expressions.temporal.temporal1.scenario-8.examples-1-row-25`: Passed
+- `tck.expressions.temporal.temporal1.scenario-8.examples-1-row-26`: Passed
+- `tck.expressions.temporal.temporal1.scenario-8.examples-1-row-27`: Passed
+- `tck.expressions.temporal.temporal1.scenario-8.examples-1-row-28`: Passed
+- `tck.expressions.temporal.temporal1.scenario-8.examples-1-row-29`: Passed
+- `tck.expressions.temporal.temporal1.scenario-8.examples-1-row-30`: Passed
+- `tck.expressions.temporal.temporal1.scenario-9.examples-1-row-1`: Passed
+- `tck.expressions.temporal.temporal1.scenario-9.examples-1-row-2`: Passed
+- `tck.expressions.temporal.temporal1.scenario-9.examples-1-row-3`: Passed
+- `tck.expressions.temporal.temporal1.scenario-9.examples-1-row-4`: Passed
+- `tck.expressions.temporal.temporal1.scenario-9.examples-1-row-5`: Passed
+- `tck.expressions.temporal.temporal1.scenario-9.examples-1-row-6`: Passed
+- `tck.expressions.temporal.temporal1.scenario-9.examples-1-row-7`: Passed
+- `tck.expressions.temporal.temporal1.scenario-9.examples-1-row-8`: Passed
+- `tck.expressions.temporal.temporal1.scenario-9.examples-1-row-9`: Passed
+- `tck.expressions.temporal.temporal1.scenario-9.examples-1-row-10`: Passed
+- `tck.expressions.temporal.temporal1.scenario-9.examples-1-row-11`: Passed
+- `tck.expressions.temporal.temporal1.scenario-9.examples-1-row-12`: Passed
+- `tck.expressions.temporal.temporal1.scenario-9.examples-1-row-13`: Passed
+- `tck.expressions.temporal.temporal1.scenario-9.examples-1-row-14`: Passed
+- `tck.expressions.temporal.temporal1.scenario-9.examples-1-row-15`: Passed
+- `tck.expressions.temporal.temporal1.scenario-9.examples-1-row-16`: Passed
+- `tck.expressions.temporal.temporal1.scenario-9.examples-1-row-17`: Passed
+- `tck.expressions.temporal.temporal1.scenario-9.examples-1-row-18`: Passed
+- `tck.expressions.temporal.temporal1.scenario-9.examples-1-row-19`: Passed
+- `tck.expressions.temporal.temporal1.scenario-9.examples-1-row-20`: Passed
+- `tck.expressions.temporal.temporal1.scenario-9.examples-1-row-21`: Passed
+- `tck.expressions.temporal.temporal1.scenario-9.examples-1-row-22`: Passed
+- `tck.expressions.temporal.temporal1.scenario-9.examples-1-row-23`: Passed
+- `tck.expressions.temporal.temporal1.scenario-9.examples-1-row-24`: Passed
+- `tck.expressions.temporal.temporal1.scenario-9.examples-1-row-25`: Passed
+- `tck.expressions.temporal.temporal1.scenario-9.examples-1-row-26`: Passed
+- `tck.expressions.temporal.temporal1.scenario-9.examples-1-row-27`: Passed
+- `tck.expressions.temporal.temporal1.scenario-9.examples-1-row-28`: Passed
+- `tck.expressions.temporal.temporal1.scenario-9.examples-1-row-29`: Passed
+- `tck.expressions.temporal.temporal1.scenario-10.examples-1-row-1`: Passed
+- `tck.expressions.temporal.temporal1.scenario-10.examples-1-row-2`: Passed
+- `tck.expressions.temporal.temporal1.scenario-10.examples-1-row-3`: Passed
+- `tck.expressions.temporal.temporal1.scenario-10.examples-1-row-4`: Passed
+- `tck.expressions.temporal.temporal1.scenario-10.examples-1-row-5`: Passed
+- `tck.expressions.temporal.temporal1.scenario-10.examples-1-row-6`: Passed
+- `tck.expressions.temporal.temporal1.scenario-10.examples-1-row-7`: Passed
+- `tck.expressions.temporal.temporal1.scenario-10.examples-1-row-8`: Passed
+- `tck.expressions.temporal.temporal1.scenario-10.examples-1-row-9`: Passed
+- `tck.expressions.temporal.temporal1.scenario-10.examples-1-row-10`: Passed
+- `tck.expressions.temporal.temporal1.scenario-10.examples-1-row-11`: Passed
+- `tck.expressions.temporal.temporal1.scenario-10.examples-1-row-12`: Passed
+- `tck.expressions.temporal.temporal1.scenario-10.examples-1-row-13`: Passed
+- `tck.expressions.temporal.temporal1.scenario-10.examples-1-row-14`: Passed
+- `tck.expressions.temporal.temporal1.scenario-10.examples-1-row-15`: Passed
+- `tck.expressions.temporal.temporal1.scenario-10.examples-1-row-16`: Passed
+- `tck.expressions.temporal.temporal1.scenario-10.examples-1-row-17`: Passed
+- `tck.expressions.temporal.temporal1.scenario-10.examples-1-row-18`: Passed
+- `tck.expressions.temporal.temporal1.scenario-10.examples-1-row-19`: Passed
+- `tck.expressions.temporal.temporal1.scenario-10.examples-1-row-20`: Passed
+- `tck.expressions.temporal.temporal1.scenario-10.examples-1-row-21`: Passed
+- `tck.expressions.temporal.temporal1.scenario-10.examples-1-row-22`: Passed
+- `tck.expressions.temporal.temporal1.scenario-10.examples-1-row-23`: Passed
+- `tck.expressions.temporal.temporal1.scenario-10.examples-1-row-24`: Passed
+- `tck.expressions.temporal.temporal1.scenario-10.examples-1-row-25`: Passed
+- `tck.expressions.temporal.temporal1.scenario-10.examples-1-row-26`: Passed
+- `tck.expressions.temporal.temporal1.scenario-10.examples-1-row-27`: Passed
+- `tck.expressions.temporal.temporal1.scenario-10.examples-1-row-28`: Passed
+- `tck.expressions.temporal.temporal1.scenario-10.examples-1-row-29`: Passed
+- `tck.expressions.temporal.temporal10.scenario-1.examples-1-row-1`: Passed
+- `tck.expressions.temporal.temporal10.scenario-1.examples-1-row-2`: Passed
+- `tck.expressions.temporal.temporal10.scenario-1.examples-1-row-5`: Passed
+- `tck.expressions.temporal.temporal10.scenario-1.examples-1-row-6`: Passed
+- `tck.expressions.temporal.temporal10.scenario-2.examples-1-row-1`: Passed
+- `tck.expressions.temporal.temporal10.scenario-2.examples-1-row-9`: Passed
+- `tck.expressions.temporal.temporal10.scenario-2.examples-1-row-10`: Passed
+- `tck.expressions.temporal.temporal10.scenario-2.examples-1-row-14`: Passed
+- `tck.expressions.temporal.temporal10.scenario-2.examples-1-row-17`: Passed
+- `tck.expressions.temporal.temporal10.scenario-2.examples-1-row-18`: Passed
+- `tck.expressions.temporal.temporal10.scenario-3.examples-1-row-1`: Passed
+- `tck.expressions.temporal.temporal10.scenario-3.examples-1-row-2`: Passed
+- `tck.expressions.temporal.temporal10.scenario-3.examples-1-row-3`: Passed
+- `tck.expressions.temporal.temporal10.scenario-3.examples-1-row-12`: Passed
+- `tck.expressions.temporal.temporal10.scenario-3.examples-1-row-13`: Passed
+- `tck.expressions.temporal.temporal10.scenario-3.examples-1-row-14`: Passed
+- `tck.expressions.temporal.temporal10.scenario-3.examples-1-row-17`: Passed
+- `tck.expressions.temporal.temporal10.scenario-3.examples-1-row-18`: Passed
+- `tck.expressions.temporal.temporal10.scenario-4.examples-1-row-1`: Passed
+- `tck.expressions.temporal.temporal10.scenario-4.examples-1-row-2`: Passed
+- `tck.expressions.temporal.temporal10.scenario-4.examples-1-row-3`: Passed
+- `tck.expressions.temporal.temporal10.scenario-4.examples-1-row-12`: Passed
+- `tck.expressions.temporal.temporal10.scenario-4.examples-1-row-13`: Passed
+- `tck.expressions.temporal.temporal10.scenario-4.examples-1-row-14`: Passed
+- `tck.expressions.temporal.temporal10.scenario-4.examples-1-row-17`: Passed
+- `tck.expressions.temporal.temporal10.scenario-4.examples-1-row-18`: Passed
+- `tck.expressions.temporal.temporal10.scenario-5.examples-1-row-1`: Passed
+- `tck.expressions.temporal.temporal10.scenario-5.examples-1-row-9`: Passed
+- `tck.expressions.temporal.temporal10.scenario-5.examples-1-row-10`: Passed
+- `tck.expressions.temporal.temporal10.scenario-5.examples-1-row-14`: Passed
+- `tck.expressions.temporal.temporal10.scenario-5.examples-1-row-17`: Passed
+- `tck.expressions.temporal.temporal10.scenario-5.examples-1-row-18`: Passed
+- `tck.expressions.temporal.temporal10.scenario-7.examples-1-row-1`: Passed
+- `tck.expressions.temporal.temporal10.scenario-7.examples-1-row-2`: Passed
+- `tck.expressions.temporal.temporal10.scenario-7.examples-1-row-3`: Passed
+- `tck.expressions.temporal.temporal10.scenario-7.examples-1-row-4`: Passed
+- `tck.expressions.temporal.temporal10.scenario-7.examples-1-row-5`: Passed
+- `tck.expressions.temporal.temporal10.scenario-12.examples-1-row-3`: Passed
+- `tck.expressions.temporal.temporal10.scenario-13.examples-1-row-2`: Passed
+- `tck.expressions.temporal.temporal10.scenario-13.examples-1-row-3`: Passed
+- `tck.expressions.temporal.temporal10.scenario-13.examples-1-row-4`: Passed
+- `tck.expressions.temporal.temporal2.scenario-2.examples-1-row-1`: Passed
+- `tck.expressions.temporal.temporal2.scenario-2.examples-1-row-2`: Passed
+- `tck.expressions.temporal.temporal2.scenario-2.examples-1-row-4`: Passed
+- `tck.expressions.temporal.temporal2.scenario-2.examples-1-row-5`: Passed
+- `tck.expressions.temporal.temporal2.scenario-2.examples-1-row-6`: Passed
+- `tck.expressions.temporal.temporal2.scenario-2.examples-1-row-7`: Passed
+- `tck.expressions.temporal.temporal2.scenario-3.examples-1-row-2`: Passed
+- `tck.expressions.temporal.temporal2.scenario-3.examples-1-row-3`: Passed
+- `tck.expressions.temporal.temporal2.scenario-3.examples-1-row-5`: Passed
+- `tck.expressions.temporal.temporal2.scenario-3.examples-1-row-6`: Passed
+- `tck.expressions.temporal.temporal2.scenario-3.examples-1-row-8`: Passed
+- `tck.expressions.temporal.temporal2.scenario-4.examples-1-row-1`: Passed
+- `tck.expressions.temporal.temporal2.scenario-6.examples-1-row-1`: Passed
+- `tck.expressions.temporal.temporal2.scenario-6.examples-1-row-2`: Passed
+- `tck.expressions.temporal.temporal2.scenario-6.examples-1-row-3`: Passed
+- `tck.expressions.temporal.temporal2.scenario-6.examples-1-row-4`: Passed
+- `tck.expressions.temporal.temporal3.scenario-1.examples-1-row-2`: Passed
+- `tck.expressions.temporal.temporal3.scenario-1.examples-1-row-3`: Passed
+- `tck.expressions.temporal.temporal3.scenario-1.examples-1-row-4`: Passed
+- `tck.expressions.temporal.temporal3.scenario-1.examples-1-row-6`: Passed
+- `tck.expressions.temporal.temporal3.scenario-1.examples-1-row-8`: Passed
+- `tck.expressions.temporal.temporal3.scenario-1.examples-1-row-9`: Passed
+- `tck.expressions.temporal.temporal3.scenario-1.examples-1-row-10`: Passed
+- `tck.expressions.temporal.temporal3.scenario-1.examples-1-row-11`: Passed
+- `tck.expressions.temporal.temporal3.scenario-1.examples-1-row-13`: Passed
+- `tck.expressions.temporal.temporal3.scenario-1.examples-1-row-15`: Passed
+- `tck.expressions.temporal.temporal3.scenario-1.examples-1-row-16`: Passed
+- `tck.expressions.temporal.temporal3.scenario-1.examples-1-row-17`: Passed
+- `tck.expressions.temporal.temporal3.scenario-1.examples-1-row-18`: Passed
+- `tck.expressions.temporal.temporal3.scenario-1.examples-1-row-20`: Passed
+- `tck.expressions.temporal.temporal3.scenario-2.examples-1-row-2`: Passed
+- `tck.expressions.temporal.temporal3.scenario-2.examples-1-row-3`: Passed
+- `tck.expressions.temporal.temporal3.scenario-2.examples-1-row-5`: Passed
+- `tck.expressions.temporal.temporal3.scenario-2.examples-1-row-6`: Passed
+- `tck.expressions.temporal.temporal3.scenario-2.examples-1-row-8`: Passed
+- `tck.expressions.temporal.temporal3.scenario-2.examples-1-row-9`: Passed
+- `tck.expressions.temporal.temporal3.scenario-2.examples-1-row-11`: Passed
+- `tck.expressions.temporal.temporal3.scenario-2.examples-1-row-12`: Passed
+- `tck.expressions.temporal.temporal3.scenario-3.examples-1-row-2`: Passed
+- `tck.expressions.temporal.temporal3.scenario-3.examples-1-row-3`: Passed
+- `tck.expressions.temporal.temporal3.scenario-3.examples-1-row-4`: Passed
+- `tck.expressions.temporal.temporal3.scenario-3.examples-1-row-5`: Passed
+- `tck.expressions.temporal.temporal3.scenario-3.examples-1-row-7`: Passed
+- `tck.expressions.temporal.temporal3.scenario-3.examples-1-row-9`: Passed
+- `tck.expressions.temporal.temporal3.scenario-3.examples-1-row-12`: Passed
+- `tck.expressions.temporal.temporal3.scenario-3.examples-1-row-13`: Passed
+- `tck.expressions.temporal.temporal3.scenario-3.examples-1-row-14`: Passed
+- `tck.expressions.temporal.temporal3.scenario-3.examples-1-row-15`: Passed
+- `tck.expressions.temporal.temporal3.scenario-4.examples-1-row-1`: Passed
+- `tck.expressions.temporal.temporal3.scenario-4.examples-1-row-2`: Passed
+- `tck.expressions.temporal.temporal3.scenario-4.examples-1-row-3`: Passed
+- `tck.expressions.temporal.temporal3.scenario-4.examples-1-row-4`: Passed
+- `tck.expressions.temporal.temporal3.scenario-4.examples-1-row-5`: Passed
+- `tck.expressions.temporal.temporal3.scenario-4.examples-1-row-6`: Passed
+- `tck.expressions.temporal.temporal3.scenario-5.examples-1-row-1`: Passed
+- `tck.expressions.temporal.temporal3.scenario-5.examples-1-row-2`: Passed
+- `tck.expressions.temporal.temporal3.scenario-5.examples-1-row-3`: Passed
+- `tck.expressions.temporal.temporal3.scenario-5.examples-1-row-4`: Passed
+- `tck.expressions.temporal.temporal3.scenario-5.examples-1-row-5`: Passed
+- `tck.expressions.temporal.temporal3.scenario-5.examples-1-row-6`: Passed
+- `tck.expressions.temporal.temporal3.scenario-5.examples-1-row-7`: Passed
+- `tck.expressions.temporal.temporal3.scenario-5.examples-1-row-8`: Passed
+- `tck.expressions.temporal.temporal3.scenario-6.examples-1-row-1`: Passed
+- `tck.expressions.temporal.temporal3.scenario-6.examples-1-row-2`: Passed
+- `tck.expressions.temporal.temporal3.scenario-6.examples-1-row-3`: Passed
+- `tck.expressions.temporal.temporal3.scenario-6.examples-1-row-4`: Passed
+- `tck.expressions.temporal.temporal3.scenario-6.examples-1-row-5`: Passed
+- `tck.expressions.temporal.temporal3.scenario-6.examples-1-row-6`: Passed
+- `tck.expressions.temporal.temporal3.scenario-6.examples-1-row-7`: Passed
+- `tck.expressions.temporal.temporal3.scenario-6.examples-1-row-8`: Passed
+- `tck.expressions.temporal.temporal3.scenario-6.examples-1-row-9`: Passed
+- `tck.expressions.temporal.temporal3.scenario-6.examples-1-row-10`: Passed
+- `tck.expressions.temporal.temporal3.scenario-6.examples-1-row-11`: Passed
+- `tck.expressions.temporal.temporal3.scenario-6.examples-1-row-12`: Passed
+- `tck.expressions.temporal.temporal3.scenario-6.examples-1-row-13`: Passed
+- `tck.expressions.temporal.temporal3.scenario-6.examples-1-row-14`: Passed
+- `tck.expressions.temporal.temporal3.scenario-6.examples-1-row-15`: Passed
+- `tck.expressions.temporal.temporal3.scenario-6.examples-1-row-16`: Passed
+- `tck.expressions.temporal.temporal3.scenario-6.examples-1-row-17`: Passed
+- `tck.expressions.temporal.temporal3.scenario-6.examples-1-row-18`: Passed
+- `tck.expressions.temporal.temporal3.scenario-6.examples-1-row-19`: Passed
+- `tck.expressions.temporal.temporal3.scenario-6.examples-1-row-20`: Passed
+- `tck.expressions.temporal.temporal3.scenario-6.examples-1-row-21`: Passed
+- `tck.expressions.temporal.temporal3.scenario-6.examples-1-row-22`: Passed
+- `tck.expressions.temporal.temporal3.scenario-6.examples-1-row-23`: Passed
+- `tck.expressions.temporal.temporal3.scenario-6.examples-1-row-24`: Passed
+- `tck.expressions.temporal.temporal3.scenario-7.examples-1-row-2`: Passed
+- `tck.expressions.temporal.temporal3.scenario-7.examples-1-row-3`: Passed
+- `tck.expressions.temporal.temporal3.scenario-7.examples-1-row-5`: Passed
+- `tck.expressions.temporal.temporal3.scenario-7.examples-1-row-6`: Passed
+- `tck.expressions.temporal.temporal3.scenario-8.examples-1-row-1`: Passed
+- `tck.expressions.temporal.temporal3.scenario-8.examples-1-row-2`: Passed
+- `tck.expressions.temporal.temporal3.scenario-8.examples-1-row-3`: Passed
+- `tck.expressions.temporal.temporal3.scenario-8.examples-1-row-4`: Passed
+- `tck.expressions.temporal.temporal3.scenario-8.examples-1-row-5`: Passed
+- `tck.expressions.temporal.temporal3.scenario-8.examples-1-row-6`: Passed
+- `tck.expressions.temporal.temporal3.scenario-8.examples-1-row-7`: Passed
+- `tck.expressions.temporal.temporal3.scenario-8.examples-1-row-8`: Passed
+- `tck.expressions.temporal.temporal3.scenario-8.examples-1-row-9`: Passed
+- `tck.expressions.temporal.temporal3.scenario-8.examples-1-row-10`: Passed
+- `tck.expressions.temporal.temporal3.scenario-8.examples-1-row-11`: Passed
+- `tck.expressions.temporal.temporal3.scenario-8.examples-1-row-12`: Passed
+- `tck.expressions.temporal.temporal3.scenario-9.examples-1-row-1`: Passed
+- `tck.expressions.temporal.temporal3.scenario-9.examples-1-row-2`: Passed
+- `tck.expressions.temporal.temporal3.scenario-9.examples-1-row-3`: Passed
+- `tck.expressions.temporal.temporal3.scenario-9.examples-1-row-4`: Passed
+- `tck.expressions.temporal.temporal3.scenario-9.examples-1-row-5`: Passed
+- `tck.expressions.temporal.temporal3.scenario-9.examples-1-row-7`: Passed
+- `tck.expressions.temporal.temporal3.scenario-9.examples-1-row-9`: Passed
+- `tck.expressions.temporal.temporal3.scenario-9.examples-1-row-10`: Passed
+- `tck.expressions.temporal.temporal3.scenario-9.examples-1-row-11`: Passed
+- `tck.expressions.temporal.temporal3.scenario-9.examples-1-row-12`: Passed
+- `tck.expressions.temporal.temporal3.scenario-9.examples-1-row-13`: Passed
+- `tck.expressions.temporal.temporal3.scenario-9.examples-1-row-15`: Passed
+- `tck.expressions.temporal.temporal3.scenario-10.examples-1-row-1`: Passed
+- `tck.expressions.temporal.temporal3.scenario-10.examples-1-row-2`: Passed
+- `tck.expressions.temporal.temporal3.scenario-10.examples-1-row-3`: Passed
+- `tck.expressions.temporal.temporal3.scenario-10.examples-1-row-4`: Passed
+- `tck.expressions.temporal.temporal3.scenario-10.examples-1-row-5`: Passed
+- `tck.expressions.temporal.temporal3.scenario-10.examples-1-row-7`: Passed
+- `tck.expressions.temporal.temporal3.scenario-10.examples-1-row-9`: Passed
+- `tck.expressions.temporal.temporal3.scenario-10.examples-1-row-10`: Passed
+- `tck.expressions.temporal.temporal3.scenario-10.examples-1-row-11`: Passed
+- `tck.expressions.temporal.temporal3.scenario-10.examples-1-row-12`: Passed
+- `tck.expressions.temporal.temporal3.scenario-10.examples-1-row-13`: Passed
+- `tck.expressions.temporal.temporal3.scenario-10.examples-1-row-15`: Passed
+- `tck.expressions.temporal.temporal3.scenario-10.examples-1-row-17`: Passed
+- `tck.expressions.temporal.temporal3.scenario-10.examples-1-row-18`: Passed
+- `tck.expressions.temporal.temporal3.scenario-10.examples-1-row-19`: Passed
+- `tck.expressions.temporal.temporal3.scenario-10.examples-1-row-20`: Passed
+- `tck.expressions.temporal.temporal3.scenario-10.examples-1-row-21`: Passed
+- `tck.expressions.temporal.temporal3.scenario-10.examples-1-row-23`: Passed
+- `tck.expressions.temporal.temporal3.scenario-10.examples-1-row-25`: Passed
+- `tck.expressions.temporal.temporal3.scenario-10.examples-1-row-26`: Passed
+- `tck.expressions.temporal.temporal3.scenario-10.examples-1-row-27`: Passed
+- `tck.expressions.temporal.temporal3.scenario-10.examples-1-row-28`: Passed
+- `tck.expressions.temporal.temporal3.scenario-10.examples-1-row-29`: Passed
+- `tck.expressions.temporal.temporal3.scenario-10.examples-1-row-31`: Passed
+- `tck.expressions.temporal.temporal3.scenario-10.examples-1-row-33`: Passed
+- `tck.expressions.temporal.temporal3.scenario-10.examples-1-row-34`: Passed
+- `tck.expressions.temporal.temporal3.scenario-10.examples-1-row-35`: Passed
+- `tck.expressions.temporal.temporal3.scenario-10.examples-1-row-36`: Passed
+- `tck.expressions.temporal.temporal3.scenario-10.examples-1-row-37`: Passed
+- `tck.expressions.temporal.temporal3.scenario-10.examples-1-row-39`: Passed
+- `tck.expressions.temporal.temporal3.scenario-10.examples-1-row-41`: Passed
+- `tck.expressions.temporal.temporal3.scenario-10.examples-1-row-42`: Passed
+- `tck.expressions.temporal.temporal3.scenario-10.examples-1-row-43`: Passed
+- `tck.expressions.temporal.temporal3.scenario-10.examples-1-row-44`: Passed
+- `tck.expressions.temporal.temporal3.scenario-10.examples-1-row-45`: Passed
+- `tck.expressions.temporal.temporal3.scenario-10.examples-1-row-47`: Passed
+- `tck.expressions.temporal.temporal3.scenario-11.examples-1-row-2`: Passed
+- `tck.expressions.temporal.temporal3.scenario-11.examples-1-row-3`: Passed
+- `tck.expressions.temporal.temporal3.scenario-11.examples-1-row-4`: Passed
+- `tck.expressions.temporal.temporal3.scenario-11.examples-1-row-5`: Passed
+- `tck.expressions.temporal.temporal3.scenario-11.examples-1-row-7`: Passed
+- `tck.expressions.temporal.temporal3.scenario-11.examples-1-row-9`: Passed
+- `tck.expressions.temporal.temporal6.scenario-2`: Passed
+- `tck.expressions.temporal.temporal6.scenario-3`: Passed
+- `tck.expressions.temporal.temporal6.scenario-4`: Passed
+- `tck.expressions.temporal.temporal6.scenario-5`: Passed
+- `tck.expressions.temporal.temporal6.scenario-7`: Passed
+- `tck.expressions.temporal.temporal7.scenario-2.examples-1-row-1`: Passed
+- `tck.expressions.temporal.temporal7.scenario-2.examples-1-row-2`: Passed
+- `tck.expressions.temporal.temporal7.scenario-3.examples-1-row-2`: Passed
+- `tck.expressions.temporal.temporal7.scenario-4.examples-1-row-1`: Passed
+- `tck.expressions.temporal.temporal7.scenario-4.examples-1-row-2`: Passed
+- `tck.expressions.temporal.temporal7.scenario-5.examples-1-row-1`: Passed
+- `tck.expressions.temporal.temporal7.scenario-5.examples-1-row-2`: Passed
+- `tck.expressions.temporal.temporal7.scenario-6.examples-1-row-2`: Passed
+- `tck.expressions.temporal.temporal7.scenario-6.examples-1-row-3`: Passed
+- `tck.expressions.temporal.temporal7.scenario-6.examples-1-row-4`: Passed
+- `tck.expressions.temporal.temporal7.scenario-6.examples-1-row-5`: Passed
 
 ### Results by source area
 
 | Area | Outcome | Count |
 |---|---|---:|
-| clauses | `failed` | 603 |
-| clauses | `passed` | 648 |
-| expressions | `failed` | 1438 |
-| expressions | `passed` | 1207 |
+| clauses | `failed` | 595 |
+| clauses | `passed` | 656 |
+| expressions | `failed` | 1048 |
+| expressions | `passed` | 1597 |
 | useCases | `failed` | 21 |
 | useCases | `passed` | 9 |
 
@@ -2789,17 +3166,17 @@ Generated from `graph/test-results/history.jsonl`. Results are grouped by stable
 
 | Boundary | Outcome | Count |
 |---|---|---:|
-| `execution` | `failed` | 1543 |
-| `execution` | `passed` | 1821 |
+| `execution` | `failed` | 1149 |
+| `execution` | `passed` | 2219 |
 | `fixture-execution` | `failed` | 19 |
 | `parameter-binding` | `failed` | 20 |
 | `parser` | `failed` | 132 |
 | `parser` | `passed` | 43 |
-| `result-comparison` | `failed` | 264 |
-| `setup-execution` | `failed` | 55 |
+| `result-comparison` | `failed` | 304 |
+| `setup-execution` | `failed` | 11 |
 | `side-effect-comparison` | `failed` | 29 |
 
-### Failures (2062)
+### Failures (1664)
 
 - `tck.clauses.call.call1.scenario-1`: query execution failed: Parse error: procedures outside the built-in registry is not supported in the initial graph slice at byte 6..20; mutation execution failed: Cypher mutation binding failed: procedures in mutation queries is not supported in the initial graph slice at byte 1..23; query:
 CALL test.doNothing()
@@ -3613,86 +3990,10 @@ MATCH (a)-[r]->(b)
 RETURN a, r, b
 - `tck.clauses.with-orderby.withorderby1.scenario-9`: expected [["[]"], ["[\"a\"]"], ["[\"a\",1]"], ["[1]"]], observed [["[\"a\",1]"], ["[\"a\"]"], ["[1,\"a\"]"], ["[1, null]"]]
 - `tck.clauses.with-orderby.withorderby1.scenario-10`: expected [["[null, 2]"], ["[null, 1]"], ["[1, null]"], ["[1,\"a\"]"]], observed [["[null, 2]"], ["[null, 1]"], ["[]"], ["[1]"]]
-- `tck.clauses.with-orderby.withorderby1.scenario-13`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 52..120; mutation execution failed: Cypher mutation binding failed: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 52..120; query:
-UNWIND [localtime({hour: 10, minute: 35}),
-        localtime({hour: 12, minute: 31, second: 14, nanosecond: 645876123}),
-        localtime({hour: 12, minute: 31, second: 14, nanosecond: 645876124}),
-        localtime({hour: 12, minute: 35, second: 13}),
-        localtime({hour: 12, minute: 30, second: 14, nanosecond: 645876123})] AS localtimes
-WITH localtimes
-  ORDER BY localtimes
-  LIMIT 3
-RETURN localtimes
-- `tck.clauses.with-orderby.withorderby1.scenario-14`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 52..120; mutation execution failed: Cypher mutation binding failed: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 52..120; query:
-UNWIND [localtime({hour: 10, minute: 35}),
-        localtime({hour: 12, minute: 31, second: 14, nanosecond: 645876123}),
-        localtime({hour: 12, minute: 31, second: 14, nanosecond: 645876124}),
-        localtime({hour: 12, minute: 35, second: 13}),
-        localtime({hour: 12, minute: 30, second: 14, nanosecond: 645876123})] AS localtimes
-WITH localtimes
-  ORDER BY localtimes DESC
-  LIMIT 3
-RETURN localtimes
-- `tck.clauses.with-orderby.withorderby1.scenario-15`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 9..57; mutation execution failed: Cypher mutation binding failed: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 9..57; query:
-UNWIND [time({hour: 10, minute: 35, timezone: '-08:00'}),
-        time({hour: 12, minute: 31, second: 14, nanosecond: 645876123, timezone: '+01:00'}),
-        time({hour: 12, minute: 31, second: 14, nanosecond: 645876124, timezone: '+01:00'}),
-        time({hour: 12, minute: 35, second: 15, timezone: '+05:00'}),
-        time({hour: 12, minute: 30, second: 14, nanosecond: 645876123, timezone: '+01:01'})] AS times
-WITH times
-  ORDER BY times
-  LIMIT 3
-RETURN times
-- `tck.clauses.with-orderby.withorderby1.scenario-16`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 9..57; mutation execution failed: Cypher mutation binding failed: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 9..57; query:
-UNWIND [time({hour: 10, minute: 35, timezone: '-08:00'}),
-        time({hour: 12, minute: 31, second: 14, nanosecond: 645876123, timezone: '+01:00'}),
-        time({hour: 12, minute: 31, second: 14, nanosecond: 645876124, timezone: '+01:00'}),
-        time({hour: 12, minute: 35, second: 15, timezone: '+05:00'}),
-        time({hour: 12, minute: 30, second: 14, nanosecond: 645876123, timezone: '+01:01'})] AS times
-WITH times
-  ORDER BY times DESC
-  LIMIT 3
-RETURN times
-- `tck.clauses.with-orderby.withorderby1.scenario-17`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 9..106; mutation execution failed: Cypher mutation binding failed: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 9..106; query:
-UNWIND [localdatetime({year: 1984, month: 10, day: 11, hour: 12, minute: 30, second: 14, nanosecond: 12}),
-        localdatetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123}),
-        localdatetime({year: 1, month: 1, day: 1, hour: 1, minute: 1, second: 1, nanosecond: 1}),
-        localdatetime({year: 9999, month: 9, day: 9, hour: 9, minute: 59, second: 59, nanosecond: 999999999}),
-        localdatetime({year: 1980, month: 12, day: 11, hour: 12, minute: 31, second: 14})] AS localdatetimes
-WITH localdatetimes
-  ORDER BY localdatetimes
-  LIMIT 3
-RETURN localdatetimes
-- `tck.clauses.with-orderby.withorderby1.scenario-18`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 9..106; mutation execution failed: Cypher mutation binding failed: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 9..106; query:
-UNWIND [localdatetime({year: 1984, month: 10, day: 11, hour: 12, minute: 30, second: 14, nanosecond: 12}),
-        localdatetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123}),
-        localdatetime({year: 1, month: 1, day: 1, hour: 1, minute: 1, second: 1, nanosecond: 1}),
-        localdatetime({year: 9999, month: 9, day: 9, hour: 9, minute: 59, second: 59, nanosecond: 999999999}),
-        localdatetime({year: 1980, month: 12, day: 11, hour: 12, minute: 31, second: 14})] AS localdatetimes
-WITH localdatetimes
-  ORDER BY localdatetimes DESC
-  LIMIT 3
-RETURN localdatetimes
-- `tck.clauses.with-orderby.withorderby1.scenario-19`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 9..121; mutation execution failed: Cypher mutation binding failed: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 9..121; query:
-UNWIND [datetime({year: 1984, month: 10, day: 11, hour: 12, minute: 30, second: 14, nanosecond: 12, timezone: '+00:15'}),
-        datetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123, timezone: '+00:17'}),
-        datetime({year: 1, month: 1, day: 1, hour: 1, minute: 1, second: 1, nanosecond: 1, timezone: '-11:59'}),
-        datetime({year: 9999, month: 9, day: 9, hour: 9, minute: 59, second: 59, nanosecond: 999999999, timezone: '+11:59'}),
-        datetime({year: 1980, month: 12, day: 11, hour: 12, minute: 31, second: 14, timezone: '-11:59'})] AS datetimes
-WITH datetimes
-  ORDER BY datetimes
-  LIMIT 3
-RETURN datetimes
-- `tck.clauses.with-orderby.withorderby1.scenario-20`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 9..121; mutation execution failed: Cypher mutation binding failed: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 9..121; query:
-UNWIND [datetime({year: 1984, month: 10, day: 11, hour: 12, minute: 30, second: 14, nanosecond: 12, timezone: '+00:15'}),
-        datetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123, timezone: '+00:17'}),
-        datetime({year: 1, month: 1, day: 1, hour: 1, minute: 1, second: 1, nanosecond: 1, timezone: '-11:59'}),
-        datetime({year: 9999, month: 9, day: 9, hour: 9, minute: 59, second: 59, nanosecond: 999999999, timezone: '+11:59'}),
-        datetime({year: 1980, month: 12, day: 11, hour: 12, minute: 31, second: 14, timezone: '-11:59'})] AS datetimes
-WITH datetimes
-  ORDER BY datetimes DESC
-  LIMIT 3
-RETURN datetimes
+- `tck.clauses.with-orderby.withorderby1.scenario-15`: expected [["12:35:15+05:00"], ["12:30:14.645876123+01:01"], ["12:31:14.645876123+01:00"]], observed [["10:35-08:00"], ["12:30:14.645876123+01:01"], ["12:31:14.645876123+01:00"]]
+- `tck.clauses.with-orderby.withorderby1.scenario-16`: expected [["10:35-08:00"], ["12:31:14.645876124+01:00"], ["12:31:14.645876123+01:00"]], observed [["12:35:15+05:00"], ["12:31:14.645876124+01:00"], ["12:31:14.645876123+01:00"]]
+- `tck.clauses.with-orderby.withorderby1.scenario-19`: expected [["0001-01-01T01:01:01.000000001-11:59"], ["1980-12-11T12:31:14-11:59"], ["1984-10-11T12:31:14.645876123+00:17"]], observed [["0001-01-01T01:01:01.000000001-11:59"], ["1980-12-11T12:31:14-11:59"], ["1984-10-11T12:30:14.000000012+00:15"]]
+- `tck.clauses.with-orderby.withorderby1.scenario-20`: expected [["9999-09-09T09:59:59.999999999+11:59"], ["1984-10-11T12:30:14.000000012+00:15"], ["1984-10-11T12:31:14.645876123+00:17"]], observed [["9999-09-09T09:59:59.999999999+11:59"], ["1984-10-11T12:31:14.645876123+00:17"], ["1984-10-11T12:30:14.000000012+00:15"]]
 - `tck.clauses.with-orderby.withorderby1.scenario-21`: result expectation is not representable by the scalar adapter
 - `tck.clauses.with-orderby.withorderby1.scenario-22`: expected [["0"], ["1.5"], ["<null>"], ["NaN"], ["text"]], observed [["<null>"], ["<null>"], ["text"], ["{\"a\":\"map\"}"], ["{\"nodes\":[1,2],\"relationships\":[1]}"]]
 - `tck.clauses.with-orderby.withorderby1.scenario-23.examples-1-row-1`: result expectation is not representable by the scalar adapter
@@ -3725,278 +4026,26 @@ RETURN datetimes
 - `tck.clauses.with-orderby.withorderby1.scenario-33.examples-1-row-3`: result expectation is not representable by the scalar adapter
 - `tck.clauses.with-orderby.withorderby1.scenario-34.examples-1-row-1`: result expectation is not representable by the scalar adapter
 - `tck.clauses.with-orderby.withorderby1.scenario-34.examples-1-row-2`: result expectation is not representable by the scalar adapter
-- `tck.clauses.with-orderby.withorderby1.scenario-35.examples-1-row-1`: TCK setup query failed: query execution failed: Parse error: mutation clauses in read queries is not supported in the initial graph slice at byte 1..392; mutation execution failed: Cypher mutation binding failed: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 74..142; query:
-CREATE (:A {time: localtime({hour: 10, minute: 35})}),
-       (:B {time: localtime({hour: 12, minute: 31, second: 14, nanosecond: 645876123})}),
-       (:C {time: localtime({hour: 12, minute: 31, second: 14, nanosecond: 645876124})}),
-       (:D {time: localtime({hour: 12, minute: 30, second: 14, nanosecond: 645876123})}),
-       (:E {time: localtime({hour: 12, minute: 31, second: 15})})
-; query:
-CREATE (:A {time: localtime({hour: 10, minute: 35})}),
-       (:B {time: localtime({hour: 12, minute: 31, second: 14, nanosecond: 645876123})}),
-       (:C {time: localtime({hour: 12, minute: 31, second: 14, nanosecond: 645876124})}),
-       (:D {time: localtime({hour: 12, minute: 30, second: 14, nanosecond: 645876123})}),
-       (:E {time: localtime({hour: 12, minute: 31, second: 15})})
-- `tck.clauses.with-orderby.withorderby1.scenario-35.examples-1-row-2`: TCK setup query failed: query execution failed: Parse error: mutation clauses in read queries is not supported in the initial graph slice at byte 1..392; mutation execution failed: Cypher mutation binding failed: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 74..142; query:
-CREATE (:A {time: localtime({hour: 10, minute: 35})}),
-       (:B {time: localtime({hour: 12, minute: 31, second: 14, nanosecond: 645876123})}),
-       (:C {time: localtime({hour: 12, minute: 31, second: 14, nanosecond: 645876124})}),
-       (:D {time: localtime({hour: 12, minute: 30, second: 14, nanosecond: 645876123})}),
-       (:E {time: localtime({hour: 12, minute: 31, second: 15})})
-; query:
-CREATE (:A {time: localtime({hour: 10, minute: 35})}),
-       (:B {time: localtime({hour: 12, minute: 31, second: 14, nanosecond: 645876123})}),
-       (:C {time: localtime({hour: 12, minute: 31, second: 14, nanosecond: 645876124})}),
-       (:D {time: localtime({hour: 12, minute: 30, second: 14, nanosecond: 645876123})}),
-       (:E {time: localtime({hour: 12, minute: 31, second: 15})})
-- `tck.clauses.with-orderby.withorderby1.scenario-35.examples-1-row-3`: TCK setup query failed: query execution failed: Parse error: mutation clauses in read queries is not supported in the initial graph slice at byte 1..392; mutation execution failed: Cypher mutation binding failed: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 74..142; query:
-CREATE (:A {time: localtime({hour: 10, minute: 35})}),
-       (:B {time: localtime({hour: 12, minute: 31, second: 14, nanosecond: 645876123})}),
-       (:C {time: localtime({hour: 12, minute: 31, second: 14, nanosecond: 645876124})}),
-       (:D {time: localtime({hour: 12, minute: 30, second: 14, nanosecond: 645876123})}),
-       (:E {time: localtime({hour: 12, minute: 31, second: 15})})
-; query:
-CREATE (:A {time: localtime({hour: 10, minute: 35})}),
-       (:B {time: localtime({hour: 12, minute: 31, second: 14, nanosecond: 645876123})}),
-       (:C {time: localtime({hour: 12, minute: 31, second: 14, nanosecond: 645876124})}),
-       (:D {time: localtime({hour: 12, minute: 30, second: 14, nanosecond: 645876123})}),
-       (:E {time: localtime({hour: 12, minute: 31, second: 15})})
-- `tck.clauses.with-orderby.withorderby1.scenario-36.examples-1-row-1`: TCK setup query failed: query execution failed: Parse error: mutation clauses in read queries is not supported in the initial graph slice at byte 1..392; mutation execution failed: Cypher mutation binding failed: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 74..142; query:
-CREATE (:A {time: localtime({hour: 10, minute: 35})}),
-       (:B {time: localtime({hour: 12, minute: 31, second: 14, nanosecond: 645876123})}),
-       (:C {time: localtime({hour: 12, minute: 31, second: 14, nanosecond: 645876124})}),
-       (:D {time: localtime({hour: 12, minute: 30, second: 14, nanosecond: 645876123})}),
-       (:E {time: localtime({hour: 12, minute: 31, second: 15})})
-; query:
-CREATE (:A {time: localtime({hour: 10, minute: 35})}),
-       (:B {time: localtime({hour: 12, minute: 31, second: 14, nanosecond: 645876123})}),
-       (:C {time: localtime({hour: 12, minute: 31, second: 14, nanosecond: 645876124})}),
-       (:D {time: localtime({hour: 12, minute: 30, second: 14, nanosecond: 645876123})}),
-       (:E {time: localtime({hour: 12, minute: 31, second: 15})})
-- `tck.clauses.with-orderby.withorderby1.scenario-36.examples-1-row-2`: TCK setup query failed: query execution failed: Parse error: mutation clauses in read queries is not supported in the initial graph slice at byte 1..392; mutation execution failed: Cypher mutation binding failed: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 74..142; query:
-CREATE (:A {time: localtime({hour: 10, minute: 35})}),
-       (:B {time: localtime({hour: 12, minute: 31, second: 14, nanosecond: 645876123})}),
-       (:C {time: localtime({hour: 12, minute: 31, second: 14, nanosecond: 645876124})}),
-       (:D {time: localtime({hour: 12, minute: 30, second: 14, nanosecond: 645876123})}),
-       (:E {time: localtime({hour: 12, minute: 31, second: 15})})
-; query:
-CREATE (:A {time: localtime({hour: 10, minute: 35})}),
-       (:B {time: localtime({hour: 12, minute: 31, second: 14, nanosecond: 645876123})}),
-       (:C {time: localtime({hour: 12, minute: 31, second: 14, nanosecond: 645876124})}),
-       (:D {time: localtime({hour: 12, minute: 30, second: 14, nanosecond: 645876123})}),
-       (:E {time: localtime({hour: 12, minute: 31, second: 15})})
-- `tck.clauses.with-orderby.withorderby1.scenario-37.examples-1-row-1`: TCK setup query failed: query execution failed: Parse error: mutation clauses in read queries is not supported in the initial graph slice at byte 1..467; mutation execution failed: Cypher mutation binding failed: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 19..67; query:
-CREATE (:A {time: time({hour: 10, minute: 35, timezone: '-08:00'})}),
-       (:B {time: time({hour: 12, minute: 31, second: 14, nanosecond: 645876123, timezone: '+01:00'})}),
-       (:C {time: time({hour: 12, minute: 31, second: 14, nanosecond: 645876124, timezone: '+01:00'})}),
-       (:D {time: time({hour: 12, minute: 35, second: 15, timezone: '+05:00'})}),
-       (:E {time: time({hour: 12, minute: 30, second: 14, nanosecond: 645876123, timezone: '+01:01'})})
-; query:
-CREATE (:A {time: time({hour: 10, minute: 35, timezone: '-08:00'})}),
-       (:B {time: time({hour: 12, minute: 31, second: 14, nanosecond: 645876123, timezone: '+01:00'})}),
-       (:C {time: time({hour: 12, minute: 31, second: 14, nanosecond: 645876124, timezone: '+01:00'})}),
-       (:D {time: time({hour: 12, minute: 35, second: 15, timezone: '+05:00'})}),
-       (:E {time: time({hour: 12, minute: 30, second: 14, nanosecond: 645876123, timezone: '+01:01'})})
-- `tck.clauses.with-orderby.withorderby1.scenario-37.examples-1-row-2`: TCK setup query failed: query execution failed: Parse error: mutation clauses in read queries is not supported in the initial graph slice at byte 1..467; mutation execution failed: Cypher mutation binding failed: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 19..67; query:
-CREATE (:A {time: time({hour: 10, minute: 35, timezone: '-08:00'})}),
-       (:B {time: time({hour: 12, minute: 31, second: 14, nanosecond: 645876123, timezone: '+01:00'})}),
-       (:C {time: time({hour: 12, minute: 31, second: 14, nanosecond: 645876124, timezone: '+01:00'})}),
-       (:D {time: time({hour: 12, minute: 35, second: 15, timezone: '+05:00'})}),
-       (:E {time: time({hour: 12, minute: 30, second: 14, nanosecond: 645876123, timezone: '+01:01'})})
-; query:
-CREATE (:A {time: time({hour: 10, minute: 35, timezone: '-08:00'})}),
-       (:B {time: time({hour: 12, minute: 31, second: 14, nanosecond: 645876123, timezone: '+01:00'})}),
-       (:C {time: time({hour: 12, minute: 31, second: 14, nanosecond: 645876124, timezone: '+01:00'})}),
-       (:D {time: time({hour: 12, minute: 35, second: 15, timezone: '+05:00'})}),
-       (:E {time: time({hour: 12, minute: 30, second: 14, nanosecond: 645876123, timezone: '+01:01'})})
-- `tck.clauses.with-orderby.withorderby1.scenario-37.examples-1-row-3`: TCK setup query failed: query execution failed: Parse error: mutation clauses in read queries is not supported in the initial graph slice at byte 1..467; mutation execution failed: Cypher mutation binding failed: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 19..67; query:
-CREATE (:A {time: time({hour: 10, minute: 35, timezone: '-08:00'})}),
-       (:B {time: time({hour: 12, minute: 31, second: 14, nanosecond: 645876123, timezone: '+01:00'})}),
-       (:C {time: time({hour: 12, minute: 31, second: 14, nanosecond: 645876124, timezone: '+01:00'})}),
-       (:D {time: time({hour: 12, minute: 35, second: 15, timezone: '+05:00'})}),
-       (:E {time: time({hour: 12, minute: 30, second: 14, nanosecond: 645876123, timezone: '+01:01'})})
-; query:
-CREATE (:A {time: time({hour: 10, minute: 35, timezone: '-08:00'})}),
-       (:B {time: time({hour: 12, minute: 31, second: 14, nanosecond: 645876123, timezone: '+01:00'})}),
-       (:C {time: time({hour: 12, minute: 31, second: 14, nanosecond: 645876124, timezone: '+01:00'})}),
-       (:D {time: time({hour: 12, minute: 35, second: 15, timezone: '+05:00'})}),
-       (:E {time: time({hour: 12, minute: 30, second: 14, nanosecond: 645876123, timezone: '+01:01'})})
-- `tck.clauses.with-orderby.withorderby1.scenario-38.examples-1-row-1`: TCK setup query failed: query execution failed: Parse error: mutation clauses in read queries is not supported in the initial graph slice at byte 1..467; mutation execution failed: Cypher mutation binding failed: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 19..67; query:
-CREATE (:A {time: time({hour: 10, minute: 35, timezone: '-08:00'})}),
-       (:B {time: time({hour: 12, minute: 31, second: 14, nanosecond: 645876123, timezone: '+01:00'})}),
-       (:C {time: time({hour: 12, minute: 31, second: 14, nanosecond: 645876124, timezone: '+01:00'})}),
-       (:D {time: time({hour: 12, minute: 35, second: 15, timezone: '+05:00'})}),
-       (:E {time: time({hour: 12, minute: 30, second: 14, nanosecond: 645876123, timezone: '+01:01'})})
-; query:
-CREATE (:A {time: time({hour: 10, minute: 35, timezone: '-08:00'})}),
-       (:B {time: time({hour: 12, minute: 31, second: 14, nanosecond: 645876123, timezone: '+01:00'})}),
-       (:C {time: time({hour: 12, minute: 31, second: 14, nanosecond: 645876124, timezone: '+01:00'})}),
-       (:D {time: time({hour: 12, minute: 35, second: 15, timezone: '+05:00'})}),
-       (:E {time: time({hour: 12, minute: 30, second: 14, nanosecond: 645876123, timezone: '+01:01'})})
-- `tck.clauses.with-orderby.withorderby1.scenario-38.examples-1-row-2`: TCK setup query failed: query execution failed: Parse error: mutation clauses in read queries is not supported in the initial graph slice at byte 1..467; mutation execution failed: Cypher mutation binding failed: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 19..67; query:
-CREATE (:A {time: time({hour: 10, minute: 35, timezone: '-08:00'})}),
-       (:B {time: time({hour: 12, minute: 31, second: 14, nanosecond: 645876123, timezone: '+01:00'})}),
-       (:C {time: time({hour: 12, minute: 31, second: 14, nanosecond: 645876124, timezone: '+01:00'})}),
-       (:D {time: time({hour: 12, minute: 35, second: 15, timezone: '+05:00'})}),
-       (:E {time: time({hour: 12, minute: 30, second: 14, nanosecond: 645876123, timezone: '+01:01'})})
-; query:
-CREATE (:A {time: time({hour: 10, minute: 35, timezone: '-08:00'})}),
-       (:B {time: time({hour: 12, minute: 31, second: 14, nanosecond: 645876123, timezone: '+01:00'})}),
-       (:C {time: time({hour: 12, minute: 31, second: 14, nanosecond: 645876124, timezone: '+01:00'})}),
-       (:D {time: time({hour: 12, minute: 35, second: 15, timezone: '+05:00'})}),
-       (:E {time: time({hour: 12, minute: 30, second: 14, nanosecond: 645876123, timezone: '+01:01'})})
-- `tck.clauses.with-orderby.withorderby1.scenario-39.examples-1-row-1`: TCK setup query failed: query execution failed: Parse error: mutation clauses in read queries is not supported in the initial graph slice at byte 1..601; mutation execution failed: Cypher mutation binding failed: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 23..120; query:
-CREATE (:A {datetime: localdatetime({year: 1984, month: 10, day: 11, hour: 12, minute: 30, second: 14, nanosecond: 12})}),
-       (:B {datetime: localdatetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123})}),
-       (:C {datetime: localdatetime({year: 1, month: 1, day: 1, hour: 1, minute: 1, second: 1, nanosecond: 1})}),
-       (:D {datetime: localdatetime({year: 9999, month: 9, day: 9, hour: 9, minute: 59, second: 59, nanosecond: 999999999})}),
-       (:E {datetime: localdatetime({year: 1980, month: 12, day: 11, hour: 12, minute: 31, second: 14})})
-; query:
-CREATE (:A {datetime: localdatetime({year: 1984, month: 10, day: 11, hour: 12, minute: 30, second: 14, nanosecond: 12})}),
-       (:B {datetime: localdatetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123})}),
-       (:C {datetime: localdatetime({year: 1, month: 1, day: 1, hour: 1, minute: 1, second: 1, nanosecond: 1})}),
-       (:D {datetime: localdatetime({year: 9999, month: 9, day: 9, hour: 9, minute: 59, second: 59, nanosecond: 999999999})}),
-       (:E {datetime: localdatetime({year: 1980, month: 12, day: 11, hour: 12, minute: 31, second: 14})})
-- `tck.clauses.with-orderby.withorderby1.scenario-39.examples-1-row-2`: TCK setup query failed: query execution failed: Parse error: mutation clauses in read queries is not supported in the initial graph slice at byte 1..601; mutation execution failed: Cypher mutation binding failed: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 23..120; query:
-CREATE (:A {datetime: localdatetime({year: 1984, month: 10, day: 11, hour: 12, minute: 30, second: 14, nanosecond: 12})}),
-       (:B {datetime: localdatetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123})}),
-       (:C {datetime: localdatetime({year: 1, month: 1, day: 1, hour: 1, minute: 1, second: 1, nanosecond: 1})}),
-       (:D {datetime: localdatetime({year: 9999, month: 9, day: 9, hour: 9, minute: 59, second: 59, nanosecond: 999999999})}),
-       (:E {datetime: localdatetime({year: 1980, month: 12, day: 11, hour: 12, minute: 31, second: 14})})
-; query:
-CREATE (:A {datetime: localdatetime({year: 1984, month: 10, day: 11, hour: 12, minute: 30, second: 14, nanosecond: 12})}),
-       (:B {datetime: localdatetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123})}),
-       (:C {datetime: localdatetime({year: 1, month: 1, day: 1, hour: 1, minute: 1, second: 1, nanosecond: 1})}),
-       (:D {datetime: localdatetime({year: 9999, month: 9, day: 9, hour: 9, minute: 59, second: 59, nanosecond: 999999999})}),
-       (:E {datetime: localdatetime({year: 1980, month: 12, day: 11, hour: 12, minute: 31, second: 14})})
-- `tck.clauses.with-orderby.withorderby1.scenario-39.examples-1-row-3`: TCK setup query failed: query execution failed: Parse error: mutation clauses in read queries is not supported in the initial graph slice at byte 1..601; mutation execution failed: Cypher mutation binding failed: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 23..120; query:
-CREATE (:A {datetime: localdatetime({year: 1984, month: 10, day: 11, hour: 12, minute: 30, second: 14, nanosecond: 12})}),
-       (:B {datetime: localdatetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123})}),
-       (:C {datetime: localdatetime({year: 1, month: 1, day: 1, hour: 1, minute: 1, second: 1, nanosecond: 1})}),
-       (:D {datetime: localdatetime({year: 9999, month: 9, day: 9, hour: 9, minute: 59, second: 59, nanosecond: 999999999})}),
-       (:E {datetime: localdatetime({year: 1980, month: 12, day: 11, hour: 12, minute: 31, second: 14})})
-; query:
-CREATE (:A {datetime: localdatetime({year: 1984, month: 10, day: 11, hour: 12, minute: 30, second: 14, nanosecond: 12})}),
-       (:B {datetime: localdatetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123})}),
-       (:C {datetime: localdatetime({year: 1, month: 1, day: 1, hour: 1, minute: 1, second: 1, nanosecond: 1})}),
-       (:D {datetime: localdatetime({year: 9999, month: 9, day: 9, hour: 9, minute: 59, second: 59, nanosecond: 999999999})}),
-       (:E {datetime: localdatetime({year: 1980, month: 12, day: 11, hour: 12, minute: 31, second: 14})})
-- `tck.clauses.with-orderby.withorderby1.scenario-40.examples-1-row-1`: TCK setup query failed: query execution failed: Parse error: mutation clauses in read queries is not supported in the initial graph slice at byte 1..601; mutation execution failed: Cypher mutation binding failed: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 23..120; query:
-CREATE (:A {datetime: localdatetime({year: 1984, month: 10, day: 11, hour: 12, minute: 30, second: 14, nanosecond: 12})}),
-       (:B {datetime: localdatetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123})}),
-       (:C {datetime: localdatetime({year: 1, month: 1, day: 1, hour: 1, minute: 1, second: 1, nanosecond: 1})}),
-       (:D {datetime: localdatetime({year: 9999, month: 9, day: 9, hour: 9, minute: 59, second: 59, nanosecond: 999999999})}),
-       (:E {datetime: localdatetime({year: 1980, month: 12, day: 11, hour: 12, minute: 31, second: 14})})
-; query:
-CREATE (:A {datetime: localdatetime({year: 1984, month: 10, day: 11, hour: 12, minute: 30, second: 14, nanosecond: 12})}),
-       (:B {datetime: localdatetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123})}),
-       (:C {datetime: localdatetime({year: 1, month: 1, day: 1, hour: 1, minute: 1, second: 1, nanosecond: 1})}),
-       (:D {datetime: localdatetime({year: 9999, month: 9, day: 9, hour: 9, minute: 59, second: 59, nanosecond: 999999999})}),
-       (:E {datetime: localdatetime({year: 1980, month: 12, day: 11, hour: 12, minute: 31, second: 14})})
-- `tck.clauses.with-orderby.withorderby1.scenario-40.examples-1-row-2`: TCK setup query failed: query execution failed: Parse error: mutation clauses in read queries is not supported in the initial graph slice at byte 1..601; mutation execution failed: Cypher mutation binding failed: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 23..120; query:
-CREATE (:A {datetime: localdatetime({year: 1984, month: 10, day: 11, hour: 12, minute: 30, second: 14, nanosecond: 12})}),
-       (:B {datetime: localdatetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123})}),
-       (:C {datetime: localdatetime({year: 1, month: 1, day: 1, hour: 1, minute: 1, second: 1, nanosecond: 1})}),
-       (:D {datetime: localdatetime({year: 9999, month: 9, day: 9, hour: 9, minute: 59, second: 59, nanosecond: 999999999})}),
-       (:E {datetime: localdatetime({year: 1980, month: 12, day: 11, hour: 12, minute: 31, second: 14})})
-; query:
-CREATE (:A {datetime: localdatetime({year: 1984, month: 10, day: 11, hour: 12, minute: 30, second: 14, nanosecond: 12})}),
-       (:B {datetime: localdatetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123})}),
-       (:C {datetime: localdatetime({year: 1, month: 1, day: 1, hour: 1, minute: 1, second: 1, nanosecond: 1})}),
-       (:D {datetime: localdatetime({year: 9999, month: 9, day: 9, hour: 9, minute: 59, second: 59, nanosecond: 999999999})}),
-       (:E {datetime: localdatetime({year: 1980, month: 12, day: 11, hour: 12, minute: 31, second: 14})})
-- `tck.clauses.with-orderby.withorderby1.scenario-41.examples-1-row-1`: TCK setup query failed: query execution failed: Parse error: mutation clauses in read queries is not supported in the initial graph slice at byte 1..676; mutation execution failed: Cypher mutation binding failed: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 23..135; query:
-CREATE (:A {datetime: datetime({year: 1984, month: 10, day: 11, hour: 12, minute: 30, second: 14, nanosecond: 12, timezone: '+00:15'})}),
-       (:B {datetime: datetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123, timezone: '+00:17'})}),
-       (:C {datetime: datetime({year: 1, month: 1, day: 1, hour: 1, minute: 1, second: 1, nanosecond: 1, timezone: '-11:59'})}),
-       (:D {datetime: datetime({year: 9999, month: 9, day: 9, hour: 9, minute: 59, second: 59, nanosecond: 999999999, timezone: '+11:59'})}),
-       (:E {datetime: datetime({year: 1980, month: 12, day: 11, hour: 12, minute: 31, second: 14, timezone: '-11:59'})})
-; query:
-CREATE (:A {datetime: datetime({year: 1984, month: 10, day: 11, hour: 12, minute: 30, second: 14, nanosecond: 12, timezone: '+00:15'})}),
-       (:B {datetime: datetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123, timezone: '+00:17'})}),
-       (:C {datetime: datetime({year: 1, month: 1, day: 1, hour: 1, minute: 1, second: 1, nanosecond: 1, timezone: '-11:59'})}),
-       (:D {datetime: datetime({year: 9999, month: 9, day: 9, hour: 9, minute: 59, second: 59, nanosecond: 999999999, timezone: '+11:59'})}),
-       (:E {datetime: datetime({year: 1980, month: 12, day: 11, hour: 12, minute: 31, second: 14, timezone: '-11:59'})})
-- `tck.clauses.with-orderby.withorderby1.scenario-41.examples-1-row-2`: TCK setup query failed: query execution failed: Parse error: mutation clauses in read queries is not supported in the initial graph slice at byte 1..676; mutation execution failed: Cypher mutation binding failed: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 23..135; query:
-CREATE (:A {datetime: datetime({year: 1984, month: 10, day: 11, hour: 12, minute: 30, second: 14, nanosecond: 12, timezone: '+00:15'})}),
-       (:B {datetime: datetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123, timezone: '+00:17'})}),
-       (:C {datetime: datetime({year: 1, month: 1, day: 1, hour: 1, minute: 1, second: 1, nanosecond: 1, timezone: '-11:59'})}),
-       (:D {datetime: datetime({year: 9999, month: 9, day: 9, hour: 9, minute: 59, second: 59, nanosecond: 999999999, timezone: '+11:59'})}),
-       (:E {datetime: datetime({year: 1980, month: 12, day: 11, hour: 12, minute: 31, second: 14, timezone: '-11:59'})})
-; query:
-CREATE (:A {datetime: datetime({year: 1984, month: 10, day: 11, hour: 12, minute: 30, second: 14, nanosecond: 12, timezone: '+00:15'})}),
-       (:B {datetime: datetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123, timezone: '+00:17'})}),
-       (:C {datetime: datetime({year: 1, month: 1, day: 1, hour: 1, minute: 1, second: 1, nanosecond: 1, timezone: '-11:59'})}),
-       (:D {datetime: datetime({year: 9999, month: 9, day: 9, hour: 9, minute: 59, second: 59, nanosecond: 999999999, timezone: '+11:59'})}),
-       (:E {datetime: datetime({year: 1980, month: 12, day: 11, hour: 12, minute: 31, second: 14, timezone: '-11:59'})})
-- `tck.clauses.with-orderby.withorderby1.scenario-41.examples-1-row-3`: TCK setup query failed: query execution failed: Parse error: mutation clauses in read queries is not supported in the initial graph slice at byte 1..676; mutation execution failed: Cypher mutation binding failed: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 23..135; query:
-CREATE (:A {datetime: datetime({year: 1984, month: 10, day: 11, hour: 12, minute: 30, second: 14, nanosecond: 12, timezone: '+00:15'})}),
-       (:B {datetime: datetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123, timezone: '+00:17'})}),
-       (:C {datetime: datetime({year: 1, month: 1, day: 1, hour: 1, minute: 1, second: 1, nanosecond: 1, timezone: '-11:59'})}),
-       (:D {datetime: datetime({year: 9999, month: 9, day: 9, hour: 9, minute: 59, second: 59, nanosecond: 999999999, timezone: '+11:59'})}),
-       (:E {datetime: datetime({year: 1980, month: 12, day: 11, hour: 12, minute: 31, second: 14, timezone: '-11:59'})})
-; query:
-CREATE (:A {datetime: datetime({year: 1984, month: 10, day: 11, hour: 12, minute: 30, second: 14, nanosecond: 12, timezone: '+00:15'})}),
-       (:B {datetime: datetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123, timezone: '+00:17'})}),
-       (:C {datetime: datetime({year: 1, month: 1, day: 1, hour: 1, minute: 1, second: 1, nanosecond: 1, timezone: '-11:59'})}),
-       (:D {datetime: datetime({year: 9999, month: 9, day: 9, hour: 9, minute: 59, second: 59, nanosecond: 999999999, timezone: '+11:59'})}),
-       (:E {datetime: datetime({year: 1980, month: 12, day: 11, hour: 12, minute: 31, second: 14, timezone: '-11:59'})})
-- `tck.clauses.with-orderby.withorderby1.scenario-42.examples-1-row-1`: TCK setup query failed: query execution failed: Parse error: mutation clauses in read queries is not supported in the initial graph slice at byte 1..676; mutation execution failed: Cypher mutation binding failed: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 23..135; query:
-CREATE (:A {datetime: datetime({year: 1984, month: 10, day: 11, hour: 12, minute: 30, second: 14, nanosecond: 12, timezone: '+00:15'})}),
-       (:B {datetime: datetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123, timezone: '+00:17'})}),
-       (:C {datetime: datetime({year: 1, month: 1, day: 1, hour: 1, minute: 1, second: 1, nanosecond: 1, timezone: '-11:59'})}),
-       (:D {datetime: datetime({year: 9999, month: 9, day: 9, hour: 9, minute: 59, second: 59, nanosecond: 999999999, timezone: '+11:59'})}),
-       (:E {datetime: datetime({year: 1980, month: 12, day: 11, hour: 12, minute: 31, second: 14, timezone: '-11:59'})})
-; query:
-CREATE (:A {datetime: datetime({year: 1984, month: 10, day: 11, hour: 12, minute: 30, second: 14, nanosecond: 12, timezone: '+00:15'})}),
-       (:B {datetime: datetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123, timezone: '+00:17'})}),
-       (:C {datetime: datetime({year: 1, month: 1, day: 1, hour: 1, minute: 1, second: 1, nanosecond: 1, timezone: '-11:59'})}),
-       (:D {datetime: datetime({year: 9999, month: 9, day: 9, hour: 9, minute: 59, second: 59, nanosecond: 999999999, timezone: '+11:59'})}),
-       (:E {datetime: datetime({year: 1980, month: 12, day: 11, hour: 12, minute: 31, second: 14, timezone: '-11:59'})})
-- `tck.clauses.with-orderby.withorderby1.scenario-42.examples-1-row-2`: TCK setup query failed: query execution failed: Parse error: mutation clauses in read queries is not supported in the initial graph slice at byte 1..676; mutation execution failed: Cypher mutation binding failed: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 23..135; query:
-CREATE (:A {datetime: datetime({year: 1984, month: 10, day: 11, hour: 12, minute: 30, second: 14, nanosecond: 12, timezone: '+00:15'})}),
-       (:B {datetime: datetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123, timezone: '+00:17'})}),
-       (:C {datetime: datetime({year: 1, month: 1, day: 1, hour: 1, minute: 1, second: 1, nanosecond: 1, timezone: '-11:59'})}),
-       (:D {datetime: datetime({year: 9999, month: 9, day: 9, hour: 9, minute: 59, second: 59, nanosecond: 999999999, timezone: '+11:59'})}),
-       (:E {datetime: datetime({year: 1980, month: 12, day: 11, hour: 12, minute: 31, second: 14, timezone: '-11:59'})})
-; query:
-CREATE (:A {datetime: datetime({year: 1984, month: 10, day: 11, hour: 12, minute: 30, second: 14, nanosecond: 12, timezone: '+00:15'})}),
-       (:B {datetime: datetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123, timezone: '+00:17'})}),
-       (:C {datetime: datetime({year: 1, month: 1, day: 1, hour: 1, minute: 1, second: 1, nanosecond: 1, timezone: '-11:59'})}),
-       (:D {datetime: datetime({year: 9999, month: 9, day: 9, hour: 9, minute: 59, second: 59, nanosecond: 999999999, timezone: '+11:59'})}),
-       (:E {datetime: datetime({year: 1980, month: 12, day: 11, hour: 12, minute: 31, second: 14, timezone: '-11:59'})})
-- `tck.clauses.with-orderby.withorderby1.scenario-45.examples-1-row-7`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 42..110; mutation execution failed: Cypher mutation binding failed: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 42..110; query:
-WITH [localtime({hour: 10, minute: 35}), localtime({hour: 12, minute: 31, second: 14, nanosecond: 645876123}), localtime({hour: 12, minute: 31, second: 14, nanosecond: 645876124}), localtime({hour: 12, minute: 35, second: 13}), localtime({hour: 12, minute: 30, second: 14, nanosecond: 645876123}), localtime({hour: 12, minute: 31, second: 15})] AS values
-WITH values, size(values) AS numOfValues
-UNWIND values AS value
-WITH size([ x IN values WHERE x < value ]) AS x, value, numOfValues
-  ORDER BY value
-WITH numOfValues, collect(x) AS orderedX
-RETURN orderedX = range(0, numOfValues-1) AS equal
-- `tck.clauses.with-orderby.withorderby1.scenario-45.examples-1-row-8`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 7..55; mutation execution failed: Cypher mutation binding failed: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 7..55; query:
-WITH [time({hour: 10, minute: 35, timezone: '-08:00'}), time({hour: 12, minute: 31, second: 14, nanosecond: 645876123, timezone: '+01:00'}), time({hour: 12, minute: 31, second: 14, nanosecond: 645876124, timezone: '+01:00'}), time({hour: 12, minute: 35, second: 15, timezone: '+05:00'}), time({hour: 12, minute: 30, second: 14, nanosecond: 645876123, timezone: '+01:01'}), time({hour: 12, minute: 35, second: 15, timezone: '+01:00'})] AS values
-WITH values, size(values) AS numOfValues
-UNWIND values AS value
-WITH size([ x IN values WHERE x < value ]) AS x, value, numOfValues
-  ORDER BY value
-WITH numOfValues, collect(x) AS orderedX
-RETURN orderedX = range(0, numOfValues-1) AS equal
-- `tck.clauses.with-orderby.withorderby1.scenario-45.examples-1-row-9`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 7..104; mutation execution failed: Cypher mutation binding failed: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 7..104; query:
-WITH [localdatetime({year: 1984, month: 10, day: 11, hour: 12, minute: 30, second: 14, nanosecond: 12}), localdatetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123}), localdatetime({year: 1, month: 1, day: 1, hour: 1, minute: 1, second: 1, nanosecond: 1}), localdatetime({year: 9999, month: 9, day: 9, hour: 9, minute: 59, second: 59, nanosecond: 999999999}), localdatetime({year: 1980, month: 12, day: 11, hour: 12, minute: 31, second: 14})] AS values
-WITH values, size(values) AS numOfValues
-UNWIND values AS value
-WITH size([ x IN values WHERE x < value ]) AS x, value, numOfValues
-  ORDER BY value
-WITH numOfValues, collect(x) AS orderedX
-RETURN orderedX = range(0, numOfValues-1) AS equal
-- `tck.clauses.with-orderby.withorderby1.scenario-45.examples-1-row-10`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 7..119; mutation execution failed: Cypher mutation binding failed: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 7..119; query:
-WITH [datetime({year: 1984, month: 10, day: 11, hour: 12, minute: 30, second: 14, nanosecond: 12, timezone: '+00:15'}), datetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123, timezone: '+00:17'}), datetime({year: 1, month: 1, day: 1, hour: 1, minute: 1, second: 1, nanosecond: 1, timezone: '-11:59'}), datetime({year: 9999, month: 9, day: 9, hour: 9, minute: 59, second: 59, nanosecond: 999999999, timezone: '+11:59'}), datetime({year: 1980, month: 12, day: 11, hour: 12, minute: 31, second: 14, timezone: '-11:59'})] AS values
-WITH values, size(values) AS numOfValues
-UNWIND values AS value
-WITH size([ x IN values WHERE x < value ]) AS x, value, numOfValues
-  ORDER BY value
-WITH numOfValues, collect(x) AS orderedX
-RETURN orderedX = range(0, numOfValues-1) AS equal
+- `tck.clauses.with-orderby.withorderby1.scenario-35.examples-1-row-1`: result expectation is not representable by the scalar adapter
+- `tck.clauses.with-orderby.withorderby1.scenario-35.examples-1-row-2`: result expectation is not representable by the scalar adapter
+- `tck.clauses.with-orderby.withorderby1.scenario-35.examples-1-row-3`: result expectation is not representable by the scalar adapter
+- `tck.clauses.with-orderby.withorderby1.scenario-36.examples-1-row-1`: result expectation is not representable by the scalar adapter
+- `tck.clauses.with-orderby.withorderby1.scenario-36.examples-1-row-2`: result expectation is not representable by the scalar adapter
+- `tck.clauses.with-orderby.withorderby1.scenario-37.examples-1-row-1`: result expectation is not representable by the scalar adapter
+- `tck.clauses.with-orderby.withorderby1.scenario-37.examples-1-row-2`: result expectation is not representable by the scalar adapter
+- `tck.clauses.with-orderby.withorderby1.scenario-37.examples-1-row-3`: result expectation is not representable by the scalar adapter
+- `tck.clauses.with-orderby.withorderby1.scenario-38.examples-1-row-1`: result expectation is not representable by the scalar adapter
+- `tck.clauses.with-orderby.withorderby1.scenario-38.examples-1-row-2`: result expectation is not representable by the scalar adapter
+- `tck.clauses.with-orderby.withorderby1.scenario-39.examples-1-row-1`: result expectation is not representable by the scalar adapter
+- `tck.clauses.with-orderby.withorderby1.scenario-39.examples-1-row-2`: result expectation is not representable by the scalar adapter
+- `tck.clauses.with-orderby.withorderby1.scenario-39.examples-1-row-3`: result expectation is not representable by the scalar adapter
+- `tck.clauses.with-orderby.withorderby1.scenario-40.examples-1-row-1`: result expectation is not representable by the scalar adapter
+- `tck.clauses.with-orderby.withorderby1.scenario-40.examples-1-row-2`: result expectation is not representable by the scalar adapter
+- `tck.clauses.with-orderby.withorderby1.scenario-41.examples-1-row-1`: result expectation is not representable by the scalar adapter
+- `tck.clauses.with-orderby.withorderby1.scenario-41.examples-1-row-2`: result expectation is not representable by the scalar adapter
+- `tck.clauses.with-orderby.withorderby1.scenario-41.examples-1-row-3`: result expectation is not representable by the scalar adapter
+- `tck.clauses.with-orderby.withorderby1.scenario-42.examples-1-row-1`: result expectation is not representable by the scalar adapter
+- `tck.clauses.with-orderby.withorderby1.scenario-42.examples-1-row-2`: result expectation is not representable by the scalar adapter
 - `tck.clauses.with-orderby.withorderby2.scenario-1.examples-1-row-1`: result expectation is not representable by the scalar adapter
 - `tck.clauses.with-orderby.withorderby2.scenario-1.examples-1-row-2`: result expectation is not representable by the scalar adapter
 - `tck.clauses.with-orderby.withorderby2.scenario-1.examples-1-row-3`: result expectation is not representable by the scalar adapter
@@ -4027,246 +4076,26 @@ RETURN orderedX = range(0, numOfValues-1) AS equal
 - `tck.clauses.with-orderby.withorderby2.scenario-11.examples-1-row-3`: result expectation is not representable by the scalar adapter
 - `tck.clauses.with-orderby.withorderby2.scenario-12.examples-1-row-1`: result expectation is not representable by the scalar adapter
 - `tck.clauses.with-orderby.withorderby2.scenario-12.examples-1-row-2`: result expectation is not representable by the scalar adapter
-- `tck.clauses.with-orderby.withorderby2.scenario-13.examples-1-row-1`: TCK setup query failed: query execution failed: Parse error: mutation clauses in read queries is not supported in the initial graph slice at byte 1..392; mutation execution failed: Cypher mutation binding failed: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 74..142; query:
-CREATE (:A {time: localtime({hour: 10, minute: 35})}),
-       (:B {time: localtime({hour: 12, minute: 31, second: 14, nanosecond: 645876123})}),
-       (:C {time: localtime({hour: 12, minute: 31, second: 14, nanosecond: 645876124})}),
-       (:D {time: localtime({hour: 12, minute: 30, second: 14, nanosecond: 645876123})}),
-       (:E {time: localtime({hour: 12, minute: 31, second: 15})})
-; query:
-CREATE (:A {time: localtime({hour: 10, minute: 35})}),
-       (:B {time: localtime({hour: 12, minute: 31, second: 14, nanosecond: 645876123})}),
-       (:C {time: localtime({hour: 12, minute: 31, second: 14, nanosecond: 645876124})}),
-       (:D {time: localtime({hour: 12, minute: 30, second: 14, nanosecond: 645876123})}),
-       (:E {time: localtime({hour: 12, minute: 31, second: 15})})
-- `tck.clauses.with-orderby.withorderby2.scenario-13.examples-1-row-2`: TCK setup query failed: query execution failed: Parse error: mutation clauses in read queries is not supported in the initial graph slice at byte 1..392; mutation execution failed: Cypher mutation binding failed: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 74..142; query:
-CREATE (:A {time: localtime({hour: 10, minute: 35})}),
-       (:B {time: localtime({hour: 12, minute: 31, second: 14, nanosecond: 645876123})}),
-       (:C {time: localtime({hour: 12, minute: 31, second: 14, nanosecond: 645876124})}),
-       (:D {time: localtime({hour: 12, minute: 30, second: 14, nanosecond: 645876123})}),
-       (:E {time: localtime({hour: 12, minute: 31, second: 15})})
-; query:
-CREATE (:A {time: localtime({hour: 10, minute: 35})}),
-       (:B {time: localtime({hour: 12, minute: 31, second: 14, nanosecond: 645876123})}),
-       (:C {time: localtime({hour: 12, minute: 31, second: 14, nanosecond: 645876124})}),
-       (:D {time: localtime({hour: 12, minute: 30, second: 14, nanosecond: 645876123})}),
-       (:E {time: localtime({hour: 12, minute: 31, second: 15})})
-- `tck.clauses.with-orderby.withorderby2.scenario-13.examples-1-row-3`: TCK setup query failed: query execution failed: Parse error: mutation clauses in read queries is not supported in the initial graph slice at byte 1..392; mutation execution failed: Cypher mutation binding failed: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 74..142; query:
-CREATE (:A {time: localtime({hour: 10, minute: 35})}),
-       (:B {time: localtime({hour: 12, minute: 31, second: 14, nanosecond: 645876123})}),
-       (:C {time: localtime({hour: 12, minute: 31, second: 14, nanosecond: 645876124})}),
-       (:D {time: localtime({hour: 12, minute: 30, second: 14, nanosecond: 645876123})}),
-       (:E {time: localtime({hour: 12, minute: 31, second: 15})})
-; query:
-CREATE (:A {time: localtime({hour: 10, minute: 35})}),
-       (:B {time: localtime({hour: 12, minute: 31, second: 14, nanosecond: 645876123})}),
-       (:C {time: localtime({hour: 12, minute: 31, second: 14, nanosecond: 645876124})}),
-       (:D {time: localtime({hour: 12, minute: 30, second: 14, nanosecond: 645876123})}),
-       (:E {time: localtime({hour: 12, minute: 31, second: 15})})
-- `tck.clauses.with-orderby.withorderby2.scenario-14.examples-1-row-1`: TCK setup query failed: query execution failed: Parse error: mutation clauses in read queries is not supported in the initial graph slice at byte 1..392; mutation execution failed: Cypher mutation binding failed: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 74..142; query:
-CREATE (:A {time: localtime({hour: 10, minute: 35})}),
-       (:B {time: localtime({hour: 12, minute: 31, second: 14, nanosecond: 645876123})}),
-       (:C {time: localtime({hour: 12, minute: 31, second: 14, nanosecond: 645876124})}),
-       (:D {time: localtime({hour: 12, minute: 30, second: 14, nanosecond: 645876123})}),
-       (:E {time: localtime({hour: 12, minute: 31, second: 15})})
-; query:
-CREATE (:A {time: localtime({hour: 10, minute: 35})}),
-       (:B {time: localtime({hour: 12, minute: 31, second: 14, nanosecond: 645876123})}),
-       (:C {time: localtime({hour: 12, minute: 31, second: 14, nanosecond: 645876124})}),
-       (:D {time: localtime({hour: 12, minute: 30, second: 14, nanosecond: 645876123})}),
-       (:E {time: localtime({hour: 12, minute: 31, second: 15})})
-- `tck.clauses.with-orderby.withorderby2.scenario-14.examples-1-row-2`: TCK setup query failed: query execution failed: Parse error: mutation clauses in read queries is not supported in the initial graph slice at byte 1..392; mutation execution failed: Cypher mutation binding failed: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 74..142; query:
-CREATE (:A {time: localtime({hour: 10, minute: 35})}),
-       (:B {time: localtime({hour: 12, minute: 31, second: 14, nanosecond: 645876123})}),
-       (:C {time: localtime({hour: 12, minute: 31, second: 14, nanosecond: 645876124})}),
-       (:D {time: localtime({hour: 12, minute: 30, second: 14, nanosecond: 645876123})}),
-       (:E {time: localtime({hour: 12, minute: 31, second: 15})})
-; query:
-CREATE (:A {time: localtime({hour: 10, minute: 35})}),
-       (:B {time: localtime({hour: 12, minute: 31, second: 14, nanosecond: 645876123})}),
-       (:C {time: localtime({hour: 12, minute: 31, second: 14, nanosecond: 645876124})}),
-       (:D {time: localtime({hour: 12, minute: 30, second: 14, nanosecond: 645876123})}),
-       (:E {time: localtime({hour: 12, minute: 31, second: 15})})
-- `tck.clauses.with-orderby.withorderby2.scenario-15.examples-1-row-1`: TCK setup query failed: query execution failed: Parse error: mutation clauses in read queries is not supported in the initial graph slice at byte 1..467; mutation execution failed: Cypher mutation binding failed: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 19..67; query:
-CREATE (:A {time: time({hour: 10, minute: 35, timezone: '-08:00'})}),
-       (:B {time: time({hour: 12, minute: 31, second: 14, nanosecond: 645876123, timezone: '+01:00'})}),
-       (:C {time: time({hour: 12, minute: 31, second: 14, nanosecond: 645876124, timezone: '+01:00'})}),
-       (:D {time: time({hour: 12, minute: 35, second: 15, timezone: '+05:00'})}),
-       (:E {time: time({hour: 12, minute: 30, second: 14, nanosecond: 645876123, timezone: '+01:01'})})
-; query:
-CREATE (:A {time: time({hour: 10, minute: 35, timezone: '-08:00'})}),
-       (:B {time: time({hour: 12, minute: 31, second: 14, nanosecond: 645876123, timezone: '+01:00'})}),
-       (:C {time: time({hour: 12, minute: 31, second: 14, nanosecond: 645876124, timezone: '+01:00'})}),
-       (:D {time: time({hour: 12, minute: 35, second: 15, timezone: '+05:00'})}),
-       (:E {time: time({hour: 12, minute: 30, second: 14, nanosecond: 645876123, timezone: '+01:01'})})
-- `tck.clauses.with-orderby.withorderby2.scenario-15.examples-1-row-2`: TCK setup query failed: query execution failed: Parse error: mutation clauses in read queries is not supported in the initial graph slice at byte 1..467; mutation execution failed: Cypher mutation binding failed: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 19..67; query:
-CREATE (:A {time: time({hour: 10, minute: 35, timezone: '-08:00'})}),
-       (:B {time: time({hour: 12, minute: 31, second: 14, nanosecond: 645876123, timezone: '+01:00'})}),
-       (:C {time: time({hour: 12, minute: 31, second: 14, nanosecond: 645876124, timezone: '+01:00'})}),
-       (:D {time: time({hour: 12, minute: 35, second: 15, timezone: '+05:00'})}),
-       (:E {time: time({hour: 12, minute: 30, second: 14, nanosecond: 645876123, timezone: '+01:01'})})
-; query:
-CREATE (:A {time: time({hour: 10, minute: 35, timezone: '-08:00'})}),
-       (:B {time: time({hour: 12, minute: 31, second: 14, nanosecond: 645876123, timezone: '+01:00'})}),
-       (:C {time: time({hour: 12, minute: 31, second: 14, nanosecond: 645876124, timezone: '+01:00'})}),
-       (:D {time: time({hour: 12, minute: 35, second: 15, timezone: '+05:00'})}),
-       (:E {time: time({hour: 12, minute: 30, second: 14, nanosecond: 645876123, timezone: '+01:01'})})
-- `tck.clauses.with-orderby.withorderby2.scenario-15.examples-1-row-3`: TCK setup query failed: query execution failed: Parse error: mutation clauses in read queries is not supported in the initial graph slice at byte 1..467; mutation execution failed: Cypher mutation binding failed: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 19..67; query:
-CREATE (:A {time: time({hour: 10, minute: 35, timezone: '-08:00'})}),
-       (:B {time: time({hour: 12, minute: 31, second: 14, nanosecond: 645876123, timezone: '+01:00'})}),
-       (:C {time: time({hour: 12, minute: 31, second: 14, nanosecond: 645876124, timezone: '+01:00'})}),
-       (:D {time: time({hour: 12, minute: 35, second: 15, timezone: '+05:00'})}),
-       (:E {time: time({hour: 12, minute: 30, second: 14, nanosecond: 645876123, timezone: '+01:01'})})
-; query:
-CREATE (:A {time: time({hour: 10, minute: 35, timezone: '-08:00'})}),
-       (:B {time: time({hour: 12, minute: 31, second: 14, nanosecond: 645876123, timezone: '+01:00'})}),
-       (:C {time: time({hour: 12, minute: 31, second: 14, nanosecond: 645876124, timezone: '+01:00'})}),
-       (:D {time: time({hour: 12, minute: 35, second: 15, timezone: '+05:00'})}),
-       (:E {time: time({hour: 12, minute: 30, second: 14, nanosecond: 645876123, timezone: '+01:01'})})
-- `tck.clauses.with-orderby.withorderby2.scenario-16.examples-1-row-1`: TCK setup query failed: query execution failed: Parse error: mutation clauses in read queries is not supported in the initial graph slice at byte 1..467; mutation execution failed: Cypher mutation binding failed: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 19..67; query:
-CREATE (:A {time: time({hour: 10, minute: 35, timezone: '-08:00'})}),
-       (:B {time: time({hour: 12, minute: 31, second: 14, nanosecond: 645876123, timezone: '+01:00'})}),
-       (:C {time: time({hour: 12, minute: 31, second: 14, nanosecond: 645876124, timezone: '+01:00'})}),
-       (:D {time: time({hour: 12, minute: 35, second: 15, timezone: '+05:00'})}),
-       (:E {time: time({hour: 12, minute: 30, second: 14, nanosecond: 645876123, timezone: '+01:01'})})
-; query:
-CREATE (:A {time: time({hour: 10, minute: 35, timezone: '-08:00'})}),
-       (:B {time: time({hour: 12, minute: 31, second: 14, nanosecond: 645876123, timezone: '+01:00'})}),
-       (:C {time: time({hour: 12, minute: 31, second: 14, nanosecond: 645876124, timezone: '+01:00'})}),
-       (:D {time: time({hour: 12, minute: 35, second: 15, timezone: '+05:00'})}),
-       (:E {time: time({hour: 12, minute: 30, second: 14, nanosecond: 645876123, timezone: '+01:01'})})
-- `tck.clauses.with-orderby.withorderby2.scenario-16.examples-1-row-2`: TCK setup query failed: query execution failed: Parse error: mutation clauses in read queries is not supported in the initial graph slice at byte 1..467; mutation execution failed: Cypher mutation binding failed: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 19..67; query:
-CREATE (:A {time: time({hour: 10, minute: 35, timezone: '-08:00'})}),
-       (:B {time: time({hour: 12, minute: 31, second: 14, nanosecond: 645876123, timezone: '+01:00'})}),
-       (:C {time: time({hour: 12, minute: 31, second: 14, nanosecond: 645876124, timezone: '+01:00'})}),
-       (:D {time: time({hour: 12, minute: 35, second: 15, timezone: '+05:00'})}),
-       (:E {time: time({hour: 12, minute: 30, second: 14, nanosecond: 645876123, timezone: '+01:01'})})
-; query:
-CREATE (:A {time: time({hour: 10, minute: 35, timezone: '-08:00'})}),
-       (:B {time: time({hour: 12, minute: 31, second: 14, nanosecond: 645876123, timezone: '+01:00'})}),
-       (:C {time: time({hour: 12, minute: 31, second: 14, nanosecond: 645876124, timezone: '+01:00'})}),
-       (:D {time: time({hour: 12, minute: 35, second: 15, timezone: '+05:00'})}),
-       (:E {time: time({hour: 12, minute: 30, second: 14, nanosecond: 645876123, timezone: '+01:01'})})
-- `tck.clauses.with-orderby.withorderby2.scenario-17.examples-1-row-1`: TCK setup query failed: query execution failed: Parse error: mutation clauses in read queries is not supported in the initial graph slice at byte 1..601; mutation execution failed: Cypher mutation binding failed: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 23..120; query:
-CREATE (:A {datetime: localdatetime({year: 1984, month: 10, day: 11, hour: 12, minute: 30, second: 14, nanosecond: 12})}),
-       (:B {datetime: localdatetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123})}),
-       (:C {datetime: localdatetime({year: 1, month: 1, day: 1, hour: 1, minute: 1, second: 1, nanosecond: 1})}),
-       (:D {datetime: localdatetime({year: 9999, month: 9, day: 9, hour: 9, minute: 59, second: 59, nanosecond: 999999999})}),
-       (:E {datetime: localdatetime({year: 1980, month: 12, day: 11, hour: 12, minute: 31, second: 14})})
-; query:
-CREATE (:A {datetime: localdatetime({year: 1984, month: 10, day: 11, hour: 12, minute: 30, second: 14, nanosecond: 12})}),
-       (:B {datetime: localdatetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123})}),
-       (:C {datetime: localdatetime({year: 1, month: 1, day: 1, hour: 1, minute: 1, second: 1, nanosecond: 1})}),
-       (:D {datetime: localdatetime({year: 9999, month: 9, day: 9, hour: 9, minute: 59, second: 59, nanosecond: 999999999})}),
-       (:E {datetime: localdatetime({year: 1980, month: 12, day: 11, hour: 12, minute: 31, second: 14})})
-- `tck.clauses.with-orderby.withorderby2.scenario-17.examples-1-row-2`: TCK setup query failed: query execution failed: Parse error: mutation clauses in read queries is not supported in the initial graph slice at byte 1..601; mutation execution failed: Cypher mutation binding failed: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 23..120; query:
-CREATE (:A {datetime: localdatetime({year: 1984, month: 10, day: 11, hour: 12, minute: 30, second: 14, nanosecond: 12})}),
-       (:B {datetime: localdatetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123})}),
-       (:C {datetime: localdatetime({year: 1, month: 1, day: 1, hour: 1, minute: 1, second: 1, nanosecond: 1})}),
-       (:D {datetime: localdatetime({year: 9999, month: 9, day: 9, hour: 9, minute: 59, second: 59, nanosecond: 999999999})}),
-       (:E {datetime: localdatetime({year: 1980, month: 12, day: 11, hour: 12, minute: 31, second: 14})})
-; query:
-CREATE (:A {datetime: localdatetime({year: 1984, month: 10, day: 11, hour: 12, minute: 30, second: 14, nanosecond: 12})}),
-       (:B {datetime: localdatetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123})}),
-       (:C {datetime: localdatetime({year: 1, month: 1, day: 1, hour: 1, minute: 1, second: 1, nanosecond: 1})}),
-       (:D {datetime: localdatetime({year: 9999, month: 9, day: 9, hour: 9, minute: 59, second: 59, nanosecond: 999999999})}),
-       (:E {datetime: localdatetime({year: 1980, month: 12, day: 11, hour: 12, minute: 31, second: 14})})
-- `tck.clauses.with-orderby.withorderby2.scenario-17.examples-1-row-3`: TCK setup query failed: query execution failed: Parse error: mutation clauses in read queries is not supported in the initial graph slice at byte 1..601; mutation execution failed: Cypher mutation binding failed: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 23..120; query:
-CREATE (:A {datetime: localdatetime({year: 1984, month: 10, day: 11, hour: 12, minute: 30, second: 14, nanosecond: 12})}),
-       (:B {datetime: localdatetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123})}),
-       (:C {datetime: localdatetime({year: 1, month: 1, day: 1, hour: 1, minute: 1, second: 1, nanosecond: 1})}),
-       (:D {datetime: localdatetime({year: 9999, month: 9, day: 9, hour: 9, minute: 59, second: 59, nanosecond: 999999999})}),
-       (:E {datetime: localdatetime({year: 1980, month: 12, day: 11, hour: 12, minute: 31, second: 14})})
-; query:
-CREATE (:A {datetime: localdatetime({year: 1984, month: 10, day: 11, hour: 12, minute: 30, second: 14, nanosecond: 12})}),
-       (:B {datetime: localdatetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123})}),
-       (:C {datetime: localdatetime({year: 1, month: 1, day: 1, hour: 1, minute: 1, second: 1, nanosecond: 1})}),
-       (:D {datetime: localdatetime({year: 9999, month: 9, day: 9, hour: 9, minute: 59, second: 59, nanosecond: 999999999})}),
-       (:E {datetime: localdatetime({year: 1980, month: 12, day: 11, hour: 12, minute: 31, second: 14})})
-- `tck.clauses.with-orderby.withorderby2.scenario-18.examples-1-row-1`: TCK setup query failed: query execution failed: Parse error: mutation clauses in read queries is not supported in the initial graph slice at byte 1..601; mutation execution failed: Cypher mutation binding failed: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 23..120; query:
-CREATE (:A {datetime: localdatetime({year: 1984, month: 10, day: 11, hour: 12, minute: 30, second: 14, nanosecond: 12})}),
-       (:B {datetime: localdatetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123})}),
-       (:C {datetime: localdatetime({year: 1, month: 1, day: 1, hour: 1, minute: 1, second: 1, nanosecond: 1})}),
-       (:D {datetime: localdatetime({year: 9999, month: 9, day: 9, hour: 9, minute: 59, second: 59, nanosecond: 999999999})}),
-       (:E {datetime: localdatetime({year: 1980, month: 12, day: 11, hour: 12, minute: 31, second: 14})})
-; query:
-CREATE (:A {datetime: localdatetime({year: 1984, month: 10, day: 11, hour: 12, minute: 30, second: 14, nanosecond: 12})}),
-       (:B {datetime: localdatetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123})}),
-       (:C {datetime: localdatetime({year: 1, month: 1, day: 1, hour: 1, minute: 1, second: 1, nanosecond: 1})}),
-       (:D {datetime: localdatetime({year: 9999, month: 9, day: 9, hour: 9, minute: 59, second: 59, nanosecond: 999999999})}),
-       (:E {datetime: localdatetime({year: 1980, month: 12, day: 11, hour: 12, minute: 31, second: 14})})
-- `tck.clauses.with-orderby.withorderby2.scenario-18.examples-1-row-2`: TCK setup query failed: query execution failed: Parse error: mutation clauses in read queries is not supported in the initial graph slice at byte 1..601; mutation execution failed: Cypher mutation binding failed: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 23..120; query:
-CREATE (:A {datetime: localdatetime({year: 1984, month: 10, day: 11, hour: 12, minute: 30, second: 14, nanosecond: 12})}),
-       (:B {datetime: localdatetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123})}),
-       (:C {datetime: localdatetime({year: 1, month: 1, day: 1, hour: 1, minute: 1, second: 1, nanosecond: 1})}),
-       (:D {datetime: localdatetime({year: 9999, month: 9, day: 9, hour: 9, minute: 59, second: 59, nanosecond: 999999999})}),
-       (:E {datetime: localdatetime({year: 1980, month: 12, day: 11, hour: 12, minute: 31, second: 14})})
-; query:
-CREATE (:A {datetime: localdatetime({year: 1984, month: 10, day: 11, hour: 12, minute: 30, second: 14, nanosecond: 12})}),
-       (:B {datetime: localdatetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123})}),
-       (:C {datetime: localdatetime({year: 1, month: 1, day: 1, hour: 1, minute: 1, second: 1, nanosecond: 1})}),
-       (:D {datetime: localdatetime({year: 9999, month: 9, day: 9, hour: 9, minute: 59, second: 59, nanosecond: 999999999})}),
-       (:E {datetime: localdatetime({year: 1980, month: 12, day: 11, hour: 12, minute: 31, second: 14})})
-- `tck.clauses.with-orderby.withorderby2.scenario-19.examples-1-row-1`: TCK setup query failed: query execution failed: Parse error: mutation clauses in read queries is not supported in the initial graph slice at byte 1..676; mutation execution failed: Cypher mutation binding failed: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 23..135; query:
-CREATE (:A {datetime: datetime({year: 1984, month: 10, day: 11, hour: 12, minute: 30, second: 14, nanosecond: 12, timezone: '+00:15'})}),
-       (:B {datetime: datetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123, timezone: '+00:17'})}),
-       (:C {datetime: datetime({year: 1, month: 1, day: 1, hour: 1, minute: 1, second: 1, nanosecond: 1, timezone: '-11:59'})}),
-       (:D {datetime: datetime({year: 9999, month: 9, day: 9, hour: 9, minute: 59, second: 59, nanosecond: 999999999, timezone: '+11:59'})}),
-       (:E {datetime: datetime({year: 1980, month: 12, day: 11, hour: 12, minute: 31, second: 14, timezone: '-11:59'})})
-; query:
-CREATE (:A {datetime: datetime({year: 1984, month: 10, day: 11, hour: 12, minute: 30, second: 14, nanosecond: 12, timezone: '+00:15'})}),
-       (:B {datetime: datetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123, timezone: '+00:17'})}),
-       (:C {datetime: datetime({year: 1, month: 1, day: 1, hour: 1, minute: 1, second: 1, nanosecond: 1, timezone: '-11:59'})}),
-       (:D {datetime: datetime({year: 9999, month: 9, day: 9, hour: 9, minute: 59, second: 59, nanosecond: 999999999, timezone: '+11:59'})}),
-       (:E {datetime: datetime({year: 1980, month: 12, day: 11, hour: 12, minute: 31, second: 14, timezone: '-11:59'})})
-- `tck.clauses.with-orderby.withorderby2.scenario-19.examples-1-row-2`: TCK setup query failed: query execution failed: Parse error: mutation clauses in read queries is not supported in the initial graph slice at byte 1..676; mutation execution failed: Cypher mutation binding failed: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 23..135; query:
-CREATE (:A {datetime: datetime({year: 1984, month: 10, day: 11, hour: 12, minute: 30, second: 14, nanosecond: 12, timezone: '+00:15'})}),
-       (:B {datetime: datetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123, timezone: '+00:17'})}),
-       (:C {datetime: datetime({year: 1, month: 1, day: 1, hour: 1, minute: 1, second: 1, nanosecond: 1, timezone: '-11:59'})}),
-       (:D {datetime: datetime({year: 9999, month: 9, day: 9, hour: 9, minute: 59, second: 59, nanosecond: 999999999, timezone: '+11:59'})}),
-       (:E {datetime: datetime({year: 1980, month: 12, day: 11, hour: 12, minute: 31, second: 14, timezone: '-11:59'})})
-; query:
-CREATE (:A {datetime: datetime({year: 1984, month: 10, day: 11, hour: 12, minute: 30, second: 14, nanosecond: 12, timezone: '+00:15'})}),
-       (:B {datetime: datetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123, timezone: '+00:17'})}),
-       (:C {datetime: datetime({year: 1, month: 1, day: 1, hour: 1, minute: 1, second: 1, nanosecond: 1, timezone: '-11:59'})}),
-       (:D {datetime: datetime({year: 9999, month: 9, day: 9, hour: 9, minute: 59, second: 59, nanosecond: 999999999, timezone: '+11:59'})}),
-       (:E {datetime: datetime({year: 1980, month: 12, day: 11, hour: 12, minute: 31, second: 14, timezone: '-11:59'})})
-- `tck.clauses.with-orderby.withorderby2.scenario-19.examples-1-row-3`: TCK setup query failed: query execution failed: Parse error: mutation clauses in read queries is not supported in the initial graph slice at byte 1..676; mutation execution failed: Cypher mutation binding failed: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 23..135; query:
-CREATE (:A {datetime: datetime({year: 1984, month: 10, day: 11, hour: 12, minute: 30, second: 14, nanosecond: 12, timezone: '+00:15'})}),
-       (:B {datetime: datetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123, timezone: '+00:17'})}),
-       (:C {datetime: datetime({year: 1, month: 1, day: 1, hour: 1, minute: 1, second: 1, nanosecond: 1, timezone: '-11:59'})}),
-       (:D {datetime: datetime({year: 9999, month: 9, day: 9, hour: 9, minute: 59, second: 59, nanosecond: 999999999, timezone: '+11:59'})}),
-       (:E {datetime: datetime({year: 1980, month: 12, day: 11, hour: 12, minute: 31, second: 14, timezone: '-11:59'})})
-; query:
-CREATE (:A {datetime: datetime({year: 1984, month: 10, day: 11, hour: 12, minute: 30, second: 14, nanosecond: 12, timezone: '+00:15'})}),
-       (:B {datetime: datetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123, timezone: '+00:17'})}),
-       (:C {datetime: datetime({year: 1, month: 1, day: 1, hour: 1, minute: 1, second: 1, nanosecond: 1, timezone: '-11:59'})}),
-       (:D {datetime: datetime({year: 9999, month: 9, day: 9, hour: 9, minute: 59, second: 59, nanosecond: 999999999, timezone: '+11:59'})}),
-       (:E {datetime: datetime({year: 1980, month: 12, day: 11, hour: 12, minute: 31, second: 14, timezone: '-11:59'})})
-- `tck.clauses.with-orderby.withorderby2.scenario-20.examples-1-row-1`: TCK setup query failed: query execution failed: Parse error: mutation clauses in read queries is not supported in the initial graph slice at byte 1..676; mutation execution failed: Cypher mutation binding failed: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 23..135; query:
-CREATE (:A {datetime: datetime({year: 1984, month: 10, day: 11, hour: 12, minute: 30, second: 14, nanosecond: 12, timezone: '+00:15'})}),
-       (:B {datetime: datetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123, timezone: '+00:17'})}),
-       (:C {datetime: datetime({year: 1, month: 1, day: 1, hour: 1, minute: 1, second: 1, nanosecond: 1, timezone: '-11:59'})}),
-       (:D {datetime: datetime({year: 9999, month: 9, day: 9, hour: 9, minute: 59, second: 59, nanosecond: 999999999, timezone: '+11:59'})}),
-       (:E {datetime: datetime({year: 1980, month: 12, day: 11, hour: 12, minute: 31, second: 14, timezone: '-11:59'})})
-; query:
-CREATE (:A {datetime: datetime({year: 1984, month: 10, day: 11, hour: 12, minute: 30, second: 14, nanosecond: 12, timezone: '+00:15'})}),
-       (:B {datetime: datetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123, timezone: '+00:17'})}),
-       (:C {datetime: datetime({year: 1, month: 1, day: 1, hour: 1, minute: 1, second: 1, nanosecond: 1, timezone: '-11:59'})}),
-       (:D {datetime: datetime({year: 9999, month: 9, day: 9, hour: 9, minute: 59, second: 59, nanosecond: 999999999, timezone: '+11:59'})}),
-       (:E {datetime: datetime({year: 1980, month: 12, day: 11, hour: 12, minute: 31, second: 14, timezone: '-11:59'})})
-- `tck.clauses.with-orderby.withorderby2.scenario-20.examples-1-row-2`: TCK setup query failed: query execution failed: Parse error: mutation clauses in read queries is not supported in the initial graph slice at byte 1..676; mutation execution failed: Cypher mutation binding failed: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 23..135; query:
-CREATE (:A {datetime: datetime({year: 1984, month: 10, day: 11, hour: 12, minute: 30, second: 14, nanosecond: 12, timezone: '+00:15'})}),
-       (:B {datetime: datetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123, timezone: '+00:17'})}),
-       (:C {datetime: datetime({year: 1, month: 1, day: 1, hour: 1, minute: 1, second: 1, nanosecond: 1, timezone: '-11:59'})}),
-       (:D {datetime: datetime({year: 9999, month: 9, day: 9, hour: 9, minute: 59, second: 59, nanosecond: 999999999, timezone: '+11:59'})}),
-       (:E {datetime: datetime({year: 1980, month: 12, day: 11, hour: 12, minute: 31, second: 14, timezone: '-11:59'})})
-; query:
-CREATE (:A {datetime: datetime({year: 1984, month: 10, day: 11, hour: 12, minute: 30, second: 14, nanosecond: 12, timezone: '+00:15'})}),
-       (:B {datetime: datetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123, timezone: '+00:17'})}),
-       (:C {datetime: datetime({year: 1, month: 1, day: 1, hour: 1, minute: 1, second: 1, nanosecond: 1, timezone: '-11:59'})}),
-       (:D {datetime: datetime({year: 9999, month: 9, day: 9, hour: 9, minute: 59, second: 59, nanosecond: 999999999, timezone: '+11:59'})}),
-       (:E {datetime: datetime({year: 1980, month: 12, day: 11, hour: 12, minute: 31, second: 14, timezone: '-11:59'})})
+- `tck.clauses.with-orderby.withorderby2.scenario-13.examples-1-row-1`: result expectation is not representable by the scalar adapter
+- `tck.clauses.with-orderby.withorderby2.scenario-13.examples-1-row-2`: result expectation is not representable by the scalar adapter
+- `tck.clauses.with-orderby.withorderby2.scenario-13.examples-1-row-3`: result expectation is not representable by the scalar adapter
+- `tck.clauses.with-orderby.withorderby2.scenario-14.examples-1-row-1`: result expectation is not representable by the scalar adapter
+- `tck.clauses.with-orderby.withorderby2.scenario-14.examples-1-row-2`: result expectation is not representable by the scalar adapter
+- `tck.clauses.with-orderby.withorderby2.scenario-15.examples-1-row-1`: result expectation is not representable by the scalar adapter
+- `tck.clauses.with-orderby.withorderby2.scenario-15.examples-1-row-2`: result expectation is not representable by the scalar adapter
+- `tck.clauses.with-orderby.withorderby2.scenario-15.examples-1-row-3`: result expectation is not representable by the scalar adapter
+- `tck.clauses.with-orderby.withorderby2.scenario-16.examples-1-row-1`: result expectation is not representable by the scalar adapter
+- `tck.clauses.with-orderby.withorderby2.scenario-16.examples-1-row-2`: result expectation is not representable by the scalar adapter
+- `tck.clauses.with-orderby.withorderby2.scenario-17.examples-1-row-1`: result expectation is not representable by the scalar adapter
+- `tck.clauses.with-orderby.withorderby2.scenario-17.examples-1-row-2`: result expectation is not representable by the scalar adapter
+- `tck.clauses.with-orderby.withorderby2.scenario-17.examples-1-row-3`: result expectation is not representable by the scalar adapter
+- `tck.clauses.with-orderby.withorderby2.scenario-18.examples-1-row-1`: result expectation is not representable by the scalar adapter
+- `tck.clauses.with-orderby.withorderby2.scenario-18.examples-1-row-2`: result expectation is not representable by the scalar adapter
+- `tck.clauses.with-orderby.withorderby2.scenario-19.examples-1-row-1`: result expectation is not representable by the scalar adapter
+- `tck.clauses.with-orderby.withorderby2.scenario-19.examples-1-row-2`: result expectation is not representable by the scalar adapter
+- `tck.clauses.with-orderby.withorderby2.scenario-19.examples-1-row-3`: result expectation is not representable by the scalar adapter
+- `tck.clauses.with-orderby.withorderby2.scenario-20.examples-1-row-1`: result expectation is not representable by the scalar adapter
+- `tck.clauses.with-orderby.withorderby2.scenario-20.examples-1-row-2`: result expectation is not representable by the scalar adapter
 - `tck.clauses.with-orderby.withorderby2.scenario-21.examples-1-row-2`: expected [["C"], ["C"]], observed [["A"], ["A"]]
 - `tck.clauses.with-orderby.withorderby2.scenario-22.examples-1-row-2`: expected [["C", "2"]], observed [["A", "2"]]
 - `tck.clauses.with-orderby.withorderby2.scenario-23.examples-1-row-2`: expected [["C", "2"]], observed [["A", "2"]]
@@ -5779,366 +5608,15 @@ RETURN count(item) AS item
 - `tck.expressions.string.string9.scenario-3`: result expectation is not representable by the scalar adapter
 - `tck.expressions.string.string9.scenario-8`: expected [["<null>", "36"]], observed [["0", "18"], ["1", "7"], ["<null>", "11"]]
 - `tck.expressions.string.string9.scenario-9`: result expectation is not representable by the scalar adapter
-- `tck.expressions.temporal.temporal1.scenario-1.examples-1-row-1`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 8..36; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..41; query:
-RETURN date({year: 1816, week: 1}) AS d
-- `tck.expressions.temporal.temporal1.scenario-1.examples-1-row-2`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 8..37; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..42; query:
-RETURN date({year: 1816, week: 52}) AS d
-- `tck.expressions.temporal.temporal1.scenario-1.examples-1-row-3`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 8..36; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..41; query:
-RETURN date({year: 1817, week: 1}) AS d
-- `tck.expressions.temporal.temporal1.scenario-1.examples-1-row-4`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 8..37; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..42; query:
-RETURN date({year: 1817, week: 10}) AS d
-- `tck.expressions.temporal.temporal1.scenario-1.examples-1-row-5`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 8..37; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..42; query:
-RETURN date({year: 1817, week: 30}) AS d
-- `tck.expressions.temporal.temporal1.scenario-1.examples-1-row-6`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 8..37; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..42; query:
-RETURN date({year: 1817, week: 52}) AS d
-- `tck.expressions.temporal.temporal1.scenario-1.examples-1-row-7`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 8..36; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..41; query:
-RETURN date({year: 1818, week: 1}) AS d
-- `tck.expressions.temporal.temporal1.scenario-1.examples-1-row-8`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 8..37; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..42; query:
-RETURN date({year: 1818, week: 52}) AS d
-- `tck.expressions.temporal.temporal1.scenario-1.examples-1-row-9`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 8..37; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..42; query:
-RETURN date({year: 1818, week: 53}) AS d
-- `tck.expressions.temporal.temporal1.scenario-1.examples-1-row-10`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 8..36; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..41; query:
-RETURN date({year: 1819, week: 1}) AS d
-- `tck.expressions.temporal.temporal1.scenario-1.examples-1-row-11`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 8..37; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..42; query:
-RETURN date({year: 1819, week: 52}) AS d
-- `tck.expressions.temporal.temporal1.scenario-1.examples-1-row-12`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 8..50; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..55; query:
-RETURN date({dayOfWeek: 2, year: 1817, week: 1}) AS d
-- `tck.expressions.temporal.temporal1.scenario-1.examples-1-row-13`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 8..64; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..69; query:
-RETURN date({date: date('1816-12-30'), week: 2, dayOfWeek: 3}) AS d
-- `tck.expressions.temporal.temporal1.scenario-1.examples-1-row-14`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 8..50; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..55; query:
-RETURN date({date: date('1816-12-31'), week: 2}) AS d
-- `tck.expressions.temporal.temporal1.scenario-1.examples-1-row-15`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 8..62; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..67; query:
-RETURN date({date: date('1816-12-31'), year: 1817, week: 2}) AS d
-- `tck.expressions.temporal.temporal1.scenario-2.examples-1-row-1`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 8..45; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..50; query:
-RETURN localdatetime({year: 1816, week: 1}) AS d
-- `tck.expressions.temporal.temporal1.scenario-2.examples-1-row-2`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 8..46; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..51; query:
-RETURN localdatetime({year: 1816, week: 52}) AS d
-- `tck.expressions.temporal.temporal1.scenario-2.examples-1-row-3`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 8..45; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..50; query:
-RETURN localdatetime({year: 1817, week: 1}) AS d
-- `tck.expressions.temporal.temporal1.scenario-2.examples-1-row-4`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 8..46; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..51; query:
-RETURN localdatetime({year: 1817, week: 10}) AS d
-- `tck.expressions.temporal.temporal1.scenario-2.examples-1-row-5`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 8..46; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..51; query:
-RETURN localdatetime({year: 1817, week: 30}) AS d
-- `tck.expressions.temporal.temporal1.scenario-2.examples-1-row-6`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 8..46; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..51; query:
-RETURN localdatetime({year: 1817, week: 52}) AS d
-- `tck.expressions.temporal.temporal1.scenario-2.examples-1-row-7`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 8..45; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..50; query:
-RETURN localdatetime({year: 1818, week: 1}) AS d
-- `tck.expressions.temporal.temporal1.scenario-2.examples-1-row-8`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 8..46; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..51; query:
-RETURN localdatetime({year: 1818, week: 52}) AS d
-- `tck.expressions.temporal.temporal1.scenario-2.examples-1-row-9`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 8..46; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..51; query:
-RETURN localdatetime({year: 1818, week: 53}) AS d
-- `tck.expressions.temporal.temporal1.scenario-2.examples-1-row-10`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 8..45; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..50; query:
-RETURN localdatetime({year: 1819, week: 1}) AS d
-- `tck.expressions.temporal.temporal1.scenario-2.examples-1-row-11`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 8..46; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..51; query:
-RETURN localdatetime({year: 1819, week: 52}) AS d
-- `tck.expressions.temporal.temporal1.scenario-2.examples-1-row-12`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 8..59; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..64; query:
-RETURN localdatetime({dayOfWeek: 2, year: 1817, week: 1}) AS d
-- `tck.expressions.temporal.temporal1.scenario-2.examples-1-row-13`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 8..73; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..78; query:
-RETURN localdatetime({date: date('1816-12-30'), week: 2, dayOfWeek: 3}) AS d
-- `tck.expressions.temporal.temporal1.scenario-2.examples-1-row-14`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 8..59; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..64; query:
-RETURN localdatetime({date: date('1816-12-31'), week: 2}) AS d
-- `tck.expressions.temporal.temporal1.scenario-2.examples-1-row-15`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 8..71; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..76; query:
-RETURN localdatetime({date: date('1816-12-31'), year: 1817, week: 2}) AS d
-- `tck.expressions.temporal.temporal1.scenario-3.examples-1-row-1`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 8..40; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..45; query:
-RETURN datetime({year: 1816, week: 1}) AS d
-- `tck.expressions.temporal.temporal1.scenario-3.examples-1-row-2`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 8..41; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..46; query:
-RETURN datetime({year: 1816, week: 52}) AS d
-- `tck.expressions.temporal.temporal1.scenario-3.examples-1-row-3`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 8..40; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..45; query:
-RETURN datetime({year: 1817, week: 1}) AS d
-- `tck.expressions.temporal.temporal1.scenario-3.examples-1-row-4`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 8..41; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..46; query:
-RETURN datetime({year: 1817, week: 10}) AS d
-- `tck.expressions.temporal.temporal1.scenario-3.examples-1-row-5`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 8..41; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..46; query:
-RETURN datetime({year: 1817, week: 30}) AS d
-- `tck.expressions.temporal.temporal1.scenario-3.examples-1-row-6`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 8..41; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..46; query:
-RETURN datetime({year: 1817, week: 52}) AS d
-- `tck.expressions.temporal.temporal1.scenario-3.examples-1-row-7`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 8..40; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..45; query:
-RETURN datetime({year: 1818, week: 1}) AS d
-- `tck.expressions.temporal.temporal1.scenario-3.examples-1-row-8`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 8..41; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..46; query:
-RETURN datetime({year: 1818, week: 52}) AS d
-- `tck.expressions.temporal.temporal1.scenario-3.examples-1-row-9`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 8..41; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..46; query:
-RETURN datetime({year: 1818, week: 53}) AS d
-- `tck.expressions.temporal.temporal1.scenario-3.examples-1-row-10`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 8..40; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..45; query:
-RETURN datetime({year: 1819, week: 1}) AS d
-- `tck.expressions.temporal.temporal1.scenario-3.examples-1-row-11`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 8..41; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..46; query:
-RETURN datetime({year: 1819, week: 52}) AS d
-- `tck.expressions.temporal.temporal1.scenario-3.examples-1-row-12`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 8..54; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..59; query:
-RETURN datetime({dayOfWeek: 2, year: 1817, week: 1}) AS d
-- `tck.expressions.temporal.temporal1.scenario-3.examples-1-row-13`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 8..68; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..73; query:
-RETURN datetime({date: date('1816-12-30'), week: 2, dayOfWeek: 3}) AS d
-- `tck.expressions.temporal.temporal1.scenario-3.examples-1-row-14`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 8..54; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..59; query:
-RETURN datetime({date: date('1816-12-31'), week: 2}) AS d
-- `tck.expressions.temporal.temporal1.scenario-3.examples-1-row-15`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 8..66; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..71; query:
-RETURN datetime({date: date('1816-12-31'), year: 1817, week: 2}) AS d
-- `tck.expressions.temporal.temporal1.scenario-4.examples-1-row-3`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 8..51; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..61; query:
-RETURN date({year: 1984, week: 10, dayOfWeek: 3}) AS result
-- `tck.expressions.temporal.temporal1.scenario-4.examples-1-row-4`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 8..37; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..47; query:
-RETURN date({year: 1984, week: 10}) AS result
-- `tck.expressions.temporal.temporal1.scenario-4.examples-1-row-6`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 8..44; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..54; query:
-RETURN date({year: 1984, ordinalDay: 202}) AS result
-- `tck.expressions.temporal.temporal1.scenario-4.examples-1-row-7`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 8..57; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..67; query:
-RETURN date({year: 1984, quarter: 3, dayOfQuarter: 45}) AS result
-- `tck.expressions.temporal.temporal1.scenario-4.examples-1-row-8`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 8..39; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..49; query:
-RETURN date({year: 1984, quarter: 3}) AS result
-- `tck.expressions.temporal.temporal1.scenario-5.examples-1-row-1`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 8..107; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..117; query:
-RETURN localtime({hour: 12, minute: 31, second: 14, nanosecond: 789, millisecond: 123, microsecond: 456}) AS result
-- `tck.expressions.temporal.temporal1.scenario-5.examples-1-row-2`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 8..77; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..87; query:
-RETURN localtime({hour: 12, minute: 31, second: 14, nanosecond: 645876123}) AS result
-- `tck.expressions.temporal.temporal1.scenario-5.examples-1-row-3`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 8..75; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..85; query:
-RETURN localtime({hour: 12, minute: 31, second: 14, microsecond: 645876}) AS result
-- `tck.expressions.temporal.temporal1.scenario-5.examples-1-row-4`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 8..72; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..82; query:
-RETURN localtime({hour: 12, minute: 31, second: 14, millisecond: 645}) AS result
-- `tck.expressions.temporal.temporal1.scenario-5.examples-1-row-6`: expected [["12:31"]], observed [["12:31:00"]]
-- `tck.expressions.temporal.temporal1.scenario-5.examples-1-row-7`: expected [["12:00"]], observed [["12:00:00"]]
-- `tck.expressions.temporal.temporal1.scenario-6.examples-1-row-1`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 8..102; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..112; query:
-RETURN time({hour: 12, minute: 31, second: 14, nanosecond: 789, millisecond: 123, microsecond: 456}) AS result
-- `tck.expressions.temporal.temporal1.scenario-6.examples-1-row-2`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 8..72; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..82; query:
-RETURN time({hour: 12, minute: 31, second: 14, nanosecond: 645876123}) AS result
-- `tck.expressions.temporal.temporal1.scenario-6.examples-1-row-3`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 8..64; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..74; query:
-RETURN time({hour: 12, minute: 31, second: 14, nanosecond: 3}) AS result
-- `tck.expressions.temporal.temporal1.scenario-6.examples-1-row-4`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 8..70; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..80; query:
-RETURN time({hour: 12, minute: 31, second: 14, microsecond: 645876}) AS result
-- `tck.expressions.temporal.temporal1.scenario-6.examples-1-row-5`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 8..67; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..77; query:
-RETURN time({hour: 12, minute: 31, second: 14, millisecond: 645}) AS result
-- `tck.expressions.temporal.temporal1.scenario-6.examples-1-row-7`: expected [["12:31Z"]], observed [["12:31:00Z"]]
-- `tck.expressions.temporal.temporal1.scenario-6.examples-1-row-8`: expected [["12:00Z"]], observed [["12:00:00Z"]]
-- `tck.expressions.temporal.temporal1.scenario-6.examples-1-row-9`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 8..92; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..102; query:
-RETURN time({hour: 12, minute: 31, second: 14, nanosecond: 645876123, timezone: '+01:00'}) AS result
-- `tck.expressions.temporal.temporal1.scenario-6.examples-1-row-10`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 8..90; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..100; query:
-RETURN time({hour: 12, minute: 31, second: 14, microsecond: 645876, timezone: '+01:00'}) AS result
-- `tck.expressions.temporal.temporal1.scenario-6.examples-1-row-11`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 8..87; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..97; query:
-RETURN time({hour: 12, minute: 31, second: 14, millisecond: 645, timezone: '+01:00'}) AS result
-- `tck.expressions.temporal.temporal1.scenario-6.examples-1-row-12`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 8..69; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..79; query:
-RETURN time({hour: 12, minute: 31, second: 14, timezone: '+01:00'}) AS result
-- `tck.expressions.temporal.temporal1.scenario-6.examples-1-row-13`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 8..57; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..67; query:
-RETURN time({hour: 12, minute: 31, timezone: '+01:00'}) AS result
-- `tck.expressions.temporal.temporal1.scenario-6.examples-1-row-14`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 8..45; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..55; query:
-RETURN time({hour: 12, timezone: '+01:00'}) AS result
-- `tck.expressions.temporal.temporal1.scenario-7.examples-1-row-1`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 8..143; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..153; query:
-RETURN localdatetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 789, millisecond: 123, microsecond: 456}) AS result
-- `tck.expressions.temporal.temporal1.scenario-7.examples-1-row-2`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 8..113; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..123; query:
-RETURN localdatetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123}) AS result
-- `tck.expressions.temporal.temporal1.scenario-7.examples-1-row-3`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 8..105; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..115; query:
-RETURN localdatetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 3}) AS result
-- `tck.expressions.temporal.temporal1.scenario-7.examples-1-row-4`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 8..111; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..121; query:
-RETURN localdatetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, microsecond: 645876}) AS result
-- `tck.expressions.temporal.temporal1.scenario-7.examples-1-row-5`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 8..108; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..118; query:
-RETURN localdatetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, millisecond: 645}) AS result
-- `tck.expressions.temporal.temporal1.scenario-7.examples-1-row-7`: expected [["1984-10-11T12:31"]], observed [["1984-10-11T12:31:00"]]
-- `tck.expressions.temporal.temporal1.scenario-7.examples-1-row-8`: expected [["1984-10-11T12:00"]], observed [["1984-10-11T12:00:00"]]
-- `tck.expressions.temporal.temporal1.scenario-7.examples-1-row-9`: expected [["1984-10-11T00:00"]], observed [["1984-10-11T00:00:00"]]
-- `tck.expressions.temporal.temporal1.scenario-7.examples-1-row-10`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 8..117; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..127; query:
-RETURN localdatetime({year: 1984, week: 10, dayOfWeek: 3, hour: 12, minute: 31, second: 14, nanosecond: 645876123}) AS result
-- `tck.expressions.temporal.temporal1.scenario-7.examples-1-row-11`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 8..115; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..125; query:
-RETURN localdatetime({year: 1984, week: 10, dayOfWeek: 3, hour: 12, minute: 31, second: 14, microsecond: 645876}) AS result
-- `tck.expressions.temporal.temporal1.scenario-7.examples-1-row-12`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 8..112; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..122; query:
-RETURN localdatetime({year: 1984, week: 10, dayOfWeek: 3, hour: 12, minute: 31, second: 14, millisecond: 645}) AS result
-- `tck.expressions.temporal.temporal1.scenario-7.examples-1-row-13`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 8..94; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..104; query:
-RETURN localdatetime({year: 1984, week: 10, dayOfWeek: 3, hour: 12, minute: 31, second: 14}) AS result
-- `tck.expressions.temporal.temporal1.scenario-7.examples-1-row-14`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 8..82; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..92; query:
-RETURN localdatetime({year: 1984, week: 10, dayOfWeek: 3, hour: 12, minute: 31}) AS result
-- `tck.expressions.temporal.temporal1.scenario-7.examples-1-row-15`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 8..70; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..80; query:
-RETURN localdatetime({year: 1984, week: 10, dayOfWeek: 3, hour: 12}) AS result
-- `tck.expressions.temporal.temporal1.scenario-7.examples-1-row-16`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 8..60; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..70; query:
-RETURN localdatetime({year: 1984, week: 10, dayOfWeek: 3}) AS result
-- `tck.expressions.temporal.temporal1.scenario-7.examples-1-row-17`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 8..110; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..120; query:
-RETURN localdatetime({year: 1984, ordinalDay: 202, hour: 12, minute: 31, second: 14, nanosecond: 645876123}) AS result
-- `tck.expressions.temporal.temporal1.scenario-7.examples-1-row-18`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 8..108; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..118; query:
-RETURN localdatetime({year: 1984, ordinalDay: 202, hour: 12, minute: 31, second: 14, microsecond: 645876}) AS result
-- `tck.expressions.temporal.temporal1.scenario-7.examples-1-row-19`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 8..105; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..115; query:
-RETURN localdatetime({year: 1984, ordinalDay: 202, hour: 12, minute: 31, second: 14, millisecond: 645}) AS result
-- `tck.expressions.temporal.temporal1.scenario-7.examples-1-row-20`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 8..87; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..97; query:
-RETURN localdatetime({year: 1984, ordinalDay: 202, hour: 12, minute: 31, second: 14}) AS result
-- `tck.expressions.temporal.temporal1.scenario-7.examples-1-row-21`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 8..75; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..85; query:
-RETURN localdatetime({year: 1984, ordinalDay: 202, hour: 12, minute: 31}) AS result
-- `tck.expressions.temporal.temporal1.scenario-7.examples-1-row-22`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 8..63; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..73; query:
-RETURN localdatetime({year: 1984, ordinalDay: 202, hour: 12}) AS result
-- `tck.expressions.temporal.temporal1.scenario-7.examples-1-row-23`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 8..53; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..63; query:
-RETURN localdatetime({year: 1984, ordinalDay: 202}) AS result
-- `tck.expressions.temporal.temporal1.scenario-7.examples-1-row-24`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 8..123; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..133; query:
-RETURN localdatetime({year: 1984, quarter: 3, dayOfQuarter: 45, hour: 12, minute: 31, second: 14, nanosecond: 645876123}) AS result
-- `tck.expressions.temporal.temporal1.scenario-7.examples-1-row-25`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 8..121; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..131; query:
-RETURN localdatetime({year: 1984, quarter: 3, dayOfQuarter: 45, hour: 12, minute: 31, second: 14, microsecond: 645876}) AS result
-- `tck.expressions.temporal.temporal1.scenario-7.examples-1-row-26`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 8..118; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..128; query:
-RETURN localdatetime({year: 1984, quarter: 3, dayOfQuarter: 45, hour: 12, minute: 31, second: 14, millisecond: 645}) AS result
-- `tck.expressions.temporal.temporal1.scenario-7.examples-1-row-27`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 8..100; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..110; query:
-RETURN localdatetime({year: 1984, quarter: 3, dayOfQuarter: 45, hour: 12, minute: 31, second: 14}) AS result
-- `tck.expressions.temporal.temporal1.scenario-7.examples-1-row-28`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 8..88; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..98; query:
-RETURN localdatetime({year: 1984, quarter: 3, dayOfQuarter: 45, hour: 12, minute: 31}) AS result
-- `tck.expressions.temporal.temporal1.scenario-7.examples-1-row-29`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 8..76; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..86; query:
-RETURN localdatetime({year: 1984, quarter: 3, dayOfQuarter: 45, hour: 12}) AS result
-- `tck.expressions.temporal.temporal1.scenario-7.examples-1-row-30`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 8..66; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..76; query:
-RETURN localdatetime({year: 1984, quarter: 3, dayOfQuarter: 45}) AS result
-- `tck.expressions.temporal.temporal1.scenario-7.examples-1-row-31`: expected [["1984-01-01T00:00"]], observed [["1984-01-01T00:00:00"]]
-- `tck.expressions.temporal.temporal1.scenario-8.examples-1-row-1`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 8..138; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..148; query:
-RETURN datetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 789, millisecond: 123, microsecond: 456}) AS result
-- `tck.expressions.temporal.temporal1.scenario-8.examples-1-row-2`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 8..108; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..118; query:
-RETURN datetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123}) AS result
-- `tck.expressions.temporal.temporal1.scenario-8.examples-1-row-3`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 8..106; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..116; query:
-RETURN datetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, microsecond: 645876}) AS result
-- `tck.expressions.temporal.temporal1.scenario-8.examples-1-row-4`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 8..103; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..113; query:
-RETURN datetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, millisecond: 645}) AS result
-- `tck.expressions.temporal.temporal1.scenario-8.examples-1-row-6`: expected [["1984-10-11T12:31Z"]], observed [["1984-10-11T12:31:00Z"]]
-- `tck.expressions.temporal.temporal1.scenario-8.examples-1-row-7`: expected [["1984-10-11T12:00Z"]], observed [["1984-10-11T12:00:00Z"]]
-- `tck.expressions.temporal.temporal1.scenario-8.examples-1-row-8`: expected [["1984-10-11T00:00Z"]], observed [["1984-10-11T00:00:00Z"]]
-- `tck.expressions.temporal.temporal1.scenario-8.examples-1-row-9`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 8..112; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..122; query:
-RETURN datetime({year: 1984, week: 10, dayOfWeek: 3, hour: 12, minute: 31, second: 14, nanosecond: 645876123}) AS result
-- `tck.expressions.temporal.temporal1.scenario-8.examples-1-row-10`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 8..110; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..120; query:
-RETURN datetime({year: 1984, week: 10, dayOfWeek: 3, hour: 12, minute: 31, second: 14, microsecond: 645876}) AS result
-- `tck.expressions.temporal.temporal1.scenario-8.examples-1-row-11`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 8..107; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..117; query:
-RETURN datetime({year: 1984, week: 10, dayOfWeek: 3, hour: 12, minute: 31, second: 14, millisecond: 645}) AS result
-- `tck.expressions.temporal.temporal1.scenario-8.examples-1-row-12`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 8..89; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..99; query:
-RETURN datetime({year: 1984, week: 10, dayOfWeek: 3, hour: 12, minute: 31, second: 14}) AS result
-- `tck.expressions.temporal.temporal1.scenario-8.examples-1-row-13`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 8..77; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..87; query:
-RETURN datetime({year: 1984, week: 10, dayOfWeek: 3, hour: 12, minute: 31}) AS result
-- `tck.expressions.temporal.temporal1.scenario-8.examples-1-row-14`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 8..65; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..75; query:
-RETURN datetime({year: 1984, week: 10, dayOfWeek: 3, hour: 12}) AS result
-- `tck.expressions.temporal.temporal1.scenario-8.examples-1-row-15`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 8..55; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..65; query:
-RETURN datetime({year: 1984, week: 10, dayOfWeek: 3}) AS result
-- `tck.expressions.temporal.temporal1.scenario-8.examples-1-row-16`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 8..105; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..115; query:
-RETURN datetime({year: 1984, ordinalDay: 202, hour: 12, minute: 31, second: 14, nanosecond: 645876123}) AS result
-- `tck.expressions.temporal.temporal1.scenario-8.examples-1-row-17`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 8..103; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..113; query:
-RETURN datetime({year: 1984, ordinalDay: 202, hour: 12, minute: 31, second: 14, microsecond: 645876}) AS result
-- `tck.expressions.temporal.temporal1.scenario-8.examples-1-row-18`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 8..100; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..110; query:
-RETURN datetime({year: 1984, ordinalDay: 202, hour: 12, minute: 31, second: 14, millisecond: 645}) AS result
-- `tck.expressions.temporal.temporal1.scenario-8.examples-1-row-19`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 8..82; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..92; query:
-RETURN datetime({year: 1984, ordinalDay: 202, hour: 12, minute: 31, second: 14}) AS result
-- `tck.expressions.temporal.temporal1.scenario-8.examples-1-row-20`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 8..70; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..80; query:
-RETURN datetime({year: 1984, ordinalDay: 202, hour: 12, minute: 31}) AS result
-- `tck.expressions.temporal.temporal1.scenario-8.examples-1-row-21`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 8..58; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..68; query:
-RETURN datetime({year: 1984, ordinalDay: 202, hour: 12}) AS result
-- `tck.expressions.temporal.temporal1.scenario-8.examples-1-row-22`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 8..48; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..58; query:
-RETURN datetime({year: 1984, ordinalDay: 202}) AS result
-- `tck.expressions.temporal.temporal1.scenario-8.examples-1-row-23`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 8..118; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..128; query:
-RETURN datetime({year: 1984, quarter: 3, dayOfQuarter: 45, hour: 12, minute: 31, second: 14, nanosecond: 645876123}) AS result
-- `tck.expressions.temporal.temporal1.scenario-8.examples-1-row-24`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 8..116; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..126; query:
-RETURN datetime({year: 1984, quarter: 3, dayOfQuarter: 45, hour: 12, minute: 31, second: 14, microsecond: 645876}) AS result
-- `tck.expressions.temporal.temporal1.scenario-8.examples-1-row-25`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 8..113; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..123; query:
-RETURN datetime({year: 1984, quarter: 3, dayOfQuarter: 45, hour: 12, minute: 31, second: 14, millisecond: 645}) AS result
-- `tck.expressions.temporal.temporal1.scenario-8.examples-1-row-26`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 8..95; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..105; query:
-RETURN datetime({year: 1984, quarter: 3, dayOfQuarter: 45, hour: 12, minute: 31, second: 14}) AS result
-- `tck.expressions.temporal.temporal1.scenario-8.examples-1-row-27`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 8..83; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..93; query:
-RETURN datetime({year: 1984, quarter: 3, dayOfQuarter: 45, hour: 12, minute: 31}) AS result
-- `tck.expressions.temporal.temporal1.scenario-8.examples-1-row-28`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 8..71; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..81; query:
-RETURN datetime({year: 1984, quarter: 3, dayOfQuarter: 45, hour: 12}) AS result
-- `tck.expressions.temporal.temporal1.scenario-8.examples-1-row-29`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 8..61; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..71; query:
-RETURN datetime({year: 1984, quarter: 3, dayOfQuarter: 45}) AS result
-- `tck.expressions.temporal.temporal1.scenario-8.examples-1-row-30`: expected [["1984-01-01T00:00Z"]], observed [["1984-01-01T00:00:00Z"]]
-- `tck.expressions.temporal.temporal1.scenario-9.examples-1-row-1`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 8..128; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..138; query:
-RETURN datetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123, timezone: '+01:00'}) AS result
-- `tck.expressions.temporal.temporal1.scenario-9.examples-1-row-2`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 8..126; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..136; query:
-RETURN datetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, microsecond: 645876, timezone: '+01:00'}) AS result
-- `tck.expressions.temporal.temporal1.scenario-9.examples-1-row-3`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 8..123; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..133; query:
-RETURN datetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, millisecond: 645, timezone: '+01:00'}) AS result
-- `tck.expressions.temporal.temporal1.scenario-9.examples-1-row-4`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 8..105; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..115; query:
-RETURN datetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, timezone: '+01:00'}) AS result
-- `tck.expressions.temporal.temporal1.scenario-9.examples-1-row-5`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 8..93; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..103; query:
-RETURN datetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, timezone: '+01:00'}) AS result
-- `tck.expressions.temporal.temporal1.scenario-9.examples-1-row-6`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 8..81; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..91; query:
-RETURN datetime({year: 1984, month: 10, day: 11, hour: 12, timezone: '+01:00'}) AS result
-- `tck.expressions.temporal.temporal1.scenario-9.examples-1-row-7`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 8..71; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..81; query:
-RETURN datetime({year: 1984, month: 10, day: 11, timezone: '+01:00'}) AS result
-- `tck.expressions.temporal.temporal1.scenario-9.examples-1-row-8`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 8..132; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..142; query:
-RETURN datetime({year: 1984, week: 10, dayOfWeek: 3, hour: 12, minute: 31, second: 14, nanosecond: 645876123, timezone: '+01:00'}) AS result
-- `tck.expressions.temporal.temporal1.scenario-9.examples-1-row-9`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 8..130; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..140; query:
-RETURN datetime({year: 1984, week: 10, dayOfWeek: 3, hour: 12, minute: 31, second: 14, microsecond: 645876, timezone: '+01:00'}) AS result
-- `tck.expressions.temporal.temporal1.scenario-9.examples-1-row-10`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 8..127; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..137; query:
-RETURN datetime({year: 1984, week: 10, dayOfWeek: 3, hour: 12, minute: 31, second: 14, millisecond: 645, timezone: '+01:00'}) AS result
-- `tck.expressions.temporal.temporal1.scenario-9.examples-1-row-11`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 8..109; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..119; query:
-RETURN datetime({year: 1984, week: 10, dayOfWeek: 3, hour: 12, minute: 31, second: 14, timezone: '+01:00'}) AS result
-- `tck.expressions.temporal.temporal1.scenario-9.examples-1-row-12`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 8..97; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..107; query:
-RETURN datetime({year: 1984, week: 10, dayOfWeek: 3, hour: 12, minute: 31, timezone: '+01:00'}) AS result
-- `tck.expressions.temporal.temporal1.scenario-9.examples-1-row-13`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 8..85; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..95; query:
-RETURN datetime({year: 1984, week: 10, dayOfWeek: 3, hour: 12, timezone: '+01:00'}) AS result
-- `tck.expressions.temporal.temporal1.scenario-9.examples-1-row-14`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 8..75; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..85; query:
-RETURN datetime({year: 1984, week: 10, dayOfWeek: 3, timezone: '+01:00'}) AS result
-- `tck.expressions.temporal.temporal1.scenario-9.examples-1-row-15`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 8..125; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..135; query:
-RETURN datetime({year: 1984, ordinalDay: 202, hour: 12, minute: 31, second: 14, nanosecond: 645876123, timezone: '+01:00'}) AS result
-- `tck.expressions.temporal.temporal1.scenario-9.examples-1-row-16`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 8..123; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..133; query:
-RETURN datetime({year: 1984, ordinalDay: 202, hour: 12, minute: 31, second: 14, microsecond: 645876, timezone: '+01:00'}) AS result
-- `tck.expressions.temporal.temporal1.scenario-9.examples-1-row-17`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 8..120; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..130; query:
-RETURN datetime({year: 1984, ordinalDay: 202, hour: 12, minute: 31, second: 14, millisecond: 645, timezone: '+01:00'}) AS result
-- `tck.expressions.temporal.temporal1.scenario-9.examples-1-row-18`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 8..102; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..112; query:
-RETURN datetime({year: 1984, ordinalDay: 202, hour: 12, minute: 31, second: 14, timezone: '+01:00'}) AS result
-- `tck.expressions.temporal.temporal1.scenario-9.examples-1-row-19`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 8..90; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..100; query:
-RETURN datetime({year: 1984, ordinalDay: 202, hour: 12, minute: 31, timezone: '+01:00'}) AS result
-- `tck.expressions.temporal.temporal1.scenario-9.examples-1-row-20`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 8..78; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..88; query:
-RETURN datetime({year: 1984, ordinalDay: 202, hour: 12, timezone: '+01:00'}) AS result
-- `tck.expressions.temporal.temporal1.scenario-9.examples-1-row-21`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 8..68; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..78; query:
-RETURN datetime({year: 1984, ordinalDay: 202, timezone: '+01:00'}) AS result
-- `tck.expressions.temporal.temporal1.scenario-9.examples-1-row-22`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 8..138; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..148; query:
-RETURN datetime({year: 1984, quarter: 3, dayOfQuarter: 45, hour: 12, minute: 31, second: 14, nanosecond: 645876123, timezone: '+01:00'}) AS result
-- `tck.expressions.temporal.temporal1.scenario-9.examples-1-row-23`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 8..136; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..146; query:
-RETURN datetime({year: 1984, quarter: 3, dayOfQuarter: 45, hour: 12, minute: 31, second: 14, microsecond: 645876, timezone: '+01:00'}) AS result
-- `tck.expressions.temporal.temporal1.scenario-9.examples-1-row-24`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 8..133; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..143; query:
-RETURN datetime({year: 1984, quarter: 3, dayOfQuarter: 45, hour: 12, minute: 31, second: 14, millisecond: 645, timezone: '+01:00'}) AS result
-- `tck.expressions.temporal.temporal1.scenario-9.examples-1-row-25`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 8..115; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..125; query:
-RETURN datetime({year: 1984, quarter: 3, dayOfQuarter: 45, hour: 12, minute: 31, second: 14, timezone: '+01:00'}) AS result
-- `tck.expressions.temporal.temporal1.scenario-9.examples-1-row-26`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 8..103; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..113; query:
-RETURN datetime({year: 1984, quarter: 3, dayOfQuarter: 45, hour: 12, minute: 31, timezone: '+01:00'}) AS result
-- `tck.expressions.temporal.temporal1.scenario-9.examples-1-row-27`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 8..91; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..101; query:
-RETURN datetime({year: 1984, quarter: 3, dayOfQuarter: 45, hour: 12, timezone: '+01:00'}) AS result
-- `tck.expressions.temporal.temporal1.scenario-9.examples-1-row-28`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 8..81; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..91; query:
-RETURN datetime({year: 1984, quarter: 3, dayOfQuarter: 45, timezone: '+01:00'}) AS result
-- `tck.expressions.temporal.temporal1.scenario-9.examples-1-row-29`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 8..51; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..61; query:
-RETURN datetime({year: 1984, timezone: '+01:00'}) AS result
-- `tck.expressions.temporal.temporal1.scenario-10.examples-1-row-1`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 8..138; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..148; query:
-RETURN datetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123, timezone: 'Europe/Stockholm'}) AS result
-- `tck.expressions.temporal.temporal1.scenario-10.examples-1-row-2`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 8..136; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..146; query:
-RETURN datetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, microsecond: 645876, timezone: 'Europe/Stockholm'}) AS result
-- `tck.expressions.temporal.temporal1.scenario-10.examples-1-row-3`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 8..133; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..143; query:
-RETURN datetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, millisecond: 645, timezone: 'Europe/Stockholm'}) AS result
-- `tck.expressions.temporal.temporal1.scenario-10.examples-1-row-4`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 8..115; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..125; query:
-RETURN datetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, timezone: 'Europe/Stockholm'}) AS result
-- `tck.expressions.temporal.temporal1.scenario-10.examples-1-row-5`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 8..103; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..113; query:
-RETURN datetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, timezone: 'Europe/Stockholm'}) AS result
-- `tck.expressions.temporal.temporal1.scenario-10.examples-1-row-6`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 8..91; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..101; query:
-RETURN datetime({year: 1984, month: 10, day: 11, hour: 12, timezone: 'Europe/Stockholm'}) AS result
-- `tck.expressions.temporal.temporal1.scenario-10.examples-1-row-7`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 8..81; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..91; query:
-RETURN datetime({year: 1984, month: 10, day: 11, timezone: 'Europe/Stockholm'}) AS result
-- `tck.expressions.temporal.temporal1.scenario-10.examples-1-row-8`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 8..142; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..152; query:
-RETURN datetime({year: 1984, week: 10, dayOfWeek: 3, hour: 12, minute: 31, second: 14, nanosecond: 645876123, timezone: 'Europe/Stockholm'}) AS result
-- `tck.expressions.temporal.temporal1.scenario-10.examples-1-row-9`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 8..140; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..150; query:
-RETURN datetime({year: 1984, week: 10, dayOfWeek: 3, hour: 12, minute: 31, second: 14, microsecond: 645876, timezone: 'Europe/Stockholm'}) AS result
-- `tck.expressions.temporal.temporal1.scenario-10.examples-1-row-10`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 8..137; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..147; query:
-RETURN datetime({year: 1984, week: 10, dayOfWeek: 3, hour: 12, minute: 31, second: 14, millisecond: 645, timezone: 'Europe/Stockholm'}) AS result
-- `tck.expressions.temporal.temporal1.scenario-10.examples-1-row-11`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 8..119; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..129; query:
-RETURN datetime({year: 1984, week: 10, dayOfWeek: 3, hour: 12, minute: 31, second: 14, timezone: 'Europe/Stockholm'}) AS result
-- `tck.expressions.temporal.temporal1.scenario-10.examples-1-row-12`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 8..107; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..117; query:
-RETURN datetime({year: 1984, week: 10, dayOfWeek: 3, hour: 12, minute: 31, timezone: 'Europe/Stockholm'}) AS result
-- `tck.expressions.temporal.temporal1.scenario-10.examples-1-row-13`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 8..95; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..105; query:
-RETURN datetime({year: 1984, week: 10, dayOfWeek: 3, hour: 12, timezone: 'Europe/Stockholm'}) AS result
-- `tck.expressions.temporal.temporal1.scenario-10.examples-1-row-14`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 8..85; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..95; query:
-RETURN datetime({year: 1984, week: 10, dayOfWeek: 3, timezone: 'Europe/Stockholm'}) AS result
-- `tck.expressions.temporal.temporal1.scenario-10.examples-1-row-15`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 8..135; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..145; query:
-RETURN datetime({year: 1984, ordinalDay: 202, hour: 12, minute: 31, second: 14, nanosecond: 645876123, timezone: 'Europe/Stockholm'}) AS result
-- `tck.expressions.temporal.temporal1.scenario-10.examples-1-row-16`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 8..133; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..143; query:
-RETURN datetime({year: 1984, ordinalDay: 202, hour: 12, minute: 31, second: 14, microsecond: 645876, timezone: 'Europe/Stockholm'}) AS result
-- `tck.expressions.temporal.temporal1.scenario-10.examples-1-row-17`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 8..130; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..140; query:
-RETURN datetime({year: 1984, ordinalDay: 202, hour: 12, minute: 31, second: 14, millisecond: 645, timezone: 'Europe/Stockholm'}) AS result
-- `tck.expressions.temporal.temporal1.scenario-10.examples-1-row-18`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 8..112; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..122; query:
-RETURN datetime({year: 1984, ordinalDay: 202, hour: 12, minute: 31, second: 14, timezone: 'Europe/Stockholm'}) AS result
-- `tck.expressions.temporal.temporal1.scenario-10.examples-1-row-19`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 8..100; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..110; query:
-RETURN datetime({year: 1984, ordinalDay: 202, hour: 12, minute: 31, timezone: 'Europe/Stockholm'}) AS result
-- `tck.expressions.temporal.temporal1.scenario-10.examples-1-row-20`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 8..88; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..98; query:
-RETURN datetime({year: 1984, ordinalDay: 202, hour: 12, timezone: 'Europe/Stockholm'}) AS result
-- `tck.expressions.temporal.temporal1.scenario-10.examples-1-row-21`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 8..78; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..88; query:
-RETURN datetime({year: 1984, ordinalDay: 202, timezone: 'Europe/Stockholm'}) AS result
-- `tck.expressions.temporal.temporal1.scenario-10.examples-1-row-22`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 8..148; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..158; query:
-RETURN datetime({year: 1984, quarter: 3, dayOfQuarter: 45, hour: 12, minute: 31, second: 14, nanosecond: 645876123, timezone: 'Europe/Stockholm'}) AS result
-- `tck.expressions.temporal.temporal1.scenario-10.examples-1-row-23`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 8..146; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..156; query:
-RETURN datetime({year: 1984, quarter: 3, dayOfQuarter: 45, hour: 12, minute: 31, second: 14, microsecond: 645876, timezone: 'Europe/Stockholm'}) AS result
-- `tck.expressions.temporal.temporal1.scenario-10.examples-1-row-24`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 8..143; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..153; query:
-RETURN datetime({year: 1984, quarter: 3, dayOfQuarter: 45, hour: 12, minute: 31, second: 14, millisecond: 645, timezone: 'Europe/Stockholm'}) AS result
-- `tck.expressions.temporal.temporal1.scenario-10.examples-1-row-25`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 8..125; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..135; query:
-RETURN datetime({year: 1984, quarter: 3, dayOfQuarter: 45, hour: 12, minute: 31, second: 14, timezone: 'Europe/Stockholm'}) AS result
-- `tck.expressions.temporal.temporal1.scenario-10.examples-1-row-26`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 8..113; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..123; query:
-RETURN datetime({year: 1984, quarter: 3, dayOfQuarter: 45, hour: 12, minute: 31, timezone: 'Europe/Stockholm'}) AS result
-- `tck.expressions.temporal.temporal1.scenario-10.examples-1-row-27`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 8..101; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..111; query:
-RETURN datetime({year: 1984, quarter: 3, dayOfQuarter: 45, hour: 12, timezone: 'Europe/Stockholm'}) AS result
-- `tck.expressions.temporal.temporal1.scenario-10.examples-1-row-28`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 8..91; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..101; query:
-RETURN datetime({year: 1984, quarter: 3, dayOfQuarter: 45, timezone: 'Europe/Stockholm'}) AS result
-- `tck.expressions.temporal.temporal1.scenario-10.examples-1-row-29`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 8..61; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..71; query:
-RETURN datetime({year: 1984, timezone: 'Europe/Stockholm'}) AS result
+- `tck.expressions.temporal.temporal1.scenario-1.examples-1-row-13`: expected [["1817-01-08"]], observed [["1816-01-10"]]
+- `tck.expressions.temporal.temporal1.scenario-1.examples-1-row-14`: expected [["1817-01-07"]], observed [["1816-01-08"]]
+- `tck.expressions.temporal.temporal1.scenario-1.examples-1-row-15`: expected [["1817-01-07"]], observed [["1817-01-06"]]
+- `tck.expressions.temporal.temporal1.scenario-2.examples-1-row-13`: expected [["1817-01-08T00:00"]], observed [["1816-01-10T00:00"]]
+- `tck.expressions.temporal.temporal1.scenario-2.examples-1-row-14`: expected [["1817-01-07T00:00"]], observed [["1816-01-08T00:00"]]
+- `tck.expressions.temporal.temporal1.scenario-2.examples-1-row-15`: expected [["1817-01-07T00:00"]], observed [["1817-01-06T00:00"]]
+- `tck.expressions.temporal.temporal1.scenario-3.examples-1-row-13`: expected [["1817-01-08T00:00Z"]], observed [["1816-01-10T00:00Z"]]
+- `tck.expressions.temporal.temporal1.scenario-3.examples-1-row-14`: expected [["1817-01-07T00:00Z"]], observed [["1816-01-08T00:00Z"]]
+- `tck.expressions.temporal.temporal1.scenario-3.examples-1-row-15`: expected [["1817-01-07T00:00Z"]], observed [["1817-01-06T00:00Z"]]
 - `tck.expressions.temporal.temporal1.scenario-11`: query execution failed: Parse error: invalid resolved function or parameter name: datetime.fromepoch; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..105; query:
 RETURN datetime.fromepoch(416779, 999999999) AS d1,
        datetime.fromepochmillis(237821673987) AS d2
@@ -6147,910 +5625,186 @@ RETURN datetime.fromepoch(416779, 999999999) AS d1,
 - `tck.expressions.temporal.temporal1.scenario-12.examples-1-row-4`: expected [["P17DT12H"]], observed [["P17D"]]
 - `tck.expressions.temporal.temporal1.scenario-12.examples-1-row-6`: expected [["P14DT1M10.001S"]], observed [["P14DT1M10.001000000S"]]
 - `tck.expressions.temporal.temporal1.scenario-12.examples-1-row-7`: expected [["P14DT1M10.000001S"]], observed [["P14DT1M10.000001000S"]]
-- `tck.expressions.temporal.temporal1.scenario-13.examples-1-row-1`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 8..72; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..82; query:
-RETURN time({hour: 12, minute: 34, second: 56, timezone: '+02:05:00'}) AS result
-- `tck.expressions.temporal.temporal1.scenario-13.examples-1-row-2`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 8..72; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..82; query:
-RETURN time({hour: 12, minute: 34, second: 56, timezone: '+02:05:59'}) AS result
-- `tck.expressions.temporal.temporal1.scenario-13.examples-1-row-3`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 8..72; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..82; query:
-RETURN time({hour: 12, minute: 34, second: 56, timezone: '-02:05:07'}) AS result
-- `tck.expressions.temporal.temporal1.scenario-13.examples-1-row-4`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 8..108; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..118; query:
-RETURN datetime({year: 1984, month: 10, day: 11, hour: 12, minute: 34, second: 56, timezone: '+02:05:59'}) AS result
-- `tck.expressions.temporal.temporal10.scenario-1.examples-1-row-1`: query execution failed: Extension error: error parsing datetime string; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 100..159; query:
-WITH duration.between(localdatetime('2018-01-01T12:00'), localdatetime('2018-01-02T10:00')) AS dur
-RETURN dur, dur.days, dur.seconds, dur.nanosecondsOfSecond
-- `tck.expressions.temporal.temporal10.scenario-1.examples-1-row-2`: query execution failed: Extension error: error parsing datetime string; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 100..159; query:
-WITH duration.between(localdatetime('2018-01-02T10:00'), localdatetime('2018-01-01T12:00')) AS dur
-RETURN dur, dur.days, dur.seconds, dur.nanosecondsOfSecond
+- `tck.expressions.temporal.temporal1.scenario-13.examples-1-row-1`: expected [["12:34:56+02:05"]], observed [["<null>"]]
+- `tck.expressions.temporal.temporal1.scenario-13.examples-1-row-2`: expected [["12:34:56+02:05:59"]], observed [["<null>"]]
+- `tck.expressions.temporal.temporal1.scenario-13.examples-1-row-3`: expected [["12:34:56-02:05:07"]], observed [["<null>"]]
+- `tck.expressions.temporal.temporal1.scenario-13.examples-1-row-4`: expected [["1984-10-11T12:34:56+02:05:59"]], observed [["<null>"]]
 - `tck.expressions.temporal.temporal10.scenario-1.examples-1-row-3`: expected [["PT23H59M59.9S", "0", "86399", "900000000"]], observed [["PT23H59M59.900000000S", "0", "86399", "900000000"]]
-- `tck.expressions.temporal.temporal10.scenario-1.examples-1-row-4`: expected [["PT-23H-59M-59.9S", "0", "-86400", "100000000"]], observed [["P-1DT0.100000000S", "-1", "0", "100000000"]]
-- `tck.expressions.temporal.temporal10.scenario-1.examples-1-row-5`: query execution failed: Extension error: error parsing datetime string; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 138..197; query:
-WITH duration.between(datetime('2017-10-28T23:00+02:00[Europe/Stockholm]'), datetime('2017-10-29T04:00+01:00[Europe/Stockholm]')) AS dur
-RETURN dur, dur.days, dur.seconds, dur.nanosecondsOfSecond
-- `tck.expressions.temporal.temporal10.scenario-1.examples-1-row-6`: query execution failed: Extension error: error parsing datetime string; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 138..197; query:
-WITH duration.between(datetime('2017-10-29T04:00+01:00[Europe/Stockholm]'), datetime('2017-10-28T23:00+02:00[Europe/Stockholm]')) AS dur
-RETURN dur, dur.days, dur.seconds, dur.nanosecondsOfSecond
-- `tck.expressions.temporal.temporal10.scenario-2.examples-1-row-1`: expected [["P30Y8M13D"]], observed [["P11213D"]]
-- `tck.expressions.temporal.temporal10.scenario-2.examples-1-row-2`: expected [["P31Y9M10DT21H45M22.142S"]], observed [["P11606DT21H45M22.142000000S"]]
-- `tck.expressions.temporal.temporal10.scenario-2.examples-1-row-3`: query execution failed: Extension error: error parsing datetime string; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..99; query:
-RETURN duration.between(date('1984-10-11'), datetime('2015-07-21T21:40:32.142+0100')) AS duration
-- `tck.expressions.temporal.temporal10.scenario-2.examples-1-row-4`: query execution failed: Extension error: error parsing datetime string; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..77; query:
-RETURN duration.between(date('1984-10-11'), localtime('16:30')) AS duration
-- `tck.expressions.temporal.temporal10.scenario-2.examples-1-row-5`: query execution failed: Extension error: error parsing datetime string; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..77; query:
-RETURN duration.between(date('1984-10-11'), time('16:30+0100')) AS duration
-- `tck.expressions.temporal.temporal10.scenario-2.examples-1-row-6`: query execution failed: Extension error: error parsing datetime string; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..77; query:
-RETURN duration.between(localtime('14:30'), date('2015-06-24')) AS duration
-- `tck.expressions.temporal.temporal10.scenario-2.examples-1-row-7`: query execution failed: Extension error: error parsing datetime string; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..99; query:
-RETURN duration.between(localtime('14:30'), localdatetime('2016-07-21T21:45:22.142')) AS duration
-- `tck.expressions.temporal.temporal10.scenario-2.examples-1-row-8`: query execution failed: Extension error: error parsing datetime string; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..99; query:
-RETURN duration.between(localtime('14:30'), datetime('2015-07-21T21:40:32.142+0100')) AS duration
-- `tck.expressions.temporal.temporal10.scenario-2.examples-1-row-9`: query execution failed: Extension error: error parsing datetime string; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..77; query:
-RETURN duration.between(localtime('14:30'), localtime('16:30')) AS duration
-- `tck.expressions.temporal.temporal10.scenario-2.examples-1-row-10`: query execution failed: Extension error: error parsing datetime string; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..77; query:
-RETURN duration.between(localtime('14:30'), time('16:30+0100')) AS duration
-- `tck.expressions.temporal.temporal10.scenario-2.examples-1-row-11`: query execution failed: Extension error: error parsing datetime string; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..72; query:
-RETURN duration.between(time('14:30'), date('2015-06-24')) AS duration
-- `tck.expressions.temporal.temporal10.scenario-2.examples-1-row-12`: query execution failed: Extension error: error parsing datetime string; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..94; query:
-RETURN duration.between(time('14:30'), localdatetime('2016-07-21T21:45:22.142')) AS duration
-- `tck.expressions.temporal.temporal10.scenario-2.examples-1-row-13`: query execution failed: Extension error: error parsing datetime string; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..94; query:
-RETURN duration.between(time('14:30'), datetime('2015-07-21T21:40:32.142+0100')) AS duration
-- `tck.expressions.temporal.temporal10.scenario-2.examples-1-row-14`: query execution failed: Extension error: error parsing datetime string; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..72; query:
-RETURN duration.between(time('14:30'), localtime('16:30')) AS duration
-- `tck.expressions.temporal.temporal10.scenario-2.examples-1-row-15`: query execution failed: Extension error: error parsing datetime string; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..72; query:
-RETURN duration.between(time('14:30'), time('16:30+0100')) AS duration
-- `tck.expressions.temporal.temporal10.scenario-2.examples-1-row-16`: expected [["P-27DT-21H-40M-32.142S"]], observed [["P-28DT2H19M27.858000000S"]]
-- `tck.expressions.temporal.temporal10.scenario-2.examples-1-row-17`: expected [["P1YT4M50S"]], observed [["P366DT4M50S"]]
-- `tck.expressions.temporal.temporal10.scenario-2.examples-1-row-18`: query execution failed: Extension error: error parsing datetime string; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..121; query:
-RETURN duration.between(localdatetime('2015-07-21T21:40:32.142'), datetime('2015-07-21T21:40:32.142+0100')) AS duration
-- `tck.expressions.temporal.temporal10.scenario-2.examples-1-row-19`: query execution failed: Extension error: error parsing datetime string; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..99; query:
-RETURN duration.between(localdatetime('2015-07-21T21:40:32.142'), localtime('16:30')) AS duration
-- `tck.expressions.temporal.temporal10.scenario-2.examples-1-row-20`: query execution failed: Extension error: error parsing datetime string; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..99; query:
-RETURN duration.between(localdatetime('2015-07-21T21:40:32.142'), time('16:30+0100')) AS duration
-- `tck.expressions.temporal.temporal10.scenario-2.examples-1-row-21`: query execution failed: Extension error: error parsing datetime string; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..99; query:
-RETURN duration.between(datetime('2014-07-21T21:40:36.143+0200'), date('2015-06-24')) AS duration
-- `tck.expressions.temporal.temporal10.scenario-2.examples-1-row-22`: query execution failed: Extension error: error parsing datetime string; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..121; query:
-RETURN duration.between(datetime('2014-07-21T21:40:36.143+0200'), localdatetime('2016-07-21T21:45:22.142')) AS duration
-- `tck.expressions.temporal.temporal10.scenario-2.examples-1-row-23`: query execution failed: Extension error: error parsing datetime string; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..121; query:
-RETURN duration.between(datetime('2014-07-21T21:40:36.143+0200'), datetime('2015-07-21T21:40:32.142+0100')) AS duration
-- `tck.expressions.temporal.temporal10.scenario-2.examples-1-row-24`: query execution failed: Extension error: error parsing datetime string; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..99; query:
-RETURN duration.between(datetime('2014-07-21T21:40:36.143+0200'), localtime('16:30')) AS duration
-- `tck.expressions.temporal.temporal10.scenario-2.examples-1-row-25`: query execution failed: Extension error: error parsing datetime string; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..99; query:
-RETURN duration.between(datetime('2014-07-21T21:40:36.143+0200'), time('16:30+0100')) AS duration
-- `tck.expressions.temporal.temporal10.scenario-3.examples-1-row-1`: query execution failed: Parse error: invalid resolved function or parameter name: duration.inMonths; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..78; query:
-RETURN duration.inMonths(date('1984-10-11'), date('2015-06-24')) AS duration
-- `tck.expressions.temporal.temporal10.scenario-3.examples-1-row-2`: query execution failed: Parse error: invalid resolved function or parameter name: duration.inMonths; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..100; query:
-RETURN duration.inMonths(date('1984-10-11'), localdatetime('2016-07-21T21:45:22.142')) AS duration
-- `tck.expressions.temporal.temporal10.scenario-3.examples-1-row-3`: query execution failed: Parse error: invalid resolved function or parameter name: duration.inMonths; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..100; query:
-RETURN duration.inMonths(date('1984-10-11'), datetime('2015-07-21T21:40:32.142+0100')) AS duration
-- `tck.expressions.temporal.temporal10.scenario-3.examples-1-row-4`: query execution failed: Parse error: invalid resolved function or parameter name: duration.inMonths; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..78; query:
-RETURN duration.inMonths(date('1984-10-11'), localtime('16:30')) AS duration
-- `tck.expressions.temporal.temporal10.scenario-3.examples-1-row-5`: query execution failed: Parse error: invalid resolved function or parameter name: duration.inMonths; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..78; query:
-RETURN duration.inMonths(date('1984-10-11'), time('16:30+0100')) AS duration
-- `tck.expressions.temporal.temporal10.scenario-3.examples-1-row-6`: query execution failed: Parse error: invalid resolved function or parameter name: duration.inMonths; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..78; query:
-RETURN duration.inMonths(localtime('14:30'), date('2015-06-24')) AS duration
-- `tck.expressions.temporal.temporal10.scenario-3.examples-1-row-7`: query execution failed: Parse error: invalid resolved function or parameter name: duration.inMonths; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..100; query:
-RETURN duration.inMonths(localtime('14:30'), localdatetime('2016-07-21T21:45:22.142')) AS duration
-- `tck.expressions.temporal.temporal10.scenario-3.examples-1-row-8`: query execution failed: Parse error: invalid resolved function or parameter name: duration.inMonths; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..100; query:
-RETURN duration.inMonths(localtime('14:30'), datetime('2015-07-21T21:40:32.142+0100')) AS duration
-- `tck.expressions.temporal.temporal10.scenario-3.examples-1-row-9`: query execution failed: Parse error: invalid resolved function or parameter name: duration.inMonths; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..73; query:
-RETURN duration.inMonths(time('14:30'), date('2015-06-24')) AS duration
-- `tck.expressions.temporal.temporal10.scenario-3.examples-1-row-10`: query execution failed: Parse error: invalid resolved function or parameter name: duration.inMonths; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..95; query:
-RETURN duration.inMonths(time('14:30'), localdatetime('2016-07-21T21:45:22.142')) AS duration
-- `tck.expressions.temporal.temporal10.scenario-3.examples-1-row-11`: query execution failed: Parse error: invalid resolved function or parameter name: duration.inMonths; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..95; query:
-RETURN duration.inMonths(time('14:30'), datetime('2015-07-21T21:40:32.142+0100')) AS duration
-- `tck.expressions.temporal.temporal10.scenario-3.examples-1-row-12`: query execution failed: Parse error: invalid resolved function or parameter name: duration.inMonths; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..100; query:
-RETURN duration.inMonths(localdatetime('2015-07-21T21:40:32.142'), date('2015-06-24')) AS duration
-- `tck.expressions.temporal.temporal10.scenario-3.examples-1-row-13`: query execution failed: Parse error: invalid resolved function or parameter name: duration.inMonths; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..122; query:
-RETURN duration.inMonths(localdatetime('2015-07-21T21:40:32.142'), localdatetime('2016-07-21T21:45:22.142')) AS duration
-- `tck.expressions.temporal.temporal10.scenario-3.examples-1-row-14`: query execution failed: Parse error: invalid resolved function or parameter name: duration.inMonths; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..122; query:
-RETURN duration.inMonths(localdatetime('2015-07-21T21:40:32.142'), datetime('2015-07-21T21:40:32.142+0100')) AS duration
-- `tck.expressions.temporal.temporal10.scenario-3.examples-1-row-15`: query execution failed: Parse error: invalid resolved function or parameter name: duration.inMonths; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..100; query:
-RETURN duration.inMonths(localdatetime('2015-07-21T21:40:32.142'), localtime('16:30')) AS duration
-- `tck.expressions.temporal.temporal10.scenario-3.examples-1-row-16`: query execution failed: Parse error: invalid resolved function or parameter name: duration.inMonths; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..100; query:
-RETURN duration.inMonths(localdatetime('2015-07-21T21:40:32.142'), time('16:30+0100')) AS duration
-- `tck.expressions.temporal.temporal10.scenario-3.examples-1-row-17`: query execution failed: Parse error: invalid resolved function or parameter name: duration.inMonths; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..100; query:
-RETURN duration.inMonths(datetime('2014-07-21T21:40:36.143+0200'), date('2015-06-24')) AS duration
-- `tck.expressions.temporal.temporal10.scenario-3.examples-1-row-18`: query execution failed: Parse error: invalid resolved function or parameter name: duration.inMonths; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..122; query:
-RETURN duration.inMonths(datetime('2014-07-21T21:40:36.143+0200'), localdatetime('2016-07-21T21:45:22.142')) AS duration
-- `tck.expressions.temporal.temporal10.scenario-3.examples-1-row-19`: query execution failed: Parse error: invalid resolved function or parameter name: duration.inMonths; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..122; query:
-RETURN duration.inMonths(datetime('2014-07-21T21:40:36.143+0200'), datetime('2015-07-21T21:40:32.142+0100')) AS duration
-- `tck.expressions.temporal.temporal10.scenario-3.examples-1-row-20`: query execution failed: Parse error: invalid resolved function or parameter name: duration.inMonths; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..100; query:
-RETURN duration.inMonths(datetime('2014-07-21T21:40:36.143+0200'), localtime('16:30')) AS duration
-- `tck.expressions.temporal.temporal10.scenario-3.examples-1-row-21`: query execution failed: Parse error: invalid resolved function or parameter name: duration.inMonths; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..100; query:
-RETURN duration.inMonths(datetime('2014-07-21T21:40:36.143+0200'), time('16:30+0100')) AS duration
-- `tck.expressions.temporal.temporal10.scenario-4.examples-1-row-1`: query execution failed: Parse error: invalid resolved function or parameter name: duration.inDays; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..76; query:
-RETURN duration.inDays(date('1984-10-11'), date('2015-06-24')) AS duration
-- `tck.expressions.temporal.temporal10.scenario-4.examples-1-row-2`: query execution failed: Parse error: invalid resolved function or parameter name: duration.inDays; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..98; query:
-RETURN duration.inDays(date('1984-10-11'), localdatetime('2016-07-21T21:45:22.142')) AS duration
-- `tck.expressions.temporal.temporal10.scenario-4.examples-1-row-3`: query execution failed: Parse error: invalid resolved function or parameter name: duration.inDays; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..98; query:
-RETURN duration.inDays(date('1984-10-11'), datetime('2015-07-21T21:40:32.142+0100')) AS duration
-- `tck.expressions.temporal.temporal10.scenario-4.examples-1-row-4`: query execution failed: Parse error: invalid resolved function or parameter name: duration.inDays; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..76; query:
-RETURN duration.inDays(date('1984-10-11'), localtime('16:30')) AS duration
-- `tck.expressions.temporal.temporal10.scenario-4.examples-1-row-5`: query execution failed: Parse error: invalid resolved function or parameter name: duration.inDays; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..76; query:
-RETURN duration.inDays(date('1984-10-11'), time('16:30+0100')) AS duration
-- `tck.expressions.temporal.temporal10.scenario-4.examples-1-row-6`: query execution failed: Parse error: invalid resolved function or parameter name: duration.inDays; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..76; query:
-RETURN duration.inDays(localtime('14:30'), date('2015-06-24')) AS duration
-- `tck.expressions.temporal.temporal10.scenario-4.examples-1-row-7`: query execution failed: Parse error: invalid resolved function or parameter name: duration.inDays; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..98; query:
-RETURN duration.inDays(localtime('14:30'), localdatetime('2016-07-21T21:45:22.142')) AS duration
-- `tck.expressions.temporal.temporal10.scenario-4.examples-1-row-8`: query execution failed: Parse error: invalid resolved function or parameter name: duration.inDays; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..98; query:
-RETURN duration.inDays(localtime('14:30'), datetime('2015-07-21T21:40:32.142+0100')) AS duration
-- `tck.expressions.temporal.temporal10.scenario-4.examples-1-row-9`: query execution failed: Parse error: invalid resolved function or parameter name: duration.inDays; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..71; query:
-RETURN duration.inDays(time('14:30'), date('2015-06-24')) AS duration
-- `tck.expressions.temporal.temporal10.scenario-4.examples-1-row-10`: query execution failed: Parse error: invalid resolved function or parameter name: duration.inDays; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..93; query:
-RETURN duration.inDays(time('14:30'), localdatetime('2016-07-21T21:45:22.142')) AS duration
-- `tck.expressions.temporal.temporal10.scenario-4.examples-1-row-11`: query execution failed: Parse error: invalid resolved function or parameter name: duration.inDays; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..93; query:
-RETURN duration.inDays(time('14:30'), datetime('2015-07-21T21:40:32.142+0100')) AS duration
-- `tck.expressions.temporal.temporal10.scenario-4.examples-1-row-12`: query execution failed: Parse error: invalid resolved function or parameter name: duration.inDays; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..98; query:
-RETURN duration.inDays(localdatetime('2015-07-21T21:40:32.142'), date('2015-06-24')) AS duration
-- `tck.expressions.temporal.temporal10.scenario-4.examples-1-row-13`: query execution failed: Parse error: invalid resolved function or parameter name: duration.inDays; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..120; query:
-RETURN duration.inDays(localdatetime('2015-07-21T21:40:32.142'), localdatetime('2016-07-21T21:45:22.142')) AS duration
-- `tck.expressions.temporal.temporal10.scenario-4.examples-1-row-14`: query execution failed: Parse error: invalid resolved function or parameter name: duration.inDays; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..120; query:
-RETURN duration.inDays(localdatetime('2015-07-21T21:40:32.142'), datetime('2015-07-21T21:40:32.142+0100')) AS duration
-- `tck.expressions.temporal.temporal10.scenario-4.examples-1-row-15`: query execution failed: Parse error: invalid resolved function or parameter name: duration.inDays; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..98; query:
-RETURN duration.inDays(localdatetime('2015-07-21T21:40:32.142'), localtime('16:30')) AS duration
-- `tck.expressions.temporal.temporal10.scenario-4.examples-1-row-16`: query execution failed: Parse error: invalid resolved function or parameter name: duration.inDays; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..98; query:
-RETURN duration.inDays(localdatetime('2015-07-21T21:40:32.142'), time('16:30+0100')) AS duration
-- `tck.expressions.temporal.temporal10.scenario-4.examples-1-row-17`: query execution failed: Parse error: invalid resolved function or parameter name: duration.inDays; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..98; query:
-RETURN duration.inDays(datetime('2014-07-21T21:40:36.143+0200'), date('2015-06-24')) AS duration
-- `tck.expressions.temporal.temporal10.scenario-4.examples-1-row-18`: query execution failed: Parse error: invalid resolved function or parameter name: duration.inDays; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..120; query:
-RETURN duration.inDays(datetime('2014-07-21T21:40:36.143+0200'), localdatetime('2016-07-21T21:45:22.142')) AS duration
-- `tck.expressions.temporal.temporal10.scenario-4.examples-1-row-19`: query execution failed: Parse error: invalid resolved function or parameter name: duration.inDays; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..120; query:
-RETURN duration.inDays(datetime('2014-07-21T21:40:36.143+0200'), datetime('2015-07-21T21:40:32.142+0100')) AS duration
-- `tck.expressions.temporal.temporal10.scenario-4.examples-1-row-20`: query execution failed: Parse error: invalid resolved function or parameter name: duration.inDays; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..98; query:
-RETURN duration.inDays(datetime('2014-07-21T21:40:36.143+0200'), localtime('16:30')) AS duration
-- `tck.expressions.temporal.temporal10.scenario-4.examples-1-row-21`: query execution failed: Parse error: invalid resolved function or parameter name: duration.inDays; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..98; query:
-RETURN duration.inDays(datetime('2014-07-21T21:40:36.143+0200'), time('16:30+0100')) AS duration
-- `tck.expressions.temporal.temporal10.scenario-5.examples-1-row-1`: query execution failed: Parse error: invalid resolved function or parameter name: duration.inSeconds; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..79; query:
-RETURN duration.inSeconds(date('1984-10-11'), date('2015-06-24')) AS duration
-- `tck.expressions.temporal.temporal10.scenario-5.examples-1-row-2`: query execution failed: Parse error: invalid resolved function or parameter name: duration.inSeconds; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..101; query:
-RETURN duration.inSeconds(date('1984-10-11'), localdatetime('2016-07-21T21:45:22.142')) AS duration
-- `tck.expressions.temporal.temporal10.scenario-5.examples-1-row-3`: query execution failed: Parse error: invalid resolved function or parameter name: duration.inSeconds; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..101; query:
-RETURN duration.inSeconds(date('1984-10-11'), datetime('2015-07-21T21:40:32.142+0100')) AS duration
-- `tck.expressions.temporal.temporal10.scenario-5.examples-1-row-4`: query execution failed: Parse error: invalid resolved function or parameter name: duration.inSeconds; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..79; query:
-RETURN duration.inSeconds(date('1984-10-11'), localtime('16:30')) AS duration
-- `tck.expressions.temporal.temporal10.scenario-5.examples-1-row-5`: query execution failed: Parse error: invalid resolved function or parameter name: duration.inSeconds; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..79; query:
-RETURN duration.inSeconds(date('1984-10-11'), time('16:30+0100')) AS duration
-- `tck.expressions.temporal.temporal10.scenario-5.examples-1-row-6`: query execution failed: Parse error: invalid resolved function or parameter name: duration.inSeconds; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..79; query:
-RETURN duration.inSeconds(localtime('14:30'), date('2015-06-24')) AS duration
-- `tck.expressions.temporal.temporal10.scenario-5.examples-1-row-7`: query execution failed: Parse error: invalid resolved function or parameter name: duration.inSeconds; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..101; query:
-RETURN duration.inSeconds(localtime('14:30'), localdatetime('2016-07-21T21:45:22.142')) AS duration
-- `tck.expressions.temporal.temporal10.scenario-5.examples-1-row-8`: query execution failed: Parse error: invalid resolved function or parameter name: duration.inSeconds; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..101; query:
-RETURN duration.inSeconds(localtime('14:30'), datetime('2015-07-21T21:40:32.142+0100')) AS duration
-- `tck.expressions.temporal.temporal10.scenario-5.examples-1-row-9`: query execution failed: Parse error: invalid resolved function or parameter name: duration.inSeconds; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..79; query:
-RETURN duration.inSeconds(localtime('14:30'), localtime('16:30')) AS duration
-- `tck.expressions.temporal.temporal10.scenario-5.examples-1-row-10`: query execution failed: Parse error: invalid resolved function or parameter name: duration.inSeconds; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..79; query:
-RETURN duration.inSeconds(localtime('14:30'), time('16:30+0100')) AS duration
-- `tck.expressions.temporal.temporal10.scenario-5.examples-1-row-11`: query execution failed: Parse error: invalid resolved function or parameter name: duration.inSeconds; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..74; query:
-RETURN duration.inSeconds(time('14:30'), date('2015-06-24')) AS duration
-- `tck.expressions.temporal.temporal10.scenario-5.examples-1-row-12`: query execution failed: Parse error: invalid resolved function or parameter name: duration.inSeconds; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..96; query:
-RETURN duration.inSeconds(time('14:30'), localdatetime('2016-07-21T21:45:22.142')) AS duration
-- `tck.expressions.temporal.temporal10.scenario-5.examples-1-row-13`: query execution failed: Parse error: invalid resolved function or parameter name: duration.inSeconds; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..96; query:
-RETURN duration.inSeconds(time('14:30'), datetime('2015-07-21T21:40:32.142+0100')) AS duration
-- `tck.expressions.temporal.temporal10.scenario-5.examples-1-row-14`: query execution failed: Parse error: invalid resolved function or parameter name: duration.inSeconds; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..74; query:
-RETURN duration.inSeconds(time('14:30'), localtime('16:30')) AS duration
-- `tck.expressions.temporal.temporal10.scenario-5.examples-1-row-15`: query execution failed: Parse error: invalid resolved function or parameter name: duration.inSeconds; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..74; query:
-RETURN duration.inSeconds(time('14:30'), time('16:30+0100')) AS duration
-- `tck.expressions.temporal.temporal10.scenario-5.examples-1-row-16`: query execution failed: Parse error: invalid resolved function or parameter name: duration.inSeconds; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..101; query:
-RETURN duration.inSeconds(localdatetime('2015-07-21T21:40:32.142'), date('2015-06-24')) AS duration
-- `tck.expressions.temporal.temporal10.scenario-5.examples-1-row-17`: query execution failed: Parse error: invalid resolved function or parameter name: duration.inSeconds; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..123; query:
-RETURN duration.inSeconds(localdatetime('2015-07-21T21:40:32.142'), localdatetime('2016-07-21T21:45:22.142')) AS duration
-- `tck.expressions.temporal.temporal10.scenario-5.examples-1-row-18`: query execution failed: Parse error: invalid resolved function or parameter name: duration.inSeconds; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..123; query:
-RETURN duration.inSeconds(localdatetime('2015-07-21T21:40:32.142'), datetime('2015-07-21T21:40:32.142+0100')) AS duration
-- `tck.expressions.temporal.temporal10.scenario-5.examples-1-row-19`: query execution failed: Parse error: invalid resolved function or parameter name: duration.inSeconds; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..101; query:
-RETURN duration.inSeconds(localdatetime('2015-07-21T21:40:32.142'), localtime('16:30')) AS duration
-- `tck.expressions.temporal.temporal10.scenario-5.examples-1-row-20`: query execution failed: Parse error: invalid resolved function or parameter name: duration.inSeconds; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..101; query:
-RETURN duration.inSeconds(localdatetime('2015-07-21T21:40:32.142'), time('16:30+0100')) AS duration
-- `tck.expressions.temporal.temporal10.scenario-5.examples-1-row-21`: query execution failed: Parse error: invalid resolved function or parameter name: duration.inSeconds; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..101; query:
-RETURN duration.inSeconds(datetime('2014-07-21T21:40:36.143+0200'), date('2015-06-24')) AS duration
-- `tck.expressions.temporal.temporal10.scenario-5.examples-1-row-22`: query execution failed: Parse error: invalid resolved function or parameter name: duration.inSeconds; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..123; query:
-RETURN duration.inSeconds(datetime('2014-07-21T21:40:36.143+0200'), localdatetime('2016-07-21T21:45:22.142')) AS duration
-- `tck.expressions.temporal.temporal10.scenario-5.examples-1-row-23`: query execution failed: Parse error: invalid resolved function or parameter name: duration.inSeconds; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..123; query:
-RETURN duration.inSeconds(datetime('2014-07-21T21:40:36.143+0200'), datetime('2015-07-21T21:40:32.142+0100')) AS duration
-- `tck.expressions.temporal.temporal10.scenario-5.examples-1-row-24`: query execution failed: Parse error: invalid resolved function or parameter name: duration.inSeconds; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..101; query:
-RETURN duration.inSeconds(datetime('2014-07-21T21:40:36.143+0200'), localtime('16:30')) AS duration
-- `tck.expressions.temporal.temporal10.scenario-5.examples-1-row-25`: query execution failed: Parse error: invalid resolved function or parameter name: duration.inSeconds; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..101; query:
-RETURN duration.inSeconds(datetime('2014-07-21T21:40:36.143+0200'), time('16:30+0100')) AS duration
-- `tck.expressions.temporal.temporal10.scenario-6`: query execution failed: Parse error: invalid resolved function or parameter name: duration.inSeconds; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..116; query:
-RETURN duration.inSeconds(localdatetime('2014-07-21T21:40:36.143'), localdatetime('2014-07-21T21:40:36.142')) AS d
-- `tck.expressions.temporal.temporal10.scenario-7.examples-1-row-1`: query execution failed: Parse error: invalid resolved function or parameter name: duration.inMonths; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..78; query:
-RETURN duration.inMonths(date('2018-03-11'), date('2016-06-24')) AS duration
-- `tck.expressions.temporal.temporal10.scenario-7.examples-1-row-2`: query execution failed: Parse error: invalid resolved function or parameter name: duration.inMonths; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..100; query:
-RETURN duration.inMonths(date('2018-07-21'), datetime('2016-07-21T21:40:32.142+0100')) AS duration
-- `tck.expressions.temporal.temporal10.scenario-7.examples-1-row-3`: query execution failed: Parse error: invalid resolved function or parameter name: duration.inMonths; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..100; query:
-RETURN duration.inMonths(localdatetime('2018-07-21T21:40:32.142'), date('2016-07-21')) AS duration
-- `tck.expressions.temporal.temporal10.scenario-7.examples-1-row-4`: query execution failed: Parse error: invalid resolved function or parameter name: duration.inMonths; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..122; query:
-RETURN duration.inMonths(datetime('2018-07-21T21:40:36.143+0200'), localdatetime('2016-07-21T21:40:36.143')) AS duration
-- `tck.expressions.temporal.temporal10.scenario-7.examples-1-row-5`: query execution failed: Parse error: invalid resolved function or parameter name: duration.inMonths; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..122; query:
-RETURN duration.inMonths(datetime('2018-07-21T21:40:36.143+0500'), datetime('1984-07-21T22:40:36.143+0200')) AS duration
-- `tck.expressions.temporal.temporal10.scenario-8.examples-1-row-1`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 27..108; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..180; query:
-RETURN duration.inSeconds(datetime({year: 2017, month: 10, day: 29, hour: 0, timezone: 'Europe/Stockholm'}), localdatetime({year: 2017, month: 10, day: 29, hour: 4})) AS duration
-- `tck.expressions.temporal.temporal10.scenario-8.examples-1-row-2`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 27..108; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..144; query:
-RETURN duration.inSeconds(datetime({year: 2017, month: 10, day: 29, hour: 0, timezone: 'Europe/Stockholm'}), localtime({hour: 4})) AS duration
-- `tck.expressions.temporal.temporal10.scenario-8.examples-1-row-3`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 86..167; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..181; query:
-RETURN duration.inSeconds(localdatetime({year: 2017, month: 10, day: 29, hour: 0 }), datetime({year: 2017, month: 10, day: 29, hour: 4, timezone: 'Europe/Stockholm'})) AS duration
-- `tck.expressions.temporal.temporal10.scenario-8.examples-1-row-4`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 50..131; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..145; query:
-RETURN duration.inSeconds(localtime({hour: 0 }), datetime({year: 2017, month: 10, day: 29, hour: 4, timezone: 'Europe/Stockholm'})) AS duration
-- `tck.expressions.temporal.temporal10.scenario-8.examples-1-row-5`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 67..148; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..162; query:
-RETURN duration.inSeconds(date({year: 2017, month: 10, day: 29}), datetime({year: 2017, month: 10, day: 29, hour: 4, timezone: 'Europe/Stockholm'})) AS duration
-- `tck.expressions.temporal.temporal10.scenario-8.examples-1-row-6`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 27..108; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..162; query:
-RETURN duration.inSeconds(datetime({year: 2017, month: 10, day: 29, hour: 0, timezone: 'Europe/Stockholm'}), date({year: 2017, month: 10, day: 30})) AS duration
-- `tck.expressions.temporal.temporal10.scenario-9`: query execution failed: Extension error: error parsing datetime string; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..89; query:
-RETURN duration.between(date('-999999999-01-01'), date('+999999999-12-31')) AS duration
-- `tck.expressions.temporal.temporal10.scenario-10`: query execution failed: Parse error: invalid resolved function or parameter name: duration.inSeconds; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..118; query:
-RETURN duration.inSeconds(localdatetime('-999999999-01-01'), localdatetime('+999999999-12-31T23:59:59')) AS duration
-- `tck.expressions.temporal.temporal10.scenario-11.examples-1-row-1`: query execution failed: Parse error: invalid resolved function or parameter name: duration.inSeconds; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..89; query:
-RETURN duration.inSeconds(localtime('12:34:54.7'), localtime('12:34:54.3')) AS duration
-- `tck.expressions.temporal.temporal10.scenario-11.examples-1-row-2`: query execution failed: Parse error: invalid resolved function or parameter name: duration.inSeconds; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..89; query:
-RETURN duration.inSeconds(localtime('12:34:54.3'), localtime('12:34:54.7')) AS duration
-- `tck.expressions.temporal.temporal10.scenario-11.examples-1-row-3`: query execution failed: Parse error: invalid resolved function or parameter name: duration.inSeconds; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..89; query:
-RETURN duration.inSeconds(localtime('12:34:54.7'), localtime('12:34:55.3')) AS duration
-- `tck.expressions.temporal.temporal10.scenario-11.examples-1-row-4`: query execution failed: Parse error: invalid resolved function or parameter name: duration.inSeconds; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..89; query:
-RETURN duration.inSeconds(localtime('12:34:54.7'), localtime('12:44:55.3')) AS duration
-- `tck.expressions.temporal.temporal10.scenario-11.examples-1-row-5`: query execution failed: Parse error: invalid resolved function or parameter name: duration.inSeconds; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..89; query:
-RETURN duration.inSeconds(localtime('12:44:54.7'), localtime('12:34:55.3')) AS duration
-- `tck.expressions.temporal.temporal10.scenario-11.examples-1-row-6`: query execution failed: Parse error: invalid resolved function or parameter name: duration.inSeconds; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..87; query:
-RETURN duration.inSeconds(localtime('12:34:56'), localtime('12:34:55.7')) AS duration
-- `tck.expressions.temporal.temporal10.scenario-11.examples-1-row-7`: query execution failed: Parse error: invalid resolved function or parameter name: duration.inSeconds; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..87; query:
-RETURN duration.inSeconds(localtime('12:34:56'), localtime('12:44:55.7')) AS duration
-- `tck.expressions.temporal.temporal10.scenario-11.examples-1-row-8`: query execution failed: Parse error: invalid resolved function or parameter name: duration.inSeconds; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..87; query:
-RETURN duration.inSeconds(localtime('12:44:56'), localtime('12:34:55.7')) AS duration
-- `tck.expressions.temporal.temporal10.scenario-11.examples-1-row-9`: query execution failed: Parse error: invalid resolved function or parameter name: duration.inSeconds; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..89; query:
-RETURN duration.inSeconds(localtime('12:34:56.3'), localtime('12:34:54.7')) AS duration
-- `tck.expressions.temporal.temporal10.scenario-11.examples-1-row-10`: query execution failed: Parse error: invalid resolved function or parameter name: duration.inSeconds; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..89; query:
-RETURN duration.inSeconds(localtime('12:34:54.7'), localtime('12:34:56.3')) AS duration
-- `tck.expressions.temporal.temporal10.scenario-12.examples-1-row-1`: query execution failed: Parse error: invalid resolved function or parameter name: duration.inSeconds; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..65; query:
-RETURN duration.inSeconds(localtime(), localtime()) AS duration
-- `tck.expressions.temporal.temporal10.scenario-12.examples-1-row-2`: query execution failed: Parse error: invalid resolved function or parameter name: duration.inSeconds; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..55; query:
-RETURN duration.inSeconds(time(), time()) AS duration
-- `tck.expressions.temporal.temporal10.scenario-12.examples-1-row-3`: query execution failed: Parse error: invalid resolved function or parameter name: duration.inSeconds; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..55; query:
-RETURN duration.inSeconds(date(), date()) AS duration
-- `tck.expressions.temporal.temporal10.scenario-12.examples-1-row-4`: query execution failed: Parse error: invalid resolved function or parameter name: duration.inSeconds; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..73; query:
-RETURN duration.inSeconds(localdatetime(), localdatetime()) AS duration
-- `tck.expressions.temporal.temporal10.scenario-12.examples-1-row-5`: query execution failed: Parse error: invalid resolved function or parameter name: duration.inSeconds; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..63; query:
-RETURN duration.inSeconds(datetime(), datetime()) AS duration
-- `tck.expressions.temporal.temporal10.scenario-13.examples-1-row-2`: query execution failed: Parse error: invalid resolved function or parameter name: duration.inMonths; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..43; query:
-RETURN duration.inMonths(null, null) AS t
-- `tck.expressions.temporal.temporal10.scenario-13.examples-1-row-3`: query execution failed: Parse error: invalid resolved function or parameter name: duration.inDays; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..41; query:
-RETURN duration.inDays(null, null) AS t
-- `tck.expressions.temporal.temporal10.scenario-13.examples-1-row-4`: query execution failed: Parse error: invalid resolved function or parameter name: duration.inSeconds; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..44; query:
-RETURN duration.inSeconds(null, null) AS t
-- `tck.expressions.temporal.temporal2.scenario-1.examples-1-row-2`: query execution failed: Extension error: error parsing datetime string; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..35; query:
-RETURN date('20150721') AS result
-- `tck.expressions.temporal.temporal2.scenario-1.examples-1-row-3`: query execution failed: Extension error: error parsing datetime string; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..34; query:
-RETURN date('2015-07') AS result
-- `tck.expressions.temporal.temporal2.scenario-1.examples-1-row-4`: query execution failed: Extension error: error parsing datetime string; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..33; query:
-RETURN date('201507') AS result
-- `tck.expressions.temporal.temporal2.scenario-1.examples-1-row-5`: query execution failed: Extension error: error parsing datetime string; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..37; query:
-RETURN date('2015-W30-2') AS result
-- `tck.expressions.temporal.temporal2.scenario-1.examples-1-row-6`: query execution failed: Extension error: error parsing datetime string; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..35; query:
-RETURN date('2015W302') AS result
-- `tck.expressions.temporal.temporal2.scenario-1.examples-1-row-7`: query execution failed: Extension error: error parsing datetime string; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..35; query:
-RETURN date('2015-W30') AS result
-- `tck.expressions.temporal.temporal2.scenario-1.examples-1-row-8`: query execution failed: Extension error: error parsing datetime string; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..34; query:
-RETURN date('2015W30') AS result
-- `tck.expressions.temporal.temporal2.scenario-1.examples-1-row-9`: query execution failed: Extension error: error parsing datetime string; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..35; query:
-RETURN date('2015-202') AS result
-- `tck.expressions.temporal.temporal2.scenario-1.examples-1-row-10`: query execution failed: Extension error: error parsing datetime string; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..34; query:
-RETURN date('2015202') AS result
-- `tck.expressions.temporal.temporal2.scenario-1.examples-1-row-11`: query execution failed: Extension error: error parsing datetime string; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..31; query:
-RETURN date('2015') AS result
-- `tck.expressions.temporal.temporal2.scenario-2.examples-1-row-1`: query execution failed: Extension error: error parsing datetime string; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..44; query:
-RETURN localtime('21:40:32.142') AS result
-- `tck.expressions.temporal.temporal2.scenario-2.examples-1-row-2`: query execution failed: Extension error: error parsing datetime string; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..42; query:
-RETURN localtime('214032.142') AS result
-- `tck.expressions.temporal.temporal2.scenario-2.examples-1-row-4`: query execution failed: Extension error: error parsing datetime string; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..38; query:
-RETURN localtime('214032') AS result
-- `tck.expressions.temporal.temporal2.scenario-2.examples-1-row-5`: query execution failed: Extension error: error parsing datetime string; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..37; query:
-RETURN localtime('21:40') AS result
-- `tck.expressions.temporal.temporal2.scenario-2.examples-1-row-6`: query execution failed: Extension error: error parsing datetime string; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..36; query:
-RETURN localtime('2140') AS result
-- `tck.expressions.temporal.temporal2.scenario-2.examples-1-row-7`: query execution failed: Extension error: error parsing datetime string; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..34; query:
-RETURN localtime('21') AS result
-- `tck.expressions.temporal.temporal2.scenario-3.examples-1-row-1`: query execution failed: Extension error: error parsing datetime string; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..44; query:
-RETURN time('21:40:32.142+0100') AS result
-- `tck.expressions.temporal.temporal2.scenario-3.examples-1-row-2`: query execution failed: Extension error: error parsing datetime string; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..38; query:
-RETURN time('214032.142Z') AS result
-- `tck.expressions.temporal.temporal2.scenario-3.examples-1-row-3`: query execution failed: Extension error: error parsing datetime string; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..41; query:
-RETURN time('21:40:32+01:00') AS result
-- `tck.expressions.temporal.temporal2.scenario-3.examples-1-row-4`: query execution failed: Extension error: error parsing datetime string; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..38; query:
-RETURN time('214032-0100') AS result
-- `tck.expressions.temporal.temporal2.scenario-3.examples-1-row-5`: query execution failed: Extension error: error parsing datetime string; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..38; query:
-RETURN time('21:40-01:30') AS result
-- `tck.expressions.temporal.temporal2.scenario-3.examples-1-row-6`: query execution failed: Extension error: error parsing datetime string; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..37; query:
-RETURN time('2140-00:00') AS result
-- `tck.expressions.temporal.temporal2.scenario-3.examples-1-row-7`: query execution failed: Extension error: error parsing datetime string; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..34; query:
-RETURN time('2140-02') AS result
-- `tck.expressions.temporal.temporal2.scenario-3.examples-1-row-8`: query execution failed: Extension error: error parsing datetime string; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..35; query:
-RETURN time('22+18:00') AS result
-- `tck.expressions.temporal.temporal2.scenario-4.examples-1-row-1`: expected [["2015-07-21T21:40:32.142"]], observed [["2015-07-21T21:40:32.142000000"]]
-- `tck.expressions.temporal.temporal2.scenario-4.examples-1-row-2`: query execution failed: Extension error: error parsing datetime string; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..57; query:
-RETURN localdatetime('2015-W30-2T214032.142') AS result
-- `tck.expressions.temporal.temporal2.scenario-4.examples-1-row-3`: query execution failed: Extension error: error parsing datetime string; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..53; query:
-RETURN localdatetime('2015-202T21:40:32') AS result
-- `tck.expressions.temporal.temporal2.scenario-4.examples-1-row-4`: query execution failed: Extension error: error parsing datetime string; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..47; query:
-RETURN localdatetime('2015T214032') AS result
-- `tck.expressions.temporal.temporal2.scenario-4.examples-1-row-5`: query execution failed: Extension error: error parsing datetime string; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..50; query:
-RETURN localdatetime('20150721T21:40') AS result
-- `tck.expressions.temporal.temporal2.scenario-4.examples-1-row-6`: query execution failed: Extension error: error parsing datetime string; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..49; query:
-RETURN localdatetime('2015-W30T2140') AS result
-- `tck.expressions.temporal.temporal2.scenario-4.examples-1-row-7`: query execution failed: Extension error: error parsing datetime string; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..46; query:
-RETURN localdatetime('2015202T21') AS result
-- `tck.expressions.temporal.temporal2.scenario-5.examples-1-row-1`: query execution failed: Extension error: error parsing datetime string; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..59; query:
-RETURN datetime('2015-07-21T21:40:32.142+0100') AS result
-- `tck.expressions.temporal.temporal2.scenario-5.examples-1-row-2`: query execution failed: Extension error: error parsing datetime string; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..53; query:
-RETURN datetime('2015-W30-2T214032.142Z') AS result
-- `tck.expressions.temporal.temporal2.scenario-5.examples-1-row-3`: query execution failed: Extension error: error parsing datetime string; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..54; query:
-RETURN datetime('2015-202T21:40:32+01:00') AS result
-- `tck.expressions.temporal.temporal2.scenario-5.examples-1-row-4`: query execution failed: Extension error: error parsing datetime string; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..47; query:
-RETURN datetime('2015T214032-0100') AS result
-- `tck.expressions.temporal.temporal2.scenario-5.examples-1-row-5`: query execution failed: Extension error: error parsing datetime string; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..51; query:
-RETURN datetime('20150721T21:40-01:30') AS result
-- `tck.expressions.temporal.temporal2.scenario-5.examples-1-row-6`: query execution failed: Extension error: error parsing datetime string; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..50; query:
-RETURN datetime('2015-W30T2140-00:00') AS result
-- `tck.expressions.temporal.temporal2.scenario-5.examples-1-row-7`: query execution failed: Extension error: error parsing datetime string; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..47; query:
-RETURN datetime('2015-W30T2140-02') AS result
-- `tck.expressions.temporal.temporal2.scenario-5.examples-1-row-8`: query execution failed: Extension error: error parsing datetime string; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..47; query:
-RETURN datetime('2015202T21+18:00') AS result
-- `tck.expressions.temporal.temporal2.scenario-6.examples-1-row-1`: query execution failed: Extension error: error parsing datetime string; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..78; query:
-RETURN datetime('2015-07-21T21:40:32.142+02:00[Europe/Stockholm]') AS result
-- `tck.expressions.temporal.temporal2.scenario-6.examples-1-row-2`: query execution failed: Extension error: error parsing datetime string; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..76; query:
-RETURN datetime('2015-07-21T21:40:32.142+0845[Australia/Eucla]') AS result
-- `tck.expressions.temporal.temporal2.scenario-6.examples-1-row-3`: query execution failed: Extension error: error parsing datetime string; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..75; query:
-RETURN datetime('2015-07-21T21:40:32.142-04[America/New_York]') AS result
-- `tck.expressions.temporal.temporal2.scenario-6.examples-1-row-4`: query execution failed: Extension error: error parsing datetime string; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..69; query:
-RETURN datetime('2015-07-21T21:40:32.142[Europe/London]') AS result
-- `tck.expressions.temporal.temporal2.scenario-6.examples-1-row-5`: query execution failed: Extension error: error parsing datetime string; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..72; query:
-RETURN datetime('1818-07-21T21:40:32.142[Europe/Stockholm]') AS result
+- `tck.expressions.temporal.temporal10.scenario-1.examples-1-row-4`: expected [["PT-23H-59M-59.9S", "0", "-86400", "100000000"]], observed [["PT-24H0.100000000S", "0", "-86400", "100000000"]]
+- `tck.expressions.temporal.temporal10.scenario-2.examples-1-row-2`: expected [["P31Y9M10DT21H45M22.142S"]], observed [["P31Y9M10DT21H45M22.142000000S"]]
+- `tck.expressions.temporal.temporal10.scenario-2.examples-1-row-3`: expected [["P30Y9M10DT21H40M32.142S"]], observed [["P30Y9M10DT21H40M32.142000000S"]]
+- `tck.expressions.temporal.temporal10.scenario-2.examples-1-row-4`: expected [["PT16H30M"]], observed [["P-14Y-9M-9DT-7H-30M"]]
+- `tck.expressions.temporal.temporal10.scenario-2.examples-1-row-5`: expected [["PT16H30M"]], observed [["P-14Y-9M-9DT-7H-30M"]]
+- `tck.expressions.temporal.temporal10.scenario-2.examples-1-row-6`: expected [["PT-14H-30M"]], observed [["P45Y5M22DT9H30M"]]
+- `tck.expressions.temporal.temporal10.scenario-2.examples-1-row-7`: expected [["PT7H15M22.142S"]], observed [["P46Y6M20DT7H15M22.142000000S"]]
+- `tck.expressions.temporal.temporal10.scenario-2.examples-1-row-8`: expected [["PT7H10M32.142S"]], observed [["P45Y6M20DT7H10M32.142000000S"]]
+- `tck.expressions.temporal.temporal10.scenario-2.examples-1-row-11`: expected [["PT-14H-30M"]], observed [["P45Y5M22DT9H30M"]]
+- `tck.expressions.temporal.temporal10.scenario-2.examples-1-row-12`: expected [["PT7H15M22.142S"]], observed [["P46Y6M20DT7H15M22.142000000S"]]
+- `tck.expressions.temporal.temporal10.scenario-2.examples-1-row-13`: expected [["PT6H10M32.142S"]], observed [["P45Y6M20DT7H10M32.142000000S"]]
+- `tck.expressions.temporal.temporal10.scenario-2.examples-1-row-15`: expected [["PT1H"]], observed [["PT2H"]]
+- `tck.expressions.temporal.temporal10.scenario-2.examples-1-row-16`: expected [["P-27DT-21H-40M-32.142S"]], observed [["P-27DT-21H-40M-33.858000000S"]]
+- `tck.expressions.temporal.temporal10.scenario-2.examples-1-row-19`: expected [["PT-5H-10M-32.142S"]], observed [["P-45Y-6M-20DT-5H-10M-33.858000000S"]]
+- `tck.expressions.temporal.temporal10.scenario-2.examples-1-row-20`: expected [["PT-5H-10M-32.142S"]], observed [["P-45Y-6M-20DT-5H-10M-33.858000000S"]]
+- `tck.expressions.temporal.temporal10.scenario-2.examples-1-row-21`: expected [["P11M2DT2H19M23.857S"]], observed [["P11M2DT2H19M23.857000000S"]]
+- `tck.expressions.temporal.temporal10.scenario-2.examples-1-row-22`: expected [["P2YT4M45.999S"]], observed [["P2YT4M45.999000000S"]]
+- `tck.expressions.temporal.temporal10.scenario-2.examples-1-row-23`: expected [["P1YT59M55.999S"]], observed [["P11M29DT23H59M55.999000000S"]]
+- `tck.expressions.temporal.temporal10.scenario-2.examples-1-row-24`: expected [["PT-5H-10M-36.143S"]], observed [["P-44Y-6M-20DT-5H-10M-37.857000000S"]]
+- `tck.expressions.temporal.temporal10.scenario-2.examples-1-row-25`: expected [["PT-4H-10M-36.143S"]], observed [["P-44Y-6M-20DT-5H-10M-37.857000000S"]]
+- `tck.expressions.temporal.temporal10.scenario-3.examples-1-row-4`: expected [["PT0S"]], observed [["P-14Y-9M"]]
+- `tck.expressions.temporal.temporal10.scenario-3.examples-1-row-5`: expected [["PT0S"]], observed [["P-14Y-9M"]]
+- `tck.expressions.temporal.temporal10.scenario-3.examples-1-row-6`: expected [["PT0S"]], observed [["P45Y5M"]]
+- `tck.expressions.temporal.temporal10.scenario-3.examples-1-row-7`: expected [["PT0S"]], observed [["P46Y6M"]]
+- `tck.expressions.temporal.temporal10.scenario-3.examples-1-row-8`: expected [["PT0S"]], observed [["P45Y6M"]]
+- `tck.expressions.temporal.temporal10.scenario-3.examples-1-row-9`: expected [["PT0S"]], observed [["P45Y5M"]]
+- `tck.expressions.temporal.temporal10.scenario-3.examples-1-row-10`: expected [["PT0S"]], observed [["P46Y6M"]]
+- `tck.expressions.temporal.temporal10.scenario-3.examples-1-row-11`: expected [["PT0S"]], observed [["P45Y6M"]]
+- `tck.expressions.temporal.temporal10.scenario-3.examples-1-row-15`: expected [["PT0S"]], observed [["P-45Y-6M"]]
+- `tck.expressions.temporal.temporal10.scenario-3.examples-1-row-16`: expected [["PT0S"]], observed [["P-45Y-6M"]]
+- `tck.expressions.temporal.temporal10.scenario-3.examples-1-row-19`: expected [["P1Y"]], observed [["P11M"]]
+- `tck.expressions.temporal.temporal10.scenario-3.examples-1-row-20`: expected [["PT0S"]], observed [["P-44Y-6M"]]
+- `tck.expressions.temporal.temporal10.scenario-3.examples-1-row-21`: expected [["PT0S"]], observed [["P-44Y-6M"]]
+- `tck.expressions.temporal.temporal10.scenario-4.examples-1-row-4`: expected [["PT0S"]], observed [["P-5396D"]]
+- `tck.expressions.temporal.temporal10.scenario-4.examples-1-row-5`: expected [["PT0S"]], observed [["P-5396D"]]
+- `tck.expressions.temporal.temporal10.scenario-4.examples-1-row-6`: expected [["PT0S"]], observed [["P16609D"]]
+- `tck.expressions.temporal.temporal10.scenario-4.examples-1-row-7`: expected [["PT0S"]], observed [["P17003D"]]
+- `tck.expressions.temporal.temporal10.scenario-4.examples-1-row-8`: expected [["PT0S"]], observed [["P16637D"]]
+- `tck.expressions.temporal.temporal10.scenario-4.examples-1-row-9`: expected [["PT0S"]], observed [["P16609D"]]
+- `tck.expressions.temporal.temporal10.scenario-4.examples-1-row-10`: expected [["PT0S"]], observed [["P17003D"]]
+- `tck.expressions.temporal.temporal10.scenario-4.examples-1-row-11`: expected [["PT0S"]], observed [["P16637D"]]
+- `tck.expressions.temporal.temporal10.scenario-4.examples-1-row-15`: expected [["PT0S"]], observed [["P-16637D"]]
+- `tck.expressions.temporal.temporal10.scenario-4.examples-1-row-16`: expected [["PT0S"]], observed [["P-16637D"]]
+- `tck.expressions.temporal.temporal10.scenario-4.examples-1-row-19`: expected [["P365D"]], observed [["P364D"]]
+- `tck.expressions.temporal.temporal10.scenario-4.examples-1-row-20`: expected [["PT0S"]], observed [["P-16272D"]]
+- `tck.expressions.temporal.temporal10.scenario-4.examples-1-row-21`: expected [["PT0S"]], observed [["P-16272D"]]
+- `tck.expressions.temporal.temporal10.scenario-5.examples-1-row-2`: expected [["PT278565H45M22.142S"]], observed [["PT278565H45M22.142000000S"]]
+- `tck.expressions.temporal.temporal10.scenario-5.examples-1-row-3`: expected [["PT269781H40M32.142S"]], observed [["PT269781H40M32.142000000S"]]
+- `tck.expressions.temporal.temporal10.scenario-5.examples-1-row-4`: expected [["PT16H30M"]], observed [["PT-129511H-30M"]]
+- `tck.expressions.temporal.temporal10.scenario-5.examples-1-row-5`: expected [["PT16H30M"]], observed [["PT-129511H-30M"]]
+- `tck.expressions.temporal.temporal10.scenario-5.examples-1-row-6`: expected [["PT-14H-30M"]], observed [["PT398625H30M"]]
+- `tck.expressions.temporal.temporal10.scenario-5.examples-1-row-7`: expected [["PT7H15M22.142S"]], observed [["PT408079H15M22.142000000S"]]
+- `tck.expressions.temporal.temporal10.scenario-5.examples-1-row-8`: expected [["PT7H10M32.142S"]], observed [["PT399295H10M32.142000000S"]]
+- `tck.expressions.temporal.temporal10.scenario-5.examples-1-row-11`: expected [["PT-14H-30M"]], observed [["PT398625H30M"]]
+- `tck.expressions.temporal.temporal10.scenario-5.examples-1-row-12`: expected [["PT7H15M22.142S"]], observed [["PT408079H15M22.142000000S"]]
+- `tck.expressions.temporal.temporal10.scenario-5.examples-1-row-13`: expected [["PT6H10M32.142S"]], observed [["PT399295H10M32.142000000S"]]
+- `tck.expressions.temporal.temporal10.scenario-5.examples-1-row-15`: expected [["PT1H"]], observed [["PT2H"]]
+- `tck.expressions.temporal.temporal10.scenario-5.examples-1-row-16`: expected [["PT-669H-40M-32.142S"]], observed [["PT-669H-40M-33.858000000S"]]
+- `tck.expressions.temporal.temporal10.scenario-5.examples-1-row-19`: expected [["PT-5H-10M-32.142S"]], observed [["PT-399293H-10M-33.858000000S"]]
+- `tck.expressions.temporal.temporal10.scenario-5.examples-1-row-20`: expected [["PT-5H-10M-32.142S"]], observed [["PT-399293H-10M-33.858000000S"]]
+- `tck.expressions.temporal.temporal10.scenario-5.examples-1-row-21`: expected [["PT8090H19M23.857S"]], observed [["PT8090H19M23.857000000S"]]
+- `tck.expressions.temporal.temporal10.scenario-5.examples-1-row-22`: expected [["PT17544H4M45.999S"]], observed [["PT17544H4M45.999000000S"]]
+- `tck.expressions.temporal.temporal10.scenario-5.examples-1-row-23`: expected [["PT8760H59M55.999S"]], observed [["PT8759H59M55.999000000S"]]
+- `tck.expressions.temporal.temporal10.scenario-5.examples-1-row-24`: expected [["PT-5H-10M-36.143S"]], observed [["PT-390533H-10M-37.857000000S"]]
+- `tck.expressions.temporal.temporal10.scenario-5.examples-1-row-25`: expected [["PT-4H-10M-36.143S"]], observed [["PT-390533H-10M-37.857000000S"]]
+- `tck.expressions.temporal.temporal10.scenario-6`: expected [["PT-0.001S"]], observed [["PT-1.999000000S"]]
+- `tck.expressions.temporal.temporal10.scenario-8.examples-1-row-1`: expected [["PT5H"]], observed [["PT4H"]]
+- `tck.expressions.temporal.temporal10.scenario-8.examples-1-row-2`: expected [["PT5H"]], observed [["PT-419228H"]]
+- `tck.expressions.temporal.temporal10.scenario-8.examples-1-row-3`: expected [["PT5H"]], observed [["PT4H"]]
+- `tck.expressions.temporal.temporal10.scenario-8.examples-1-row-4`: expected [["PT5H"]], observed [["PT419236H"]]
+- `tck.expressions.temporal.temporal10.scenario-8.examples-1-row-5`: expected [["PT5H"]], observed [["PT4H"]]
+- `tck.expressions.temporal.temporal10.scenario-8.examples-1-row-6`: expected [["PT25H"]], observed [["PT24H"]]
+- `tck.expressions.temporal.temporal10.scenario-9`: expected [["P1999999998Y11M30D"]], observed [["<null>"]]
+- `tck.expressions.temporal.temporal10.scenario-10`: expected [["PT17531639991215H59M59S"]], observed [["<null>"]]
+- `tck.expressions.temporal.temporal10.scenario-11.examples-1-row-1`: expected [["PT-0.4S"]], observed [["PT-1.600000000S"]]
+- `tck.expressions.temporal.temporal10.scenario-11.examples-1-row-2`: expected [["PT0.4S"]], observed [["PT0.400000000S"]]
+- `tck.expressions.temporal.temporal10.scenario-11.examples-1-row-3`: expected [["PT0.6S"]], observed [["PT0.600000000S"]]
+- `tck.expressions.temporal.temporal10.scenario-11.examples-1-row-4`: expected [["PT10M0.6S"]], observed [["PT10M0.600000000S"]]
+- `tck.expressions.temporal.temporal10.scenario-11.examples-1-row-5`: expected [["PT-9M-59.4S"]], observed [["PT-10M0.600000000S"]]
+- `tck.expressions.temporal.temporal10.scenario-11.examples-1-row-6`: expected [["PT-0.3S"]], observed [["PT-1.700000000S"]]
+- `tck.expressions.temporal.temporal10.scenario-11.examples-1-row-7`: expected [["PT9M59.7S"]], observed [["PT9M59.700000000S"]]
+- `tck.expressions.temporal.temporal10.scenario-11.examples-1-row-8`: expected [["PT-10M-0.3S"]], observed [["PT-10M-1.700000000S"]]
+- `tck.expressions.temporal.temporal10.scenario-11.examples-1-row-9`: expected [["PT-1.6S"]], observed [["PT-2.400000000S"]]
+- `tck.expressions.temporal.temporal10.scenario-11.examples-1-row-10`: expected [["PT1.6S"]], observed [["PT1.600000000S"]]
+- `tck.expressions.temporal.temporal10.scenario-12.examples-1-row-1`: expected [["PT0S"]], observed [["PT0.000004000S"]]
+- `tck.expressions.temporal.temporal10.scenario-12.examples-1-row-2`: expected [["PT0S"]], observed [["PT0.000003000S"]]
+- `tck.expressions.temporal.temporal10.scenario-12.examples-1-row-4`: expected [["PT0S"]], observed [["PT0.000003000S"]]
+- `tck.expressions.temporal.temporal10.scenario-12.examples-1-row-5`: expected [["PT0S"]], observed [["PT0.000004000S"]]
+- `tck.expressions.temporal.temporal2.scenario-1.examples-1-row-2`: expected [["2015-07-21"]], observed [["<null>"]]
+- `tck.expressions.temporal.temporal2.scenario-1.examples-1-row-3`: expected [["2015-07-01"]], observed [["<null>"]]
+- `tck.expressions.temporal.temporal2.scenario-1.examples-1-row-4`: expected [["2015-07-01"]], observed [["<null>"]]
+- `tck.expressions.temporal.temporal2.scenario-1.examples-1-row-5`: expected [["2015-07-21"]], observed [["<null>"]]
+- `tck.expressions.temporal.temporal2.scenario-1.examples-1-row-6`: expected [["2015-07-21"]], observed [["<null>"]]
+- `tck.expressions.temporal.temporal2.scenario-1.examples-1-row-7`: expected [["2015-07-20"]], observed [["<null>"]]
+- `tck.expressions.temporal.temporal2.scenario-1.examples-1-row-8`: expected [["2015-07-20"]], observed [["<null>"]]
+- `tck.expressions.temporal.temporal2.scenario-1.examples-1-row-9`: expected [["2015-07-21"]], observed [["<null>"]]
+- `tck.expressions.temporal.temporal2.scenario-1.examples-1-row-10`: expected [["2015-07-21"]], observed [["<null>"]]
+- `tck.expressions.temporal.temporal2.scenario-1.examples-1-row-11`: expected [["2015-01-01"]], observed [["<null>"]]
+- `tck.expressions.temporal.temporal2.scenario-3.examples-1-row-1`: expected [["21:40:32.142+01:00"]], observed [["21:40:32.142Z"]]
+- `tck.expressions.temporal.temporal2.scenario-3.examples-1-row-4`: expected [["21:40:32-01:00"]], observed [["21:40:32Z"]]
+- `tck.expressions.temporal.temporal2.scenario-3.examples-1-row-7`: expected [["21:40-02:00"]], observed [["<null>"]]
+- `tck.expressions.temporal.temporal2.scenario-4.examples-1-row-2`: expected [["2015-07-21T21:40:32.142"]], observed [["<null>"]]
+- `tck.expressions.temporal.temporal2.scenario-4.examples-1-row-3`: expected [["2015-07-21T21:40:32"]], observed [["<null>"]]
+- `tck.expressions.temporal.temporal2.scenario-4.examples-1-row-4`: expected [["2015-01-01T21:40:32"]], observed [["<null>"]]
+- `tck.expressions.temporal.temporal2.scenario-4.examples-1-row-5`: expected [["2015-07-21T21:40"]], observed [["<null>"]]
+- `tck.expressions.temporal.temporal2.scenario-4.examples-1-row-6`: expected [["2015-07-20T21:40"]], observed [["<null>"]]
+- `tck.expressions.temporal.temporal2.scenario-4.examples-1-row-7`: expected [["2015-07-21T21:00"]], observed [["<null>"]]
+- `tck.expressions.temporal.temporal2.scenario-5.examples-1-row-1`: expected [["2015-07-21T21:40:32.142+01:00"]], observed [["2015-07-21T21:40:32.142Z"]]
+- `tck.expressions.temporal.temporal2.scenario-5.examples-1-row-2`: expected [["2015-07-21T21:40:32.142Z"]], observed [["<null>"]]
+- `tck.expressions.temporal.temporal2.scenario-5.examples-1-row-3`: expected [["2015-07-21T21:40:32+01:00"]], observed [["<null>"]]
+- `tck.expressions.temporal.temporal2.scenario-5.examples-1-row-4`: expected [["2015-01-01T21:40:32-01:00"]], observed [["<null>"]]
+- `tck.expressions.temporal.temporal2.scenario-5.examples-1-row-5`: expected [["2015-07-21T21:40-01:30"]], observed [["<null>"]]
+- `tck.expressions.temporal.temporal2.scenario-5.examples-1-row-6`: expected [["2015-07-20T21:40Z"]], observed [["<null>"]]
+- `tck.expressions.temporal.temporal2.scenario-5.examples-1-row-7`: expected [["2015-07-20T21:40-02:00"]], observed [["<null>"]]
+- `tck.expressions.temporal.temporal2.scenario-5.examples-1-row-8`: expected [["2015-07-21T21:00+18:00"]], observed [["<null>"]]
+- `tck.expressions.temporal.temporal2.scenario-6.examples-1-row-5`: expected [["1818-07-21T21:40:32.142+00:53:28[Europe/Stockholm]"]], observed [["1818-07-21T21:40:32.142+00:53[Europe/Stockholm]"]]
 - `tck.expressions.temporal.temporal2.scenario-7.examples-1-row-2`: expected [["P5M1DT12H"]], observed [["<null>"]]
 - `tck.expressions.temporal.temporal2.scenario-7.examples-1-row-3`: expected [["P22DT19H51M49.5S"]], observed [["<null>"]]
 - `tck.expressions.temporal.temporal2.scenario-7.examples-1-row-4`: expected [["PT45S"]], observed [["<null>"]]
 - `tck.expressions.temporal.temporal2.scenario-7.examples-1-row-5`: expected [["P17DT12H"]], observed [["<null>"]]
 - `tck.expressions.temporal.temporal2.scenario-7.examples-1-row-7`: expected [["P2012Y2M2DT14H37M21.545S"]], observed [["<null>"]]
-- `tck.expressions.temporal.temporal3.scenario-1.examples-1-row-2`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 61..81; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 54..91; query:
-WITH date({year: 1984, month: 11, day: 11}) AS other
-RETURN date({date: other}) AS result
-- `tck.expressions.temporal.temporal3.scenario-1.examples-1-row-3`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 61..91; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 54..101; query:
-WITH date({year: 1984, month: 11, day: 11}) AS other
-RETURN date({date: other, year: 28}) AS result
-- `tck.expressions.temporal.temporal3.scenario-1.examples-1-row-4`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 61..90; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 54..100; query:
-WITH date({year: 1984, month: 11, day: 11}) AS other
-RETURN date({date: other, day: 28}) AS result
-- `tck.expressions.temporal.temporal3.scenario-1.examples-1-row-5`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 61..90; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 54..100; query:
-WITH date({year: 1984, month: 11, day: 11}) AS other
-RETURN date({date: other, week: 1}) AS result
-- `tck.expressions.temporal.temporal3.scenario-1.examples-1-row-6`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 61..97; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 54..107; query:
-WITH date({year: 1984, month: 11, day: 11}) AS other
-RETURN date({date: other, ordinalDay: 28}) AS result
-- `tck.expressions.temporal.temporal3.scenario-1.examples-1-row-7`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 61..93; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 54..103; query:
-WITH date({year: 1984, month: 11, day: 11}) AS other
-RETURN date({date: other, quarter: 3}) AS result
-- `tck.expressions.temporal.temporal3.scenario-1.examples-1-row-8`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 6..111; mutation execution failed: Cypher mutation binding failed: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 6..111; query:
-WITH localdatetime({year: 1984, month: 11, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123}) AS other
-RETURN date(other) AS result
-- `tck.expressions.temporal.temporal3.scenario-1.examples-1-row-9`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 6..111; mutation execution failed: Cypher mutation binding failed: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 6..111; query:
-WITH localdatetime({year: 1984, month: 11, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123}) AS other
-RETURN date({date: other}) AS result
-- `tck.expressions.temporal.temporal3.scenario-1.examples-1-row-10`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 6..111; mutation execution failed: Cypher mutation binding failed: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 6..111; query:
-WITH localdatetime({year: 1984, month: 11, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123}) AS other
-RETURN date({date: other, year: 28}) AS result
-- `tck.expressions.temporal.temporal3.scenario-1.examples-1-row-11`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 6..111; mutation execution failed: Cypher mutation binding failed: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 6..111; query:
-WITH localdatetime({year: 1984, month: 11, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123}) AS other
-RETURN date({date: other, day: 28}) AS result
-- `tck.expressions.temporal.temporal3.scenario-1.examples-1-row-12`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 6..111; mutation execution failed: Cypher mutation binding failed: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 6..111; query:
-WITH localdatetime({year: 1984, month: 11, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123}) AS other
-RETURN date({date: other, week: 1}) AS result
-- `tck.expressions.temporal.temporal3.scenario-1.examples-1-row-13`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 6..111; mutation execution failed: Cypher mutation binding failed: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 6..111; query:
-WITH localdatetime({year: 1984, month: 11, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123}) AS other
-RETURN date({date: other, ordinalDay: 28}) AS result
-- `tck.expressions.temporal.temporal3.scenario-1.examples-1-row-14`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 6..111; mutation execution failed: Cypher mutation binding failed: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 6..111; query:
-WITH localdatetime({year: 1984, month: 11, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123}) AS other
-RETURN date({date: other, quarter: 3}) AS result
-- `tck.expressions.temporal.temporal3.scenario-1.examples-1-row-15`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 6..79; mutation execution failed: Cypher mutation binding failed: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 6..79; query:
-WITH datetime({year: 1984, month: 11, day: 11, hour: 12, timezone: '+01:00'}) AS other
-RETURN date(other) AS result
-- `tck.expressions.temporal.temporal3.scenario-1.examples-1-row-16`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 6..79; mutation execution failed: Cypher mutation binding failed: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 6..79; query:
-WITH datetime({year: 1984, month: 11, day: 11, hour: 12, timezone: '+01:00'}) AS other
-RETURN date({date: other}) AS result
-- `tck.expressions.temporal.temporal3.scenario-1.examples-1-row-17`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 6..79; mutation execution failed: Cypher mutation binding failed: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 6..79; query:
-WITH datetime({year: 1984, month: 11, day: 11, hour: 12, timezone: '+01:00'}) AS other
-RETURN date({date: other, year: 28}) AS result
-- `tck.expressions.temporal.temporal3.scenario-1.examples-1-row-18`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 6..79; mutation execution failed: Cypher mutation binding failed: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 6..79; query:
-WITH datetime({year: 1984, month: 11, day: 11, hour: 12, timezone: '+01:00'}) AS other
-RETURN date({date: other, day: 28}) AS result
-- `tck.expressions.temporal.temporal3.scenario-1.examples-1-row-19`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 6..79; mutation execution failed: Cypher mutation binding failed: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 6..79; query:
-WITH datetime({year: 1984, month: 11, day: 11, hour: 12, timezone: '+01:00'}) AS other
-RETURN date({date: other, week: 1}) AS result
-- `tck.expressions.temporal.temporal3.scenario-1.examples-1-row-20`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 6..79; mutation execution failed: Cypher mutation binding failed: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 6..79; query:
-WITH datetime({year: 1984, month: 11, day: 11, hour: 12, timezone: '+01:00'}) AS other
-RETURN date({date: other, ordinalDay: 28}) AS result
-- `tck.expressions.temporal.temporal3.scenario-1.examples-1-row-21`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 6..79; mutation execution failed: Cypher mutation binding failed: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 6..79; query:
-WITH datetime({year: 1984, month: 11, day: 11, hour: 12, timezone: '+01:00'}) AS other
-RETURN date({date: other, quarter: 3}) AS result
-- `tck.expressions.temporal.temporal3.scenario-2.examples-1-row-1`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 6..75; mutation execution failed: Cypher mutation binding failed: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 6..75; query:
+- `tck.expressions.temporal.temporal3.scenario-1.examples-1-row-5`: expected [["1984-01-08"]], observed [["1984-01-02"]]
+- `tck.expressions.temporal.temporal3.scenario-1.examples-1-row-7`: expected [["1984-08-11"]], observed [["1984-07-01"]]
+- `tck.expressions.temporal.temporal3.scenario-1.examples-1-row-12`: expected [["1984-01-08"]], observed [["1984-01-02"]]
+- `tck.expressions.temporal.temporal3.scenario-1.examples-1-row-14`: expected [["1984-08-11"]], observed [["1984-07-01"]]
+- `tck.expressions.temporal.temporal3.scenario-1.examples-1-row-19`: expected [["1984-01-08"]], observed [["1984-01-02"]]
+- `tck.expressions.temporal.temporal3.scenario-1.examples-1-row-21`: expected [["1984-08-11"]], observed [["1984-07-01"]]
+- `tck.expressions.temporal.temporal3.scenario-2.examples-1-row-1`: query execution failed: Parse error: no such function: localtime; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 84..118; query:
 WITH localtime({hour: 12, minute: 31, second: 14, nanosecond: 645876123}) AS other
 RETURN localtime(other) AS result
-- `tck.expressions.temporal.temporal3.scenario-2.examples-1-row-2`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 6..75; mutation execution failed: Cypher mutation binding failed: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 6..75; query:
-WITH localtime({hour: 12, minute: 31, second: 14, nanosecond: 645876123}) AS other
-RETURN localtime({time: other}) AS result
-- `tck.expressions.temporal.temporal3.scenario-2.examples-1-row-3`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 6..75; mutation execution failed: Cypher mutation binding failed: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 6..75; query:
-WITH localtime({hour: 12, minute: 31, second: 14, nanosecond: 645876123}) AS other
-RETURN localtime({time: other, second: 42}) AS result
-- `tck.expressions.temporal.temporal3.scenario-2.examples-1-row-4`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 6..88; mutation execution failed: Cypher mutation binding failed: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 6..88; query:
+- `tck.expressions.temporal.temporal3.scenario-2.examples-1-row-4`: query execution failed: Parse error: no such function: localtime; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 97..131; query:
 WITH time({hour: 12, minute: 31, second: 14, microsecond: 645876, timezone: '+01:00'}) AS other
 RETURN localtime(other) AS result
-- `tck.expressions.temporal.temporal3.scenario-2.examples-1-row-5`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 6..88; mutation execution failed: Cypher mutation binding failed: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 6..88; query:
-WITH time({hour: 12, minute: 31, second: 14, microsecond: 645876, timezone: '+01:00'}) AS other
-RETURN localtime({time: other}) AS result
-- `tck.expressions.temporal.temporal3.scenario-2.examples-1-row-6`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 6..88; mutation execution failed: Cypher mutation binding failed: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 6..88; query:
-WITH time({hour: 12, minute: 31, second: 14, microsecond: 645876, timezone: '+01:00'}) AS other
-RETURN localtime({time: other, second: 42}) AS result
-- `tck.expressions.temporal.temporal3.scenario-2.examples-1-row-7`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 6..110; mutation execution failed: Cypher mutation binding failed: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 6..110; query:
+- `tck.expressions.temporal.temporal3.scenario-2.examples-1-row-7`: query execution failed: Parse error: no such function: localtime; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 119..153; query:
 WITH localdatetime({year: 1984, week: 10, dayOfWeek: 3, hour: 12, minute: 31, second: 14, millisecond: 645}) AS other
 RETURN localtime(other) AS result
-- `tck.expressions.temporal.temporal3.scenario-2.examples-1-row-8`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 6..110; mutation execution failed: Cypher mutation binding failed: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 6..110; query:
-WITH localdatetime({year: 1984, week: 10, dayOfWeek: 3, hour: 12, minute: 31, second: 14, millisecond: 645}) AS other
-RETURN localtime({time: other}) AS result
-- `tck.expressions.temporal.temporal3.scenario-2.examples-1-row-9`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 6..110; mutation execution failed: Cypher mutation binding failed: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 6..110; query:
-WITH localdatetime({year: 1984, week: 10, dayOfWeek: 3, hour: 12, minute: 31, second: 14, millisecond: 645}) AS other
-RETURN localtime({time: other, second: 42}) AS result
-- `tck.expressions.temporal.temporal3.scenario-2.examples-1-row-10`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 6..79; mutation execution failed: Cypher mutation binding failed: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 6..79; query:
+- `tck.expressions.temporal.temporal3.scenario-2.examples-1-row-10`: query execution failed: Parse error: no such function: localtime; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 88..122; query:
 WITH datetime({year: 1984, month: 10, day: 11, hour: 12, timezone: '+01:00'}) AS other
 RETURN localtime(other) AS result
-- `tck.expressions.temporal.temporal3.scenario-2.examples-1-row-11`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 6..79; mutation execution failed: Cypher mutation binding failed: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 6..79; query:
-WITH datetime({year: 1984, month: 10, day: 11, hour: 12, timezone: '+01:00'}) AS other
-RETURN localtime({time: other}) AS result
-- `tck.expressions.temporal.temporal3.scenario-2.examples-1-row-12`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 6..79; mutation execution failed: Cypher mutation binding failed: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 6..79; query:
-WITH datetime({year: 1984, month: 10, day: 11, hour: 12, timezone: '+01:00'}) AS other
-RETURN localtime({time: other, second: 42}) AS result
-- `tck.expressions.temporal.temporal3.scenario-3.examples-1-row-1`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 6..75; mutation execution failed: Cypher mutation binding failed: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 6..75; query:
-WITH localtime({hour: 12, minute: 31, second: 14, nanosecond: 645876123}) AS other
-RETURN time(other) AS result
-- `tck.expressions.temporal.temporal3.scenario-3.examples-1-row-2`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 6..75; mutation execution failed: Cypher mutation binding failed: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 6..75; query:
-WITH localtime({hour: 12, minute: 31, second: 14, nanosecond: 645876123}) AS other
-RETURN time({time: other}) AS result
-- `tck.expressions.temporal.temporal3.scenario-3.examples-1-row-3`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 6..75; mutation execution failed: Cypher mutation binding failed: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 6..75; query:
-WITH localtime({hour: 12, minute: 31, second: 14, nanosecond: 645876123}) AS other
-RETURN time({time: other, timezone: '+05:00'}) AS result
-- `tck.expressions.temporal.temporal3.scenario-3.examples-1-row-4`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 6..75; mutation execution failed: Cypher mutation binding failed: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 6..75; query:
-WITH localtime({hour: 12, minute: 31, second: 14, nanosecond: 645876123}) AS other
-RETURN time({time: other, second: 42}) AS result
-- `tck.expressions.temporal.temporal3.scenario-3.examples-1-row-5`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 6..75; mutation execution failed: Cypher mutation binding failed: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 6..75; query:
-WITH localtime({hour: 12, minute: 31, second: 14, nanosecond: 645876123}) AS other
-RETURN time({time: other, second: 42, timezone: '+05:00'}) AS result
-- `tck.expressions.temporal.temporal3.scenario-3.examples-1-row-6`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 6..88; mutation execution failed: Cypher mutation binding failed: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 6..88; query:
-WITH time({hour: 12, minute: 31, second: 14, microsecond: 645876, timezone: '+01:00'}) AS other
-RETURN time(other) AS result
-- `tck.expressions.temporal.temporal3.scenario-3.examples-1-row-7`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 6..88; mutation execution failed: Cypher mutation binding failed: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 6..88; query:
-WITH time({hour: 12, minute: 31, second: 14, microsecond: 645876, timezone: '+01:00'}) AS other
-RETURN time({time: other}) AS result
-- `tck.expressions.temporal.temporal3.scenario-3.examples-1-row-8`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 6..88; mutation execution failed: Cypher mutation binding failed: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 6..88; query:
-WITH time({hour: 12, minute: 31, second: 14, microsecond: 645876, timezone: '+01:00'}) AS other
-RETURN time({time: other, timezone: '+05:00'}) AS result
-- `tck.expressions.temporal.temporal3.scenario-3.examples-1-row-9`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 6..88; mutation execution failed: Cypher mutation binding failed: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 6..88; query:
-WITH time({hour: 12, minute: 31, second: 14, microsecond: 645876, timezone: '+01:00'}) AS other
-RETURN time({time: other, second: 42}) AS result
-- `tck.expressions.temporal.temporal3.scenario-3.examples-1-row-10`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 6..88; mutation execution failed: Cypher mutation binding failed: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 6..88; query:
-WITH time({hour: 12, minute: 31, second: 14, microsecond: 645876, timezone: '+01:00'}) AS other
-RETURN time({time: other, second: 42, timezone: '+05:00'}) AS result
-- `tck.expressions.temporal.temporal3.scenario-3.examples-1-row-11`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 6..110; mutation execution failed: Cypher mutation binding failed: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 6..110; query:
-WITH localdatetime({year: 1984, week: 10, dayOfWeek: 3, hour: 12, minute: 31, second: 14, millisecond: 645}) AS other
-RETURN time(other) AS result
-- `tck.expressions.temporal.temporal3.scenario-3.examples-1-row-12`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 6..110; mutation execution failed: Cypher mutation binding failed: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 6..110; query:
-WITH localdatetime({year: 1984, week: 10, dayOfWeek: 3, hour: 12, minute: 31, second: 14, millisecond: 645}) AS other
-RETURN time({time: other}) AS result
-- `tck.expressions.temporal.temporal3.scenario-3.examples-1-row-13`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 6..110; mutation execution failed: Cypher mutation binding failed: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 6..110; query:
-WITH localdatetime({year: 1984, week: 10, dayOfWeek: 3, hour: 12, minute: 31, second: 14, millisecond: 645}) AS other
-RETURN time({time: other, timezone: '+05:00'}) AS result
-- `tck.expressions.temporal.temporal3.scenario-3.examples-1-row-14`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 6..110; mutation execution failed: Cypher mutation binding failed: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 6..110; query:
-WITH localdatetime({year: 1984, week: 10, dayOfWeek: 3, hour: 12, minute: 31, second: 14, millisecond: 645}) AS other
-RETURN time({time: other, second: 42}) AS result
-- `tck.expressions.temporal.temporal3.scenario-3.examples-1-row-15`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 6..110; mutation execution failed: Cypher mutation binding failed: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 6..110; query:
-WITH localdatetime({year: 1984, week: 10, dayOfWeek: 3, hour: 12, minute: 31, second: 14, millisecond: 645}) AS other
-RETURN time({time: other, second: 42, timezone: '+05:00'}) AS result
-- `tck.expressions.temporal.temporal3.scenario-3.examples-1-row-16`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 6..89; mutation execution failed: Cypher mutation binding failed: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 6..89; query:
-WITH datetime({year: 1984, month: 10, day: 11, hour: 12, timezone: 'Europe/Stockholm'}) AS other
-RETURN time(other) AS result
-- `tck.expressions.temporal.temporal3.scenario-3.examples-1-row-17`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 6..89; mutation execution failed: Cypher mutation binding failed: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 6..89; query:
-WITH datetime({year: 1984, month: 10, day: 11, hour: 12, timezone: 'Europe/Stockholm'}) AS other
-RETURN time({time: other}) AS result
-- `tck.expressions.temporal.temporal3.scenario-3.examples-1-row-18`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 6..89; mutation execution failed: Cypher mutation binding failed: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 6..89; query:
-WITH datetime({year: 1984, month: 10, day: 11, hour: 12, timezone: 'Europe/Stockholm'}) AS other
-RETURN time({time: other, timezone: '+05:00'}) AS result
-- `tck.expressions.temporal.temporal3.scenario-3.examples-1-row-19`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 6..89; mutation execution failed: Cypher mutation binding failed: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 6..89; query:
-WITH datetime({year: 1984, month: 10, day: 11, hour: 12, timezone: 'Europe/Stockholm'}) AS other
-RETURN time({time: other, second: 42}) AS result
-- `tck.expressions.temporal.temporal3.scenario-3.examples-1-row-20`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 6..89; mutation execution failed: Cypher mutation binding failed: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 6..89; query:
-WITH datetime({year: 1984, month: 10, day: 11, hour: 12, timezone: 'Europe/Stockholm'}) AS other
-RETURN time({time: other, second: 42, timezone: '+05:00'}) AS result
-- `tck.expressions.temporal.temporal3.scenario-4.examples-1-row-1`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 61..124; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 54..134; query:
-WITH date({year: 1984, month: 10, day: 11}) AS other
-RETURN localdatetime({date: other, hour: 10, minute: 10, second: 10}) AS result
-- `tck.expressions.temporal.temporal3.scenario-4.examples-1-row-2`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 61..133; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 54..143; query:
-WITH date({year: 1984, month: 10, day: 11}) AS other
-RETURN localdatetime({date: other, day: 28, hour: 10, minute: 10, second: 10}) AS result
-- `tck.expressions.temporal.temporal3.scenario-4.examples-1-row-3`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 6..110; mutation execution failed: Cypher mutation binding failed: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 6..110; query:
-WITH localdatetime({year: 1984, week: 10, dayOfWeek: 3, hour: 12, minute: 31, second: 14, millisecond: 645}) AS other
-RETURN localdatetime({date: other, hour: 10, minute: 10, second: 10}) AS result
-- `tck.expressions.temporal.temporal3.scenario-4.examples-1-row-4`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 6..110; mutation execution failed: Cypher mutation binding failed: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 6..110; query:
-WITH localdatetime({year: 1984, week: 10, dayOfWeek: 3, hour: 12, minute: 31, second: 14, millisecond: 645}) AS other
-RETURN localdatetime({date: other, day: 28, hour: 10, minute: 10, second: 10}) AS result
-- `tck.expressions.temporal.temporal3.scenario-4.examples-1-row-5`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 6..79; mutation execution failed: Cypher mutation binding failed: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 6..79; query:
-WITH datetime({year: 1984, month: 10, day: 11, hour: 12, timezone: '+01:00'}) AS other
-RETURN localdatetime({date: other, hour: 10, minute: 10, second: 10}) AS result
-- `tck.expressions.temporal.temporal3.scenario-4.examples-1-row-6`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 6..79; mutation execution failed: Cypher mutation binding failed: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 6..79; query:
-WITH datetime({year: 1984, month: 10, day: 11, hour: 12, timezone: '+01:00'}) AS other
-RETURN localdatetime({date: other, day: 28, hour: 10, minute: 10, second: 10}) AS result
-- `tck.expressions.temporal.temporal3.scenario-5.examples-1-row-1`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 6..75; mutation execution failed: Cypher mutation binding failed: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 6..75; query:
-WITH localtime({hour: 12, minute: 31, second: 14, nanosecond: 645876123}) AS other
-RETURN localdatetime({year: 1984, month: 10, day: 11, time: other}) AS result
-- `tck.expressions.temporal.temporal3.scenario-5.examples-1-row-2`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 6..75; mutation execution failed: Cypher mutation binding failed: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 6..75; query:
-WITH localtime({hour: 12, minute: 31, second: 14, nanosecond: 645876123}) AS other
-RETURN localdatetime({year: 1984, month: 10, day: 11, time: other, second: 42}) AS result
-- `tck.expressions.temporal.temporal3.scenario-5.examples-1-row-3`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 6..88; mutation execution failed: Cypher mutation binding failed: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 6..88; query:
-WITH time({hour: 12, minute: 31, second: 14, microsecond: 645876, timezone: '+01:00'}) AS other
-RETURN localdatetime({year: 1984, month: 10, day: 11, time: other}) AS result
-- `tck.expressions.temporal.temporal3.scenario-5.examples-1-row-4`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 6..88; mutation execution failed: Cypher mutation binding failed: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 6..88; query:
-WITH time({hour: 12, minute: 31, second: 14, microsecond: 645876, timezone: '+01:00'}) AS other
-RETURN localdatetime({year: 1984, month: 10, day: 11, time: other, second: 42}) AS result
-- `tck.expressions.temporal.temporal3.scenario-5.examples-1-row-5`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 6..110; mutation execution failed: Cypher mutation binding failed: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 6..110; query:
-WITH localdatetime({year: 1984, week: 10, dayOfWeek: 3, hour: 12, minute: 31, second: 14, millisecond: 645}) AS other
-RETURN localdatetime({year: 1984, month: 10, day: 11, time: other}) AS result
-- `tck.expressions.temporal.temporal3.scenario-5.examples-1-row-6`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 6..110; mutation execution failed: Cypher mutation binding failed: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 6..110; query:
-WITH localdatetime({year: 1984, week: 10, dayOfWeek: 3, hour: 12, minute: 31, second: 14, millisecond: 645}) AS other
-RETURN localdatetime({year: 1984, month: 10, day: 11, time: other, second: 42}) AS result
-- `tck.expressions.temporal.temporal3.scenario-5.examples-1-row-7`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 6..79; mutation execution failed: Cypher mutation binding failed: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 6..79; query:
-WITH datetime({year: 1984, month: 10, day: 11, hour: 12, timezone: '+01:00'}) AS other
-RETURN localdatetime({year: 1984, month: 10, day: 11, time: other}) AS result
-- `tck.expressions.temporal.temporal3.scenario-5.examples-1-row-8`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 6..79; mutation execution failed: Cypher mutation binding failed: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 6..79; query:
-WITH datetime({year: 1984, month: 10, day: 11, hour: 12, timezone: '+01:00'}) AS other
-RETURN localdatetime({year: 1984, month: 10, day: 11, time: other, second: 42}) AS result
-- `tck.expressions.temporal.temporal3.scenario-6.examples-1-row-1`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 59..128; mutation execution failed: Cypher mutation binding failed: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 59..128; query:
-WITH date({year: 1984, month: 10, day: 11}) AS otherDate, localtime({hour: 12, minute: 31, second: 14, nanosecond: 645876123}) AS otherTime
-RETURN localdatetime({date: otherDate, time: otherTime}) AS result
-- `tck.expressions.temporal.temporal3.scenario-6.examples-1-row-2`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 59..128; mutation execution failed: Cypher mutation binding failed: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 59..128; query:
-WITH date({year: 1984, month: 10, day: 11}) AS otherDate, localtime({hour: 12, minute: 31, second: 14, nanosecond: 645876123}) AS otherTime
-RETURN localdatetime({date: otherDate, time: otherTime, day: 28, second: 42}) AS result
-- `tck.expressions.temporal.temporal3.scenario-6.examples-1-row-3`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 59..141; mutation execution failed: Cypher mutation binding failed: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 59..141; query:
-WITH date({year: 1984, month: 10, day: 11}) AS otherDate, time({hour: 12, minute: 31, second: 14, microsecond: 645876, timezone: '+01:00'}) AS otherTime
-RETURN localdatetime({date: otherDate, time: otherTime}) AS result
-- `tck.expressions.temporal.temporal3.scenario-6.examples-1-row-4`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 59..141; mutation execution failed: Cypher mutation binding failed: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 59..141; query:
-WITH date({year: 1984, month: 10, day: 11}) AS otherDate, time({hour: 12, minute: 31, second: 14, microsecond: 645876, timezone: '+01:00'}) AS otherTime
-RETURN localdatetime({date: otherDate, time: otherTime, day: 28, second: 42}) AS result
-- `tck.expressions.temporal.temporal3.scenario-6.examples-1-row-5`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 59..163; mutation execution failed: Cypher mutation binding failed: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 59..163; query:
-WITH date({year: 1984, month: 10, day: 11}) AS otherDate, localdatetime({year: 1984, week: 10, dayOfWeek: 3, hour: 12, minute: 31, second: 14, millisecond: 645}) AS otherTime
-RETURN localdatetime({date: otherDate, time: otherTime}) AS result
-- `tck.expressions.temporal.temporal3.scenario-6.examples-1-row-6`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 59..163; mutation execution failed: Cypher mutation binding failed: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 59..163; query:
-WITH date({year: 1984, month: 10, day: 11}) AS otherDate, localdatetime({year: 1984, week: 10, dayOfWeek: 3, hour: 12, minute: 31, second: 14, millisecond: 645}) AS otherTime
-RETURN localdatetime({date: otherDate, time: otherTime, day: 28, second: 42}) AS result
-- `tck.expressions.temporal.temporal3.scenario-6.examples-1-row-7`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 59..132; mutation execution failed: Cypher mutation binding failed: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 59..132; query:
-WITH date({year: 1984, month: 10, day: 11}) AS otherDate, datetime({year: 1984, month: 10, day: 11, hour: 12, timezone: '+01:00'}) AS otherTime
-RETURN localdatetime({date: otherDate, time: otherTime}) AS result
-- `tck.expressions.temporal.temporal3.scenario-6.examples-1-row-8`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 59..132; mutation execution failed: Cypher mutation binding failed: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 59..132; query:
-WITH date({year: 1984, month: 10, day: 11}) AS otherDate, datetime({year: 1984, month: 10, day: 11, hour: 12, timezone: '+01:00'}) AS otherTime
-RETURN localdatetime({date: otherDate, time: otherTime, day: 28, second: 42}) AS result
-- `tck.expressions.temporal.temporal3.scenario-6.examples-1-row-9`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 6..110; mutation execution failed: Cypher mutation binding failed: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 6..110; query:
-WITH localdatetime({year: 1984, week: 10, dayOfWeek: 3, hour: 12, minute: 31, second: 14, millisecond: 645}) AS otherDate, localtime({hour: 12, minute: 31, second: 14, nanosecond: 645876123}) AS otherTime
-RETURN localdatetime({date: otherDate, time: otherTime}) AS result
-- `tck.expressions.temporal.temporal3.scenario-6.examples-1-row-10`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 6..110; mutation execution failed: Cypher mutation binding failed: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 6..110; query:
-WITH localdatetime({year: 1984, week: 10, dayOfWeek: 3, hour: 12, minute: 31, second: 14, millisecond: 645}) AS otherDate, localtime({hour: 12, minute: 31, second: 14, nanosecond: 645876123}) AS otherTime
-RETURN localdatetime({date: otherDate, time: otherTime, day: 28, second: 42}) AS result
-- `tck.expressions.temporal.temporal3.scenario-6.examples-1-row-11`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 6..110; mutation execution failed: Cypher mutation binding failed: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 6..110; query:
-WITH localdatetime({year: 1984, week: 10, dayOfWeek: 3, hour: 12, minute: 31, second: 14, millisecond: 645}) AS otherDate, time({hour: 12, minute: 31, second: 14, microsecond: 645876, timezone: '+01:00'}) AS otherTime
-RETURN localdatetime({date: otherDate, time: otherTime}) AS result
-- `tck.expressions.temporal.temporal3.scenario-6.examples-1-row-12`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 6..110; mutation execution failed: Cypher mutation binding failed: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 6..110; query:
-WITH localdatetime({year: 1984, week: 10, dayOfWeek: 3, hour: 12, minute: 31, second: 14, millisecond: 645}) AS otherDate, time({hour: 12, minute: 31, second: 14, microsecond: 645876, timezone: '+01:00'}) AS otherTime
-RETURN localdatetime({date: otherDate, time: otherTime, day: 28, second: 42}) AS result
-- `tck.expressions.temporal.temporal3.scenario-6.examples-1-row-13`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 6..110; mutation execution failed: Cypher mutation binding failed: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 6..110; query:
-WITH localdatetime({year: 1984, week: 10, dayOfWeek: 3, hour: 12, minute: 31, second: 14, millisecond: 645}) AS otherDate, localdatetime({year: 1984, week: 10, dayOfWeek: 3, hour: 12, minute: 31, second: 14, millisecond: 645}) AS otherTime
-RETURN localdatetime({date: otherDate, time: otherTime}) AS result
-- `tck.expressions.temporal.temporal3.scenario-6.examples-1-row-14`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 6..110; mutation execution failed: Cypher mutation binding failed: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 6..110; query:
-WITH localdatetime({year: 1984, week: 10, dayOfWeek: 3, hour: 12, minute: 31, second: 14, millisecond: 645}) AS otherDate, localdatetime({year: 1984, week: 10, dayOfWeek: 3, hour: 12, minute: 31, second: 14, millisecond: 645}) AS otherTime
-RETURN localdatetime({date: otherDate, time: otherTime, day: 28, second: 42}) AS result
-- `tck.expressions.temporal.temporal3.scenario-6.examples-1-row-15`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 6..110; mutation execution failed: Cypher mutation binding failed: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 6..110; query:
-WITH localdatetime({year: 1984, week: 10, dayOfWeek: 3, hour: 12, minute: 31, second: 14, millisecond: 645}) AS otherDate, datetime({year: 1984, month: 10, day: 11, hour: 12, timezone: '+01:00'}) AS otherTime
-RETURN localdatetime({date: otherDate, time: otherTime}) AS result
-- `tck.expressions.temporal.temporal3.scenario-6.examples-1-row-16`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 6..110; mutation execution failed: Cypher mutation binding failed: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 6..110; query:
-WITH localdatetime({year: 1984, week: 10, dayOfWeek: 3, hour: 12, minute: 31, second: 14, millisecond: 645}) AS otherDate, datetime({year: 1984, month: 10, day: 11, hour: 12, timezone: '+01:00'}) AS otherTime
-RETURN localdatetime({date: otherDate, time: otherTime, day: 28, second: 42}) AS result
-- `tck.expressions.temporal.temporal3.scenario-6.examples-1-row-17`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 6..79; mutation execution failed: Cypher mutation binding failed: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 6..79; query:
-WITH datetime({year: 1984, month: 10, day: 11, hour: 12, timezone: '+01:00'}) AS otherDate, localtime({hour: 12, minute: 31, second: 14, nanosecond: 645876123}) AS otherTime
-RETURN localdatetime({date: otherDate, time: otherTime}) AS result
-- `tck.expressions.temporal.temporal3.scenario-6.examples-1-row-18`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 6..79; mutation execution failed: Cypher mutation binding failed: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 6..79; query:
-WITH datetime({year: 1984, month: 10, day: 11, hour: 12, timezone: '+01:00'}) AS otherDate, localtime({hour: 12, minute: 31, second: 14, nanosecond: 645876123}) AS otherTime
-RETURN localdatetime({date: otherDate, time: otherTime, day: 28, second: 42}) AS result
-- `tck.expressions.temporal.temporal3.scenario-6.examples-1-row-19`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 6..79; mutation execution failed: Cypher mutation binding failed: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 6..79; query:
-WITH datetime({year: 1984, month: 10, day: 11, hour: 12, timezone: '+01:00'}) AS otherDate, time({hour: 12, minute: 31, second: 14, microsecond: 645876, timezone: '+01:00'}) AS otherTime
-RETURN localdatetime({date: otherDate, time: otherTime}) AS result
-- `tck.expressions.temporal.temporal3.scenario-6.examples-1-row-20`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 6..79; mutation execution failed: Cypher mutation binding failed: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 6..79; query:
-WITH datetime({year: 1984, month: 10, day: 11, hour: 12, timezone: '+01:00'}) AS otherDate, time({hour: 12, minute: 31, second: 14, microsecond: 645876, timezone: '+01:00'}) AS otherTime
-RETURN localdatetime({date: otherDate, time: otherTime, day: 28, second: 42}) AS result
-- `tck.expressions.temporal.temporal3.scenario-6.examples-1-row-21`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 6..79; mutation execution failed: Cypher mutation binding failed: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 6..79; query:
-WITH datetime({year: 1984, month: 10, day: 11, hour: 12, timezone: '+01:00'}) AS otherDate, localdatetime({year: 1984, week: 10, dayOfWeek: 3, hour: 12, minute: 31, second: 14, millisecond: 645}) AS otherTime
-RETURN localdatetime({date: otherDate, time: otherTime}) AS result
-- `tck.expressions.temporal.temporal3.scenario-6.examples-1-row-22`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 6..79; mutation execution failed: Cypher mutation binding failed: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 6..79; query:
-WITH datetime({year: 1984, month: 10, day: 11, hour: 12, timezone: '+01:00'}) AS otherDate, localdatetime({year: 1984, week: 10, dayOfWeek: 3, hour: 12, minute: 31, second: 14, millisecond: 645}) AS otherTime
-RETURN localdatetime({date: otherDate, time: otherTime, day: 28, second: 42}) AS result
-- `tck.expressions.temporal.temporal3.scenario-6.examples-1-row-23`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 6..79; mutation execution failed: Cypher mutation binding failed: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 6..79; query:
-WITH datetime({year: 1984, month: 10, day: 11, hour: 12, timezone: '+01:00'}) AS otherDate, datetime({year: 1984, month: 10, day: 11, hour: 12, timezone: '+01:00'}) AS otherTime
-RETURN localdatetime({date: otherDate, time: otherTime}) AS result
-- `tck.expressions.temporal.temporal3.scenario-6.examples-1-row-24`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 6..79; mutation execution failed: Cypher mutation binding failed: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 6..79; query:
-WITH datetime({year: 1984, month: 10, day: 11, hour: 12, timezone: '+01:00'}) AS otherDate, datetime({year: 1984, month: 10, day: 11, hour: 12, timezone: '+01:00'}) AS otherTime
-RETURN localdatetime({date: otherDate, time: otherTime, day: 28, second: 42}) AS result
-- `tck.expressions.temporal.temporal3.scenario-7.examples-1-row-1`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 6..110; mutation execution failed: Cypher mutation binding failed: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 6..110; query:
+- `tck.expressions.temporal.temporal3.scenario-3.examples-1-row-1`: expected [["12:31:14.645876123Z"]], observed [["12:31:14"]]
+- `tck.expressions.temporal.temporal3.scenario-3.examples-1-row-6`: expected [["12:31:14.645876+01:00"]], observed [["11:31:14"]]
+- `tck.expressions.temporal.temporal3.scenario-3.examples-1-row-8`: expected [["16:31:14.645876+05:00"]], observed [["12:31:14.645876+05:00"]]
+- `tck.expressions.temporal.temporal3.scenario-3.examples-1-row-10`: expected [["16:31:42.645876+05:00"]], observed [["12:31:42.645876+05:00"]]
+- `tck.expressions.temporal.temporal3.scenario-3.examples-1-row-11`: expected [["12:31:14.645Z"]], observed [["12:31:14"]]
+- `tck.expressions.temporal.temporal3.scenario-3.examples-1-row-16`: expected [["12:00+01:00"]], observed [["<null>"]]
+- `tck.expressions.temporal.temporal3.scenario-3.examples-1-row-17`: expected [["12:00+01:00"]], observed [["12:00+02:00"]]
+- `tck.expressions.temporal.temporal3.scenario-3.examples-1-row-18`: expected [["16:00+05:00"]], observed [["12:00+05:00"]]
+- `tck.expressions.temporal.temporal3.scenario-3.examples-1-row-19`: expected [["12:00:42+01:00"]], observed [["12:00:42+02:00"]]
+- `tck.expressions.temporal.temporal3.scenario-3.examples-1-row-20`: expected [["16:00:42+05:00"]], observed [["12:00:42+05:00"]]
+- `tck.expressions.temporal.temporal3.scenario-7.examples-1-row-1`: query execution failed: Parse error: no such function: localdatetime; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 119..157; query:
 WITH localdatetime({year: 1984, week: 10, dayOfWeek: 3, hour: 12, minute: 31, second: 14, millisecond: 645}) AS other
 RETURN localdatetime(other) AS result
-- `tck.expressions.temporal.temporal3.scenario-7.examples-1-row-2`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 6..110; mutation execution failed: Cypher mutation binding failed: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 6..110; query:
-WITH localdatetime({year: 1984, week: 10, dayOfWeek: 3, hour: 12, minute: 31, second: 14, millisecond: 645}) AS other
-RETURN localdatetime({datetime: other}) AS result
-- `tck.expressions.temporal.temporal3.scenario-7.examples-1-row-3`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 6..110; mutation execution failed: Cypher mutation binding failed: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 6..110; query:
-WITH localdatetime({year: 1984, week: 10, dayOfWeek: 3, hour: 12, minute: 31, second: 14, millisecond: 645}) AS other
-RETURN localdatetime({datetime: other, day: 28, second: 42}) AS result
-- `tck.expressions.temporal.temporal3.scenario-7.examples-1-row-4`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 6..79; mutation execution failed: Cypher mutation binding failed: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 6..79; query:
+- `tck.expressions.temporal.temporal3.scenario-7.examples-1-row-4`: query execution failed: Parse error: no such function: localdatetime; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 88..126; query:
 WITH datetime({year: 1984, month: 10, day: 11, hour: 12, timezone: '+01:00'}) AS other
 RETURN localdatetime(other) AS result
-- `tck.expressions.temporal.temporal3.scenario-7.examples-1-row-5`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 6..79; mutation execution failed: Cypher mutation binding failed: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 6..79; query:
-WITH datetime({year: 1984, month: 10, day: 11, hour: 12, timezone: '+01:00'}) AS other
-RETURN localdatetime({datetime: other}) AS result
-- `tck.expressions.temporal.temporal3.scenario-7.examples-1-row-6`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 6..79; mutation execution failed: Cypher mutation binding failed: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 6..79; query:
-WITH datetime({year: 1984, month: 10, day: 11, hour: 12, timezone: '+01:00'}) AS other
-RETURN localdatetime({datetime: other, day: 28, second: 42}) AS result
-- `tck.expressions.temporal.temporal3.scenario-8.examples-1-row-1`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 61..119; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 54..129; query:
-WITH date({year: 1984, month: 10, day: 11}) AS other
-RETURN datetime({date: other, hour: 10, minute: 10, second: 10}) AS result
-- `tck.expressions.temporal.temporal3.scenario-8.examples-1-row-2`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 61..139; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 54..149; query:
-WITH date({year: 1984, month: 10, day: 11}) AS other
-RETURN datetime({date: other, hour: 10, minute: 10, second: 10, timezone: '+05:00'}) AS result
-- `tck.expressions.temporal.temporal3.scenario-8.examples-1-row-3`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 61..128; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 54..138; query:
-WITH date({year: 1984, month: 10, day: 11}) AS other
-RETURN datetime({date: other, day: 28, hour: 10, minute: 10, second: 10}) AS result
-- `tck.expressions.temporal.temporal3.scenario-8.examples-1-row-4`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 61..158; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 54..168; query:
-WITH date({year: 1984, month: 10, day: 11}) AS other
-RETURN datetime({date: other, day: 28, hour: 10, minute: 10, second: 10, timezone: 'Pacific/Honolulu'}) AS result
-- `tck.expressions.temporal.temporal3.scenario-8.examples-1-row-5`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 6..110; mutation execution failed: Cypher mutation binding failed: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 6..110; query:
-WITH localdatetime({year: 1984, week: 10, dayOfWeek: 3, hour: 12, minute: 31, second: 14, millisecond: 645}) AS other
-RETURN datetime({date: other, hour: 10, minute: 10, second: 10}) AS result
-- `tck.expressions.temporal.temporal3.scenario-8.examples-1-row-6`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 6..110; mutation execution failed: Cypher mutation binding failed: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 6..110; query:
-WITH localdatetime({year: 1984, week: 10, dayOfWeek: 3, hour: 12, minute: 31, second: 14, millisecond: 645}) AS other
-RETURN datetime({date: other, hour: 10, minute: 10, second: 10, timezone: '+05:00'}) AS result
-- `tck.expressions.temporal.temporal3.scenario-8.examples-1-row-7`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 6..110; mutation execution failed: Cypher mutation binding failed: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 6..110; query:
-WITH localdatetime({year: 1984, week: 10, dayOfWeek: 3, hour: 12, minute: 31, second: 14, millisecond: 645}) AS other
-RETURN datetime({date: other, day: 28, hour: 10, minute: 10, second: 10}) AS result
-- `tck.expressions.temporal.temporal3.scenario-8.examples-1-row-8`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 6..110; mutation execution failed: Cypher mutation binding failed: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 6..110; query:
-WITH localdatetime({year: 1984, week: 10, dayOfWeek: 3, hour: 12, minute: 31, second: 14, millisecond: 645}) AS other
-RETURN datetime({date: other, day: 28, hour: 10, minute: 10, second: 10, timezone: 'Pacific/Honolulu'}) AS result
-- `tck.expressions.temporal.temporal3.scenario-8.examples-1-row-9`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 6..79; mutation execution failed: Cypher mutation binding failed: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 6..79; query:
-WITH datetime({year: 1984, month: 10, day: 11, hour: 12, timezone: '+01:00'}) AS other
-RETURN datetime({date: other, hour: 10, minute: 10, second: 10}) AS result
-- `tck.expressions.temporal.temporal3.scenario-8.examples-1-row-10`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 6..79; mutation execution failed: Cypher mutation binding failed: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 6..79; query:
-WITH datetime({year: 1984, month: 10, day: 11, hour: 12, timezone: '+01:00'}) AS other
-RETURN datetime({date: other, hour: 10, minute: 10, second: 10, timezone: '+05:00'}) AS result
-- `tck.expressions.temporal.temporal3.scenario-8.examples-1-row-11`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 6..79; mutation execution failed: Cypher mutation binding failed: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 6..79; query:
-WITH datetime({year: 1984, month: 10, day: 11, hour: 12, timezone: '+01:00'}) AS other
-RETURN datetime({date: other, day: 28, hour: 10, minute: 10, second: 10}) AS result
-- `tck.expressions.temporal.temporal3.scenario-8.examples-1-row-12`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 6..79; mutation execution failed: Cypher mutation binding failed: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 6..79; query:
-WITH datetime({year: 1984, month: 10, day: 11, hour: 12, timezone: '+01:00'}) AS other
-RETURN datetime({date: other, day: 28, hour: 10, minute: 10, second: 10, timezone: 'Pacific/Honolulu'}) AS result
-- `tck.expressions.temporal.temporal3.scenario-9.examples-1-row-1`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 6..75; mutation execution failed: Cypher mutation binding failed: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 6..75; query:
-WITH localtime({hour: 12, minute: 31, second: 14, nanosecond: 645876123}) AS other
-RETURN datetime({year: 1984, month: 10, day: 11, time: other}) AS result
-- `tck.expressions.temporal.temporal3.scenario-9.examples-1-row-2`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 6..75; mutation execution failed: Cypher mutation binding failed: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 6..75; query:
-WITH localtime({hour: 12, minute: 31, second: 14, nanosecond: 645876123}) AS other
-RETURN datetime({year: 1984, month: 10, day: 11, time: other, timezone: '+05:00'}) AS result
-- `tck.expressions.temporal.temporal3.scenario-9.examples-1-row-3`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 6..75; mutation execution failed: Cypher mutation binding failed: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 6..75; query:
-WITH localtime({hour: 12, minute: 31, second: 14, nanosecond: 645876123}) AS other
-RETURN datetime({year: 1984, month: 10, day: 11, time: other, second: 42}) AS result
-- `tck.expressions.temporal.temporal3.scenario-9.examples-1-row-4`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 6..75; mutation execution failed: Cypher mutation binding failed: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 6..75; query:
-WITH localtime({hour: 12, minute: 31, second: 14, nanosecond: 645876123}) AS other
-RETURN datetime({year: 1984, month: 10, day: 11, time: other, second: 42, timezone: 'Pacific/Honolulu'}) AS result
-- `tck.expressions.temporal.temporal3.scenario-9.examples-1-row-5`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 6..88; mutation execution failed: Cypher mutation binding failed: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 6..88; query:
-WITH time({hour: 12, minute: 31, second: 14, microsecond: 645876, timezone: '+01:00'}) AS other
-RETURN datetime({year: 1984, month: 10, day: 11, time: other}) AS result
-- `tck.expressions.temporal.temporal3.scenario-9.examples-1-row-6`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 6..88; mutation execution failed: Cypher mutation binding failed: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 6..88; query:
-WITH time({hour: 12, minute: 31, second: 14, microsecond: 645876, timezone: '+01:00'}) AS other
-RETURN datetime({year: 1984, month: 10, day: 11, time: other, timezone: '+05:00'}) AS result
-- `tck.expressions.temporal.temporal3.scenario-9.examples-1-row-7`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 6..88; mutation execution failed: Cypher mutation binding failed: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 6..88; query:
-WITH time({hour: 12, minute: 31, second: 14, microsecond: 645876, timezone: '+01:00'}) AS other
-RETURN datetime({year: 1984, month: 10, day: 11, time: other, second: 42}) AS result
-- `tck.expressions.temporal.temporal3.scenario-9.examples-1-row-8`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 6..88; mutation execution failed: Cypher mutation binding failed: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 6..88; query:
-WITH time({hour: 12, minute: 31, second: 14, microsecond: 645876, timezone: '+01:00'}) AS other
-RETURN datetime({year: 1984, month: 10, day: 11, time: other, second: 42, timezone: 'Pacific/Honolulu'}) AS result
-- `tck.expressions.temporal.temporal3.scenario-9.examples-1-row-9`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 6..110; mutation execution failed: Cypher mutation binding failed: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 6..110; query:
-WITH localdatetime({year: 1984, week: 10, dayOfWeek: 3, hour: 12, minute: 31, second: 14, millisecond: 645}) AS other
-RETURN datetime({year: 1984, month: 10, day: 11, time: other}) AS result
-- `tck.expressions.temporal.temporal3.scenario-9.examples-1-row-10`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 6..110; mutation execution failed: Cypher mutation binding failed: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 6..110; query:
-WITH localdatetime({year: 1984, week: 10, dayOfWeek: 3, hour: 12, minute: 31, second: 14, millisecond: 645}) AS other
-RETURN datetime({year: 1984, month: 10, day: 11, time: other, timezone: '+05:00'}) AS result
-- `tck.expressions.temporal.temporal3.scenario-9.examples-1-row-11`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 6..110; mutation execution failed: Cypher mutation binding failed: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 6..110; query:
-WITH localdatetime({year: 1984, week: 10, dayOfWeek: 3, hour: 12, minute: 31, second: 14, millisecond: 645}) AS other
-RETURN datetime({year: 1984, month: 10, day: 11, time: other, second: 42}) AS result
-- `tck.expressions.temporal.temporal3.scenario-9.examples-1-row-12`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 6..110; mutation execution failed: Cypher mutation binding failed: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 6..110; query:
-WITH localdatetime({year: 1984, week: 10, dayOfWeek: 3, hour: 12, minute: 31, second: 14, millisecond: 645}) AS other
-RETURN datetime({year: 1984, month: 10, day: 11, time: other, second: 42, timezone: 'Pacific/Honolulu'}) AS result
-- `tck.expressions.temporal.temporal3.scenario-9.examples-1-row-13`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 6..89; mutation execution failed: Cypher mutation binding failed: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 6..89; query:
-WITH datetime({year: 1984, month: 10, day: 11, hour: 12, timezone: 'Europe/Stockholm'}) AS other
-RETURN datetime({year: 1984, month: 10, day: 11, time: other}) AS result
-- `tck.expressions.temporal.temporal3.scenario-9.examples-1-row-14`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 6..89; mutation execution failed: Cypher mutation binding failed: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 6..89; query:
-WITH datetime({year: 1984, month: 10, day: 11, hour: 12, timezone: 'Europe/Stockholm'}) AS other
-RETURN datetime({year: 1984, month: 10, day: 11, time: other, timezone: '+05:00'}) AS result
-- `tck.expressions.temporal.temporal3.scenario-9.examples-1-row-15`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 6..89; mutation execution failed: Cypher mutation binding failed: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 6..89; query:
-WITH datetime({year: 1984, month: 10, day: 11, hour: 12, timezone: 'Europe/Stockholm'}) AS other
-RETURN datetime({year: 1984, month: 10, day: 11, time: other, second: 42}) AS result
-- `tck.expressions.temporal.temporal3.scenario-9.examples-1-row-16`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 6..89; mutation execution failed: Cypher mutation binding failed: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 6..89; query:
-WITH datetime({year: 1984, month: 10, day: 11, hour: 12, timezone: 'Europe/Stockholm'}) AS other
-RETURN datetime({year: 1984, month: 10, day: 11, time: other, second: 42, timezone: 'Pacific/Honolulu'}) AS result
-- `tck.expressions.temporal.temporal3.scenario-10.examples-1-row-1`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 59..128; mutation execution failed: Cypher mutation binding failed: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 59..128; query:
-WITH date({year: 1984, month: 10, day: 11}) AS otherDate, localtime({hour: 12, minute: 31, second: 14, nanosecond: 645876123}) AS otherTime
-RETURN datetime({date: otherDate, time: otherTime}) AS result
-- `tck.expressions.temporal.temporal3.scenario-10.examples-1-row-2`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 59..128; mutation execution failed: Cypher mutation binding failed: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 59..128; query:
-WITH date({year: 1984, month: 10, day: 11}) AS otherDate, localtime({hour: 12, minute: 31, second: 14, nanosecond: 645876123}) AS otherTime
-RETURN datetime({date: otherDate, time: otherTime, timezone: '+05:00'}) AS result
-- `tck.expressions.temporal.temporal3.scenario-10.examples-1-row-3`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 59..128; mutation execution failed: Cypher mutation binding failed: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 59..128; query:
-WITH date({year: 1984, month: 10, day: 11}) AS otherDate, localtime({hour: 12, minute: 31, second: 14, nanosecond: 645876123}) AS otherTime
-RETURN datetime({date: otherDate, time: otherTime, day: 28, second: 42}) AS result
-- `tck.expressions.temporal.temporal3.scenario-10.examples-1-row-4`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 59..128; mutation execution failed: Cypher mutation binding failed: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 59..128; query:
-WITH date({year: 1984, month: 10, day: 11}) AS otherDate, localtime({hour: 12, minute: 31, second: 14, nanosecond: 645876123}) AS otherTime
-RETURN datetime({date: otherDate, time: otherTime, day: 28, second: 42, timezone: 'Pacific/Honolulu'}) AS result
-- `tck.expressions.temporal.temporal3.scenario-10.examples-1-row-5`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 59..141; mutation execution failed: Cypher mutation binding failed: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 59..141; query:
-WITH date({year: 1984, month: 10, day: 11}) AS otherDate, time({hour: 12, minute: 31, second: 14, microsecond: 645876, timezone: '+01:00'}) AS otherTime
-RETURN datetime({date: otherDate, time: otherTime}) AS result
-- `tck.expressions.temporal.temporal3.scenario-10.examples-1-row-6`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 59..141; mutation execution failed: Cypher mutation binding failed: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 59..141; query:
-WITH date({year: 1984, month: 10, day: 11}) AS otherDate, time({hour: 12, minute: 31, second: 14, microsecond: 645876, timezone: '+01:00'}) AS otherTime
-RETURN datetime({date: otherDate, time: otherTime, timezone: '+05:00'}) AS result
-- `tck.expressions.temporal.temporal3.scenario-10.examples-1-row-7`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 59..141; mutation execution failed: Cypher mutation binding failed: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 59..141; query:
-WITH date({year: 1984, month: 10, day: 11}) AS otherDate, time({hour: 12, minute: 31, second: 14, microsecond: 645876, timezone: '+01:00'}) AS otherTime
-RETURN datetime({date: otherDate, time: otherTime, day: 28, second: 42}) AS result
-- `tck.expressions.temporal.temporal3.scenario-10.examples-1-row-8`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 59..141; mutation execution failed: Cypher mutation binding failed: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 59..141; query:
-WITH date({year: 1984, month: 10, day: 11}) AS otherDate, time({hour: 12, minute: 31, second: 14, microsecond: 645876, timezone: '+01:00'}) AS otherTime
-RETURN datetime({date: otherDate, time: otherTime, day: 28, second: 42, timezone: 'Pacific/Honolulu'}) AS result
-- `tck.expressions.temporal.temporal3.scenario-10.examples-1-row-9`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 59..163; mutation execution failed: Cypher mutation binding failed: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 59..163; query:
-WITH date({year: 1984, month: 10, day: 11}) AS otherDate, localdatetime({year: 1984, week: 10, dayOfWeek: 3, hour: 12, minute: 31, second: 14, millisecond: 645}) AS otherTime
-RETURN datetime({date: otherDate, time: otherTime}) AS result
-- `tck.expressions.temporal.temporal3.scenario-10.examples-1-row-10`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 59..163; mutation execution failed: Cypher mutation binding failed: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 59..163; query:
-WITH date({year: 1984, month: 10, day: 11}) AS otherDate, localdatetime({year: 1984, week: 10, dayOfWeek: 3, hour: 12, minute: 31, second: 14, millisecond: 645}) AS otherTime
-RETURN datetime({date: otherDate, time: otherTime, timezone: '+05:00'}) AS result
-- `tck.expressions.temporal.temporal3.scenario-10.examples-1-row-11`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 59..163; mutation execution failed: Cypher mutation binding failed: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 59..163; query:
-WITH date({year: 1984, month: 10, day: 11}) AS otherDate, localdatetime({year: 1984, week: 10, dayOfWeek: 3, hour: 12, minute: 31, second: 14, millisecond: 645}) AS otherTime
-RETURN datetime({date: otherDate, time: otherTime, day: 28, second: 42}) AS result
-- `tck.expressions.temporal.temporal3.scenario-10.examples-1-row-12`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 59..163; mutation execution failed: Cypher mutation binding failed: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 59..163; query:
-WITH date({year: 1984, month: 10, day: 11}) AS otherDate, localdatetime({year: 1984, week: 10, dayOfWeek: 3, hour: 12, minute: 31, second: 14, millisecond: 645}) AS otherTime
-RETURN datetime({date: otherDate, time: otherTime, day: 28, second: 42, timezone: 'Pacific/Honolulu'}) AS result
-- `tck.expressions.temporal.temporal3.scenario-10.examples-1-row-13`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 59..142; mutation execution failed: Cypher mutation binding failed: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 59..142; query:
-WITH date({year: 1984, month: 10, day: 11}) AS otherDate, datetime({year: 1984, month: 10, day: 11, hour: 12, timezone: 'Europe/Stockholm'}) AS otherTime
-RETURN datetime({date: otherDate, time: otherTime}) AS result
-- `tck.expressions.temporal.temporal3.scenario-10.examples-1-row-14`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 59..142; mutation execution failed: Cypher mutation binding failed: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 59..142; query:
-WITH date({year: 1984, month: 10, day: 11}) AS otherDate, datetime({year: 1984, month: 10, day: 11, hour: 12, timezone: 'Europe/Stockholm'}) AS otherTime
-RETURN datetime({date: otherDate, time: otherTime, timezone: '+05:00'}) AS result
-- `tck.expressions.temporal.temporal3.scenario-10.examples-1-row-15`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 59..142; mutation execution failed: Cypher mutation binding failed: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 59..142; query:
-WITH date({year: 1984, month: 10, day: 11}) AS otherDate, datetime({year: 1984, month: 10, day: 11, hour: 12, timezone: 'Europe/Stockholm'}) AS otherTime
-RETURN datetime({date: otherDate, time: otherTime, day: 28, second: 42}) AS result
-- `tck.expressions.temporal.temporal3.scenario-10.examples-1-row-16`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 59..142; mutation execution failed: Cypher mutation binding failed: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 59..142; query:
-WITH date({year: 1984, month: 10, day: 11}) AS otherDate, datetime({year: 1984, month: 10, day: 11, hour: 12, timezone: 'Europe/Stockholm'}) AS otherTime
-RETURN datetime({date: otherDate, time: otherTime, day: 28, second: 42, timezone: 'Pacific/Honolulu'}) AS result
-- `tck.expressions.temporal.temporal3.scenario-10.examples-1-row-17`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 6..110; mutation execution failed: Cypher mutation binding failed: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 6..110; query:
-WITH localdatetime({year: 1984, week: 10, dayOfWeek: 3, hour: 12, minute: 31, second: 14, millisecond: 645}) AS otherDate, localtime({hour: 12, minute: 31, second: 14, nanosecond: 645876123}) AS otherTime
-RETURN datetime({date: otherDate, time: otherTime}) AS result
-- `tck.expressions.temporal.temporal3.scenario-10.examples-1-row-18`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 6..110; mutation execution failed: Cypher mutation binding failed: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 6..110; query:
-WITH localdatetime({year: 1984, week: 10, dayOfWeek: 3, hour: 12, minute: 31, second: 14, millisecond: 645}) AS otherDate, localtime({hour: 12, minute: 31, second: 14, nanosecond: 645876123}) AS otherTime
-RETURN datetime({date: otherDate, time: otherTime, timezone: '+05:00'}) AS result
-- `tck.expressions.temporal.temporal3.scenario-10.examples-1-row-19`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 6..110; mutation execution failed: Cypher mutation binding failed: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 6..110; query:
-WITH localdatetime({year: 1984, week: 10, dayOfWeek: 3, hour: 12, minute: 31, second: 14, millisecond: 645}) AS otherDate, localtime({hour: 12, minute: 31, second: 14, nanosecond: 645876123}) AS otherTime
-RETURN datetime({date: otherDate, time: otherTime, day: 28, second: 42}) AS result
-- `tck.expressions.temporal.temporal3.scenario-10.examples-1-row-20`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 6..110; mutation execution failed: Cypher mutation binding failed: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 6..110; query:
-WITH localdatetime({year: 1984, week: 10, dayOfWeek: 3, hour: 12, minute: 31, second: 14, millisecond: 645}) AS otherDate, localtime({hour: 12, minute: 31, second: 14, nanosecond: 645876123}) AS otherTime
-RETURN datetime({date: otherDate, time: otherTime, day: 28, second: 42, timezone: 'Pacific/Honolulu'}) AS result
-- `tck.expressions.temporal.temporal3.scenario-10.examples-1-row-21`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 6..110; mutation execution failed: Cypher mutation binding failed: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 6..110; query:
-WITH localdatetime({year: 1984, week: 10, dayOfWeek: 3, hour: 12, minute: 31, second: 14, millisecond: 645}) AS otherDate, time({hour: 12, minute: 31, second: 14, microsecond: 645876, timezone: '+01:00'}) AS otherTime
-RETURN datetime({date: otherDate, time: otherTime}) AS result
-- `tck.expressions.temporal.temporal3.scenario-10.examples-1-row-22`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 6..110; mutation execution failed: Cypher mutation binding failed: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 6..110; query:
-WITH localdatetime({year: 1984, week: 10, dayOfWeek: 3, hour: 12, minute: 31, second: 14, millisecond: 645}) AS otherDate, time({hour: 12, minute: 31, second: 14, microsecond: 645876, timezone: '+01:00'}) AS otherTime
-RETURN datetime({date: otherDate, time: otherTime, timezone: '+05:00'}) AS result
-- `tck.expressions.temporal.temporal3.scenario-10.examples-1-row-23`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 6..110; mutation execution failed: Cypher mutation binding failed: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 6..110; query:
-WITH localdatetime({year: 1984, week: 10, dayOfWeek: 3, hour: 12, minute: 31, second: 14, millisecond: 645}) AS otherDate, time({hour: 12, minute: 31, second: 14, microsecond: 645876, timezone: '+01:00'}) AS otherTime
-RETURN datetime({date: otherDate, time: otherTime, day: 28, second: 42}) AS result
-- `tck.expressions.temporal.temporal3.scenario-10.examples-1-row-24`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 6..110; mutation execution failed: Cypher mutation binding failed: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 6..110; query:
-WITH localdatetime({year: 1984, week: 10, dayOfWeek: 3, hour: 12, minute: 31, second: 14, millisecond: 645}) AS otherDate, time({hour: 12, minute: 31, second: 14, microsecond: 645876, timezone: '+01:00'}) AS otherTime
-RETURN datetime({date: otherDate, time: otherTime, day: 28, second: 42, timezone: 'Pacific/Honolulu'}) AS result
-- `tck.expressions.temporal.temporal3.scenario-10.examples-1-row-25`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 6..110; mutation execution failed: Cypher mutation binding failed: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 6..110; query:
-WITH localdatetime({year: 1984, week: 10, dayOfWeek: 3, hour: 12, minute: 31, second: 14, millisecond: 645}) AS otherDate, localdatetime({year: 1984, week: 10, dayOfWeek: 3, hour: 12, minute: 31, second: 14, millisecond: 645}) AS otherTime
-RETURN datetime({date: otherDate, time: otherTime}) AS result
-- `tck.expressions.temporal.temporal3.scenario-10.examples-1-row-26`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 6..110; mutation execution failed: Cypher mutation binding failed: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 6..110; query:
-WITH localdatetime({year: 1984, week: 10, dayOfWeek: 3, hour: 12, minute: 31, second: 14, millisecond: 645}) AS otherDate, localdatetime({year: 1984, week: 10, dayOfWeek: 3, hour: 12, minute: 31, second: 14, millisecond: 645}) AS otherTime
-RETURN datetime({date: otherDate, time: otherTime, timezone: '+05:00'}) AS result
-- `tck.expressions.temporal.temporal3.scenario-10.examples-1-row-27`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 6..110; mutation execution failed: Cypher mutation binding failed: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 6..110; query:
-WITH localdatetime({year: 1984, week: 10, dayOfWeek: 3, hour: 12, minute: 31, second: 14, millisecond: 645}) AS otherDate, localdatetime({year: 1984, week: 10, dayOfWeek: 3, hour: 12, minute: 31, second: 14, millisecond: 645}) AS otherTime
-RETURN datetime({date: otherDate, time: otherTime, day: 28, second: 42}) AS result
-- `tck.expressions.temporal.temporal3.scenario-10.examples-1-row-28`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 6..110; mutation execution failed: Cypher mutation binding failed: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 6..110; query:
-WITH localdatetime({year: 1984, week: 10, dayOfWeek: 3, hour: 12, minute: 31, second: 14, millisecond: 645}) AS otherDate, localdatetime({year: 1984, week: 10, dayOfWeek: 3, hour: 12, minute: 31, second: 14, millisecond: 645}) AS otherTime
-RETURN datetime({date: otherDate, time: otherTime, day: 28, second: 42, timezone: 'Pacific/Honolulu'}) AS result
-- `tck.expressions.temporal.temporal3.scenario-10.examples-1-row-29`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 6..110; mutation execution failed: Cypher mutation binding failed: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 6..110; query:
-WITH localdatetime({year: 1984, week: 10, dayOfWeek: 3, hour: 12, minute: 31, second: 14, millisecond: 645}) AS otherDate, datetime({year: 1984, month: 10, day: 11, hour: 12, timezone: 'Europe/Stockholm'}) AS otherTime
-RETURN datetime({date: otherDate, time: otherTime}) AS result
-- `tck.expressions.temporal.temporal3.scenario-10.examples-1-row-30`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 6..110; mutation execution failed: Cypher mutation binding failed: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 6..110; query:
-WITH localdatetime({year: 1984, week: 10, dayOfWeek: 3, hour: 12, minute: 31, second: 14, millisecond: 645}) AS otherDate, datetime({year: 1984, month: 10, day: 11, hour: 12, timezone: 'Europe/Stockholm'}) AS otherTime
-RETURN datetime({date: otherDate, time: otherTime, timezone: '+05:00'}) AS result
-- `tck.expressions.temporal.temporal3.scenario-10.examples-1-row-31`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 6..110; mutation execution failed: Cypher mutation binding failed: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 6..110; query:
-WITH localdatetime({year: 1984, week: 10, dayOfWeek: 3, hour: 12, minute: 31, second: 14, millisecond: 645}) AS otherDate, datetime({year: 1984, month: 10, day: 11, hour: 12, timezone: 'Europe/Stockholm'}) AS otherTime
-RETURN datetime({date: otherDate, time: otherTime, day: 28, second: 42}) AS result
-- `tck.expressions.temporal.temporal3.scenario-10.examples-1-row-32`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 6..110; mutation execution failed: Cypher mutation binding failed: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 6..110; query:
-WITH localdatetime({year: 1984, week: 10, dayOfWeek: 3, hour: 12, minute: 31, second: 14, millisecond: 645}) AS otherDate, datetime({year: 1984, month: 10, day: 11, hour: 12, timezone: 'Europe/Stockholm'}) AS otherTime
-RETURN datetime({date: otherDate, time: otherTime, day: 28, second: 42, timezone: 'Pacific/Honolulu'}) AS result
-- `tck.expressions.temporal.temporal3.scenario-10.examples-1-row-33`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 6..79; mutation execution failed: Cypher mutation binding failed: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 6..79; query:
-WITH datetime({year: 1984, month: 10, day: 11, hour: 12, timezone: '+01:00'}) AS otherDate, localtime({hour: 12, minute: 31, second: 14, nanosecond: 645876123}) AS otherTime
-RETURN datetime({date: otherDate, time: otherTime}) AS result
-- `tck.expressions.temporal.temporal3.scenario-10.examples-1-row-34`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 6..79; mutation execution failed: Cypher mutation binding failed: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 6..79; query:
-WITH datetime({year: 1984, month: 10, day: 11, hour: 12, timezone: '+01:00'}) AS otherDate, localtime({hour: 12, minute: 31, second: 14, nanosecond: 645876123}) AS otherTime
-RETURN datetime({date: otherDate, time: otherTime, timezone: '+05:00'}) AS result
-- `tck.expressions.temporal.temporal3.scenario-10.examples-1-row-35`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 6..79; mutation execution failed: Cypher mutation binding failed: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 6..79; query:
-WITH datetime({year: 1984, month: 10, day: 11, hour: 12, timezone: '+01:00'}) AS otherDate, localtime({hour: 12, minute: 31, second: 14, nanosecond: 645876123}) AS otherTime
-RETURN datetime({date: otherDate, time: otherTime, day: 28, second: 42}) AS result
-- `tck.expressions.temporal.temporal3.scenario-10.examples-1-row-36`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 6..79; mutation execution failed: Cypher mutation binding failed: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 6..79; query:
-WITH datetime({year: 1984, month: 10, day: 11, hour: 12, timezone: '+01:00'}) AS otherDate, localtime({hour: 12, minute: 31, second: 14, nanosecond: 645876123}) AS otherTime
-RETURN datetime({date: otherDate, time: otherTime, day: 28, second: 42, timezone: 'Pacific/Honolulu'}) AS result
-- `tck.expressions.temporal.temporal3.scenario-10.examples-1-row-37`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 6..79; mutation execution failed: Cypher mutation binding failed: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 6..79; query:
-WITH datetime({year: 1984, month: 10, day: 11, hour: 12, timezone: '+01:00'}) AS otherDate, time({hour: 12, minute: 31, second: 14, microsecond: 645876, timezone: '+01:00'}) AS otherTime
-RETURN datetime({date: otherDate, time: otherTime}) AS result
-- `tck.expressions.temporal.temporal3.scenario-10.examples-1-row-38`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 6..79; mutation execution failed: Cypher mutation binding failed: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 6..79; query:
-WITH datetime({year: 1984, month: 10, day: 11, hour: 12, timezone: '+01:00'}) AS otherDate, time({hour: 12, minute: 31, second: 14, microsecond: 645876, timezone: '+01:00'}) AS otherTime
-RETURN datetime({date: otherDate, time: otherTime, timezone: '+05:00'}) AS result
-- `tck.expressions.temporal.temporal3.scenario-10.examples-1-row-39`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 6..79; mutation execution failed: Cypher mutation binding failed: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 6..79; query:
-WITH datetime({year: 1984, month: 10, day: 11, hour: 12, timezone: '+01:00'}) AS otherDate, time({hour: 12, minute: 31, second: 14, microsecond: 645876, timezone: '+01:00'}) AS otherTime
-RETURN datetime({date: otherDate, time: otherTime, day: 28, second: 42}) AS result
-- `tck.expressions.temporal.temporal3.scenario-10.examples-1-row-40`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 6..79; mutation execution failed: Cypher mutation binding failed: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 6..79; query:
-WITH datetime({year: 1984, month: 10, day: 11, hour: 12, timezone: '+01:00'}) AS otherDate, time({hour: 12, minute: 31, second: 14, microsecond: 645876, timezone: '+01:00'}) AS otherTime
-RETURN datetime({date: otherDate, time: otherTime, day: 28, second: 42, timezone: 'Pacific/Honolulu'}) AS result
-- `tck.expressions.temporal.temporal3.scenario-10.examples-1-row-41`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 6..79; mutation execution failed: Cypher mutation binding failed: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 6..79; query:
-WITH datetime({year: 1984, month: 10, day: 11, hour: 12, timezone: '+01:00'}) AS otherDate, localdatetime({year: 1984, week: 10, dayOfWeek: 3, hour: 12, minute: 31, second: 14, millisecond: 645}) AS otherTime
-RETURN datetime({date: otherDate, time: otherTime}) AS result
-- `tck.expressions.temporal.temporal3.scenario-10.examples-1-row-42`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 6..79; mutation execution failed: Cypher mutation binding failed: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 6..79; query:
-WITH datetime({year: 1984, month: 10, day: 11, hour: 12, timezone: '+01:00'}) AS otherDate, localdatetime({year: 1984, week: 10, dayOfWeek: 3, hour: 12, minute: 31, second: 14, millisecond: 645}) AS otherTime
-RETURN datetime({date: otherDate, time: otherTime, timezone: '+05:00'}) AS result
-- `tck.expressions.temporal.temporal3.scenario-10.examples-1-row-43`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 6..79; mutation execution failed: Cypher mutation binding failed: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 6..79; query:
-WITH datetime({year: 1984, month: 10, day: 11, hour: 12, timezone: '+01:00'}) AS otherDate, localdatetime({year: 1984, week: 10, dayOfWeek: 3, hour: 12, minute: 31, second: 14, millisecond: 645}) AS otherTime
-RETURN datetime({date: otherDate, time: otherTime, day: 28, second: 42}) AS result
-- `tck.expressions.temporal.temporal3.scenario-10.examples-1-row-44`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 6..79; mutation execution failed: Cypher mutation binding failed: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 6..79; query:
-WITH datetime({year: 1984, month: 10, day: 11, hour: 12, timezone: '+01:00'}) AS otherDate, localdatetime({year: 1984, week: 10, dayOfWeek: 3, hour: 12, minute: 31, second: 14, millisecond: 645}) AS otherTime
-RETURN datetime({date: otherDate, time: otherTime, day: 28, second: 42, timezone: 'Pacific/Honolulu'}) AS result
-- `tck.expressions.temporal.temporal3.scenario-10.examples-1-row-45`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 6..79; mutation execution failed: Cypher mutation binding failed: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 6..79; query:
-WITH datetime({year: 1984, month: 10, day: 11, hour: 12, timezone: '+01:00'}) AS otherDate, datetime({year: 1984, month: 10, day: 11, hour: 12, timezone: 'Europe/Stockholm'}) AS otherTime
-RETURN datetime({date: otherDate, time: otherTime}) AS result
-- `tck.expressions.temporal.temporal3.scenario-10.examples-1-row-46`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 6..79; mutation execution failed: Cypher mutation binding failed: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 6..79; query:
-WITH datetime({year: 1984, month: 10, day: 11, hour: 12, timezone: '+01:00'}) AS otherDate, datetime({year: 1984, month: 10, day: 11, hour: 12, timezone: 'Europe/Stockholm'}) AS otherTime
-RETURN datetime({date: otherDate, time: otherTime, timezone: '+05:00'}) AS result
-- `tck.expressions.temporal.temporal3.scenario-10.examples-1-row-47`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 6..79; mutation execution failed: Cypher mutation binding failed: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 6..79; query:
-WITH datetime({year: 1984, month: 10, day: 11, hour: 12, timezone: '+01:00'}) AS otherDate, datetime({year: 1984, month: 10, day: 11, hour: 12, timezone: 'Europe/Stockholm'}) AS otherTime
-RETURN datetime({date: otherDate, time: otherTime, day: 28, second: 42}) AS result
-- `tck.expressions.temporal.temporal3.scenario-10.examples-1-row-48`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 6..79; mutation execution failed: Cypher mutation binding failed: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 6..79; query:
-WITH datetime({year: 1984, month: 10, day: 11, hour: 12, timezone: '+01:00'}) AS otherDate, datetime({year: 1984, month: 10, day: 11, hour: 12, timezone: 'Europe/Stockholm'}) AS otherTime
-RETURN datetime({date: otherDate, time: otherTime, day: 28, second: 42, timezone: 'Pacific/Honolulu'}) AS result
-- `tck.expressions.temporal.temporal3.scenario-11.examples-1-row-1`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 6..110; mutation execution failed: Cypher mutation binding failed: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 6..110; query:
-WITH localdatetime({year: 1984, week: 10, dayOfWeek: 3, hour: 12, minute: 31, second: 14, millisecond: 645}) AS other
-RETURN datetime(other) AS result
-- `tck.expressions.temporal.temporal3.scenario-11.examples-1-row-2`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 6..110; mutation execution failed: Cypher mutation binding failed: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 6..110; query:
-WITH localdatetime({year: 1984, week: 10, dayOfWeek: 3, hour: 12, minute: 31, second: 14, millisecond: 645}) AS other
-RETURN datetime({datetime: other}) AS result
-- `tck.expressions.temporal.temporal3.scenario-11.examples-1-row-3`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 6..110; mutation execution failed: Cypher mutation binding failed: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 6..110; query:
-WITH localdatetime({year: 1984, week: 10, dayOfWeek: 3, hour: 12, minute: 31, second: 14, millisecond: 645}) AS other
-RETURN datetime({datetime: other, timezone: '+05:00'}) AS result
-- `tck.expressions.temporal.temporal3.scenario-11.examples-1-row-4`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 6..110; mutation execution failed: Cypher mutation binding failed: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 6..110; query:
-WITH localdatetime({year: 1984, week: 10, dayOfWeek: 3, hour: 12, minute: 31, second: 14, millisecond: 645}) AS other
-RETURN datetime({datetime: other, day: 28, second: 42}) AS result
-- `tck.expressions.temporal.temporal3.scenario-11.examples-1-row-5`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 6..110; mutation execution failed: Cypher mutation binding failed: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 6..110; query:
-WITH localdatetime({year: 1984, week: 10, dayOfWeek: 3, hour: 12, minute: 31, second: 14, millisecond: 645}) AS other
-RETURN datetime({datetime: other, day: 28, second: 42, timezone: 'Pacific/Honolulu'}) AS result
-- `tck.expressions.temporal.temporal3.scenario-11.examples-1-row-6`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 6..89; mutation execution failed: Cypher mutation binding failed: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 6..89; query:
-WITH datetime({year: 1984, month: 10, day: 11, hour: 12, timezone: 'Europe/Stockholm'}) AS other
-RETURN datetime(other) AS result
-- `tck.expressions.temporal.temporal3.scenario-11.examples-1-row-7`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 6..89; mutation execution failed: Cypher mutation binding failed: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 6..89; query:
-WITH datetime({year: 1984, month: 10, day: 11, hour: 12, timezone: 'Europe/Stockholm'}) AS other
-RETURN datetime({datetime: other}) AS result
-- `tck.expressions.temporal.temporal3.scenario-11.examples-1-row-8`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 6..89; mutation execution failed: Cypher mutation binding failed: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 6..89; query:
-WITH datetime({year: 1984, month: 10, day: 11, hour: 12, timezone: 'Europe/Stockholm'}) AS other
-RETURN datetime({datetime: other, timezone: '+05:00'}) AS result
-- `tck.expressions.temporal.temporal3.scenario-11.examples-1-row-9`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 6..89; mutation execution failed: Cypher mutation binding failed: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 6..89; query:
-WITH datetime({year: 1984, month: 10, day: 11, hour: 12, timezone: 'Europe/Stockholm'}) AS other
-RETURN datetime({datetime: other, day: 28, second: 42}) AS result
-- `tck.expressions.temporal.temporal3.scenario-11.examples-1-row-10`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 6..89; mutation execution failed: Cypher mutation binding failed: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 6..89; query:
-WITH datetime({year: 1984, month: 10, day: 11, hour: 12, timezone: 'Europe/Stockholm'}) AS other
-RETURN datetime({datetime: other, day: 28, second: 42, timezone: 'Pacific/Honolulu'}) AS result
+- `tck.expressions.temporal.temporal3.scenario-9.examples-1-row-6`: expected [["1984-10-11T16:31:14.645876+05:00"]], observed [["1984-10-11T12:31:14.645876+05:00"]]
+- `tck.expressions.temporal.temporal3.scenario-9.examples-1-row-8`: expected [["1984-10-11T01:31:42.645876-10:00[Pacific/Honolulu]"]], observed [["1984-10-11T12:31:42.645876-10:00[Pacific/Honolulu]"]]
+- `tck.expressions.temporal.temporal3.scenario-9.examples-1-row-14`: expected [["1984-10-11T16:00+05:00"]], observed [["1984-10-11T12:00+05:00"]]
+- `tck.expressions.temporal.temporal3.scenario-9.examples-1-row-16`: expected [["1984-10-11T01:00:42-10:00[Pacific/Honolulu]"]], observed [["1984-10-11T12:00:42-10:00[Pacific/Honolulu]"]]
+- `tck.expressions.temporal.temporal3.scenario-10.examples-1-row-6`: expected [["1984-10-11T16:31:14.645876+05:00"]], observed [["1984-10-11T12:31:14.645876+05:00"]]
+- `tck.expressions.temporal.temporal3.scenario-10.examples-1-row-8`: expected [["1984-10-28T01:31:42.645876-10:00[Pacific/Honolulu]"]], observed [["1984-10-28T12:31:42.645876-10:00[Pacific/Honolulu]"]]
+- `tck.expressions.temporal.temporal3.scenario-10.examples-1-row-14`: expected [["1984-10-11T16:00+05:00"]], observed [["1984-10-11T12:00+05:00"]]
+- `tck.expressions.temporal.temporal3.scenario-10.examples-1-row-16`: expected [["1984-10-28T01:00:42-10:00[Pacific/Honolulu]"]], observed [["1984-10-28T12:00:42-10:00[Pacific/Honolulu]"]]
+- `tck.expressions.temporal.temporal3.scenario-10.examples-1-row-22`: expected [["1984-03-07T16:31:14.645876+05:00"]], observed [["1984-03-07T12:31:14.645876+05:00"]]
+- `tck.expressions.temporal.temporal3.scenario-10.examples-1-row-24`: expected [["1984-03-28T01:31:42.645876-10:00[Pacific/Honolulu]"]], observed [["1984-03-28T12:31:42.645876-10:00[Pacific/Honolulu]"]]
+- `tck.expressions.temporal.temporal3.scenario-10.examples-1-row-30`: expected [["1984-03-07T16:00+05:00"]], observed [["1984-03-07T12:00+05:00"]]
+- `tck.expressions.temporal.temporal3.scenario-10.examples-1-row-32`: expected [["1984-03-28T00:00:42-10:00[Pacific/Honolulu]"]], observed [["1984-03-28T12:00:42-10:00[Pacific/Honolulu]"]]
+- `tck.expressions.temporal.temporal3.scenario-10.examples-1-row-38`: expected [["1984-10-11T16:31:14.645876+05:00"]], observed [["1984-10-11T12:31:14.645876+05:00"]]
+- `tck.expressions.temporal.temporal3.scenario-10.examples-1-row-40`: expected [["1984-10-28T01:31:42.645876-10:00[Pacific/Honolulu]"]], observed [["1984-10-28T12:31:42.645876-10:00[Pacific/Honolulu]"]]
+- `tck.expressions.temporal.temporal3.scenario-10.examples-1-row-46`: expected [["1984-10-11T16:00+05:00"]], observed [["1984-10-11T12:00+05:00"]]
+- `tck.expressions.temporal.temporal3.scenario-10.examples-1-row-48`: expected [["1984-10-28T01:00:42-10:00[Pacific/Honolulu]"]], observed [["1984-10-28T12:00:42-10:00[Pacific/Honolulu]"]]
+- `tck.expressions.temporal.temporal3.scenario-11.examples-1-row-1`: expected [["1984-03-07T12:31:14.645Z"]], observed [["1984-03-07 12:31:14"]]
+- `tck.expressions.temporal.temporal3.scenario-11.examples-1-row-6`: expected [["1984-10-11T12:00+01:00[Europe/Stockholm]"]], observed [["<null>"]]
+- `tck.expressions.temporal.temporal3.scenario-11.examples-1-row-8`: expected [["1984-10-11T16:00+05:00"]], observed [["1984-10-11T12:00+05:00"]]
+- `tck.expressions.temporal.temporal3.scenario-11.examples-1-row-10`: expected [["1984-10-28T01:00:42-10:00[Pacific/Honolulu]"]], observed [["1984-10-28T12:00:42-10:00[Pacific/Honolulu]"]]
 - `tck.expressions.temporal.temporal4.scenario-13.examples-1-row-2`: query execution failed: Parse error: invalid resolved function or parameter name: date.transaction; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..36; query:
 RETURN date.transaction(null) AS t
 - `tck.expressions.temporal.temporal4.scenario-13.examples-1-row-3`: query execution failed: Parse error: invalid resolved function or parameter name: date.statement; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..34; query:
@@ -7089,40 +5843,31 @@ RETURN d.year, d.quarter, d.month, d.week, d.weekYear, d.day, d.ordinalDay, d.we
 MATCH (v:Val)
 WITH v.date AS d
 RETURN d.year, d.weekYear, d.week, d.weekDay
-- `tck.expressions.temporal.temporal5.scenario-3`: TCK setup query failed: query execution failed: Parse error: mutation clauses in read queries is not supported in the initial graph slice at byte 1..92; mutation execution failed: Cypher mutation binding failed: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 21..89; query:
-CREATE (:Val {date: localtime({hour: 12, minute: 31, second: 14, nanosecond: 645876123})})
-; query:
-CREATE (:Val {date: localtime({hour: 12, minute: 31, second: 14, nanosecond: 645876123})})
-- `tck.expressions.temporal.temporal5.scenario-4`: TCK setup query failed: query execution failed: Parse error: mutation clauses in read queries is not supported in the initial graph slice at byte 1..107; mutation execution failed: Cypher mutation binding failed: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 21..104; query:
-CREATE (:Val {date: time({hour: 12, minute: 31, second: 14, nanosecond: 645876123, timezone: '+01:00'})})
-; query:
-CREATE (:Val {date: time({hour: 12, minute: 31, second: 14, nanosecond: 645876123, timezone: '+01:00'})})
-- `tck.expressions.temporal.temporal5.scenario-5`: TCK setup query failed: query execution failed: Parse error: mutation clauses in read queries is not supported in the initial graph slice at byte 1..128; mutation execution failed: Cypher mutation binding failed: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 21..125; query:
-CREATE (:Val {date: localdatetime({year: 1984, month: 11, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123})})
-; query:
-CREATE (:Val {date: localdatetime({year: 1984, month: 11, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123})})
-- `tck.expressions.temporal.temporal5.scenario-6`: TCK setup query failed: query execution failed: Parse error: mutation clauses in read queries is not supported in the initial graph slice at byte 1..153; mutation execution failed: Cypher mutation binding failed: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 21..150; query:
-CREATE (:Val {date: datetime({year: 1984, month: 11, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123, timezone: 'Europe/Stockholm'})})
-; query:
-CREATE (:Val {date: datetime({year: 1984, month: 11, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123, timezone: 'Europe/Stockholm'})})
+- `tck.expressions.temporal.temporal5.scenario-3`: query execution failed: Parse error: property access requires a node or relationship at byte 39..40; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 32..110; query:
+MATCH (v:Val)
+WITH v.date AS d
+RETURN d.hour, d.minute, d.second, d.millisecond, d.microsecond, d.nanosecond
+- `tck.expressions.temporal.temporal5.scenario-4`: query execution failed: Parse error: property access requires a node or relationship at byte 39..40; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 32..166; query:
+MATCH (v:Val)
+WITH v.date AS d
+RETURN d.hour, d.minute, d.second, d.millisecond, d.microsecond, d.nanosecond, d.timezone, d.offset, d.offsetMinutes, d.offsetSeconds
+- `tck.expressions.temporal.temporal5.scenario-5`: query execution failed: Parse error: property access requires a node or relationship at byte 39..40; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 32..213; query:
+MATCH (v:Val)
+WITH v.date AS d
+RETURN d.year, d.quarter, d.month, d.week, d.weekYear, d.day, d.ordinalDay, d.weekDay, d.dayOfQuarter,
+       d.hour, d.minute, d.second, d.millisecond, d.microsecond, d.nanosecond
+- `tck.expressions.temporal.temporal5.scenario-6`: query execution failed: Parse error: property access requires a node or relationship at byte 39..40; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 32..307; query:
+MATCH (v:Val)
+WITH v.date AS d
+RETURN d.year, d.quarter, d.month, d.week, d.weekYear, d.day, d.ordinalDay, d.weekDay, d.dayOfQuarter,
+       d.hour, d.minute, d.second, d.millisecond, d.microsecond, d.nanosecond,
+       d.timezone, d.offset, d.offsetMinutes, d.offsetSeconds, d.epochSeconds, d.epochMillis
 - `tck.expressions.temporal.temporal5.scenario-7`: query execution failed: Parse error: property access requires a node or relationship at byte 39..40; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 32..352; query:
 MATCH (v:Val)
 WITH v.date AS d
 RETURN d.years, d.quarters, d.months, d.weeks, d.days,
        d.hours, d.minutes, d.seconds, d.milliseconds, d.microseconds, d.nanoseconds,
        d.quartersOfYear, d.monthsOfQuarter, d.monthsOfYear, d.daysOfWeek, d.minutesOfHour, d.secondsOfMinute, d.millisecondsOfSecond, d.microsecondsOfSecond, d.nanosecondsOfSecond
-- `tck.expressions.temporal.temporal6.scenario-2`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 6..75; mutation execution failed: Cypher mutation binding failed: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 6..75; query:
-WITH localtime({hour: 12, minute: 31, second: 14, nanosecond: 645876123}) AS d
-RETURN toString(d) AS ts, localtime(toString(d)) = d AS b
-- `tck.expressions.temporal.temporal6.scenario-3`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 6..90; mutation execution failed: Cypher mutation binding failed: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 6..90; query:
-WITH time({hour: 12, minute: 31, second: 14, nanosecond: 645876123, timezone: '+01:00'}) AS d
-RETURN toString(d) AS ts, time(toString(d)) = d AS b
-- `tck.expressions.temporal.temporal6.scenario-4`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 6..111; mutation execution failed: Cypher mutation binding failed: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 6..111; query:
-WITH localdatetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123}) AS d
-RETURN toString(d) AS ts, localdatetime(toString(d)) = d AS b
-- `tck.expressions.temporal.temporal6.scenario-5`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 6..126; mutation execution failed: Cypher mutation binding failed: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 6..126; query:
-WITH datetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123, timezone: '+01:00'}) AS d
-RETURN toString(d) AS ts, datetime(toString(d)) = d AS b
 - `tck.expressions.temporal.temporal6.scenario-6.examples-1-row-4`: expected [["PT1.999S", "1"]], observed [["PT1.999000000S", "1"]]
 - `tck.expressions.temporal.temporal6.scenario-6.examples-1-row-5`: expected [["PT-1.999S", "1"]], observed [["PT-2.001000000S", "0"]]
 - `tck.expressions.temporal.temporal6.scenario-6.examples-1-row-6`: expected [["PT-2.001S", "1"]], observed [["PT-3.999000000S", "0"]]
@@ -7131,45 +5876,7 @@ RETURN toString(d) AS ts, datetime(toString(d)) = d AS b
 - `tck.expressions.temporal.temporal6.scenario-6.examples-1-row-9`: expected [["PT59.999S", "1"]], observed [["PT59.999000000S", "1"]]
 - `tck.expressions.temporal.temporal6.scenario-6.examples-1-row-10`: expected [["PT-59.999S", "1"]], observed [["PT-1M0.001000000S", "1"]]
 - `tck.expressions.temporal.temporal6.scenario-6.examples-1-row-11`: expected [["PT-1M-0.001S", "1"]], observed [["PT-1M-1.999000000S", "0"]]
-- `tck.expressions.temporal.temporal6.scenario-7`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 6..134; mutation execution failed: Cypher mutation binding failed: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 6..134; query:
-WITH datetime({year: 2017, month: 8, day: 8, hour: 12, minute: 31, second: 14, nanosecond: 645876123, timezone: 'Europe/Stockholm'}) AS d
-RETURN toString(d) AS ts
-- `tck.expressions.temporal.temporal7.scenario-2.examples-1-row-1`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 46..115; mutation execution failed: Cypher mutation binding failed: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 46..115; query:
-WITH localtime({hour: 10, minute: 35}) AS x, localtime({hour: 12, minute: 31, second: 14, nanosecond: 645876123}) AS d
-RETURN x > d, x < d, x >= d, x <= d, x = d
-- `tck.expressions.temporal.temporal7.scenario-2.examples-1-row-2`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 6..75; mutation execution failed: Cypher mutation binding failed: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 6..75; query:
-WITH localtime({hour: 12, minute: 31, second: 14, nanosecond: 645876123}) AS x, localtime({hour: 12, minute: 31, second: 14, nanosecond: 645876123}) AS d
-RETURN x > d, x < d, x >= d, x <= d, x = d
-- `tck.expressions.temporal.temporal7.scenario-3.examples-1-row-1`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 6..54; mutation execution failed: Cypher mutation binding failed: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 6..54; query:
-WITH time({hour: 10, minute: 0, timezone: '+01:00'}) AS x, time({hour: 9, minute: 35, second: 14, nanosecond: 645876123, timezone: '+00:00'}) AS d
-RETURN x > d, x < d, x >= d, x <= d, x = d
-- `tck.expressions.temporal.temporal7.scenario-3.examples-1-row-2`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 6..89; mutation execution failed: Cypher mutation binding failed: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 6..89; query:
-WITH time({hour: 9, minute: 35, second: 14, nanosecond: 645876123, timezone: '+00:00'}) AS x, time({hour: 9, minute: 35, second: 14, nanosecond: 645876123, timezone: '+00:00'}) AS d
-RETURN x > d, x < d, x >= d, x <= d, x = d
-- `tck.expressions.temporal.temporal7.scenario-4.examples-1-row-1`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 94..199; mutation execution failed: Cypher mutation binding failed: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 94..199; query:
-WITH localdatetime({year: 1980, month: 12, day: 11, hour: 12, minute: 31, second: 14}) AS x, localdatetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123}) AS d
-RETURN x > d, x < d, x >= d, x <= d, x = d
-- `tck.expressions.temporal.temporal7.scenario-4.examples-1-row-2`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 6..111; mutation execution failed: Cypher mutation binding failed: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 6..111; query:
-WITH localdatetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123}) AS x, localdatetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123}) AS d
-RETURN x > d, x < d, x >= d, x <= d, x = d
-- `tck.expressions.temporal.temporal7.scenario-5.examples-1-row-1`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 6..103; mutation execution failed: Cypher mutation binding failed: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 6..103; query:
-WITH datetime({year: 1980, month: 12, day: 11, hour: 12, minute: 31, second: 14, timezone: '+00:00'}) AS x, datetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, timezone: '+05:00'}) AS d
-RETURN x > d, x < d, x >= d, x <= d, x = d
-- `tck.expressions.temporal.temporal7.scenario-5.examples-1-row-2`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 6..103; mutation execution failed: Cypher mutation binding failed: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 6..103; query:
-WITH datetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, timezone: '+05:00'}) AS x, datetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, timezone: '+05:00'}) AS d
-RETURN x > d, x < d, x >= d, x <= d, x = d
-- `tck.expressions.temporal.temporal7.scenario-6.examples-1-row-2`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 92..161; mutation execution failed: Cypher mutation binding failed: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 92..161; query:
-WITH duration({years: 12, months: 5, days: 14, hours: 16, minutes: 12, seconds: 70}) AS x, localtime({hour: 12, minute: 31, second: 14, nanosecond: 645876123}) AS d
-RETURN x = d
-- `tck.expressions.temporal.temporal7.scenario-6.examples-1-row-3`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 92..175; mutation execution failed: Cypher mutation binding failed: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 92..175; query:
-WITH duration({years: 12, months: 5, days: 14, hours: 16, minutes: 12, seconds: 70}) AS x, time({hour: 9, minute: 35, second: 14, nanosecond: 645876123, timezone: '+00:00'}) AS d
-RETURN x = d
-- `tck.expressions.temporal.temporal7.scenario-6.examples-1-row-4`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 92..197; mutation execution failed: Cypher mutation binding failed: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 92..197; query:
-WITH duration({years: 12, months: 5, days: 14, hours: 16, minutes: 12, seconds: 70}) AS x, localdatetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123}) AS d
-RETURN x = d
-- `tck.expressions.temporal.temporal7.scenario-6.examples-1-row-5`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 92..189; mutation execution failed: Cypher mutation binding failed: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 92..189; query:
-WITH duration({years: 12, months: 5, days: 14, hours: 16, minutes: 12, seconds: 70}) AS x, datetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, timezone: '+05:00'}) AS d
-RETURN x = d
+- `tck.expressions.temporal.temporal7.scenario-3.examples-1-row-1`: expected [["0", "1", "0", "1", "0"]], observed [["1", "0", "1", "0", "0"]]
 - `tck.expressions.temporal.temporal8.scenario-1.examples-1-row-1`: query execution failed: Parse error: arithmetic on non-numeric operands is not supported in the initial graph slice at byte 98..104; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 69..112; query:
 WITH date({year: 1984, month: 10, day: 11}) AS x
 MATCH (d:Duration)
@@ -7182,51 +5889,51 @@ RETURN x + d.dur AS sum, x - d.dur AS diff
 WITH date({year: 1984, month: 10, day: 11}) AS x
 MATCH (d:Duration)
 RETURN x + d.dur AS sum, x - d.dur AS diff
-- `tck.expressions.temporal.temporal8.scenario-2.examples-1-row-1`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 6..67; mutation execution failed: Cypher mutation binding failed: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 6..67; query:
+- `tck.expressions.temporal.temporal8.scenario-2.examples-1-row-1`: query execution failed: Parse error: arithmetic on non-numeric operands is not supported in the initial graph slice at byte 120..126; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 91..134; query:
 WITH localtime({hour: 12, minute: 31, second: 14, nanosecond: 1}) AS x
 MATCH (d:Duration)
 RETURN x + d.dur AS sum, x - d.dur AS diff
-- `tck.expressions.temporal.temporal8.scenario-2.examples-1-row-2`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 6..67; mutation execution failed: Cypher mutation binding failed: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 6..67; query:
+- `tck.expressions.temporal.temporal8.scenario-2.examples-1-row-2`: query execution failed: Parse error: arithmetic on non-numeric operands is not supported in the initial graph slice at byte 120..126; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 91..134; query:
 WITH localtime({hour: 12, minute: 31, second: 14, nanosecond: 1}) AS x
 MATCH (d:Duration)
 RETURN x + d.dur AS sum, x - d.dur AS diff
-- `tck.expressions.temporal.temporal8.scenario-2.examples-1-row-3`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 6..67; mutation execution failed: Cypher mutation binding failed: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 6..67; query:
+- `tck.expressions.temporal.temporal8.scenario-2.examples-1-row-3`: query execution failed: Parse error: arithmetic on non-numeric operands is not supported in the initial graph slice at byte 120..126; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 91..134; query:
 WITH localtime({hour: 12, minute: 31, second: 14, nanosecond: 1}) AS x
 MATCH (d:Duration)
 RETURN x + d.dur AS sum, x - d.dur AS diff
-- `tck.expressions.temporal.temporal8.scenario-3.examples-1-row-1`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 6..82; mutation execution failed: Cypher mutation binding failed: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 6..82; query:
+- `tck.expressions.temporal.temporal8.scenario-3.examples-1-row-1`: query execution failed: Parse error: arithmetic on non-numeric operands is not supported in the initial graph slice at byte 135..141; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 106..149; query:
 WITH time({hour: 12, minute: 31, second: 14, nanosecond: 1, timezone: '+01:00'}) AS x
 MATCH (d:Duration)
 RETURN x + d.dur AS sum, x - d.dur AS diff
-- `tck.expressions.temporal.temporal8.scenario-3.examples-1-row-2`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 6..82; mutation execution failed: Cypher mutation binding failed: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 6..82; query:
+- `tck.expressions.temporal.temporal8.scenario-3.examples-1-row-2`: query execution failed: Parse error: arithmetic on non-numeric operands is not supported in the initial graph slice at byte 135..141; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 106..149; query:
 WITH time({hour: 12, minute: 31, second: 14, nanosecond: 1, timezone: '+01:00'}) AS x
 MATCH (d:Duration)
 RETURN x + d.dur AS sum, x - d.dur AS diff
-- `tck.expressions.temporal.temporal8.scenario-3.examples-1-row-3`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 6..82; mutation execution failed: Cypher mutation binding failed: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 6..82; query:
+- `tck.expressions.temporal.temporal8.scenario-3.examples-1-row-3`: query execution failed: Parse error: arithmetic on non-numeric operands is not supported in the initial graph slice at byte 135..141; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 106..149; query:
 WITH time({hour: 12, minute: 31, second: 14, nanosecond: 1, timezone: '+01:00'}) AS x
 MATCH (d:Duration)
 RETURN x + d.dur AS sum, x - d.dur AS diff
-- `tck.expressions.temporal.temporal8.scenario-4.examples-1-row-1`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 6..103; mutation execution failed: Cypher mutation binding failed: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 6..103; query:
+- `tck.expressions.temporal.temporal8.scenario-4.examples-1-row-1`: query execution failed: Parse error: arithmetic on non-numeric operands is not supported in the initial graph slice at byte 156..162; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 127..170; query:
 WITH localdatetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 1}) AS x
 MATCH (d:Duration)
 RETURN x + d.dur AS sum, x - d.dur AS diff
-- `tck.expressions.temporal.temporal8.scenario-4.examples-1-row-2`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 6..103; mutation execution failed: Cypher mutation binding failed: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 6..103; query:
+- `tck.expressions.temporal.temporal8.scenario-4.examples-1-row-2`: query execution failed: Parse error: arithmetic on non-numeric operands is not supported in the initial graph slice at byte 156..162; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 127..170; query:
 WITH localdatetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 1}) AS x
 MATCH (d:Duration)
 RETURN x + d.dur AS sum, x - d.dur AS diff
-- `tck.expressions.temporal.temporal8.scenario-4.examples-1-row-3`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 6..103; mutation execution failed: Cypher mutation binding failed: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 6..103; query:
+- `tck.expressions.temporal.temporal8.scenario-4.examples-1-row-3`: query execution failed: Parse error: arithmetic on non-numeric operands is not supported in the initial graph slice at byte 156..162; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 127..170; query:
 WITH localdatetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 1}) AS x
 MATCH (d:Duration)
 RETURN x + d.dur AS sum, x - d.dur AS diff
-- `tck.expressions.temporal.temporal8.scenario-5.examples-1-row-1`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 6..118; mutation execution failed: Cypher mutation binding failed: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 6..118; query:
+- `tck.expressions.temporal.temporal8.scenario-5.examples-1-row-1`: query execution failed: Parse error: arithmetic on non-numeric operands is not supported in the initial graph slice at byte 171..177; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 142..185; query:
 WITH datetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 1, timezone: '+01:00'}) AS x
 MATCH (d:Duration)
 RETURN x + d.dur AS sum, x - d.dur AS diff
-- `tck.expressions.temporal.temporal8.scenario-5.examples-1-row-2`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 6..118; mutation execution failed: Cypher mutation binding failed: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 6..118; query:
+- `tck.expressions.temporal.temporal8.scenario-5.examples-1-row-2`: query execution failed: Parse error: arithmetic on non-numeric operands is not supported in the initial graph slice at byte 171..177; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 142..185; query:
 WITH datetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 1, timezone: '+01:00'}) AS x
 MATCH (d:Duration)
 RETURN x + d.dur AS sum, x - d.dur AS diff
-- `tck.expressions.temporal.temporal8.scenario-5.examples-1-row-3`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 6..118; mutation execution failed: Cypher mutation binding failed: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 6..118; query:
+- `tck.expressions.temporal.temporal8.scenario-5.examples-1-row-3`: query execution failed: Parse error: arithmetic on non-numeric operands is not supported in the initial graph slice at byte 171..177; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 142..185; query:
 WITH datetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 1, timezone: '+01:00'}) AS x
 MATCH (d:Duration)
 RETURN x + d.dur AS sum, x - d.dur AS diff
@@ -7246,103 +5953,103 @@ RETURN x + d.dur AS sum, x - d.dur AS diff
 RETURN date.truncate('millennium', date({year: 2017, month: 10, day: 11}), {day: 2}) AS result
 - `tck.expressions.temporal.temporal9.scenario-1.examples-1-row-2`: query execution failed: Parse error: invalid resolved function or parameter name: date.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..90; query:
 RETURN date.truncate('millennium', date({year: 2017, month: 10, day: 11}), {}) AS result
-- `tck.expressions.temporal.temporal9.scenario-1.examples-1-row-3`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 36..155; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..177; query:
+- `tck.expressions.temporal.temporal9.scenario-1.examples-1-row-3`: query execution failed: Parse error: invalid resolved function or parameter name: date.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..177; query:
 RETURN date.truncate('millennium', datetime({year: 2017, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123, timezone: '+01:00'}), {day: 2}) AS result
-- `tck.expressions.temporal.temporal9.scenario-1.examples-1-row-4`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 36..155; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..171; query:
+- `tck.expressions.temporal.temporal9.scenario-1.examples-1-row-4`: query execution failed: Parse error: invalid resolved function or parameter name: date.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..171; query:
 RETURN date.truncate('millennium', datetime({year: 2017, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123, timezone: '+01:00'}), {}) AS result
-- `tck.expressions.temporal.temporal9.scenario-1.examples-1-row-5`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 36..140; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..162; query:
+- `tck.expressions.temporal.temporal9.scenario-1.examples-1-row-5`: query execution failed: Parse error: invalid resolved function or parameter name: date.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..162; query:
 RETURN date.truncate('millennium', localdatetime({year: 2017, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123}), {day: 2}) AS result
-- `tck.expressions.temporal.temporal9.scenario-1.examples-1-row-6`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 36..140; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..156; query:
+- `tck.expressions.temporal.temporal9.scenario-1.examples-1-row-6`: query execution failed: Parse error: invalid resolved function or parameter name: date.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..156; query:
 RETURN date.truncate('millennium', localdatetime({year: 2017, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123}), {}) AS result
 - `tck.expressions.temporal.temporal9.scenario-1.examples-1-row-7`: query execution failed: Parse error: invalid resolved function or parameter name: date.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..93; query:
 RETURN date.truncate('century', date({year: 1984, month: 10, day: 11}), {day: 2}) AS result
 - `tck.expressions.temporal.temporal9.scenario-1.examples-1-row-8`: query execution failed: Parse error: invalid resolved function or parameter name: date.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..87; query:
 RETURN date.truncate('century', date({year: 1984, month: 10, day: 11}), {}) AS result
-- `tck.expressions.temporal.temporal9.scenario-1.examples-1-row-9`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 33..152; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..174; query:
+- `tck.expressions.temporal.temporal9.scenario-1.examples-1-row-9`: query execution failed: Parse error: invalid resolved function or parameter name: date.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..174; query:
 RETURN date.truncate('century', datetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123, timezone: '+01:00'}), {day: 2}) AS result
-- `tck.expressions.temporal.temporal9.scenario-1.examples-1-row-10`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 33..152; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..168; query:
+- `tck.expressions.temporal.temporal9.scenario-1.examples-1-row-10`: query execution failed: Parse error: invalid resolved function or parameter name: date.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..168; query:
 RETURN date.truncate('century', datetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123, timezone: '+01:00'}), {}) AS result
-- `tck.expressions.temporal.temporal9.scenario-1.examples-1-row-11`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 33..137; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..159; query:
+- `tck.expressions.temporal.temporal9.scenario-1.examples-1-row-11`: query execution failed: Parse error: invalid resolved function or parameter name: date.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..159; query:
 RETURN date.truncate('century', localdatetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123}), {day: 2}) AS result
-- `tck.expressions.temporal.temporal9.scenario-1.examples-1-row-12`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 33..137; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..153; query:
+- `tck.expressions.temporal.temporal9.scenario-1.examples-1-row-12`: query execution failed: Parse error: invalid resolved function or parameter name: date.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..153; query:
 RETURN date.truncate('century', localdatetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123}), {}) AS result
 - `tck.expressions.temporal.temporal9.scenario-1.examples-1-row-13`: query execution failed: Parse error: invalid resolved function or parameter name: date.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..92; query:
 RETURN date.truncate('decade', date({year: 1984, month: 10, day: 11}), {day: 2}) AS result
 - `tck.expressions.temporal.temporal9.scenario-1.examples-1-row-14`: query execution failed: Parse error: invalid resolved function or parameter name: date.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..86; query:
 RETURN date.truncate('decade', date({year: 1984, month: 10, day: 11}), {}) AS result
-- `tck.expressions.temporal.temporal9.scenario-1.examples-1-row-15`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 32..151; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..173; query:
+- `tck.expressions.temporal.temporal9.scenario-1.examples-1-row-15`: query execution failed: Parse error: invalid resolved function or parameter name: date.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..173; query:
 RETURN date.truncate('decade', datetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123, timezone: '+01:00'}), {day: 2}) AS result
-- `tck.expressions.temporal.temporal9.scenario-1.examples-1-row-16`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 32..151; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..167; query:
+- `tck.expressions.temporal.temporal9.scenario-1.examples-1-row-16`: query execution failed: Parse error: invalid resolved function or parameter name: date.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..167; query:
 RETURN date.truncate('decade', datetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123, timezone: '+01:00'}), {}) AS result
-- `tck.expressions.temporal.temporal9.scenario-1.examples-1-row-17`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 32..136; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..158; query:
+- `tck.expressions.temporal.temporal9.scenario-1.examples-1-row-17`: query execution failed: Parse error: invalid resolved function or parameter name: date.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..158; query:
 RETURN date.truncate('decade', localdatetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123}), {day: 2}) AS result
-- `tck.expressions.temporal.temporal9.scenario-1.examples-1-row-18`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 32..136; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..152; query:
+- `tck.expressions.temporal.temporal9.scenario-1.examples-1-row-18`: query execution failed: Parse error: invalid resolved function or parameter name: date.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..152; query:
 RETURN date.truncate('decade', localdatetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123}), {}) AS result
 - `tck.expressions.temporal.temporal9.scenario-1.examples-1-row-19`: query execution failed: Parse error: invalid resolved function or parameter name: date.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..90; query:
 RETURN date.truncate('year', date({year: 1984, month: 10, day: 11}), {day: 2}) AS result
 - `tck.expressions.temporal.temporal9.scenario-1.examples-1-row-20`: query execution failed: Parse error: invalid resolved function or parameter name: date.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..84; query:
 RETURN date.truncate('year', date({year: 1984, month: 10, day: 11}), {}) AS result
-- `tck.expressions.temporal.temporal9.scenario-1.examples-1-row-21`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 30..149; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..171; query:
+- `tck.expressions.temporal.temporal9.scenario-1.examples-1-row-21`: query execution failed: Parse error: invalid resolved function or parameter name: date.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..171; query:
 RETURN date.truncate('year', datetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123, timezone: '+01:00'}), {day: 2}) AS result
-- `tck.expressions.temporal.temporal9.scenario-1.examples-1-row-22`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 30..149; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..165; query:
+- `tck.expressions.temporal.temporal9.scenario-1.examples-1-row-22`: query execution failed: Parse error: invalid resolved function or parameter name: date.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..165; query:
 RETURN date.truncate('year', datetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123, timezone: '+01:00'}), {}) AS result
-- `tck.expressions.temporal.temporal9.scenario-1.examples-1-row-23`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 30..134; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..156; query:
+- `tck.expressions.temporal.temporal9.scenario-1.examples-1-row-23`: query execution failed: Parse error: invalid resolved function or parameter name: date.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..156; query:
 RETURN date.truncate('year', localdatetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123}), {day: 2}) AS result
-- `tck.expressions.temporal.temporal9.scenario-1.examples-1-row-24`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 30..134; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..150; query:
+- `tck.expressions.temporal.temporal9.scenario-1.examples-1-row-24`: query execution failed: Parse error: invalid resolved function or parameter name: date.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..150; query:
 RETURN date.truncate('year', localdatetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123}), {}) AS result
 - `tck.expressions.temporal.temporal9.scenario-1.examples-1-row-25`: query execution failed: Parse error: invalid resolved function or parameter name: date.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..92; query:
 RETURN date.truncate('weekYear', date({year: 1984, month: 2, day: 1}), {day: 5}) AS result
 - `tck.expressions.temporal.temporal9.scenario-1.examples-1-row-26`: query execution failed: Parse error: invalid resolved function or parameter name: date.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..86; query:
 RETURN date.truncate('weekYear', date({year: 1984, month: 2, day: 1}), {}) AS result
-- `tck.expressions.temporal.temporal9.scenario-1.examples-1-row-27`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 34..151; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..173; query:
+- `tck.expressions.temporal.temporal9.scenario-1.examples-1-row-27`: query execution failed: Parse error: invalid resolved function or parameter name: date.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..173; query:
 RETURN date.truncate('weekYear', datetime({year: 1984, month: 1, day: 1, hour: 12, minute: 31, second: 14, nanosecond: 645876123, timezone: '+01:00'}), {day: 5}) AS result
-- `tck.expressions.temporal.temporal9.scenario-1.examples-1-row-28`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 34..151; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..167; query:
+- `tck.expressions.temporal.temporal9.scenario-1.examples-1-row-28`: query execution failed: Parse error: invalid resolved function or parameter name: date.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..167; query:
 RETURN date.truncate('weekYear', datetime({year: 1984, month: 1, day: 1, hour: 12, minute: 31, second: 14, nanosecond: 645876123, timezone: '+01:00'}), {}) AS result
-- `tck.expressions.temporal.temporal9.scenario-1.examples-1-row-29`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 34..136; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..158; query:
+- `tck.expressions.temporal.temporal9.scenario-1.examples-1-row-29`: query execution failed: Parse error: invalid resolved function or parameter name: date.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..158; query:
 RETURN date.truncate('weekYear', localdatetime({year: 1984, month: 1, day: 1, hour: 12, minute: 31, second: 14, nanosecond: 645876123}), {day: 5}) AS result
-- `tck.expressions.temporal.temporal9.scenario-1.examples-1-row-30`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 34..136; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..152; query:
+- `tck.expressions.temporal.temporal9.scenario-1.examples-1-row-30`: query execution failed: Parse error: invalid resolved function or parameter name: date.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..152; query:
 RETURN date.truncate('weekYear', localdatetime({year: 1984, month: 1, day: 1, hour: 12, minute: 31, second: 14, nanosecond: 645876123}), {}) AS result
 - `tck.expressions.temporal.temporal9.scenario-1.examples-1-row-31`: query execution failed: Parse error: invalid resolved function or parameter name: date.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..93; query:
 RETURN date.truncate('quarter', date({year: 1984, month: 11, day: 11}), {day: 2}) AS result
 - `tck.expressions.temporal.temporal9.scenario-1.examples-1-row-32`: query execution failed: Parse error: invalid resolved function or parameter name: date.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..87; query:
 RETURN date.truncate('quarter', date({year: 1984, month: 11, day: 11}), {}) AS result
-- `tck.expressions.temporal.temporal9.scenario-1.examples-1-row-33`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 33..152; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..174; query:
+- `tck.expressions.temporal.temporal9.scenario-1.examples-1-row-33`: query execution failed: Parse error: invalid resolved function or parameter name: date.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..174; query:
 RETURN date.truncate('quarter', datetime({year: 1984, month: 11, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123, timezone: '+01:00'}), {day: 2}) AS result
-- `tck.expressions.temporal.temporal9.scenario-1.examples-1-row-34`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 33..152; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..168; query:
+- `tck.expressions.temporal.temporal9.scenario-1.examples-1-row-34`: query execution failed: Parse error: invalid resolved function or parameter name: date.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..168; query:
 RETURN date.truncate('quarter', datetime({year: 1984, month: 11, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123, timezone: '+01:00'}), {}) AS result
-- `tck.expressions.temporal.temporal9.scenario-1.examples-1-row-35`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 33..137; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..159; query:
+- `tck.expressions.temporal.temporal9.scenario-1.examples-1-row-35`: query execution failed: Parse error: invalid resolved function or parameter name: date.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..159; query:
 RETURN date.truncate('quarter', localdatetime({year: 1984, month: 11, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123}), {day: 2}) AS result
-- `tck.expressions.temporal.temporal9.scenario-1.examples-1-row-36`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 33..137; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..153; query:
+- `tck.expressions.temporal.temporal9.scenario-1.examples-1-row-36`: query execution failed: Parse error: invalid resolved function or parameter name: date.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..153; query:
 RETURN date.truncate('quarter', localdatetime({year: 1984, month: 11, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123}), {}) AS result
 - `tck.expressions.temporal.temporal9.scenario-1.examples-1-row-37`: query execution failed: Parse error: invalid resolved function or parameter name: date.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..91; query:
 RETURN date.truncate('month', date({year: 1984, month: 10, day: 11}), {day: 2}) AS result
 - `tck.expressions.temporal.temporal9.scenario-1.examples-1-row-38`: query execution failed: Parse error: invalid resolved function or parameter name: date.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..85; query:
 RETURN date.truncate('month', date({year: 1984, month: 10, day: 11}), {}) AS result
-- `tck.expressions.temporal.temporal9.scenario-1.examples-1-row-39`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 31..150; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..172; query:
+- `tck.expressions.temporal.temporal9.scenario-1.examples-1-row-39`: query execution failed: Parse error: invalid resolved function or parameter name: date.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..172; query:
 RETURN date.truncate('month', datetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123, timezone: '+01:00'}), {day: 2}) AS result
-- `tck.expressions.temporal.temporal9.scenario-1.examples-1-row-40`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 31..150; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..166; query:
+- `tck.expressions.temporal.temporal9.scenario-1.examples-1-row-40`: query execution failed: Parse error: invalid resolved function or parameter name: date.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..166; query:
 RETURN date.truncate('month', datetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123, timezone: '+01:00'}), {}) AS result
-- `tck.expressions.temporal.temporal9.scenario-1.examples-1-row-41`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 31..135; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..157; query:
+- `tck.expressions.temporal.temporal9.scenario-1.examples-1-row-41`: query execution failed: Parse error: invalid resolved function or parameter name: date.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..157; query:
 RETURN date.truncate('month', localdatetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123}), {day: 2}) AS result
-- `tck.expressions.temporal.temporal9.scenario-1.examples-1-row-42`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 31..135; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..151; query:
+- `tck.expressions.temporal.temporal9.scenario-1.examples-1-row-42`: query execution failed: Parse error: invalid resolved function or parameter name: date.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..151; query:
 RETURN date.truncate('month', localdatetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123}), {}) AS result
 - `tck.expressions.temporal.temporal9.scenario-1.examples-1-row-43`: query execution failed: Parse error: invalid resolved function or parameter name: date.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..96; query:
 RETURN date.truncate('week', date({year: 1984, month: 10, day: 11}), {dayOfWeek: 2}) AS result
 - `tck.expressions.temporal.temporal9.scenario-1.examples-1-row-44`: query execution failed: Parse error: invalid resolved function or parameter name: date.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..84; query:
 RETURN date.truncate('week', date({year: 1984, month: 10, day: 11}), {}) AS result
-- `tck.expressions.temporal.temporal9.scenario-1.examples-1-row-45`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 30..149; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..177; query:
+- `tck.expressions.temporal.temporal9.scenario-1.examples-1-row-45`: query execution failed: Parse error: invalid resolved function or parameter name: date.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..177; query:
 RETURN date.truncate('week', datetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123, timezone: '+01:00'}), {dayOfWeek: 2}) AS result
-- `tck.expressions.temporal.temporal9.scenario-1.examples-1-row-46`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 30..149; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..165; query:
+- `tck.expressions.temporal.temporal9.scenario-1.examples-1-row-46`: query execution failed: Parse error: invalid resolved function or parameter name: date.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..165; query:
 RETURN date.truncate('week', datetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123, timezone: '+01:00'}), {}) AS result
-- `tck.expressions.temporal.temporal9.scenario-1.examples-1-row-47`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 30..134; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..162; query:
+- `tck.expressions.temporal.temporal9.scenario-1.examples-1-row-47`: query execution failed: Parse error: invalid resolved function or parameter name: date.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..162; query:
 RETURN date.truncate('week', localdatetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123}), {dayOfWeek: 2}) AS result
-- `tck.expressions.temporal.temporal9.scenario-1.examples-1-row-48`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 30..134; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..150; query:
+- `tck.expressions.temporal.temporal9.scenario-1.examples-1-row-48`: query execution failed: Parse error: invalid resolved function or parameter name: date.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..150; query:
 RETURN date.truncate('week', localdatetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123}), {}) AS result
 - `tck.expressions.temporal.temporal9.scenario-1.examples-1-row-49`: query execution failed: Parse error: invalid resolved function or parameter name: date.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..83; query:
 RETURN date.truncate('day', date({year: 1984, month: 10, day: 11}), {}) AS result
-- `tck.expressions.temporal.temporal9.scenario-1.examples-1-row-50`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 29..148; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..164; query:
+- `tck.expressions.temporal.temporal9.scenario-1.examples-1-row-50`: query execution failed: Parse error: invalid resolved function or parameter name: date.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..164; query:
 RETURN date.truncate('day', datetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123, timezone: '+01:00'}), {}) AS result
-- `tck.expressions.temporal.temporal9.scenario-1.examples-1-row-51`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 29..133; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..149; query:
+- `tck.expressions.temporal.temporal9.scenario-1.examples-1-row-51`: query execution failed: Parse error: invalid resolved function or parameter name: date.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..149; query:
 RETURN date.truncate('day', localdatetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123}), {}) AS result
 - `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-1`: query execution failed: Parse error: invalid resolved function or parameter name: datetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..100; query:
 RETURN datetime.truncate('millennium', date({year: 2017, month: 10, day: 11}), {day: 2}) AS result
@@ -7350,17 +6057,17 @@ RETURN datetime.truncate('millennium', date({year: 2017, month: 10, day: 11}), {
 RETURN datetime.truncate('millennium', date({year: 2017, month: 10, day: 11}), {timezone: 'Europe/Stockholm'}) AS result
 - `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-3`: query execution failed: Parse error: invalid resolved function or parameter name: datetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..94; query:
 RETURN datetime.truncate('millennium', date({year: 2017, month: 10, day: 11}), {}) AS result
-- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-4`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 40..159; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..181; query:
+- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-4`: query execution failed: Parse error: invalid resolved function or parameter name: datetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..181; query:
 RETURN datetime.truncate('millennium', datetime({year: 2017, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123, timezone: '+01:00'}), {day: 2}) AS result
-- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-5`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 40..159; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..175; query:
+- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-5`: query execution failed: Parse error: invalid resolved function or parameter name: datetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..175; query:
 RETURN datetime.truncate('millennium', datetime({year: 2017, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123, timezone: '+01:00'}), {}) AS result
-- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-6`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 40..159; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..203; query:
+- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-6`: query execution failed: Parse error: invalid resolved function or parameter name: datetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..203; query:
 RETURN datetime.truncate('millennium', datetime({year: 2017, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123, timezone: '-01:00'}), {timezone: 'Europe/Stockholm'}) AS result
-- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-7`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 40..144; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..166; query:
+- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-7`: query execution failed: Parse error: invalid resolved function or parameter name: datetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..166; query:
 RETURN datetime.truncate('millennium', localdatetime({year: 2017, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123}), {day: 2}) AS result
-- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-8`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 40..144; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..188; query:
+- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-8`: query execution failed: Parse error: invalid resolved function or parameter name: datetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..188; query:
 RETURN datetime.truncate('millennium', localdatetime({year: 2017, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123}), {timezone: 'Europe/Stockholm'}) AS result
-- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-9`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 40..144; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..160; query:
+- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-9`: query execution failed: Parse error: invalid resolved function or parameter name: datetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..160; query:
 RETURN datetime.truncate('millennium', localdatetime({year: 2017, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123}), {}) AS result
 - `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-10`: query execution failed: Parse error: invalid resolved function or parameter name: datetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..97; query:
 RETURN datetime.truncate('century', date({year: 1984, month: 10, day: 11}), {day: 2}) AS result
@@ -7368,17 +6075,17 @@ RETURN datetime.truncate('century', date({year: 1984, month: 10, day: 11}), {day
 RETURN datetime.truncate('century', date({year: 1984, month: 10, day: 11}), {}) AS result
 - `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-12`: query execution failed: Parse error: invalid resolved function or parameter name: datetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..119; query:
 RETURN datetime.truncate('century', date({year: 2017, month: 10, day: 11}), {timezone: 'Europe/Stockholm'}) AS result
-- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-13`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 37..156; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..178; query:
+- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-13`: query execution failed: Parse error: invalid resolved function or parameter name: datetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..178; query:
 RETURN datetime.truncate('century', datetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123, timezone: '+01:00'}), {day: 2}) AS result
-- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-14`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 37..156; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..172; query:
+- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-14`: query execution failed: Parse error: invalid resolved function or parameter name: datetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..172; query:
 RETURN datetime.truncate('century', datetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123, timezone: '+01:00'}), {}) AS result
-- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-15`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 37..156; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..200; query:
+- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-15`: query execution failed: Parse error: invalid resolved function or parameter name: datetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..200; query:
 RETURN datetime.truncate('century', datetime({year: 2017, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123, timezone: '-01:00'}), {timezone: 'Europe/Stockholm'}) AS result
-- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-16`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 37..141; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..163; query:
+- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-16`: query execution failed: Parse error: invalid resolved function or parameter name: datetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..163; query:
 RETURN datetime.truncate('century', localdatetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123}), {day: 2}) AS result
-- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-17`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 37..141; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..157; query:
+- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-17`: query execution failed: Parse error: invalid resolved function or parameter name: datetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..157; query:
 RETURN datetime.truncate('century', localdatetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123}), {}) AS result
-- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-18`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 37..141; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..185; query:
+- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-18`: query execution failed: Parse error: invalid resolved function or parameter name: datetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..185; query:
 RETURN datetime.truncate('century', localdatetime({year: 2017, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123}), {timezone: 'Europe/Stockholm'}) AS result
 - `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-19`: query execution failed: Parse error: invalid resolved function or parameter name: datetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..96; query:
 RETURN datetime.truncate('decade', date({year: 1984, month: 10, day: 11}), {day: 2}) AS result
@@ -7386,17 +6093,17 @@ RETURN datetime.truncate('decade', date({year: 1984, month: 10, day: 11}), {day:
 RETURN datetime.truncate('decade', date({year: 1984, month: 10, day: 11}), {timezone: 'Europe/Stockholm'}) AS result
 - `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-21`: query execution failed: Parse error: invalid resolved function or parameter name: datetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..90; query:
 RETURN datetime.truncate('decade', date({year: 1984, month: 10, day: 11}), {}) AS result
-- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-22`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 36..155; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..177; query:
+- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-22`: query execution failed: Parse error: invalid resolved function or parameter name: datetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..177; query:
 RETURN datetime.truncate('decade', datetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123, timezone: '+01:00'}), {day: 2}) AS result
-- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-23`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 36..155; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..171; query:
+- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-23`: query execution failed: Parse error: invalid resolved function or parameter name: datetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..171; query:
 RETURN datetime.truncate('decade', datetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123, timezone: '+01:00'}), {}) AS result
-- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-24`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 36..155; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..199; query:
+- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-24`: query execution failed: Parse error: invalid resolved function or parameter name: datetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..199; query:
 RETURN datetime.truncate('decade', datetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123, timezone: '-01:00'}), {timezone: 'Europe/Stockholm'}) AS result
-- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-25`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 36..140; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..162; query:
+- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-25`: query execution failed: Parse error: invalid resolved function or parameter name: datetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..162; query:
 RETURN datetime.truncate('decade', localdatetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123}), {day: 2}) AS result
-- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-26`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 36..140; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..184; query:
+- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-26`: query execution failed: Parse error: invalid resolved function or parameter name: datetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..184; query:
 RETURN datetime.truncate('decade', localdatetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123}), {timezone: 'Europe/Stockholm'}) AS result
-- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-27`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 36..140; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..156; query:
+- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-27`: query execution failed: Parse error: invalid resolved function or parameter name: datetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..156; query:
 RETURN datetime.truncate('decade', localdatetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123}), {}) AS result
 - `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-28`: query execution failed: Parse error: invalid resolved function or parameter name: datetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..94; query:
 RETURN datetime.truncate('year', date({year: 1984, month: 10, day: 11}), {day: 2}) AS result
@@ -7404,17 +6111,17 @@ RETURN datetime.truncate('year', date({year: 1984, month: 10, day: 11}), {day: 2
 RETURN datetime.truncate('year', date({year: 1984, month: 10, day: 11}), {timezone: 'Europe/Stockholm'}) AS result
 - `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-30`: query execution failed: Parse error: invalid resolved function or parameter name: datetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..88; query:
 RETURN datetime.truncate('year', date({year: 1984, month: 10, day: 11}), {}) AS result
-- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-31`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 34..153; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..175; query:
+- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-31`: query execution failed: Parse error: invalid resolved function or parameter name: datetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..175; query:
 RETURN datetime.truncate('year', datetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123, timezone: '+01:00'}), {day: 2}) AS result
-- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-32`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 34..153; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..169; query:
+- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-32`: query execution failed: Parse error: invalid resolved function or parameter name: datetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..169; query:
 RETURN datetime.truncate('year', datetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123, timezone: '+01:00'}), {}) AS result
-- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-33`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 34..153; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..197; query:
+- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-33`: query execution failed: Parse error: invalid resolved function or parameter name: datetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..197; query:
 RETURN datetime.truncate('year', datetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123, timezone: '-01:00'}), {timezone: 'Europe/Stockholm'}) AS result
-- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-34`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 34..138; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..160; query:
+- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-34`: query execution failed: Parse error: invalid resolved function or parameter name: datetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..160; query:
 RETURN datetime.truncate('year', localdatetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123}), {day: 2}) AS result
-- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-35`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 34..138; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..182; query:
+- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-35`: query execution failed: Parse error: invalid resolved function or parameter name: datetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..182; query:
 RETURN datetime.truncate('year', localdatetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123}), {timezone: 'Europe/Stockholm'}) AS result
-- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-36`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 34..138; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..154; query:
+- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-36`: query execution failed: Parse error: invalid resolved function or parameter name: datetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..154; query:
 RETURN datetime.truncate('year', localdatetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123}), {}) AS result
 - `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-37`: query execution failed: Parse error: invalid resolved function or parameter name: datetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..96; query:
 RETURN datetime.truncate('weekYear', date({year: 1984, month: 2, day: 1}), {day: 5}) AS result
@@ -7422,17 +6129,17 @@ RETURN datetime.truncate('weekYear', date({year: 1984, month: 2, day: 1}), {day:
 RETURN datetime.truncate('weekYear', date({year: 1984, month: 2, day: 1}), {timezone: 'Europe/Stockholm'}) AS result
 - `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-39`: query execution failed: Parse error: invalid resolved function or parameter name: datetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..90; query:
 RETURN datetime.truncate('weekYear', date({year: 1984, month: 2, day: 1}), {}) AS result
-- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-40`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 38..155; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..177; query:
+- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-40`: query execution failed: Parse error: invalid resolved function or parameter name: datetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..177; query:
 RETURN datetime.truncate('weekYear', datetime({year: 1984, month: 1, day: 1, hour: 12, minute: 31, second: 14, nanosecond: 645876123, timezone: '+01:00'}), {day: 5}) AS result
-- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-41`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 38..155; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..171; query:
+- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-41`: query execution failed: Parse error: invalid resolved function or parameter name: datetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..171; query:
 RETURN datetime.truncate('weekYear', datetime({year: 1984, month: 1, day: 1, hour: 12, minute: 31, second: 14, nanosecond: 645876123, timezone: '+01:00'}), {}) AS result
-- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-42`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 38..155; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..199; query:
+- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-42`: query execution failed: Parse error: invalid resolved function or parameter name: datetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..199; query:
 RETURN datetime.truncate('weekYear', datetime({year: 1984, month: 1, day: 1, hour: 12, minute: 31, second: 14, nanosecond: 645876123, timezone: '-01:00'}), {timezone: 'Europe/Stockholm'}) AS result
-- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-43`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 38..140; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..162; query:
+- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-43`: query execution failed: Parse error: invalid resolved function or parameter name: datetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..162; query:
 RETURN datetime.truncate('weekYear', localdatetime({year: 1984, month: 1, day: 1, hour: 12, minute: 31, second: 14, nanosecond: 645876123}), {day: 5}) AS result
-- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-44`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 38..140; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..184; query:
+- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-44`: query execution failed: Parse error: invalid resolved function or parameter name: datetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..184; query:
 RETURN datetime.truncate('weekYear', localdatetime({year: 1984, month: 1, day: 1, hour: 12, minute: 31, second: 14, nanosecond: 645876123}), {timezone: 'Europe/Stockholm'}) AS result
-- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-45`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 38..140; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..156; query:
+- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-45`: query execution failed: Parse error: invalid resolved function or parameter name: datetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..156; query:
 RETURN datetime.truncate('weekYear', localdatetime({year: 1984, month: 1, day: 1, hour: 12, minute: 31, second: 14, nanosecond: 645876123}), {}) AS result
 - `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-46`: query execution failed: Parse error: invalid resolved function or parameter name: datetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..97; query:
 RETURN datetime.truncate('quarter', date({year: 1984, month: 11, day: 11}), {day: 2}) AS result
@@ -7440,17 +6147,17 @@ RETURN datetime.truncate('quarter', date({year: 1984, month: 11, day: 11}), {day
 RETURN datetime.truncate('quarter', date({year: 1984, month: 11, day: 11}), {timezone: 'Europe/Stockholm'}) AS result
 - `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-48`: query execution failed: Parse error: invalid resolved function or parameter name: datetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..91; query:
 RETURN datetime.truncate('quarter', date({year: 1984, month: 11, day: 11}), {}) AS result
-- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-49`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 37..156; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..178; query:
+- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-49`: query execution failed: Parse error: invalid resolved function or parameter name: datetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..178; query:
 RETURN datetime.truncate('quarter', datetime({year: 1984, month: 11, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123, timezone: '+01:00'}), {day: 2}) AS result
-- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-50`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 37..156; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..172; query:
+- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-50`: query execution failed: Parse error: invalid resolved function or parameter name: datetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..172; query:
 RETURN datetime.truncate('quarter', datetime({year: 1984, month: 11, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123, timezone: '+01:00'}), {}) AS result
-- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-51`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 37..156; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..200; query:
+- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-51`: query execution failed: Parse error: invalid resolved function or parameter name: datetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..200; query:
 RETURN datetime.truncate('quarter', datetime({year: 1984, month: 11, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123, timezone: '-01:00'}), {timezone: 'Europe/Stockholm'}) AS result
-- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-52`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 37..141; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..163; query:
+- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-52`: query execution failed: Parse error: invalid resolved function or parameter name: datetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..163; query:
 RETURN datetime.truncate('quarter', localdatetime({year: 1984, month: 11, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123}), {day: 2}) AS result
-- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-53`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 37..141; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..185; query:
+- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-53`: query execution failed: Parse error: invalid resolved function or parameter name: datetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..185; query:
 RETURN datetime.truncate('quarter', localdatetime({year: 1984, month: 11, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123}), {timezone: 'Europe/Stockholm'}) AS result
-- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-54`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 37..141; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..157; query:
+- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-54`: query execution failed: Parse error: invalid resolved function or parameter name: datetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..157; query:
 RETURN datetime.truncate('quarter', localdatetime({year: 1984, month: 11, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123}), {}) AS result
 - `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-55`: query execution failed: Parse error: invalid resolved function or parameter name: datetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..95; query:
 RETURN datetime.truncate('month', date({year: 1984, month: 10, day: 11}), {day: 2}) AS result
@@ -7458,17 +6165,17 @@ RETURN datetime.truncate('month', date({year: 1984, month: 10, day: 11}), {day: 
 RETURN datetime.truncate('month', date({year: 1984, month: 10, day: 11}), {timezone: 'Europe/Stockholm'}) AS result
 - `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-57`: query execution failed: Parse error: invalid resolved function or parameter name: datetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..89; query:
 RETURN datetime.truncate('month', date({year: 1984, month: 10, day: 11}), {}) AS result
-- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-58`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 35..154; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..176; query:
+- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-58`: query execution failed: Parse error: invalid resolved function or parameter name: datetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..176; query:
 RETURN datetime.truncate('month', datetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123, timezone: '+01:00'}), {day: 2}) AS result
-- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-59`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 35..154; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..170; query:
+- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-59`: query execution failed: Parse error: invalid resolved function or parameter name: datetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..170; query:
 RETURN datetime.truncate('month', datetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123, timezone: '+01:00'}), {}) AS result
-- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-60`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 35..154; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..198; query:
+- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-60`: query execution failed: Parse error: invalid resolved function or parameter name: datetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..198; query:
 RETURN datetime.truncate('month', datetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123, timezone: '-01:00'}), {timezone: 'Europe/Stockholm'}) AS result
-- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-61`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 35..139; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..161; query:
+- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-61`: query execution failed: Parse error: invalid resolved function or parameter name: datetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..161; query:
 RETURN datetime.truncate('month', localdatetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123}), {day: 2}) AS result
-- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-62`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 35..139; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..183; query:
+- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-62`: query execution failed: Parse error: invalid resolved function or parameter name: datetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..183; query:
 RETURN datetime.truncate('month', localdatetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123}), {timezone: 'Europe/Stockholm'}) AS result
-- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-63`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 35..139; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..155; query:
+- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-63`: query execution failed: Parse error: invalid resolved function or parameter name: datetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..155; query:
 RETURN datetime.truncate('month', localdatetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123}), {}) AS result
 - `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-64`: query execution failed: Parse error: invalid resolved function or parameter name: datetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..100; query:
 RETURN datetime.truncate('week', date({year: 1984, month: 10, day: 11}), {dayOfWeek: 2}) AS result
@@ -7476,17 +6183,17 @@ RETURN datetime.truncate('week', date({year: 1984, month: 10, day: 11}), {dayOfW
 RETURN datetime.truncate('week', date({year: 1984, month: 10, day: 11}), {timezone: 'Europe/Stockholm'}) AS result
 - `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-66`: query execution failed: Parse error: invalid resolved function or parameter name: datetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..88; query:
 RETURN datetime.truncate('week', date({year: 1984, month: 10, day: 11}), {}) AS result
-- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-67`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 34..153; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..181; query:
+- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-67`: query execution failed: Parse error: invalid resolved function or parameter name: datetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..181; query:
 RETURN datetime.truncate('week', datetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123, timezone: '+01:00'}), {dayOfWeek: 2}) AS result
-- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-68`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 34..153; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..169; query:
+- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-68`: query execution failed: Parse error: invalid resolved function or parameter name: datetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..169; query:
 RETURN datetime.truncate('week', datetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123, timezone: '+01:00'}), {}) AS result
-- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-69`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 34..153; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..197; query:
+- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-69`: query execution failed: Parse error: invalid resolved function or parameter name: datetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..197; query:
 RETURN datetime.truncate('week', datetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123, timezone: '-01:00'}), {timezone: 'Europe/Stockholm'}) AS result
-- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-70`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 34..138; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..166; query:
+- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-70`: query execution failed: Parse error: invalid resolved function or parameter name: datetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..166; query:
 RETURN datetime.truncate('week', localdatetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123}), {dayOfWeek: 2}) AS result
-- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-71`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 34..138; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..182; query:
+- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-71`: query execution failed: Parse error: invalid resolved function or parameter name: datetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..182; query:
 RETURN datetime.truncate('week', localdatetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123}), {timezone: 'Europe/Stockholm'}) AS result
-- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-72`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 34..138; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..154; query:
+- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-72`: query execution failed: Parse error: invalid resolved function or parameter name: datetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..154; query:
 RETURN datetime.truncate('week', localdatetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123}), {}) AS result
 - `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-73`: query execution failed: Parse error: invalid resolved function or parameter name: datetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..100; query:
 RETURN datetime.truncate('day', date({year: 1984, month: 10, day: 11}), {nanosecond: 2}) AS result
@@ -7494,397 +6201,397 @@ RETURN datetime.truncate('day', date({year: 1984, month: 10, day: 11}), {nanosec
 RETURN datetime.truncate('day', date({year: 1984, month: 10, day: 11}), {timezone: 'Europe/Stockholm'}) AS result
 - `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-75`: query execution failed: Parse error: invalid resolved function or parameter name: datetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..87; query:
 RETURN datetime.truncate('day', date({year: 1984, month: 10, day: 11}), {}) AS result
-- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-76`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 33..152; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..181; query:
+- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-76`: query execution failed: Parse error: invalid resolved function or parameter name: datetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..181; query:
 RETURN datetime.truncate('day', datetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123, timezone: '+01:00'}), {nanosecond: 2}) AS result
-- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-77`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 33..152; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..168; query:
+- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-77`: query execution failed: Parse error: invalid resolved function or parameter name: datetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..168; query:
 RETURN datetime.truncate('day', datetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123, timezone: '+01:00'}), {}) AS result
-- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-78`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 33..152; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..196; query:
+- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-78`: query execution failed: Parse error: invalid resolved function or parameter name: datetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..196; query:
 RETURN datetime.truncate('day', datetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123, timezone: '-01:00'}), {timezone: 'Europe/Stockholm'}) AS result
-- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-79`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 33..137; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..166; query:
+- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-79`: query execution failed: Parse error: invalid resolved function or parameter name: datetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..166; query:
 RETURN datetime.truncate('day', localdatetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123}), {nanosecond: 2}) AS result
-- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-80`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 33..137; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..181; query:
+- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-80`: query execution failed: Parse error: invalid resolved function or parameter name: datetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..181; query:
 RETURN datetime.truncate('day', localdatetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123}), {timezone: 'Europe/Stockholm'}) AS result
-- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-81`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 33..137; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..153; query:
+- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-81`: query execution failed: Parse error: invalid resolved function or parameter name: datetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..153; query:
 RETURN datetime.truncate('day', localdatetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123}), {}) AS result
-- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-82`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 34..153; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..182; query:
+- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-82`: query execution failed: Parse error: invalid resolved function or parameter name: datetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..182; query:
 RETURN datetime.truncate('hour', datetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123, timezone: '-01:00'}), {nanosecond: 2}) AS result
-- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-83`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 34..153; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..197; query:
+- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-83`: query execution failed: Parse error: invalid resolved function or parameter name: datetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..197; query:
 RETURN datetime.truncate('hour', datetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123, timezone: '-01:00'}), {timezone: 'Europe/Stockholm'}) AS result
-- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-84`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 34..153; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..169; query:
+- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-84`: query execution failed: Parse error: invalid resolved function or parameter name: datetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..169; query:
 RETURN datetime.truncate('hour', datetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123, timezone: '-01:00'}), {}) AS result
-- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-85`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 34..138; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..167; query:
+- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-85`: query execution failed: Parse error: invalid resolved function or parameter name: datetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..167; query:
 RETURN datetime.truncate('hour', localdatetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123}), {nanosecond: 2}) AS result
-- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-86`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 34..138; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..182; query:
+- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-86`: query execution failed: Parse error: invalid resolved function or parameter name: datetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..182; query:
 RETURN datetime.truncate('hour', localdatetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123}), {timezone: 'Europe/Stockholm'}) AS result
-- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-87`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 34..138; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..154; query:
+- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-87`: query execution failed: Parse error: invalid resolved function or parameter name: datetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..154; query:
 RETURN datetime.truncate('hour', localdatetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123}), {}) AS result
-- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-88`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 36..155; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..184; query:
+- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-88`: query execution failed: Parse error: invalid resolved function or parameter name: datetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..184; query:
 RETURN datetime.truncate('minute', datetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123, timezone: '-01:00'}), {nanosecond: 2}) AS result
-- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-89`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 36..155; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..199; query:
+- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-89`: query execution failed: Parse error: invalid resolved function or parameter name: datetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..199; query:
 RETURN datetime.truncate('minute', datetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123, timezone: '-01:00'}), {timezone: 'Europe/Stockholm'}) AS result
-- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-90`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 36..155; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..171; query:
+- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-90`: query execution failed: Parse error: invalid resolved function or parameter name: datetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..171; query:
 RETURN datetime.truncate('minute', datetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123, timezone: '-01:00'}), {}) AS result
-- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-91`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 36..140; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..169; query:
+- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-91`: query execution failed: Parse error: invalid resolved function or parameter name: datetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..169; query:
 RETURN datetime.truncate('minute', localdatetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123}), {nanosecond: 2}) AS result
-- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-92`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 36..140; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..184; query:
+- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-92`: query execution failed: Parse error: invalid resolved function or parameter name: datetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..184; query:
 RETURN datetime.truncate('minute', localdatetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123}), {timezone: 'Europe/Stockholm'}) AS result
-- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-93`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 36..140; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..156; query:
+- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-93`: query execution failed: Parse error: invalid resolved function or parameter name: datetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..156; query:
 RETURN datetime.truncate('minute', localdatetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123}), {}) AS result
-- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-94`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 36..155; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..184; query:
+- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-94`: query execution failed: Parse error: invalid resolved function or parameter name: datetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..184; query:
 RETURN datetime.truncate('second', datetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123, timezone: '+01:00'}), {nanosecond: 2}) AS result
-- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-95`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 36..155; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..171; query:
+- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-95`: query execution failed: Parse error: invalid resolved function or parameter name: datetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..171; query:
 RETURN datetime.truncate('second', datetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123, timezone: '+01:00'}), {}) AS result
-- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-96`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 36..140; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..169; query:
+- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-96`: query execution failed: Parse error: invalid resolved function or parameter name: datetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..169; query:
 RETURN datetime.truncate('second', localdatetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123}), {nanosecond: 2}) AS result
-- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-97`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 36..140; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..156; query:
+- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-97`: query execution failed: Parse error: invalid resolved function or parameter name: datetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..156; query:
 RETURN datetime.truncate('second', localdatetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123}), {}) AS result
-- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-98`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 41..160; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..189; query:
+- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-98`: query execution failed: Parse error: invalid resolved function or parameter name: datetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..189; query:
 RETURN datetime.truncate('millisecond', datetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123, timezone: '+01:00'}), {nanosecond: 2}) AS result
-- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-99`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 41..160; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..176; query:
+- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-99`: query execution failed: Parse error: invalid resolved function or parameter name: datetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..176; query:
 RETURN datetime.truncate('millisecond', datetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123, timezone: '+01:00'}), {}) AS result
-- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-100`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 41..145; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..174; query:
+- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-100`: query execution failed: Parse error: invalid resolved function or parameter name: datetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..174; query:
 RETURN datetime.truncate('millisecond', localdatetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123}), {nanosecond: 2}) AS result
-- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-101`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 41..145; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..161; query:
+- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-101`: query execution failed: Parse error: invalid resolved function or parameter name: datetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..161; query:
 RETURN datetime.truncate('millisecond', localdatetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123}), {}) AS result
-- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-102`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 41..160; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..189; query:
+- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-102`: query execution failed: Parse error: invalid resolved function or parameter name: datetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..189; query:
 RETURN datetime.truncate('microsecond', datetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123, timezone: '+01:00'}), {nanosecond: 2}) AS result
-- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-103`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 41..160; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..176; query:
+- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-103`: query execution failed: Parse error: invalid resolved function or parameter name: datetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..176; query:
 RETURN datetime.truncate('microsecond', datetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123, timezone: '+01:00'}), {}) AS result
-- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-104`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 41..145; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..174; query:
+- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-104`: query execution failed: Parse error: invalid resolved function or parameter name: datetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..174; query:
 RETURN datetime.truncate('microsecond', localdatetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123}), {nanosecond: 2}) AS result
-- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-105`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 41..145; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..161; query:
+- `tck.expressions.temporal.temporal9.scenario-2.examples-1-row-105`: query execution failed: Parse error: invalid resolved function or parameter name: datetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..161; query:
 RETURN datetime.truncate('microsecond', localdatetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123}), {}) AS result
 - `tck.expressions.temporal.temporal9.scenario-3.examples-1-row-1`: query execution failed: Parse error: invalid resolved function or parameter name: localdatetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..105; query:
 RETURN localdatetime.truncate('millennium', date({year: 2017, month: 10, day: 11}), {day: 2}) AS result
 - `tck.expressions.temporal.temporal9.scenario-3.examples-1-row-2`: query execution failed: Parse error: invalid resolved function or parameter name: localdatetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..99; query:
 RETURN localdatetime.truncate('millennium', date({year: 2017, month: 10, day: 11}), {}) AS result
-- `tck.expressions.temporal.temporal9.scenario-3.examples-1-row-3`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 45..164; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..186; query:
+- `tck.expressions.temporal.temporal9.scenario-3.examples-1-row-3`: query execution failed: Parse error: invalid resolved function or parameter name: localdatetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..186; query:
 RETURN localdatetime.truncate('millennium', datetime({year: 2017, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123, timezone: '+01:00'}), {day: 2}) AS result
-- `tck.expressions.temporal.temporal9.scenario-3.examples-1-row-4`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 45..164; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..180; query:
+- `tck.expressions.temporal.temporal9.scenario-3.examples-1-row-4`: query execution failed: Parse error: invalid resolved function or parameter name: localdatetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..180; query:
 RETURN localdatetime.truncate('millennium', datetime({year: 2017, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123, timezone: '+01:00'}), {}) AS result
-- `tck.expressions.temporal.temporal9.scenario-3.examples-1-row-5`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 45..149; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..171; query:
+- `tck.expressions.temporal.temporal9.scenario-3.examples-1-row-5`: query execution failed: Parse error: invalid resolved function or parameter name: localdatetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..171; query:
 RETURN localdatetime.truncate('millennium', localdatetime({year: 2017, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123}), {day: 2}) AS result
-- `tck.expressions.temporal.temporal9.scenario-3.examples-1-row-6`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 45..149; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..165; query:
+- `tck.expressions.temporal.temporal9.scenario-3.examples-1-row-6`: query execution failed: Parse error: invalid resolved function or parameter name: localdatetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..165; query:
 RETURN localdatetime.truncate('millennium', localdatetime({year: 2017, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123}), {}) AS result
 - `tck.expressions.temporal.temporal9.scenario-3.examples-1-row-7`: query execution failed: Parse error: invalid resolved function or parameter name: localdatetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..102; query:
 RETURN localdatetime.truncate('century', date({year: 1984, month: 10, day: 11}), {day: 2}) AS result
 - `tck.expressions.temporal.temporal9.scenario-3.examples-1-row-8`: query execution failed: Parse error: invalid resolved function or parameter name: localdatetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..96; query:
 RETURN localdatetime.truncate('century', date({year: 1984, month: 10, day: 11}), {}) AS result
-- `tck.expressions.temporal.temporal9.scenario-3.examples-1-row-9`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 42..161; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..183; query:
+- `tck.expressions.temporal.temporal9.scenario-3.examples-1-row-9`: query execution failed: Parse error: invalid resolved function or parameter name: localdatetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..183; query:
 RETURN localdatetime.truncate('century', datetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123, timezone: '+01:00'}), {day: 2}) AS result
-- `tck.expressions.temporal.temporal9.scenario-3.examples-1-row-10`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 42..161; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..177; query:
+- `tck.expressions.temporal.temporal9.scenario-3.examples-1-row-10`: query execution failed: Parse error: invalid resolved function or parameter name: localdatetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..177; query:
 RETURN localdatetime.truncate('century', datetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123, timezone: '+01:00'}), {}) AS result
-- `tck.expressions.temporal.temporal9.scenario-3.examples-1-row-11`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 42..146; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..168; query:
+- `tck.expressions.temporal.temporal9.scenario-3.examples-1-row-11`: query execution failed: Parse error: invalid resolved function or parameter name: localdatetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..168; query:
 RETURN localdatetime.truncate('century', localdatetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123}), {day: 2}) AS result
-- `tck.expressions.temporal.temporal9.scenario-3.examples-1-row-12`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 42..146; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..162; query:
+- `tck.expressions.temporal.temporal9.scenario-3.examples-1-row-12`: query execution failed: Parse error: invalid resolved function or parameter name: localdatetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..162; query:
 RETURN localdatetime.truncate('century', localdatetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123}), {}) AS result
 - `tck.expressions.temporal.temporal9.scenario-3.examples-1-row-13`: query execution failed: Parse error: invalid resolved function or parameter name: localdatetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..101; query:
 RETURN localdatetime.truncate('decade', date({year: 1984, month: 10, day: 11}), {day: 2}) AS result
 - `tck.expressions.temporal.temporal9.scenario-3.examples-1-row-14`: query execution failed: Parse error: invalid resolved function or parameter name: localdatetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..95; query:
 RETURN localdatetime.truncate('decade', date({year: 1984, month: 10, day: 11}), {}) AS result
-- `tck.expressions.temporal.temporal9.scenario-3.examples-1-row-15`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 41..160; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..182; query:
+- `tck.expressions.temporal.temporal9.scenario-3.examples-1-row-15`: query execution failed: Parse error: invalid resolved function or parameter name: localdatetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..182; query:
 RETURN localdatetime.truncate('decade', datetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123, timezone: '+01:00'}), {day: 2}) AS result
-- `tck.expressions.temporal.temporal9.scenario-3.examples-1-row-16`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 41..160; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..176; query:
+- `tck.expressions.temporal.temporal9.scenario-3.examples-1-row-16`: query execution failed: Parse error: invalid resolved function or parameter name: localdatetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..176; query:
 RETURN localdatetime.truncate('decade', datetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123, timezone: '+01:00'}), {}) AS result
-- `tck.expressions.temporal.temporal9.scenario-3.examples-1-row-17`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 41..145; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..167; query:
+- `tck.expressions.temporal.temporal9.scenario-3.examples-1-row-17`: query execution failed: Parse error: invalid resolved function or parameter name: localdatetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..167; query:
 RETURN localdatetime.truncate('decade', localdatetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123}), {day: 2}) AS result
-- `tck.expressions.temporal.temporal9.scenario-3.examples-1-row-18`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 41..145; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..161; query:
+- `tck.expressions.temporal.temporal9.scenario-3.examples-1-row-18`: query execution failed: Parse error: invalid resolved function or parameter name: localdatetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..161; query:
 RETURN localdatetime.truncate('decade', localdatetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123}), {}) AS result
 - `tck.expressions.temporal.temporal9.scenario-3.examples-1-row-19`: query execution failed: Parse error: invalid resolved function or parameter name: localdatetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..99; query:
 RETURN localdatetime.truncate('year', date({year: 1984, month: 10, day: 11}), {day: 2}) AS result
 - `tck.expressions.temporal.temporal9.scenario-3.examples-1-row-20`: query execution failed: Parse error: invalid resolved function or parameter name: localdatetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..93; query:
 RETURN localdatetime.truncate('year', date({year: 1984, month: 10, day: 11}), {}) AS result
-- `tck.expressions.temporal.temporal9.scenario-3.examples-1-row-21`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 39..158; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..180; query:
+- `tck.expressions.temporal.temporal9.scenario-3.examples-1-row-21`: query execution failed: Parse error: invalid resolved function or parameter name: localdatetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..180; query:
 RETURN localdatetime.truncate('year', datetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123, timezone: '+01:00'}), {day: 2}) AS result
-- `tck.expressions.temporal.temporal9.scenario-3.examples-1-row-22`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 39..158; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..174; query:
+- `tck.expressions.temporal.temporal9.scenario-3.examples-1-row-22`: query execution failed: Parse error: invalid resolved function or parameter name: localdatetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..174; query:
 RETURN localdatetime.truncate('year', datetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123, timezone: '+01:00'}), {}) AS result
-- `tck.expressions.temporal.temporal9.scenario-3.examples-1-row-23`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 39..143; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..165; query:
+- `tck.expressions.temporal.temporal9.scenario-3.examples-1-row-23`: query execution failed: Parse error: invalid resolved function or parameter name: localdatetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..165; query:
 RETURN localdatetime.truncate('year', localdatetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123}), {day: 2}) AS result
-- `tck.expressions.temporal.temporal9.scenario-3.examples-1-row-24`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 39..143; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..159; query:
+- `tck.expressions.temporal.temporal9.scenario-3.examples-1-row-24`: query execution failed: Parse error: invalid resolved function or parameter name: localdatetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..159; query:
 RETURN localdatetime.truncate('year', localdatetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123}), {}) AS result
 - `tck.expressions.temporal.temporal9.scenario-3.examples-1-row-25`: query execution failed: Parse error: invalid resolved function or parameter name: localdatetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..101; query:
 RETURN localdatetime.truncate('weekYear', date({year: 1984, month: 2, day: 1}), {day: 5}) AS result
 - `tck.expressions.temporal.temporal9.scenario-3.examples-1-row-26`: query execution failed: Parse error: invalid resolved function or parameter name: localdatetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..95; query:
 RETURN localdatetime.truncate('weekYear', date({year: 1984, month: 2, day: 1}), {}) AS result
-- `tck.expressions.temporal.temporal9.scenario-3.examples-1-row-27`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 43..160; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..182; query:
+- `tck.expressions.temporal.temporal9.scenario-3.examples-1-row-27`: query execution failed: Parse error: invalid resolved function or parameter name: localdatetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..182; query:
 RETURN localdatetime.truncate('weekYear', datetime({year: 1984, month: 1, day: 1, hour: 12, minute: 31, second: 14, nanosecond: 645876123, timezone: '+01:00'}), {day: 5}) AS result
-- `tck.expressions.temporal.temporal9.scenario-3.examples-1-row-28`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 43..160; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..176; query:
+- `tck.expressions.temporal.temporal9.scenario-3.examples-1-row-28`: query execution failed: Parse error: invalid resolved function or parameter name: localdatetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..176; query:
 RETURN localdatetime.truncate('weekYear', datetime({year: 1984, month: 1, day: 1, hour: 12, minute: 31, second: 14, nanosecond: 645876123, timezone: '+01:00'}), {}) AS result
-- `tck.expressions.temporal.temporal9.scenario-3.examples-1-row-29`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 43..145; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..167; query:
+- `tck.expressions.temporal.temporal9.scenario-3.examples-1-row-29`: query execution failed: Parse error: invalid resolved function or parameter name: localdatetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..167; query:
 RETURN localdatetime.truncate('weekYear', localdatetime({year: 1984, month: 1, day: 1, hour: 12, minute: 31, second: 14, nanosecond: 645876123}), {day: 5}) AS result
-- `tck.expressions.temporal.temporal9.scenario-3.examples-1-row-30`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 43..145; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..161; query:
+- `tck.expressions.temporal.temporal9.scenario-3.examples-1-row-30`: query execution failed: Parse error: invalid resolved function or parameter name: localdatetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..161; query:
 RETURN localdatetime.truncate('weekYear', localdatetime({year: 1984, month: 1, day: 1, hour: 12, minute: 31, second: 14, nanosecond: 645876123}), {}) AS result
 - `tck.expressions.temporal.temporal9.scenario-3.examples-1-row-31`: query execution failed: Parse error: invalid resolved function or parameter name: localdatetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..102; query:
 RETURN localdatetime.truncate('quarter', date({year: 1984, month: 11, day: 11}), {day: 2}) AS result
 - `tck.expressions.temporal.temporal9.scenario-3.examples-1-row-32`: query execution failed: Parse error: invalid resolved function or parameter name: localdatetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..96; query:
 RETURN localdatetime.truncate('quarter', date({year: 1984, month: 11, day: 11}), {}) AS result
-- `tck.expressions.temporal.temporal9.scenario-3.examples-1-row-33`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 42..161; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..183; query:
+- `tck.expressions.temporal.temporal9.scenario-3.examples-1-row-33`: query execution failed: Parse error: invalid resolved function or parameter name: localdatetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..183; query:
 RETURN localdatetime.truncate('quarter', datetime({year: 1984, month: 11, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123, timezone: '+01:00'}), {day: 2}) AS result
-- `tck.expressions.temporal.temporal9.scenario-3.examples-1-row-34`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 42..161; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..177; query:
+- `tck.expressions.temporal.temporal9.scenario-3.examples-1-row-34`: query execution failed: Parse error: invalid resolved function or parameter name: localdatetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..177; query:
 RETURN localdatetime.truncate('quarter', datetime({year: 1984, month: 11, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123, timezone: '+01:00'}), {}) AS result
-- `tck.expressions.temporal.temporal9.scenario-3.examples-1-row-35`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 42..146; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..168; query:
+- `tck.expressions.temporal.temporal9.scenario-3.examples-1-row-35`: query execution failed: Parse error: invalid resolved function or parameter name: localdatetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..168; query:
 RETURN localdatetime.truncate('quarter', localdatetime({year: 1984, month: 11, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123}), {day: 2}) AS result
-- `tck.expressions.temporal.temporal9.scenario-3.examples-1-row-36`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 42..146; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..162; query:
+- `tck.expressions.temporal.temporal9.scenario-3.examples-1-row-36`: query execution failed: Parse error: invalid resolved function or parameter name: localdatetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..162; query:
 RETURN localdatetime.truncate('quarter', localdatetime({year: 1984, month: 11, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123}), {}) AS result
 - `tck.expressions.temporal.temporal9.scenario-3.examples-1-row-37`: query execution failed: Parse error: invalid resolved function or parameter name: localdatetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..100; query:
 RETURN localdatetime.truncate('month', date({year: 1984, month: 10, day: 11}), {day: 2}) AS result
 - `tck.expressions.temporal.temporal9.scenario-3.examples-1-row-38`: query execution failed: Parse error: invalid resolved function or parameter name: localdatetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..94; query:
 RETURN localdatetime.truncate('month', date({year: 1984, month: 10, day: 11}), {}) AS result
-- `tck.expressions.temporal.temporal9.scenario-3.examples-1-row-39`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 40..159; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..181; query:
+- `tck.expressions.temporal.temporal9.scenario-3.examples-1-row-39`: query execution failed: Parse error: invalid resolved function or parameter name: localdatetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..181; query:
 RETURN localdatetime.truncate('month', datetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123, timezone: '+01:00'}), {day: 2}) AS result
-- `tck.expressions.temporal.temporal9.scenario-3.examples-1-row-40`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 40..159; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..175; query:
+- `tck.expressions.temporal.temporal9.scenario-3.examples-1-row-40`: query execution failed: Parse error: invalid resolved function or parameter name: localdatetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..175; query:
 RETURN localdatetime.truncate('month', datetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123, timezone: '+01:00'}), {}) AS result
-- `tck.expressions.temporal.temporal9.scenario-3.examples-1-row-41`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 40..144; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..166; query:
+- `tck.expressions.temporal.temporal9.scenario-3.examples-1-row-41`: query execution failed: Parse error: invalid resolved function or parameter name: localdatetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..166; query:
 RETURN localdatetime.truncate('month', localdatetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123}), {day: 2}) AS result
-- `tck.expressions.temporal.temporal9.scenario-3.examples-1-row-42`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 40..144; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..160; query:
+- `tck.expressions.temporal.temporal9.scenario-3.examples-1-row-42`: query execution failed: Parse error: invalid resolved function or parameter name: localdatetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..160; query:
 RETURN localdatetime.truncate('month', localdatetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123}), {}) AS result
 - `tck.expressions.temporal.temporal9.scenario-3.examples-1-row-43`: query execution failed: Parse error: invalid resolved function or parameter name: localdatetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..105; query:
 RETURN localdatetime.truncate('week', date({year: 1984, month: 10, day: 11}), {dayOfWeek: 2}) AS result
 - `tck.expressions.temporal.temporal9.scenario-3.examples-1-row-44`: query execution failed: Parse error: invalid resolved function or parameter name: localdatetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..93; query:
 RETURN localdatetime.truncate('week', date({year: 1984, month: 10, day: 11}), {}) AS result
-- `tck.expressions.temporal.temporal9.scenario-3.examples-1-row-45`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 39..158; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..186; query:
+- `tck.expressions.temporal.temporal9.scenario-3.examples-1-row-45`: query execution failed: Parse error: invalid resolved function or parameter name: localdatetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..186; query:
 RETURN localdatetime.truncate('week', datetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123, timezone: '+01:00'}), {dayOfWeek: 2}) AS result
-- `tck.expressions.temporal.temporal9.scenario-3.examples-1-row-46`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 39..158; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..174; query:
+- `tck.expressions.temporal.temporal9.scenario-3.examples-1-row-46`: query execution failed: Parse error: invalid resolved function or parameter name: localdatetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..174; query:
 RETURN localdatetime.truncate('week', datetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123, timezone: '+01:00'}), {}) AS result
-- `tck.expressions.temporal.temporal9.scenario-3.examples-1-row-47`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 39..143; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..171; query:
+- `tck.expressions.temporal.temporal9.scenario-3.examples-1-row-47`: query execution failed: Parse error: invalid resolved function or parameter name: localdatetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..171; query:
 RETURN localdatetime.truncate('week', localdatetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123}), {dayOfWeek: 2}) AS result
-- `tck.expressions.temporal.temporal9.scenario-3.examples-1-row-48`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 39..143; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..159; query:
+- `tck.expressions.temporal.temporal9.scenario-3.examples-1-row-48`: query execution failed: Parse error: invalid resolved function or parameter name: localdatetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..159; query:
 RETURN localdatetime.truncate('week', localdatetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123}), {}) AS result
 - `tck.expressions.temporal.temporal9.scenario-3.examples-1-row-49`: query execution failed: Parse error: invalid resolved function or parameter name: localdatetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..105; query:
 RETURN localdatetime.truncate('day', date({year: 1984, month: 10, day: 11}), {nanosecond: 2}) AS result
 - `tck.expressions.temporal.temporal9.scenario-3.examples-1-row-50`: query execution failed: Parse error: invalid resolved function or parameter name: localdatetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..92; query:
 RETURN localdatetime.truncate('day', date({year: 1984, month: 10, day: 11}), {}) AS result
-- `tck.expressions.temporal.temporal9.scenario-3.examples-1-row-51`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 38..157; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..186; query:
+- `tck.expressions.temporal.temporal9.scenario-3.examples-1-row-51`: query execution failed: Parse error: invalid resolved function or parameter name: localdatetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..186; query:
 RETURN localdatetime.truncate('day', datetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123, timezone: '+01:00'}), {nanosecond: 2}) AS result
-- `tck.expressions.temporal.temporal9.scenario-3.examples-1-row-52`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 38..157; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..173; query:
+- `tck.expressions.temporal.temporal9.scenario-3.examples-1-row-52`: query execution failed: Parse error: invalid resolved function or parameter name: localdatetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..173; query:
 RETURN localdatetime.truncate('day', datetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123, timezone: '+01:00'}), {}) AS result
-- `tck.expressions.temporal.temporal9.scenario-3.examples-1-row-53`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 38..142; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..171; query:
+- `tck.expressions.temporal.temporal9.scenario-3.examples-1-row-53`: query execution failed: Parse error: invalid resolved function or parameter name: localdatetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..171; query:
 RETURN localdatetime.truncate('day', localdatetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123}), {nanosecond: 2}) AS result
-- `tck.expressions.temporal.temporal9.scenario-3.examples-1-row-54`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 38..142; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..158; query:
+- `tck.expressions.temporal.temporal9.scenario-3.examples-1-row-54`: query execution failed: Parse error: invalid resolved function or parameter name: localdatetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..158; query:
 RETURN localdatetime.truncate('day', localdatetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123}), {}) AS result
-- `tck.expressions.temporal.temporal9.scenario-3.examples-1-row-55`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 39..158; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..187; query:
+- `tck.expressions.temporal.temporal9.scenario-3.examples-1-row-55`: query execution failed: Parse error: invalid resolved function or parameter name: localdatetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..187; query:
 RETURN localdatetime.truncate('hour', datetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123, timezone: '+01:00'}), {nanosecond: 2}) AS result
-- `tck.expressions.temporal.temporal9.scenario-3.examples-1-row-56`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 39..158; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..174; query:
+- `tck.expressions.temporal.temporal9.scenario-3.examples-1-row-56`: query execution failed: Parse error: invalid resolved function or parameter name: localdatetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..174; query:
 RETURN localdatetime.truncate('hour', datetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123, timezone: '+01:00'}), {}) AS result
-- `tck.expressions.temporal.temporal9.scenario-3.examples-1-row-57`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 39..143; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..172; query:
+- `tck.expressions.temporal.temporal9.scenario-3.examples-1-row-57`: query execution failed: Parse error: invalid resolved function or parameter name: localdatetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..172; query:
 RETURN localdatetime.truncate('hour', localdatetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123}), {nanosecond: 2}) AS result
-- `tck.expressions.temporal.temporal9.scenario-3.examples-1-row-58`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 39..143; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..159; query:
+- `tck.expressions.temporal.temporal9.scenario-3.examples-1-row-58`: query execution failed: Parse error: invalid resolved function or parameter name: localdatetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..159; query:
 RETURN localdatetime.truncate('hour', localdatetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123}), {}) AS result
-- `tck.expressions.temporal.temporal9.scenario-3.examples-1-row-59`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 41..160; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..189; query:
+- `tck.expressions.temporal.temporal9.scenario-3.examples-1-row-59`: query execution failed: Parse error: invalid resolved function or parameter name: localdatetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..189; query:
 RETURN localdatetime.truncate('minute', datetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123, timezone: '+01:00'}), {nanosecond: 2}) AS result
-- `tck.expressions.temporal.temporal9.scenario-3.examples-1-row-60`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 41..160; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..176; query:
+- `tck.expressions.temporal.temporal9.scenario-3.examples-1-row-60`: query execution failed: Parse error: invalid resolved function or parameter name: localdatetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..176; query:
 RETURN localdatetime.truncate('minute', datetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123, timezone: '+01:00'}), {}) AS result
-- `tck.expressions.temporal.temporal9.scenario-3.examples-1-row-61`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 41..145; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..174; query:
+- `tck.expressions.temporal.temporal9.scenario-3.examples-1-row-61`: query execution failed: Parse error: invalid resolved function or parameter name: localdatetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..174; query:
 RETURN localdatetime.truncate('minute', localdatetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123}), {nanosecond: 2}) AS result
-- `tck.expressions.temporal.temporal9.scenario-3.examples-1-row-62`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 41..145; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..161; query:
+- `tck.expressions.temporal.temporal9.scenario-3.examples-1-row-62`: query execution failed: Parse error: invalid resolved function or parameter name: localdatetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..161; query:
 RETURN localdatetime.truncate('minute', localdatetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123}), {}) AS result
-- `tck.expressions.temporal.temporal9.scenario-3.examples-1-row-63`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 41..160; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..189; query:
+- `tck.expressions.temporal.temporal9.scenario-3.examples-1-row-63`: query execution failed: Parse error: invalid resolved function or parameter name: localdatetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..189; query:
 RETURN localdatetime.truncate('second', datetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123, timezone: '+01:00'}), {nanosecond: 2}) AS result
-- `tck.expressions.temporal.temporal9.scenario-3.examples-1-row-64`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 41..160; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..176; query:
+- `tck.expressions.temporal.temporal9.scenario-3.examples-1-row-64`: query execution failed: Parse error: invalid resolved function or parameter name: localdatetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..176; query:
 RETURN localdatetime.truncate('second', datetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123, timezone: '+01:00'}), {}) AS result
-- `tck.expressions.temporal.temporal9.scenario-3.examples-1-row-65`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 41..145; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..174; query:
+- `tck.expressions.temporal.temporal9.scenario-3.examples-1-row-65`: query execution failed: Parse error: invalid resolved function or parameter name: localdatetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..174; query:
 RETURN localdatetime.truncate('second', localdatetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123}), {nanosecond: 2}) AS result
-- `tck.expressions.temporal.temporal9.scenario-3.examples-1-row-66`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 41..145; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..161; query:
+- `tck.expressions.temporal.temporal9.scenario-3.examples-1-row-66`: query execution failed: Parse error: invalid resolved function or parameter name: localdatetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..161; query:
 RETURN localdatetime.truncate('second', localdatetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123}), {}) AS result
-- `tck.expressions.temporal.temporal9.scenario-3.examples-1-row-67`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 46..165; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..194; query:
+- `tck.expressions.temporal.temporal9.scenario-3.examples-1-row-67`: query execution failed: Parse error: invalid resolved function or parameter name: localdatetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..194; query:
 RETURN localdatetime.truncate('millisecond', datetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123, timezone: '+01:00'}), {nanosecond: 2}) AS result
-- `tck.expressions.temporal.temporal9.scenario-3.examples-1-row-68`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 46..165; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..181; query:
+- `tck.expressions.temporal.temporal9.scenario-3.examples-1-row-68`: query execution failed: Parse error: invalid resolved function or parameter name: localdatetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..181; query:
 RETURN localdatetime.truncate('millisecond', datetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123, timezone: '+01:00'}), {}) AS result
-- `tck.expressions.temporal.temporal9.scenario-3.examples-1-row-69`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 46..150; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..179; query:
+- `tck.expressions.temporal.temporal9.scenario-3.examples-1-row-69`: query execution failed: Parse error: invalid resolved function or parameter name: localdatetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..179; query:
 RETURN localdatetime.truncate('millisecond', localdatetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123}), {nanosecond: 2}) AS result
-- `tck.expressions.temporal.temporal9.scenario-3.examples-1-row-70`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 46..150; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..166; query:
+- `tck.expressions.temporal.temporal9.scenario-3.examples-1-row-70`: query execution failed: Parse error: invalid resolved function or parameter name: localdatetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..166; query:
 RETURN localdatetime.truncate('millisecond', localdatetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123}), {}) AS result
-- `tck.expressions.temporal.temporal9.scenario-3.examples-1-row-71`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 46..165; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..194; query:
+- `tck.expressions.temporal.temporal9.scenario-3.examples-1-row-71`: query execution failed: Parse error: invalid resolved function or parameter name: localdatetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..194; query:
 RETURN localdatetime.truncate('microsecond', datetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123, timezone: '+01:00'}), {nanosecond: 2}) AS result
-- `tck.expressions.temporal.temporal9.scenario-3.examples-1-row-72`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 46..165; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..181; query:
+- `tck.expressions.temporal.temporal9.scenario-3.examples-1-row-72`: query execution failed: Parse error: invalid resolved function or parameter name: localdatetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..181; query:
 RETURN localdatetime.truncate('microsecond', datetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123, timezone: '+01:00'}), {}) AS result
-- `tck.expressions.temporal.temporal9.scenario-3.examples-1-row-73`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 46..150; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..179; query:
+- `tck.expressions.temporal.temporal9.scenario-3.examples-1-row-73`: query execution failed: Parse error: invalid resolved function or parameter name: localdatetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..179; query:
 RETURN localdatetime.truncate('microsecond', localdatetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123}), {nanosecond: 2}) AS result
-- `tck.expressions.temporal.temporal9.scenario-3.examples-1-row-74`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 46..150; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..166; query:
+- `tck.expressions.temporal.temporal9.scenario-3.examples-1-row-74`: query execution failed: Parse error: invalid resolved function or parameter name: localdatetime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..166; query:
 RETURN localdatetime.truncate('microsecond', localdatetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123}), {}) AS result
-- `tck.expressions.temporal.temporal9.scenario-4.examples-1-row-1`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 34..153; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..182; query:
+- `tck.expressions.temporal.temporal9.scenario-4.examples-1-row-1`: query execution failed: Parse error: invalid resolved function or parameter name: localtime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..182; query:
 RETURN localtime.truncate('day', datetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123, timezone: '+01:00'}), {nanosecond: 2}) AS result
-- `tck.expressions.temporal.temporal9.scenario-4.examples-1-row-2`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 34..153; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..169; query:
+- `tck.expressions.temporal.temporal9.scenario-4.examples-1-row-2`: query execution failed: Parse error: invalid resolved function or parameter name: localtime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..169; query:
 RETURN localtime.truncate('day', datetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123, timezone: '+01:00'}), {}) AS result
-- `tck.expressions.temporal.temporal9.scenario-4.examples-1-row-3`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 34..138; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..167; query:
+- `tck.expressions.temporal.temporal9.scenario-4.examples-1-row-3`: query execution failed: Parse error: invalid resolved function or parameter name: localtime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..167; query:
 RETURN localtime.truncate('day', localdatetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123}), {nanosecond: 2}) AS result
-- `tck.expressions.temporal.temporal9.scenario-4.examples-1-row-4`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 34..138; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..154; query:
+- `tck.expressions.temporal.temporal9.scenario-4.examples-1-row-4`: query execution failed: Parse error: invalid resolved function or parameter name: localtime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..154; query:
 RETURN localtime.truncate('day', localdatetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123}), {}) AS result
-- `tck.expressions.temporal.temporal9.scenario-4.examples-1-row-5`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 35..154; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..183; query:
+- `tck.expressions.temporal.temporal9.scenario-4.examples-1-row-5`: query execution failed: Parse error: invalid resolved function or parameter name: localtime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..183; query:
 RETURN localtime.truncate('hour', datetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123, timezone: '+01:00'}), {nanosecond: 2}) AS result
-- `tck.expressions.temporal.temporal9.scenario-4.examples-1-row-6`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 35..154; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..170; query:
+- `tck.expressions.temporal.temporal9.scenario-4.examples-1-row-6`: query execution failed: Parse error: invalid resolved function or parameter name: localtime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..170; query:
 RETURN localtime.truncate('hour', datetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123, timezone: '+01:00'}), {}) AS result
-- `tck.expressions.temporal.temporal9.scenario-4.examples-1-row-7`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 35..139; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..168; query:
+- `tck.expressions.temporal.temporal9.scenario-4.examples-1-row-7`: query execution failed: Parse error: invalid resolved function or parameter name: localtime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..168; query:
 RETURN localtime.truncate('hour', localdatetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123}), {nanosecond: 2}) AS result
-- `tck.expressions.temporal.temporal9.scenario-4.examples-1-row-8`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 35..139; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..155; query:
+- `tck.expressions.temporal.temporal9.scenario-4.examples-1-row-8`: query execution failed: Parse error: invalid resolved function or parameter name: localtime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..155; query:
 RETURN localtime.truncate('hour', localdatetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123}), {}) AS result
-- `tck.expressions.temporal.temporal9.scenario-4.examples-1-row-9`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 35..103; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..132; query:
+- `tck.expressions.temporal.temporal9.scenario-4.examples-1-row-9`: query execution failed: Parse error: invalid resolved function or parameter name: localtime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..132; query:
 RETURN localtime.truncate('hour', localtime({hour: 12, minute: 31, second: 14, nanosecond: 645876123}), {nanosecond: 2}) AS result
-- `tck.expressions.temporal.temporal9.scenario-4.examples-1-row-10`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 35..103; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..119; query:
+- `tck.expressions.temporal.temporal9.scenario-4.examples-1-row-10`: query execution failed: Parse error: invalid resolved function or parameter name: localtime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..119; query:
 RETURN localtime.truncate('hour', localtime({hour: 12, minute: 31, second: 14, nanosecond: 645876123}), {}) AS result
-- `tck.expressions.temporal.temporal9.scenario-4.examples-1-row-11`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 35..118; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..147; query:
+- `tck.expressions.temporal.temporal9.scenario-4.examples-1-row-11`: query execution failed: Parse error: invalid resolved function or parameter name: localtime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..147; query:
 RETURN localtime.truncate('hour', time({hour: 12, minute: 31, second: 14, nanosecond: 645876123, timezone: '+01:00'}), {nanosecond: 2}) AS result
-- `tck.expressions.temporal.temporal9.scenario-4.examples-1-row-12`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 35..118; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..134; query:
+- `tck.expressions.temporal.temporal9.scenario-4.examples-1-row-12`: query execution failed: Parse error: invalid resolved function or parameter name: localtime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..134; query:
 RETURN localtime.truncate('hour', time({hour: 12, minute: 31, second: 14, nanosecond: 645876123, timezone: '+01:00'}), {}) AS result
-- `tck.expressions.temporal.temporal9.scenario-4.examples-1-row-13`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 37..156; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..185; query:
+- `tck.expressions.temporal.temporal9.scenario-4.examples-1-row-13`: query execution failed: Parse error: invalid resolved function or parameter name: localtime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..185; query:
 RETURN localtime.truncate('minute', datetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123, timezone: '+01:00'}), {nanosecond: 2}) AS result
-- `tck.expressions.temporal.temporal9.scenario-4.examples-1-row-14`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 37..156; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..172; query:
+- `tck.expressions.temporal.temporal9.scenario-4.examples-1-row-14`: query execution failed: Parse error: invalid resolved function or parameter name: localtime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..172; query:
 RETURN localtime.truncate('minute', datetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123, timezone: '+01:00'}), {}) AS result
-- `tck.expressions.temporal.temporal9.scenario-4.examples-1-row-15`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 37..141; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..170; query:
+- `tck.expressions.temporal.temporal9.scenario-4.examples-1-row-15`: query execution failed: Parse error: invalid resolved function or parameter name: localtime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..170; query:
 RETURN localtime.truncate('minute', localdatetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123}), {nanosecond: 2}) AS result
-- `tck.expressions.temporal.temporal9.scenario-4.examples-1-row-16`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 37..141; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..157; query:
+- `tck.expressions.temporal.temporal9.scenario-4.examples-1-row-16`: query execution failed: Parse error: invalid resolved function or parameter name: localtime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..157; query:
 RETURN localtime.truncate('minute', localdatetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123}), {}) AS result
-- `tck.expressions.temporal.temporal9.scenario-4.examples-1-row-17`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 37..105; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..134; query:
+- `tck.expressions.temporal.temporal9.scenario-4.examples-1-row-17`: query execution failed: Parse error: invalid resolved function or parameter name: localtime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..134; query:
 RETURN localtime.truncate('minute', localtime({hour: 12, minute: 31, second: 14, nanosecond: 645876123}), {nanosecond: 2}) AS result
-- `tck.expressions.temporal.temporal9.scenario-4.examples-1-row-18`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 37..105; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..121; query:
+- `tck.expressions.temporal.temporal9.scenario-4.examples-1-row-18`: query execution failed: Parse error: invalid resolved function or parameter name: localtime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..121; query:
 RETURN localtime.truncate('minute', localtime({hour: 12, minute: 31, second: 14, nanosecond: 645876123}), {}) AS result
-- `tck.expressions.temporal.temporal9.scenario-4.examples-1-row-19`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 37..120; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..149; query:
+- `tck.expressions.temporal.temporal9.scenario-4.examples-1-row-19`: query execution failed: Parse error: invalid resolved function or parameter name: localtime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..149; query:
 RETURN localtime.truncate('minute', time({hour: 12, minute: 31, second: 14, nanosecond: 645876123, timezone: '+01:00'}), {nanosecond: 2}) AS result
-- `tck.expressions.temporal.temporal9.scenario-4.examples-1-row-20`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 37..120; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..136; query:
+- `tck.expressions.temporal.temporal9.scenario-4.examples-1-row-20`: query execution failed: Parse error: invalid resolved function or parameter name: localtime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..136; query:
 RETURN localtime.truncate('minute', time({hour: 12, minute: 31, second: 14, nanosecond: 645876123, timezone: '+01:00'}), {}) AS result
-- `tck.expressions.temporal.temporal9.scenario-4.examples-1-row-21`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 37..156; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..185; query:
+- `tck.expressions.temporal.temporal9.scenario-4.examples-1-row-21`: query execution failed: Parse error: invalid resolved function or parameter name: localtime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..185; query:
 RETURN localtime.truncate('second', datetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123, timezone: '+01:00'}), {nanosecond: 2}) AS result
-- `tck.expressions.temporal.temporal9.scenario-4.examples-1-row-22`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 37..156; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..172; query:
+- `tck.expressions.temporal.temporal9.scenario-4.examples-1-row-22`: query execution failed: Parse error: invalid resolved function or parameter name: localtime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..172; query:
 RETURN localtime.truncate('second', datetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123, timezone: '+01:00'}), {}) AS result
-- `tck.expressions.temporal.temporal9.scenario-4.examples-1-row-23`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 37..141; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..170; query:
+- `tck.expressions.temporal.temporal9.scenario-4.examples-1-row-23`: query execution failed: Parse error: invalid resolved function or parameter name: localtime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..170; query:
 RETURN localtime.truncate('second', localdatetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123}), {nanosecond: 2}) AS result
-- `tck.expressions.temporal.temporal9.scenario-4.examples-1-row-24`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 37..141; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..157; query:
+- `tck.expressions.temporal.temporal9.scenario-4.examples-1-row-24`: query execution failed: Parse error: invalid resolved function or parameter name: localtime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..157; query:
 RETURN localtime.truncate('second', localdatetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123}), {}) AS result
-- `tck.expressions.temporal.temporal9.scenario-4.examples-1-row-25`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 37..105; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..134; query:
+- `tck.expressions.temporal.temporal9.scenario-4.examples-1-row-25`: query execution failed: Parse error: invalid resolved function or parameter name: localtime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..134; query:
 RETURN localtime.truncate('second', localtime({hour: 12, minute: 31, second: 14, nanosecond: 645876123}), {nanosecond: 2}) AS result
-- `tck.expressions.temporal.temporal9.scenario-4.examples-1-row-26`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 37..105; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..121; query:
+- `tck.expressions.temporal.temporal9.scenario-4.examples-1-row-26`: query execution failed: Parse error: invalid resolved function or parameter name: localtime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..121; query:
 RETURN localtime.truncate('second', localtime({hour: 12, minute: 31, second: 14, nanosecond: 645876123}), {}) AS result
-- `tck.expressions.temporal.temporal9.scenario-4.examples-1-row-27`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 37..120; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..149; query:
+- `tck.expressions.temporal.temporal9.scenario-4.examples-1-row-27`: query execution failed: Parse error: invalid resolved function or parameter name: localtime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..149; query:
 RETURN localtime.truncate('second', time({hour: 12, minute: 31, second: 14, nanosecond: 645876123, timezone: '+01:00'}), {nanosecond: 2}) AS result
-- `tck.expressions.temporal.temporal9.scenario-4.examples-1-row-28`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 37..120; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..136; query:
+- `tck.expressions.temporal.temporal9.scenario-4.examples-1-row-28`: query execution failed: Parse error: invalid resolved function or parameter name: localtime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..136; query:
 RETURN localtime.truncate('second', time({hour: 12, minute: 31, second: 14, nanosecond: 645876123, timezone: '+01:00'}), {}) AS result
-- `tck.expressions.temporal.temporal9.scenario-4.examples-1-row-29`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 42..161; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..190; query:
+- `tck.expressions.temporal.temporal9.scenario-4.examples-1-row-29`: query execution failed: Parse error: invalid resolved function or parameter name: localtime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..190; query:
 RETURN localtime.truncate('millisecond', datetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123, timezone: '+01:00'}), {nanosecond: 2}) AS result
-- `tck.expressions.temporal.temporal9.scenario-4.examples-1-row-30`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 42..161; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..177; query:
+- `tck.expressions.temporal.temporal9.scenario-4.examples-1-row-30`: query execution failed: Parse error: invalid resolved function or parameter name: localtime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..177; query:
 RETURN localtime.truncate('millisecond', datetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123, timezone: '+01:00'}), {}) AS result
-- `tck.expressions.temporal.temporal9.scenario-4.examples-1-row-31`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 42..146; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..175; query:
+- `tck.expressions.temporal.temporal9.scenario-4.examples-1-row-31`: query execution failed: Parse error: invalid resolved function or parameter name: localtime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..175; query:
 RETURN localtime.truncate('millisecond', localdatetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123}), {nanosecond: 2}) AS result
-- `tck.expressions.temporal.temporal9.scenario-4.examples-1-row-32`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 42..146; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..162; query:
+- `tck.expressions.temporal.temporal9.scenario-4.examples-1-row-32`: query execution failed: Parse error: invalid resolved function or parameter name: localtime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..162; query:
 RETURN localtime.truncate('millisecond', localdatetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123}), {}) AS result
-- `tck.expressions.temporal.temporal9.scenario-4.examples-1-row-33`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 42..110; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..139; query:
+- `tck.expressions.temporal.temporal9.scenario-4.examples-1-row-33`: query execution failed: Parse error: invalid resolved function or parameter name: localtime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..139; query:
 RETURN localtime.truncate('millisecond', localtime({hour: 12, minute: 31, second: 14, nanosecond: 645876123}), {nanosecond: 2}) AS result
-- `tck.expressions.temporal.temporal9.scenario-4.examples-1-row-34`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 42..110; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..126; query:
+- `tck.expressions.temporal.temporal9.scenario-4.examples-1-row-34`: query execution failed: Parse error: invalid resolved function or parameter name: localtime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..126; query:
 RETURN localtime.truncate('millisecond', localtime({hour: 12, minute: 31, second: 14, nanosecond: 645876123}), {}) AS result
-- `tck.expressions.temporal.temporal9.scenario-4.examples-1-row-35`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 42..125; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..154; query:
+- `tck.expressions.temporal.temporal9.scenario-4.examples-1-row-35`: query execution failed: Parse error: invalid resolved function or parameter name: localtime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..154; query:
 RETURN localtime.truncate('millisecond', time({hour: 12, minute: 31, second: 14, nanosecond: 645876123, timezone: '+01:00'}), {nanosecond: 2}) AS result
-- `tck.expressions.temporal.temporal9.scenario-4.examples-1-row-36`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 42..125; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..141; query:
+- `tck.expressions.temporal.temporal9.scenario-4.examples-1-row-36`: query execution failed: Parse error: invalid resolved function or parameter name: localtime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..141; query:
 RETURN localtime.truncate('millisecond', time({hour: 12, minute: 31, second: 14, nanosecond: 645876123, timezone: '+01:00'}), {}) AS result
-- `tck.expressions.temporal.temporal9.scenario-4.examples-1-row-37`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 42..161; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..190; query:
+- `tck.expressions.temporal.temporal9.scenario-4.examples-1-row-37`: query execution failed: Parse error: invalid resolved function or parameter name: localtime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..190; query:
 RETURN localtime.truncate('microsecond', datetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123, timezone: '+01:00'}), {nanosecond: 2}) AS result
-- `tck.expressions.temporal.temporal9.scenario-4.examples-1-row-38`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 42..161; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..177; query:
+- `tck.expressions.temporal.temporal9.scenario-4.examples-1-row-38`: query execution failed: Parse error: invalid resolved function or parameter name: localtime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..177; query:
 RETURN localtime.truncate('microsecond', datetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123, timezone: '+01:00'}), {}) AS result
-- `tck.expressions.temporal.temporal9.scenario-4.examples-1-row-39`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 42..146; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..175; query:
+- `tck.expressions.temporal.temporal9.scenario-4.examples-1-row-39`: query execution failed: Parse error: invalid resolved function or parameter name: localtime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..175; query:
 RETURN localtime.truncate('microsecond', localdatetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123}), {nanosecond: 2}) AS result
-- `tck.expressions.temporal.temporal9.scenario-4.examples-1-row-40`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 42..146; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..162; query:
+- `tck.expressions.temporal.temporal9.scenario-4.examples-1-row-40`: query execution failed: Parse error: invalid resolved function or parameter name: localtime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..162; query:
 RETURN localtime.truncate('microsecond', localdatetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123}), {}) AS result
-- `tck.expressions.temporal.temporal9.scenario-4.examples-1-row-41`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 42..110; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..139; query:
+- `tck.expressions.temporal.temporal9.scenario-4.examples-1-row-41`: query execution failed: Parse error: invalid resolved function or parameter name: localtime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..139; query:
 RETURN localtime.truncate('microsecond', localtime({hour: 12, minute: 31, second: 14, nanosecond: 645876123}), {nanosecond: 2}) AS result
-- `tck.expressions.temporal.temporal9.scenario-4.examples-1-row-42`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 42..110; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..126; query:
+- `tck.expressions.temporal.temporal9.scenario-4.examples-1-row-42`: query execution failed: Parse error: invalid resolved function or parameter name: localtime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..126; query:
 RETURN localtime.truncate('microsecond', localtime({hour: 12, minute: 31, second: 14, nanosecond: 645876123}), {}) AS result
-- `tck.expressions.temporal.temporal9.scenario-4.examples-1-row-43`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 42..125; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..154; query:
+- `tck.expressions.temporal.temporal9.scenario-4.examples-1-row-43`: query execution failed: Parse error: invalid resolved function or parameter name: localtime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..154; query:
 RETURN localtime.truncate('microsecond', time({hour: 12, minute: 31, second: 14, nanosecond: 645876123, timezone: '+01:00'}), {nanosecond: 2}) AS result
-- `tck.expressions.temporal.temporal9.scenario-4.examples-1-row-44`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 42..125; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..141; query:
+- `tck.expressions.temporal.temporal9.scenario-4.examples-1-row-44`: query execution failed: Parse error: invalid resolved function or parameter name: localtime.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..141; query:
 RETURN localtime.truncate('microsecond', time({hour: 12, minute: 31, second: 14, nanosecond: 645876123, timezone: '+01:00'}), {}) AS result
-- `tck.expressions.temporal.temporal9.scenario-5.examples-1-row-1`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 29..148; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..177; query:
+- `tck.expressions.temporal.temporal9.scenario-5.examples-1-row-1`: query execution failed: Parse error: invalid resolved function or parameter name: time.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..177; query:
 RETURN time.truncate('day', datetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123, timezone: '+01:00'}), {nanosecond: 2}) AS result
-- `tck.expressions.temporal.temporal9.scenario-5.examples-1-row-2`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 29..148; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..164; query:
+- `tck.expressions.temporal.temporal9.scenario-5.examples-1-row-2`: query execution failed: Parse error: invalid resolved function or parameter name: time.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..164; query:
 RETURN time.truncate('day', datetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123, timezone: '+01:00'}), {}) AS result
-- `tck.expressions.temporal.temporal9.scenario-5.examples-1-row-3`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 29..133; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..162; query:
+- `tck.expressions.temporal.temporal9.scenario-5.examples-1-row-3`: query execution failed: Parse error: invalid resolved function or parameter name: time.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..162; query:
 RETURN time.truncate('day', localdatetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123}), {nanosecond: 2}) AS result
-- `tck.expressions.temporal.temporal9.scenario-5.examples-1-row-4`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 29..133; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..149; query:
+- `tck.expressions.temporal.temporal9.scenario-5.examples-1-row-4`: query execution failed: Parse error: invalid resolved function or parameter name: time.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..149; query:
 RETURN time.truncate('day', localdatetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123}), {}) AS result
-- `tck.expressions.temporal.temporal9.scenario-5.examples-1-row-5`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 30..149; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..178; query:
+- `tck.expressions.temporal.temporal9.scenario-5.examples-1-row-5`: query execution failed: Parse error: invalid resolved function or parameter name: time.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..178; query:
 RETURN time.truncate('hour', datetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123, timezone: '-01:00'}), {nanosecond: 2}) AS result
-- `tck.expressions.temporal.temporal9.scenario-5.examples-1-row-6`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 30..149; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..183; query:
+- `tck.expressions.temporal.temporal9.scenario-5.examples-1-row-6`: query execution failed: Parse error: invalid resolved function or parameter name: time.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..183; query:
 RETURN time.truncate('hour', datetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123, timezone: '-01:00'}), {timezone: '+01:00'}) AS result
-- `tck.expressions.temporal.temporal9.scenario-5.examples-1-row-7`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 30..149; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..165; query:
+- `tck.expressions.temporal.temporal9.scenario-5.examples-1-row-7`: query execution failed: Parse error: invalid resolved function or parameter name: time.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..165; query:
 RETURN time.truncate('hour', datetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123, timezone: '-01:00'}), {}) AS result
-- `tck.expressions.temporal.temporal9.scenario-5.examples-1-row-8`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 30..134; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..163; query:
+- `tck.expressions.temporal.temporal9.scenario-5.examples-1-row-8`: query execution failed: Parse error: invalid resolved function or parameter name: time.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..163; query:
 RETURN time.truncate('hour', localdatetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123}), {nanosecond: 2}) AS result
-- `tck.expressions.temporal.temporal9.scenario-5.examples-1-row-9`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 30..134; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..168; query:
+- `tck.expressions.temporal.temporal9.scenario-5.examples-1-row-9`: query execution failed: Parse error: invalid resolved function or parameter name: time.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..168; query:
 RETURN time.truncate('hour', localdatetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123}), {timezone: '+01:00'}) AS result
-- `tck.expressions.temporal.temporal9.scenario-5.examples-1-row-10`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 30..134; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..150; query:
+- `tck.expressions.temporal.temporal9.scenario-5.examples-1-row-10`: query execution failed: Parse error: invalid resolved function or parameter name: time.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..150; query:
 RETURN time.truncate('hour', localdatetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123}), {}) AS result
-- `tck.expressions.temporal.temporal9.scenario-5.examples-1-row-11`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 30..98; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..127; query:
+- `tck.expressions.temporal.temporal9.scenario-5.examples-1-row-11`: query execution failed: Parse error: invalid resolved function or parameter name: time.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..127; query:
 RETURN time.truncate('hour', localtime({hour: 12, minute: 31, second: 14, nanosecond: 645876123}), {nanosecond: 2}) AS result
-- `tck.expressions.temporal.temporal9.scenario-5.examples-1-row-12`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 30..98; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..132; query:
+- `tck.expressions.temporal.temporal9.scenario-5.examples-1-row-12`: query execution failed: Parse error: invalid resolved function or parameter name: time.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..132; query:
 RETURN time.truncate('hour', localtime({hour: 12, minute: 31, second: 14, nanosecond: 645876123}), {timezone: '+01:00'}) AS result
-- `tck.expressions.temporal.temporal9.scenario-5.examples-1-row-13`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 30..98; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..114; query:
+- `tck.expressions.temporal.temporal9.scenario-5.examples-1-row-13`: query execution failed: Parse error: invalid resolved function or parameter name: time.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..114; query:
 RETURN time.truncate('hour', localtime({hour: 12, minute: 31, second: 14, nanosecond: 645876123}), {}) AS result
-- `tck.expressions.temporal.temporal9.scenario-5.examples-1-row-14`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 30..113; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..142; query:
+- `tck.expressions.temporal.temporal9.scenario-5.examples-1-row-14`: query execution failed: Parse error: invalid resolved function or parameter name: time.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..142; query:
 RETURN time.truncate('hour', time({hour: 12, minute: 31, second: 14, nanosecond: 645876123, timezone: '-01:00'}), {nanosecond: 2}) AS result
-- `tck.expressions.temporal.temporal9.scenario-5.examples-1-row-15`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 30..113; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..147; query:
+- `tck.expressions.temporal.temporal9.scenario-5.examples-1-row-15`: query execution failed: Parse error: invalid resolved function or parameter name: time.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..147; query:
 RETURN time.truncate('hour', time({hour: 12, minute: 31, second: 14, nanosecond: 645876123, timezone: '-01:00'}), {timezone: '+01:00'}) AS result
-- `tck.expressions.temporal.temporal9.scenario-5.examples-1-row-16`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 30..113; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..129; query:
+- `tck.expressions.temporal.temporal9.scenario-5.examples-1-row-16`: query execution failed: Parse error: invalid resolved function or parameter name: time.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..129; query:
 RETURN time.truncate('hour', time({hour: 12, minute: 31, second: 14, nanosecond: 645876123, timezone: '-01:00'}), {}) AS result
-- `tck.expressions.temporal.temporal9.scenario-5.examples-1-row-17`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 32..151; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..180; query:
+- `tck.expressions.temporal.temporal9.scenario-5.examples-1-row-17`: query execution failed: Parse error: invalid resolved function or parameter name: time.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..180; query:
 RETURN time.truncate('minute', datetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123, timezone: '-01:00'}), {nanosecond: 2}) AS result
-- `tck.expressions.temporal.temporal9.scenario-5.examples-1-row-18`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 32..151; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..167; query:
+- `tck.expressions.temporal.temporal9.scenario-5.examples-1-row-18`: query execution failed: Parse error: invalid resolved function or parameter name: time.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..167; query:
 RETURN time.truncate('minute', datetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123, timezone: '-01:00'}), {}) AS result
-- `tck.expressions.temporal.temporal9.scenario-5.examples-1-row-19`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 32..136; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..165; query:
+- `tck.expressions.temporal.temporal9.scenario-5.examples-1-row-19`: query execution failed: Parse error: invalid resolved function or parameter name: time.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..165; query:
 RETURN time.truncate('minute', localdatetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123}), {nanosecond: 2}) AS result
-- `tck.expressions.temporal.temporal9.scenario-5.examples-1-row-20`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 32..136; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..152; query:
+- `tck.expressions.temporal.temporal9.scenario-5.examples-1-row-20`: query execution failed: Parse error: invalid resolved function or parameter name: time.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..152; query:
 RETURN time.truncate('minute', localdatetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123}), {}) AS result
-- `tck.expressions.temporal.temporal9.scenario-5.examples-1-row-21`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 32..100; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..129; query:
+- `tck.expressions.temporal.temporal9.scenario-5.examples-1-row-21`: query execution failed: Parse error: invalid resolved function or parameter name: time.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..129; query:
 RETURN time.truncate('minute', localtime({hour: 12, minute: 31, second: 14, nanosecond: 645876123}), {nanosecond: 2}) AS result
-- `tck.expressions.temporal.temporal9.scenario-5.examples-1-row-22`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 32..100; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..116; query:
+- `tck.expressions.temporal.temporal9.scenario-5.examples-1-row-22`: query execution failed: Parse error: invalid resolved function or parameter name: time.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..116; query:
 RETURN time.truncate('minute', localtime({hour: 12, minute: 31, second: 14, nanosecond: 645876123}), {}) AS result
-- `tck.expressions.temporal.temporal9.scenario-5.examples-1-row-23`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 32..115; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..144; query:
+- `tck.expressions.temporal.temporal9.scenario-5.examples-1-row-23`: query execution failed: Parse error: invalid resolved function or parameter name: time.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..144; query:
 RETURN time.truncate('minute', time({hour: 12, minute: 31, second: 14, nanosecond: 645876123, timezone: '-01:00'}), {nanosecond: 2}) AS result
-- `tck.expressions.temporal.temporal9.scenario-5.examples-1-row-24`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 32..115; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..131; query:
+- `tck.expressions.temporal.temporal9.scenario-5.examples-1-row-24`: query execution failed: Parse error: invalid resolved function or parameter name: time.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..131; query:
 RETURN time.truncate('minute', time({hour: 12, minute: 31, second: 14, nanosecond: 645876123, timezone: '-01:00'}), {}) AS result
-- `tck.expressions.temporal.temporal9.scenario-5.examples-1-row-25`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 32..151; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..180; query:
+- `tck.expressions.temporal.temporal9.scenario-5.examples-1-row-25`: query execution failed: Parse error: invalid resolved function or parameter name: time.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..180; query:
 RETURN time.truncate('second', datetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123, timezone: '+01:00'}), {nanosecond: 2}) AS result
-- `tck.expressions.temporal.temporal9.scenario-5.examples-1-row-26`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 32..151; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..167; query:
+- `tck.expressions.temporal.temporal9.scenario-5.examples-1-row-26`: query execution failed: Parse error: invalid resolved function or parameter name: time.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..167; query:
 RETURN time.truncate('second', datetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123, timezone: '+01:00'}), {}) AS result
-- `tck.expressions.temporal.temporal9.scenario-5.examples-1-row-27`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 32..136; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..165; query:
+- `tck.expressions.temporal.temporal9.scenario-5.examples-1-row-27`: query execution failed: Parse error: invalid resolved function or parameter name: time.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..165; query:
 RETURN time.truncate('second', localdatetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123}), {nanosecond: 2}) AS result
-- `tck.expressions.temporal.temporal9.scenario-5.examples-1-row-28`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 32..136; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..152; query:
+- `tck.expressions.temporal.temporal9.scenario-5.examples-1-row-28`: query execution failed: Parse error: invalid resolved function or parameter name: time.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..152; query:
 RETURN time.truncate('second', localdatetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123}), {}) AS result
-- `tck.expressions.temporal.temporal9.scenario-5.examples-1-row-29`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 32..100; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..129; query:
+- `tck.expressions.temporal.temporal9.scenario-5.examples-1-row-29`: query execution failed: Parse error: invalid resolved function or parameter name: time.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..129; query:
 RETURN time.truncate('second', localtime({hour: 12, minute: 31, second: 14, nanosecond: 645876123}), {nanosecond: 2}) AS result
-- `tck.expressions.temporal.temporal9.scenario-5.examples-1-row-30`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 32..100; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..116; query:
+- `tck.expressions.temporal.temporal9.scenario-5.examples-1-row-30`: query execution failed: Parse error: invalid resolved function or parameter name: time.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..116; query:
 RETURN time.truncate('second', localtime({hour: 12, minute: 31, second: 14, nanosecond: 645876123}), {}) AS result
-- `tck.expressions.temporal.temporal9.scenario-5.examples-1-row-31`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 32..115; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..144; query:
+- `tck.expressions.temporal.temporal9.scenario-5.examples-1-row-31`: query execution failed: Parse error: invalid resolved function or parameter name: time.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..144; query:
 RETURN time.truncate('second', time({hour: 12, minute: 31, second: 14, nanosecond: 645876123, timezone: '+01:00'}), {nanosecond: 2}) AS result
-- `tck.expressions.temporal.temporal9.scenario-5.examples-1-row-32`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 32..115; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..131; query:
+- `tck.expressions.temporal.temporal9.scenario-5.examples-1-row-32`: query execution failed: Parse error: invalid resolved function or parameter name: time.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..131; query:
 RETURN time.truncate('second', time({hour: 12, minute: 31, second: 14, nanosecond: 645876123, timezone: '+01:00'}), {}) AS result
-- `tck.expressions.temporal.temporal9.scenario-5.examples-1-row-33`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 37..156; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..185; query:
+- `tck.expressions.temporal.temporal9.scenario-5.examples-1-row-33`: query execution failed: Parse error: invalid resolved function or parameter name: time.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..185; query:
 RETURN time.truncate('millisecond', datetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123, timezone: '+01:00'}), {nanosecond: 2}) AS result
-- `tck.expressions.temporal.temporal9.scenario-5.examples-1-row-34`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 37..156; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..172; query:
+- `tck.expressions.temporal.temporal9.scenario-5.examples-1-row-34`: query execution failed: Parse error: invalid resolved function or parameter name: time.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..172; query:
 RETURN time.truncate('millisecond', datetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123, timezone: '+01:00'}), {}) AS result
-- `tck.expressions.temporal.temporal9.scenario-5.examples-1-row-35`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 37..141; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..170; query:
+- `tck.expressions.temporal.temporal9.scenario-5.examples-1-row-35`: query execution failed: Parse error: invalid resolved function or parameter name: time.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..170; query:
 RETURN time.truncate('millisecond', localdatetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123}), {nanosecond: 2}) AS result
-- `tck.expressions.temporal.temporal9.scenario-5.examples-1-row-36`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 37..141; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..157; query:
+- `tck.expressions.temporal.temporal9.scenario-5.examples-1-row-36`: query execution failed: Parse error: invalid resolved function or parameter name: time.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..157; query:
 RETURN time.truncate('millisecond', localdatetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123}), {}) AS result
-- `tck.expressions.temporal.temporal9.scenario-5.examples-1-row-37`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 37..105; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..134; query:
+- `tck.expressions.temporal.temporal9.scenario-5.examples-1-row-37`: query execution failed: Parse error: invalid resolved function or parameter name: time.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..134; query:
 RETURN time.truncate('millisecond', localtime({hour: 12, minute: 31, second: 14, nanosecond: 645876123}), {nanosecond: 2}) AS result
-- `tck.expressions.temporal.temporal9.scenario-5.examples-1-row-38`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 37..105; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..121; query:
+- `tck.expressions.temporal.temporal9.scenario-5.examples-1-row-38`: query execution failed: Parse error: invalid resolved function or parameter name: time.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..121; query:
 RETURN time.truncate('millisecond', localtime({hour: 12, minute: 31, second: 14, nanosecond: 645876123}), {}) AS result
-- `tck.expressions.temporal.temporal9.scenario-5.examples-1-row-39`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 37..120; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..149; query:
+- `tck.expressions.temporal.temporal9.scenario-5.examples-1-row-39`: query execution failed: Parse error: invalid resolved function or parameter name: time.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..149; query:
 RETURN time.truncate('millisecond', time({hour: 12, minute: 31, second: 14, nanosecond: 645876123, timezone: '+01:00'}), {nanosecond: 2}) AS result
-- `tck.expressions.temporal.temporal9.scenario-5.examples-1-row-40`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 37..120; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..136; query:
+- `tck.expressions.temporal.temporal9.scenario-5.examples-1-row-40`: query execution failed: Parse error: invalid resolved function or parameter name: time.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..136; query:
 RETURN time.truncate('millisecond', time({hour: 12, minute: 31, second: 14, nanosecond: 645876123, timezone: '+01:00'}), {}) AS result
-- `tck.expressions.temporal.temporal9.scenario-5.examples-1-row-41`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 37..156; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..185; query:
+- `tck.expressions.temporal.temporal9.scenario-5.examples-1-row-41`: query execution failed: Parse error: invalid resolved function or parameter name: time.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..185; query:
 RETURN time.truncate('microsecond', datetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123, timezone: '+01:00'}), {nanosecond: 2}) AS result
-- `tck.expressions.temporal.temporal9.scenario-5.examples-1-row-42`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 37..156; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..172; query:
+- `tck.expressions.temporal.temporal9.scenario-5.examples-1-row-42`: query execution failed: Parse error: invalid resolved function or parameter name: time.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..172; query:
 RETURN time.truncate('microsecond', datetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123, timezone: '+01:00'}), {}) AS result
-- `tck.expressions.temporal.temporal9.scenario-5.examples-1-row-43`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 37..141; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..170; query:
+- `tck.expressions.temporal.temporal9.scenario-5.examples-1-row-43`: query execution failed: Parse error: invalid resolved function or parameter name: time.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..170; query:
 RETURN time.truncate('microsecond', localdatetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123}), {nanosecond: 2}) AS result
-- `tck.expressions.temporal.temporal9.scenario-5.examples-1-row-44`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 37..141; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..157; query:
+- `tck.expressions.temporal.temporal9.scenario-5.examples-1-row-44`: query execution failed: Parse error: invalid resolved function or parameter name: time.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..157; query:
 RETURN time.truncate('microsecond', localdatetime({year: 1984, month: 10, day: 11, hour: 12, minute: 31, second: 14, nanosecond: 645876123}), {}) AS result
-- `tck.expressions.temporal.temporal9.scenario-5.examples-1-row-45`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 37..105; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..134; query:
+- `tck.expressions.temporal.temporal9.scenario-5.examples-1-row-45`: query execution failed: Parse error: invalid resolved function or parameter name: time.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..134; query:
 RETURN time.truncate('microsecond', localtime({hour: 12, minute: 31, second: 14, nanosecond: 645876123}), {nanosecond: 2}) AS result
-- `tck.expressions.temporal.temporal9.scenario-5.examples-1-row-46`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 37..105; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..121; query:
+- `tck.expressions.temporal.temporal9.scenario-5.examples-1-row-46`: query execution failed: Parse error: invalid resolved function or parameter name: time.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..121; query:
 RETURN time.truncate('microsecond', localtime({hour: 12, minute: 31, second: 14, nanosecond: 645876123}), {}) AS result
-- `tck.expressions.temporal.temporal9.scenario-5.examples-1-row-47`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 37..120; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..149; query:
+- `tck.expressions.temporal.temporal9.scenario-5.examples-1-row-47`: query execution failed: Parse error: invalid resolved function or parameter name: time.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..149; query:
 RETURN time.truncate('microsecond', time({hour: 12, minute: 31, second: 14, nanosecond: 645876123, timezone: '+01:00'}), {nanosecond: 2}) AS result
-- `tck.expressions.temporal.temporal9.scenario-5.examples-1-row-48`: query execution failed: Parse error: temporal constructor components beyond year..second is not supported in the initial graph slice at byte 37..120; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..136; query:
+- `tck.expressions.temporal.temporal9.scenario-5.examples-1-row-48`: query execution failed: Parse error: invalid resolved function or parameter name: time.truncate; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..136; query:
 RETURN time.truncate('microsecond', time({hour: 12, minute: 31, second: 14, nanosecond: 645876123, timezone: '+01:00'}), {}) AS result
 - `tck.expressions.typeconversion.typeconversion1.scenario-5.examples-1-row-1`: expected an error but execution succeeded
 - `tck.expressions.typeconversion.typeconversion1.scenario-5.examples-1-row-2`: expected an error but execution succeeded
@@ -8469,6 +7176,6 @@ CREATE (b1)-[:FRIEND]->(b2),
 
 ## Longitudinal inventory
 
-- Runs: 289
-- Result records: 592409
+- Runs: 294
+- Result records: 602801
 - Unique test identities: 10441
