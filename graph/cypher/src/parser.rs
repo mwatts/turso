@@ -1129,18 +1129,26 @@ fn parse_f64(pair: &Pair<'_, Rule>) -> Result<f64, ParseError> {
 
 fn parse_string(pair: &Pair<'_, Rule>) -> Result<String, ParseError> {
     let text = pair.as_str();
-    let body = text
-        .strip_prefix('\'')
-        .and_then(|value| value.strip_suffix('\''))
-        .unwrap_or(text);
+    let (body, quote) = match text
+        .strip_prefix('"')
+        .and_then(|value| value.strip_suffix('"'))
+    {
+        Some(body) => (body, '"'),
+        None => (
+            text.strip_prefix('\'')
+                .and_then(|value| value.strip_suffix('\''))
+                .unwrap_or(text),
+            '\'',
+        ),
+    };
     let mut out = String::with_capacity(body.len());
     let mut chars = body.chars();
     while let Some(c) = chars.next() {
         match c {
-            // The grammar only admits quotes as `''` pairs; fold to one.
-            '\'' => {
+            // The grammar only admits bare quotes as doubled pairs; fold.
+            c if c == quote => {
                 chars.next();
-                out.push('\'');
+                out.push(quote);
             }
             '\\' => {
                 let escape = chars.next().ok_or_else(|| {

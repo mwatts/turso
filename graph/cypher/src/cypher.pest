@@ -43,7 +43,7 @@ unsigned_integer = @{ ASCII_DIGIT ~ (ASCII_DIGIT | "_")* }
 integer = @{ "-"? ~ ASCII_DIGIT ~ (ASCII_DIGIT | "_")* }
 real = @{ "-"? ~ ASCII_DIGIT+ ~ "." ~ ASCII_DIGIT+ ~ real_exponent? | "-"? ~ ASCII_DIGIT+ ~ real_exponent }
 real_exponent = @{ ^"e" ~ ("+" | "-")? ~ ASCII_DIGIT+ }
-string = @{ "'" ~ ("''" | "\\'" | !("'" | "\\") ~ ANY | "\\" ~ ANY)* ~ "'" }
+string = @{ ("'" ~ ("''" | "\\'" | !("'" | "\\") ~ ANY | "\\" ~ ANY)* ~ "'") | ("\"" ~ ("\"\"" | "\\\"" | !("\"" | "\\") ~ ANY | "\\" ~ ANY)* ~ "\"") }
 
 query = { SOI ~ clause+ ~ union_branch* ~ EOI }
 union_branch = { UNION ~ ALL? ~ clause+ }
