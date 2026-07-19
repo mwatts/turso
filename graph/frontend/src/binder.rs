@@ -431,6 +431,7 @@ impl<'a> Binder<'a> {
                     mutation_started = true;
                     let mut new_operations = Vec::new();
                     self.bind_create_path(&value.path, true, &mut new_operations)?;
+                    self.attach_merge_actions(value, &mut new_operations)?;
                     route(&mut operations, &mut stages, new_operations);
                 }
                 cypher::Clause::Set(value) => {
@@ -622,6 +623,7 @@ impl<'a> Binder<'a> {
                     cypher::Clause::Merge(value) => {
                         let mut operations = Vec::new();
                         self.bind_create_path(&value.path, true, &mut operations)?;
+                        self.attach_merge_actions(value, &mut operations)?;
                         items.extend(operations.into_iter().map(StageItem::Operation));
                     }
                     cypher::Clause::Set(value) => {
@@ -917,13 +919,59 @@ impl<'a> Binder<'a> {
                 properties,
             };
             operations.push(if merge {
-                ir::Mutation::MergeRelationship(ir::MergeRelationship { create })
+                ir::Mutation::MergeRelationship(ir::MergeRelationship {
+                    create,
+                    on_create: Vec::new(),
+                    on_match: Vec::new(),
+                })
             } else {
                 ir::Mutation::CreateRelationship(create)
             });
             from = next_from;
         }
         Ok(())
+    }
+
+    /// Binds ON CREATE / ON MATCH SET actions and attaches them to the
+    /// clause's deciding merge operation (the last one: for relationship
+    /// merges, the relationship's existence decides matched-vs-created).
+    fn attach_merge_actions(
+        &mut self,
+        clause: &cypher::MergeClause,
+        operations: &mut [ir::Mutation],
+    ) -> Result<(), BindError> {
+        if clause.on_create.is_empty() && clause.on_match.is_empty() {
+            return Ok(());
+        }
+        let on_create = clause
+            .on_create
+            .iter()
+            .map(|item| self.bind_set_item(item))
+            .collect::<Result<Vec<_>, _>>()?;
+        let on_match = clause
+            .on_match
+            .iter()
+            .map(|item| self.bind_set_item(item))
+            .collect::<Result<Vec<_>, _>>()?;
+        for operation in operations.iter_mut().rev() {
+            match operation {
+                ir::Mutation::MergeNode(merge) => {
+                    merge.on_create = on_create;
+                    merge.on_match = on_match;
+                    return Ok(());
+                }
+                ir::Mutation::MergeRelationship(merge) => {
+                    merge.on_create = on_create;
+                    merge.on_match = on_match;
+                    return Ok(());
+                }
+                _ => {}
+            }
+        }
+        Err(at_unsupported(
+            clause.path.span,
+            "ON CREATE/ON MATCH without a merge operation",
+        ))
     }
 
     fn bind_created_node(
@@ -968,7 +1016,11 @@ impl<'a> Binder<'a> {
             properties: self.bind_mutation_properties(CatalogEntity::Node, &node.properties)?,
         };
         operations.push(if merge {
-            ir::Mutation::MergeNode(ir::MergeNode { create })
+            ir::Mutation::MergeNode(ir::MergeNode {
+                create,
+                on_create: Vec::new(),
+                on_match: Vec::new(),
+            })
         } else {
             ir::Mutation::CreateNode(create)
         });
@@ -981,27 +1033,93 @@ impl<'a> Binder<'a> {
         operations: &mut Vec<ir::Mutation>,
     ) -> Result<(), BindError> {
         for item in &clause.items {
-            let (binding, kind, source) = self.resolve_mutation_target(&item.target)?;
-            let property = self.resolve_property(kind, &item.target.property)?;
-            let value = match &item.value.value {
-                // Map values only bind against struct/union property targets
-                // (openCypher forbids map-typed properties).
-                cypher::Expression::Map(entries) => self.bind_map_property(
-                    &property.value_type,
-                    property.nullability,
-                    entries,
-                    item.value.span,
-                )?,
-                _ => self.bind_expression(&item.value)?,
-            };
-            operations.push(ir::Mutation::SetProperty(ir::SetProperty {
-                entity: binding,
-                source,
-                property: property.id,
-                value,
-            }));
+            let operation = self.bind_set_item(item)?;
+            operations.push(operation);
         }
         Ok(())
+    }
+
+    fn bind_set_item(&mut self, item: &cypher::SetItem) -> Result<ir::Mutation, BindError> {
+        match item {
+            cypher::SetItem::Property { target, value } => {
+                let (binding, kind, source) = self.resolve_mutation_target(target)?;
+                let property = self.resolve_property(kind, &target.property)?;
+                let bound = match &value.value {
+                    // Map values only bind against struct/union property
+                    // targets (openCypher forbids map-typed properties).
+                    cypher::Expression::Map(entries) => self.bind_map_property(
+                        &property.value_type,
+                        property.nullability,
+                        entries,
+                        value.span,
+                    )?,
+                    _ => self.bind_expression(value)?,
+                };
+                Ok(ir::Mutation::SetProperty(ir::SetProperty {
+                    entity: binding,
+                    source,
+                    property: property.id,
+                    value: bound,
+                }))
+            }
+            cypher::SetItem::Labels { variable, labels } => {
+                let (binding, kind) = self.resolve_set_variable(variable)?;
+                if kind != CatalogEntity::Node {
+                    return Err(at_unsupported(variable.span, "labels on a non-node entity"));
+                }
+                let labels = labels
+                    .iter()
+                    .map(|label| {
+                        self.catalog.label(self.graph, &label.value).ok_or_else(|| {
+                            BindError::UnknownLabel {
+                                name: label.value.clone(),
+                                span_start: label.span.start,
+                                span_end: label.span.end,
+                            }
+                        })
+                    })
+                    .collect::<Result<Vec<_>, _>>()?;
+                Ok(ir::Mutation::SetLabels(ir::SetLabels {
+                    entity: binding,
+                    labels,
+                }))
+            }
+            cypher::SetItem::ReplaceEntity { variable, value }
+            | cypher::SetItem::MergeEntity { variable, value } => {
+                let clear = matches!(item, cypher::SetItem::ReplaceEntity { .. });
+                let (binding, kind) = self.resolve_set_variable(variable)?;
+                let source = self.entity_source(kind, variable.span)?;
+                let cypher::Expression::Map(entries) = &value.value else {
+                    return Err(at_unsupported(
+                        value.span,
+                        "SET of a whole entity from a non-map value",
+                    ));
+                };
+                let entries = self.bind_mutation_properties(kind, entries)?;
+                Ok(ir::Mutation::ReplaceProperties(ir::ReplaceProperties {
+                    entity: binding,
+                    source,
+                    entries,
+                    clear,
+                }))
+            }
+        }
+    }
+
+    fn resolve_set_variable(
+        &self,
+        variable: &cypher::Spanned<String>,
+    ) -> Result<(ir::BindingId, CatalogEntity), BindError> {
+        let binding = self.resolve_binding(&variable.value, variable.span)?;
+        let kind = self
+            .entities
+            .get(&binding.id())
+            .ok_or(BindError::InvalidPropertyTarget {
+                span_start: variable.span.start,
+                span_end: variable.span.end,
+            })?
+            .kind;
+        Ok((binding.id(), kind))
     }
 
     fn bind_remove(

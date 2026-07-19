@@ -260,7 +260,9 @@ fn execute(
                 .and_then(|_| session.query(verification, parameters)),
             // Expected-error scenarios carry no verification query; when the
             // mutation unexpectedly succeeds, classify sees empty rows.
-            None => session.mutate(&scenario.query, parameters).map(|_| Vec::new()),
+            None => session
+                .mutate(&scenario.query, parameters)
+                .map(|_| Vec::new()),
         },
         _ => unreachable!("manifest validation constrains actions"),
     }
@@ -401,5 +403,42 @@ mod tests {
             ),
             "P1DT6H"
         );
+    }
+
+    #[test]
+    fn entity_set_forms_and_merge_actions_update_rows() {
+        let fixture = empty_fixture("set-forms").expect("fixture should initialize");
+        let parameters = MutationParameters::new();
+        let mutate = |query: &str| {
+            fixture
+                .session
+                .mutate(query, &parameters)
+                .unwrap_or_else(|error| panic!("{query} failed: {error}"));
+        };
+        let row = |query: &str| {
+            let rows = fixture
+                .session
+                .query(query, &parameters)
+                .unwrap_or_else(|error| panic!("{query} failed: {error}"));
+            rows[0]
+                .iter()
+                .map(|value| value.to_string())
+                .collect::<Vec<_>>()
+                .join("|")
+        };
+
+        mutate("CREATE (:Person {name: 'Ada', age: 1})");
+        mutate("MATCH (n) SET n += {age: 2, city: 'London'}");
+        assert_eq!(
+            row("MATCH (n) RETURN n.name, n.age, n.city"),
+            "Ada|2|London"
+        );
+        // Replace clears every property the map omits.
+        mutate("MATCH (n) SET n = {name: 'Grace'}");
+        assert_eq!(row("MATCH (n) RETURN n.name, n.age, n.city"), "Grace||");
+        mutate("MERGE (m:Person {name: 'Grace'}) ON MATCH SET m.age = 42");
+        assert_eq!(row("MATCH (n {name: 'Grace'}) RETURN n.age"), "42");
+        mutate("MERGE (m:Person {name: 'Hopper'}) ON CREATE SET m.age = 7");
+        assert_eq!(row("MATCH (n {name: 'Hopper'}) RETURN n.age"), "7");
     }
 }

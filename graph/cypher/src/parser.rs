@@ -134,12 +134,36 @@ fn walk_create(pair: Pair<'_, Rule>) -> Result<CreateClause, ParseError> {
 
 fn walk_merge(pair: Pair<'_, Rule>) -> Result<MergeClause, ParseError> {
     let span = pair_span(&pair);
-    let path = pair
-        .into_inner()
-        .find(|item| item.as_rule() == Rule::path_pattern)
-        .ok_or_else(|| ParseError::at(span, "MERGE has no pattern"))?;
+    let mut path = None;
+    let mut on_create = Vec::new();
+    let mut on_match = Vec::new();
+    for item in pair.into_inner() {
+        match item.as_rule() {
+            Rule::path_pattern => path = Some(walk_path(item)?),
+            Rule::merge_action => {
+                let mut created = false;
+                let mut items = Vec::new();
+                for part in item.into_inner() {
+                    match part.as_rule() {
+                        Rule::CREATE => created = true,
+                        Rule::MATCH => created = false,
+                        Rule::set_item => items.push(walk_set_item(part)?),
+                        _ => {}
+                    }
+                }
+                if created {
+                    on_create.extend(items);
+                } else {
+                    on_match.extend(items);
+                }
+            }
+            _ => {}
+        }
+    }
     Ok(MergeClause {
-        path: walk_path(path)?,
+        path: path.ok_or_else(|| ParseError::at(span, "MERGE has no pattern"))?,
+        on_create,
+        on_match,
     })
 }
 
@@ -162,22 +186,62 @@ fn walk_set(pair: Pair<'_, Rule>) -> Result<SetClause, ParseError> {
     let items = pair
         .into_inner()
         .filter(|item| item.as_rule() == Rule::set_item)
-        .map(|item| {
-            let span = pair_span(&item);
-            let mut inner = item.into_inner();
+        .map(walk_set_item)
+        .collect::<Result<Vec<_>, _>>()?;
+    Ok(SetClause { items })
+}
+
+fn walk_set_item(pair: Pair<'_, Rule>) -> Result<SetItem, ParseError> {
+    let span = pair_span(&pair);
+    let item = pair
+        .into_inner()
+        .next()
+        .ok_or_else(|| ParseError::at(span, "SET item has no form"))?;
+    let rule = item.as_rule();
+    let span = pair_span(&item);
+    let mut inner = item.into_inner();
+    match rule {
+        Rule::set_property_item => {
             let target = inner
                 .next()
                 .ok_or_else(|| ParseError::at(span, "SET item has no target"))?;
             let value = inner
                 .next()
                 .ok_or_else(|| ParseError::at(span, "SET item has no value"))?;
-            Ok(SetItem {
+            Ok(SetItem::Property {
                 target: walk_property_target(target)?,
                 value: walk_expression(value)?,
             })
-        })
-        .collect::<Result<Vec<_>, _>>()?;
-    Ok(SetClause { items })
+        }
+        Rule::set_merge_item | Rule::set_replace_item => {
+            let variable = inner
+                .next()
+                .ok_or_else(|| ParseError::at(span, "SET item has no variable"))?;
+            let value = inner
+                .next()
+                .ok_or_else(|| ParseError::at(span, "SET item has no value"))?;
+            let variable = Spanned::new(identifier_text(variable.as_str()), pair_span(&variable));
+            let value = walk_expression(value)?;
+            Ok(if rule == Rule::set_merge_item {
+                SetItem::MergeEntity { variable, value }
+            } else {
+                SetItem::ReplaceEntity { variable, value }
+            })
+        }
+        Rule::set_label_item => {
+            let variable = inner
+                .next()
+                .ok_or_else(|| ParseError::at(span, "SET item has no variable"))?;
+            let variable = Spanned::new(identifier_text(variable.as_str()), pair_span(&variable));
+            let labels = inner
+                .flat_map(Pair::into_inner)
+                .filter(|label| label.as_rule() == Rule::identifier)
+                .map(|label| walk_identifier(label))
+                .collect();
+            Ok(SetItem::Labels { variable, labels })
+        }
+        _ => Err(ParseError::at(span, "unsupported SET item form")),
+    }
 }
 
 fn walk_remove(pair: Pair<'_, Rule>) -> Result<RemoveClause, ParseError> {
@@ -1378,10 +1442,13 @@ mod tests {
             panic!("expected SET")
         };
         assert_eq!(set.items.len(), 2);
-        assert_eq!(set.items[0].target.variable.value, "n");
-        assert_eq!(set.items[0].target.property.value, "name");
+        let SetItem::Property { target, .. } = &set.items[0] else {
+            panic!("expected a property SET item")
+        };
+        assert_eq!(target.variable.value, "n");
+        assert_eq!(target.property.value, "name");
         assert_eq!(
-            &source[set.items[0].target.property.span.start..set.items[0].target.property.span.end],
+            &source[target.property.span.start..target.property.span.end],
             "name"
         );
         let Clause::Remove(remove) = &query.clauses[2].value else {
@@ -1396,10 +1463,30 @@ mod tests {
     }
 
     #[test]
-    fn reserves_mutation_keywords_and_rejects_unsupported_set_forms() {
+    fn reserves_mutation_keywords_and_parses_entity_set_forms() {
         assert!(parse("MATCH (set) RETURN set").is_err());
-        assert!(parse("MATCH (n) SET n = {name: 'Ada'}").is_err());
-        assert!(parse("MATCH (n) SET n += {name: 'Ada'}").is_err());
+        let replace = parse("MATCH (n) SET n = {name: 'Ada'}").expect("replace form");
+        let Clause::Set(set) = &replace.clauses[1].value else {
+            panic!("expected SET")
+        };
+        assert!(matches!(set.items[0], SetItem::ReplaceEntity { .. }));
+        let merge = parse("MATCH (n) SET n += {name: 'Ada'}, n:Person").expect("merge form");
+        let Clause::Set(set) = &merge.clauses[1].value else {
+            panic!("expected SET")
+        };
+        assert!(matches!(set.items[0], SetItem::MergeEntity { .. }));
+        let SetItem::Labels { labels, .. } = &set.items[1] else {
+            panic!("expected a label SET item")
+        };
+        assert_eq!(labels[0].value, "Person");
+        let actions =
+            parse("MERGE (n:Person {name: 'Ada'}) ON CREATE SET n.age = 1 ON MATCH SET n.age = 2")
+                .expect("merge actions");
+        let Clause::Merge(merge) = &actions.clauses[0].value else {
+            panic!("expected MERGE")
+        };
+        assert_eq!(merge.on_create.len(), 1);
+        assert_eq!(merge.on_match.len(), 1);
     }
 
     #[test]

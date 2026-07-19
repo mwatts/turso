@@ -75,6 +75,8 @@ pub struct CreateClause {
 #[derive(Clone, Debug, PartialEq)]
 pub struct MergeClause {
     pub path: PathPattern,
+    pub on_create: Vec<SetItem>,
+    pub on_match: Vec<SetItem>,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -84,9 +86,27 @@ pub struct PropertyTarget {
 }
 
 #[derive(Clone, Debug, PartialEq)]
-pub struct SetItem {
-    pub target: PropertyTarget,
-    pub value: Spanned<Expression>,
+pub enum SetItem {
+    /// `SET n.prop = value`
+    Property {
+        target: PropertyTarget,
+        value: Spanned<Expression>,
+    },
+    /// `SET n = value` — replaces every property.
+    ReplaceEntity {
+        variable: Spanned<String>,
+        value: Spanned<Expression>,
+    },
+    /// `SET n += value` — merges properties, keeping the rest.
+    MergeEntity {
+        variable: Spanned<String>,
+        value: Spanned<Expression>,
+    },
+    /// `SET n:Label1:Label2`
+    Labels {
+        variable: Spanned<String>,
+        labels: Vec<Spanned<String>>,
+    },
 }
 
 #[derive(Clone, Debug, PartialEq)]

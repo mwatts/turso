@@ -667,7 +667,7 @@ fn execute_operation(
 ) -> Result<(), MutationError> {
     match operation {
         ir::Mutation::CreateNode(create) => {
-            let identity = insert_node(
+            let (identity, _) = insert_node(
                 connection,
                 catalog,
                 input,
@@ -685,7 +685,7 @@ fn execute_operation(
             );
         }
         ir::Mutation::MergeNode(merge) => {
-            let identity = insert_node(
+            let (identity, created) = insert_node(
                 connection,
                 catalog,
                 input,
@@ -707,9 +707,26 @@ fn execute_operation(
                 merge.create.binding.id(),
                 (merge.create.source, MutationEntityKind::Node),
             );
+            let actions = if created {
+                &merge.on_create
+            } else {
+                &merge.on_match
+            };
+            for action in actions {
+                execute_operation(
+                    connection,
+                    catalog,
+                    graph,
+                    input,
+                    action,
+                    parameters,
+                    values,
+                    entity_layouts,
+                )?;
+            }
         }
         ir::Mutation::CreateRelationship(create) => {
-            let identity = insert_relationship(
+            let (identity, _) = insert_relationship(
                 connection,
                 catalog,
                 input,
@@ -733,7 +750,7 @@ fn execute_operation(
             );
         }
         ir::Mutation::MergeRelationship(merge) => {
-            let identity = insert_relationship(
+            let (identity, created) = insert_relationship(
                 connection,
                 catalog,
                 input,
@@ -755,6 +772,23 @@ fn execute_operation(
                 merge.create.binding.id(),
                 (merge.create.source, MutationEntityKind::Relationship),
             );
+            let actions = if created {
+                &merge.on_create
+            } else {
+                &merge.on_match
+            };
+            for action in actions {
+                execute_operation(
+                    connection,
+                    catalog,
+                    graph,
+                    input,
+                    action,
+                    parameters,
+                    values,
+                    entity_layouts,
+                )?;
+            }
         }
         ir::Mutation::SetProperty(set) => {
             let layout = entity_table(catalog, set.source)?;
@@ -784,6 +818,75 @@ fn execute_operation(
                 parameters,
                 &internal,
             )?;
+        }
+        ir::Mutation::SetLabels(set) => {
+            let identity = values
+                .get(&set.entity)
+                .ok_or(MutationError::MissingBinding(set.entity))?
+                .clone();
+            record_node_labels(connection, catalog, &set.labels, &identity, parameters)?;
+        }
+        ir::Mutation::ReplaceProperties(replace) => {
+            let layout = entity_table(catalog, replace.source)?;
+            let references = reference_parameters(values);
+            let identity = values
+                .get(&replace.entity)
+                .ok_or(MutationError::MissingBinding(replace.entity))?;
+            let mut internal = references.values;
+            internal.insert(identity_parameter(replace.entity), identity.clone());
+            let mut assignments = Vec::new();
+            let mut assigned_columns = Vec::new();
+            for entry in &replace.entries {
+                let column = property_column(catalog, replace.source, entry.property)?;
+                let expression = lower_mutation_expression(
+                    &entry.value,
+                    input,
+                    catalog,
+                    &references.sql,
+                    entity_layouts,
+                )?;
+                assignments.push(format!("{} = {expression}", quoted_identifier(&column)));
+                assigned_columns.push(column);
+            }
+            if replace.clear {
+                // `SET n = map` wipes every payload column the map omits.
+                let mut structural = vec![layout.identity.clone()];
+                if let Some(relationship) = catalog.relationship_layout(replace.source) {
+                    structural.push(relationship.start_column);
+                    structural.push(relationship.end_column);
+                }
+                let escaped = layout.table.replace('\'', "''");
+                let columns = run_rows(
+                    connection,
+                    &format!("SELECT name FROM pragma_table_info('{escaped}')"),
+                    parameters,
+                    &HashMap::new(),
+                )?;
+                for row in columns {
+                    let Some(Value::Text(name)) = row.first() else {
+                        continue;
+                    };
+                    let name = name.to_string();
+                    if structural.contains(&name) || assigned_columns.contains(&name) {
+                        continue;
+                    }
+                    assignments.push(format!("{} = NULL", quoted_identifier(&name)));
+                }
+            }
+            if !assignments.is_empty() {
+                run_ignore(
+                    connection,
+                    &format!(
+                        "UPDATE {} SET {} WHERE {} = ${}",
+                        quoted_identifier(&layout.table),
+                        assignments.join(", "),
+                        quoted_identifier(&layout.identity),
+                        identity_parameter(replace.entity),
+                    ),
+                    parameters,
+                    &internal,
+                )?;
+            }
         }
         ir::Mutation::RemoveProperty(remove) => {
             let layout = entity_table(catalog, remove.source)?;
@@ -890,7 +993,7 @@ fn insert_node(
     values: &HashMap<ir::BindingId, Value>,
     entity_layouts: &HashMap<ir::BindingId, (ir::SourceTableId, MutationEntityKind)>,
     merge: bool,
-) -> Result<Value, MutationError> {
+) -> Result<(Value, bool), MutationError> {
     let layout = catalog
         .node_layout(create.source)
         .ok_or(LowerError::MissingSource(create.source))?;
@@ -921,7 +1024,7 @@ fn insert_relationship(
     values: &HashMap<ir::BindingId, Value>,
     entity_layouts: &HashMap<ir::BindingId, (ir::SourceTableId, MutationEntityKind)>,
     merge: bool,
-) -> Result<Value, MutationError> {
+) -> Result<(Value, bool), MutationError> {
     let layout = catalog
         .relationship_layout(create.source)
         .ok_or(LowerError::MissingSource(create.source))?;
@@ -966,7 +1069,7 @@ fn insert_entity(
     merge: bool,
     entity: &'static str,
     fixed: &[(String, Value)],
-) -> Result<Value, MutationError> {
+) -> Result<(Value, bool), MutationError> {
     let references = reference_parameters(values);
     let mut columns = Vec::new();
     let mut expressions = Vec::new();
@@ -1008,7 +1111,7 @@ fn insert_entity(
             &internal,
         )?;
         if let Some(value) = existing.first().and_then(|row| row.first()).cloned() {
-            return Ok(value);
+            return Ok((value, false));
         }
     }
     let sql = if columns.is_empty() {
@@ -1034,6 +1137,7 @@ fn insert_entity(
     rows.into_iter()
         .next()
         .and_then(|mut row| row.pop())
+        .map(|identity| (identity, true))
         .ok_or(MutationError::MissingCreatedIdentity { entity })
 }
 
