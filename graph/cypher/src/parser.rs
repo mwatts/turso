@@ -13,8 +13,8 @@ use pest_derive::Parser;
 use thiserror::Error;
 
 use crate::{
-    BinaryOperator, Clause, CreateClause, DeleteClause, Direction, Expression, Literal,
-    MatchClause, MergeClause, NodePattern, PathPattern, ProjectionClause, ProjectionItem,
+    BinaryOperator, Clause, CreateClause, DeleteClause, Direction, Expression, ForeachClause,
+    Literal, MatchClause, MergeClause, NodePattern, PathPattern, ProjectionClause, ProjectionItem,
     PropertyTarget, QuantifierKind, Query, RelationshipPattern, RelationshipRange, RemoveClause,
     SetClause, SetItem, SortItem, Span, Spanned, UnaryOperator, UnionBranch, UnwindClause,
 };
@@ -110,6 +110,7 @@ fn walk_clause(pair: Pair<'_, Rule>) -> Result<Spanned<Clause>, ParseError> {
         Rule::unwind_clause => Clause::Unwind(walk_unwind(pair)?),
         Rule::with_clause => Clause::With(walk_projection_clause(pair)?),
         Rule::return_clause => Clause::Return(walk_projection_clause(pair)?),
+        Rule::foreach_clause => Clause::Foreach(walk_foreach(pair)?),
         rule => return Err(unexpected(&pair, "clause", rule)),
     };
     Ok(Spanned::new(clause, span))
@@ -212,6 +213,40 @@ fn walk_unwind(pair: Pair<'_, Rule>) -> Result<UnwindClause, ParseError> {
     Ok(UnwindClause {
         expression,
         alias: walk_identifier(alias),
+    })
+}
+
+fn walk_foreach(pair: Pair<'_, Rule>) -> Result<ForeachClause, ParseError> {
+    let span = pair_span(&pair);
+    let mut variable = None;
+    let mut list = None;
+    let mut body = Vec::new();
+    for child in pair.into_inner() {
+        match child.as_rule() {
+            Rule::identifier => variable = Some(walk_identifier(child)),
+            Rule::expression => list = Some(walk_expression(child)?),
+            Rule::foreach_body => {
+                for inner in child.into_inner() {
+                    let inner_span = pair_span(&inner);
+                    let clause = match inner.as_rule() {
+                        Rule::create_clause => Clause::Create(walk_create(inner)?),
+                        Rule::merge_clause => Clause::Merge(walk_merge(inner)?),
+                        Rule::set_clause => Clause::Set(walk_set(inner)?),
+                        Rule::remove_clause => Clause::Remove(walk_remove(inner)?),
+                        Rule::delete_clause => Clause::Delete(walk_delete(inner)?),
+                        Rule::foreach_clause => Clause::Foreach(walk_foreach(inner)?),
+                        rule => return Err(unexpected(&inner, "FOREACH body clause", rule)),
+                    };
+                    body.push(Spanned::new(clause, inner_span));
+                }
+            }
+            _ => {}
+        }
+    }
+    Ok(ForeachClause {
+        variable: variable.ok_or_else(|| ParseError::at(span, "FOREACH has no variable"))?,
+        list: list.ok_or_else(|| ParseError::at(span, "FOREACH has no list"))?,
+        body,
     })
 }
 

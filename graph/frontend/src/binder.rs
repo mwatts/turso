@@ -73,6 +73,13 @@ pub enum StageItem {
         output: ir::BindingId,
         list: ir::TypedExpression,
     },
+    /// FOREACH: run the nested items once per list element without changing
+    /// the surrounding row set.
+    Foreach {
+        output: ir::BindingId,
+        list: ir::TypedExpression,
+        items: Vec<StageItem>,
+    },
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -282,6 +289,12 @@ impl<'a> Binder<'a> {
                 cypher::Clause::Unwind(clause) => self.bind_unwind(clause)?,
                 cypher::Clause::With(clause) => self.bind_projection(clause, false)?,
                 cypher::Clause::Return(clause) => self.bind_projection(clause, true)?,
+                cypher::Clause::Foreach(_) => {
+                    return Err(at_unsupported(
+                        clause.span,
+                        "mutation clauses in read queries",
+                    ));
+                }
             }
         }
         Ok(())
@@ -362,6 +375,18 @@ impl<'a> Binder<'a> {
                 }
                 cypher::Clause::With(value) if mutation_started => {
                     stages.push(self.bind_mutation_with(value, clause.span)?);
+                }
+                cypher::Clause::Foreach(value) => {
+                    mutation_started = true;
+                    if stages.is_empty() {
+                        stages.push(self.passthrough_stage());
+                    }
+                    let item = self.bind_foreach(value)?;
+                    stages
+                        .last_mut()
+                        .expect("stage pushed above")
+                        .items
+                        .push(item);
                 }
                 cypher::Clause::Return(value)
                     if mutation_started
@@ -457,7 +482,7 @@ impl<'a> Binder<'a> {
                 }
             }
         }
-        if operations.is_empty() {
+        if operations.is_empty() && stages.iter().all(|stage| stage.items.is_empty()) {
             return Err(BindError::EmptyMutation);
         }
         let entity_kinds = self
@@ -476,6 +501,72 @@ impl<'a> Binder<'a> {
             returns_skip,
             returns_limit,
             entity_kinds,
+        })
+    }
+
+    fn bind_foreach(&mut self, clause: &cypher::ForeachClause) -> Result<StageItem, BindError> {
+        let list = self.bind_expression(&clause.list)?;
+        let element_type = list_element_type(&list.value_type, clause.list.span)?;
+        let output = ir::Binding::new(
+            self.next_id()?,
+            clause.variable.value.clone(),
+            element_type,
+            ir::Nullability::Nullable,
+        )?;
+        let scope_before = self.scope.len();
+        self.scope.push(output.clone());
+        let mut items = Vec::new();
+        let bound = (|| {
+            for inner in &clause.body {
+                match &inner.value {
+                    cypher::Clause::Create(value) => {
+                        let mut operations = Vec::new();
+                        for path in &value.paths {
+                            self.bind_create_path(path, false, &mut operations)?;
+                        }
+                        items.extend(operations.into_iter().map(StageItem::Operation));
+                    }
+                    cypher::Clause::Merge(value) => {
+                        let mut operations = Vec::new();
+                        self.bind_create_path(&value.path, true, &mut operations)?;
+                        items.extend(operations.into_iter().map(StageItem::Operation));
+                    }
+                    cypher::Clause::Set(value) => {
+                        let mut operations = Vec::new();
+                        self.bind_set(value, &mut operations)?;
+                        items.extend(operations.into_iter().map(StageItem::Operation));
+                    }
+                    cypher::Clause::Remove(value) => {
+                        let mut operations = Vec::new();
+                        self.bind_remove(value, &mut operations)?;
+                        items.extend(operations.into_iter().map(StageItem::Operation));
+                    }
+                    cypher::Clause::Delete(value) => {
+                        let mut operations = Vec::new();
+                        self.bind_delete(value, &mut operations)?;
+                        items.extend(operations.into_iter().map(StageItem::Operation));
+                    }
+                    cypher::Clause::Foreach(value) => {
+                        let item = self.bind_foreach(value)?;
+                        items.push(item);
+                    }
+                    _ => {
+                        return Err(at_unsupported(
+                            inner.span,
+                            "non-mutation clauses inside FOREACH",
+                        ));
+                    }
+                }
+            }
+            Ok(())
+        })();
+        // The loop variable and any body-created bindings go out of scope.
+        self.scope.truncate(scope_before);
+        bound?;
+        Ok(StageItem::Foreach {
+            output: output.id(),
+            list,
+            items,
         })
     }
 

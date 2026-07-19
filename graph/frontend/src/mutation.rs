@@ -193,6 +193,21 @@ fn execute_bound(
                         operations_executed += 1;
                     }
                 }
+                StageItem::Foreach { .. } => {
+                    for values in &mut rows {
+                        run_stage_items_once(
+                            connection,
+                            catalog,
+                            request.graph,
+                            input,
+                            std::slice::from_ref(item),
+                            parameters,
+                            values,
+                            &mut entity_layouts,
+                            &mut operations_executed,
+                        )?;
+                    }
+                }
                 StageItem::Unwind { output, list } => {
                     let mut expanded = Vec::new();
                     for values in &rows {
@@ -261,6 +276,86 @@ fn execute_bound(
         operations_executed,
         rows: returned_rows,
     })
+}
+
+/// Runs stage items against one row's values. FOREACH evaluates its list,
+/// then runs its nested items once per element on a scratch copy of the row,
+/// leaving the surrounding row set unchanged.
+#[allow(clippy::too_many_arguments)]
+fn run_stage_items_once(
+    connection: &Arc<Connection>,
+    catalog: &dyn GraphCompilationCatalog,
+    graph: ir::GraphId,
+    input: &LoweredMutationInput,
+    items: &[StageItem],
+    parameters: &MutationParameters,
+    values: &mut HashMap<ir::BindingId, Value>,
+    entity_layouts: &mut HashMap<ir::BindingId, (ir::SourceTableId, MutationEntityKind)>,
+    operations_executed: &mut u64,
+) -> Result<(), MutationError> {
+    for item in items {
+        match item {
+            StageItem::Operation(operation) => {
+                execute_operation(
+                    connection,
+                    catalog,
+                    graph,
+                    input,
+                    operation,
+                    parameters,
+                    values,
+                    entity_layouts,
+                )?;
+                *operations_executed += 1;
+            }
+            StageItem::Foreach {
+                output,
+                list,
+                items,
+            } => {
+                let references = reference_parameters(values);
+                let sql = lower_mutation_expression(
+                    list,
+                    input,
+                    catalog,
+                    &references.sql,
+                    entity_layouts,
+                )?;
+                let elements = run_rows(
+                    connection,
+                    &format!("SELECT value FROM json_each(({sql}))"),
+                    parameters,
+                    &references.values,
+                )?;
+                for mut element in elements {
+                    let Some(element) = element.pop() else {
+                        continue;
+                    };
+                    let mut scratch = values.clone();
+                    scratch.insert(*output, element);
+                    run_stage_items_once(
+                        connection,
+                        catalog,
+                        graph,
+                        input,
+                        items,
+                        parameters,
+                        &mut scratch,
+                        entity_layouts,
+                        operations_executed,
+                    )?;
+                }
+            }
+            StageItem::Unwind { .. } => {
+                return Err(MutationError::Database(
+                    turso_core::LimboError::InternalError(
+                        "UNWIND is stage-level, not FOREACH-level".to_owned(),
+                    ),
+                ));
+            }
+        }
+    }
+    Ok(())
 }
 
 /// Evaluates a stage's projections over the row set: plain expressions map

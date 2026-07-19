@@ -49,6 +49,14 @@ pub enum Clause {
     Unwind(UnwindClause),
     With(ProjectionClause),
     Return(ProjectionClause),
+    Foreach(ForeachClause),
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct ForeachClause {
+    pub variable: Spanned<String>,
+    pub list: Spanned<Expression>,
+    pub body: Vec<Spanned<Clause>>,
 }
 
 #[derive(Clone, Debug, PartialEq)]
