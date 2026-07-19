@@ -1612,6 +1612,20 @@ impl<'a> Binder<'a> {
             }
             return Ok(Some((function, None, *distinct)));
         }
+        // openCypher: non-deterministic functions may not appear inside
+        // aggregations (TCK Return6 [15]).
+        if arguments.iter().any(|argument| {
+            matches!(
+                &argument.value,
+                cypher::Expression::Function { name, .. }
+                    if name.value.eq_ignore_ascii_case("rand")
+            )
+        }) {
+            return Err(at_unsupported(
+                expression.span,
+                "non-deterministic expressions in aggregations",
+            ));
+        }
         let [argument] = arguments.as_slice() else {
             // Multi-argument min/max are SQL's scalar forms, not aggregates.
             if matches!(
@@ -2175,7 +2189,7 @@ impl<'a> Binder<'a> {
                     .collect::<Result<Vec<_>, _>>()?;
                 // labels(n) / type(r) resolve statically from the labels and
                 // relationship types declared where the entity was bound.
-                if let ("labels" | "type", [argument]) = (
+                if let ("labels" | "type" | "label", [argument]) = (
                     name.value.to_ascii_lowercase().as_str(),
                     arguments.as_slice(),
                 ) {
@@ -2200,17 +2214,23 @@ impl<'a> Binder<'a> {
                                     nullability: ir::Nullability::NonNull,
                                 });
                             }
-                            if lowered_name == "type" && entity.kind == CatalogEntity::Relationship
-                            {
-                                if let [single] = entity.names.as_slice() {
-                                    return Ok(ir::TypedExpression {
-                                        expression: ir::Expression::Literal(ir::Literal::Text(
-                                            single.clone(),
-                                        )),
-                                        value_type: ir::ValueType::Text,
-                                        nullability: argument.nullability,
-                                    });
+                            let single_name = match lowered_name.as_str() {
+                                "type" if entity.kind == CatalogEntity::Relationship => {
+                                    entity.names.first()
                                 }
+                                "label" if entity.kind == CatalogEntity::Node => {
+                                    entity.names.first()
+                                }
+                                _ => None,
+                            };
+                            if let (Some(single), 1) = (single_name, entity.names.len()) {
+                                return Ok(ir::TypedExpression {
+                                    expression: ir::Expression::Literal(ir::Literal::Text(
+                                        single.clone(),
+                                    )),
+                                    value_type: ir::ValueType::Text,
+                                    nullability: argument.nullability,
+                                });
                             }
                         }
                     }
@@ -2601,6 +2621,28 @@ fn rewrite_builtin_call(
                 "__cypher_keys",
                 arguments,
                 ir::ValueType::List(Box::new(ir::ValueType::Text)),
+            ),
+            ("rand", []) => sql_function("__cypher_rand", arguments, ir::ValueType::Real),
+            ("isempty", [_]) => sql_function("__cypher_isempty", arguments, ir::ValueType::Boolean),
+            ("tofloatlist", [_]) => sql_function(
+                "__cypher_list_real",
+                arguments,
+                ir::ValueType::List(Box::new(ir::ValueType::Real)),
+            ),
+            ("tointegerlist", [_]) => sql_function(
+                "__cypher_list_integer",
+                arguments,
+                ir::ValueType::List(Box::new(ir::ValueType::Integer)),
+            ),
+            ("tostringlist", [_]) => sql_function(
+                "__cypher_list_text",
+                arguments,
+                ir::ValueType::List(Box::new(ir::ValueType::Text)),
+            ),
+            ("tobooleanlist", [_]) => sql_function(
+                "__cypher_list_boolean",
+                arguments,
+                ir::ValueType::List(Box::new(ir::ValueType::Boolean)),
             ),
             ("head", [base]) => index(base, 0),
             ("last", [base]) => index(base, -1),

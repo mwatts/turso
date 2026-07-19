@@ -1079,6 +1079,44 @@ fn lower_expression_with_references(
                         "(SELECT json_group_array(k.key) FROM json_each(({value})) AS k)"
                     ));
                 }
+                ("__cypher_rand", []) => {
+                    return Ok("(0.5 + CAST(random() AS REAL) / 18446744073709551616.0)".to_owned());
+                }
+                ("__cypher_isempty", [value]) => {
+                    return Ok(format!(
+                        "(CASE WHEN ({value}) IS NULL THEN NULL \
+                         WHEN json_valid(({value})) AND json_type(({value})) = 'array' \
+                         THEN json_array_length(({value})) = 0 \
+                         ELSE length(({value})) = 0 END)"
+                    ));
+                }
+                ("__cypher_list_real", [value]) => {
+                    return Ok(format!(
+                        "(SELECT json_group_array(CAST(value AS REAL)) \
+                         FROM json_each(({value})))"
+                    ));
+                }
+                ("__cypher_list_integer", [value]) => {
+                    return Ok(format!(
+                        "(SELECT json_group_array(CAST(value AS INTEGER)) \
+                         FROM json_each(({value})))"
+                    ));
+                }
+                ("__cypher_list_text", [value]) => {
+                    return Ok(format!(
+                        "(SELECT json_group_array(CAST(value AS TEXT)) \
+                         FROM json_each(({value})))"
+                    ));
+                }
+                ("__cypher_list_boolean", [value]) => {
+                    return Ok(format!(
+                        "(SELECT json_group_array(CASE \
+                         WHEN lower(CAST(value AS TEXT)) = 'true' THEN 1 \
+                         WHEN lower(CAST(value AS TEXT)) = 'false' THEN 0 \
+                         WHEN typeof(value) IN ('integer', 'real') THEN value != 0 \
+                         ELSE NULL END) FROM json_each(({value})))"
+                    ));
+                }
                 _ => {}
             }
             Ok(format!("{}({})", function.as_str(), arguments.join(", ")))
