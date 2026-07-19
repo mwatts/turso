@@ -10,7 +10,13 @@ Status: all decisions are made and implemented on this branch
   PathValue IR, nodes()/relationships()/length(); variable-length paths
   await traversal-emitted path data).
 - Temporal: **core time_* functions** (chosen, implemented — constructors,
-  accessors, ISO rendering; durations remain).
+  accessors, ISO rendering).
+- Durations: **graph-owned custom type over the static-extension mechanism**
+  (chosen, implemented — `graph/duration` registers `duration_*` scalar
+  functions backed by Rust/chrono arithmetic; fixtures declare
+  `CREATE TYPE duration BASE TEXT` with experimental custom types enabled;
+  the binder types values with a `cypher_duration` marker and rewrites
+  constructors, accessors, `duration.between`, and datetime ± duration).
 - CALL: **minimal registry** (chosen, implemented — db.labels,
   db.relationshipTypes).
 

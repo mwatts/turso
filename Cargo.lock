@@ -7359,6 +7359,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "turso_graph_duration"
+version = "0.7.0"
+dependencies = [
+ "chrono",
+ "turso_core",
+ "turso_ext",
+]
+
+[[package]]
 name = "turso_graph_frontend"
 version = "0.7.0"
 dependencies = [
@@ -7412,6 +7421,7 @@ dependencies = [
  "toml",
  "turso_core",
  "turso_graph_cypher",
+ "turso_graph_duration",
  "turso_graph_frontend",
  "turso_graph_ir",
 ]

@@ -5,7 +5,9 @@ use std::{
 };
 
 use thiserror::Error;
-use turso_core::{Connection, Database, MemoryIO, Numeric, SqliteDialect, Value};
+use turso_core::{
+    Connection, Database, DatabaseOpts, MemoryIO, Numeric, OpenFlags, SqliteDialect, Value,
+};
 use turso_graph_frontend::{
     register_graph, GraphCompilationCatalog, GraphRegistration, GraphSession, MutationParameters,
     NodeSourceRegistration, ParameterTypes, RelationshipSourceRegistration, SnapshotStore,
@@ -128,17 +130,21 @@ fn build_fixture(
     seed_sql: &str,
     parameter_types: ParameterTypes,
 ) -> Result<GraphFixture, RunnerError> {
-    let database = Database::open_file(
+    let database = Database::open_file_with_flags(
         Arc::new(MemoryIO::new()),
         &format!(":memory:{name}"),
+        OpenFlags::default(),
+        DatabaseOpts::new().with_custom_types(true),
+        None,
         Arc::new(SqliteDialect),
     )
     .map_err(|error| RunnerError::Fixture(error.to_string()))?;
     let connection = database
         .connect()
         .map_err(|error| RunnerError::Fixture(error.to_string()))?;
+    turso_graph_duration::install_duration_extension(&connection);
     connection
-        .execute("CREATE TABLE people(id INTEGER PRIMARY KEY, name TEXT, age INTEGER); CREATE TABLE relationships(id INTEGER PRIMARY KEY, src INTEGER, dst INTEGER);")
+        .execute("CREATE TYPE duration BASE TEXT; CREATE TABLE people(id INTEGER PRIMARY KEY, name TEXT, age INTEGER); CREATE TABLE relationships(id INTEGER PRIMARY KEY, src INTEGER, dst INTEGER);")
         .map_err(|error| RunnerError::Fixture(error.to_string()))?;
     if !seed_sql.is_empty() {
         connection
@@ -364,6 +370,37 @@ mod tests {
         assert!(
             connection.upgrade().is_none(),
             "dropping a fixture must release its connection"
+        );
+    }
+
+    #[test]
+    fn duration_values_construct_access_and_shift_datetimes() {
+        let fixture = empty_fixture("duration-smoke").expect("fixture should initialize");
+        let text = |query: &str| {
+            let rows = fixture
+                .session
+                .query(query, &MutationParameters::new())
+                .unwrap_or_else(|error| panic!("{query} failed: {error}"));
+            rows[0][0].to_string()
+        };
+
+        assert_eq!(
+            text("RETURN duration('P1Y2M3DT4H5M6S') AS d"),
+            "P1Y2M3DT4H5M6S"
+        );
+        assert_eq!(text("RETURN duration({years: 1, days: 2}) AS d"), "P1Y2D");
+        // Cypher duration components do not cross fields: days stay days.
+        assert_eq!(text("RETURN duration('P1DT1H').hours AS h"), "1");
+        assert_eq!(
+            text("RETURN datetime('2024-01-31T00:00:00Z') + duration({months: 1}) AS d"),
+            "2024-02-29T00:00:00Z"
+        );
+        assert_eq!(
+            text(
+                "RETURN duration.between(datetime('2024-01-01T00:00:00Z'), \
+                 datetime('2024-01-02T06:00:00Z')) AS d"
+            ),
+            "P1DT6H"
         );
     }
 }

@@ -22,6 +22,7 @@ members = [
     "graph/frontend",
     "graph/ir",
     "graph/runtime",
+    "graph/duration",
     "graph/testkit",
     "macros",
     "testing/simulator",
@@ -76,6 +77,7 @@ default-members = [
     "graph/frontend",
     "graph/ir",
     "graph/runtime",
+    "graph/duration",
     "graph/testkit",
     "macros",
     "testing/simulator",
@@ -128,6 +130,7 @@ turso_graph_frontend = { path = "graph/frontend", version = "0.7.0" }
 turso_graph_ir = { path = "graph/ir", version = "0.7.0" }
 turso_graph_runtime = { path = "graph/runtime", version = "0.7.0" }
 turso_graph_testkit = { path = "graph/testkit", version = "0.7.0" }
+turso_graph_duration = { path = "graph/duration", version = "0.7.0" }
 sql_generation = { path = "sql_generation" }
 turso-dbhash = { path = "tools/dbhash" }
 strum = { version = "0.26", features = ["derive"] }

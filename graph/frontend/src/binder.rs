@@ -2090,6 +2090,26 @@ impl<'a> Binder<'a> {
                         }
                     }
                 }
+                // Component access on duration values maps onto duration_get.
+                if is_duration_unit(&name.value) {
+                    let base = self.bind_expression(entity);
+                    if let Ok(base) = &base {
+                        if base.value_type == duration_value_type() {
+                            let unit = ir::TypedExpression {
+                                expression: ir::Expression::Literal(ir::Literal::Text(
+                                    name.value.clone(),
+                                )),
+                                value_type: ir::ValueType::Text,
+                                nullability: ir::Nullability::NonNull,
+                            };
+                            return Ok(sql_call(
+                                "duration_get",
+                                vec![base.clone(), unit],
+                                ir::ValueType::Integer,
+                            ));
+                        }
+                    }
+                }
                 let (root, field_chain) = flatten_property_chain(expression);
                 let cypher::Expression::Variable(variable) = &root.value else {
                     return Err(BindError::InvalidPropertyTarget {
@@ -2441,6 +2461,9 @@ impl<'a> Binder<'a> {
                 let right_span = right.span;
                 let left = self.bind_expression(left)?;
                 let right = self.bind_expression(right)?;
+                if let Some(result) = duration_arithmetic(*operator, &left, &right) {
+                    return Ok(result);
+                }
                 match operator {
                     cypher::BinaryOperator::In
                         if !matches!(
@@ -2631,6 +2654,9 @@ impl<'a> Binder<'a> {
                     expression.span,
                 )? {
                     return Ok(temporal);
+                }
+                if let Some(duration) = duration_constructor(&name.value, &arguments) {
+                    return Ok(duration);
                 }
                 if let Some(rewritten) =
                     rewrite_builtin_call(&name.value, &arguments, expression.span)?
@@ -2932,6 +2958,218 @@ fn temporal_value_type() -> ir::ValueType {
     ir::ValueType::Custom {
         name: "cypher_temporal".to_owned(),
         base: Box::new(ir::ValueType::Text),
+    }
+}
+
+/// Marker type for duration values, stored as canonical ISO-8601 text and
+/// manipulated through the duration_* extension functions.
+fn duration_value_type() -> ir::ValueType {
+    ir::ValueType::Custom {
+        name: "cypher_duration".to_owned(),
+        base: Box::new(ir::ValueType::Text),
+    }
+}
+
+fn is_duration_unit(name: &str) -> bool {
+    matches!(
+        name,
+        "years"
+            | "quarters"
+            | "months"
+            | "weeks"
+            | "days"
+            | "hours"
+            | "minutes"
+            | "seconds"
+            | "milliseconds"
+            | "microseconds"
+            | "nanoseconds"
+            | "monthsOfYear"
+            | "minutesOfHour"
+            | "secondsOfMinute"
+            | "millisecondsOfSecond"
+            | "microsecondsOfSecond"
+            | "nanosecondsOfSecond"
+    )
+}
+
+/// Builds a duration constructor over the duration_* extension functions.
+/// Map components fold into the four stored fields (months, days, seconds,
+/// nanoseconds) with bind-time arithmetic so expression values still work.
+fn duration_constructor(
+    name: &str,
+    arguments: &[ir::TypedExpression],
+) -> Option<ir::TypedExpression> {
+    let finish = |mut value: ir::TypedExpression| {
+        value.value_type = duration_value_type();
+        Some(value)
+    };
+    match (name, arguments) {
+        ("duration", [argument]) => match &argument.expression {
+            ir::Expression::Map(entries) => {
+                const GROUPS: [&[(&str, i64)]; 4] = [
+                    &[("years", 12), ("quarters", 3), ("months", 1)],
+                    &[("weeks", 7), ("days", 1)],
+                    &[("hours", 3600), ("minutes", 60), ("seconds", 1)],
+                    &[
+                        ("milliseconds", 1_000_000),
+                        ("microseconds", 1_000),
+                        ("nanoseconds", 1),
+                    ],
+                ];
+                let known = |key: &str| {
+                    GROUPS
+                        .iter()
+                        .any(|group| group.iter().any(|(unit, _)| *unit == key))
+                };
+                if entries.iter().any(|(key, _)| !known(key)) {
+                    return None;
+                }
+                let fields = GROUPS
+                    .iter()
+                    .map(|group| component_sum(entries, group))
+                    .collect();
+                finish(sql_call("duration_make", fields, ir::ValueType::Text))
+            }
+            _ if matches!(
+                argument.value_type,
+                ir::ValueType::Text | ir::ValueType::Any
+            ) =>
+            {
+                finish(sql_call(
+                    "duration_parse",
+                    vec![argument.clone()],
+                    ir::ValueType::Text,
+                ))
+            }
+            _ => None,
+        },
+        ("duration.between", [start, end]) => finish(sql_call(
+            "duration_between",
+            vec![start.clone(), end.clone()],
+            ir::ValueType::Text,
+        )),
+        _ => None,
+    }
+}
+
+/// Sums `value * scale` over the map entries present in `scales`, as a
+/// bind-time integer expression (0 when no component is present).
+fn component_sum(
+    entries: &[(String, ir::TypedExpression)],
+    scales: &[(&str, i64)],
+) -> ir::TypedExpression {
+    let integer_literal = |value: i64| ir::TypedExpression {
+        expression: ir::Expression::Literal(ir::Literal::Integer(value)),
+        value_type: ir::ValueType::Integer,
+        nullability: ir::Nullability::NonNull,
+    };
+    let mut total: Option<ir::TypedExpression> = None;
+    for (unit, scale) in scales {
+        let Some((_, value)) = entries.iter().find(|(key, _)| key == unit) else {
+            continue;
+        };
+        let scaled = if *scale == 1 {
+            value.clone()
+        } else {
+            ir::TypedExpression {
+                expression: ir::Expression::Binary {
+                    left: Box::new(value.clone()),
+                    op: ir::BinaryOp::Multiply,
+                    right: Box::new(integer_literal(*scale)),
+                },
+                value_type: ir::ValueType::Integer,
+                nullability: value.nullability,
+            }
+        };
+        total = Some(match total {
+            None => scaled,
+            Some(current) => ir::TypedExpression {
+                expression: ir::Expression::Binary {
+                    left: Box::new(current),
+                    op: ir::BinaryOp::Add,
+                    right: Box::new(scaled),
+                },
+                value_type: ir::ValueType::Integer,
+                nullability: ir::Nullability::Nullable,
+            },
+        });
+    }
+    total.unwrap_or_else(|| integer_literal(0))
+}
+
+/// Rewrites datetime/duration arithmetic onto the duration extension
+/// functions. Returns None when neither operand carries a temporal or
+/// duration marker type.
+fn duration_arithmetic(
+    operator: cypher::BinaryOperator,
+    left: &ir::TypedExpression,
+    right: &ir::TypedExpression,
+) -> Option<ir::TypedExpression> {
+    let temporal = temporal_value_type();
+    let duration = duration_value_type();
+    let typed = |mut value: ir::TypedExpression, value_type: ir::ValueType| {
+        value.value_type = value_type;
+        Some(value)
+    };
+    match operator {
+        cypher::BinaryOperator::Add => {
+            if left.value_type == temporal && right.value_type == duration {
+                typed(
+                    sql_call(
+                        "datetime_add_duration",
+                        vec![left.clone(), right.clone()],
+                        ir::ValueType::Text,
+                    ),
+                    temporal,
+                )
+            } else if left.value_type == duration && right.value_type == temporal {
+                typed(
+                    sql_call(
+                        "datetime_add_duration",
+                        vec![right.clone(), left.clone()],
+                        ir::ValueType::Text,
+                    ),
+                    temporal,
+                )
+            } else if left.value_type == duration && right.value_type == duration {
+                typed(
+                    sql_call(
+                        "duration_add",
+                        vec![left.clone(), right.clone()],
+                        ir::ValueType::Text,
+                    ),
+                    duration,
+                )
+            } else {
+                None
+            }
+        }
+        cypher::BinaryOperator::Subtract => {
+            if left.value_type == temporal && right.value_type == duration {
+                typed(
+                    sql_call(
+                        "datetime_sub_duration",
+                        vec![left.clone(), right.clone()],
+                        ir::ValueType::Text,
+                    ),
+                    temporal,
+                )
+            } else if left.value_type == duration && right.value_type == duration {
+                let negated = sql_call("duration_neg", vec![right.clone()], ir::ValueType::Text);
+                typed(
+                    sql_call(
+                        "duration_add",
+                        vec![left.clone(), negated],
+                        ir::ValueType::Text,
+                    ),
+                    duration,
+                )
+            } else {
+                None
+            }
+        }
+        _ => None,
     }
 }
 

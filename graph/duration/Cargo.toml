@@ -1,0 +1,16 @@
+[package]
+name = "turso_graph_duration"
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Cypher duration values as a statically registered Turso extension"
+
+[lints]
+workspace = true
+
+[dependencies]
+chrono = { workspace = true, features = ["clock"] }
+turso_core.workspace = true
+turso_ext = { workspace = true, features = ["core_only"] }
