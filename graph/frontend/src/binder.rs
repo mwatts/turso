@@ -81,10 +81,13 @@ pub enum StageItem {
         list: ir::TypedExpression,
     },
     /// MATCH after a mutation clause: joins each current row against the
-    /// (uncorrelated) match results, dropping rows when nothing matches.
+    /// match results (correlated through internal reference parameters).
+    /// Non-optional matches drop rows with no result; optional matches
+    /// keep the row with null outputs.
     Match {
         plan: Box<ir::Plan>,
         outputs: Vec<ir::BindingId>,
+        optional: bool,
     },
     /// FOREACH: run the nested items once per list element without changing
     /// the surrounding row set.
@@ -710,17 +713,16 @@ impl<'a> Binder<'a> {
     /// pattern binds into a standalone plan whose rows cross-join the
     /// current row set at execution. Correlated patterns (variables already
     /// in scope) would need per-row execution and stay unsupported.
+    /// Binds a MATCH that follows a mutation clause as a staged join: the
+    /// pattern binds into a standalone plan run against each current row.
+    /// Variables already in scope correlate by identity: their pattern
+    /// occurrences rebind under fresh names filtered against internal
+    /// reference parameters the executor supplies per row.
     fn bind_staged_match(
         &mut self,
         clause: &cypher::MatchClause,
         span: cypher::Span,
     ) -> Result<StageItem, BindError> {
-        if clause.optional {
-            return Err(at_unsupported(
-                span,
-                "OPTIONAL MATCH after a mutation clause",
-            ));
-        }
         for path in &clause.paths {
             if path.variable.is_some() {
                 return Err(at_unsupported(
@@ -728,6 +730,10 @@ impl<'a> Binder<'a> {
                     "named paths in MATCH after a mutation clause",
                 ));
             }
+        }
+        // Correlated variables: pattern variables already bound in scope.
+        let mut correlated: Vec<(String, ir::BindingId)> = Vec::new();
+        for path in &clause.paths {
             let mut variables = Vec::new();
             if let Some(variable) = &path.start.variable {
                 variables.push(variable);
@@ -741,27 +747,94 @@ impl<'a> Binder<'a> {
                 }
             }
             for variable in variables {
-                if self
+                if correlated.iter().any(|(name, _)| name == &variable.value) {
+                    continue;
+                }
+                if let Some(binding) = self
                     .scope
                     .iter()
-                    .any(|binding| binding.name() == variable.value)
+                    .find(|binding| binding.name() == variable.value)
                 {
-                    return Err(at_unsupported(
-                        variable.span,
-                        "correlated MATCH after a mutation clause",
-                    ));
+                    correlated.push((variable.value.clone(), binding.id()));
                 }
             }
         }
+        let rename: std::collections::HashMap<String, String> = correlated
+            .iter()
+            .map(|(name, id)| (name.clone(), format!("__corr_{}_{name}", id.get())))
+            .collect();
+        let renamed = rename_match_clause(clause, &rename);
+        let clause = if rename.is_empty() { clause } else { &renamed };
+        // In-scope variables referenced without appearing in the pattern
+        // have no column in the staged plan and stay unsupported.
+        if let Some(predicate) = &clause.predicate {
+            let outer_names: Vec<String> = self
+                .scope
+                .iter()
+                .map(|binding| binding.name().to_owned())
+                .collect();
+            if names_referenced(predicate, &outer_names) {
+                return Err(at_unsupported(
+                    predicate.span,
+                    "outer variable references in a staged MATCH predicate",
+                ));
+            }
+        }
+
         let outer = self.plan.take();
         let before = self.scope.len();
-        self.bind_match(clause, span)?;
+        let optional = clause.optional;
+        let inner = cypher::MatchClause {
+            optional: false,
+            paths: clause.paths.clone(),
+            predicate: clause.predicate.clone(),
+        };
+        self.bind_match(&inner, span)?;
+        // Correlate: each renamed binding must equal its outer identity,
+        // delivered per row through an internal reference parameter.
+        for (name, outer_id) in &correlated {
+            let fresh_name = &rename[name];
+            let fresh = self
+                .scope
+                .iter()
+                .find(|binding| binding.name() == fresh_name)
+                .cloned()
+                .ok_or(BindError::EmptyQuery)?;
+            let parameter = format!(
+                "{}{}",
+                crate::mutation::INTERNAL_PARAMETER_PREFIX,
+                outer_id.get()
+            );
+            let predicate = ir::TypedExpression {
+                expression: ir::Expression::Binary {
+                    left: Box::new(ir::TypedExpression {
+                        expression: ir::Expression::Binding(fresh.id()),
+                        value_type: fresh.value_type().clone(),
+                        nullability: fresh.nullability(),
+                    }),
+                    op: ir::BinaryOp::Equal,
+                    right: Box::new(ir::TypedExpression {
+                        expression: ir::Expression::Parameter(parameter),
+                        value_type: ir::ValueType::Integer,
+                        nullability: ir::Nullability::NonNull,
+                    }),
+                },
+                value_type: ir::ValueType::Boolean,
+                nullability: ir::Nullability::NonNull,
+            };
+            let input = self.plan.take().ok_or(BindError::EmptyQuery)?;
+            self.wrap_plan(ir::PlanKind::Filter(ir::Filter {
+                input: Box::new(input),
+                predicate,
+            }))?;
+        }
         let plan = self.plan.take().ok_or(BindError::EmptyQuery)?;
         self.plan = outer;
         let outputs = self.scope[before..].iter().map(ir::Binding::id).collect();
         Ok(StageItem::Match {
             plan: Box::new(plan),
             outputs,
+            optional,
         })
     }
 
@@ -3922,6 +3995,245 @@ fn references_variable(expression: &cypher::Spanned<cypher::Expression>, names: 
     }
 }
 
+/// True when any bare `Variable` in the expression names one of `names`,
+/// recursing through every syntactic form.
+fn names_referenced(expression: &cypher::Spanned<cypher::Expression>, names: &[String]) -> bool {
+    let sub = |value: &cypher::Spanned<cypher::Expression>| names_referenced(value, names);
+    match &expression.value {
+        cypher::Expression::Variable(name) => names.iter().any(|candidate| candidate == name),
+        cypher::Expression::Property { entity, .. } => sub(entity),
+        cypher::Expression::Function { arguments, .. } => arguments.iter().any(sub),
+        cypher::Expression::Unary { operand, .. } => sub(operand),
+        cypher::Expression::Binary { left, right, .. } => sub(left) || sub(right),
+        cypher::Expression::Case {
+            subject,
+            branches,
+            default,
+        } => {
+            subject.as_deref().is_some_and(sub)
+                || branches.iter().any(|(when, then)| sub(when) || sub(then))
+                || default.as_deref().is_some_and(sub)
+        }
+        cypher::Expression::Index { base, index } => sub(base) || sub(index),
+        cypher::Expression::Slice { base, from, to } => {
+            sub(base) || from.as_deref().is_some_and(sub) || to.as_deref().is_some_and(sub)
+        }
+        cypher::Expression::Cast { operand, .. } => sub(operand),
+        cypher::Expression::List(values) => values.iter().any(sub),
+        cypher::Expression::Map(entries) => entries.iter().any(|(_, value)| sub(value)),
+        cypher::Expression::Quantifier {
+            variable,
+            list,
+            predicate,
+            ..
+        } => {
+            // The loop variable shadows an outer name inside the predicate.
+            let inner: Vec<String> = names
+                .iter()
+                .filter(|name| **name != variable.value)
+                .cloned()
+                .collect();
+            sub(list) || names_referenced(predicate, &inner)
+        }
+        cypher::Expression::ListComprehension {
+            list,
+            predicate,
+            map,
+            ..
+        } => sub(list) || predicate.as_deref().is_some_and(sub) || map.as_deref().is_some_and(sub),
+        _ => false,
+    }
+}
+
+/// Renames variable occurrences in a MATCH clause per `rename`: pattern
+/// variables, property-map values, and the predicate.
+fn rename_match_clause(
+    clause: &cypher::MatchClause,
+    rename: &std::collections::HashMap<String, String>,
+) -> cypher::MatchClause {
+    let rename_name = |name: &cypher::Spanned<String>| {
+        cypher::Spanned::new(
+            rename
+                .get(&name.value)
+                .cloned()
+                .unwrap_or_else(|| name.value.clone()),
+            name.span,
+        )
+    };
+    let rename_properties =
+        |properties: &[(cypher::Spanned<String>, cypher::Spanned<cypher::Expression>)]| {
+            properties
+                .iter()
+                .map(|(key, value)| (key.clone(), rename_expression(value, rename)))
+                .collect()
+        };
+    let rename_node = |node: &cypher::NodePattern| cypher::NodePattern {
+        variable: node.variable.as_ref().map(rename_name),
+        labels: node.labels.clone(),
+        properties: rename_properties(&node.properties),
+        has_property_map: node.has_property_map,
+        span: node.span,
+    };
+    cypher::MatchClause {
+        optional: clause.optional,
+        paths: clause
+            .paths
+            .iter()
+            .map(|path| cypher::PathPattern {
+                variable: path.variable.clone(),
+                start: rename_node(&path.start),
+                steps: path
+                    .steps
+                    .iter()
+                    .map(|(relationship, node)| {
+                        (
+                            cypher::RelationshipPattern {
+                                variable: relationship.variable.as_ref().map(rename_name),
+                                types: relationship.types.clone(),
+                                direction: relationship.direction,
+                                range: relationship.range.clone(),
+                                properties: rename_properties(&relationship.properties),
+                                span: relationship.span,
+                            },
+                            rename_node(node),
+                        )
+                    })
+                    .collect(),
+                span: path.span,
+            })
+            .collect(),
+        predicate: clause
+            .predicate
+            .as_ref()
+            .map(|predicate| rename_expression(predicate, rename)),
+    }
+}
+
+/// Renames bare `Variable` occurrences in an expression, skipping names
+/// shadowed by quantifier or list-comprehension loop variables.
+fn rename_expression(
+    expression: &cypher::Spanned<cypher::Expression>,
+    rename: &std::collections::HashMap<String, String>,
+) -> cypher::Spanned<cypher::Expression> {
+    use cypher::Expression as E;
+    let sub = |value: &cypher::Spanned<E>| Box::new(rename_expression(value, rename));
+    let sub_opt = |value: &Option<Box<cypher::Spanned<E>>>| value.as_deref().map(sub);
+    let value = match &expression.value {
+        E::Variable(name) => E::Variable(rename.get(name).cloned().unwrap_or_else(|| name.clone())),
+        E::Property { entity, name } => E::Property {
+            entity: sub(entity),
+            name: name.clone(),
+        },
+        E::Binary {
+            left,
+            operator,
+            right,
+        } => E::Binary {
+            left: sub(left),
+            operator: *operator,
+            right: sub(right),
+        },
+        E::Unary { operator, operand } => E::Unary {
+            operator: *operator,
+            operand: sub(operand),
+        },
+        E::Function {
+            name,
+            arguments,
+            distinct,
+            star,
+        } => E::Function {
+            name: name.clone(),
+            arguments: arguments
+                .iter()
+                .map(|argument| rename_expression(argument, rename))
+                .collect(),
+            distinct: *distinct,
+            star: *star,
+        },
+        E::Case {
+            subject,
+            branches,
+            default,
+        } => E::Case {
+            subject: sub_opt(subject),
+            branches: branches
+                .iter()
+                .map(|(when, then)| {
+                    (
+                        rename_expression(when, rename),
+                        rename_expression(then, rename),
+                    )
+                })
+                .collect(),
+            default: sub_opt(default),
+        },
+        E::Index { base, index } => E::Index {
+            base: sub(base),
+            index: sub(index),
+        },
+        E::Slice { base, from, to } => E::Slice {
+            base: sub(base),
+            from: sub_opt(from),
+            to: sub_opt(to),
+        },
+        E::Cast { operand, type_name } => E::Cast {
+            operand: sub(operand),
+            type_name: type_name.clone(),
+        },
+        E::List(values) => E::List(
+            values
+                .iter()
+                .map(|value| rename_expression(value, rename))
+                .collect(),
+        ),
+        E::Map(entries) => E::Map(
+            entries
+                .iter()
+                .map(|(key, value)| (key.clone(), rename_expression(value, rename)))
+                .collect(),
+        ),
+        E::Quantifier {
+            kind,
+            variable,
+            list,
+            predicate,
+        } => {
+            let shadowed = rename.contains_key(&variable.value);
+            E::Quantifier {
+                kind: *kind,
+                variable: variable.clone(),
+                list: sub(list),
+                predicate: if shadowed {
+                    predicate.clone()
+                } else {
+                    sub(predicate)
+                },
+            }
+        }
+        E::ListComprehension {
+            variable,
+            list,
+            predicate,
+            map,
+        } => {
+            let shadowed = rename.contains_key(&variable.value);
+            E::ListComprehension {
+                variable: variable.clone(),
+                list: sub(list),
+                predicate: if shadowed {
+                    predicate.clone()
+                } else {
+                    sub_opt(predicate)
+                },
+                map: if shadowed { map.clone() } else { sub_opt(map) },
+            }
+        }
+        other => other.clone(),
+    };
+    cypher::Spanned::new(value, expression.span)
+}
+
 /// True when the expression nests a bare pattern (subquery or predicate)
 /// in a value position; openCypher only allows patterns in boolean
 /// contexts, and SET right-hand sides must reject them (TCK Pattern1).
@@ -4217,12 +4529,15 @@ mod tests {
             .items
             .iter()
             .any(|item| matches!(item, StageItem::Match { .. }))));
-        // Correlated re-matching of a mutation binding needs per-row
-        // execution and stays rejected.
-        assert!(matches!(
-            bind_mutation_text("CREATE (a:Person {id: 1}) MATCH (a) DELETE a"),
-            Err(BindError::Unsupported { .. })
-        ));
+        // Correlated re-matching of a mutation binding executes per row.
+        let correlated = bind_mutation_text("CREATE (a:Person {id: 1}) MATCH (a) DELETE a")
+            .expect("correlated MATCH after a mutation should bind");
+        assert!(correlated.stages.iter().any(|stage| {
+            stage
+                .items
+                .iter()
+                .any(|item| matches!(item, StageItem::Match { .. }))
+        }));
     }
 
     #[test]

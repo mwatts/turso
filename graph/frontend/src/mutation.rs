@@ -15,7 +15,7 @@ use crate::{
 };
 
 const SAVEPOINT: &str = "__turso_graph_mutation";
-const INTERNAL_PARAMETER_PREFIX: &str = "__turso_internal_graph_ref_";
+pub(crate) const INTERNAL_PARAMETER_PREFIX: &str = "__turso_internal_graph_ref_";
 
 pub type MutationParameters = HashMap<String, Value>;
 
@@ -288,12 +288,27 @@ fn execute_bound(
                     }
                     rows = expanded;
                 }
-                StageItem::Match { plan, outputs } => {
+                StageItem::Match {
+                    plan,
+                    outputs,
+                    optional,
+                } => {
                     let lowered = lower_mutation_input(plan, catalog)?;
                     let sql = mutation_rows_sql(&lowered, outputs);
-                    let matched = run_rows(connection, &sql, parameters, &HashMap::new())?;
                     let mut expanded = Vec::new();
                     for values in &rows {
+                        // Correlated plans reference the row's bindings
+                        // through internal reference parameters.
+                        let references = reference_parameters(values);
+                        let matched = run_rows(connection, &sql, parameters, &references.values)?;
+                        if matched.is_empty() && *optional {
+                            let mut next = values.clone();
+                            for binding in outputs {
+                                next.insert(*binding, Value::Null);
+                            }
+                            expanded.push(next);
+                            continue;
+                        }
                         for matched_row in &matched {
                             let mut next = values.clone();
                             for (binding, value) in outputs.iter().zip(matched_row) {

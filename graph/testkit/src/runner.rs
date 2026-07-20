@@ -503,6 +503,34 @@ mod tests {
     }
 
     #[test]
+    fn correlated_and_optional_match_after_mutation() {
+        let fixture = empty_fixture("correlated-staged").expect("fixture should initialize");
+        let parameters = MutationParameters::new();
+        // TCK Match8 [2] shape: MERGE then re-match both endpoints.
+        let summary = fixture
+            .session
+            .mutate(
+                "CREATE (a:Person {name: 'X'}) \
+                 CREATE (b:Person {name: 'Y'}) \
+                 CREATE (a)-[:KNOWS]->(b) \
+                 WITH * MATCH (a)-[e:KNOWS]->(b) RETURN count(*)",
+                &parameters,
+            )
+            .expect("correlated staged match");
+        assert_eq!(summary.rows[0][0].to_string(), "1");
+        // Optional staged match keeps the row with null outputs.
+        let summary = fixture
+            .session
+            .mutate(
+                "CREATE (c:Person {name: 'Z'}) \
+                 WITH * OPTIONAL MATCH (c)-[m:KNOWS]->(unmatched) RETURN count(*)",
+                &parameters,
+            )
+            .expect("optional staged match");
+        assert_eq!(summary.rows[0][0].to_string(), "1");
+    }
+
+    #[test]
     fn match_after_mutation_joins_current_rows() {
         let fixture = empty_fixture("staged-match").expect("fixture should initialize");
         let parameters = MutationParameters::new();
