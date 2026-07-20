@@ -68,12 +68,7 @@ pub struct AgeStats {
 /// Donor files testing postgres/AGE-specific surfaces rather than Cypher:
 /// jsonb operator syntax, pgvector, postgres extensions, and jsonb casts.
 /// These stay out of the conformance corpus entirely.
-const AGE_SPECIFIC_FILES: [&str; 4] = [
-    "jsonb_operators.sql",
-    "pg_trgm.sql",
-    "fuzzystrmatch.sql",
-    "agtype_jsonb_cast.sql",
-];
+const AGE_SPECIFIC_FILES: [&str; 2] = ["pg_trgm.sql", "fuzzystrmatch.sql"];
 
 impl AgeCorpus {
     pub fn load(root: impl AsRef<Path>) -> Result<Self, AgeError> {
@@ -332,7 +327,7 @@ mod tests {
         let corpus = AgeCorpus::load(root).unwrap();
         // Postgres/AGE-specific files stay excluded; EXPLAIN queries run
         // through core's EXPLAIN QUERY PLAN.
-        assert_eq!(corpus.stats().files, 43);
+        assert_eq!(corpus.stats().files, 45);
         assert_eq!(corpus.stats().queries, corpus.cases.len());
     }
 }

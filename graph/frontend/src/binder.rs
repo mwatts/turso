@@ -3241,6 +3241,9 @@ impl<'a> Binder<'a> {
                 if let Some(result) = vector_operator(*operator, &left, &right) {
                     return Ok(result);
                 }
+                if let Some(result) = self.jsonb_operator(*operator, &left, &right) {
+                    return Ok(result);
+                }
                 match operator {
                     cypher::BinaryOperator::In
                         if !matches!(
@@ -3908,6 +3911,56 @@ fn component_sum(
         });
     }
     total.unwrap_or_else(|| integer_literal(0))
+}
+
+impl Binder<'_> {
+    /// jsonb operators map onto the frontend's jsonb_* extension
+    /// functions; an entity operand means its property map.
+    fn jsonb_operator(
+        &self,
+        operator: cypher::BinaryOperator,
+        left: &ir::TypedExpression,
+        right: &ir::TypedExpression,
+    ) -> Option<ir::TypedExpression> {
+        let (function, boolean, swap) = match operator {
+            cypher::BinaryOperator::JsonGet => ("jsonb_get", false, false),
+            cypher::BinaryOperator::JsonGetText => ("jsonb_get_text", false, false),
+            cypher::BinaryOperator::JsonPath => ("jsonb_get_path", false, false),
+            cypher::BinaryOperator::JsonPathText => ("jsonb_get_path", false, false),
+            cypher::BinaryOperator::JsonExists => ("jsonb_exists", true, false),
+            cypher::BinaryOperator::JsonExistsAny => ("jsonb_exists_any", true, false),
+            cypher::BinaryOperator::JsonExistsAll => ("jsonb_exists_all", true, false),
+            cypher::BinaryOperator::JsonContains => ("jsonb_contains", true, false),
+            cypher::BinaryOperator::JsonContainedBy => ("jsonb_contains", true, true),
+            _ => return None,
+        };
+        let materialize = |value: &ir::TypedExpression| {
+            if let ir::Expression::Binding(id) = &value.expression {
+                if self.entities.contains_key(id) {
+                    return sql_call(
+                        "__cypher_properties",
+                        vec![value.clone()],
+                        ir::ValueType::Map,
+                    );
+                }
+            }
+            value.clone()
+        };
+        let (first, second) = if swap {
+            (materialize(right), materialize(left))
+        } else {
+            (materialize(left), materialize(right))
+        };
+        Some(sql_call(
+            function,
+            vec![first, second],
+            if boolean {
+                ir::ValueType::Boolean
+            } else {
+                ir::ValueType::Any
+            },
+        ))
+    }
 }
 
 /// pgvector distance operators map onto core's vector functions; the
@@ -4880,10 +4933,19 @@ fn bind_binary_operator(operator: cypher::BinaryOperator) -> ir::BinaryOp {
         cypher::BinaryOperator::Multiply => ir::BinaryOp::Multiply,
         cypher::BinaryOperator::Divide => ir::BinaryOp::Divide,
         cypher::BinaryOperator::Modulo => ir::BinaryOp::Modulo,
-        // Vector operators are intercepted before generic binding.
+        // Vector and jsonb operators are intercepted before generic binding.
         cypher::BinaryOperator::VectorL2
         | cypher::BinaryOperator::VectorCosine
-        | cypher::BinaryOperator::VectorInnerProduct => ir::BinaryOp::Subtract,
+        | cypher::BinaryOperator::VectorInnerProduct
+        | cypher::BinaryOperator::JsonGet
+        | cypher::BinaryOperator::JsonGetText
+        | cypher::BinaryOperator::JsonPath
+        | cypher::BinaryOperator::JsonPathText
+        | cypher::BinaryOperator::JsonExists
+        | cypher::BinaryOperator::JsonExistsAny
+        | cypher::BinaryOperator::JsonExistsAll
+        | cypher::BinaryOperator::JsonContains
+        | cypher::BinaryOperator::JsonContainedBy => ir::BinaryOp::Subtract,
         cypher::BinaryOperator::Power => ir::BinaryOp::Power,
     }
 }

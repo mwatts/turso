@@ -46,6 +46,13 @@ pub fn install_temporal_extension(connection: &Connection) {
         register(c"temporal_now".as_ptr(), temporal_now);
         register(c"datetime_add_duration".as_ptr(), datetime_add_duration);
         register(c"datetime_sub_duration".as_ptr(), datetime_sub_duration);
+        register(c"jsonb_get".as_ptr(), jsonb_get);
+        register(c"jsonb_get_text".as_ptr(), jsonb_get_text);
+        register(c"jsonb_get_path".as_ptr(), jsonb_get_path);
+        register(c"jsonb_exists".as_ptr(), jsonb_exists);
+        register(c"jsonb_exists_any".as_ptr(), jsonb_exists_any);
+        register(c"jsonb_exists_all".as_ptr(), jsonb_exists_all);
+        register(c"jsonb_contains".as_ptr(), jsonb_contains);
     });
 }
 
@@ -1215,6 +1222,183 @@ fn datetime_add_duration(args: &[ExtValue]) -> ExtValue {
 #[scalar(name = "datetime_sub_duration")]
 fn datetime_sub_duration(args: &[ExtValue]) -> ExtValue {
     shift_datetime(args, -1)
+}
+
+// ---------------------------------------------------------------------------
+// jsonb operator support: postgres/AGE operator semantics over JSON text.
+// ---------------------------------------------------------------------------
+
+fn json_argument(value: &ExtValue) -> Option<serde_json::Value> {
+    serde_json::from_str(&text(value)?).ok()
+}
+
+fn render_json(value: &serde_json::Value) -> ExtValue {
+    match value {
+        serde_json::Value::Null => ExtValue::null(),
+        other => ExtValue::from_text(other.to_string()),
+    }
+}
+
+fn json_index<'a>(
+    container: &'a serde_json::Value,
+    key: &ExtValue,
+) -> Option<&'a serde_json::Value> {
+    match container {
+        serde_json::Value::Object(map) => map.get(&text(key)?),
+        serde_json::Value::Array(items) => {
+            let index = key.to_integer()?;
+            let index = if index < 0 {
+                items.len().checked_sub(index.unsigned_abs() as usize)?
+            } else {
+                index as usize
+            };
+            items.get(index)
+        }
+        _ => None,
+    }
+}
+
+/// `a -> b`: object field or (possibly negative) array index, as JSON.
+#[scalar(name = "jsonb_get")]
+fn jsonb_get(args: &[ExtValue]) -> ExtValue {
+    let (Some(container), Some(key)) = (args.first().and_then(json_argument), args.get(1)) else {
+        return ExtValue::null();
+    };
+    json_index(&container, key).map_or_else(ExtValue::null, render_json)
+}
+
+/// `a ->> b`: like `->` but scalar results render as bare text.
+#[scalar(name = "jsonb_get_text")]
+fn jsonb_get_text(args: &[ExtValue]) -> ExtValue {
+    let (Some(container), Some(key)) = (args.first().and_then(json_argument), args.get(1)) else {
+        return ExtValue::null();
+    };
+    match json_index(&container, key) {
+        Some(serde_json::Value::String(text)) => ExtValue::from_text(text.clone()),
+        Some(other) if !other.is_null() => ExtValue::from_text(other.to_string()),
+        _ => ExtValue::null(),
+    }
+}
+
+/// `a #> path`: extract along a JSON array of keys/indices.
+#[scalar(name = "jsonb_get_path")]
+fn jsonb_get_path(args: &[ExtValue]) -> ExtValue {
+    let (Some(container), Some(serde_json::Value::Array(path))) = (
+        args.first().and_then(json_argument),
+        args.get(1).and_then(json_argument),
+    ) else {
+        return ExtValue::null();
+    };
+    let mut current = container;
+    for step in path {
+        let next = match (&current, &step) {
+            (serde_json::Value::Object(map), serde_json::Value::String(key)) => {
+                map.get(key).cloned()
+            }
+            (serde_json::Value::Array(items), serde_json::Value::Number(index)) => index
+                .as_i64()
+                .and_then(|index| {
+                    if index < 0 {
+                        items.len().checked_sub(index.unsigned_abs() as usize)
+                    } else {
+                        Some(index as usize)
+                    }
+                })
+                .and_then(|index| items.get(index).cloned()),
+            _ => None,
+        };
+        match next {
+            Some(value) => current = value,
+            None => return ExtValue::null(),
+        }
+    }
+    render_json(&current)
+}
+
+fn object_or_array_keys(value: &serde_json::Value) -> Vec<String> {
+    match value {
+        serde_json::Value::Object(map) => map.keys().cloned().collect(),
+        serde_json::Value::Array(items) => items
+            .iter()
+            .filter_map(|item| item.as_str().map(str::to_owned))
+            .collect(),
+        _ => Vec::new(),
+    }
+}
+
+/// `a ? key`: object key or string array element existence.
+#[scalar(name = "jsonb_exists")]
+fn jsonb_exists(args: &[ExtValue]) -> ExtValue {
+    let (Some(container), Some(key)) = (
+        args.first().and_then(json_argument),
+        args.get(1).and_then(text),
+    ) else {
+        return ExtValue::null();
+    };
+    ExtValue::from_integer(object_or_array_keys(&container).contains(&key) as i64)
+}
+
+fn exists_over(args: &[ExtValue], all: bool) -> ExtValue {
+    let (Some(container), Some(serde_json::Value::Array(keys))) = (
+        args.first().and_then(json_argument),
+        args.get(1).and_then(json_argument),
+    ) else {
+        return ExtValue::null();
+    };
+    let present = object_or_array_keys(&container);
+    let mut candidates = keys
+        .iter()
+        .filter_map(|key| key.as_str())
+        .map(|key| present.iter().any(|have| have == key));
+    let result = if all {
+        candidates.all(|found| found)
+    } else {
+        candidates.any(|found| found)
+    };
+    ExtValue::from_integer(result as i64)
+}
+
+/// `a ?| keys`: any key present.
+#[scalar(name = "jsonb_exists_any")]
+fn jsonb_exists_any(args: &[ExtValue]) -> ExtValue {
+    exists_over(args, false)
+}
+
+/// `a ?& keys`: every key present.
+#[scalar(name = "jsonb_exists_all")]
+fn jsonb_exists_all(args: &[ExtValue]) -> ExtValue {
+    exists_over(args, true)
+}
+
+fn contains_value(container: &serde_json::Value, contained: &serde_json::Value) -> bool {
+    match (container, contained) {
+        (serde_json::Value::Object(outer), serde_json::Value::Object(inner)) => {
+            inner.iter().all(|(key, value)| {
+                outer
+                    .get(key)
+                    .is_some_and(|have| contains_value(have, value))
+            })
+        }
+        (serde_json::Value::Array(outer), serde_json::Value::Array(inner)) => inner
+            .iter()
+            .all(|value| outer.iter().any(|have| contains_value(have, value))),
+        (serde_json::Value::Array(outer), scalar) => {
+            outer.iter().any(|have| contains_value(have, scalar))
+        }
+        (left, right) => left == right,
+    }
+}
+
+/// `a @> b` (postgres jsonb containment; `<@` swaps the arguments).
+#[scalar(name = "jsonb_contains")]
+fn jsonb_contains(args: &[ExtValue]) -> ExtValue {
+    let (Some(container), Some(contained)) = (
+        args.first().and_then(json_argument),
+        args.get(1).and_then(json_argument),
+    ) else {
+        return ExtValue::null();
+    };
+    ExtValue::from_integer(contains_value(&container, &contained) as i64)
 }
 
 #[cfg(test)]

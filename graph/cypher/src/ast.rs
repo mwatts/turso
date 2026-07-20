@@ -243,6 +243,24 @@ pub enum BinaryOperator {
     VectorCosine,
     /// pgvector `<#>` (negative inner product).
     VectorInnerProduct,
+    /// jsonb `->` (field/index access, JSON result).
+    JsonGet,
+    /// jsonb `->>` (field/index access, text result).
+    JsonGetText,
+    /// jsonb `#>` (path extraction).
+    JsonPath,
+    /// jsonb `#>>` (path extraction, text result).
+    JsonPathText,
+    /// jsonb `?` (key existence).
+    JsonExists,
+    /// jsonb `?|` (any key exists).
+    JsonExistsAny,
+    /// jsonb `?&` (all keys exist).
+    JsonExistsAll,
+    /// jsonb `@>` (contains).
+    JsonContains,
+    /// jsonb `<@` (contained by).
+    JsonContainedBy,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]

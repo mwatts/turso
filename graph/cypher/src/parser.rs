@@ -658,7 +658,8 @@ fn walk_expression(pair: Pair<'_, Rule>) -> Result<Spanned<Expression>, ParseErr
         | Rule::and_expression
         | Rule::additive_expression
         | Rule::multiplicative_expression
-        | Rule::power_expression => walk_binary(pair)?,
+        | Rule::power_expression
+        | Rule::json_expression => walk_binary(pair)?,
         Rule::comparison_expression => walk_comparison(pair)?,
         Rule::not_expression => walk_not(pair)?,
         Rule::predicate_expression => walk_predicate(pair)?,
@@ -775,6 +776,15 @@ fn binary_operator(pair: &Pair<'_, Rule>) -> Result<BinaryOperator, ParseError> 
         "xor" => Ok(BinaryOperator::Xor),
         "and" => Ok(BinaryOperator::And),
         "=" => Ok(BinaryOperator::Equal),
+        "->" => Ok(BinaryOperator::JsonGet),
+        "->>" => Ok(BinaryOperator::JsonGetText),
+        "#>" => Ok(BinaryOperator::JsonPath),
+        "#>>" => Ok(BinaryOperator::JsonPathText),
+        "?" => Ok(BinaryOperator::JsonExists),
+        "?|" => Ok(BinaryOperator::JsonExistsAny),
+        "?&" => Ok(BinaryOperator::JsonExistsAll),
+        "@>" => Ok(BinaryOperator::JsonContains),
+        "<@" => Ok(BinaryOperator::JsonContainedBy),
         "<->" => Ok(BinaryOperator::VectorL2),
         "<=>" => Ok(BinaryOperator::VectorCosine),
         "<#>" => Ok(BinaryOperator::VectorInnerProduct),
