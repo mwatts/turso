@@ -1068,8 +1068,10 @@ impl<'a> Binder<'a> {
                     span_end: variable.span.end,
                 });
             }
-            // Register the path name so later clauses can reference it; the
-            // path value itself is not materialized in the initial slice.
+            // Register the path name so later clauses can reference it. The
+            // composition (below) records how to rebuild the path value from
+            // the node/relationship bindings created along the way, mirroring
+            // the read-side `bind_match`/`bind_path`.
             let binding = ir::Binding::new(
                 self.next_id()?,
                 variable.value.clone(),
@@ -1079,6 +1081,8 @@ impl<'a> Binder<'a> {
             self.scope.push(binding);
         }
         let mut from = self.bind_created_node(&path.start, merge, operations)?;
+        let mut path_nodes = vec![from];
+        let mut path_relationships = Vec::new();
         for (relationship, node) in &path.steps {
             if relationship.range.is_some() {
                 return Err(at_unsupported(
@@ -1104,6 +1108,7 @@ impl<'a> Binder<'a> {
                 ));
             }
             let to = self.bind_created_node(node, merge, operations)?;
+            path_nodes.push(to);
             let source = self.relationship_source(relationship.span)?;
             let binding = self.new_entity_binding(
                 relationship.variable.as_ref(),
@@ -1118,6 +1123,7 @@ impl<'a> Binder<'a> {
                     .collect(),
                 relationship.span,
             )?;
+            path_relationships.push(binding.id());
             let relationship_types = relationship
                 .types
                 .iter()
@@ -1159,6 +1165,15 @@ impl<'a> Binder<'a> {
                 ir::Mutation::CreateRelationship(create)
             });
             from = next_from;
+        }
+        if let Some(variable) = &path.variable {
+            self.path_compositions.insert(
+                variable.value.clone(),
+                PathComposition::Fixed {
+                    nodes: path_nodes,
+                    relationships: path_relationships,
+                },
+            );
         }
         Ok(())
     }

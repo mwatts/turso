@@ -1964,4 +1964,31 @@ mod tests {
             ]
         );
     }
+
+    #[test]
+    fn merge_returns_the_named_path_it_creates() {
+        let (connection, catalog, graph) = setup();
+        // The path variable's value is never materialized as its own row of
+        // data; it must be rebuilt from the node/relationship bindings that
+        // made up the path (mirroring the read-side MATCH p = ... binder).
+        let summary = execute(
+            &connection,
+            &catalog,
+            graph,
+            "MERGE p = (a:Person {id: 1})-[:KNOWS]->(b:Person {id: 2}) RETURN p",
+        )
+        .unwrap();
+        assert_eq!(summary.rows.len(), 1);
+        let Value::Text(path) = &summary.rows[0][0] else {
+            panic!("expected a path value, got {:?}", summary.rows[0][0]);
+        };
+        // The path is rendered as `{"nodes": [...], "relationships": [...]}`;
+        // two nodes and one relationship went into building it.
+        let nodes = path.as_str().split("\"nodes\":[").nth(1).unwrap();
+        let nodes_list = nodes.split(']').next().unwrap();
+        assert_eq!(nodes_list.split(',').count(), 2);
+        let relationships = path.as_str().split("\"relationships\":[").nth(1).unwrap();
+        let relationships_list = relationships.split(']').next().unwrap();
+        assert_eq!(relationships_list.split(',').count(), 1);
+    }
 }
