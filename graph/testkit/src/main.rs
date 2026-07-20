@@ -80,6 +80,10 @@ enum Command {
         /// Write per-query verdicts and timings to this JSONL path.
         #[arg(long)]
         detail: Option<PathBuf>,
+        /// Per-query watchdog in seconds; a wedged query abandons its
+        /// domain (upstream gold queries are bounded at 30s).
+        #[arg(long, default_value_t = 60)]
+        query_timeout_secs: u64,
     },
     Age {
         #[arg(long)]
@@ -152,7 +156,8 @@ fn run(arguments: Arguments) -> Result<bool> {
             domain,
             limit,
             detail,
-        } => run_cypherbench(&root, &profile, domain, limit, detail),
+            query_timeout_secs,
+        } => run_cypherbench(&root, &profile, domain, limit, detail, query_timeout_secs),
         Command::Age { history, no_record } => run_age(&root, history, no_record),
         Command::AgeStats => age_stats(&root),
         Command::SparrowdbStats => rust_donor_stats(&root, SPARROWDB),
@@ -650,6 +655,7 @@ fn run_cypherbench(
     domain: Option<String>,
     limit_override: Option<usize>,
     detail_path: Option<PathBuf>,
+    query_timeout_secs: u64,
 ) -> Result<bool> {
     use turso_graph_testkit::cypherbench;
     let base = root.join("graph/testdata/benchmarks/cypherbench");
@@ -689,6 +695,7 @@ fn run_cypherbench(
             &tasks,
             limit,
             detail_path.is_some().then_some(&mut details),
+            std::time::Duration::from_secs(query_timeout_secs),
         )?;
         println!(
             "{name}: entities={} relations={} load_ms={} queries={} matched={} mismatched={} errored={} query_ms={}",

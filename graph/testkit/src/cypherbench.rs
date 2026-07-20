@@ -36,7 +36,7 @@ pub struct KgRelation {
     pub properties: serde_json::Map<String, serde_json::Value>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Clone, Debug, Deserialize)]
 pub struct BenchTask {
     pub qid: String,
     pub graph: String,
@@ -228,14 +228,126 @@ pub fn load_graph(kg: &SimpleKg) -> Result<GraphFixture> {
     Ok(fixture)
 }
 
-/// Runs one domain: load, then execute its gold queries, comparing row
-/// sets (order-insensitive, stringified) against the pre-verified answer.
+/// Supervises a domain run on a worker thread with a per-query watchdog.
+/// A query exceeding `query_timeout` records as "timeout" and the domain
+/// is abandoned (the wedged worker detaches and dies with the process) —
+/// upstream filtered its gold set to <=30s per query, so anything beyond
+/// the timeout is a pathological plan, not a slow answer.
 pub fn run_domain(
     domain: &str,
     graph_path: &Path,
     tasks: &[BenchTask],
     limit: Option<usize>,
     detail: Option<&mut Vec<QueryDetail>>,
+    query_timeout: std::time::Duration,
+) -> Result<DomainReport> {
+    enum Event {
+        Query(QueryDetail),
+        Done(Box<DomainReport>),
+        Failed(String),
+    }
+    let (sender, receiver) = std::sync::mpsc::channel::<Event>();
+    let worker = {
+        let domain = domain.to_owned();
+        let graph_path = graph_path.to_owned();
+        let tasks = tasks.to_vec();
+        std::thread::spawn(move || {
+            let query_sender = sender.clone();
+            let mut sink = move |entry: QueryDetail| {
+                let _ = query_sender.send(Event::Query(entry));
+            };
+            let result = run_domain_worker(&domain, &graph_path, &tasks, limit, &mut sink);
+            match result {
+                Ok(report) => {
+                    let _ = sender.send(Event::Done(Box::new(report)));
+                }
+                Err(error) => {
+                    let _ = sender.send(Event::Failed(error.to_string()));
+                }
+            }
+        })
+    };
+    let mut details_out = detail;
+    let timeout_report: DomainReport;
+    let mut seen_queries = 0_usize;
+    let mut matched = 0;
+    let mut mismatched = 0;
+    let mut errored = 0;
+    let mut query_ms_total = 0_u64;
+    loop {
+        match receiver.recv_timeout(query_timeout) {
+            Ok(Event::Query(entry)) => {
+                seen_queries += 1;
+                match entry.verdict {
+                    "matched" => matched += 1,
+                    "mismatched" => mismatched += 1,
+                    _ => errored += 1,
+                }
+                query_ms_total += entry.duration_ms;
+                if let Some(details) = details_out.as_deref_mut() {
+                    details.push(entry);
+                }
+            }
+            Ok(Event::Done(report)) => {
+                let _ = worker.join();
+                return Ok(*report);
+            }
+            Ok(Event::Failed(error)) => {
+                let _ = worker.join();
+                anyhow::bail!("{domain}: {error}");
+            }
+            Err(_) => {
+                // Wedged query: record the timeout, abandon the domain.
+                let total = tasks
+                    .iter()
+                    .filter(|task| task.graph == domain)
+                    .take(limit.unwrap_or(usize::MAX))
+                    .count();
+                eprintln!(
+                    "{domain}: query timed out after {}s; abandoning domain                      ({seen_queries} of {total} completed)",
+                    query_timeout.as_secs()
+                );
+                if let Some(details) = details_out.as_deref_mut() {
+                    details.push(QueryDetail {
+                        qid: format!("{domain}:wedged-after-{seen_queries}"),
+                        domain: domain.to_owned(),
+                        verdict: "timeout",
+                        duration_ms: query_timeout.as_millis() as u64,
+                        observed_rows: 0,
+                        expected_rows: 0,
+                        observed_sample: String::new(),
+                        expected_sample: String::new(),
+                        error: "per-query watchdog expired; domain abandoned".to_owned(),
+                    });
+                }
+                timeout_report = DomainReport {
+                    domain: domain.to_owned(),
+                    entities: 0,
+                    relations: 0,
+                    load_ms: 0,
+                    queries: seen_queries + 1,
+                    matched,
+                    mismatched,
+                    errored: errored + 1,
+                    query_ms_total: query_ms_total + query_timeout.as_millis() as u64,
+                };
+                break;
+            }
+        }
+    }
+    drop(receiver);
+    // Worker stays detached; it exits with the process.
+    Ok(timeout_report)
+}
+
+/// Runs one domain: load, then execute its gold queries, comparing row
+/// sets (order-insensitive, stringified) against the pre-verified answer.
+fn run_domain_worker(
+    domain: &str,
+    graph_path: &Path,
+    tasks: &[BenchTask],
+    limit: Option<usize>,
+    sink: &mut dyn FnMut(QueryDetail),
 ) -> Result<DomainReport> {
     let kg: SimpleKg = serde_json::from_str(
         &fs::read_to_string(graph_path)
@@ -256,12 +368,7 @@ pub fn run_domain(
     let mut mismatched = 0;
     let mut errored = 0;
     let mut query_ms_total = 0;
-    let mut details = detail;
-    let mut record = |entry: QueryDetail| {
-        if let Some(details) = details.as_deref_mut() {
-            details.push(entry);
-        }
-    };
+    let mut record = |entry: QueryDetail| sink(entry);
     let parameters = MutationParameters::new();
     for task in &selected {
         let query_started = Instant::now();
