@@ -236,9 +236,7 @@ fn run_age(root: &Path, history: Option<PathBuf>, no_record: bool) -> Result<boo
     print_classifications(&records);
     print_failures(&records);
     if !no_record {
-        let history = history.unwrap_or_else(|| default_history(root));
-        append(&history, &records)?;
-        write_report(&history, &root.join("graph/test-results/REPORT.md"))?;
+        record_results(root, history, &records)?;
     }
     let clean = outcomes_are_clean(&records);
     println!("run {run_id}: {} records, clean={clean}", records.len());
@@ -283,9 +281,7 @@ fn run_corpus(root: &Path, history: Option<PathBuf>, no_record: bool) -> Result<
     print_classifications(&records);
     print_failures(&records);
     if !no_record {
-        let history = history.unwrap_or_else(|| default_history(root));
-        append(&history, &records)?;
-        write_report(&history, &root.join("graph/test-results/REPORT.md"))?;
+        record_results(root, history, &records)?;
     }
     let clean = outcomes_are_clean(&records);
     println!("run {run_id}: {} records, clean={clean}", records.len());
@@ -333,9 +329,7 @@ fn run_grafeo(root: &Path, history: Option<PathBuf>, no_record: bool) -> Result<
     print_classifications(&records);
     print_failures(&records);
     if !no_record {
-        let history = history.unwrap_or_else(|| default_history(root));
-        append(&history, &records)?;
-        write_report(&history, &root.join("graph/test-results/REPORT.md"))?;
+        record_results(root, history, &records)?;
     }
     let clean = outcomes_are_clean(&records);
     println!("run {run_id}: {} records, clean={clean}", records.len());
@@ -383,9 +377,7 @@ fn run_tck(root: &Path, history: Option<PathBuf>, no_record: bool) -> Result<boo
     print_classifications(&records);
     print_failures(&records);
     if !no_record {
-        let history = history.unwrap_or_else(|| default_history(root));
-        append(&history, &records)?;
-        write_report(&history, &root.join("graph/test-results/REPORT.md"))?;
+        record_results(root, history, &records)?;
     }
     let clean = outcomes_are_clean(&records);
     println!("run {run_id}: {} records, clean={clean}", records.len());
@@ -495,9 +487,7 @@ fn run_performance(
         }
     }
     if !no_record {
-        let history = history.unwrap_or_else(|| default_history(root));
-        append(&history, &records)?;
-        write_report(&history, &root.join("graph/test-results/REPORT.md"))?;
+        record_results(root, history, &records)?;
     }
     let clean = records
         .iter()
@@ -548,9 +538,7 @@ fn run_suite(root: &Path, suite: Suite, history: Option<PathBuf>, no_record: boo
         records.push(record);
     }
     if !no_record {
-        let history = history.unwrap_or_else(|| default_history(root));
-        append(&history, &records)?;
-        write_report(&history, &root.join("graph/test-results/REPORT.md"))?;
+        record_results(root, history, &records)?;
     }
     let clean = outcomes_are_clean(&records);
     println!("run {run_id}: {} records, clean={clean}", records.len());
@@ -575,6 +563,61 @@ fn repository_root() -> PathBuf {
 
 fn default_history(root: &Path) -> PathBuf {
     root.join("graph/test-results/history.jsonl")
+}
+
+/// Records a run: full rows append to the (untracked) history log, a
+/// one-line aggregate appends to the tracked runs.jsonl summary, and the
+/// report regenerates from the full history.
+fn record_results(
+    root: &Path,
+    history: Option<PathBuf>,
+    records: &[turso_graph_testkit::model::ResultRecord],
+) -> Result<()> {
+    let history = history.unwrap_or_else(|| default_history(root));
+    append(&history, records)?;
+    append_run_summary(&root.join("graph/test-results/runs.jsonl"), records)?;
+    write_report(&history, &root.join("graph/test-results/REPORT.md"))?;
+    Ok(())
+}
+
+fn append_run_summary(
+    path: &Path,
+    records: &[turso_graph_testkit::model::ResultRecord],
+) -> Result<()> {
+    use std::io::Write as _;
+    let Some(first) = records.first() else {
+        return Ok(());
+    };
+    let mut by_suite = std::collections::BTreeMap::<String, (u64, u64)>::new();
+    for record in records {
+        let entry = by_suite.entry(record.suite.clone()).or_default();
+        if record.outcome == turso_graph_testkit::model::Outcome::Passed {
+            entry.0 += 1;
+        } else {
+            entry.1 += 1;
+        }
+    }
+    let passed: u64 = by_suite.values().map(|(passed, _)| passed).sum();
+    let failed: u64 = by_suite.values().map(|(_, failed)| failed).sum();
+    let suites = by_suite
+        .into_iter()
+        .map(|(suite, (passed, failed))| {
+            format!("\"{suite}\":{{\"passed\":{passed},\"failed\":{failed}}}")
+        })
+        .collect::<Vec<_>>()
+        .join(",");
+    let line = format!(
+        "{{\"run_id\":\"{}\",\"recorded_at\":\"{}\",\"total\":{},\"passed\":{passed},\"failed\":{failed},\"suites\":{{{suites}}}}}",
+        first.run_id,
+        first.recorded_at,
+        records.len(),
+    );
+    let mut file = std::fs::OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open(path)?;
+    writeln!(file, "{line}")?;
+    Ok(())
 }
 
 #[cfg(test)]

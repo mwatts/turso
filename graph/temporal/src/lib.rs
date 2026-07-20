@@ -510,7 +510,11 @@ fn duration_between(args: &[ExtValue]) -> ExtValue {
         _ => Unit::Month,
     };
     let span = match (&start, &end) {
-        (Temporal::DateTime(start), Temporal::DateTime(end)) => start.until((largest, end)).ok(),
+        (Temporal::DateTime(start), Temporal::DateTime(end)) => {
+            // Calendar spans require one zone; compute in the start's.
+            let end = end.with_time_zone(start.time_zone().clone());
+            start.until((largest, &end)).ok()
+        }
         _ => {
             let promote = |value: &Temporal| -> Option<civil::DateTime> {
                 match value {
@@ -933,6 +937,43 @@ fn parse_time_extended(text: &str) -> Option<civil::Time> {
     civil::Time::new(hour, minute, second, subsec).ok()
 }
 
+/// Splits a trailing offset in the extended forms constructor strings
+/// allow: `Z`, `±HH:MM`, `±HHMM`, and `±HH`. Only safe on time-side
+/// strings, where `-` cannot be a date separator.
+fn strip_zone_extended(text: &str) -> (&str, ZoneSuffix) {
+    let (core, zone) = strip_zone(text);
+    if !matches!(zone, ZoneSuffix::Missing) {
+        return (core, zone);
+    }
+    for (length, has_minutes) in [(5, true), (3, false)] {
+        if text.len() <= length {
+            continue;
+        }
+        let tail = &text[text.len() - length..];
+        let bytes = tail.as_bytes();
+        if bytes[0] != b'+' && bytes[0] != b'-' {
+            continue;
+        }
+        if !tail[1..].bytes().all(|byte| byte.is_ascii_digit()) {
+            continue;
+        }
+        let hours: i32 = tail[1..3].parse().ok().unwrap_or(-1);
+        let minutes: i32 = if has_minutes {
+            tail[3..].parse().ok().unwrap_or(-1)
+        } else {
+            0
+        };
+        if !(0..=23).contains(&hours) || !(0..=59).contains(&minutes) {
+            continue;
+        }
+        let sign = if bytes[0] == b'+' { 1 } else { -1 };
+        if let Ok(offset) = Offset::from_seconds(sign * (hours * 3600 + minutes * 60)) {
+            return (&text[..text.len() - length], ZoneSuffix::Fixed(offset));
+        }
+    }
+    (text, ZoneSuffix::Missing)
+}
+
 /// Kind-aware string parsing: constructor strings use forms the generic
 /// parser cannot disambiguate (a bare `2140` is a time, not a year).
 fn parse_temporal_with_kind(kind: &str, text: &str) -> Option<Temporal> {
@@ -940,11 +981,11 @@ fn parse_temporal_with_kind(kind: &str, text: &str) -> Option<Temporal> {
     if text.contains('[') {
         return parse_temporal(text);
     }
-    let (core, zone) = strip_zone(text);
     match kind {
-        "date" => parse_date_extended(core).map(Temporal::Date),
-        "localtime" => parse_time_extended(core).map(Temporal::LocalTime),
+        "date" => parse_date_extended(text).map(Temporal::Date),
+        "localtime" => parse_time_extended(text).map(Temporal::LocalTime),
         "time" => {
+            let (core, zone) = strip_zone_extended(text);
             let time = parse_time_extended(core)?;
             Some(match zone {
                 ZoneSuffix::Missing | ZoneSuffix::Utc => Temporal::Time(time, Offset::UTC),
@@ -952,13 +993,16 @@ fn parse_temporal_with_kind(kind: &str, text: &str) -> Option<Temporal> {
             })
         }
         "localdatetime" | "datetime" => {
-            let (date_part, time_part) = match core.split_once('T') {
-                Some((date, time)) => (date, Some(time)),
-                None => (core, None),
+            let (date_part, time_part, zone) = match text.split_once('T') {
+                Some((date, time)) => {
+                    let (core, zone) = strip_zone_extended(time);
+                    (date, Some(core.to_owned()), zone)
+                }
+                None => (text, None, ZoneSuffix::Missing),
             };
             let date = parse_date_extended(date_part)?;
             let time = match time_part {
-                Some(time) => parse_time_extended(time)?,
+                Some(time) => parse_time_extended(&time)?,
                 None => civil::Time::midnight(),
             };
             let datetime = date.to_datetime(time);

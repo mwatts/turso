@@ -915,6 +915,8 @@ fn lower_expression_with_references(
             })
         }
         ir::Expression::Binary { left, op, right } => {
+            let left_type = left.value_type.clone();
+            let right_type = right.value_type.clone();
             let left =
                 lower_expression_with_references(left, bindings, catalog, input_alias, references)?;
             let right = lower_expression_with_references(
@@ -925,10 +927,54 @@ fn lower_expression_with_references(
                 references,
             )?;
             Ok(match op {
-                // Cypher lists lower to JSON arrays; membership must probe
-                // the array's elements, not compare against the JSON text.
+                // Cypher lists lower to JSON arrays; membership probes the
+                // array's elements with strict typing (1 is not '1') and
+                // ternary semantics: an unmatched probe over a list that
+                // contains null, or a null probe over a non-empty list, is
+                // null rather than false.
                 ir::BinaryOp::In => {
-                    format!("({left}) IN (SELECT value FROM json_each({right}))")
+                    let strict_match = format!(
+                        "((typeof(e.value) IN ('integer', 'real') \
+                          AND typeof(({left})) IN ('integer', 'real')) \
+                          OR typeof(e.value) = typeof(({left}))) AND e.value = ({left})"
+                    );
+                    format!(
+                        "(CASE WHEN ({right}) IS NULL THEN NULL \
+                          WHEN EXISTS (SELECT 1 FROM json_each(({right})) AS e \
+                          WHERE {strict_match}) THEN 1 \
+                          WHEN ({left}) IS NULL AND json_array_length(({right})) > 0 THEN NULL \
+                          WHEN EXISTS (SELECT 1 FROM json_each(({right})) AS e \
+                          WHERE e.value IS NULL) THEN NULL \
+                          ELSE 0 END)"
+                    )
+                }
+                // List append: `[1] + 2` produces `[1, 2]`.
+                ir::BinaryOp::Add
+                    if matches!(left_type, ir::ValueType::List(_))
+                        && !matches!(right_type, ir::ValueType::List(_)) =>
+                {
+                    format!("json_insert(({left}), '$[#]', ({right}))")
+                }
+                // Ordering comparisons are ternary and type-strict: numbers
+                // compare with numbers and text with text; anything else
+                // (including null operands) is null. SQLite's cross-type
+                // ordering would otherwise make 1 < 'a' true.
+                ir::BinaryOp::Less
+                | ir::BinaryOp::LessOrEqual
+                | ir::BinaryOp::Greater
+                | ir::BinaryOp::GreaterOrEqual
+                    if comparison_needs_type_guard(&left_type, &right_type) =>
+                {
+                    let operator = binary_operator(*op);
+                    format!(
+                        "(CASE WHEN ({left}) IS NULL OR ({right}) IS NULL THEN NULL \
+                          WHEN typeof(({left})) IN ('integer', 'real') \
+                          AND typeof(({right})) IN ('integer', 'real') \
+                          THEN ({left}) {operator} ({right}) \
+                          WHEN typeof(({left})) = 'text' AND typeof(({right})) = 'text' \
+                          THEN ({left}) {operator} ({right}) \
+                          ELSE NULL END)"
+                    )
                 }
                 // Boolean XOR over 1/0/NULL: inequality preserves Cypher's
                 // three-valued semantics.
@@ -1442,6 +1488,20 @@ fn lower_literal(literal: &ir::Literal) -> String {
     }
 }
 
+/// True when an ordering comparison needs the runtime typeof guard: the
+/// operands are not statically known to be the same comparable class.
+fn comparison_needs_type_guard(left: &ir::ValueType, right: &ir::ValueType) -> bool {
+    fn class(value_type: &ir::ValueType) -> Option<u8> {
+        match value_type {
+            ir::ValueType::Integer | ir::ValueType::Real => Some(0),
+            ir::ValueType::Text => Some(1),
+            ir::ValueType::Custom { base, .. } => class(base),
+            _ => None,
+        }
+    }
+    !matches!((class(left), class(right)), (Some(a), Some(b)) if a == b)
+}
+
 fn binary_operator(operator: ir::BinaryOp) -> &'static str {
     match operator {
         ir::BinaryOp::Equal => "=",
@@ -1575,10 +1635,8 @@ mod tests {
         };
         let sql = lower_expression(&expression, &bindings, &catalog, "n")
             .expect("IN lowering should succeed");
-        assert_eq!(
-            sql,
-            "(1) IN (SELECT value FROM json_each(json_array(1, 2)))"
-        );
+        assert!(sql.starts_with("(CASE WHEN (json_array(1, 2)) IS NULL"));
+        assert!(sql.contains("typeof(e.value)"));
     }
 
     #[test]

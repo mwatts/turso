@@ -3660,10 +3660,10 @@ fn rewrite_builtin_call(
             ("tolower" | "tolowercase", [_]) => {
                 sql_function("lower", arguments, ir::ValueType::Text)
             }
-            ("tostring" | "tointeger" | "tofloat" | "toboolean", [argument])
-                if argument.value_type == ir::ValueType::Map =>
+            (conversion @ ("tostring" | "tointeger" | "tofloat" | "toboolean"), [argument])
+                if !convertible_argument(conversion, &argument.value_type) =>
             {
-                return Err(at_unsupported(span, "casting map values"));
+                return Err(at_unsupported(span, "conversion from this value type"));
             }
             ("tostring", [argument]) => cast(argument, ir::ValueType::Text),
             ("tointeger", [argument]) => cast(argument, ir::ValueType::Integer),
@@ -3825,6 +3825,20 @@ fn contains_pattern_expression(expression: &cypher::Spanned<cypher::Expression>)
         cypher::Expression::Map(entries) => entries
             .iter()
             .any(|(_, value)| contains_pattern_expression(value)),
+        _ => false,
+    }
+}
+
+/// Statically valid argument types for the to*() conversions (TCK
+/// TypeConversion1-4 "fail on invalid types"). Any stays permitted.
+fn convertible_argument(conversion: &str, value_type: &ir::ValueType) -> bool {
+    match value_type {
+        ir::ValueType::Any => true,
+        ir::ValueType::Custom { .. } => conversion == "tostring",
+        ir::ValueType::Boolean => matches!(conversion, "tostring" | "tointeger" | "toboolean"),
+        ir::ValueType::Integer => true,
+        ir::ValueType::Real => matches!(conversion, "tostring" | "tointeger" | "tofloat"),
+        ir::ValueType::Text => true,
         _ => false,
     }
 }

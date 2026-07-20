@@ -623,10 +623,10 @@ fn walk_expression(pair: Pair<'_, Rule>) -> Result<Spanned<Expression>, ParseErr
         Rule::expression
         | Rule::or_expression
         | Rule::and_expression
-        | Rule::comparison_expression
         | Rule::additive_expression
         | Rule::multiplicative_expression
         | Rule::power_expression => walk_binary(pair)?,
+        Rule::comparison_expression => walk_comparison(pair)?,
         Rule::not_expression => walk_not(pair)?,
         Rule::predicate_expression => walk_predicate(pair)?,
         Rule::postfix_expression => walk_postfix(pair)?,
@@ -684,6 +684,56 @@ fn walk_binary(pair: Pair<'_, Rule>) -> Result<Expression, ParseError> {
         );
     }
     Ok(left.value)
+}
+
+/// Comparison chains are pairwise conjunctions in Cypher:
+/// `a <= x <= c` means `a <= x AND x <= c`, not `(a <= x) <= c`.
+fn walk_comparison(pair: Pair<'_, Rule>) -> Result<Expression, ParseError> {
+    let span = pair_span(&pair);
+    let mut inner = pair.into_inner();
+    let first = inner
+        .next()
+        .ok_or_else(|| ParseError::at(span, "expression has no operand"))?;
+    let mut operands = vec![walk_expression(first)?];
+    let mut operators = Vec::new();
+    while let Some(operator) = inner.next() {
+        let right = inner
+            .next()
+            .ok_or_else(|| ParseError::at(span, "operator has no right operand"))?;
+        operators.push(binary_operator(&operator)?);
+        operands.push(walk_expression(right)?);
+    }
+    let mut result: Option<Spanned<Expression>> = None;
+    for (index, operator) in operators.iter().enumerate() {
+        let left = operands[index].clone();
+        let right = operands[index + 1].clone();
+        let pair_span = Span::new(left.span.start, right.span.end);
+        let comparison = Spanned::new(
+            Expression::Binary {
+                left: Box::new(left),
+                operator: *operator,
+                right: Box::new(right),
+            },
+            pair_span,
+        );
+        result = Some(match result {
+            None => comparison,
+            Some(accumulated) => {
+                let combined = Span::new(accumulated.span.start, comparison.span.end);
+                Spanned::new(
+                    Expression::Binary {
+                        left: Box::new(accumulated),
+                        operator: BinaryOperator::And,
+                        right: Box::new(comparison),
+                    },
+                    combined,
+                )
+            }
+        });
+    }
+    Ok(result
+        .unwrap_or_else(|| operands.into_iter().next().expect("first operand exists"))
+        .value)
 }
 
 fn binary_operator(pair: &Pair<'_, Rule>) -> Result<BinaryOperator, ParseError> {
