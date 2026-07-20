@@ -71,6 +71,11 @@ pub struct MutationStage {
     pub predicate: Option<ir::TypedExpression>,
     pub distinct: bool,
     pub items: Vec<StageItem>,
+    /// WITH ... ORDER BY sort keys, bound against the stage's output scope
+    /// and evaluated over the stage's projected rows (after DISTINCT).
+    pub order: Vec<(ir::TypedExpression, bool)>,
+    pub skip: Option<usize>,
+    pub limit: Option<usize>,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -516,7 +521,7 @@ impl<'a> Binder<'a> {
                     self.bind_projection(value, false)?;
                 }
                 cypher::Clause::With(value) if mutation_started => {
-                    stages.push(self.bind_mutation_with(value, clause.span)?);
+                    stages.push(self.bind_mutation_with(value)?);
                 }
                 cypher::Clause::Foreach(value) => {
                     mutation_started = true;
@@ -541,23 +546,14 @@ impl<'a> Binder<'a> {
                         ));
                     }
                     returns_distinct = value.distinct;
-                    let constant = |bound: Option<&cypher::Spanned<cypher::Expression>>| match bound
-                    {
-                        None => Ok(None),
-                        Some(expression) => match &expression.value {
-                            cypher::Expression::Literal(cypher::Literal::Integer(value))
-                                if *value >= 0 =>
-                            {
-                                Ok(Some(*value as usize))
-                            }
-                            _ => Err(at_unsupported(
-                                expression.span,
-                                "non-constant SKIP/LIMIT on a mutation RETURN clause",
-                            )),
-                        },
-                    };
-                    returns_skip = constant(value.skip.as_ref())?;
-                    returns_limit = constant(value.limit.as_ref())?;
+                    returns_skip = bind_constant_count(
+                        value.skip.as_ref(),
+                        "non-constant SKIP/LIMIT on a mutation RETURN clause",
+                    )?;
+                    returns_limit = bind_constant_count(
+                        value.limit.as_ref(),
+                        "non-constant SKIP/LIMIT on a mutation RETURN clause",
+                    )?;
                     for item in &value.items {
                         let cypher::ProjectionItem::Expression { expression, .. } = item else {
                             return Err(at_unsupported(
@@ -888,20 +884,16 @@ impl<'a> Binder<'a> {
             predicate: None,
             distinct: false,
             items: Vec::new(),
+            order: Vec::new(),
+            skip: None,
+            limit: None,
         }
     }
 
     fn bind_mutation_with(
         &mut self,
         clause: &cypher::ProjectionClause,
-        span: cypher::Span,
     ) -> Result<MutationStage, BindError> {
-        if !clause.order_by.is_empty() || clause.skip.is_some() || clause.limit.is_some() {
-            return Err(at_unsupported(
-                span,
-                "ORDER BY, SKIP, or LIMIT on mutation WITH clauses",
-            ));
-        }
         let mut projections = Vec::new();
         let mut output_scope: Vec<ir::Binding> = Vec::new();
         let mut output_entities = HashMap::new();
@@ -1004,11 +996,31 @@ impl<'a> Binder<'a> {
             .as_ref()
             .map(|predicate| self.bind_expression(predicate))
             .transpose()?;
+        // ORDER BY, SKIP, and LIMIT are bound against the stage's own output
+        // scope, so they see this WITH's aliases the same way a following
+        // clause would (and lose access to anything the WITH didn't carry
+        // forward, matching Cypher's WITH scoping).
+        let order = clause
+            .order_by
+            .iter()
+            .map(|sort| Ok((self.bind_expression(&sort.expression)?, sort.descending)))
+            .collect::<Result<Vec<_>, BindError>>()?;
+        let skip = bind_constant_count(
+            clause.skip.as_ref(),
+            "non-constant SKIP/LIMIT on a mutation WITH clause",
+        )?;
+        let limit = bind_constant_count(
+            clause.limit.as_ref(),
+            "non-constant SKIP/LIMIT on a mutation WITH clause",
+        )?;
         Ok(MutationStage {
             projections,
             predicate,
             distinct: clause.distinct,
             items: Vec::new(),
+            order,
+            skip,
+            limit,
         })
     }
 
@@ -4956,6 +4968,25 @@ fn at_unsupported(span: cypher::Span, feature: &'static str) -> BindError {
     }
 }
 
+/// Binds a SKIP/LIMIT expression that must be a non-negative integer
+/// literal: mutation pipelines execute row counts in Rust rather than
+/// lowering them into a SQL plan, so a runtime-only bound (a parameter or
+/// computed expression) has nowhere to be evaluated yet.
+fn bind_constant_count(
+    expression: Option<&cypher::Spanned<cypher::Expression>>,
+    context: &'static str,
+) -> Result<Option<usize>, BindError> {
+    match expression {
+        None => Ok(None),
+        Some(expression) => match &expression.value {
+            cypher::Expression::Literal(cypher::Literal::Integer(value)) if *value >= 0 => {
+                Ok(Some(*value as usize))
+            }
+            _ => Err(at_unsupported(expression.span, context)),
+        },
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -5105,6 +5136,29 @@ mod tests {
                 .iter()
                 .any(|item| matches!(item, StageItem::Match { .. }))
         }));
+    }
+
+    #[test]
+    fn mutation_with_binds_order_by_skip_and_limit() {
+        // The WITH here follows a staged (post-mutation) MATCH, so it binds
+        // through `bind_mutation_with` rather than the read projection path
+        // that handles a WITH appearing before the first mutating clause.
+        let bound = bind_mutation_text(
+            "CREATE (:Person {id: 1}) MATCH (n:Person) \
+             WITH n ORDER BY n.id DESC SKIP 1 LIMIT 1 SET n.name = 'Z'",
+        )
+        .expect("WITH ORDER BY/SKIP/LIMIT should bind in a mutation stage");
+        let stage = bound.stages.last().expect("staged MATCH and WITH stages");
+        assert_eq!(stage.order.len(), 1);
+        assert!(stage.order[0].1, "DESC should record descending = true");
+        assert_eq!(stage.skip, Some(1));
+        assert_eq!(stage.limit, Some(1));
+        assert!(matches!(
+            bind_mutation_text(
+                "CREATE (:Person {id: 1}) MATCH (n:Person) WITH n LIMIT $n SET n.name = 'Z'"
+            ),
+            Err(BindError::Unsupported { .. })
+        ));
     }
 
     #[test]

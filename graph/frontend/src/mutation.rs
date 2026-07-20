@@ -228,6 +228,21 @@ fn execute_bound(
             rows,
             &entity_layouts,
         )?;
+        rows = sort_stage_rows(
+            connection,
+            catalog,
+            input,
+            parameters,
+            &stage.order,
+            rows,
+            &entity_layouts,
+        )?;
+        if let Some(skip) = stage.skip {
+            rows.drain(..skip.min(rows.len()));
+        }
+        if let Some(limit) = stage.limit {
+            rows.truncate(limit);
+        }
         for item in &stage.items {
             match item {
                 StageItem::Operation(operation) => {
@@ -604,6 +619,67 @@ fn project_stage(
         });
     }
     Ok(output_rows)
+}
+
+/// Applies a stage's `ORDER BY` to its already-projected (and
+/// DISTINCT-filtered) rows: each sort key evaluates once per row against
+/// that row's own bindings, exactly like a stage predicate, so it sees
+/// aggregate outputs the same way `WITH ... WHERE` does.
+fn sort_stage_rows(
+    connection: &Arc<Connection>,
+    catalog: &dyn GraphCompilationCatalog,
+    input: &LoweredMutationInput,
+    parameters: &MutationParameters,
+    order: &[(ir::TypedExpression, bool)],
+    rows: Vec<HashMap<ir::BindingId, Value>>,
+    entity_layouts: &HashMap<ir::BindingId, (ir::SourceTableId, MutationEntityKind)>,
+) -> Result<Vec<HashMap<ir::BindingId, Value>>, MutationError> {
+    if order.is_empty() {
+        return Ok(rows);
+    }
+    let mut keyed: Vec<(Vec<Value>, HashMap<ir::BindingId, Value>)> =
+        Vec::with_capacity(rows.len());
+    for values in rows {
+        let references = reference_parameters(&values);
+        let mut keys = Vec::with_capacity(order.len());
+        for (expression, _) in order {
+            let sql = lower_mutation_expression(
+                expression,
+                input,
+                catalog,
+                &references.sql,
+                entity_layouts,
+            )?;
+            let mut produced = run_rows(
+                connection,
+                &format!("SELECT ({sql})"),
+                parameters,
+                &references.values,
+            )?;
+            keys.push(
+                produced
+                    .pop()
+                    .and_then(|mut row| row.pop())
+                    .unwrap_or(Value::Null),
+            );
+        }
+        keyed.push((keys, values));
+    }
+    keyed.sort_by(|(left, _), (right, _)| {
+        for (index, (_, descending)) in order.iter().enumerate() {
+            let ordering = compare_returned_values(&left[index], &right[index]);
+            let ordering = if *descending {
+                ordering.reverse()
+            } else {
+                ordering
+            };
+            if ordering != std::cmp::Ordering::Equal {
+                return ordering;
+            }
+        }
+        std::cmp::Ordering::Equal
+    });
+    Ok(keyed.into_iter().map(|(_, values)| values).collect())
 }
 
 fn fold_aggregate(
@@ -1859,6 +1935,33 @@ mod tests {
         assert_eq!(
             rows(&connection, "SELECT count(*) FROM people"),
             vec![vec![Value::from_i64(0)]]
+        );
+    }
+
+    #[test]
+    fn with_order_by_skip_and_limit_narrow_a_mutation_stage() {
+        let (connection, catalog, graph) = setup();
+        // ORDER BY id DESC -> [3, 2, 1]; SKIP 1 -> [2, 1]; LIMIT 1 -> [2]:
+        // only the middle row should be renamed and returned. The MATCH
+        // (staged, since it follows CREATE) re-reads the just-created rows.
+        let summary = execute(
+            &connection,
+            &catalog,
+            graph,
+            "CREATE (:Person {id: 1, name: 'Ada'}), (:Person {id: 2, name: 'Bob'}), \
+             (:Person {id: 3, name: 'Cy'}) \
+             MATCH (n:Person) WITH n ORDER BY n.id DESC SKIP 1 LIMIT 1 \
+             SET n.name = 'Z' RETURN n.id",
+        )
+        .unwrap();
+        assert_eq!(summary.rows, vec![vec![Value::from_i64(2)]]);
+        assert_eq!(
+            rows(&connection, "SELECT id, name FROM people ORDER BY id"),
+            vec![
+                vec![Value::from_i64(1), Value::build_text("Ada")],
+                vec![Value::from_i64(2), Value::build_text("Z")],
+                vec![Value::from_i64(3), Value::build_text("Cy")],
+            ]
         );
     }
 }
