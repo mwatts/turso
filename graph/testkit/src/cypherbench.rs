@@ -8,9 +8,38 @@ use std::{collections::HashMap, fs, path::Path, time::Instant};
 
 use anyhow::{Context, Result};
 use serde::Deserialize;
+use turso_core::{Numeric, Value};
 use turso_graph_frontend::MutationParameters;
 
 use crate::runner::{empty_fixture, GraphFixture};
+
+/// Renders a query result scalar for comparison against a gold answer.
+/// Floats bypass `Value`'s `Display` (SQLite's `%.15g`-style
+/// `format_float`, which throws away precision the gold JSON keeps, e.g.
+/// rendering a computed `1.2999999999999998` as `"1.3"`) and instead go
+/// through Rust's round-trip-shortest `{:?}` on the raw `f64` — the same
+/// canonicalization `canonicalize_json_number` applies to the gold side, so
+/// `1.0`, `1e0`, and any equal double converge on one textual form
+/// regardless of which side produced it.
+fn stringify_observed(value: Value) -> String {
+    match value {
+        Value::Numeric(Numeric::Float(f)) => format!("{:?}", f64::from(f)),
+        other => other.to_string(),
+    }
+}
+
+/// Mirrors `stringify_observed`'s float canonicalization for a gold
+/// `answer_json` number: JSON floats (parsed as `serde_json::Number`'s f64
+/// variant) render via the same `{:?}` round-trip form; JSON integers keep
+/// their exact integer text (no forced decimal point).
+fn canonicalize_json_number(number: &serde_json::Number) -> String {
+    if number.is_f64() {
+        if let Some(value) = number.as_f64() {
+            return format!("{value:?}");
+        }
+    }
+    number.to_string()
+}
 
 #[derive(Debug, Deserialize)]
 pub struct SimpleKg {
@@ -433,7 +462,7 @@ fn run_domain_worker(
                 query_ms_total += query_started.elapsed().as_millis() as u64;
                 let mut observed: Vec<Vec<String>> = rows
                     .into_iter()
-                    .map(|row| row.into_iter().map(|value| value.to_string()).collect())
+                    .map(|row| row.into_iter().map(stringify_observed).collect())
                     .collect();
                 let expected: Vec<Vec<serde_json::Value>> =
                     serde_json::from_str(&task.answer_json).unwrap_or_default();
@@ -444,6 +473,7 @@ fn run_domain_worker(
                             .map(|value| match value {
                                 serde_json::Value::String(s) => s,
                                 serde_json::Value::Null => String::new(),
+                                serde_json::Value::Number(n) => canonicalize_json_number(&n),
                                 other => other.to_string(),
                             })
                             .collect()

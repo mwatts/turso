@@ -190,9 +190,23 @@ impl SchemaCatalog {
             // `Any` otherwise). For non-array columns, `column.affinity()`
             // is accurate regardless of declared spelling (`INT`,
             // `VARCHAR(50)`, `DOUBLE`, ...), so use it there instead.
+            //
+            // A `Builtin` column with an *empty* declared type (e.g. `ALTER
+            // TABLE t ADD COLUMN prop` with no type name, as dynamic
+            // property loaders emit) is SQLite's "no affinity" case: unlike
+            // an explicitly declared `BLOB` column, it applies no storage
+            // coercion at all, so each row keeps whatever type was inserted.
+            // Typing it `Bytes` (via `Blob` affinity) would reject
+            // arithmetic and IN-membership on columns that are, in practice,
+            // numeric or list-valued in every row. `Any` reflects that the
+            // declared schema simply makes no promise here. A genuinely
+            // declared `BLOB` column keeps its non-empty `declared_name` and
+            // still resolves to `Bytes` below.
             ColumnTypeKind::Builtin | ColumnTypeKind::Domain => {
                 if is_array {
                     primitive_value_type(info.base_type.as_deref().unwrap_or(&info.declared_name))
+                } else if info.declared_name.is_empty() {
+                    ir::ValueType::Any
                 } else {
                     sqlite_type_value_type(column.affinity().to_type())
                 }
@@ -544,6 +558,83 @@ mod tests {
             label.value_type,
             ir::ValueType::Text,
             "VARCHAR(20) must resolve via SQLite affinity (Text) and not fall back to Any"
+        );
+    }
+
+    /// Regression test: a column added via `ALTER TABLE ... ADD COLUMN name`
+    /// with no type name at all (as dynamic property loaders — e.g. the
+    /// CypherBench fixture loader — emit for benchmark properties) must
+    /// resolve to `Any`, not `Bytes`. SQLite gives such a column `Blob`
+    /// ("no affinity") storage class, meaning every row keeps whichever type
+    /// was inserted; typing it `Bytes` made the binder reject arithmetic and
+    /// `IN` on properties that are numeric/list-valued in every row.
+    #[test]
+    fn untyped_alter_table_column_resolves_any_not_bytes() {
+        let connection = connect(false);
+        connection
+            .execute(
+                "CREATE TABLE things(id INTEGER PRIMARY KEY); \
+                 ALTER TABLE things ADD COLUMN weight;",
+            )
+            .expect("create source");
+        let graph = crate::catalog::register_graph(
+            &connection,
+            &GraphRegistration {
+                name: "typesys".to_owned(),
+                node_sources: vec![NodeSourceRegistration {
+                    name: "Thing".to_owned(),
+                    table: "things".to_owned(),
+                    identity_column: "id".to_owned(),
+                }],
+                relationship_sources: vec![],
+            },
+        )
+        .expect("register graph");
+        let graph_id = graph.id;
+        let catalog = SchemaCatalog::new(connection, graph);
+
+        let weight = catalog
+            .property(graph_id, CatalogEntity::Node, "weight")
+            .expect("weight resolves");
+        assert_eq!(
+            weight.value_type,
+            ir::ValueType::Any,
+            "a column with no declared type at all must resolve to Any, not Bytes"
+        );
+    }
+
+    /// A column explicitly declared `BLOB` is a real fixed-affinity
+    /// declaration (not "no type at all") and must keep resolving to
+    /// `Bytes`, distinguishing it from the untyped-column case above.
+    #[test]
+    fn explicitly_declared_blob_column_still_resolves_bytes() {
+        let connection = connect(false);
+        connection
+            .execute("CREATE TABLE things(id INTEGER PRIMARY KEY, payload BLOB);")
+            .expect("create source");
+        let graph = crate::catalog::register_graph(
+            &connection,
+            &GraphRegistration {
+                name: "typesys".to_owned(),
+                node_sources: vec![NodeSourceRegistration {
+                    name: "Thing".to_owned(),
+                    table: "things".to_owned(),
+                    identity_column: "id".to_owned(),
+                }],
+                relationship_sources: vec![],
+            },
+        )
+        .expect("register graph");
+        let graph_id = graph.id;
+        let catalog = SchemaCatalog::new(connection, graph);
+
+        let payload = catalog
+            .property(graph_id, CatalogEntity::Node, "payload")
+            .expect("payload resolves");
+        assert_eq!(
+            payload.value_type,
+            ir::ValueType::Bytes,
+            "an explicitly declared BLOB column must still resolve to Bytes"
         );
     }
 
