@@ -78,10 +78,13 @@ enum EntityKind {
     Relationship,
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone)]
 struct BindingLayout {
     source: ir::SourceTableId,
     kind: EntityKind,
+    /// Property ids whose values ride along as materialized columns
+    /// (named by `property_column_ref`) in this plan node's output.
+    properties: std::collections::BTreeSet<u32>,
 }
 
 struct Lowered {
@@ -104,7 +107,9 @@ pub(crate) fn lower_mutation_input(
     plan: &ir::Plan,
     catalog: &dyn RelationalCatalogSnapshot,
 ) -> Result<LoweredMutationInput, LowerError> {
-    let lowered = lower_plan(plan, catalog, false)?;
+    let mut wanted = WantedProperties::new();
+    collect_wanted(plan, &mut wanted);
+    let lowered = lower_plan(plan, catalog, false, &wanted)?;
     Ok(LoweredMutationInput {
         sql: lowered.sql,
         bindings: lowered.bindings,
@@ -135,6 +140,7 @@ pub(crate) fn lower_mutation_expression(
                     MutationEntityKind::Node => EntityKind::Node,
                     MutationEntityKind::Relationship => EntityKind::Relationship,
                 },
+                properties: Default::default(),
             },
         )
     }));
@@ -165,7 +171,9 @@ pub fn lower_relational(
     plan: &ir::Plan,
     catalog: &dyn RelationalCatalogSnapshot,
 ) -> Result<ast::Stmt, LowerError> {
-    let lowered = lower_plan(plan, catalog, false)?;
+    let mut wanted = WantedProperties::new();
+    collect_wanted(plan, &mut wanted);
+    let lowered = lower_plan(plan, catalog, false, &wanted)?;
     let sql = if plan.result_shape().is_empty() {
         lowered.sql
     } else {
@@ -190,38 +198,228 @@ pub fn lower_relational(
     }
 }
 
+/// Properties each binding's consumers actually read, collected from every
+/// expression in the plan. Scans and expands materialize these as extra
+/// columns so property access lowers to a column reference instead of a
+/// correlated subquery per occurrence.
+type WantedProperties = HashMap<ir::BindingId, std::collections::BTreeSet<u32>>;
+
+fn property_column_ref(binding: ir::BindingId, property: ir::PropertyId) -> String {
+    format!("{}_p{}", binding_column(binding), property.get())
+}
+
+/// Extra SELECT columns materializing a binding's wanted properties from
+/// `alias`, recording availability on the layout. Properties without a
+/// physical column fall back to subquery lowering.
+fn materialize_properties(
+    wanted: &WantedProperties,
+    binding: ir::BindingId,
+    source: ir::SourceTableId,
+    alias: &str,
+    catalog: &dyn RelationalCatalogSnapshot,
+    layout: &mut BindingLayout,
+) -> String {
+    let Some(properties) = wanted.get(&binding) else {
+        return String::new();
+    };
+    let mut columns = String::new();
+    for property in properties {
+        let Some(id) = ir::PropertyId::new(*property).ok() else {
+            continue;
+        };
+        let Some(column) = catalog.property_column(source, id) else {
+            continue;
+        };
+        columns.push_str(&format!(
+            ", {alias}.{} AS {}",
+            quote_identifier(&column),
+            property_column_ref(binding, id)
+        ));
+        layout.properties.insert(*property);
+    }
+    columns
+}
+
+fn collect_wanted(plan: &ir::Plan, wanted: &mut WantedProperties) {
+    let mut expressions: Vec<&ir::TypedExpression> = Vec::new();
+    match plan.kind() {
+        ir::PlanKind::Unit(_) | ir::PlanKind::NodeScan(_) => {}
+        ir::PlanKind::FixedExpand(expand) => collect_wanted(&expand.input, wanted),
+        ir::PlanKind::GraphExpand(expand) => collect_wanted(&expand.input, wanted),
+        ir::PlanKind::Filter(filter) => {
+            expressions.push(&filter.predicate);
+            collect_wanted(&filter.input, wanted);
+        }
+        ir::PlanKind::Project(project) => {
+            expressions.extend(project.projections.iter().map(|p| &p.expression));
+            collect_wanted(&project.input, wanted);
+        }
+        ir::PlanKind::Aggregate(aggregate) => {
+            expressions.extend(aggregate.groupings.iter().map(|g| &g.expression));
+            expressions.extend(
+                aggregate
+                    .aggregations
+                    .iter()
+                    .filter_map(|a| a.expression.as_ref()),
+            );
+            collect_wanted(&aggregate.input, wanted);
+        }
+        ir::PlanKind::Distinct(distinct) => {
+            expressions.extend(distinct.keys.iter());
+            collect_wanted(&distinct.input, wanted);
+        }
+        ir::PlanKind::Sort(sort) => {
+            expressions.extend(sort.keys.iter().map(|k| &k.expression));
+            collect_wanted(&sort.input, wanted);
+        }
+        ir::PlanKind::Skip(skip) => {
+            expressions.push(&skip.count);
+            collect_wanted(&skip.input, wanted);
+        }
+        ir::PlanKind::Limit(limit) => {
+            expressions.push(&limit.count);
+            collect_wanted(&limit.input, wanted);
+        }
+        ir::PlanKind::LeftApply(apply) => {
+            collect_wanted(&apply.left, wanted);
+            collect_wanted(&apply.right, wanted);
+        }
+        ir::PlanKind::Unwind(unwind) => {
+            expressions.push(&unwind.list);
+            collect_wanted(&unwind.input, wanted);
+        }
+        ir::PlanKind::Join(join) => {
+            collect_wanted(&join.left, wanted);
+            collect_wanted(&join.right, wanted);
+        }
+        ir::PlanKind::Union(union) => {
+            for input in union.inputs() {
+                collect_wanted(input, wanted);
+            }
+        }
+    }
+    for expression in expressions {
+        collect_expression_wanted(expression, wanted);
+    }
+}
+
+fn collect_expression_wanted(expression: &ir::TypedExpression, wanted: &mut WantedProperties) {
+    let mut stack = vec![&expression.expression];
+    while let Some(current) = stack.pop() {
+        match current {
+            ir::Expression::Property {
+                entity,
+                property,
+                fields,
+            } if fields.is_empty() => {
+                wanted.entry(*entity).or_default().insert(property.get());
+            }
+            _ => {}
+        }
+        for child in expression_children(current) {
+            stack.push(child);
+        }
+    }
+}
+
+fn expression_children<'a>(expression: &'a ir::Expression) -> Vec<&'a ir::Expression> {
+    let mut children: Vec<&'a ir::Expression> = Vec::new();
+    let mut push = |value: &'a ir::TypedExpression| {
+        children.push(&value.expression);
+    };
+    match expression {
+        ir::Expression::Binary { left, right, .. } => {
+            push(left);
+            push(right);
+        }
+        ir::Expression::Unary { expression, .. } => push(expression),
+        ir::Expression::Function { arguments, .. } => arguments.iter().for_each(&mut push),
+        ir::Expression::Case {
+            subject,
+            branches,
+            default,
+        } => {
+            if let Some(subject) = subject {
+                push(subject);
+            }
+            for (when, then) in branches {
+                push(when);
+                push(then);
+            }
+            if let Some(default) = default {
+                push(default);
+            }
+        }
+        ir::Expression::List(values) => values.iter().for_each(&mut push),
+        ir::Expression::Map(entries) => entries.iter().for_each(|(_, value)| push(value)),
+        ir::Expression::Index { base, index } => {
+            push(base);
+            push(index);
+        }
+        ir::Expression::Slice { base, from, to } => {
+            push(base);
+            from.as_deref().map(&mut push);
+            to.as_deref().map(&mut push);
+        }
+        ir::Expression::Cast { expression, .. } => push(expression),
+        ir::Expression::Quantifier {
+            list, predicate, ..
+        } => {
+            push(list);
+            push(predicate);
+        }
+        ir::Expression::ListComprehension {
+            list,
+            predicate,
+            map,
+            ..
+        } => {
+            push(list);
+            predicate.as_deref().map(&mut push);
+            map.as_deref().map(&mut push);
+        }
+        // PathValue carries binding ids, not sub-expressions.
+        ir::Expression::PathValue { .. } => {}
+        _ => {}
+    }
+    children
+}
+
 fn lower_plan(
     plan: &ir::Plan,
     catalog: &dyn RelationalCatalogSnapshot,
     optional: bool,
+    wanted: &WantedProperties,
 ) -> Result<Lowered, LowerError> {
     match plan.kind() {
         ir::PlanKind::Unit(_) => Ok(Lowered {
             sql: "SELECT 1 AS __unit".to_owned(),
             bindings: HashMap::new(),
         }),
-        ir::PlanKind::NodeScan(scan) => lower_node_scan(scan, catalog),
-        ir::PlanKind::FixedExpand(expand) => lower_fixed_expand(expand, catalog, optional, &[]),
-        ir::PlanKind::GraphExpand(expand) => lower_graph_expand(expand, catalog),
+        ir::PlanKind::NodeScan(scan) => lower_node_scan(scan, catalog, wanted),
+        ir::PlanKind::FixedExpand(expand) => {
+            lower_fixed_expand(expand, catalog, optional, &[], wanted)
+        }
+        ir::PlanKind::GraphExpand(expand) => lower_graph_expand(expand, catalog, wanted),
         ir::PlanKind::Filter(filter) => {
-            let input = lower_plan(&filter.input, catalog, optional)?;
+            let input = lower_plan(&filter.input, catalog, optional, wanted)?;
             let predicate = lower_expression(&filter.predicate, &input.bindings, catalog, "q")?;
             Ok(Lowered {
                 sql: format!("SELECT q.* FROM ({}) AS q WHERE {predicate}", input.sql),
                 bindings: input.bindings,
             })
         }
-        ir::PlanKind::Project(project) => lower_project(project, catalog, optional),
+        ir::PlanKind::Project(project) => lower_project(project, catalog, optional, wanted),
         ir::PlanKind::Distinct(distinct) => {
-            let input = lower_plan(&distinct.input, catalog, optional)?;
+            let input = lower_plan(&distinct.input, catalog, optional, wanted)?;
             Ok(Lowered {
                 sql: format!("SELECT DISTINCT q.* FROM ({}) AS q", input.sql),
                 bindings: input.bindings,
             })
         }
-        ir::PlanKind::LeftApply(apply) => lower_optional_chain(&apply.right, catalog),
+        ir::PlanKind::LeftApply(apply) => lower_optional_chain(&apply.right, catalog, wanted),
         ir::PlanKind::Aggregate(aggregate) => {
-            let input = lower_plan(&aggregate.input, catalog, optional)?;
+            let input = lower_plan(&aggregate.input, catalog, optional, wanted)?;
             let mut selects = Vec::new();
             let mut groups = Vec::new();
             let mut bindings = HashMap::new();
@@ -236,7 +434,9 @@ fn lower_plan(
                 // for later property access.
                 if let ir::Expression::Binding(source_binding) = &grouping.expression.expression {
                     if let Some(layout) = input.bindings.get(source_binding) {
-                        bindings.insert(grouping.output.id(), *layout);
+                        let mut layout = layout.clone();
+                        layout.properties.clear();
+                        bindings.insert(grouping.output.id(), layout);
                     }
                 }
             }
@@ -297,7 +497,7 @@ fn lower_plan(
             })
         }
         ir::PlanKind::Sort(sort) => {
-            let input = lower_plan(&sort.input, catalog, optional)?;
+            let input = lower_plan(&sort.input, catalog, optional, wanted)?;
             let ordering = lower_ordering(&sort.keys, &input.bindings, catalog)?;
             Ok(Lowered {
                 sql: format!("SELECT q.* FROM ({}) AS q ORDER BY {ordering}", input.sql),
@@ -305,7 +505,7 @@ fn lower_plan(
             })
         }
         ir::PlanKind::Skip(skip) => {
-            let input = lower_plan(&skip.input, catalog, optional)?;
+            let input = lower_plan(&skip.input, catalog, optional, wanted)?;
             let count = lower_expression(&skip.count, &input.bindings, catalog, "q")?;
             Ok(Lowered {
                 sql: format!(
@@ -316,7 +516,7 @@ fn lower_plan(
             })
         }
         ir::PlanKind::Limit(limit) => {
-            let input = lower_plan(&limit.input, catalog, optional)?;
+            let input = lower_plan(&limit.input, catalog, optional, wanted)?;
             let count = lower_expression(&limit.count, &input.bindings, catalog, "q")?;
             Ok(Lowered {
                 sql: format!("SELECT q.* FROM ({}) AS q LIMIT {count}", input.sql),
@@ -324,7 +524,7 @@ fn lower_plan(
             })
         }
         ir::PlanKind::Unwind(unwind) => {
-            let input = lower_plan(&unwind.input, catalog, optional)?;
+            let input = lower_plan(&unwind.input, catalog, optional, wanted)?;
             let list = lower_expression(&unwind.list, &input.bindings, catalog, "q")?;
             Ok(Lowered {
                 sql: format!(
@@ -336,8 +536,8 @@ fn lower_plan(
             })
         }
         ir::PlanKind::Join(join) => {
-            let left = lower_plan(&join.left, catalog, optional)?;
-            let right = lower_plan(&join.right, catalog, optional)?;
+            let left = lower_plan(&join.left, catalog, optional, wanted)?;
+            let right = lower_plan(&join.right, catalog, optional, wanted)?;
             let mut bindings = left.bindings;
             bindings.extend(right.bindings);
             Ok(Lowered {
@@ -351,8 +551,9 @@ fn lower_plan(
         ir::PlanKind::Union(union) => {
             let mut parts = Vec::new();
             let mut bindings = None;
+            let no_pushdown = WantedProperties::new();
             for input in union.inputs() {
-                let lowered = lower_plan(input, catalog, optional)?;
+                let lowered = lower_plan(input, catalog, optional, &no_pushdown)?;
                 // Branch column names differ (per-branch binding ids); SQL
                 // set operators combine positionally and the first branch's
                 // names win, matching this Union node's scope.
@@ -377,12 +578,13 @@ fn lower_plan(
 fn lower_graph_expand(
     expand: &ir::GraphExpand,
     catalog: &dyn RelationalCatalogSnapshot,
+    wanted: &WantedProperties,
 ) -> Result<Lowered, LowerError> {
-    let input = lower_plan(&expand.input, catalog, false)?;
+    let input = lower_plan(&expand.input, catalog, false, wanted)?;
     let from = input
         .bindings
         .get(&expand.from)
-        .copied()
+        .cloned()
         .ok_or(LowerError::MissingBinding(expand.from))?;
     let relationship = catalog
         .relationship_layout(expand.relationship_source)
@@ -413,6 +615,7 @@ fn lower_graph_expand(
         BindingLayout {
             source: expand.relationship_source,
             kind: EntityKind::Relationship,
+            properties: Default::default(),
         },
     );
     bindings.insert(
@@ -420,6 +623,7 @@ fn lower_graph_expand(
         BindingLayout {
             source: expand.target_node_source,
             kind: EntityKind::Node,
+            properties: Default::default(),
         },
     );
     if expand.path_output.is_some() || expand.relationship_list_output.is_some() {
@@ -543,6 +747,7 @@ fn lower_graph_expand(
 fn lower_optional_chain(
     plan: &ir::Plan,
     catalog: &dyn RelationalCatalogSnapshot,
+    wanted: &WantedProperties,
 ) -> Result<Lowered, LowerError> {
     let original = plan;
     let mut current = plan;
@@ -552,8 +757,10 @@ fn lower_optional_chain(
         current = &filter.input;
     }
     match current.kind() {
-        ir::PlanKind::FixedExpand(expand) => lower_fixed_expand(expand, catalog, true, &predicates),
-        _ => lower_plan(original, catalog, false),
+        ir::PlanKind::FixedExpand(expand) => {
+            lower_fixed_expand(expand, catalog, true, &predicates, wanted)
+        }
+        _ => lower_plan(original, catalog, false, wanted),
     }
 }
 
@@ -561,13 +768,14 @@ fn lower_project(
     project: &ir::Project,
     catalog: &dyn RelationalCatalogSnapshot,
     optional: bool,
+    wanted: &WantedProperties,
 ) -> Result<Lowered, LowerError> {
     let (input, sort_keys) = match project.input.kind() {
         ir::PlanKind::Sort(sort) => (
-            lower_plan(&sort.input, catalog, optional)?,
+            lower_plan(&sort.input, catalog, optional, wanted)?,
             Some(sort.keys.as_slice()),
         ),
-        _ => (lower_plan(&project.input, catalog, optional)?, None),
+        _ => (lower_plan(&project.input, catalog, optional, wanted)?, None),
     };
     let mut bindings = HashMap::new();
     let columns = project
@@ -576,7 +784,9 @@ fn lower_project(
         .map(|projection| {
             if let ir::Expression::Binding(input_binding) = projection.expression.expression {
                 if let Some(layout) = input.bindings.get(&input_binding) {
-                    bindings.insert(projection.output.id(), *layout);
+                    let mut layout = layout.clone();
+                    layout.properties.clear();
+                    bindings.insert(projection.output.id(), layout);
                 }
             }
             let expression =
@@ -624,20 +834,28 @@ fn lower_ordering(
 fn lower_node_scan(
     scan: &ir::NodeScan,
     catalog: &dyn RelationalCatalogSnapshot,
+    wanted: &WantedProperties,
 ) -> Result<Lowered, LowerError> {
     let layout = catalog
         .node_layout(scan.source)
         .ok_or(LowerError::MissingSource(scan.source))?;
     let mut bindings = HashMap::new();
-    bindings.insert(
+    let mut binding_layout = BindingLayout {
+        source: scan.source,
+        kind: EntityKind::Node,
+        properties: Default::default(),
+    };
+    let extra = materialize_properties(
+        wanted,
         scan.binding,
-        BindingLayout {
-            source: scan.source,
-            kind: EntityKind::Node,
-        },
+        scan.source,
+        "n",
+        catalog,
+        &mut binding_layout,
     );
+    bindings.insert(scan.binding, binding_layout);
     let mut sql = format!(
-        "SELECT n.{} AS {} FROM {} AS n",
+        "SELECT n.{} AS {}{extra} FROM {} AS n",
         quote_identifier(&layout.identity_column),
         binding_column(scan.binding),
         quote_identifier(&layout.table)
@@ -665,11 +883,12 @@ fn lower_fixed_expand(
     catalog: &dyn RelationalCatalogSnapshot,
     optional: bool,
     join_predicates: &[&ir::TypedExpression],
+    wanted: &WantedProperties,
 ) -> Result<Lowered, LowerError> {
     let input = if optional {
-        lower_optional_chain(&expand.input, catalog)?
+        lower_optional_chain(&expand.input, catalog, wanted)?
     } else {
-        lower_plan(&expand.input, catalog, false)?
+        lower_plan(&expand.input, catalog, false, wanted)?
     };
     let relationship = catalog
         .relationship_layout(expand.relationship_source)
@@ -752,6 +971,7 @@ fn lower_fixed_expand(
         BindingLayout {
             source: expand.relationship_source,
             kind: EntityKind::Relationship,
+            properties: Default::default(),
         },
     );
     bindings.insert(
@@ -759,8 +979,40 @@ fn lower_fixed_expand(
         BindingLayout {
             source: expand.target_node_source,
             kind: EntityKind::Node,
+            properties: Default::default(),
         },
     );
+    // Optional expands keep the subquery fallback: LEFT JOIN column
+    // nullability for the relationship depends on the target match.
+    let mut extra = String::new();
+    if !optional {
+        let mut relationship_layout = bindings
+            .get(&expand.relationship.id())
+            .cloned()
+            .expect("inserted above");
+        extra.push_str(&materialize_properties(
+            wanted,
+            expand.relationship.id(),
+            expand.relationship_source,
+            relationship_alias,
+            catalog,
+            &mut relationship_layout,
+        ));
+        let mut to_layout = bindings
+            .get(&expand.to.id())
+            .cloned()
+            .expect("inserted above");
+        extra.push_str(&materialize_properties(
+            wanted,
+            expand.to.id(),
+            expand.target_node_source,
+            target_alias,
+            catalog,
+            &mut to_layout,
+        ));
+        bindings.insert(expand.relationship.id(), relationship_layout);
+        bindings.insert(expand.to.id(), to_layout);
+    }
     if !join_predicates.is_empty() {
         let references = HashMap::from([
             (
@@ -801,7 +1053,7 @@ fn lower_fixed_expand(
     };
     Ok(Lowered {
         sql: format!(
-            "SELECT q.*, {relationship_identity} AS {}, {target_alias}.{} AS {} \
+            "SELECT q.*, {relationship_identity} AS {}, {target_alias}.{} AS {}{extra} \
              FROM ({}) AS q {join} {} AS {relationship_alias} ON {relationship_on} \
              {join} {} AS {target_alias} ON {node_on}",
             binding_column(expand.relationship.id()),
@@ -849,6 +1101,19 @@ fn lower_expression_with_references(
             let binding = bindings
                 .get(entity)
                 .ok_or(LowerError::MissingBinding(*entity))?;
+            // The scan already materialized this property as a column; a
+            // direct reference replaces the correlated subquery. Reference
+            // overrides (mutation rows, join predicates) bypass this: their
+            // contexts never carry materialized property columns.
+            if fields.is_empty()
+                && binding.properties.contains(&property.get())
+                && !references.contains_key(entity)
+            {
+                return Ok(format!(
+                    "{input_alias}.{}",
+                    property_column_ref(*entity, *property)
+                ));
+            }
             let column = catalog.property_column(binding.source, *property).ok_or(
                 LowerError::MissingProperty {
                     source_id: binding.source,
@@ -1029,7 +1294,11 @@ fn lower_expression_with_references(
             plan,
             correlations,
         } => {
-            let sub = lower_plan(plan, catalog, false)?;
+            let sub = {
+                let mut sub_wanted = WantedProperties::new();
+                collect_wanted(plan, &mut sub_wanted);
+                lower_plan(plan, catalog, false, &sub_wanted)?
+            };
             let conditions = correlations
                 .iter()
                 .map(|(outer, inner)| {
@@ -1661,6 +1930,7 @@ mod tests {
             BindingLayout {
                 source,
                 kind: EntityKind::Node,
+                properties: Default::default(),
             },
         );
         let expression = ir::TypedExpression {
@@ -1678,6 +1948,74 @@ mod tests {
             sql,
             "(SELECT p.\"address\".\"city\" FROM \"people\" AS p WHERE p.\"id\" = n.b1)"
         );
+    }
+
+    #[test]
+    fn pushes_wanted_properties_into_scan_columns() {
+        let catalog = Catalog;
+        let source = ir::SourceTableId::new(1).unwrap();
+        let binding_id = ir::BindingId::new(1).unwrap();
+        let binding = ir::Binding::new(
+            binding_id,
+            "n",
+            ir::ValueType::Node,
+            ir::Nullability::NonNull,
+        )
+        .unwrap();
+        let scope = ir::Scope::new(vec![binding]).unwrap();
+        let scan = ir::Plan::new(
+            ir::PlanKind::NodeScan(ir::NodeScan {
+                graph: ir::GraphId::new(1).unwrap(),
+                source,
+                binding: binding_id,
+                labels: vec![],
+            }),
+            scope.clone(),
+            ir::ResultShape::default(),
+        )
+        .unwrap();
+        let property = ir::TypedExpression {
+            expression: ir::Expression::Property {
+                entity: binding_id,
+                property: ir::PropertyId::new(1).unwrap(),
+                fields: vec![],
+            },
+            value_type: ir::ValueType::Text,
+            nullability: ir::Nullability::Nullable,
+        };
+        let filtered = ir::Plan::new(
+            ir::PlanKind::Filter(ir::Filter {
+                input: Box::new(scan),
+                predicate: ir::TypedExpression {
+                    expression: ir::Expression::Binary {
+                        left: Box::new(property),
+                        op: ir::BinaryOp::Equal,
+                        right: Box::new(ir::TypedExpression {
+                            expression: ir::Expression::Literal(ir::Literal::Text("x".to_owned())),
+                            value_type: ir::ValueType::Text,
+                            nullability: ir::Nullability::NonNull,
+                        }),
+                    },
+                    value_type: ir::ValueType::Boolean,
+                    nullability: ir::Nullability::NonNull,
+                },
+            }),
+            scope,
+            ir::ResultShape::default(),
+        )
+        .unwrap();
+        let mut wanted = WantedProperties::new();
+        collect_wanted(&filtered, &mut wanted);
+        let lowered = lower_plan(&filtered, &catalog, false, &wanted).unwrap();
+        // The scan materializes the property once and the filter references
+        // the column instead of a correlated subquery.
+        assert!(lowered.sql.contains("AS b1_p1"), "{}", lowered.sql);
+        assert!(
+            lowered.sql.contains("WHERE (q.b1_p1) = ('x')"),
+            "{}",
+            lowered.sql
+        );
+        assert!(!lowered.sql.contains("(SELECT p."), "{}", lowered.sql);
     }
 
     /// Cypher lists lower to JSON arrays, so `IN` membership must probe the
@@ -1722,6 +2060,7 @@ mod tests {
             BindingLayout {
                 source,
                 kind: EntityKind::Node,
+                properties: Default::default(),
             },
         );
         let expression = ir::TypedExpression {
