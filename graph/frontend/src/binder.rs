@@ -1355,7 +1355,7 @@ impl<'a> Binder<'a> {
                     .find(|binding| binding.name() == variable.value)
                     .cloned()
             });
-            let composition = self.bind_path(path, path_binding.as_ref())?;
+            let composition = self.bind_path(path, path_binding.as_ref(), old_ids.len())?;
             if let Some(variable) = &path.variable {
                 self.path_compositions
                     .insert(variable.value.clone(), composition);
@@ -1415,6 +1415,7 @@ impl<'a> Binder<'a> {
         &mut self,
         path: &cypher::PathPattern,
         path_binding: Option<&ir::Binding>,
+        preexisting: usize,
     ) -> Result<PathComposition, BindError> {
         let start = self.bind_start_node(&path.start)?;
         let mut nodes = vec![start];
@@ -1447,8 +1448,32 @@ impl<'a> Binder<'a> {
                     "variable-length relationship properties",
                 ));
             }
+            // A relationship variable bound by an EARLIER clause re-matched
+            // here is an equality constraint (TCK Match3); reuse inside the
+            // same clause keeps raising the duplicate-variable error.
+            let reused_relationship = if relationship.range.is_none() {
+                relationship.variable.as_ref().and_then(|variable| {
+                    self.scope
+                        .iter()
+                        .position(|binding| binding.name() == variable.value)
+                        .filter(|index| *index < preexisting)
+                        .map(|index| self.scope[index].clone())
+                })
+            } else {
+                None
+            };
+            if let Some(existing) = &reused_relationship {
+                if self.entities.get(&existing.id()).map(|entity| entity.kind)
+                    != Some(CatalogEntity::Relationship)
+                {
+                    return Err(at_unsupported(
+                        relationship.span,
+                        "reusing a non-relationship variable in a relationship pattern",
+                    ));
+                }
+            }
             let relationship_binding = self.new_entity_binding(
-                if relationship.range.is_some() {
+                if relationship.range.is_some() || reused_relationship.is_some() {
                     None
                 } else {
                     relationship.variable.as_ref()
@@ -1592,24 +1617,35 @@ impl<'a> Binder<'a> {
             )?;
             self.bind_labels(node)?;
             self.bind_properties(&to, CatalogEntity::Node, &node.properties)?;
-            if let Some(existing) = reused {
-                let equality = |binding: &ir::Binding| ir::TypedExpression {
-                    expression: ir::Expression::Binding(binding.id()),
-                    value_type: binding.value_type().clone(),
-                    nullability: binding.nullability(),
-                };
+            let equality = |left: &ir::Binding, right: &ir::Binding| ir::TypedExpression {
+                expression: ir::Expression::Binary {
+                    left: Box::new(ir::TypedExpression {
+                        expression: ir::Expression::Binding(left.id()),
+                        value_type: left.value_type().clone(),
+                        nullability: left.nullability(),
+                    }),
+                    op: ir::BinaryOp::Equal,
+                    right: Box::new(ir::TypedExpression {
+                        expression: ir::Expression::Binding(right.id()),
+                        value_type: right.value_type().clone(),
+                        nullability: right.nullability(),
+                    }),
+                },
+                value_type: ir::ValueType::Boolean,
+                nullability: ir::Nullability::NonNull,
+            };
+            if let Some(existing) = &reused_relationship {
                 let input = self.plan.take().ok_or(BindError::EmptyQuery)?;
                 self.wrap_plan(ir::PlanKind::Filter(ir::Filter {
                     input: Box::new(input),
-                    predicate: ir::TypedExpression {
-                        expression: ir::Expression::Binary {
-                            left: Box::new(equality(&to)),
-                            op: ir::BinaryOp::Equal,
-                            right: Box::new(equality(&existing)),
-                        },
-                        value_type: ir::ValueType::Boolean,
-                        nullability: ir::Nullability::NonNull,
-                    },
+                    predicate: equality(&relationship_binding, existing),
+                }))?;
+            }
+            if let Some(existing) = reused {
+                let input = self.plan.take().ok_or(BindError::EmptyQuery)?;
+                self.wrap_plan(ir::PlanKind::Filter(ir::Filter {
+                    input: Box::new(input),
+                    predicate: equality(&to, &existing),
                 }))?;
                 from = existing.id();
             } else {
@@ -2482,12 +2518,23 @@ impl<'a> Binder<'a> {
             }
             cypher::Expression::Cast { operand, type_name } => {
                 let operand = self.bind_expression(operand)?;
-                let target = match type_name.value.to_ascii_lowercase().as_str() {
-                    "integer" | "int" | "bigint" | "smallint" => ir::ValueType::Integer,
+                let lowered = type_name.value.to_ascii_lowercase();
+                // AGE's universal and entity types cast as identity: the
+                // value already carries the right representation here.
+                if matches!(
+                    lowered.as_str(),
+                    "agtype" | "vertex" | "edge" | "path" | "vector"
+                ) {
+                    return Ok(operand);
+                }
+                let target = match lowered.as_str() {
+                    "integer" | "int" | "bigint" | "pg_bigint" | "smallint" => {
+                        ir::ValueType::Integer
+                    }
                     "float" | "float8" | "pg_float8" | "double" | "real" | "numeric" => {
                         ir::ValueType::Real
                     }
-                    "text" | "string" | "varchar" => ir::ValueType::Text,
+                    "text" | "string" | "varchar" | "cstring" => ir::ValueType::Text,
                     "bool" | "boolean" => ir::ValueType::Boolean,
                     _ => {
                         return Err(at_unsupported(type_name.span, "casts to this type name"));

@@ -274,7 +274,7 @@ fn walk_unwind(pair: Pair<'_, Rule>) -> Result<UnwindClause, ParseError> {
         .ok_or_else(|| ParseError::at(span, "UNWIND has no expression"))?;
     let expression = walk_expression(expression)?;
     let alias = inner
-        .find(|item| item.as_rule() == Rule::identifier)
+        .find(|item| matches!(item.as_rule(), Rule::identifier | Rule::alias_identifier))
         .ok_or_else(|| ParseError::at(span, "UNWIND has no alias"))?;
     Ok(UnwindClause {
         expression,
@@ -603,7 +603,7 @@ fn walk_projection_item(pair: Pair<'_, Rule>) -> Result<ProjectionItem, ParseErr
         .ok_or_else(|| ParseError::at(span, "projection has no expression"))?;
     let expression = walk_expression(expression)?;
     let alias = inner
-        .find(|item| item.as_rule() == Rule::identifier)
+        .find(|item| matches!(item.as_rule(), Rule::identifier | Rule::alias_identifier))
         .map(walk_identifier);
     Ok(ProjectionItem::Expression { expression, alias })
 }

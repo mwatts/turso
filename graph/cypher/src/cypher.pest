@@ -38,6 +38,8 @@ FALSE = @{ ^"false" ~ !ident_char }
 ident_char = _{ ASCII_ALPHANUMERIC | "_" }
 keyword = _{ MATCH | OPTIONAL | WHERE | WITH | RETURN | UNWIND | CREATE | MERGE | SET | REMOVE | DELETE | DETACH | ORDER | BY | ASC | DESC | SKIP | LIMIT | AS | DISTINCT | AND | OR | NULL | TRUE | FALSE }
 identifier = @{ !keyword ~ ((ASCII_ALPHA | "_") ~ (ASCII_ALPHANUMERIC | "_")* | "`" ~ (!"`" ~ ANY)* ~ "`") }
+// Alias positions accept reserved keywords (RETURN 1 AS match).
+alias_identifier = @{ (ASCII_ALPHA | "_") ~ (ASCII_ALPHANUMERIC | "_")* | "`" ~ (!"`" ~ ANY)* ~ "`" }
 parameter = @{ "$" ~ (ASCII_ALPHANUMERIC | "_")+ }
 unsigned_integer = @{ ASCII_DIGIT ~ (ASCII_DIGIT | "_")* }
 integer = @{ "-"? ~ ASCII_DIGIT ~ (ASCII_DIGIT | "_")* }
@@ -71,7 +73,7 @@ set_label_item = { identifier ~ node_labels }
 remove_clause = { REMOVE ~ property_target ~ ("," ~ property_target)* }
 property_target = { identifier ~ "." ~ identifier }
 delete_clause = { DETACH? ~ DELETE ~ identifier ~ ("," ~ identifier)* }
-unwind_clause = { UNWIND ~ expression ~ AS ~ identifier }
+unwind_clause = { UNWIND ~ expression ~ AS ~ alias_identifier }
 with_clause = { WITH ~ DISTINCT? ~ projection_items ~ where_clause? ~ projection_tail }
 return_clause = { RETURN ~ DISTINCT? ~ projection_items ~ projection_tail }
 where_clause = { WHERE ~ expression }
@@ -96,7 +98,7 @@ range_literal = { "*" ~ unsigned_integer? ~ (".." ~ unsigned_integer?)? }
 
 projection_items = { projection_all | projection_item ~ ("," ~ projection_item)* }
 projection_all = { "*" }
-projection_item = { expression ~ (AS ~ identifier)? }
+projection_item = { expression ~ (AS ~ alias_identifier)? }
 
 expression = { or_expression }
 or_expression = { and_expression ~ ((or_op | xor_op) ~ and_expression)* }

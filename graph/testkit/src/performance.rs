@@ -175,7 +175,10 @@ fn measure_query(scale: u64, iterations: u32) -> Result<Measurement> {
     let fixture = empty_fixture(&format!("perf-query-{scale}"))?;
     fixture.connection.execute(line_graph_sql(scale))?;
     seed_labels(&fixture)?;
-    let query = format!("MATCH (n:Person {{name: 'node-{}'}}) RETURN n.name", scale / 2);
+    let query = format!(
+        "MATCH (n:Person {{name: 'node-{}'}}) RETURN n.name",
+        scale / 2
+    );
     let parameters = MutationParameters::new();
     fixture.session.query(&query, &parameters)?;
     let started = Instant::now();
