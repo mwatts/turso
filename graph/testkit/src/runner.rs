@@ -507,6 +507,94 @@ mod tests {
     }
 
     #[test]
+    fn optional_match_count_groups_stay_correlated() {
+        let fixture = empty_fixture("opt-count").expect("fixture should initialize");
+        let parameters = MutationParameters::new();
+        fixture
+            .session
+            .mutate(
+                "CREATE (:Person {name: 'Ada'}) CREATE (:Person {name: 'Bob'})",
+                &parameters,
+            )
+            .expect("seed");
+        fixture
+            .session
+            .mutate(
+                "MATCH (a {name: 'Ada'}) MATCH (b {name: 'Bob'}) CREATE (a)-[:KNOWS]->(b)",
+                &parameters,
+            )
+            .expect("edge");
+        // Ada knows exactly one person; the optional-match count must be
+        // correlated per row, not a cross-product over every relationship.
+        let rows = fixture
+            .session
+            .query(
+                "MATCH (n {name: 'Ada'}) OPTIONAL MATCH (n)-[:KNOWS]->(m)                  WITH n, count(DISTINCT m) AS num RETURN n.name, num",
+                &parameters,
+            )
+            .expect("query");
+        let rendered: Vec<String> = rows[0].iter().map(|v| v.to_string()).collect();
+        assert_eq!(rendered, vec!["Ada".to_owned(), "1".to_owned()]);
+        // Same shape with a label on the reused variable and an incoming
+        // direction — the CypherBench failing form.
+        let rows = fixture
+            .session
+            .query(
+                "MATCH (n:Person {name: 'Bob'}) OPTIONAL MATCH (n:Person)<-[:KNOWS]-(m)                  WITH n, count(DISTINCT m) AS num RETURN n.name, num",
+                &parameters,
+            )
+            .expect("labeled query");
+        let rendered: Vec<String> = rows[0].iter().map(|v| v.to_string()).collect();
+        assert_eq!(rendered, vec!["Bob".to_owned(), "1".to_owned()]);
+    }
+
+    /// CypherBench b5008120 shape: the first MATCH triggers anchor
+    /// reversal (constant-property far node), then a correlated OPTIONAL
+    /// MATCH aggregates per n. Ada knows Bob and Carol; Bob has 1 knower,
+    /// Carol 2. FIXME: currently loses Carol's row — the reversal's
+    /// binding order interacts badly with LeftApply lowering; on dense
+    /// data the same defect overcounts optional aggregates.
+    #[test]
+    #[ignore = "known defect: anchor reversal breaks following correlated OPTIONAL MATCH"]
+    fn anchor_reversal_keeps_optional_match_groups() {
+        let fixture = empty_fixture("opt-reversal").expect("fixture should initialize");
+        let parameters = MutationParameters::new();
+        for statement in [
+            "CREATE (:Person {name: 'Ada'}) CREATE (:Person {name: 'Bob'})",
+            "CREATE (:Person {name: 'Carol'}) CREATE (:Person {name: 'Dan'})",
+            "MATCH (a {name: 'Ada'}) MATCH (b {name: 'Bob'}) CREATE (a)-[:KNOWS]->(b)",
+            "MATCH (a {name: 'Ada'}) MATCH (c {name: 'Carol'}) CREATE (a)-[:KNOWS]->(c)",
+            "MATCH (d {name: 'Dan'}) MATCH (c {name: 'Carol'}) CREATE (d)-[:KNOWS]->(c)",
+        ] {
+            fixture
+                .session
+                .mutate(statement, &parameters)
+                .expect("seed");
+        }
+        let rows = fixture
+            .session
+            .query(
+                "MATCH (n:Person)<-[:KNOWS]-(m1:Person {name: 'Ada'}) \
+                 OPTIONAL MATCH (n:Person)<-[:KNOWS]-(m) \
+                 WITH n, count(DISTINCT m) AS num \
+                 RETURN n.name, num ORDER BY n.name",
+                &parameters,
+            )
+            .expect("reversal + optional aggregate");
+        let rendered: Vec<Vec<String>> = rows
+            .iter()
+            .map(|row| row.iter().map(|v| v.to_string()).collect())
+            .collect();
+        assert_eq!(
+            rendered,
+            vec![
+                vec!["Bob".to_owned(), "1".to_owned()],
+                vec!["Carol".to_owned(), "2".to_owned()],
+            ]
+        );
+    }
+
+    #[test]
     fn correlated_and_optional_match_after_mutation() {
         let fixture = empty_fixture("correlated-staged").expect("fixture should initialize");
         let parameters = MutationParameters::new();
