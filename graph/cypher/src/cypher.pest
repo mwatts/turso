@@ -43,7 +43,7 @@ alias_identifier = @{ (ASCII_ALPHA | "_") ~ (ASCII_ALPHANUMERIC | "_")* | "`" ~ 
 parameter = @{ "$" ~ (ASCII_ALPHANUMERIC | "_")+ }
 unsigned_integer = @{ ASCII_DIGIT ~ (ASCII_DIGIT | "_")* }
 integer = @{ "-"? ~ ASCII_DIGIT ~ (ASCII_DIGIT | "_")* }
-real = @{ "-"? ~ ASCII_DIGIT+ ~ "." ~ ASCII_DIGIT+ ~ real_exponent? | "-"? ~ ASCII_DIGIT+ ~ real_exponent }
+real = @{ "-"? ~ ASCII_DIGIT+ ~ "." ~ ASCII_DIGIT+ ~ real_exponent? | "-"? ~ "." ~ ASCII_DIGIT+ ~ real_exponent? | "-"? ~ ASCII_DIGIT+ ~ real_exponent }
 real_exponent = @{ ^"e" ~ ("+" | "-")? ~ ASCII_DIGIT+ }
 string = @{ ("'" ~ ("''" | "\\'" | !("'" | "\\") ~ ANY | "\\" ~ ANY)* ~ "'") | ("\"" ~ ("\"\"" | "\\\"" | !("\"" | "\\") ~ ANY | "\\" ~ ANY)* ~ "\"") }
 

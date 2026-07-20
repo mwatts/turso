@@ -855,12 +855,132 @@ fn build_time(
     .ok()
 }
 
+/// Parses the extended ISO-8601 date forms Cypher accepts: calendar
+/// (`2015-07-21`, `20150721`), reduced (`2015-07`, `201507`, `2015`),
+/// week (`2015-W30-2`, `2015W302`, `2015-W30`), and ordinal (`2015-202`,
+/// `2015202`).
+fn parse_date_extended(text: &str) -> Option<civil::Date> {
+    if let Ok(date) = text.parse::<civil::Date>() {
+        return Some(date);
+    }
+    if let Some(position) = text.find(['W', 'w']) {
+        let year: i16 = text[..position].trim_end_matches('-').parse().ok()?;
+        let rest = text[position + 1..].replace('-', "");
+        let (week, day) = match rest.len() {
+            2 => (rest.parse().ok()?, 1),
+            3 => (rest[..2].parse().ok()?, rest[2..].parse().ok()?),
+            _ => return None,
+        };
+        let weekday = civil::Weekday::from_monday_one_offset(day).ok()?;
+        return Some(civil::ISOWeekDate::new(year, week, weekday).ok()?.date());
+    }
+    let parts: Vec<&str> = text.split('-').collect();
+    let date =
+        |year: &str, month: i8, day: i8| civil::Date::new(year.parse().ok()?, month, day).ok();
+    let ordinal = |year: &str, days: &str| {
+        let start = civil::Date::new(year.parse().ok()?, 1, 1).ok()?;
+        start
+            .checked_add(Span::new().days(days.parse::<i64>().ok()? - 1))
+            .ok()
+    };
+    match parts.as_slice() {
+        [all] if all.len() == 4 => date(all, 1, 1),
+        [all] if all.len() == 6 => date(&all[..4], all[4..].parse().ok()?, 1),
+        [all] if all.len() == 7 => ordinal(&all[..4], &all[4..]),
+        [all] if all.len() == 8 => date(&all[..4], all[4..6].parse().ok()?, all[6..].parse().ok()?),
+        [year, month] if year.len() == 4 && month.len() == 2 => date(year, month.parse().ok()?, 1),
+        [year, days] if year.len() == 4 && days.len() == 3 => ordinal(year, days),
+        _ => None,
+    }
+}
+
+/// Parses extended time forms: `21:40:32.142`, `214032.142`, `2140`, `21`.
+fn parse_time_extended(text: &str) -> Option<civil::Time> {
+    if let Ok(time) = text.parse::<civil::Time>() {
+        return Some(time);
+    }
+    let (whole, fraction) = match text.split_once('.') {
+        Some((whole, fraction)) => (whole, fraction),
+        None => (text, ""),
+    };
+    if !whole.chars().all(|c| c.is_ascii_digit()) || whole.is_empty() {
+        return None;
+    }
+    let field =
+        |range: Option<&str>| -> Option<i8> { range.map_or(Some(0), |digits| digits.parse().ok()) };
+    let (hour, minute, second) = match whole.len() {
+        2 => (field(Some(whole))?, 0, 0),
+        4 => (field(Some(&whole[..2]))?, field(Some(&whole[2..]))?, 0),
+        6 => (
+            field(Some(&whole[..2]))?,
+            field(Some(&whole[2..4]))?,
+            field(Some(&whole[4..]))?,
+        ),
+        _ => return None,
+    };
+    let subsec = if fraction.is_empty() {
+        0
+    } else {
+        let mut digits = fraction.to_owned();
+        if digits.len() > 9 {
+            return None;
+        }
+        while digits.len() < 9 {
+            digits.push('0');
+        }
+        digits.parse::<i32>().ok()?
+    };
+    civil::Time::new(hour, minute, second, subsec).ok()
+}
+
+/// Kind-aware string parsing: constructor strings use forms the generic
+/// parser cannot disambiguate (a bare `2140` is a time, not a year).
+fn parse_temporal_with_kind(kind: &str, text: &str) -> Option<Temporal> {
+    let text = text.trim();
+    if text.contains('[') {
+        return parse_temporal(text);
+    }
+    let (core, zone) = strip_zone(text);
+    match kind {
+        "date" => parse_date_extended(core).map(Temporal::Date),
+        "localtime" => parse_time_extended(core).map(Temporal::LocalTime),
+        "time" => {
+            let time = parse_time_extended(core)?;
+            Some(match zone {
+                ZoneSuffix::Missing | ZoneSuffix::Utc => Temporal::Time(time, Offset::UTC),
+                ZoneSuffix::Fixed(offset) => Temporal::Time(time, offset),
+            })
+        }
+        "localdatetime" | "datetime" => {
+            let (date_part, time_part) = match core.split_once('T') {
+                Some((date, time)) => (date, Some(time)),
+                None => (core, None),
+            };
+            let date = parse_date_extended(date_part)?;
+            let time = match time_part {
+                Some(time) => parse_time_extended(time)?,
+                None => civil::Time::midnight(),
+            };
+            let datetime = date.to_datetime(time);
+            if kind == "localdatetime" {
+                return Some(Temporal::LocalDateTime(datetime));
+            }
+            let tz = zone_of(&zone).unwrap_or_else(|| TimeZone::fixed(Offset::UTC));
+            datetime.to_zoned(tz).ok().map(Temporal::DateTime)
+        }
+        _ => None,
+    }
+}
+
 #[scalar(name = "temporal_parse")]
 fn temporal_parse(args: &[ExtValue]) -> ExtValue {
-    let (Some(kind), Some(value)) = (
-        args.first().and_then(text),
-        args.get(1).and_then(temporal_argument),
-    ) else {
+    let (Some(kind), Some(raw)) = (args.first().and_then(text), args.get(1).and_then(text)) else {
+        return ExtValue::null();
+    };
+    if let Some(value) = parse_temporal_with_kind(&kind, &raw) {
+        return ExtValue::from_text(render_temporal(&value));
+    }
+    let Some(value) = parse_temporal(&raw) else {
         return ExtValue::null();
     };
     // Coerce the parsed value onto the requested kind.
@@ -1095,6 +1215,29 @@ mod tests {
             render_temporal(&zoned),
             "1984-03-07T12:31:14+01:00[Europe/Stockholm]"
         );
+    }
+
+    #[test]
+    fn parses_extended_date_and_time_string_forms() {
+        let date =
+            |text: &str| render_temporal(&parse_temporal_with_kind("date", text).expect("parses"));
+        assert_eq!(date("2015-07-21"), "2015-07-21");
+        assert_eq!(date("20150721"), "2015-07-21");
+        assert_eq!(date("2015-07"), "2015-07-01");
+        assert_eq!(date("201507"), "2015-07-01");
+        assert_eq!(date("2015-W30-2"), "2015-07-21");
+        assert_eq!(date("2015W302"), "2015-07-21");
+        assert_eq!(date("2015-W30"), "2015-07-20");
+        assert_eq!(date("2015-202"), "2015-07-21");
+        assert_eq!(date("2015202"), "2015-07-21");
+        assert_eq!(date("2015"), "2015-01-01");
+        let time = |text: &str| {
+            render_temporal(&parse_temporal_with_kind("localtime", text).expect("parses"))
+        };
+        assert_eq!(time("21:40:32.142"), "21:40:32.142");
+        assert_eq!(time("214032.142"), "21:40:32.142");
+        assert_eq!(time("2140"), "21:40");
+        assert_eq!(time("21"), "21:00");
     }
 
     #[test]

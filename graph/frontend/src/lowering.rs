@@ -1428,7 +1428,9 @@ fn lower_literal(literal: &ir::Literal) -> String {
         ir::Literal::Boolean(true) => "TRUE".to_owned(),
         ir::Literal::Boolean(false) => "FALSE".to_owned(),
         ir::Literal::Integer(value) => value.to_string(),
-        ir::Literal::Real(value) => value.to_string(),
+        // Debug formatting keeps a decimal point or exponent, so the SQL
+        // literal stays REAL (Display renders 1.0 as "1").
+        ir::Literal::Real(value) => format!("{value:?}"),
         ir::Literal::Text(value) => format!("'{}'", value.replace('\'', "''")),
         ir::Literal::Bytes(value) => {
             let hex = value

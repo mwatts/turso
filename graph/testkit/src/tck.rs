@@ -753,6 +753,11 @@ fn parameter_value(value: &str) -> Option<Value> {
         "null" => Some(Value::Null),
         "true" => Some(Value::from_i64(1)),
         "false" => Some(Value::from_i64(0)),
+        // List and map parameters carry as JSON text, the same encoding
+        // the frontend uses for list and map values.
+        _ if value.starts_with('[') || value.starts_with('{') => {
+            cypher_literal_to_json(value).map(Value::build_text)
+        }
         _ => value
             .parse::<i64>()
             .map(Value::from_i64)
@@ -765,6 +770,79 @@ fn parameter_value(value: &str) -> Option<Value> {
                     .map(|value| Value::build_text(value.replace("\\'", "'").replace("\\\\", "\\")))
             }),
     }
+}
+
+/// Converts a TCK Cypher-style literal (single-quoted strings, unquoted map
+/// keys) into JSON text.
+fn cypher_literal_to_json(value: &str) -> Option<String> {
+    fn convert(parser: &mut CellParser) -> Option<serde_json::Value> {
+        parser.skip_spaces();
+        match parser.peek()? {
+            b'[' => {
+                parser.position += 1;
+                let mut items = Vec::new();
+                loop {
+                    parser.skip_spaces();
+                    if parser.peek() == Some(b']') {
+                        parser.position += 1;
+                        break;
+                    }
+                    items.push(convert(parser)?);
+                    parser.skip_spaces();
+                    if parser.peek() == Some(b',') {
+                        parser.position += 1;
+                    }
+                }
+                Some(serde_json::Value::Array(items))
+            }
+            b'{' => {
+                parser.position += 1;
+                let mut map = serde_json::Map::new();
+                loop {
+                    parser.skip_spaces();
+                    if parser.peek() == Some(b'}') {
+                        parser.position += 1;
+                        break;
+                    }
+                    let key = parser.parse_scalar()?;
+                    parser.skip_spaces();
+                    if parser.peek() == Some(b':') {
+                        parser.position += 1;
+                    }
+                    map.insert(key, convert(parser)?);
+                    parser.skip_spaces();
+                    if parser.peek() == Some(b',') {
+                        parser.position += 1;
+                    }
+                }
+                Some(serde_json::Value::Object(map))
+            }
+            b'\'' => {
+                let quoted = parser.parse_string()?;
+                let body = quoted.trim_matches('\'').to_owned();
+                Some(serde_json::Value::String(body))
+            }
+            _ => {
+                let token = parser.parse_scalar()?;
+                match token.as_str() {
+                    "null" => Some(serde_json::Value::Null),
+                    "true" => Some(serde_json::Value::Bool(true)),
+                    "false" => Some(serde_json::Value::Bool(false)),
+                    _ => token
+                        .parse::<i64>()
+                        .map(serde_json::Value::from)
+                        .or_else(|_| token.parse::<f64>().map(serde_json::Value::from))
+                        .ok(),
+                }
+            }
+        }
+    }
+    let mut parser = CellParser {
+        input: value.as_bytes(),
+        position: 0,
+    };
+    let converted = convert(&mut parser)?;
+    parser.at_end().then(|| converted.to_string())
 }
 
 fn query(case: &TckCase) -> Option<&str> {
@@ -1129,11 +1207,23 @@ impl CellParser<'_> {
             return None;
         }
         let token = String::from_utf8_lossy(&self.input[start..self.position]).into_owned();
-        // Booleans fold onto their stored integer representation.
+        // Booleans fold onto their stored integer representation; floats
+        // fold onto one canonical rendering so `1.0`, `1e0`, and SQLite's
+        // `%.15g` output compare equal.
         Some(match token.as_str() {
             "true" => "1".to_owned(),
             "false" => "0".to_owned(),
-            _ => token,
+            _ => {
+                if token.contains(['.', 'e', 'E'])
+                    && !token.contains("..")
+                    && token.parse::<i64>().is_err()
+                {
+                    if let Ok(value) = token.parse::<f64>() {
+                        return Some(format!("{value:?}"));
+                    }
+                }
+                token
+            }
         })
     }
 }
@@ -1530,7 +1620,16 @@ mod tests {
             Some(Value::build_text("Ada".to_owned()))
         );
         assert_eq!(parameter_value("null"), Some(Value::Null));
-        assert_eq!(parameter_value("[1, 2]"), None);
+        assert_eq!(
+            parameter_value("[1, 2]"),
+            Some(Value::build_text("[1,2]".to_owned()))
+        );
+        assert_eq!(
+            parameter_value("{name: 'Ada', tags: [1]}"),
+            Some(Value::build_text(
+                "{\"name\":\"Ada\",\"tags\":[1]}".to_owned()
+            ))
+        );
     }
 
     #[test]
