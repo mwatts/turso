@@ -248,3 +248,9 @@ large_stack_frames = "deny"
 large_types_passed_by_value = "deny"
 redundant_clone = "deny"
 assigning_clones = "deny"
+
+# Optimized profile reserved for benchmark runs (CypherBench, perf
+# harnesses); dev builds stay on the default profile per project policy.
+# Usage: cargo run --profile bench-run -p turso_graph_testkit -- cypherbench ...
+[profile.bench-run]
+inherits = "release"

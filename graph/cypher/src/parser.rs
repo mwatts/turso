@@ -112,6 +112,39 @@ fn walk_clause(pair: Pair<'_, Rule>) -> Result<Spanned<Clause>, ParseError> {
         Rule::with_clause => Clause::With(walk_projection_clause(pair)?),
         Rule::return_clause => Clause::Return(walk_projection_clause(pair)?),
         Rule::foreach_clause => Clause::Foreach(walk_foreach(pair)?),
+        Rule::call_subquery => {
+            let span = pair_span(&pair);
+            let mut clauses = Vec::new();
+            let mut unions = Vec::new();
+            for child in pair.into_inner() {
+                match child.as_rule() {
+                    Rule::clause => clauses.push(walk_clause(child)?),
+                    Rule::union_branch => {
+                        let branch_span = pair_span(&child);
+                        let all = child
+                            .clone()
+                            .into_inner()
+                            .any(|item| item.as_rule() == Rule::ALL);
+                        let branch_clauses = child
+                            .into_inner()
+                            .filter(|item| item.as_rule() == Rule::clause)
+                            .map(walk_clause)
+                            .collect::<Result<Vec<_>, _>>()?;
+                        unions.push(UnionBranch {
+                            all,
+                            clauses: branch_clauses,
+                            span: branch_span,
+                        });
+                    }
+                    _ => {}
+                }
+            }
+            Clause::CallSubquery(Box::new(Query {
+                clauses,
+                unions,
+                span,
+            }))
+        }
         Rule::call_clause => Clause::Call(walk_call(pair)?),
         rule => return Err(unexpected(&pair, "clause", rule)),
     };

@@ -271,31 +271,52 @@ impl<'a> Binder<'a> {
         }
         self.bind_read_clauses(&query.clauses, query)?;
         let mut plan = self.plan.ok_or(BindError::EmptyQuery)?;
-        for branch in &query.unions {
-            let mut branch_binder = Binder::new(graph, catalog, parameters);
-            branch_binder.bind_read_clauses(&branch.clauses, query)?;
-            let branch_plan = branch_binder.plan.ok_or(BindError::EmptyQuery)?;
-            let names = |plan: &ir::Plan| {
-                plan.result_shape()
-                    .iter()
-                    .map(|column| column.name().to_owned())
-                    .collect::<Vec<_>>()
-            };
-            if names(&plan) != names(&branch_plan) {
-                return Err(at_unsupported(
-                    branch.span,
-                    "UNION branches with different result columns",
-                ));
-            }
-            let scope = plan.scope().clone();
-            let result_shape = plan.result_shape().clone();
-            plan = ir::Plan::new(
-                ir::PlanKind::Union(ir::Union::new(vec![plan, branch_plan], branch.all)?),
-                scope,
-                result_shape,
-            )?;
-        }
+        plan = assemble_union_branches(plan, query, graph, catalog, parameters)?;
         Ok(BoundQuery { plan })
+    }
+
+    /// Binds a `CALL { ... }` scoped subquery: the inner query (including
+    /// union branches) binds in isolation, and its result columns join the
+    /// outer scope. Uncorrelated form only — inner clauses cannot see
+    /// outer variables.
+    fn bind_call_subquery(
+        &mut self,
+        inner: &cypher::Query,
+        span: cypher::Span,
+    ) -> Result<(), BindError> {
+        if self.plan.is_some() || !self.scope.is_empty() {
+            return Err(at_unsupported(span, "CALL subqueries after other clauses"));
+        }
+        let mut sub = Binder::new(self.graph, self.catalog, self.parameters);
+        sub.next_binding = self.next_binding;
+        sub.bind_read_clauses(&inner.clauses, inner)?;
+        let entities = sub.entities.clone();
+        let first_scope = sub.scope.clone();
+        let next_binding = sub.next_binding;
+        let plan = sub.plan.take().ok_or(BindError::EmptyQuery)?;
+        let plan = assemble_union_branches(plan, inner, self.graph, self.catalog, self.parameters)?;
+        self.next_binding = next_binding;
+        // The subquery's RETURN columns become outer scope bindings under
+        // their aliases (first-branch binding ids; union combines
+        // positionally).
+        for column in plan.result_shape().iter() {
+            let binding = first_scope
+                .iter()
+                .find(|candidate| candidate.id() == column.binding())
+                .ok_or(BindError::EmptyQuery)?;
+            let renamed = ir::Binding::new(
+                binding.id(),
+                column.name(),
+                binding.value_type().clone(),
+                binding.nullability(),
+            )?;
+            if let Some(entity) = entities.get(&binding.id()) {
+                self.entities.insert(binding.id(), entity.clone());
+            }
+            self.scope.push(renamed);
+        }
+        self.plan = Some(plan);
+        Ok(())
     }
 
     fn bind_read_clauses(
@@ -328,6 +349,9 @@ impl<'a> Binder<'a> {
                     ));
                 }
                 cypher::Clause::Call(value) => self.bind_call(value, clause.span)?,
+                cypher::Clause::CallSubquery(inner) => {
+                    self.bind_call_subquery(inner, clause.span)?
+                }
             }
         }
         Ok(())
@@ -607,6 +631,15 @@ impl<'a> Binder<'a> {
                         clause.span,
                         "procedures in mutation queries",
                     ));
+                }
+                cypher::Clause::CallSubquery(inner) => {
+                    if mutation_started {
+                        return Err(at_unsupported(
+                            clause.span,
+                            "CALL subqueries after mutation clauses",
+                        ));
+                    }
+                    self.bind_call_subquery(inner, clause.span)?;
                 }
                 cypher::Clause::With(_) | cypher::Clause::Return(_) => {
                     return Err(at_unsupported(
@@ -4563,6 +4596,42 @@ fn projection_name(expression: &cypher::Spanned<cypher::Expression>) -> String {
 
 fn clause_span(_clause: &cypher::MatchClause, query: &cypher::Query) -> cypher::Span {
     query.span
+}
+
+/// Folds a query's UNION branches onto `plan`, each branch bound by a
+/// fresh binder (branch column names combine positionally).
+fn assemble_union_branches(
+    mut plan: ir::Plan,
+    query: &cypher::Query,
+    graph: ir::GraphId,
+    catalog: &dyn GraphCatalogSnapshot,
+    parameters: &ParameterTypes,
+) -> Result<ir::Plan, BindError> {
+    for branch in &query.unions {
+        let mut branch_binder = Binder::new(graph, catalog, parameters);
+        branch_binder.bind_read_clauses(&branch.clauses, query)?;
+        let branch_plan = branch_binder.plan.ok_or(BindError::EmptyQuery)?;
+        let names = |plan: &ir::Plan| {
+            plan.result_shape()
+                .iter()
+                .map(|column| column.name().to_owned())
+                .collect::<Vec<_>>()
+        };
+        if names(&plan) != names(&branch_plan) {
+            return Err(at_unsupported(
+                branch.span,
+                "UNION branches with different result columns",
+            ));
+        }
+        let scope = plan.scope().clone();
+        let result_shape = plan.result_shape().clone();
+        plan = ir::Plan::new(
+            ir::PlanKind::Union(ir::Union::new(vec![plan, branch_plan], branch.all)?),
+            scope,
+            result_shape,
+        )?;
+    }
+    Ok(plan)
 }
 
 fn at_unsupported(span: cypher::Span, feature: &'static str) -> BindError {

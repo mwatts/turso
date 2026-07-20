@@ -51,6 +51,8 @@ pub enum Clause {
     Return(ProjectionClause),
     Foreach(ForeachClause),
     Call(CallClause),
+    /// `CALL { ... }` scoped subquery whose RETURN feeds the outer scope.
+    CallSubquery(Box<Query>),
 }
 
 #[derive(Clone, Debug, PartialEq)]
