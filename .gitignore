@@ -114,3 +114,7 @@ dhat-heap.json
 
 # pgregress actual output and diffs
 postgres/regress/results/
+
+# Full per-row corpus history is local-only (hundreds of MB); the tracked
+# record is graph/test-results/runs.jsonl plus REPORT.md.
+graph/test-results/history.jsonl
