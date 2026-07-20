@@ -1360,6 +1360,9 @@ fn lower_expression_with_references(
             let base =
                 lower_expression_with_references(base, bindings, catalog, input_alias, references)?;
             let text_key = index.value_type == ir::ValueType::Text;
+            // Dynamically-typed indices raise Cypher's runtime TypeError
+            // when the value is not an integer (or a key string on maps).
+            let dynamic = index.value_type == ir::ValueType::Any;
             let index = lower_expression_with_references(
                 index,
                 bindings,
@@ -1369,6 +1372,16 @@ fn lower_expression_with_references(
             )?;
             Ok(if text_key {
                 format!("json_extract(({base}), '$.\"' || ({index}) || '\"')")
+            } else if dynamic {
+                format!(
+                    "(CASE WHEN ({index}) IS NULL THEN NULL \
+                     WHEN typeof(({index})) = 'text' AND json_type(({base})) = 'object' \
+                     THEN json_extract(({base}), '$.\"' || ({index}) || '\"') \
+                     WHEN typeof(({index})) != 'integer' \
+                     THEN cypher_raise('TypeError', 'list index must be an integer') \
+                     ELSE json_extract(({base}), '$[' || (CASE WHEN ({index}) >= 0 \
+                     THEN ({index}) ELSE '#' || ({index}) END) || ']') END)"
+                )
             } else {
                 // Negative indices address from the end via the '#' form.
                 format!(

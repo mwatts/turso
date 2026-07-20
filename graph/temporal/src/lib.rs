@@ -53,6 +53,7 @@ pub fn install_temporal_extension(connection: &Connection) {
         register(c"jsonb_exists_any".as_ptr(), jsonb_exists_any);
         register(c"jsonb_exists_all".as_ptr(), jsonb_exists_all);
         register(c"jsonb_contains".as_ptr(), jsonb_contains);
+        register(c"cypher_raise".as_ptr(), cypher_raise);
     });
 }
 
@@ -1227,6 +1228,19 @@ fn datetime_sub_duration(args: &[ExtValue]) -> ExtValue {
 // ---------------------------------------------------------------------------
 // jsonb operator support: postgres/AGE operator semantics over JSON text.
 // ---------------------------------------------------------------------------
+
+/// Raises a runtime error with the given kind and detail — the escape
+/// hatch for Cypher runtime errors (TypeError and friends) that plain
+/// SQL expressions cannot produce.
+#[scalar(name = "cypher_raise")]
+fn cypher_raise(args: &[ExtValue]) -> ExtValue {
+    let kind = args
+        .first()
+        .and_then(text)
+        .unwrap_or_else(|| "Error".to_owned());
+    let detail = args.get(1).and_then(text).unwrap_or_default();
+    ExtValue::error_with_message(format!("{kind}: {detail}"))
+}
 
 fn json_argument(value: &ExtValue) -> Option<serde_json::Value> {
     serde_json::from_str(&text(value)?).ok()
