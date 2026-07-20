@@ -243,4 +243,8 @@ impl RelationalCatalogSnapshot for DynamicCatalog {
             .get(&property)
             .cloned()
     }
+
+    fn payload_columns(&self, source: ir::SourceTableId) -> Option<Vec<(String, String)>> {
+        self.inner.payload_columns(source)
+    }
 }

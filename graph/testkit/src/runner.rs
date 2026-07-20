@@ -452,6 +452,57 @@ mod tests {
     }
 
     #[test]
+    fn properties_reads_and_copies_whole_entities() {
+        let fixture = empty_fixture("properties-smoke").expect("fixture should initialize");
+        let parameters = MutationParameters::new();
+        let mutate = |query: &str| {
+            fixture
+                .session
+                .mutate(query, &parameters)
+                .unwrap_or_else(|error| panic!("{query} failed: {error}"));
+        };
+        let row = |query: &str| {
+            let rows = fixture
+                .session
+                .query(query, &parameters)
+                .unwrap_or_else(|error| panic!("{query} failed: {error}"));
+            rows[0]
+                .iter()
+                .map(|value| value.to_string())
+                .collect::<Vec<_>>()
+                .join("|")
+        };
+        mutate("CREATE (:Person {name: 'Ada', age: 40})");
+        // Null-valued and absent properties stay out of the map.
+        assert_eq!(
+            row("MATCH (n {name: 'Ada'}) RETURN properties(n)"),
+            "{\"name\":\"Ada\",\"age\":40}"
+        );
+        mutate("CREATE (:Person {name: 'Grace'})");
+        mutate(
+            "MATCH (a {name: 'Ada'}) WITH a MATCH (b {name: 'Grace'}) \
+             SET b = properties(a)",
+        );
+        assert_eq!(row("MATCH (n) WHERE n.age = 40 RETURN count(n)"), "2");
+    }
+
+    #[test]
+    fn mutation_return_supports_order_and_distinct() {
+        let fixture = empty_fixture("return-order").expect("fixture should initialize");
+        let parameters = MutationParameters::new();
+        let summary = fixture
+            .session
+            .mutate(
+                "UNWIND [3, 1, 2, 1] AS x CREATE (:Person {age: x}) \
+                 RETURN DISTINCT x ORDER BY x DESC",
+                &parameters,
+            )
+            .expect("mutation with ordered distinct return");
+        let rows: Vec<String> = summary.rows.iter().map(|row| row[0].to_string()).collect();
+        assert_eq!(rows, vec!["3", "2", "1"]);
+    }
+
+    #[test]
     fn match_after_mutation_joins_current_rows() {
         let fixture = empty_fixture("staged-match").expect("fixture should initialize");
         let parameters = MutationParameters::new();

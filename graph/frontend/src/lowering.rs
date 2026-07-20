@@ -43,6 +43,12 @@ pub trait RelationalCatalogSnapshot {
     fn relationship_type_name(&self, _relationship_type: ir::RelationshipTypeId) -> Option<String> {
         None
     }
+    /// Payload properties of a source as (cypher name, physical column)
+    /// pairs — every column except identity/endpoint columns. Enables
+    /// whole-entity property reads (`properties(n)`).
+    fn payload_columns(&self, _source: ir::SourceTableId) -> Option<Vec<(String, String)>> {
+        None
+    }
 }
 
 #[derive(Debug, Error)]
@@ -1242,6 +1248,72 @@ fn lower_expression_with_references(
             arguments,
         } => {
             validate_bare_name(function.as_str())?;
+            // properties(n) needs the argument's source table, so intercept
+            // before argument lowering while the binding is still visible.
+            if function.as_str() == "__cypher_properties" {
+                let [argument] = arguments.as_slice() else {
+                    return Err(LowerError::UnsupportedOperator(
+                        "properties() with a non-entity argument",
+                    ));
+                };
+                let ir::Expression::Binding(id) = &argument.expression else {
+                    return Err(LowerError::UnsupportedOperator(
+                        "properties() with a non-entity argument",
+                    ));
+                };
+                let layout = bindings.get(id).ok_or(LowerError::MissingBinding(*id))?;
+                let columns = catalog.payload_columns(layout.source).ok_or(
+                    LowerError::UnsupportedOperator("properties() without payload columns"),
+                )?;
+                let (table, identity) = match layout.kind {
+                    EntityKind::Node => {
+                        let layout = catalog
+                            .node_layout(layout.source)
+                            .ok_or(LowerError::MissingSource(layout.source))?;
+                        (layout.table, layout.identity_column)
+                    }
+                    EntityKind::Relationship => {
+                        let layout = catalog
+                            .relationship_layout(layout.source)
+                            .ok_or(LowerError::MissingSource(layout.source))?;
+                        (layout.table, layout.identity_column)
+                    }
+                };
+                let identity_value = lower_expression_with_references(
+                    argument,
+                    bindings,
+                    catalog,
+                    input_alias,
+                    references,
+                )?;
+                let pairs = columns
+                    .iter()
+                    .map(|(logical, physical)| {
+                        format!(
+                            "'{}', prp.{}",
+                            logical.replace('\'', "''"),
+                            quote_identifier(physical)
+                        )
+                    })
+                    .collect::<Vec<_>>()
+                    .join(", ");
+                let object = if pairs.is_empty() {
+                    "json_object()".to_owned()
+                } else {
+                    format!("json_object({pairs})")
+                };
+                // json_group_object over json_each strips null-valued keys,
+                // matching Cypher's properties() (absent, not null); the
+                // COALESCE keeps a propertyless entity at {} instead of null.
+                return Ok(format!(
+                    "(SELECT coalesce(json_group_object(je.key, je.value), json_object()) \
+                     FROM json_each((SELECT {object} FROM {} AS prp \
+                     WHERE prp.{} = ({identity_value}))) AS je \
+                     WHERE je.value IS NOT NULL)",
+                    quote_identifier(&table),
+                    quote_identifier(&identity),
+                ));
+            }
             let arguments = arguments
                 .iter()
                 .map(|argument| {

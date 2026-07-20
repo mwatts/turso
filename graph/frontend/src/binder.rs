@@ -51,6 +51,13 @@ pub struct BoundMutation {
     pub returns: Vec<StageProjection>,
     pub returns_skip: Option<usize>,
     pub returns_limit: Option<usize>,
+    /// ORDER BY over the returned rows: extra sort-key projections are
+    /// appended after the visible columns; each entry is (column index,
+    /// descending).
+    pub returns_order: Vec<(usize, bool)>,
+    /// Number of user-visible RETURN columns (sort keys follow).
+    pub returns_visible: usize,
+    pub returns_distinct: bool,
     /// Entity kind of every binding the pipeline can reference, letting the
     /// executor resolve relational layouts for projected entities.
     pub entity_kinds: std::collections::HashMap<ir::BindingId, CatalogEntity>,
@@ -402,6 +409,9 @@ impl<'a> Binder<'a> {
         let mut returns = Vec::new();
         let mut returns_skip = None;
         let mut returns_limit = None;
+        let mut returns_order: Vec<(usize, bool)> = Vec::new();
+        let mut returns_visible = 0;
+        let mut returns_distinct = false;
         let mut deleted_variables: Vec<String> = Vec::new();
         let mut mutation_started = false;
         fn route(
@@ -497,12 +507,13 @@ impl<'a> Binder<'a> {
                     if mutation_started
                         && std::ptr::eq(clause, query.clauses.last().expect("non-empty")) =>
                 {
-                    if value.distinct || value.predicate.is_some() || !value.order_by.is_empty() {
+                    if value.predicate.is_some() {
                         return Err(at_unsupported(
                             clause.span,
                             "modifiers on a mutation RETURN clause",
                         ));
                     }
+                    returns_distinct = value.distinct;
                     let constant = |bound: Option<&cypher::Spanned<cypher::Expression>>| match bound
                     {
                         None => Ok(None),
@@ -549,6 +560,15 @@ impl<'a> Binder<'a> {
                                 expression: self.bind_expression(expression)?,
                             });
                         }
+                    }
+                    returns_visible = returns.len();
+                    for sort in &value.order_by {
+                        let output = self.next_id()?;
+                        returns.push(StageProjection::Expression {
+                            output,
+                            expression: self.bind_expression(&sort.expression)?,
+                        });
+                        returns_order.push((returns.len() - 1, sort.descending));
                     }
                 }
                 cypher::Clause::Unwind(value) if !mutation_started => {
@@ -611,6 +631,9 @@ impl<'a> Binder<'a> {
             returns,
             returns_skip,
             returns_limit,
+            returns_order,
+            returns_visible,
+            returns_distinct,
             entity_kinds,
         })
     }
@@ -1178,19 +1201,32 @@ impl<'a> Binder<'a> {
                 let clear = matches!(item, cypher::SetItem::ReplaceEntity { .. });
                 let (binding, kind) = self.resolve_set_variable(variable)?;
                 let source = self.entity_source(kind, variable.span)?;
-                let cypher::Expression::Map(entries) = &value.value else {
+                if let cypher::Expression::Map(entries) = &value.value {
+                    let entries = self.bind_mutation_properties(kind, entries)?;
+                    return Ok(ir::Mutation::ReplaceProperties(ir::ReplaceProperties {
+                        entity: binding,
+                        source,
+                        entries,
+                        clear,
+                    }));
+                }
+                // Map-shaped expressions (properties(m), parameters) update
+                // every payload column from the evaluated JSON value.
+                let bound = self.bind_expression(value)?;
+                if !matches!(bound.value_type, ir::ValueType::Map | ir::ValueType::Any) {
                     return Err(at_unsupported(
                         value.span,
                         "SET of a whole entity from a non-map value",
                     ));
-                };
-                let entries = self.bind_mutation_properties(kind, entries)?;
-                Ok(ir::Mutation::ReplaceProperties(ir::ReplaceProperties {
-                    entity: binding,
-                    source,
-                    entries,
-                    clear,
-                }))
+                }
+                Ok(ir::Mutation::ReplacePropertiesDynamic(
+                    ir::ReplacePropertiesDynamic {
+                        entity: binding,
+                        source,
+                        value: bound,
+                        clear,
+                    },
+                ))
             }
         }
     }
@@ -2843,13 +2879,26 @@ impl<'a> Binder<'a> {
                     .collect::<Result<Vec<_>, _>>()?;
                 // labels(n) / type(r) resolve statically from the labels and
                 // relationship types declared where the entity was bound.
-                if let ("labels" | "type" | "label", [argument]) = (
+                if let ("labels" | "type" | "label" | "properties", [argument]) = (
                     name.value.to_ascii_lowercase().as_str(),
                     arguments.as_slice(),
                 ) {
                     if let ir::Expression::Binding(id) = &argument.expression {
                         if let Some(entity) = self.entities.get(id) {
                             let lowered_name = name.value.to_ascii_lowercase();
+                            if lowered_name == "properties" {
+                                // Lowering enumerates the source's payload
+                                // columns into a null-stripped JSON object.
+                                return Ok(ir::TypedExpression {
+                                    expression: ir::Expression::Function {
+                                        function: ir::FunctionName::new("__cypher_properties")
+                                            .expect("static name"),
+                                        arguments: vec![argument.clone()],
+                                    },
+                                    value_type: ir::ValueType::Map,
+                                    nullability: argument.nullability,
+                                });
+                            }
                             if lowered_name == "labels" && entity.kind == CatalogEntity::Node {
                                 // The label junction table is the source of
                                 // truth; lowering resolves the sentinel.

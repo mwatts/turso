@@ -75,6 +75,31 @@ pub fn execute_cypher_mutation(
     connection.execute(format!("SAVEPOINT {SAVEPOINT}"))?;
     let result = execute_bound(connection, catalog.as_ref(), &bound, &input, parameters).map(
         |mut summary| {
+            if !bound.returns_order.is_empty() {
+                summary.rows.sort_by(|left, right| {
+                    for (index, descending) in &bound.returns_order {
+                        let ordering = compare_returned_values(&left[*index], &right[*index]);
+                        let ordering = if *descending {
+                            ordering.reverse()
+                        } else {
+                            ordering
+                        };
+                        if ordering != std::cmp::Ordering::Equal {
+                            return ordering;
+                        }
+                    }
+                    std::cmp::Ordering::Equal
+                });
+            }
+            if !bound.returns_order.is_empty() {
+                for row in &mut summary.rows {
+                    row.truncate(bound.returns_visible);
+                }
+            }
+            if bound.returns_distinct {
+                let mut seen = std::collections::HashSet::new();
+                summary.rows.retain(|row| seen.insert(format!("{row:?}")));
+            }
             if let Some(skip) = bound.returns_skip {
                 summary.rows.drain(..skip.min(summary.rows.len()));
             }
@@ -101,6 +126,35 @@ pub fn execute_cypher_mutation(
                 }),
             }
         }
+    }
+}
+
+/// Cypher ORDER BY comparison over returned SQL values: numbers before
+/// text, text before blobs, null last ascending.
+fn compare_returned_values(left: &Value, right: &Value) -> std::cmp::Ordering {
+    use std::cmp::Ordering;
+    fn rank(value: &Value) -> u8 {
+        match value {
+            Value::Numeric(_) => 0,
+            Value::Text(_) => 1,
+            Value::Blob(_) => 2,
+            Value::Null => 3,
+        }
+    }
+    match (left, right) {
+        (Value::Numeric(left), Value::Numeric(right)) => {
+            let left = match left {
+                Numeric::Integer(value) => *value as f64,
+                Numeric::Float(value) => f64::from(*value),
+            };
+            let right = match right {
+                Numeric::Integer(value) => *value as f64,
+                Numeric::Float(value) => f64::from(*value),
+            };
+            left.partial_cmp(&right).unwrap_or(Ordering::Equal)
+        }
+        (Value::Text(left), Value::Text(right)) => left.value.cmp(&right.value),
+        _ => rank(left).cmp(&rank(right)),
     }
 }
 
@@ -894,6 +948,59 @@ fn execute_operation(
                         "UPDATE {} SET {} WHERE {} = ${}",
                         quoted_identifier(&layout.table),
                         assignments.join(", "),
+                        quoted_identifier(&layout.identity),
+                        identity_parameter(replace.entity),
+                    ),
+                    parameters,
+                    &internal,
+                )?;
+            }
+        }
+        ir::Mutation::ReplacePropertiesDynamic(replace) => {
+            let layout = entity_table(catalog, replace.source)?;
+            let columns =
+                catalog
+                    .payload_columns(replace.source)
+                    .ok_or(LowerError::UnsupportedOperator(
+                        "whole-entity SET without payload columns",
+                    ))?;
+            let references = reference_parameters(values);
+            let identity = values
+                .get(&replace.entity)
+                .ok_or(MutationError::MissingBinding(replace.entity))?;
+            let mut internal = references.values;
+            internal.insert(identity_parameter(replace.entity), identity.clone());
+            let value = lower_mutation_expression(
+                &replace.value,
+                input,
+                catalog,
+                &references.sql,
+                entity_layouts,
+            )?;
+            let assignments = columns
+                .iter()
+                .map(|(logical, physical)| {
+                    let path =
+                        format!("$.\"{}\"", logical.replace('"', "\\\"").replace('\'', "''"));
+                    let extract = format!("json_extract(({value}), '{path}')");
+                    if replace.clear {
+                        format!("{} = {extract}", quoted_identifier(physical))
+                    } else {
+                        format!(
+                            "{} = coalesce({extract}, {})",
+                            quoted_identifier(physical),
+                            quoted_identifier(physical)
+                        )
+                    }
+                })
+                .collect::<Vec<_>>()
+                .join(", ");
+            if !assignments.is_empty() {
+                run_ignore(
+                    connection,
+                    &format!(
+                        "UPDATE {} SET {assignments} WHERE {} = ${}",
+                        quoted_identifier(&layout.table),
                         quoted_identifier(&layout.identity),
                         identity_parameter(replace.entity),
                     ),

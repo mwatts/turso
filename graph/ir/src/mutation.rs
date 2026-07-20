@@ -18,6 +18,7 @@ pub enum Mutation {
     SetProperty(SetProperty),
     SetLabels(SetLabels),
     ReplaceProperties(ReplaceProperties),
+    ReplacePropertiesDynamic(ReplacePropertiesDynamic),
     RemoveProperty(RemoveProperty),
     Delete(DeleteEntity),
     MergeNode(MergeNode),
@@ -71,6 +72,18 @@ pub struct ReplaceProperties {
     pub entity: BindingId,
     pub source: SourceTableId,
     pub entries: Vec<PropertyValue>,
+    pub clear: bool,
+}
+
+/// `SET n = expr` / `SET n += expr` where the value is a map-shaped
+/// expression evaluated at execution time (properties(m), a parameter).
+/// Every payload column updates from the JSON value; `clear` nulls keys
+/// the value omits, the merge form keeps them.
+#[derive(Clone, Debug, PartialEq)]
+pub struct ReplacePropertiesDynamic {
+    pub entity: BindingId,
+    pub source: SourceTableId,
+    pub value: TypedExpression,
     pub clear: bool,
 }
 

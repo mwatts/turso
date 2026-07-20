@@ -377,6 +377,47 @@ impl RelationalCatalogSnapshot for SchemaCatalog {
         let index = (property.get() as usize).checked_sub(1)?;
         table.get_column_at(index)?.name.clone()
     }
+
+    fn payload_columns(&self, source: ir::SourceTableId) -> Option<Vec<(String, String)>> {
+        let (table_name, structural) =
+            if let Some(entry) = self.node_source_entry().filter(|entry| entry.id == source) {
+                (entry.table.clone(), vec![entry.identity_column.clone()])
+            } else if let Some(entry) = self
+                .relationship_source_entry()
+                .filter(|entry| entry.id == source)
+            {
+                (
+                    entry.table.clone(),
+                    vec![
+                        entry.identity_column.clone(),
+                        entry.start_column.clone(),
+                        entry.end_column.clone(),
+                    ],
+                )
+            } else {
+                return None;
+            };
+        let table = self.connection.current_schema().get_table(&table_name)?;
+        let mut columns = Vec::new();
+        for index in 0.. {
+            let Some(column) = table.get_column_at(index) else {
+                break;
+            };
+            let Some(name) = column.name.clone() else {
+                continue;
+            };
+            if structural.contains(&name) {
+                continue;
+            }
+            // Reserved-name properties live in prefixed payload columns.
+            let logical = name
+                .strip_prefix("cyprop_")
+                .map(str::to_owned)
+                .unwrap_or_else(|| name.clone());
+            columns.push((logical, name));
+        }
+        Some(columns)
+    }
 }
 
 #[cfg(test)]
