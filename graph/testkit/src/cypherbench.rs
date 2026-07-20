@@ -242,21 +242,34 @@ pub fn run_domain(
     query_timeout: std::time::Duration,
 ) -> Result<DomainReport> {
     enum Event {
+        Started(String),
         Query(QueryDetail),
         Done(Box<DomainReport>),
         Failed(String),
     }
-    let (sender, receiver) = std::sync::mpsc::channel::<Event>();
-    let worker = {
+    let spawn_worker = |skip: std::collections::HashSet<String>| {
+        let (sender, receiver) = std::sync::mpsc::channel::<Event>();
         let domain = domain.to_owned();
         let graph_path = graph_path.to_owned();
         let tasks = tasks.to_vec();
         std::thread::spawn(move || {
             let query_sender = sender.clone();
+            let started_sender = sender.clone();
             let mut sink = move |entry: QueryDetail| {
                 let _ = query_sender.send(Event::Query(entry));
             };
-            let result = run_domain_worker(&domain, &graph_path, &tasks, limit, &mut sink);
+            let mut notify_started = move |qid: &str| {
+                let _ = started_sender.send(Event::Started(qid.to_owned()));
+            };
+            let result = run_domain_worker(
+                &domain,
+                &graph_path,
+                &tasks,
+                limit,
+                &skip,
+                &mut sink,
+                &mut notify_started,
+            );
             match result {
                 Ok(report) => {
                     let _ = sender.send(Event::Done(Box::new(report)));
@@ -265,19 +278,53 @@ pub fn run_domain(
                     let _ = sender.send(Event::Failed(error.to_string()));
                 }
             }
-        })
+        });
+        receiver
     };
+    let mut skip: std::collections::HashSet<String> = std::collections::HashSet::new();
+    let mut receiver = spawn_worker(skip.clone());
+    let total = tasks
+        .iter()
+        .filter(|task| task.graph == domain)
+        .take(limit.unwrap_or(usize::MAX))
+        .count();
+    let timeout_cap = (total / 10).max(1);
     let mut details_out = detail;
-    let timeout_report: DomainReport;
-    let mut seen_queries = 0_usize;
+    let mut in_flight: Option<String> = None;
+    let mut timeouts = 0_usize;
     let mut matched = 0;
     let mut mismatched = 0;
     let mut errored = 0;
     let mut query_ms_total = 0_u64;
+    let mut seen = 0_usize;
+    let record_timeout = |qid: String, details_out: &mut Option<&mut Vec<QueryDetail>>| {
+        if let Some(details) = details_out.as_deref_mut() {
+            details.push(QueryDetail {
+                qid,
+                domain: domain.to_owned(),
+                verdict: "timeout",
+                duration_ms: query_timeout.as_millis() as u64,
+                observed_rows: 0,
+                expected_rows: 0,
+                observed_sample: String::new(),
+                expected_sample: String::new(),
+                error: "per-query watchdog expired".to_owned(),
+            });
+        }
+    };
     loop {
-        match receiver.recv_timeout(query_timeout) {
+        // The load phase (before any query starts) gets a generous fixed
+        // window; queries get the per-query watchdog.
+        let window = if in_flight.is_none() && seen == 0 {
+            query_timeout.max(std::time::Duration::from_secs(300))
+        } else {
+            query_timeout
+        };
+        match receiver.recv_timeout(window) {
+            Ok(Event::Started(qid)) => in_flight = Some(qid),
             Ok(Event::Query(entry)) => {
-                seen_queries += 1;
+                in_flight = None;
+                seen += 1;
                 match entry.verdict {
                     "matched" => matched += 1,
                     "mismatched" => mismatched += 1,
@@ -289,65 +336,72 @@ pub fn run_domain(
                 }
             }
             Ok(Event::Done(report)) => {
-                let _ = worker.join();
-                return Ok(*report);
+                let mut report = *report;
+                report.errored += timeouts;
+                report.queries += timeouts;
+                report.query_ms_total += timeouts as u64 * query_timeout.as_millis() as u64;
+                return Ok(report);
             }
             Ok(Event::Failed(error)) => {
-                let _ = worker.join();
                 anyhow::bail!("{domain}: {error}");
             }
             Err(_) => {
-                // Wedged query: record the timeout, abandon the domain.
-                let total = tasks
-                    .iter()
-                    .filter(|task| task.graph == domain)
-                    .take(limit.unwrap_or(usize::MAX))
-                    .count();
-                eprintln!(
-                    "{domain}: query timed out after {}s; abandoning domain                      ({seen_queries} of {total} completed)",
-                    query_timeout.as_secs()
-                );
-                if let Some(details) = details_out.as_deref_mut() {
-                    details.push(QueryDetail {
-                        qid: format!("{domain}:wedged-after-{seen_queries}"),
+                let qid = in_flight
+                    .take()
+                    .unwrap_or_else(|| format!("{domain}:load-or-stall"));
+                timeouts += 1;
+                record_timeout(qid.clone(), &mut details_out);
+                // More than 10% of a domain timing out is itself the
+                // signal: stop respawning and report the partial result.
+                if timeouts > timeout_cap {
+                    eprintln!(
+                        "{domain}: {timeouts} timeouts exceed 10% of {total} \
+                         queries; terminating domain"
+                    );
+                    return Ok(DomainReport {
                         domain: domain.to_owned(),
-                        verdict: "timeout",
-                        duration_ms: query_timeout.as_millis() as u64,
-                        observed_rows: 0,
-                        expected_rows: 0,
-                        observed_sample: String::new(),
-                        expected_sample: String::new(),
-                        error: "per-query watchdog expired; domain abandoned".to_owned(),
+                        entities: 0,
+                        relations: 0,
+                        load_ms: 0,
+                        queries: seen + timeouts,
+                        matched,
+                        mismatched,
+                        errored: errored + timeouts,
+                        query_ms_total: query_ms_total
+                            + timeouts as u64 * query_timeout.as_millis() as u64,
                     });
                 }
-                timeout_report = DomainReport {
-                    domain: domain.to_owned(),
-                    entities: 0,
-                    relations: 0,
-                    load_ms: 0,
-                    queries: seen_queries + 1,
-                    matched,
-                    mismatched,
-                    errored: errored + 1,
-                    query_ms_total: query_ms_total + query_timeout.as_millis() as u64,
-                };
-                break;
+                eprintln!(
+                    "{domain}: [{qid}] exceeded {}s ({timeouts}/{timeout_cap} \
+                     timeout budget); skipping and reloading",
+                    query_timeout.as_secs()
+                );
+                // The wedged worker detaches (dies with the process); a
+                // fresh worker reloads the graph and resumes past the
+                // wedged query and everything already completed.
+                skip.insert(qid);
+                if let Some(details) = details_out.as_deref() {
+                    for entry in details.iter() {
+                        skip.insert(entry.qid.clone());
+                    }
+                }
+                receiver = spawn_worker(skip.clone());
             }
         }
     }
-    drop(receiver);
-    // Worker stays detached; it exits with the process.
-    Ok(timeout_report)
 }
 
 /// Runs one domain: load, then execute its gold queries, comparing row
 /// sets (order-insensitive, stringified) against the pre-verified answer.
+#[allow(clippy::too_many_arguments)]
 fn run_domain_worker(
     domain: &str,
     graph_path: &Path,
     tasks: &[BenchTask],
     limit: Option<usize>,
+    skip: &std::collections::HashSet<String>,
     sink: &mut dyn FnMut(QueryDetail),
+    notify_started: &mut dyn FnMut(&str),
 ) -> Result<DomainReport> {
     let kg: SimpleKg = serde_json::from_str(
         &fs::read_to_string(graph_path)
@@ -371,6 +425,10 @@ fn run_domain_worker(
     let mut record = |entry: QueryDetail| sink(entry);
     let parameters = MutationParameters::new();
     for task in &selected {
+        if skip.contains(&task.qid) {
+            continue;
+        }
+        notify_started(&task.qid);
         let query_started = Instant::now();
         eprintln!("  [{}] start", task.qid);
         match fixture.session.query(&task.gold_cypher, &parameters) {
