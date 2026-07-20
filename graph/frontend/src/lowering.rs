@@ -614,7 +614,7 @@ fn lower_graph_expand(
         .collect::<Vec<_>>()
         .join(",");
     let limits = turso_graph_runtime::TraversalLimits::default();
-    let mut bindings = input.bindings;
+    let mut bindings = input.bindings.clone();
     bindings.insert(
         expand.relationship.id(),
         BindingLayout {
@@ -640,16 +640,28 @@ fn lower_graph_expand(
             .input
             .scope()
             .iter()
-            // Path and relationship-list bindings live in scope without a
-            // materialized column; grouping on them would reference columns
-            // the input never produced.
-            .filter(|binding| {
-                !matches!(
-                    binding.value_type(),
-                    ir::ValueType::Path | ir::ValueType::List(_)
-                )
+            // Path bindings live in scope without a materialized column;
+            // grouping on them would reference columns the input never
+            // produced. List bindings are materialized (projection outputs
+            // and earlier expansions' grouped list columns) and must pass
+            // through — a bound relationship list is compared against the
+            // expansion's own list right above this grouping.
+            .filter(|binding| !matches!(binding.value_type(), ir::ValueType::Path))
+            .flat_map(|binding| {
+                // The binding's identity column plus any pushed-down
+                // property columns riding along in the input (all
+                // functionally dependent on the identity, so grouping on
+                // them is dedup-neutral).
+                let mut columns = vec![format!("q.{}", binding_column(binding.id()))];
+                if let Some(layout) = input.bindings.get(&binding.id()) {
+                    for property in &layout.properties {
+                        if let Ok(id) = ir::PropertyId::new(*property) {
+                            columns.push(format!("q.{}", property_column_ref(binding.id(), id)));
+                        }
+                    }
+                }
+                columns
             })
-            .map(|binding| format!("q.{}", binding_column(binding.id())))
             .collect::<Vec<_>>()
             .join(", ");
         let inner_select = if group_columns.is_empty() {

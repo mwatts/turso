@@ -507,6 +507,39 @@ mod tests {
     }
 
     #[test]
+    fn bound_relationship_list_constrains_variable_length_match() {
+        let fixture = empty_fixture("bound-rellist").expect("fixture should initialize");
+        let parameters = MutationParameters::new();
+        for statement in [
+            "CREATE (:Person {name: 'A'})",
+            "CREATE (:Person {name: 'B'})",
+            "CREATE (:Person {name: 'C'})",
+            "MATCH (a {name: 'A'}) MATCH (b {name: 'B'}) CREATE (a)-[:KNOWS]->(b)",
+            "MATCH (b {name: 'B'}) MATCH (c {name: 'C'}) CREATE (b)-[:KNOWS]->(c)",
+        ] {
+            fixture
+                .session
+                .mutate(statement, &parameters)
+                .expect("seed");
+        }
+        // TCK Match4 [8] shape: capture two relationships as a list, then
+        // match the variable-length path bound to exactly that list.
+        let rows = fixture
+            .session
+            .query(
+                "MATCH ()-[r1]->()-[r2]->() WITH [r1, r2] AS rs LIMIT 1 \
+                 MATCH (first)-[rs*]->(second) RETURN first.name, second.name",
+                &parameters,
+            )
+            .expect("bound-list variable-length match");
+        let rendered: Vec<Vec<String>> = rows
+            .iter()
+            .map(|row| row.iter().map(|v| v.to_string()).collect())
+            .collect();
+        assert_eq!(rendered, vec![vec!["A".to_owned(), "C".to_owned()]]);
+    }
+
+    #[test]
     fn optional_match_count_groups_stay_correlated() {
         let fixture = empty_fixture("opt-count").expect("fixture should initialize");
         let parameters = MutationParameters::new();
