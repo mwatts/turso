@@ -4,76 +4,48 @@ Generated from `graph/test-results/history.jsonl`. Results are grouped by stable
 
 ## Latest complete corpus run
 
-- Run: `20260719T212407.546154Z-85a6914ad0f4-corpus-deep`
+- Run: `20260720T002817.263486Z-df32aa37c8ef-corpus-deep`
 - Records: 10392
-- Passed: 7748
-- Failed: 2644
+- Passed: 7937
+- Failed: 2455
 
 ### Failure-reason histogram
 
 | Failure family | Count |
 |---|---:|
-| `execution`: other | 789 |
-| `execution`: mutation projection unsupported | 507 |
-| `execution`: runtime scalar function missing | 320 |
+| `execution`: other | 769 |
+| `execution`: mutation projection unsupported | 399 |
+| `execution`: runtime scalar function missing | 324 |
 | `parser`: expression/operator continuation grammar | 274 |
 | `parser`: other grammar | 206 |
-| `execution`: mutation operation unsupported | 185 |
+| `execution`: mutation operation unsupported | 120 |
 | `parser`: unsupported starting clause | 85 |
 | `parser`: graph-pattern grammar | 58 |
 | `parser`: map-literal grammar | 40 |
 | `execution`: expected-error mismatch | 38 |
 | `setup-execution`: other | 34 |
-| `side-effect-comparison`: other | 24 |
+| `side-effect-comparison`: other | 23 |
+| `execution`: parameter binding/declaration | 20 |
 | `parameter-binding`: other | 20 |
 | `parser`: projection/expression item grammar | 20 |
-| `execution`: parameter binding/declaration | 19 |
 | `fixture-execution`: other | 19 |
 | `dataset-execution`: other | 4 |
 | `setup-execution`: runtime scalar function missing | 2 |
 
 ## Latest `age-deep` run
 
-- Run: `20260719T212407.546154Z-85a6914ad0f4-corpus-deep`
-- Commit: `85a6914ad0f4c2cef535a00672ff738dbee37ef1` (dirty)
+- Run: `20260720T002817.263486Z-df32aa37c8ef-corpus-deep`
+- Commit: `df32aa37c8efdeaf4d822eda53fe116f64a22dc7` (dirty)
 - Package: `0.7.0`
 - Environment: `macos/aarch64` (`dev`)
 - Records: 3677
-- Passed: 2413
+- Passed: 2481
 - Unsupported: 0
-- Failed or changed: 1264
+- Failed or changed: 1196
 
-### Outcome changes from `20260719T211310.196868Z-2b3388a995ac-corpus-deep`
+### Outcome changes from `20260720T002342.835410Z-df32aa37c8ef-corpus-deep`
 
-- `age.cypher.merge.query-223`: Passed
-- `age.cypher.merge.query-254`: Passed
-- `age.cypher.merge.query-255`: Passed
-- `age.cypher.merge.query-256`: Passed
-- `age.cypher.merge.query-257`: Passed
-- `age.cypher.merge.query-258`: Passed
-- `age.cypher.merge.query-259`: Passed
-- `age.cypher.merge.query-260`: Passed
-- `age.cypher.merge.query-261`: Passed
-- `age.cypher.merge.query-262`: Passed
-- `age.cypher.merge.query-263`: Passed
-- `age.cypher.merge.query-264`: Passed
-- `age.cypher.merge.query-265`: Passed
-- `age.cypher.merge.query-268`: Passed
-- `age.cypher.merge.query-269`: Passed
-- `age.cypher.merge.query-270`: Passed
-- `age.cypher.merge.query-271`: Passed
-- `age.cypher.merge.query-272`: Passed
-- `age.cypher.set.query-81`: Passed
-- `age.cypher.set.query-82`: Passed
-- `age.cypher.set.query-85`: Passed
-- `age.cypher.set.query-86`: Passed
-- `age.cypher.set.query-88`: Passed
-- `age.cypher.set.query-90`: Passed
-- `age.cypher.set.query-97`: Passed
-- `age.list.comprehension.query-67`: Passed
-- `age.list.comprehension.query-68`: Passed
-- `age.list.comprehension.query-108`: Passed
-- `age.security.query-23`: Passed
+- No outcome changes.
 
 ### Results by source area
 
@@ -100,28 +72,28 @@ Generated from `graph/test-results/history.jsonl`. Results are grouped by stable
 | cypher_create | `passed` | 63 |
 | cypher_delete | `failed` | 4 |
 | cypher_delete | `passed` | 111 |
-| cypher_match | `failed` | 144 |
-| cypher_match | `passed` | 269 |
-| cypher_merge | `failed` | 67 |
-| cypher_merge | `passed` | 206 |
+| cypher_match | `failed` | 141 |
+| cypher_match | `passed` | 272 |
+| cypher_merge | `failed` | 42 |
+| cypher_merge | `passed` | 231 |
 | cypher_remove | `failed` | 4 |
 | cypher_remove | `passed` | 38 |
-| cypher_set | `failed` | 28 |
-| cypher_set | `passed` | 89 |
-| cypher_subquery | `failed` | 12 |
-| cypher_subquery | `passed` | 41 |
+| cypher_set | `failed` | 22 |
+| cypher_set | `passed` | 95 |
+| cypher_subquery | `failed` | 11 |
+| cypher_subquery | `passed` | 42 |
 | cypher_union | `failed` | 14 |
 | cypher_union | `passed` | 5 |
 | cypher_unwind | `failed` | 3 |
 | cypher_unwind | `passed` | 14 |
-| cypher_vle | `failed` | 59 |
-| cypher_vle | `passed` | 53 |
+| cypher_vle | `failed` | 58 |
+| cypher_vle | `passed` | 54 |
 | cypher_with | `failed` | 24 |
 | cypher_with | `passed` | 17 |
 | direct_field_access | `failed` | 6 |
 | direct_field_access | `passed` | 35 |
-| expr | `failed` | 331 |
-| expr | `passed` | 758 |
+| expr | `failed` | 310 |
+| expr | `passed` | 779 |
 | fuzzystrmatch | `failed` | 7 |
 | fuzzystrmatch | `passed` | 4 |
 | generated_columns | `passed` | 10 |
@@ -129,9 +101,10 @@ Generated from `graph/test-results/history.jsonl`. Results are grouped by stable
 | index | `failed` | 11 |
 | index | `passed` | 54 |
 | issue_369 | `passed` | 4 |
-| jsonb_operators | `failed` | 159 |
-| list_comprehension | `failed` | 21 |
-| list_comprehension | `passed` | 105 |
+| jsonb_operators | `failed` | 158 |
+| jsonb_operators | `passed` | 1 |
+| list_comprehension | `failed` | 19 |
+| list_comprehension | `passed` | 107 |
 | map_projection | `failed` | 17 |
 | map_projection | `passed` | 1 |
 | name_validation | `failed` | 6 |
@@ -142,8 +115,8 @@ Generated from `graph/test-results/history.jsonl`. Results are grouped by stable
 | pg_trgm | `passed` | 1 |
 | pgvector | `failed` | 70 |
 | pgvector | `passed` | 1 |
-| predicate_functions | `failed` | 17 |
-| predicate_functions | `passed` | 45 |
+| predicate_functions | `failed` | 9 |
+| predicate_functions | `passed` | 53 |
 | reserved_keyword_alias | `failed` | 12 |
 | reserved_keyword_alias | `passed` | 19 |
 | scan | `failed` | 35 |
@@ -156,11 +129,11 @@ Generated from `graph/test-results/history.jsonl`. Results are grouped by stable
 
 | Boundary | Outcome | Count |
 |---|---|---:|
-| `execution` | `failed` | 768 |
-| `execution` | `passed` | 2413 |
+| `execution` | `failed` | 700 |
+| `execution` | `passed` | 2481 |
 | `parser` | `failed` | 496 |
 
-### Failures (1264)
+### Failures (1196)
 
 - `age.age.global.graph.query-4`: query execution failed: Parse error: no such function: vertex_stats; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 10..47
 - `age.age.global.graph.query-5`: query execution failed: Parse error: no such function: vertex_stats; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 10..47
@@ -287,7 +260,7 @@ Generated from `graph/test-results/history.jsonl`. Results are grouped by stable
 - `age.age.shortest.path.query-168`: query execution failed: Parse error: no such function: vertex_stats; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 10..47
 - `age.age.shortest.path.query-180`: query execution failed: Parse error: no such function: vertex_stats; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 10..47
 - `age.age.shortest.path.query-190`: query execution failed: Parse error: no such function: vertex_stats; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 10..47
-- `age.agtype.query-1`: query execution failed: Parse error: mutation clauses in read queries is not supported in the initial graph slice at byte 0..636; mutation execution failed: Cypher mutation binding failed: map literal outside a struct or union property is not supported in the initial graph slice at byte 231..247
+- `age.agtype.query-1`: query execution failed: Parse error: mutation clauses in read queries is not supported in the initial graph slice at byte 0..636; mutation execution failed: Cypher mutation binding failed: casts to this type name is not supported in the initial graph slice at byte 343..349
 - `age.agtype.query-9`: query execution failed: Parse error: invalid resolved function or parameter name: ag_catalog.agtype_build_map; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 0..73
 - `age.analyze.query-2`: expected clause at byte 0..0
 - `age.cypher.call.query-3`: query execution failed: Parse error: procedures outside the built-in registry is not supported in the initial graph slice at byte 5..9; mutation execution failed: Cypher mutation binding failed: procedures in mutation queries is not supported in the initial graph slice at byte 0..13
@@ -364,7 +337,6 @@ Generated from `graph/test-results/history.jsonl`. Results are grouped by stable
 - `age.cypher.delete.query-74`: expected identifier at byte 17..17
 - `age.cypher.delete.query-77`: expected identifier at byte 17..17
 - `age.cypher.delete.query-105`: expected identifier at byte 27..27
-- `age.cypher.match.query-57`: query execution failed: Parse error: mutation clauses in read queries is not supported in the initial graph slice at byte 0..104; mutation execution failed: Cypher mutation binding failed: map literal outside a struct or union property is not supported in the initial graph slice at byte 67..81
 - `age.cypher.match.query-65`: expected node_labels or map_literal at byte 9..9
 - `age.cypher.match.query-74`: query execution failed: Parse error: duplicate variable `a` at byte 20..21; mutation execution failed: Cypher mutation binding failed: duplicate variable `a` at byte 20..21
 - `age.cypher.match.query-75`: query execution failed: Parse error: duplicate variable `r0` at byte 28..30; mutation execution failed: Cypher mutation binding failed: duplicate variable `r0` at byte 28..30
@@ -395,7 +367,6 @@ Generated from `graph/test-results/history.jsonl`. Results are grouped by stable
 - `age.cypher.match.query-140`: query execution failed: Parse error: generated relational SQL did not parse: near "(": syntax error; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 10..44
 - `age.cypher.match.query-141`: query execution failed: Parse error: generated relational SQL did not parse: near "(": syntax error; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 10..46
 - `age.cypher.match.query-142`: query execution failed: Parse error: generated relational SQL did not parse: near "q": syntax error; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 26..34
-- `age.cypher.match.query-143`: query execution failed: Parse error: mutation clauses in read queries is not supported in the initial graph slice at byte 0..167; mutation execution failed: Cypher mutation binding failed: map literal outside a struct or union property is not supported in the initial graph slice at byte 56..58
 - `age.cypher.match.query-144`: query execution failed: Parse error: no such function: properties; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 41..61
 - `age.cypher.match.query-145`: query execution failed: Parse error: no such function: properties; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 40..60
 - `age.cypher.match.query-146`: query execution failed: Parse error: no such function: properties; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 43..63
@@ -447,7 +418,6 @@ Generated from `graph/test-results/history.jsonl`. Results are grouped by stable
 - `age.cypher.match.query-241`: query execution failed: Parse error: mutation clauses in read queries is not supported in the initial graph slice at byte 0..24; mutation execution failed: Cypher mutation binding failed: MATCH after a mutation clause is not supported in the initial graph slice at byte 31..42
 - `age.cypher.match.query-242`: query execution failed: Parse error: mutation clauses in read queries is not supported in the initial graph slice at byte 0..12; mutation execution failed: Cypher mutation binding failed: MATCH after a mutation clause is not supported in the initial graph slice at byte 19..36
 - `age.cypher.match.query-259`: query execution failed: Parse error: mutation clauses in read queries is not supported in the initial graph slice at byte 0..10; mutation execution failed: Cypher mutation binding failed: MATCH after a mutation clause is not supported in the initial graph slice at byte 17..36
-- `age.cypher.match.query-262`: query execution failed: Parse error: mutation clauses in read queries is not supported in the initial graph slice at byte 0..378; mutation execution failed: Cypher mutation binding failed: map literal outside a struct or union property is not supported in the initial graph slice at byte 58..200
 - `age.cypher.match.query-272`: expected clause at byte 0..0
 - `age.cypher.match.query-282`: expected clause at byte 0..0
 - `age.cypher.match.query-335`: query execution failed: Parse error: unknown variable `e` at byte 80..81; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 67..81
@@ -455,7 +425,7 @@ Generated from `graph/test-results/history.jsonl`. Results are grouped by stable
 - `age.cypher.match.query-347`: query execution failed: Parse error: reusing a non-node variable in a node pattern is not supported in the initial graph slice at byte 92..96; mutation execution failed: Cypher mutation binding failed: reusing a non-node variable in a node pattern is not supported in the initial graph slice at byte 92..96
 - `age.cypher.match.query-349`: query execution failed: Parse error: no such column: b1; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 89..98
 - `age.cypher.match.query-350`: query execution failed: Parse error: no such column: b1; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 62..70
-- `age.cypher.match.query-353`: query execution failed: Parse error: mutation clauses in read queries is not supported in the initial graph slice at byte 0..99; mutation execution failed: Cypher mutation binding failed: map literal outside a struct or union property is not supported in the initial graph slice at byte 52..83
+- `age.cypher.match.query-353`: query execution failed: Parse error: mutation clauses in read queries is not supported in the initial graph slice at byte 0..99; mutation execution failed: graph mutation database operation failed: Parse error: no such table: q
 - `age.cypher.match.query-354`: expected map_literal at byte 18..18
 - `age.cypher.match.query-355`: expected map_literal at byte 18..18
 - `age.cypher.match.query-356`: expected map_literal at byte 18..18
@@ -508,18 +478,9 @@ Generated from `graph/test-results/history.jsonl`. Results are grouped by stable
 - `age.cypher.match.query-411`: query execution failed: Parse error: unknown variable `name` at byte 175..179; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 117..187
 - `age.cypher.match.query-412`: query execution failed: Parse error: unknown variable `name` at byte 158..162; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 100..162
 - `age.cypher.match.query-413`: query execution failed: Parse error: unknown variable `name` at byte 144..148; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 86..148
-- `age.cypher.merge.query-36`: query execution failed: Parse error: mutation clauses in read queries is not supported in the initial graph slice at byte 0..20; mutation execution failed: MERGE requires at least one property to identify the entity
-- `age.cypher.merge.query-48`: query execution failed: Parse error: mutation clauses in read queries is not supported in the initial graph slice at byte 0..26; mutation execution failed: MERGE requires at least one property to identify the entity
-- `age.cypher.merge.query-58`: query execution failed: Parse error: mutation clauses in read queries is not supported in the initial graph slice at byte 0..24; mutation execution failed: MERGE requires at least one property to identify the entity
-- `age.cypher.merge.query-61`: query execution failed: Parse error: mutation clauses in read queries is not supported in the initial graph slice at byte 0..10; mutation execution failed: MERGE requires at least one property to identify the entity
-- `age.cypher.merge.query-64`: query execution failed: Parse error: mutation clauses in read queries is not supported in the initial graph slice at byte 0..11; mutation execution failed: MERGE requires at least one property to identify the entity
-- `age.cypher.merge.query-67`: query execution failed: Parse error: mutation clauses in read queries is not supported in the initial graph slice at byte 0..11; mutation execution failed: MERGE requires at least one property to identify the entity
-- `age.cypher.merge.query-90`: query execution failed: Parse error: mutation clauses in read queries is not supported in the initial graph slice at byte 0..16; mutation execution failed: MERGE requires at least one property to identify the entity
-- `age.cypher.merge.query-93`: query execution failed: Parse error: mutation clauses in read queries is not supported in the initial graph slice at byte 0..10; mutation execution failed: MERGE requires at least one property to identify the entity
-- `age.cypher.merge.query-96`: query execution failed: Parse error: mutation clauses in read queries is not supported in the initial graph slice at byte 0..19; mutation execution failed: MERGE requires at least one property to identify the entity
-- `age.cypher.merge.query-99`: query execution failed: Parse error: mutation clauses in read queries is not supported in the initial graph slice at byte 0..19; mutation execution failed: MERGE requires at least one property to identify the entity
+- `age.cypher.merge.query-96`: query execution failed: Parse error: mutation clauses in read queries is not supported in the initial graph slice at byte 0..19; mutation execution failed: graph mutation database operation failed: Parse error: no such table: q
 - `age.cypher.merge.query-102`: query execution failed: Parse error: mutation clauses in read queries is not supported in the initial graph slice at byte 0..21; mutation execution failed: graph mutation database operation failed: Parse error: no such table: q
-- `age.cypher.merge.query-103`: query execution failed: Parse error: mutation clauses in read queries is not supported in the initial graph slice at byte 0..19; mutation execution failed: MERGE requires at least one property to identify the entity
+- `age.cypher.merge.query-103`: query execution failed: Parse error: mutation clauses in read queries is not supported in the initial graph slice at byte 0..19; mutation execution failed: graph mutation database operation failed: Parse error: no such table: q
 - `age.cypher.merge.query-105`: expected EOI, UNION, clause, ON, or relationship_pattern at byte 9..9
 - `age.cypher.merge.query-106`: query execution failed: Parse error: mutation clauses in read queries is not supported in the initial graph slice at byte 16..32; mutation execution failed: Cypher mutation binding failed: relationship creation without exactly one type is not supported in the initial graph slice at byte 24..30
 - `age.cypher.merge.query-108`: query execution failed: Parse error: mutation clauses in read queries is not supported in the initial graph slice at byte 39..48; mutation execution failed: Cypher mutation binding failed: mutation query contains no mutation clauses
@@ -529,48 +490,32 @@ Generated from `graph/test-results/history.jsonl`. Results are grouped by stable
 - `age.cypher.merge.query-125`: query execution failed: Parse error: mutation clauses in read queries is not supported in the initial graph slice at byte 0..48; mutation execution failed: Cypher mutation binding failed: labels or properties on an already-bound CREATE node is not supported in the initial graph slice at byte 29..34
 - `age.cypher.merge.query-126`: query execution failed: Parse error: mutation clauses in read queries is not supported in the initial graph slice at byte 0..48; mutation execution failed: Cypher mutation binding failed: labels or properties on an already-bound CREATE node is not supported in the initial graph slice at byte 29..34
 - `age.cypher.merge.query-129`: query execution failed: Parse error: mutation clauses in read queries is not supported in the initial graph slice at byte 0..23; mutation execution failed: Cypher mutation binding failed: labels or properties on an already-bound CREATE node is not supported in the initial graph slice at byte 18..23
-- `age.cypher.merge.query-130`: query execution failed: Parse error: mutation clauses in read queries is not supported in the initial graph slice at byte 0..21; mutation execution failed: MERGE requires at least one property to identify the entity
-- `age.cypher.merge.query-133`: query execution failed: Parse error: mutation clauses in read queries is not supported in the initial graph slice at byte 0..21; mutation execution failed: MERGE requires at least one property to identify the entity
 - `age.cypher.merge.query-134`: query execution failed: Parse error: mutation clauses in read queries is not supported in the initial graph slice at byte 0..23; mutation execution failed: Cypher mutation binding failed: labels or properties on an already-bound CREATE node is not supported in the initial graph slice at byte 18..23
-- `age.cypher.merge.query-137`: query execution failed: Parse error: mutation clauses in read queries is not supported in the initial graph slice at byte 0..24; mutation execution failed: MERGE requires at least one property to identify the entity
-- `age.cypher.merge.query-138`: query execution failed: Parse error: mutation clauses in read queries is not supported in the initial graph slice at byte 0..24; mutation execution failed: MERGE requires at least one property to identify the entity
-- `age.cypher.merge.query-140`: query execution failed: Parse error: mutation clauses in read queries is not supported in the initial graph slice at byte 0..22; mutation execution failed: MERGE requires at least one property to identify the entity
-- `age.cypher.merge.query-141`: query execution failed: Parse error: mutation clauses in read queries is not supported in the initial graph slice at byte 0..23; mutation execution failed: MERGE requires at least one property to identify the entity
+- `age.cypher.merge.query-137`: query execution failed: Parse error: mutation clauses in read queries is not supported in the initial graph slice at byte 0..24; mutation execution failed: graph mutation database operation failed: Parse error: no such table: q
+- `age.cypher.merge.query-138`: query execution failed: Parse error: mutation clauses in read queries is not supported in the initial graph slice at byte 0..24; mutation execution failed: graph mutation database operation failed: Parse error: no such table: q
+- `age.cypher.merge.query-140`: query execution failed: Parse error: mutation clauses in read queries is not supported in the initial graph slice at byte 0..22; mutation execution failed: graph mutation database operation failed: Parse error: no such table: q
+- `age.cypher.merge.query-141`: query execution failed: Parse error: mutation clauses in read queries is not supported in the initial graph slice at byte 0..23; mutation execution failed: graph mutation database operation failed: Parse error: no such table: q
 - `age.cypher.merge.query-143`: query execution failed: Parse error: mutation clauses in read queries is not supported in the initial graph slice at byte 0..24; mutation execution failed: Cypher mutation binding failed: labels or properties on an already-bound CREATE node is not supported in the initial graph slice at byte 18..23
 - `age.cypher.merge.query-144`: query execution failed: Parse error: mutation clauses in read queries is not supported in the initial graph slice at byte 0..26; mutation execution failed: Cypher mutation binding failed: labels or properties on an already-bound CREATE node is not supported in the initial graph slice at byte 20..25
 - `age.cypher.merge.query-145`: query execution failed: Parse error: mutation clauses in read queries is not supported in the initial graph slice at byte 0..21; mutation execution failed: Cypher mutation binding failed: labels or properties on an already-bound CREATE node is not supported in the initial graph slice at byte 16..21
 - `age.cypher.merge.query-146`: query execution failed: Parse error: mutation clauses in read queries is not supported in the initial graph slice at byte 0..23; mutation execution failed: Cypher mutation binding failed: labels or properties on an already-bound CREATE node is not supported in the initial graph slice at byte 18..23
 - `age.cypher.merge.query-147`: query execution failed: Parse error: mutation clauses in read queries is not supported in the initial graph slice at byte 0..31; mutation execution failed: Cypher mutation binding failed: relationship creation without exactly one type is not supported in the initial graph slice at byte 22..28
 - `age.cypher.merge.query-148`: query execution failed: Parse error: mutation clauses in read queries is not supported in the initial graph slice at byte 0..31; mutation execution failed: Cypher mutation binding failed: relationship creation without exactly one type is not supported in the initial graph slice at byte 22..28
-- `age.cypher.merge.query-149`: query execution failed: Parse error: mutation clauses in read queries is not supported in the initial graph slice at byte 0..33; mutation execution failed: MERGE requires at least one property to identify the entity
 - `age.cypher.merge.query-150`: query execution failed: Parse error: mutation clauses in read queries is not supported in the initial graph slice at byte 0..33; mutation execution failed: Cypher mutation binding failed: relationship creation without exactly one type is not supported in the initial graph slice at byte 24..30
 - `age.cypher.merge.query-151`: query execution failed: Parse error: mutation clauses in read queries is not supported in the initial graph slice at byte 0..35; mutation execution failed: Cypher mutation binding failed: duplicate variable `p` at byte 26..27
 - `age.cypher.merge.query-152`: query execution failed: Parse error: mutation clauses in read queries is not supported in the initial graph slice at byte 0..33; mutation execution failed: Cypher mutation binding failed: relationship creation without exactly one type is not supported in the initial graph slice at byte 24..30
-- `age.cypher.merge.query-164`: query execution failed: Parse error: mutation clauses in read queries is not supported in the initial graph slice at byte 0..10; mutation execution failed: MERGE requires at least one property to identify the entity
 - `age.cypher.merge.query-165`: query execution failed: Parse error: mutation clauses in read queries is not supported in the initial graph slice at byte 10..20; mutation execution failed: Cypher mutation binding failed: mutation query contains no mutation clauses
 - `age.cypher.merge.query-167`: query execution failed: Parse error: mutation clauses in read queries is not supported in the initial graph slice at byte 22..32; mutation execution failed: Cypher mutation binding failed: mutation query contains no mutation clauses
 - `age.cypher.merge.query-168`: query execution failed: Parse error: casts to this type name is not supported in the initial graph slice at byte 55..61; mutation execution failed: Cypher mutation binding failed: casts to this type name is not supported in the initial graph slice at byte 55..61
-- `age.cypher.merge.query-169`: query execution failed: Parse error: mutation clauses in read queries is not supported in the initial graph slice at byte 0..39; mutation execution failed: MERGE requires at least one property to identify the entity
-- `age.cypher.merge.query-170`: query execution failed: Parse error: mutation clauses in read queries is not supported in the initial graph slice at byte 0..24; mutation execution failed: MERGE requires at least one property to identify the entity
 - `age.cypher.merge.query-171`: query execution failed: Parse error: casts to this type name is not supported in the initial graph slice at byte 112..116; mutation execution failed: Cypher mutation binding failed: casts to this type name is not supported in the initial graph slice at byte 112..116
 - `age.cypher.merge.query-172`: query execution failed: Parse error: mutation clauses in read queries is not supported in the initial graph slice at byte 22..32; mutation execution failed: Cypher mutation binding failed: mutation query contains no mutation clauses
-- `age.cypher.merge.query-173`: query execution failed: Parse error: mutation clauses in read queries is not supported in the initial graph slice at byte 0..25; mutation execution failed: MERGE requires at least one property to identify the entity
-- `age.cypher.merge.query-174`: query execution failed: Parse error: mutation clauses in read queries is not supported in the initial graph slice at byte 0..10; mutation execution failed: MERGE requires at least one property to identify the entity
-- `age.cypher.merge.query-175`: query execution failed: Parse error: mutation clauses in read queries is not supported in the initial graph slice at byte 0..16; mutation execution failed: MERGE requires at least one property to identify the entity
 - `age.cypher.merge.query-182`: expected identifier at byte 16..16
-- `age.cypher.merge.query-183`: query execution failed: Parse error: mutation clauses in read queries is not supported in the initial graph slice at byte 66..145; mutation execution failed: Cypher mutation binding failed: property access requires a node or relationship at byte 91..95
 - `age.cypher.merge.query-184`: expected identifier at byte 16..16
-- `age.cypher.merge.query-185`: query execution failed: Parse error: mutation clauses in read queries is not supported in the initial graph slice at byte 156..235; mutation execution failed: Cypher mutation binding failed: property access requires a node or relationship at byte 181..185
-- `age.cypher.merge.query-186`: query execution failed: Parse error: mutation clauses in read queries is not supported in the initial graph slice at byte 156..235; mutation execution failed: Cypher mutation binding failed: property access requires a node or relationship at byte 181..185
 - `age.cypher.merge.query-187`: expected identifier at byte 16..16
-- `age.cypher.merge.query-188`: query execution failed: Parse error: mutation clauses in read queries is not supported in the initial graph slice at byte 156..235; mutation execution failed: Cypher mutation binding failed: property access requires a node or relationship at byte 181..185
-- `age.cypher.merge.query-190`: query execution failed: Parse error: mutation clauses in read queries is not supported in the initial graph slice at byte 79..152; mutation execution failed: MERGE requires at least one property to identify the entity
-- `age.cypher.merge.query-191`: query execution failed: Parse error: mutation clauses in read queries is not supported in the initial graph slice at byte 79..152; mutation execution failed: MERGE requires at least one property to identify the entity
-- `age.cypher.merge.query-202`: query execution failed: Parse error: mutation clauses in read queries is not supported in the initial graph slice at byte 86..190; mutation execution failed: MERGE requires at least one property to identify the entity
-- `age.cypher.merge.query-206`: query execution failed: Parse error: mutation clauses in read queries is not supported in the initial graph slice at byte 114..188; mutation execution failed: Cypher mutation binding failed: property access requires a node or relationship at byte 138..141
-- `age.cypher.merge.query-209`: query execution failed: Parse error: mutation clauses in read queries is not supported in the initial graph slice at byte 226..300; mutation execution failed: Cypher mutation binding failed: property access requires a node or relationship at byte 250..253
-- `age.cypher.merge.query-212`: query execution failed: Parse error: mutation clauses in read queries is not supported in the initial graph slice at byte 114..228; mutation execution failed: Cypher mutation binding failed: property access requires a node or relationship at byte 138..141
-- `age.cypher.merge.query-216`: query execution failed: Parse error: mutation clauses in read queries is not supported in the initial graph slice at byte 114..228; mutation execution failed: Cypher mutation binding failed: property access requires a node or relationship at byte 138..141
+- `age.cypher.merge.query-206`: query execution failed: Parse error: mutation clauses in read queries is not supported in the initial graph slice at byte 114..188; mutation execution failed: Cypher mutation binding failed: SET of a whole entity from a non-map value is not supported in the initial graph slice at byte 194..236
+- `age.cypher.merge.query-209`: query execution failed: Parse error: mutation clauses in read queries is not supported in the initial graph slice at byte 226..300; mutation execution failed: Cypher mutation binding failed: SET of a whole entity from a non-map value is not supported in the initial graph slice at byte 306..348
+- `age.cypher.merge.query-212`: query execution failed: Parse error: mutation clauses in read queries is not supported in the initial graph slice at byte 114..228; mutation execution failed: Cypher mutation binding failed: SET of a whole entity from a non-map value is not supported in the initial graph slice at byte 234..276
+- `age.cypher.merge.query-216`: query execution failed: Parse error: mutation clauses in read queries is not supported in the initial graph slice at byte 114..228; mutation execution failed: Cypher mutation binding failed: SET of a whole entity from a non-map value is not supported in the initial graph slice at byte 234..238
 - `age.cypher.merge.query-230`: query execution failed: Parse error: unknown variable `label` at byte 70..75; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 14..75
 - `age.cypher.merge.query-235`: query execution failed: Parse error: unknown variable `label` at byte 70..75; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 14..75
 - `age.cypher.merge.query-242`: query execution failed: Parse error: mutation clauses in read queries is not supported in the initial graph slice at byte 28..75; mutation execution failed: Cypher mutation binding failed: modifiers on a mutation RETURN clause is not supported in the initial graph slice at byte 119..168
@@ -588,23 +533,17 @@ Generated from `graph/test-results/history.jsonl`. Results are grouped by stable
 - `age.cypher.set.query-39`: query execution failed: Parse error: mutation clauses in read queries is not supported in the initial graph slice at byte 10..29; mutation execution failed: Cypher mutation binding failed: unknown variable `wrong_var` at byte 14..23
 - `age.cypher.set.query-40`: query execution failed: Parse error: mutation clauses in read queries is not supported in the initial graph slice at byte 10..19; mutation execution failed: Cypher mutation binding failed: unknown variable `i` at byte 14..15
 - `age.cypher.set.query-62`: query execution failed: Parse error: mutation clauses in read queries is not supported in the initial graph slice at byte 35..55; mutation execution failed: graph mutation database operation failed: Parse error: no such column: b1
-- `age.cypher.set.query-66`: query execution failed: Parse error: mutation clauses in read queries is not supported in the initial graph slice at byte 10..111; mutation execution failed: Cypher mutation binding failed: map literal outside a struct or union property is not supported in the initial graph slice at byte 20..111
-- `age.cypher.set.query-68`: query execution failed: Parse error: mutation clauses in read queries is not supported in the initial graph slice at byte 35..76; mutation execution failed: Cypher mutation binding failed: map literal outside a struct or union property is not supported in the initial graph slice at byte 45..76
-- `age.cypher.set.query-70`: query execution failed: Parse error: mutation clauses in read queries is not supported in the initial graph slice at byte 10..23; mutation execution failed: Cypher mutation binding failed: map literal outside a struct or union property is not supported in the initial graph slice at byte 20..23
-- `age.cypher.set.query-78`: query execution failed: Parse error: mutation clauses in read queries is not supported in the initial graph slice at byte 0..163; mutation execution failed: Cypher mutation binding failed: map literal outside a struct or union property is not supported in the initial graph slice at byte 25..72
+- `age.cypher.set.query-68`: query execution failed: Parse error: mutation clauses in read queries is not supported in the initial graph slice at byte 35..76; mutation execution failed: graph mutation database operation failed: Parse error: no such column: b1
 - `age.cypher.set.query-79`: query execution failed: Parse error: mutation clauses in read queries is not supported in the initial graph slice at byte 52..80; mutation execution failed: Cypher mutation binding failed: SET of a whole entity from a non-map value is not supported in the initial graph slice at byte 61..80
 - `age.cypher.set.query-80`: query execution failed: Parse error: mutation clauses in read queries is not supported in the initial graph slice at byte 52..68; mutation execution failed: Cypher mutation binding failed: SET of a whole entity from a non-map value is not supported in the initial graph slice at byte 61..68
 - `age.cypher.set.query-83`: query execution failed: Parse error: mutation clauses in read queries is not supported in the initial graph slice at byte 30..50; mutation execution failed: Cypher mutation binding failed: SET of a whole entity from a non-map value is not supported in the initial graph slice at byte 38..50
 - `age.cypher.set.query-84`: query execution failed: Parse error: mutation clauses in read queries is not supported in the initial graph slice at byte 30..50; mutation execution failed: Cypher mutation binding failed: SET of a whole entity from a non-map value is not supported in the initial graph slice at byte 38..50
-- `age.cypher.set.query-87`: query execution failed: Parse error: mutation clauses in read queries is not supported in the initial graph slice at byte 24..91; mutation execution failed: Cypher mutation binding failed: map literal outside a struct or union property is not supported in the initial graph slice at byte 40..85
 - `age.cypher.set.query-89`: query execution failed: Parse error: mutation clauses in read queries is not supported in the initial graph slice at byte 23..121; mutation execution failed: Cypher mutation binding failed: casts to this type name is not supported in the initial graph slice at byte 109..115
 - `age.cypher.set.query-93`: query execution failed: Parse error: mutation clauses in read queries is not supported in the initial graph slice at byte 79..145; mutation execution failed: Cypher mutation binding failed: SET of a whole entity from a non-map value is not supported in the initial graph slice at byte 151..193
 - `age.cypher.set.query-94`: expected identifier at byte 17..17
-- `age.cypher.set.query-95`: query execution failed: Parse error: mutation clauses in read queries is not supported in the initial graph slice at byte 79..145; mutation execution failed: Cypher mutation binding failed: property access requires a node or relationship at byte 157..160
 - `age.cypher.set.query-96`: expected identifier at byte 17..17
 - `age.cypher.set.query-98`: expected identifier at byte 17..17
 - `age.cypher.set.query-107`: query execution failed: Parse error: mutation clauses in read queries is not supported in the initial graph slice at byte 47..68; mutation execution failed: graph mutation database operation failed: Parse error: no such column: b1
-- `age.cypher.set.query-111`: query execution failed: Parse error: mutation clauses in read queries is not supported in the initial graph slice at byte 0..39; mutation execution failed: Cypher mutation binding failed: map literal outside a struct or union property is not supported in the initial graph slice at byte 51..65
 - `age.cypher.set.query-112`: query execution failed: Parse error: property access requires a node or relationship at byte 34..38; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 21..38
 - `age.cypher.set.query-117`: query execution failed: Parse error: mutation clauses in read queries is not supported in the initial graph slice at byte 47..109; mutation execution failed: graph mutation database operation failed: Parse error: no such column: b1
 - `age.cypher.subquery.query-9`: expected ORDER, SKIP, LIMIT, AS, AND, OR, xor_op, comparison_op, predicate_suffix, additive_op, multiplicative_op, power_op, or postfix_suffix at byte 159..159
@@ -618,7 +557,6 @@ Generated from `graph/test-results/history.jsonl`. Results are grouped by stable
 - `age.cypher.subquery.query-44`: expected AND, OR, xor_op, comparison_op, predicate_suffix, additive_op, multiplicative_op, power_op, postfix_suffix, or END at byte 241..241
 - `age.cypher.subquery.query-45`: query execution failed: Parse error: coalesce function with less than 2 arguments; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 241..249
 - `age.cypher.subquery.query-46`: query execution failed: Parse error: coalesce function with less than 2 arguments; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 34..248
-- `age.cypher.subquery.query-49`: query execution failed: Parse error: property access requires a node or relationship at byte 107..115; mutation execution failed: Cypher mutation binding failed: property access requires a node or relationship at byte 107..115
 - `age.cypher.union.query-4`: query execution failed: Parse error: UNION branches with different result columns is not supported in the initial graph slice at byte 19..33; mutation execution failed: Cypher mutation binding failed: UNION in mutation queries is not supported in the initial graph slice at byte 19..33
 - `age.cypher.union.query-5`: query execution failed: Parse error: UNION branches with different result columns is not supported in the initial graph slice at byte 19..36; mutation execution failed: Cypher mutation binding failed: UNION in mutation queries is not supported in the initial graph slice at byte 19..36
 - `age.cypher.union.query-6`: query execution failed: Parse error: UNION branches with different result columns is not supported in the initial graph slice at byte 15..29; mutation execution failed: Cypher mutation binding failed: UNION in mutation queries is not supported in the initial graph slice at byte 15..29
@@ -636,7 +574,6 @@ Generated from `graph/test-results/history.jsonl`. Results are grouped by stable
 - `age.cypher.unwind.query-7`: query execution failed: Parse error: property access requires a node or relationship at byte 65..69; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 58..74
 - `age.cypher.unwind.query-9`: query execution failed: Parse error: no such function: type; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 70..91
 - `age.cypher.unwind.query-13`: query execution failed: Parse error: mutation clauses in read queries is not supported in the initial graph slice at byte 58..82; mutation execution failed: Cypher mutation binding failed: property access requires a node or relationship at byte 62..66
-- `age.cypher.vle.query-1`: query execution failed: Parse error: mutation clauses in read queries is not supported in the initial graph slice at byte 0..1345; mutation execution failed: Cypher mutation binding failed: map literal outside a struct or union property is not supported in the initial graph slice at byte 66..93
 - `age.cypher.vle.query-19`: relationship range is outside the supported u32 range at byte 22..24
 - `age.cypher.vle.query-20`: relationship range is outside the supported u32 range at byte 17..19
 - `age.cypher.vle.query-21`: query execution failed: Parse error: variable-length relationship properties is not supported in the initial graph slice at byte 8..38; mutation execution failed: Cypher mutation binding failed: variable-length relationship properties is not supported in the initial graph slice at byte 8..38
@@ -682,7 +619,7 @@ Generated from `graph/test-results/history.jsonl`. Results are grouped by stable
 - `age.cypher.vle.query-81`: query execution failed: Parse error: no such column: b2; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 22..67
 - `age.cypher.vle.query-82`: query execution failed: Parse error: property access requires a node or relationship at byte 29..33; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 22..58
 - `age.cypher.vle.query-83`: query execution failed: Parse error: property access requires a node or relationship at byte 29..33; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 22..63
-- `age.cypher.vle.query-84`: query execution failed: Parse error: property access requires a node or relationship at byte 29..41; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 22..69
+- `age.cypher.vle.query-84`: query execution failed: Parse error: property access requires a node or relationship at byte 29..33; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 22..69
 - `age.cypher.vle.query-85`: query execution failed: Parse error: no such column: b2; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 22..67
 - `age.cypher.vle.query-86`: query execution failed: Parse error: no such column: b2; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 18..95
 - `age.cypher.vle.query-87`: query execution failed: Parse error: property access requires a node or relationship at byte 25..29; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 18..77
@@ -724,9 +661,9 @@ Generated from `graph/test-results/history.jsonl`. Results are grouped by stable
 - `age.direct.field.access.query-33`: query execution failed: Parse error: no such function: label; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 27..51
 - `age.direct.field.access.query-34`: query execution failed: Parse error: no such function: properties; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 37..57
 - `age.direct.field.access.query-35`: query execution failed: Parse error: no such function: properties; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 73..93
-- `age.direct.field.access.query-36`: query execution failed: Parse error: property access requires a node or relationship at byte 83..96; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 59..222
+- `age.direct.field.access.query-36`: query execution failed: Parse error: duplicate variable `name` at byte 204..222; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 59..222
 - `age.expr.query-7`: query execution failed: Parse error: unknown parameter `$var` at byte 7..11; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 0..11
-- `age.expr.query-8`: query execution failed: Parse error: property access requires a node or relationship at byte 7..11; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 0..20
+- `age.expr.query-8`: query execution failed: Parse error: unknown parameter `$var` at byte 7..11; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 0..20
 - `age.expr.query-9`: query execution failed: Parse error: unknown parameter `$var` at byte 7..11; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 0..22
 - `age.expr.query-10`: query execution failed: Parse error: unknown parameter `$var` at byte 7..11; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 0..24
 - `age.expr.query-11`: query execution failed: Parse error: unknown parameter `$var` at byte 7..11; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 0..11
@@ -749,30 +686,14 @@ Generated from `graph/test-results/history.jsonl`. Results are grouped by stable
 - `age.expr.query-163`: query execution failed: Parse error: boolean operators on non-boolean operands is not supported in the initial graph slice at byte 16..24; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 0..24
 - `age.expr.query-164`: query execution failed: Parse error: boolean operators on non-boolean operands is not supported in the initial graph slice at byte 17..27; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 0..27
 - `age.expr.query-165`: query execution failed: Parse error: boolean operators on non-boolean operands is not supported in the initial graph slice at byte 16..28; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 0..28
-- `age.expr.query-166`: query execution failed: Parse error: property access requires a node or relationship at byte 7..174; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 0..192
 - `age.expr.query-167`: query execution failed: Parse error: arithmetic on non-numeric operands is not supported in the initial graph slice at byte 90..97; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 79..97
 - `age.expr.query-168`: query execution failed: Parse error: arithmetic on non-numeric operands is not supported in the initial graph slice at byte 90..99; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 79..99
-- `age.expr.query-169`: query execution failed: Parse error: property access requires a node or relationship at byte 86..87; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 79..97
-- `age.expr.query-170`: query execution failed: Parse error: property access requires a node or relationship at byte 86..87; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 79..97
 - `age.expr.query-183`: expected primary_expression at byte 31..31
 - `age.expr.query-184`: expected primary_expression at byte 31..31
 - `age.expr.query-185`: expected primary_expression at byte 31..31
 - `age.expr.query-186`: expected primary_expression at byte 31..31
 - `age.expr.query-197`: integer literal is outside the supported i64 range at byte 7..27
 - `age.expr.query-198`: integer literal is outside the supported i64 range at byte 7..27
-- `age.expr.query-215`: query execution failed: Parse error: property access requires a node or relationship at byte 8..66; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 0..76
-- `age.expr.query-216`: query execution failed: Parse error: property access requires a node or relationship at byte 8..78; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 0..83
-- `age.expr.query-217`: query execution failed: Parse error: property access requires a node or relationship at byte 8..78; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 0..88
-- `age.expr.query-238`: query execution failed: Parse error: property access requires a node or relationship at byte 8..71; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 0..85
-- `age.expr.query-239`: query execution failed: Parse error: property access requires a node or relationship at byte 8..71; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 0..74
-- `age.expr.query-240`: query execution failed: Parse error: property access requires a node or relationship at byte 8..71; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 0..83
-- `age.expr.query-251`: query execution failed: Parse error: property access requires a node or relationship at byte 8..64; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 0..76
-- `age.expr.query-252`: query execution failed: Parse error: property access requires a node or relationship at byte 8..78; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 0..83
-- `age.expr.query-253`: query execution failed: Parse error: property access requires a node or relationship at byte 8..78; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 0..90
-- `age.expr.query-268`: query execution failed: Parse error: property access requires a node or relationship at byte 8..64; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 0..80
-- `age.expr.query-269`: query execution failed: Parse error: property access requires a node or relationship at byte 8..82; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 0..87
-- `age.expr.query-270`: query execution failed: Parse error: property access requires a node or relationship at byte 8..82; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 0..94
-- `age.expr.query-273`: query execution failed: Parse error: property access requires a node or relationship at byte 8..71; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 0..85
 - `age.expr.query-283`: query execution failed: Parse error: casts to this type name is not supported in the initial graph slice at byte 48..54; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 0..54
 - `age.expr.query-284`: query execution failed: Parse error: casts to this type name is not supported in the initial graph slice at byte 58..64; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 0..65
 - `age.expr.query-285`: query execution failed: Parse error: casts to this type name is not supported in the initial graph slice at byte 89..95; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 0..158
@@ -943,13 +864,11 @@ Generated from `graph/test-results/history.jsonl`. Results are grouped by stable
 - `age.expr.query-794`: query execution failed: Parse error: star arguments outside aggregating projections is not supported in the initial graph slice at byte 54..63; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 12..73
 - `age.expr.query-798`: query execution failed: Parse error: star arguments outside aggregating projections is not supported in the initial graph slice at byte 30..39; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 12..61
 - `age.expr.query-799`: query execution failed: Parse error: star arguments outside aggregating projections is not supported in the initial graph slice at byte 25..34; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 12..56
-- `age.expr.query-807`: query execution failed: Parse error: mutation clauses in read queries is not supported in the initial graph slice at byte 0..28; mutation execution failed: Cypher mutation binding failed: map literal outside a struct or union property is not supported in the initial graph slice at byte 12..26
 - `age.expr.query-816`: query execution failed: Parse error: unknown variable `name` at byte 76..80; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 31..80
 - `age.expr.query-817`: query execution failed: Parse error: unknown variable `name` at byte 76..81; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 31..84
 - `age.expr.query-818`: query execution failed: Parse error: unknown variable `name` at byte 76..81; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 31..85
 - `age.expr.query-819`: query execution failed: Parse error: unknown variable `age` at byte 76..80; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 31..100
 - `age.expr.query-820`: query execution failed: Parse error: unknown variable `age` at byte 76..80; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 31..100
-- `age.expr.query-824`: query execution failed: Parse error: mutation clauses in read queries is not supported in the initial graph slice at byte 0..33; mutation execution failed: Cypher mutation binding failed: map literal outside a struct or union property is not supported in the initial graph slice at byte 19..21
 - `age.expr.query-830`: query execution failed: Parse error: boolean operators on non-boolean operands is not supported in the initial graph slice at byte 38..39; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 0..45
 - `age.expr.query-846`: query execution failed: Parse error: star arguments outside aggregating projections is not supported in the initial graph slice at byte 47..60; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 12..82
 - `age.expr.query-847`: query execution failed: Parse error: star arguments outside aggregating projections is not supported in the initial graph slice at byte 57..70; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 22..92
@@ -961,11 +880,10 @@ Generated from `graph/test-results/history.jsonl`. Results are grouped by stable
 - `age.expr.query-865`: query execution failed: Parse error: casts to this type name is not supported in the initial graph slice at byte 13..22; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 0..22
 - `age.expr.query-867`: query execution failed: Parse error: casts to this type name is not supported in the initial graph slice at byte 60..69; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 0..72
 - `age.expr.query-868`: query execution failed: Parse error: invalid resolved function or parameter name: pg_catalog.sqrt; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 0..72
-- `age.expr.query-873`: query execution failed: Parse error: mutation clauses in read queries is not supported in the initial graph slice at byte 0..1345; mutation execution failed: Cypher mutation binding failed: map literal outside a struct or union property is not supported in the initial graph slice at byte 66..93
 - `age.expr.query-874`: query execution failed: Parse error: no such function: vertex_stats; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 10..32
-- `age.expr.query-875`: query execution failed: Parse error: property access requires a node or relationship at byte 16..31; mutation execution failed: Cypher mutation binding failed: property access requires a node or relationship at byte 16..31
-- `age.expr.query-876`: query execution failed: Parse error: property access requires a node or relationship at byte 16..31; mutation execution failed: Cypher mutation binding failed: property access requires a node or relationship at byte 16..31
-- `age.expr.query-877`: query execution failed: Parse error: property access requires a node or relationship at byte 16..31; mutation execution failed: Cypher mutation binding failed: property access requires a node or relationship at byte 16..31
+- `age.expr.query-875`: query execution failed: Parse error: no such function: vertex_stats; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 48..70
+- `age.expr.query-876`: query execution failed: Parse error: no such function: vertex_stats; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 71..93
+- `age.expr.query-877`: query execution failed: Parse error: no such function: vertex_stats; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 71..93
 - `age.expr.query-889`: query execution failed: Parse error: malformed JSON; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 0..21
 - `age.expr.query-891`: query execution failed: Parse error: mutation clauses in read queries is not supported in the initial graph slice at byte 0..52; mutation execution failed: graph mutation database operation failed: Parse error: no such table: q
 - `age.expr.query-892`: query execution failed: Parse error: mutation clauses in read queries is not supported in the initial graph slice at byte 0..84; mutation execution failed: graph mutation database operation failed: Parse error: no such table: q
@@ -1054,8 +972,6 @@ Generated from `graph/test-results/history.jsonl`. Results are grouped by stable
 - `age.expr.query-1054`: expected clause at byte 0..0
 - `age.expr.query-1055`: expected clause at byte 0..0
 - `age.expr.query-1056`: expected clause at byte 0..0
-- `age.expr.query-1087`: query execution failed: Parse error: mutation clauses in read queries is not supported in the initial graph slice at byte 0..33; mutation execution failed: Cypher mutation binding failed: map literal outside a struct or union property is not supported in the initial graph slice at byte 21..30
-- `age.expr.query-1088`: query execution failed: Parse error: mutation clauses in read queries is not supported in the initial graph slice at byte 17..40; mutation execution failed: Cypher mutation binding failed: map literal outside a struct or union property is not supported in the initial graph slice at byte 29..38
 - `age.fuzzystrmatch.query-5`: query execution failed: Parse error: no such function: levenshtein; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 10..44
 - `age.fuzzystrmatch.query-6`: query execution failed: Parse error: no such function: difference; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 10..43
 - `age.fuzzystrmatch.query-7`: query execution failed: Parse error: no such function: metaphone; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 10..37
@@ -1074,7 +990,6 @@ Generated from `graph/test-results/history.jsonl`. Results are grouped by stable
 - `age.index.query-57`: expected clause at byte 0..0
 - `age.index.query-61`: expected clause at byte 0..0
 - `age.index.query-64`: expected clause at byte 0..0
-- `age.jsonb.operators.query-1`: query execution failed: Parse error: mutation clauses in read queries is not supported in the initial graph slice at byte 0..68; mutation execution failed: Cypher mutation binding failed: map literal outside a struct or union property is not supported in the initial graph slice at byte 36..66
 - `age.jsonb.operators.query-2`: expected EOI, ORDER, SKIP, LIMIT, AS, AND, OR, UNION, clause, xor_op, comparison_op, predicate_suffix, additive_op, multiplicative_op, power_op, or postfix_suffix at byte 19..19
 - `age.jsonb.operators.query-3`: expected EOI, ORDER, SKIP, LIMIT, AS, AND, OR, UNION, clause, xor_op, comparison_op, predicate_suffix, additive_op, multiplicative_op, power_op, or postfix_suffix at byte 24..24
 - `age.jsonb.operators.query-4`: expected EOI, ORDER, SKIP, LIMIT, AS, AND, OR, UNION, clause, xor_op, comparison_op, predicate_suffix, additive_op, multiplicative_op, power_op, or postfix_suffix at byte 24..24
@@ -1236,10 +1151,8 @@ Generated from `graph/test-results/history.jsonl`. Results are grouped by stable
 - `age.list.comprehension.query-42`: expected EOI, AND, OR, UNION, clause, xor_op, comparison_op, predicate_suffix, additive_op, multiplicative_op, power_op, or postfix_suffix at byte 22..22
 - `age.list.comprehension.query-64`: query execution failed: Parse error: no such function: collect; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 43..51
 - `age.list.comprehension.query-73`: query execution failed: Parse error: mutation clauses in read queries is not supported in the initial graph slice at byte 0..24; mutation execution failed: graph mutation database operation failed: Parse error: no such table: q
-- `age.list.comprehension.query-74`: query execution failed: Parse error: unknown variable `x` at byte 40..41; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 0..47
-- `age.list.comprehension.query-75`: query execution failed: Parse error: unknown variable `x` at byte 41..42; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 0..55
-- `age.list.comprehension.query-76`: query execution failed: Parse error: unknown variable `n` at byte 47..48; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 23..54
-- `age.list.comprehension.query-77`: query execution failed: Parse error: unknown variable `x` at byte 60..61; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 42..67
+- `age.list.comprehension.query-76`: query execution failed: Parse error: property access requires a node or relationship at byte 47..48; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 23..54
+- `age.list.comprehension.query-77`: query execution failed: Parse error: property access requires a node or relationship at byte 60..61; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 42..67
 - `age.list.comprehension.query-88`: query execution failed: Parse error: unknown variable `i` at byte 30..31; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 0..31
 - `age.list.comprehension.query-89`: query execution failed: Parse error: unknown variable `i` at byte 47..48; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 0..48
 - `age.list.comprehension.query-90`: expected AND, OR, xor_op, comparison_op, predicate_suffix, additive_op, multiplicative_op, power_op, or postfix_suffix at byte 29..29
@@ -1279,7 +1192,7 @@ Generated from `graph/test-results/history.jsonl`. Results are grouped by stable
 - `age.name.validation.query-10`: query execution failed: Parse error: no such function: is_valid_label_name; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 0..93
 - `age.pattern.expression.query-15`: query execution failed: Parse error: pattern expressions in projections is not supported in the initial graph slice at byte 36..60; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 21..96
 - `age.pattern.expression.query-16`: query execution failed: Parse error: pattern expressions in projections is not supported in the initial graph slice at byte 36..59; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 21..109
-- `age.pattern.expression.query-19`: query execution failed: Parse error: mutation clauses in read queries is not supported in the initial graph slice at byte 21..67; mutation execution failed: Cypher mutation binding failed: modifiers on a mutation RETURN clause is not supported in the initial graph slice at byte 67..113
+- `age.pattern.expression.query-19`: query execution failed: Parse error: mutation clauses in read queries is not supported in the initial graph slice at byte 21..67; mutation execution failed: Cypher mutation binding failed: patterns in a SET value expression is not supported in the initial graph slice at byte 39..67
 - `age.pattern.expression.query-20`: query execution failed: Parse error: pattern expressions in projections is not supported in the initial graph slice at byte 42..66; mutation execution failed: Cypher mutation binding failed: pattern expressions in projections is not supported in the initial graph slice at byte 42..66
 - `age.pg.trgm.query-1`: query execution failed: Parse error: no such function: show_trgm; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 0..25
 - `age.pg.trgm.query-2`: query execution failed: Parse error: no such function: show_trgm; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 0..25
@@ -1356,22 +1269,14 @@ Generated from `graph/test-results/history.jsonl`. Results are grouped by stable
 - `age.pgvector.query-69`: expected EOI, ASC, DESC, SKIP, LIMIT, AND, OR, UNION, clause, xor_op, comparison_op, predicate_suffix, additive_op, multiplicative_op, power_op, or postfix_suffix at byte 123..123
 - `age.pgvector.query-70`: expected primary_expression at byte 81..81
 - `age.pgvector.query-71`: expected primary_expression at byte 81..81
-- `age.predicate.functions.query-43`: query execution failed: Parse error: unknown variable `x` at byte 39..40; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 0..47
-- `age.predicate.functions.query-44`: query execution failed: Parse error: unknown variable `x` at byte 39..40; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 0..47
-- `age.predicate.functions.query-45`: query execution failed: Parse error: unknown variable `x` at byte 39..40; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 0..47
-- `age.predicate.functions.query-46`: query execution failed: Parse error: unknown variable `x` at byte 39..40; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 0..47
-- `age.predicate.functions.query-47`: query execution failed: Parse error: unknown variable `x` at byte 40..41; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 0..48
-- `age.predicate.functions.query-48`: query execution failed: Parse error: unknown variable `x` at byte 40..41; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 0..48
-- `age.predicate.functions.query-49`: query execution failed: Parse error: unknown variable `x` at byte 42..43; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 0..50
-- `age.predicate.functions.query-50`: query execution failed: Parse error: unknown variable `x` at byte 42..43; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 0..50
-- `age.predicate.functions.query-51`: query execution failed: Parse error: unknown variable `x` at byte 61..62; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 36..77
-- `age.predicate.functions.query-52`: query execution failed: Parse error: unknown variable `x` at byte 61..62; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 36..80
-- `age.predicate.functions.query-53`: query execution failed: Parse error: unknown variable `x` at byte 66..67; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 36..78
-- `age.predicate.functions.query-54`: query execution failed: Parse error: unknown variable `x` at byte 61..62; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 36..77
-- `age.predicate.functions.query-55`: query execution failed: Parse error: unknown variable `x` at byte 62..63; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 36..81
-- `age.predicate.functions.query-56`: query execution failed: Parse error: unknown variable `x` at byte 62..63; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 36..78
-- `age.predicate.functions.query-57`: query execution failed: Parse error: unknown variable `x` at byte 64..65; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 36..79
-- `age.predicate.functions.query-58`: query execution failed: Parse error: unknown variable `x` at byte 69..70; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 36..81
+- `age.predicate.functions.query-51`: query execution failed: Parse error: property access requires a node or relationship at byte 61..62; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 36..77
+- `age.predicate.functions.query-52`: query execution failed: Parse error: property access requires a node or relationship at byte 61..62; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 36..80
+- `age.predicate.functions.query-53`: query execution failed: Parse error: property access requires a node or relationship at byte 66..67; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 36..78
+- `age.predicate.functions.query-54`: query execution failed: Parse error: property access requires a node or relationship at byte 61..62; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 36..77
+- `age.predicate.functions.query-55`: query execution failed: Parse error: property access requires a node or relationship at byte 62..63; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 36..81
+- `age.predicate.functions.query-56`: query execution failed: Parse error: property access requires a node or relationship at byte 62..63; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 36..78
+- `age.predicate.functions.query-57`: query execution failed: Parse error: property access requires a node or relationship at byte 64..65; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 36..79
+- `age.predicate.functions.query-58`: query execution failed: Parse error: property access requires a node or relationship at byte 69..70; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 36..81
 - `age.predicate.functions.query-61`: query execution failed: Parse error: outer list-scope variables inside nested list scopes is not supported in the initial graph slice at byte 58..59; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 0..61
 - `age.reserved.keyword.alias.query-4`: expected identifier at byte 12..12
 - `age.reserved.keyword.alias.query-5`: expected identifier at byte 12..12
@@ -1422,15 +1327,15 @@ Generated from `graph/test-results/history.jsonl`. Results are grouped by stable
 - `age.scan.query-57`: query execution failed: Parse error: unknown parameter `$0` at byte 7..9; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 0..9
 - `age.security.query-45`: query execution failed: Parse error: no such function: endNode; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 27..44
 - `age.security.query-46`: query execution failed: Parse error: no such function: startNode; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 27..46
-- `age.security.query-47`: query execution failed: Parse error: property access requires a node or relationship at byte 34..46; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 27..68
+- `age.security.query-47`: query execution failed: Parse error: duplicate variable `name` at byte 53..68; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 27..68
 - `age.security.query-131`: query execution failed: Parse error: no such function: endNode; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 52..69
 - `age.security.query-132`: query execution failed: Parse error: no such function: startNode; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 50..69
-- `age.security.query-133`: query execution failed: Parse error: property access requires a node or relationship at byte 84..96; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 77..118
+- `age.security.query-133`: query execution failed: Parse error: duplicate variable `name` at byte 103..118; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 77..118
 
 ## Latest `cqlite-deep` run
 
-- Run: `20260719T212407.546154Z-85a6914ad0f4-corpus-deep`
-- Commit: `85a6914ad0f4c2cef535a00672ff738dbee37ef1` (dirty)
+- Run: `20260720T002817.263486Z-df32aa37c8ef-corpus-deep`
+- Commit: `df32aa37c8efdeaf4d822eda53fe116f64a22dc7` (dirty)
 - Package: `0.7.0`
 - Environment: `macos/aarch64` (`dev`)
 - Records: 137
@@ -1438,149 +1343,149 @@ Generated from `graph/test-results/history.jsonl`. Results are grouped by stable
 - Unsupported: 0
 - Failed or changed: 24
 
-### Outcome changes from `20260719T211310.196868Z-2b3388a995ac-corpus-deep`
+### Outcome changes from `20260720T002342.835410Z-df32aa37c8ef-corpus-deep`
 
 - No outcome changes.
 
 | Test | Kind | Area | Outcome | Duration |
 |---|---|---|---|---:|
-| `cqlite.basic-queries.run-a-to-b.query-1` | `Conformance` | basic_queries | `Passed` | 7.879 ms |
-| `cqlite.basic-queries.run-a-to-b.query-2` | `Conformance` | basic_queries | `Passed` | 7.296 ms |
-| `cqlite.basic-queries.run-a-to-b.query-3` | `Conformance` | basic_queries | `Passed` | 7.452 ms |
-| `cqlite.basic-queries.run-a-edge-b.query-1` | `Conformance` | basic_queries | `Passed` | 8.334 ms |
-| `cqlite.basic-queries.run-a-edge-b.query-2` | `Conformance` | basic_queries | `Passed` | 7.482 ms |
-| `cqlite.basic-queries.run-a-to-a.query-1` | `Conformance` | basic_queries | `Passed` | 8.892 ms |
-| `cqlite.basic-queries.run-a-to-a.query-2` | `Conformance` | basic_queries | `Passed` | 7.622 ms |
-| `cqlite.basic-queries.run-a-edge-a.query-1` | `Conformance` | basic_queries | `Passed` | 9.530 ms |
-| `cqlite.basic-queries.run-a-edge-a.query-2` | `Conformance` | basic_queries | `Passed` | 7.603 ms |
-| `cqlite.basic-queries.run-a-knows-b.query-1` | `Conformance` | basic_queries | `Passed` | 9.200 ms |
-| `cqlite.basic-queries.run-a-knows-b.query-2` | `Conformance` | basic_queries | `Passed` | 7.544 ms |
-| `cqlite.basic-queries.run-a-edge-b-with-where-property.query-1` | `Conformance` | basic_queries | `Passed` | 9.206 ms |
-| `cqlite.basic-queries.run-a-edge-b-with-where-property.query-2` | `Conformance` | basic_queries | `Passed` | 8.213 ms |
-| `cqlite.basic-queries.run-a-edge-b-with-property-map.query-1` | `Conformance` | basic_queries | `Passed` | 8.799 ms |
-| `cqlite.basic-queries.run-a-edge-b-with-property-map.query-2` | `Conformance` | basic_queries | `Passed` | 8.222 ms |
-| `cqlite.basic-queries.run-a-edge-b-with-where-id.query-1` | `Conformance` | basic_queries | `Passed` | 8.003 ms |
-| `cqlite.basic-queries.run-a-edge-b-with-where-id.query-2` | `Conformance` | basic_queries | `Passed` | 7.221 ms |
-| `cqlite.basic-queries.run-a-where-with-parameters.query-1` | `Conformance` | basic_queries | `Passed` | 8.468 ms |
-| `cqlite.basic-queries.run-a-where-with-parameters.query-2` | `Conformance` | basic_queries | `Failed` | 7.315 ms |
-| `cqlite.basic-queries.run-set.query-1` | `Conformance` | basic_queries | `Passed` | 7.237 ms |
-| `cqlite.basic-queries.run-set.query-2` | `Conformance` | basic_queries | `Failed` | 7.103 ms |
-| `cqlite.basic-queries.run-set.query-3` | `Conformance` | basic_queries | `Passed` | 7.438 ms |
-| `cqlite.basic-queries.return-from-set.query-1` | `Conformance` | basic_queries | `Passed` | 7.294 ms |
-| `cqlite.basic-queries.return-from-set.query-2` | `Conformance` | basic_queries | `Passed` | 7.582 ms |
-| `cqlite.basic-queries.return-from-set.query-3` | `Conformance` | basic_queries | `Passed` | 7.343 ms |
-| `cqlite.basic-queries.run-delete-node.query-1` | `Conformance` | basic_queries | `Passed` | 7.220 ms |
-| `cqlite.basic-queries.run-delete-node.query-2` | `Conformance` | basic_queries | `Passed` | 7.037 ms |
-| `cqlite.basic-queries.run-delete-node.query-3` | `Conformance` | basic_queries | `Passed` | 6.857 ms |
-| `cqlite.basic-queries.run-delete-edge.query-1` | `Conformance` | basic_queries | `Passed` | 7.887 ms |
-| `cqlite.basic-queries.run-delete-edge.query-2` | `Conformance` | basic_queries | `Passed` | 7.204 ms |
-| `cqlite.basic-queries.run-delete-edge.query-3` | `Conformance` | basic_queries | `Passed` | 7.150 ms |
-| `cqlite.basic-queries.run-bad-delete.query-1` | `Conformance` | basic_queries | `Passed` | 7.771 ms |
-| `cqlite.basic-queries.run-bad-delete.query-2` | `Conformance` | basic_queries | `Passed` | 6.907 ms |
-| `cqlite.basic-queries.run-return-label.query-1` | `Conformance` | basic_queries | `Passed` | 8.101 ms |
-| `cqlite.basic-queries.run-return-label.query-2` | `Conformance` | basic_queries | `Failed` | 7.638 ms |
-| `cqlite.basic-queries.match-return-count.query-1` | `Conformance` | basic_queries | `Passed` | 6.988 ms |
-| `cqlite.basic-queries.match-return-count.query-2` | `Conformance` | basic_queries | `Passed` | 7.262 ms |
-| `cqlite.basic-queries.match-return-count.query-3` | `Conformance` | basic_queries | `Passed` | 6.833 ms |
-| `cqlite.basic-queries.match-multiple-edges.query-1` | `Conformance` | basic_queries | `Passed` | 9.242 ms |
-| `cqlite.basic-queries.match-multiple-edges.query-2` | `Conformance` | basic_queries | `Failed` | 0.035 ms |
-| `cqlite.create-queries.create-label-only.query-1` | `Conformance` | create_queries | `Passed` | 7.671 ms |
-| `cqlite.create-queries.create-label-only.query-2` | `Conformance` | create_queries | `Passed` | 6.994 ms |
-| `cqlite.create-queries.create-with-properties.query-1` | `Conformance` | create_queries | `Passed` | 8.450 ms |
-| `cqlite.create-queries.create-with-properties.query-2` | `Conformance` | create_queries | `Passed` | 7.718 ms |
-| `cqlite.create-queries.create-with-properties-from-parameters.query-1` | `Conformance` | create_queries | `Failed` | 7.381 ms |
-| `cqlite.create-queries.create-with-properties-from-parameters.query-2` | `Conformance` | create_queries | `Passed` | 7.503 ms |
-| `cqlite.create-queries.create-edges-with-label.query-1` | `Conformance` | create_queries | `Passed` | 8.850 ms |
-| `cqlite.create-queries.create-edges-with-label.query-2` | `Conformance` | create_queries | `Failed` | 7.645 ms |
-| `cqlite.delete-queries.delete-node.query-1` | `Conformance` | delete_queries | `Passed` | 7.277 ms |
-| `cqlite.delete-queries.delete-node.query-2` | `Conformance` | delete_queries | `Passed` | 6.891 ms |
-| `cqlite.delete-queries.delete-node.query-3` | `Conformance` | delete_queries | `Passed` | 6.763 ms |
-| `cqlite.delete-queries.delete-node.query-4` | `Conformance` | delete_queries | `Passed` | 6.850 ms |
-| `cqlite.delete-queries.double-delete-node.query-1` | `Conformance` | delete_queries | `Passed` | 7.384 ms |
-| `cqlite.delete-queries.double-delete-node.query-2` | `Conformance` | delete_queries | `Passed` | 6.825 ms |
-| `cqlite.delete-queries.double-delete-node.query-3` | `Conformance` | delete_queries | `Passed` | 6.870 ms |
-| `cqlite.delete-queries.double-delete-node.query-4` | `Conformance` | delete_queries | `Passed` | 6.843 ms |
-| `cqlite.delete-queries.delete-edge.query-1` | `Conformance` | delete_queries | `Passed` | 8.607 ms |
-| `cqlite.delete-queries.delete-edge.query-2` | `Conformance` | delete_queries | `Failed` | 0.036 ms |
-| `cqlite.delete-queries.delete-edge.query-3` | `Conformance` | delete_queries | `Passed` | 7.328 ms |
-| `cqlite.delete-queries.delete-edge.query-4` | `Conformance` | delete_queries | `Failed` | 0.004 ms |
-| `cqlite.delete-queries.connected-delete-fails.query-1` | `Conformance` | delete_queries | `Passed` | 8.863 ms |
-| `cqlite.delete-queries.connected-delete-fails.query-2` | `Conformance` | delete_queries | `Passed` | 6.953 ms |
-| `cqlite.delete-queries.connected-delete-fails.query-3` | `Conformance` | delete_queries | `Passed` | 6.985 ms |
-| `cqlite.delete-queries.connected-delete-fails.query-4` | `Conformance` | delete_queries | `Passed` | 6.828 ms |
-| `cqlite.match-queries.create-test-graph.query-1` | `Conformance` | match_queries | `Passed` | 11.982 ms |
-| `cqlite.match-queries.match-all-nodes.query-1` | `Conformance` | match_queries | `Passed` | 7.262 ms |
-| `cqlite.match-queries.match-multiple-nodes.query-1` | `Conformance` | match_queries | `Passed` | 13.659 ms |
-| `cqlite.match-queries.match-multiple-nodes.query-2` | `Conformance` | match_queries | `Passed` | 8.468 ms |
-| `cqlite.match-queries.match-single-directed-edge.query-1` | `Conformance` | match_queries | `Passed` | 7.364 ms |
-| `cqlite.match-queries.match-single-undirected-edge.query-1` | `Conformance` | match_queries | `Passed` | 7.280 ms |
+| `cqlite.basic-queries.run-a-to-b.query-1` | `Conformance` | basic_queries | `Passed` | 7.952 ms |
+| `cqlite.basic-queries.run-a-to-b.query-2` | `Conformance` | basic_queries | `Passed` | 7.506 ms |
+| `cqlite.basic-queries.run-a-to-b.query-3` | `Conformance` | basic_queries | `Passed` | 7.667 ms |
+| `cqlite.basic-queries.run-a-edge-b.query-1` | `Conformance` | basic_queries | `Passed` | 8.687 ms |
+| `cqlite.basic-queries.run-a-edge-b.query-2` | `Conformance` | basic_queries | `Passed` | 7.708 ms |
+| `cqlite.basic-queries.run-a-to-a.query-1` | `Conformance` | basic_queries | `Passed` | 8.991 ms |
+| `cqlite.basic-queries.run-a-to-a.query-2` | `Conformance` | basic_queries | `Passed` | 7.511 ms |
+| `cqlite.basic-queries.run-a-edge-a.query-1` | `Conformance` | basic_queries | `Passed` | 9.654 ms |
+| `cqlite.basic-queries.run-a-edge-a.query-2` | `Conformance` | basic_queries | `Passed` | 7.628 ms |
+| `cqlite.basic-queries.run-a-knows-b.query-1` | `Conformance` | basic_queries | `Passed` | 9.202 ms |
+| `cqlite.basic-queries.run-a-knows-b.query-2` | `Conformance` | basic_queries | `Passed` | 7.629 ms |
+| `cqlite.basic-queries.run-a-edge-b-with-where-property.query-1` | `Conformance` | basic_queries | `Passed` | 9.285 ms |
+| `cqlite.basic-queries.run-a-edge-b-with-where-property.query-2` | `Conformance` | basic_queries | `Passed` | 8.802 ms |
+| `cqlite.basic-queries.run-a-edge-b-with-property-map.query-1` | `Conformance` | basic_queries | `Passed` | 13.564 ms |
+| `cqlite.basic-queries.run-a-edge-b-with-property-map.query-2` | `Conformance` | basic_queries | `Passed` | 8.304 ms |
+| `cqlite.basic-queries.run-a-edge-b-with-where-id.query-1` | `Conformance` | basic_queries | `Passed` | 7.735 ms |
+| `cqlite.basic-queries.run-a-edge-b-with-where-id.query-2` | `Conformance` | basic_queries | `Passed` | 7.269 ms |
+| `cqlite.basic-queries.run-a-where-with-parameters.query-1` | `Conformance` | basic_queries | `Passed` | 8.817 ms |
+| `cqlite.basic-queries.run-a-where-with-parameters.query-2` | `Conformance` | basic_queries | `Failed` | 7.363 ms |
+| `cqlite.basic-queries.run-set.query-1` | `Conformance` | basic_queries | `Passed` | 7.351 ms |
+| `cqlite.basic-queries.run-set.query-2` | `Conformance` | basic_queries | `Failed` | 7.431 ms |
+| `cqlite.basic-queries.run-set.query-3` | `Conformance` | basic_queries | `Passed` | 7.445 ms |
+| `cqlite.basic-queries.return-from-set.query-1` | `Conformance` | basic_queries | `Passed` | 7.254 ms |
+| `cqlite.basic-queries.return-from-set.query-2` | `Conformance` | basic_queries | `Passed` | 7.529 ms |
+| `cqlite.basic-queries.return-from-set.query-3` | `Conformance` | basic_queries | `Passed` | 7.466 ms |
+| `cqlite.basic-queries.run-delete-node.query-1` | `Conformance` | basic_queries | `Passed` | 7.464 ms |
+| `cqlite.basic-queries.run-delete-node.query-2` | `Conformance` | basic_queries | `Passed` | 7.203 ms |
+| `cqlite.basic-queries.run-delete-node.query-3` | `Conformance` | basic_queries | `Passed` | 6.866 ms |
+| `cqlite.basic-queries.run-delete-edge.query-1` | `Conformance` | basic_queries | `Passed` | 7.853 ms |
+| `cqlite.basic-queries.run-delete-edge.query-2` | `Conformance` | basic_queries | `Passed` | 7.276 ms |
+| `cqlite.basic-queries.run-delete-edge.query-3` | `Conformance` | basic_queries | `Passed` | 7.224 ms |
+| `cqlite.basic-queries.run-bad-delete.query-1` | `Conformance` | basic_queries | `Passed` | 7.860 ms |
+| `cqlite.basic-queries.run-bad-delete.query-2` | `Conformance` | basic_queries | `Passed` | 7.021 ms |
+| `cqlite.basic-queries.run-return-label.query-1` | `Conformance` | basic_queries | `Passed` | 8.132 ms |
+| `cqlite.basic-queries.run-return-label.query-2` | `Conformance` | basic_queries | `Failed` | 7.836 ms |
+| `cqlite.basic-queries.match-return-count.query-1` | `Conformance` | basic_queries | `Passed` | 7.190 ms |
+| `cqlite.basic-queries.match-return-count.query-2` | `Conformance` | basic_queries | `Passed` | 7.231 ms |
+| `cqlite.basic-queries.match-return-count.query-3` | `Conformance` | basic_queries | `Passed` | 6.959 ms |
+| `cqlite.basic-queries.match-multiple-edges.query-1` | `Conformance` | basic_queries | `Passed` | 9.456 ms |
+| `cqlite.basic-queries.match-multiple-edges.query-2` | `Conformance` | basic_queries | `Failed` | 0.037 ms |
+| `cqlite.create-queries.create-label-only.query-1` | `Conformance` | create_queries | `Passed` | 7.834 ms |
+| `cqlite.create-queries.create-label-only.query-2` | `Conformance` | create_queries | `Passed` | 7.360 ms |
+| `cqlite.create-queries.create-with-properties.query-1` | `Conformance` | create_queries | `Passed` | 8.378 ms |
+| `cqlite.create-queries.create-with-properties.query-2` | `Conformance` | create_queries | `Passed` | 8.116 ms |
+| `cqlite.create-queries.create-with-properties-from-parameters.query-1` | `Conformance` | create_queries | `Failed` | 7.924 ms |
+| `cqlite.create-queries.create-with-properties-from-parameters.query-2` | `Conformance` | create_queries | `Passed` | 7.627 ms |
+| `cqlite.create-queries.create-edges-with-label.query-1` | `Conformance` | create_queries | `Passed` | 9.147 ms |
+| `cqlite.create-queries.create-edges-with-label.query-2` | `Conformance` | create_queries | `Failed` | 7.928 ms |
+| `cqlite.delete-queries.delete-node.query-1` | `Conformance` | delete_queries | `Passed` | 7.915 ms |
+| `cqlite.delete-queries.delete-node.query-2` | `Conformance` | delete_queries | `Passed` | 7.257 ms |
+| `cqlite.delete-queries.delete-node.query-3` | `Conformance` | delete_queries | `Passed` | 7.012 ms |
+| `cqlite.delete-queries.delete-node.query-4` | `Conformance` | delete_queries | `Passed` | 6.926 ms |
+| `cqlite.delete-queries.double-delete-node.query-1` | `Conformance` | delete_queries | `Passed` | 7.443 ms |
+| `cqlite.delete-queries.double-delete-node.query-2` | `Conformance` | delete_queries | `Passed` | 7.032 ms |
+| `cqlite.delete-queries.double-delete-node.query-3` | `Conformance` | delete_queries | `Passed` | 7.541 ms |
+| `cqlite.delete-queries.double-delete-node.query-4` | `Conformance` | delete_queries | `Passed` | 7.590 ms |
+| `cqlite.delete-queries.delete-edge.query-1` | `Conformance` | delete_queries | `Passed` | 9.620 ms |
+| `cqlite.delete-queries.delete-edge.query-2` | `Conformance` | delete_queries | `Failed` | 0.040 ms |
+| `cqlite.delete-queries.delete-edge.query-3` | `Conformance` | delete_queries | `Passed` | 7.676 ms |
+| `cqlite.delete-queries.delete-edge.query-4` | `Conformance` | delete_queries | `Failed` | 0.005 ms |
+| `cqlite.delete-queries.connected-delete-fails.query-1` | `Conformance` | delete_queries | `Passed` | 8.669 ms |
+| `cqlite.delete-queries.connected-delete-fails.query-2` | `Conformance` | delete_queries | `Passed` | 7.078 ms |
+| `cqlite.delete-queries.connected-delete-fails.query-3` | `Conformance` | delete_queries | `Passed` | 7.031 ms |
+| `cqlite.delete-queries.connected-delete-fails.query-4` | `Conformance` | delete_queries | `Passed` | 7.048 ms |
+| `cqlite.match-queries.create-test-graph.query-1` | `Conformance` | match_queries | `Passed` | 12.331 ms |
+| `cqlite.match-queries.match-all-nodes.query-1` | `Conformance` | match_queries | `Passed` | 7.285 ms |
+| `cqlite.match-queries.match-multiple-nodes.query-1` | `Conformance` | match_queries | `Passed` | 7.206 ms |
+| `cqlite.match-queries.match-multiple-nodes.query-2` | `Conformance` | match_queries | `Passed` | 7.206 ms |
+| `cqlite.match-queries.match-single-directed-edge.query-1` | `Conformance` | match_queries | `Passed` | 7.685 ms |
+| `cqlite.match-queries.match-single-undirected-edge.query-1` | `Conformance` | match_queries | `Passed` | 7.531 ms |
 | `cqlite.match-queries.match-single-path.query-1` | `Conformance` | match_queries | `Failed` | 0.035 ms |
 | `cqlite.match-queries.match-path-with-multiple-clauses.query-1` | `Conformance` | match_queries | `Failed` | 0.029 ms |
 | `cqlite.match-queries.match-long-path.query-1` | `Conformance` | match_queries | `Failed` | 0.027 ms |
-| `cqlite.match-queries.match-labeled-nodes.query-1` | `Conformance` | match_queries | `Passed` | 6.885 ms |
-| `cqlite.match-queries.match-labeled-nodes.query-2` | `Conformance` | match_queries | `Passed` | 7.023 ms |
-| `cqlite.match-queries.match-labeled-nodes.query-3` | `Conformance` | match_queries | `Passed` | 6.950 ms |
-| `cqlite.match-queries.match-labeled-edges.query-1` | `Conformance` | match_queries | `Passed` | 7.888 ms |
-| `cqlite.match-queries.match-labeled-edges.query-2` | `Conformance` | match_queries | `Passed` | 7.262 ms |
-| `cqlite.match-queries.match-nodes-with-properties.query-1` | `Conformance` | match_queries | `Passed` | 7.051 ms |
-| `cqlite.match-queries.match-nodes-with-properties.query-2` | `Conformance` | match_queries | `Passed` | 7.042 ms |
-| `cqlite.match-queries.match-nodes-with-properties.query-3` | `Conformance` | match_queries | `Passed` | 7.742 ms |
-| `cqlite.match-queries.match-edges-with-properties.query-1` | `Conformance` | match_queries | `Passed` | 7.617 ms |
-| `cqlite.match-queries.match-nodes-with-label.query-1` | `Conformance` | match_queries | `Passed` | 6.948 ms |
-| `cqlite.match-queries-where.create-test-graph.query-1` | `Conformance` | match_queries_where | `Passed` | 15.881 ms |
-| `cqlite.match-queries-where.match-where-node-id-eq.query-1` | `Conformance` | match_queries_where | `Failed` | 7.262 ms |
-| `cqlite.match-queries-where.match-where-node-id-eq.query-2` | `Conformance` | match_queries_where | `Failed` | 7.039 ms |
-| `cqlite.match-queries-where.match-where-node-id-eq-non-id.query-1` | `Conformance` | match_queries_where | `Passed` | 7.097 ms |
-| `cqlite.match-queries-where.match-where-node-label-eq.query-1` | `Conformance` | match_queries_where | `Passed` | 7.014 ms |
-| `cqlite.match-queries-where.match-where-node-label-eq.query-2` | `Conformance` | match_queries_where | `Passed` | 7.139 ms |
-| `cqlite.match-queries-where.match-where-node-prop-eq.query-1` | `Conformance` | match_queries_where | `Failed` | 7.003 ms |
-| `cqlite.match-queries-where.match-where-node-prop.query-1` | `Conformance` | match_queries_where | `Passed` | 7.291 ms |
-| `cqlite.match-queries-where.match-where-not-node-prop.query-1` | `Conformance` | match_queries_where | `Passed` | 7.396 ms |
-| `cqlite.match-queries-where.match-where-node-prop-eq-true-false.query-1` | `Conformance` | match_queries_where | `Passed` | 7.361 ms |
-| `cqlite.match-queries-where.match-where-node-prop-eq-true-false.query-2` | `Conformance` | match_queries_where | `Passed` | 9.209 ms |
-| `cqlite.match-queries-where.match-where-node-prop-ne-null.query-1` | `Conformance` | match_queries_where | `Passed` | 12.140 ms |
-| `cqlite.match-queries-where.match-where-node-prop-lt-or-gt.query-1` | `Conformance` | match_queries_where | `Passed` | 7.644 ms |
-| `cqlite.match-queries-where.match-where-node-prop-lt-or-gt.query-2` | `Conformance` | match_queries_where | `Passed` | 7.324 ms |
-| `cqlite.match-queries-where.match-where-node-prop-lt-or-gt.query-3` | `Conformance` | match_queries_where | `Passed` | 7.359 ms |
-| `cqlite.match-queries-where.match-where-edge-id-eq.query-1` | `Conformance` | match_queries_where | `Failed` | 7.488 ms |
-| `cqlite.match-queries-where.match-where-edge-id-eq.query-2` | `Conformance` | match_queries_where | `Failed` | 7.390 ms |
-| `cqlite.match-queries-where.match-where-edge-prop-eq.query-1` | `Conformance` | match_queries_where | `Passed` | 7.818 ms |
-| `cqlite.match-queries-where.match-where-edge-prop-gt.query-1` | `Conformance` | match_queries_where | `Passed` | 8.038 ms |
-| `cqlite.match-queries-where.match-where-a-or-b.query-1` | `Conformance` | match_queries_where | `Passed` | 7.993 ms |
-| `cqlite.match-queries-where.match-long-path-with-id-constraint.query-1` | `Conformance` | match_queries_where | `Failed` | 0.037 ms |
-| `cqlite.match-queries-where.match-long-path-with-id-constraint.query-2` | `Conformance` | match_queries_where | `Failed` | 0.031 ms |
-| `cqlite.match-queries-where.match-short-path-with-id-constraint.query-1` | `Conformance` | match_queries_where | `Failed` | 0.026 ms |
-| `cqlite.return-queries.return-parameter.query-1` | `Conformance` | return_queries | `Failed` | 6.801 ms |
-| `cqlite.return-queries.return-id-of.query-1` | `Conformance` | return_queries | `Passed` | 8.190 ms |
-| `cqlite.return-queries.return-id-of.query-2` | `Conformance` | return_queries | `Passed` | 6.936 ms |
-| `cqlite.return-queries.return-label-of.query-1` | `Conformance` | return_queries | `Passed` | 8.412 ms |
-| `cqlite.return-queries.return-label-of.query-2` | `Conformance` | return_queries | `Passed` | 7.061 ms |
-| `cqlite.return-queries.create-and-return.query-1` | `Conformance` | return_queries | `Passed` | 7.763 ms |
-| `cqlite.return-queries.create-and-return.query-2` | `Conformance` | return_queries | `Passed` | 7.088 ms |
-| `cqlite.return-queries.set-and-return.query-1` | `Conformance` | return_queries | `Passed` | 7.196 ms |
-| `cqlite.return-queries.set-and-return.query-2` | `Conformance` | return_queries | `Passed` | 7.111 ms |
-| `cqlite.return-queries.delete-and-return.query-1` | `Conformance` | return_queries | `Passed` | 7.324 ms |
-| `cqlite.return-queries.delete-and-return.query-2` | `Conformance` | return_queries | `Passed` | 6.968 ms |
-| `cqlite.return-queries.return-out-of-bounds.query-1` | `Conformance` | return_queries | `Passed` | 6.806 ms |
-| `cqlite.set-queries.set-once.query-1` | `Conformance` | set_queries | `Passed` | 7.541 ms |
-| `cqlite.set-queries.set-once.query-2` | `Conformance` | set_queries | `Passed` | 7.068 ms |
-| `cqlite.set-queries.set-once.query-3` | `Conformance` | set_queries | `Passed` | 6.903 ms |
-| `cqlite.set-queries.set-after-create.query-1` | `Conformance` | set_queries | `Passed` | 7.900 ms |
-| `cqlite.set-queries.set-after-create.query-2` | `Conformance` | set_queries | `Passed` | 6.883 ms |
-| `cqlite.set-queries.set-multiple-times.query-1` | `Conformance` | set_queries | `Passed` | 8.698 ms |
-| `cqlite.set-queries.set-multiple-times.query-2` | `Conformance` | set_queries | `Passed` | 6.969 ms |
-| `cqlite.set-queries.delete-property.query-1` | `Conformance` | set_queries | `Passed` | 7.504 ms |
-| `cqlite.set-queries.delete-property.query-2` | `Conformance` | set_queries | `Passed` | 7.175 ms |
-| `cqlite.set-queries.delete-property.query-3` | `Conformance` | set_queries | `Passed` | 6.788 ms |
-| `cqlite.txn-semantics.concurrent-reader-and-writer.query-1` | `Conformance` | txn_semantics | `Passed` | 7.763 ms |
-| `cqlite.txn-semantics.concurrent-reader-and-writer.query-2` | `Conformance` | txn_semantics | `Passed` | 7.365 ms |
-| `cqlite.txn-semantics.concurrent-reader-and-writer.query-3` | `Conformance` | txn_semantics | `Passed` | 7.566 ms |
-| `cqlite.txn-semantics.concurrent-reader-and-writer.query-4` | `Conformance` | txn_semantics | `Passed` | 7.282 ms |
-| `cqlite.txn-semantics.concurrent-reader-and-writer.query-5` | `Conformance` | txn_semantics | `Passed` | 7.578 ms |
-| `cqlite.where-conditions.where-a-and-b.query-1` | `Conformance` | where_conditions | `Failed` | 0.019 ms |
+| `cqlite.match-queries.match-labeled-nodes.query-1` | `Conformance` | match_queries | `Passed` | 7.497 ms |
+| `cqlite.match-queries.match-labeled-nodes.query-2` | `Conformance` | match_queries | `Passed` | 7.229 ms |
+| `cqlite.match-queries.match-labeled-nodes.query-3` | `Conformance` | match_queries | `Passed` | 7.427 ms |
+| `cqlite.match-queries.match-labeled-edges.query-1` | `Conformance` | match_queries | `Passed` | 8.064 ms |
+| `cqlite.match-queries.match-labeled-edges.query-2` | `Conformance` | match_queries | `Passed` | 7.373 ms |
+| `cqlite.match-queries.match-nodes-with-properties.query-1` | `Conformance` | match_queries | `Passed` | 7.320 ms |
+| `cqlite.match-queries.match-nodes-with-properties.query-2` | `Conformance` | match_queries | `Passed` | 7.344 ms |
+| `cqlite.match-queries.match-nodes-with-properties.query-3` | `Conformance` | match_queries | `Passed` | 7.994 ms |
+| `cqlite.match-queries.match-edges-with-properties.query-1` | `Conformance` | match_queries | `Passed` | 7.807 ms |
+| `cqlite.match-queries.match-nodes-with-label.query-1` | `Conformance` | match_queries | `Passed` | 7.025 ms |
+| `cqlite.match-queries-where.create-test-graph.query-1` | `Conformance` | match_queries_where | `Passed` | 16.461 ms |
+| `cqlite.match-queries-where.match-where-node-id-eq.query-1` | `Conformance` | match_queries_where | `Failed` | 7.202 ms |
+| `cqlite.match-queries-where.match-where-node-id-eq.query-2` | `Conformance` | match_queries_where | `Failed` | 7.471 ms |
+| `cqlite.match-queries-where.match-where-node-id-eq-non-id.query-1` | `Conformance` | match_queries_where | `Passed` | 7.192 ms |
+| `cqlite.match-queries-where.match-where-node-label-eq.query-1` | `Conformance` | match_queries_where | `Passed` | 7.082 ms |
+| `cqlite.match-queries-where.match-where-node-label-eq.query-2` | `Conformance` | match_queries_where | `Passed` | 7.355 ms |
+| `cqlite.match-queries-where.match-where-node-prop-eq.query-1` | `Conformance` | match_queries_where | `Failed` | 7.142 ms |
+| `cqlite.match-queries-where.match-where-node-prop.query-1` | `Conformance` | match_queries_where | `Passed` | 7.657 ms |
+| `cqlite.match-queries-where.match-where-not-node-prop.query-1` | `Conformance` | match_queries_where | `Passed` | 7.654 ms |
+| `cqlite.match-queries-where.match-where-node-prop-eq-true-false.query-1` | `Conformance` | match_queries_where | `Passed` | 7.523 ms |
+| `cqlite.match-queries-where.match-where-node-prop-eq-true-false.query-2` | `Conformance` | match_queries_where | `Passed` | 7.539 ms |
+| `cqlite.match-queries-where.match-where-node-prop-ne-null.query-1` | `Conformance` | match_queries_where | `Passed` | 7.288 ms |
+| `cqlite.match-queries-where.match-where-node-prop-lt-or-gt.query-1` | `Conformance` | match_queries_where | `Passed` | 7.556 ms |
+| `cqlite.match-queries-where.match-where-node-prop-lt-or-gt.query-2` | `Conformance` | match_queries_where | `Passed` | 7.562 ms |
+| `cqlite.match-queries-where.match-where-node-prop-lt-or-gt.query-3` | `Conformance` | match_queries_where | `Passed` | 7.603 ms |
+| `cqlite.match-queries-where.match-where-edge-id-eq.query-1` | `Conformance` | match_queries_where | `Failed` | 7.555 ms |
+| `cqlite.match-queries-where.match-where-edge-id-eq.query-2` | `Conformance` | match_queries_where | `Failed` | 8.962 ms |
+| `cqlite.match-queries-where.match-where-edge-prop-eq.query-1` | `Conformance` | match_queries_where | `Passed` | 8.928 ms |
+| `cqlite.match-queries-where.match-where-edge-prop-gt.query-1` | `Conformance` | match_queries_where | `Passed` | 8.185 ms |
+| `cqlite.match-queries-where.match-where-a-or-b.query-1` | `Conformance` | match_queries_where | `Passed` | 8.331 ms |
+| `cqlite.match-queries-where.match-long-path-with-id-constraint.query-1` | `Conformance` | match_queries_where | `Failed` | 0.051 ms |
+| `cqlite.match-queries-where.match-long-path-with-id-constraint.query-2` | `Conformance` | match_queries_where | `Failed` | 0.034 ms |
+| `cqlite.match-queries-where.match-short-path-with-id-constraint.query-1` | `Conformance` | match_queries_where | `Failed` | 0.028 ms |
+| `cqlite.return-queries.return-parameter.query-1` | `Conformance` | return_queries | `Failed` | 7.258 ms |
+| `cqlite.return-queries.return-id-of.query-1` | `Conformance` | return_queries | `Passed` | 8.507 ms |
+| `cqlite.return-queries.return-id-of.query-2` | `Conformance` | return_queries | `Passed` | 7.575 ms |
+| `cqlite.return-queries.return-label-of.query-1` | `Conformance` | return_queries | `Passed` | 8.493 ms |
+| `cqlite.return-queries.return-label-of.query-2` | `Conformance` | return_queries | `Passed` | 7.190 ms |
+| `cqlite.return-queries.create-and-return.query-1` | `Conformance` | return_queries | `Passed` | 8.289 ms |
+| `cqlite.return-queries.create-and-return.query-2` | `Conformance` | return_queries | `Passed` | 7.150 ms |
+| `cqlite.return-queries.set-and-return.query-1` | `Conformance` | return_queries | `Passed` | 7.342 ms |
+| `cqlite.return-queries.set-and-return.query-2` | `Conformance` | return_queries | `Passed` | 7.189 ms |
+| `cqlite.return-queries.delete-and-return.query-1` | `Conformance` | return_queries | `Passed` | 7.467 ms |
+| `cqlite.return-queries.delete-and-return.query-2` | `Conformance` | return_queries | `Passed` | 7.058 ms |
+| `cqlite.return-queries.return-out-of-bounds.query-1` | `Conformance` | return_queries | `Passed` | 6.926 ms |
+| `cqlite.set-queries.set-once.query-1` | `Conformance` | set_queries | `Passed` | 7.710 ms |
+| `cqlite.set-queries.set-once.query-2` | `Conformance` | set_queries | `Passed` | 7.100 ms |
+| `cqlite.set-queries.set-once.query-3` | `Conformance` | set_queries | `Passed` | 6.909 ms |
+| `cqlite.set-queries.set-after-create.query-1` | `Conformance` | set_queries | `Passed` | 8.107 ms |
+| `cqlite.set-queries.set-after-create.query-2` | `Conformance` | set_queries | `Passed` | 7.121 ms |
+| `cqlite.set-queries.set-multiple-times.query-1` | `Conformance` | set_queries | `Passed` | 8.771 ms |
+| `cqlite.set-queries.set-multiple-times.query-2` | `Conformance` | set_queries | `Passed` | 8.499 ms |
+| `cqlite.set-queries.delete-property.query-1` | `Conformance` | set_queries | `Passed` | 8.437 ms |
+| `cqlite.set-queries.delete-property.query-2` | `Conformance` | set_queries | `Passed` | 7.083 ms |
+| `cqlite.set-queries.delete-property.query-3` | `Conformance` | set_queries | `Passed` | 6.843 ms |
+| `cqlite.txn-semantics.concurrent-reader-and-writer.query-1` | `Conformance` | txn_semantics | `Passed` | 7.748 ms |
+| `cqlite.txn-semantics.concurrent-reader-and-writer.query-2` | `Conformance` | txn_semantics | `Passed` | 7.550 ms |
+| `cqlite.txn-semantics.concurrent-reader-and-writer.query-3` | `Conformance` | txn_semantics | `Passed` | 7.810 ms |
+| `cqlite.txn-semantics.concurrent-reader-and-writer.query-4` | `Conformance` | txn_semantics | `Passed` | 7.226 ms |
+| `cqlite.txn-semantics.concurrent-reader-and-writer.query-5` | `Conformance` | txn_semantics | `Passed` | 7.129 ms |
+| `cqlite.where-conditions.where-a-and-b.query-1` | `Conformance` | where_conditions | `Failed` | 0.018 ms |
 | `cqlite.where-conditions.where-a-or-b.query-1` | `Conformance` | where_conditions | `Failed` | 0.011 ms |
-| `cqlite.where-conditions.where-a.query-1` | `Conformance` | where_conditions | `Failed` | 0.010 ms |
-| `cqlite.where-conditions.where-not-a.query-1` | `Conformance` | where_conditions | `Failed` | 0.009 ms |
+| `cqlite.where-conditions.where-a.query-1` | `Conformance` | where_conditions | `Failed` | 0.009 ms |
+| `cqlite.where-conditions.where-not-a.query-1` | `Conformance` | where_conditions | `Failed` | 0.010 ms |
 
 ## Latest `deep` run
 
@@ -1632,8 +1537,8 @@ Generated from `graph/test-results/history.jsonl`. Results are grouped by stable
 
 ## Latest `grafeo-deep` run
 
-- Run: `20260719T212407.546154Z-85a6914ad0f4-corpus-deep`
-- Commit: `85a6914ad0f4c2cef535a00672ff738dbee37ef1` (dirty)
+- Run: `20260720T002817.263486Z-df32aa37c8ef-corpus-deep`
+- Commit: `df32aa37c8efdeaf4d822eda53fe116f64a22dc7` (dirty)
 - Package: `0.7.0`
 - Environment: `macos/aarch64` (`dev`)
 - Records: 399
@@ -1641,420 +1546,411 @@ Generated from `graph/test-results/history.jsonl`. Results are grouped by stable
 - Unsupported: 0
 - Failed or changed: 135
 
-### Outcome changes from `20260719T211310.196868Z-2b3388a995ac-corpus-deep`
+### Outcome changes from `20260720T002342.835410Z-df32aa37c8ef-corpus-deep`
 
-- `grafeo.spec.lpg.cypher.writing.clauses.set.replace.all`: Passed
-- `grafeo.spec.lpg.cypher.writing.clauses.set.merge.map`: Passed
-- `grafeo.spec.lpg.cypher.writing.clauses.set.label`: Passed
-- `grafeo.spec.lpg.cypher.writing.clauses.set.multiple.labels`: Passed
-- `grafeo.spec.lpg.cypher.writing.clauses.set.label.preserves.variable.binding`: Passed
-- `grafeo.spec.lpg.cypher.writing.clauses.count.star.after.set.label`: Passed
-- `grafeo.spec.lpg.cypher.writing.clauses.count.var.after.set.label`: Passed
-- `grafeo.spec.lpg.cypher.writing.clauses.merge.on.match.set`: Passed
-- `grafeo.spec.lpg.cypher.writing.clauses.merge.on.match.set.self.reference.increment`: Passed
-- `grafeo.spec.lpg.cypher.writing.clauses.merge.on.create.set.self.reference.coalesce`: Passed
+- No outcome changes.
 
 | Test | Kind | Area | Outcome | Duration |
 |---|---|---|---|---:|
-| `grafeo.spec.common.index.correctness.create.index.then.query` | `Conformance` | common | `Failed` | 0.024 ms |
+| `grafeo.spec.common.index.correctness.create.index.then.query` | `Conformance` | common | `Failed` | 0.025 ms |
 | `grafeo.spec.common.index.correctness.index.query.no.match` | `Conformance` | common | `Failed` | 0.019 ms |
 | `grafeo.spec.common.index.correctness.index.multiple.matches` | `Conformance` | common | `Failed` | 0.017 ms |
 | `grafeo.spec.common.index.correctness.index.with.null.property` | `Conformance` | common | `Failed` | 0.017 ms |
 | `grafeo.spec.common.index.correctness.index.after.property.update` | `Conformance` | common | `Failed` | 0.003 ms |
 | `grafeo.spec.common.index.correctness.index.old.value.gone.after.update` | `Conformance` | common | `Failed` | 0.003 ms |
-| `grafeo.spec.common.index.correctness.index.after.delete` | `Conformance` | common | `Failed` | 0.003 ms |
+| `grafeo.spec.common.index.correctness.index.after.delete` | `Conformance` | common | `Failed` | 0.002 ms |
 | `grafeo.spec.common.index.correctness.index.remaining.after.delete` | `Conformance` | common | `Failed` | 0.003 ms |
 | `grafeo.spec.common.index.correctness.index.reinsert.after.delete` | `Conformance` | common | `Failed` | 0.003 ms |
 | `grafeo.spec.common.index.correctness.numeric.index.exact.lookup` | `Conformance` | common | `Failed` | 0.016 ms |
 | `grafeo.spec.common.index.correctness.numeric.index.range.query` | `Conformance` | common | `Failed` | 0.003 ms |
-| `grafeo.spec.common.index.correctness.bulk.insert.then.index` | `Conformance` | common | `Failed` | 0.327 ms |
+| `grafeo.spec.common.index.correctness.bulk.insert.then.index` | `Conformance` | common | `Failed` | 0.340 ms |
 | `grafeo.spec.common.index.correctness.index.count.all` | `Conformance` | common | `Failed` | 0.016 ms |
 | `grafeo.spec.common.index.correctness.drop.index.query.still.works` | `Conformance` | common | `Failed` | 0.003 ms |
-| `grafeo.spec.common.null.semantics.negative.limit.returns.empty.cypher.cypher-variant` | `Conformance` | common | `Failed` | 6.829 ms |
-| `grafeo.spec.common.numeric.edge.cases.min.int64.cypher.cypher-variant` | `Conformance` | common | `Failed` | 6.806 ms |
-| `grafeo.spec.common.numeric.edge.cases.nan.literal.keyword.cypher.cypher-variant` | `Conformance` | common | `Failed` | 6.709 ms |
-| `grafeo.spec.common.numeric.edge.cases.inf.literal.keyword.cypher.cypher-variant` | `Conformance` | common | `Failed` | 6.775 ms |
-| `grafeo.spec.lpg.cypher.admin.create.index.on.label.property` | `Conformance` | lpg | `Failed` | 0.004 ms |
-| `grafeo.spec.lpg.cypher.admin.create.index.and.query` | `Conformance` | lpg | `Failed` | 0.024 ms |
+| `grafeo.spec.common.null.semantics.negative.limit.returns.empty.cypher.cypher-variant` | `Conformance` | common | `Failed` | 6.796 ms |
+| `grafeo.spec.common.numeric.edge.cases.min.int64.cypher.cypher-variant` | `Conformance` | common | `Failed` | 6.728 ms |
+| `grafeo.spec.common.numeric.edge.cases.nan.literal.keyword.cypher.cypher-variant` | `Conformance` | common | `Failed` | 7.053 ms |
+| `grafeo.spec.common.numeric.edge.cases.inf.literal.keyword.cypher.cypher-variant` | `Conformance` | common | `Failed` | 6.908 ms |
+| `grafeo.spec.lpg.cypher.admin.create.index.on.label.property` | `Conformance` | lpg | `Failed` | 0.006 ms |
+| `grafeo.spec.lpg.cypher.admin.create.index.and.query` | `Conformance` | lpg | `Failed` | 0.025 ms |
 | `grafeo.spec.lpg.cypher.admin.drop.index` | `Conformance` | lpg | `Failed` | 0.003 ms |
 | `grafeo.spec.lpg.cypher.admin.show.indexes.empty` | `Conformance` | lpg | `Failed` | 0.009 ms |
 | `grafeo.spec.lpg.cypher.admin.show.indexes.after.create` | `Conformance` | lpg | `Failed` | 0.003 ms |
 | `grafeo.spec.lpg.cypher.admin.explain.match` | `Conformance` | lpg | `Failed` | 0.011 ms |
 | `grafeo.spec.lpg.cypher.admin.profile.match` | `Conformance` | lpg | `Failed` | 0.011 ms |
-| `grafeo.spec.lpg.cypher.comprehensions.advanced.pattern.comprehension.basic` | `Conformance` | lpg | `Failed` | 0.118 ms |
-| `grafeo.spec.lpg.cypher.comprehensions.advanced.pattern.comprehension.with.filter` | `Conformance` | lpg | `Failed` | 0.109 ms |
-| `grafeo.spec.lpg.cypher.comprehensions.advanced.pattern.comprehension.size` | `Conformance` | lpg | `Failed` | 0.170 ms |
-| `grafeo.spec.lpg.cypher.comprehensions.advanced.pattern.comprehension.with.property.extraction` | `Conformance` | lpg | `Failed` | 0.103 ms |
-| `grafeo.spec.lpg.cypher.comprehensions.advanced.list.comprehension.basic` | `Conformance` | lpg | `Passed` | 66.567 ms |
-| `grafeo.spec.lpg.cypher.comprehensions.advanced.list.comprehension.transform` | `Conformance` | lpg | `Passed` | 78.214 ms |
-| `grafeo.spec.lpg.cypher.comprehensions.advanced.list.comprehension.filter.and.transform` | `Conformance` | lpg | `Failed` | 65.871 ms |
-| `grafeo.spec.lpg.cypher.comprehensions.advanced.list.comprehension.nested` | `Conformance` | lpg | `Failed` | 64.581 ms |
-| `grafeo.spec.lpg.cypher.comprehensions.advanced.exists.subquery.actors.with.action.movies` | `Conformance` | lpg | `Passed` | 68.893 ms |
-| `grafeo.spec.lpg.cypher.comprehensions.advanced.not.exists.subquery` | `Conformance` | lpg | `Failed` | 69.714 ms |
-| `grafeo.spec.lpg.cypher.comprehensions.advanced.count.subquery.movies.per.actor` | `Conformance` | lpg | `Passed` | 69.126 ms |
-| `grafeo.spec.lpg.cypher.comprehensions.advanced.count.subquery.prolific.directors` | `Conformance` | lpg | `Passed` | 66.710 ms |
-| `grafeo.spec.lpg.cypher.comprehensions.advanced.call.subquery.basic` | `Conformance` | lpg | `Failed` | 0.043 ms |
-| `grafeo.spec.lpg.cypher.comprehensions.advanced.call.subquery.with.aggregation` | `Conformance` | lpg | `Failed` | 0.035 ms |
-| `grafeo.spec.lpg.cypher.comprehensions.advanced.foreach.set.property` | `Conformance` | lpg | `Failed` | 80.409 ms |
-| `grafeo.spec.lpg.cypher.comprehensions.advanced.foreach.create.relationships` | `Conformance` | lpg | `Failed` | 0.302 ms |
-| `grafeo.spec.lpg.cypher.comprehensions.advanced.actor.collaboration.via.comprehension` | `Conformance` | lpg | `Failed` | 0.147 ms |
+| `grafeo.spec.lpg.cypher.comprehensions.advanced.pattern.comprehension.basic` | `Conformance` | lpg | `Failed` | 0.129 ms |
+| `grafeo.spec.lpg.cypher.comprehensions.advanced.pattern.comprehension.with.filter` | `Conformance` | lpg | `Failed` | 0.113 ms |
+| `grafeo.spec.lpg.cypher.comprehensions.advanced.pattern.comprehension.size` | `Conformance` | lpg | `Failed` | 0.191 ms |
+| `grafeo.spec.lpg.cypher.comprehensions.advanced.pattern.comprehension.with.property.extraction` | `Conformance` | lpg | `Failed` | 0.110 ms |
+| `grafeo.spec.lpg.cypher.comprehensions.advanced.list.comprehension.basic` | `Conformance` | lpg | `Passed` | 73.879 ms |
+| `grafeo.spec.lpg.cypher.comprehensions.advanced.list.comprehension.transform` | `Conformance` | lpg | `Passed` | 69.880 ms |
+| `grafeo.spec.lpg.cypher.comprehensions.advanced.list.comprehension.filter.and.transform` | `Conformance` | lpg | `Failed` | 65.624 ms |
+| `grafeo.spec.lpg.cypher.comprehensions.advanced.list.comprehension.nested` | `Conformance` | lpg | `Failed` | 67.187 ms |
+| `grafeo.spec.lpg.cypher.comprehensions.advanced.exists.subquery.actors.with.action.movies` | `Conformance` | lpg | `Passed` | 69.718 ms |
+| `grafeo.spec.lpg.cypher.comprehensions.advanced.not.exists.subquery` | `Conformance` | lpg | `Failed` | 72.916 ms |
+| `grafeo.spec.lpg.cypher.comprehensions.advanced.count.subquery.movies.per.actor` | `Conformance` | lpg | `Passed` | 78.174 ms |
+| `grafeo.spec.lpg.cypher.comprehensions.advanced.count.subquery.prolific.directors` | `Conformance` | lpg | `Passed` | 91.618 ms |
+| `grafeo.spec.lpg.cypher.comprehensions.advanced.call.subquery.basic` | `Conformance` | lpg | `Failed` | 0.050 ms |
+| `grafeo.spec.lpg.cypher.comprehensions.advanced.call.subquery.with.aggregation` | `Conformance` | lpg | `Failed` | 0.038 ms |
+| `grafeo.spec.lpg.cypher.comprehensions.advanced.foreach.set.property` | `Conformance` | lpg | `Failed` | 74.373 ms |
+| `grafeo.spec.lpg.cypher.comprehensions.advanced.foreach.create.relationships` | `Conformance` | lpg | `Failed` | 0.321 ms |
+| `grafeo.spec.lpg.cypher.comprehensions.advanced.actor.collaboration.via.comprehension` | `Conformance` | lpg | `Failed` | 0.157 ms |
 | `grafeo.spec.lpg.cypher.comprehensions.advanced.genre.diversity.per.actor` | `Conformance` | lpg | `Failed` | 0.218 ms |
-| `grafeo.spec.lpg.cypher.constraints.create.unique.constraint` | `Conformance` | lpg | `Failed` | 0.023 ms |
-| `grafeo.spec.lpg.cypher.constraints.unique.constraint.allows.distinct.values` | `Conformance` | lpg | `Failed` | 10.010 ms |
-| `grafeo.spec.lpg.cypher.constraints.unique.constraint.violation` | `Conformance` | lpg | `Failed` | 7.102 ms |
-| `grafeo.spec.lpg.cypher.constraints.unique.constraint.null.allowed` | `Conformance` | lpg | `Failed` | 6.968 ms |
-| `grafeo.spec.lpg.cypher.constraints.create.not.null.constraint` | `Conformance` | lpg | `Failed` | 0.025 ms |
-| `grafeo.spec.lpg.cypher.constraints.not.null.constraint.satisfied` | `Conformance` | lpg | `Failed` | 6.853 ms |
-| `grafeo.spec.lpg.cypher.constraints.not.null.constraint.violation` | `Conformance` | lpg | `Failed` | 6.968 ms |
-| `grafeo.spec.lpg.cypher.constraints.not.null.constraint.violation.on.set` | `Conformance` | lpg | `Failed` | 6.797 ms |
-| `grafeo.spec.lpg.cypher.constraints.create.node.key.constraint` | `Conformance` | lpg | `Failed` | 0.025 ms |
-| `grafeo.spec.lpg.cypher.constraints.node.key.allows.different.combinations` | `Conformance` | lpg | `Failed` | 6.799 ms |
-| `grafeo.spec.lpg.cypher.constraints.node.key.violation.duplicate` | `Conformance` | lpg | `Failed` | 7.069 ms |
-| `grafeo.spec.lpg.cypher.constraints.node.key.violation.missing.property` | `Conformance` | lpg | `Failed` | 6.803 ms |
-| `grafeo.spec.lpg.cypher.constraints.drop.constraint` | `Conformance` | lpg | `Failed` | 0.014 ms |
-| `grafeo.spec.lpg.cypher.constraints.drop.nonexistent.constraint` | `Conformance` | lpg | `Passed` | 0.011 ms |
-| `grafeo.spec.lpg.cypher.constraints.drop.constraint.if.exists` | `Conformance` | lpg | `Failed` | 0.012 ms |
-| `grafeo.spec.lpg.cypher.constraints.show.constraints.after.create` | `Conformance` | lpg | `Failed` | 0.008 ms |
+| `grafeo.spec.lpg.cypher.constraints.create.unique.constraint` | `Conformance` | lpg | `Failed` | 0.024 ms |
+| `grafeo.spec.lpg.cypher.constraints.unique.constraint.allows.distinct.values` | `Conformance` | lpg | `Failed` | 7.994 ms |
+| `grafeo.spec.lpg.cypher.constraints.unique.constraint.violation` | `Conformance` | lpg | `Failed` | 7.665 ms |
+| `grafeo.spec.lpg.cypher.constraints.unique.constraint.null.allowed` | `Conformance` | lpg | `Failed` | 8.021 ms |
+| `grafeo.spec.lpg.cypher.constraints.create.not.null.constraint` | `Conformance` | lpg | `Failed` | 0.030 ms |
+| `grafeo.spec.lpg.cypher.constraints.not.null.constraint.satisfied` | `Conformance` | lpg | `Failed` | 7.824 ms |
+| `grafeo.spec.lpg.cypher.constraints.not.null.constraint.violation` | `Conformance` | lpg | `Failed` | 7.713 ms |
+| `grafeo.spec.lpg.cypher.constraints.not.null.constraint.violation.on.set` | `Conformance` | lpg | `Failed` | 7.619 ms |
+| `grafeo.spec.lpg.cypher.constraints.create.node.key.constraint` | `Conformance` | lpg | `Failed` | 0.031 ms |
+| `grafeo.spec.lpg.cypher.constraints.node.key.allows.different.combinations` | `Conformance` | lpg | `Failed` | 7.924 ms |
+| `grafeo.spec.lpg.cypher.constraints.node.key.violation.duplicate` | `Conformance` | lpg | `Failed` | 7.668 ms |
+| `grafeo.spec.lpg.cypher.constraints.node.key.violation.missing.property` | `Conformance` | lpg | `Failed` | 7.509 ms |
+| `grafeo.spec.lpg.cypher.constraints.drop.constraint` | `Conformance` | lpg | `Failed` | 0.017 ms |
+| `grafeo.spec.lpg.cypher.constraints.drop.nonexistent.constraint` | `Conformance` | lpg | `Passed` | 0.012 ms |
+| `grafeo.spec.lpg.cypher.constraints.drop.constraint.if.exists` | `Conformance` | lpg | `Failed` | 0.013 ms |
+| `grafeo.spec.lpg.cypher.constraints.show.constraints.after.create` | `Conformance` | lpg | `Failed` | 0.009 ms |
 | `grafeo.spec.lpg.cypher.constraints.show.constraints.empty` | `Conformance` | lpg | `Failed` | 0.001 ms |
-| `grafeo.spec.lpg.cypher.expressions.addition` | `Conformance` | lpg | `Passed` | 8.364 ms |
-| `grafeo.spec.lpg.cypher.expressions.subtraction` | `Conformance` | lpg | `Passed` | 8.209 ms |
-| `grafeo.spec.lpg.cypher.expressions.multiplication` | `Conformance` | lpg | `Passed` | 8.128 ms |
-| `grafeo.spec.lpg.cypher.expressions.division` | `Conformance` | lpg | `Passed` | 8.108 ms |
-| `grafeo.spec.lpg.cypher.expressions.modulo` | `Conformance` | lpg | `Passed` | 8.081 ms |
-| `grafeo.spec.lpg.cypher.expressions.power` | `Conformance` | lpg | `Passed` | 8.122 ms |
-| `grafeo.spec.lpg.cypher.expressions.unary.minus` | `Conformance` | lpg | `Failed` | 0.046 ms |
-| `grafeo.spec.lpg.cypher.expressions.string.concat` | `Conformance` | lpg | `Failed` | 8.526 ms |
-| `grafeo.spec.lpg.cypher.expressions.equals` | `Conformance` | lpg | `Passed` | 8.241 ms |
-| `grafeo.spec.lpg.cypher.expressions.not.equals` | `Conformance` | lpg | `Passed` | 8.868 ms |
-| `grafeo.spec.lpg.cypher.expressions.less.than` | `Conformance` | lpg | `Passed` | 8.857 ms |
-| `grafeo.spec.lpg.cypher.expressions.greater.equal` | `Conformance` | lpg | `Passed` | 8.886 ms |
-| `grafeo.spec.lpg.cypher.expressions.starts.with` | `Conformance` | lpg | `Passed` | 8.942 ms |
-| `grafeo.spec.lpg.cypher.expressions.ends.with` | `Conformance` | lpg | `Passed` | 9.029 ms |
-| `grafeo.spec.lpg.cypher.expressions.contains` | `Conformance` | lpg | `Passed` | 9.187 ms |
-| `grafeo.spec.lpg.cypher.expressions.in.list` | `Conformance` | lpg | `Passed` | 9.898 ms |
-| `grafeo.spec.lpg.cypher.expressions.regex.match` | `Conformance` | lpg | `Failed` | 0.065 ms |
-| `grafeo.spec.lpg.cypher.expressions.is.null` | `Conformance` | lpg | `Passed` | 9.214 ms |
-| `grafeo.spec.lpg.cypher.expressions.is.not.null` | `Conformance` | lpg | `Passed` | 9.094 ms |
-| `grafeo.spec.lpg.cypher.expressions.case.simple` | `Conformance` | lpg | `Passed` | 8.452 ms |
-| `grafeo.spec.lpg.cypher.expressions.case.searched` | `Conformance` | lpg | `Passed` | 8.247 ms |
-| `grafeo.spec.lpg.cypher.expressions.list.literal` | `Conformance` | lpg | `Failed` | 8.154 ms |
-| `grafeo.spec.lpg.cypher.expressions.list.comprehension` | `Conformance` | lpg | `Failed` | 8.709 ms |
-| `grafeo.spec.lpg.cypher.expressions.list.comprehension.filter.only` | `Conformance` | lpg | `Failed` | 8.549 ms |
-| `grafeo.spec.lpg.cypher.expressions.list.slice` | `Conformance` | lpg | `Failed` | 8.504 ms |
-| `grafeo.spec.lpg.cypher.expressions.index.access` | `Conformance` | lpg | `Passed` | 8.301 ms |
-| `grafeo.spec.lpg.cypher.expressions.coalesce` | `Conformance` | lpg | `Passed` | 8.542 ms |
-| `grafeo.spec.lpg.cypher.expressions.reduce` | `Conformance` | lpg | `Failed` | 0.254 ms |
-| `grafeo.spec.lpg.cypher.expressions.all.predicate` | `Conformance` | lpg | `Passed` | 8.457 ms |
-| `grafeo.spec.lpg.cypher.expressions.any.predicate` | `Conformance` | lpg | `Passed` | 13.260 ms |
-| `grafeo.spec.lpg.cypher.expressions.none.predicate` | `Conformance` | lpg | `Passed` | 8.577 ms |
-| `grafeo.spec.lpg.cypher.expressions.single.predicate` | `Conformance` | lpg | `Passed` | 8.431 ms |
-| `grafeo.spec.lpg.cypher.expressions.any.with.labels.in.where` | `Conformance` | lpg | `Passed` | 9.371 ms |
-| `grafeo.spec.lpg.cypher.expressions.comparison.in.return` | `Conformance` | lpg | `Passed` | 8.139 ms |
-| `grafeo.spec.lpg.cypher.expressions.aggregate.comparison.in.return` | `Conformance` | lpg | `Passed` | 8.180 ms |
-| `grafeo.spec.lpg.cypher.functions.id.of.node` | `Conformance` | lpg | `Passed` | 8.136 ms |
-| `grafeo.spec.lpg.cypher.functions.labels.single` | `Conformance` | lpg | `Failed` | 7.986 ms |
-| `grafeo.spec.lpg.cypher.functions.labels.multiple` | `Conformance` | lpg | `Passed` | 9.214 ms |
-| `grafeo.spec.lpg.cypher.functions.type.of.relationship` | `Conformance` | lpg | `Failed` | 9.152 ms |
-| `grafeo.spec.lpg.cypher.functions.keys.of.node` | `Conformance` | lpg | `Failed` | 8.334 ms |
-| `grafeo.spec.lpg.cypher.functions.properties.of.node` | `Conformance` | lpg | `Failed` | 8.010 ms |
-| `grafeo.spec.lpg.cypher.functions.exists.property.true` | `Conformance` | lpg | `Failed` | 7.953 ms |
-| `grafeo.spec.lpg.cypher.functions.exists.property.false` | `Conformance` | lpg | `Failed` | 7.620 ms |
-| `grafeo.spec.lpg.cypher.functions.head.of.list` | `Conformance` | lpg | `Passed` | 8.233 ms |
-| `grafeo.spec.lpg.cypher.functions.last.of.list` | `Conformance` | lpg | `Passed` | 8.247 ms |
-| `grafeo.spec.lpg.cypher.functions.tail.of.list` | `Conformance` | lpg | `Failed` | 8.358 ms |
-| `grafeo.spec.lpg.cypher.functions.range.default.step` | `Conformance` | lpg | `Failed` | 8.116 ms |
-| `grafeo.spec.lpg.cypher.functions.range.with.step` | `Conformance` | lpg | `Failed` | 8.251 ms |
-| `grafeo.spec.lpg.cypher.functions.size.of.list` | `Conformance` | lpg | `Passed` | 8.252 ms |
-| `grafeo.spec.lpg.cypher.functions.size.of.string` | `Conformance` | lpg | `Passed` | 8.188 ms |
-| `grafeo.spec.lpg.cypher.functions.to.lower` | `Conformance` | lpg | `Passed` | 8.099 ms |
-| `grafeo.spec.lpg.cypher.functions.to.upper` | `Conformance` | lpg | `Passed` | 9.341 ms |
-| `grafeo.spec.lpg.cypher.functions.trim.whitespace` | `Conformance` | lpg | `Passed` | 10.061 ms |
-| `grafeo.spec.lpg.cypher.functions.replace.substring` | `Conformance` | lpg | `Passed` | 8.144 ms |
-| `grafeo.spec.lpg.cypher.functions.substring.from.start` | `Conformance` | lpg | `Failed` | 8.200 ms |
-| `grafeo.spec.lpg.cypher.functions.substring.to.end` | `Conformance` | lpg | `Failed` | 8.134 ms |
-| `grafeo.spec.lpg.cypher.functions.split.string` | `Conformance` | lpg | `Failed` | 8.110 ms |
-| `grafeo.spec.lpg.cypher.functions.left.string` | `Conformance` | lpg | `Passed` | 8.155 ms |
-| `grafeo.spec.lpg.cypher.functions.right.string` | `Conformance` | lpg | `Passed` | 8.140 ms |
-| `grafeo.spec.lpg.cypher.functions.reverse.string` | `Conformance` | lpg | `Passed` | 7.995 ms |
-| `grafeo.spec.lpg.cypher.functions.abs.positive` | `Conformance` | lpg | `Passed` | 8.051 ms |
-| `grafeo.spec.lpg.cypher.functions.ceil.float` | `Conformance` | lpg | `Passed` | 8.015 ms |
-| `grafeo.spec.lpg.cypher.functions.floor.float` | `Conformance` | lpg | `Passed` | 7.953 ms |
-| `grafeo.spec.lpg.cypher.functions.round.float` | `Conformance` | lpg | `Passed` | 8.032 ms |
-| `grafeo.spec.lpg.cypher.functions.sign.positive` | `Conformance` | lpg | `Passed` | 8.041 ms |
-| `grafeo.spec.lpg.cypher.functions.sign.negative` | `Conformance` | lpg | `Passed` | 7.938 ms |
-| `grafeo.spec.lpg.cypher.functions.sign.zero` | `Conformance` | lpg | `Passed` | 8.020 ms |
-| `grafeo.spec.lpg.cypher.functions.sqrt.perfect.square` | `Conformance` | lpg | `Passed` | 7.937 ms |
-| `grafeo.spec.lpg.cypher.functions.to.integer.from.string` | `Conformance` | lpg | `Passed` | 8.056 ms |
-| `grafeo.spec.lpg.cypher.functions.to.integer.from.float` | `Conformance` | lpg | `Passed` | 8.001 ms |
-| `grafeo.spec.lpg.cypher.functions.to.float.from.string` | `Conformance` | lpg | `Passed` | 8.040 ms |
-| `grafeo.spec.lpg.cypher.functions.to.float.from.integer` | `Conformance` | lpg | `Passed` | 8.453 ms |
-| `grafeo.spec.lpg.cypher.functions.to.string.from.integer` | `Conformance` | lpg | `Passed` | 8.168 ms |
-| `grafeo.spec.lpg.cypher.functions.to.boolean.from.string.true` | `Conformance` | lpg | `Passed` | 8.171 ms |
-| `grafeo.spec.lpg.cypher.functions.to.boolean.from.string.false` | `Conformance` | lpg | `Passed` | 8.231 ms |
-| `grafeo.spec.lpg.cypher.functions.date.from.string` | `Conformance` | lpg | `Passed` | 8.104 ms |
-| `grafeo.spec.lpg.cypher.functions.date.from.map` | `Conformance` | lpg | `Passed` | 8.239 ms |
-| `grafeo.spec.lpg.cypher.functions.datetime.from.string` | `Conformance` | lpg | `Passed` | 8.008 ms |
-| `grafeo.spec.lpg.cypher.functions.duration.from.string` | `Conformance` | lpg | `Passed` | 7.997 ms |
-| `grafeo.spec.lpg.cypher.functions.path.length` | `Conformance` | lpg | `Passed` | 12.767 ms |
-| `grafeo.spec.lpg.cypher.functions.path.length.single.hop` | `Conformance` | lpg | `Passed` | 9.639 ms |
-| `grafeo.spec.lpg.cypher.functions.collect.names` | `Conformance` | lpg | `Passed` | 8.734 ms |
-| `grafeo.spec.lpg.cypher.functions.collect.distinct` | `Conformance` | lpg | `Failed` | 9.148 ms |
-| `grafeo.spec.lpg.cypher.functions.count.with.distinct` | `Conformance` | lpg | `Passed` | 9.418 ms |
-| `grafeo.spec.lpg.cypher.functions.sum.values` | `Conformance` | lpg | `Passed` | 9.306 ms |
-| `grafeo.spec.lpg.cypher.functions.avg.values` | `Conformance` | lpg | `Passed` | 9.350 ms |
-| `grafeo.spec.lpg.cypher.functions.min.values` | `Conformance` | lpg | `Passed` | 9.387 ms |
-| `grafeo.spec.lpg.cypher.functions.max.values` | `Conformance` | lpg | `Passed` | 9.322 ms |
-| `grafeo.spec.lpg.cypher.functions.chained.string.functions` | `Conformance` | lpg | `Passed` | 8.176 ms |
-| `grafeo.spec.lpg.cypher.functions.nested.list.functions` | `Conformance` | lpg | `Passed` | 8.386 ms |
-| `grafeo.spec.lpg.cypher.functions.extended.log.of.e` | `Conformance` | lpg | `Failed` | 8.209 ms |
-| `grafeo.spec.lpg.cypher.functions.extended.log10.of.100` | `Conformance` | lpg | `Passed` | 8.074 ms |
-| `grafeo.spec.lpg.cypher.functions.extended.exp.of.zero` | `Conformance` | lpg | `Passed` | 7.984 ms |
-| `grafeo.spec.lpg.cypher.functions.extended.e.constant` | `Conformance` | lpg | `Failed` | 7.980 ms |
-| `grafeo.spec.lpg.cypher.functions.extended.pi.constant` | `Conformance` | lpg | `Passed` | 8.038 ms |
-| `grafeo.spec.lpg.cypher.functions.extended.rand.in.range` | `Conformance` | lpg | `Passed` | 8.143 ms |
-| `grafeo.spec.lpg.cypher.functions.extended.sin.of.zero` | `Conformance` | lpg | `Passed` | 8.070 ms |
-| `grafeo.spec.lpg.cypher.functions.extended.cos.of.zero` | `Conformance` | lpg | `Passed` | 8.113 ms |
-| `grafeo.spec.lpg.cypher.functions.extended.tan.of.zero` | `Conformance` | lpg | `Passed` | 8.302 ms |
-| `grafeo.spec.lpg.cypher.functions.extended.asin.of.one` | `Conformance` | lpg | `Passed` | 8.042 ms |
-| `grafeo.spec.lpg.cypher.functions.extended.acos.of.one` | `Conformance` | lpg | `Passed` | 7.959 ms |
-| `grafeo.spec.lpg.cypher.functions.extended.atan.of.one` | `Conformance` | lpg | `Passed` | 8.162 ms |
-| `grafeo.spec.lpg.cypher.functions.extended.atan2.unit` | `Conformance` | lpg | `Passed` | 8.235 ms |
-| `grafeo.spec.lpg.cypher.functions.extended.degrees.from.pi` | `Conformance` | lpg | `Passed` | 8.358 ms |
-| `grafeo.spec.lpg.cypher.functions.extended.radians.from.180` | `Conformance` | lpg | `Passed` | 8.105 ms |
-| `grafeo.spec.lpg.cypher.functions.extended.ltrim.whitespace` | `Conformance` | lpg | `Passed` | 8.065 ms |
-| `grafeo.spec.lpg.cypher.functions.extended.rtrim.whitespace` | `Conformance` | lpg | `Passed` | 8.117 ms |
-| `grafeo.spec.lpg.cypher.functions.extended.char.length.string` | `Conformance` | lpg | `Passed` | 8.069 ms |
-| `grafeo.spec.lpg.cypher.functions.extended.length.of.string` | `Conformance` | lpg | `Passed` | 8.335 ms |
-| `grafeo.spec.lpg.cypher.functions.extended.reverse.list` | `Conformance` | lpg | `Failed` | 8.347 ms |
-| `grafeo.spec.lpg.cypher.functions.extended.keys.of.map` | `Conformance` | lpg | `Passed` | 8.615 ms |
-| `grafeo.spec.lpg.cypher.functions.extended.stdev.sample` | `Conformance` | lpg | `Failed` | 12.297 ms |
-| `grafeo.spec.lpg.cypher.functions.extended.stdevp.population` | `Conformance` | lpg | `Failed` | 12.840 ms |
-| `grafeo.spec.lpg.cypher.functions.extended.percentile.cont.median` | `Conformance` | lpg | `Failed` | 10.650 ms |
-| `grafeo.spec.lpg.cypher.functions.extended.percentile.disc.median` | `Conformance` | lpg | `Failed` | 10.794 ms |
-| `grafeo.spec.lpg.cypher.functions.extended.element.id.not.null` | `Conformance` | lpg | `Failed` | 8.049 ms |
-| `grafeo.spec.lpg.cypher.functions.extended.count.star` | `Conformance` | lpg | `Passed` | 8.609 ms |
-| `grafeo.spec.lpg.cypher.functions.extended.count.expr` | `Conformance` | lpg | `Passed` | 8.668 ms |
-| `grafeo.spec.lpg.cypher.functions.extended.nodes.of.path` | `Conformance` | lpg | `Passed` | 10.307 ms |
-| `grafeo.spec.lpg.cypher.functions.extended.relationships.of.path` | `Conformance` | lpg | `Passed` | 10.425 ms |
-| `grafeo.spec.lpg.cypher.functions.extended.nodes.of.multi.hop.path` | `Conformance` | lpg | `Passed` | 12.837 ms |
-| `grafeo.spec.lpg.cypher.functions.extended.relationships.of.multi.hop.path` | `Conformance` | lpg | `Passed` | 13.220 ms |
-| `grafeo.spec.lpg.cypher.functions.extended.date.no.args` | `Conformance` | lpg | `Passed` | 8.239 ms |
-| `grafeo.spec.lpg.cypher.functions.extended.now.returns.value` | `Conformance` | lpg | `Failed` | 8.111 ms |
-| `grafeo.spec.lpg.cypher.functions.extended.year.accessor` | `Conformance` | lpg | `Failed` | 8.096 ms |
-| `grafeo.spec.lpg.cypher.functions.extended.month.accessor` | `Conformance` | lpg | `Failed` | 8.004 ms |
-| `grafeo.spec.lpg.cypher.functions.extended.day.accessor` | `Conformance` | lpg | `Failed` | 7.981 ms |
-| `grafeo.spec.lpg.cypher.functions.extended.time.from.string` | `Conformance` | lpg | `Passed` | 8.077 ms |
-| `grafeo.spec.lpg.cypher.functions.extended.duration.from.map` | `Conformance` | lpg | `Passed` | 8.310 ms |
-| `grafeo.spec.lpg.cypher.patterns.anonymous.node` | `Conformance` | lpg | `Passed` | 7.624 ms |
-| `grafeo.spec.lpg.cypher.patterns.variable.binding` | `Conformance` | lpg | `Passed` | 7.689 ms |
-| `grafeo.spec.lpg.cypher.patterns.single.label` | `Conformance` | lpg | `Passed` | 8.322 ms |
-| `grafeo.spec.lpg.cypher.patterns.multiple.labels` | `Conformance` | lpg | `Passed` | 8.839 ms |
-| `grafeo.spec.lpg.cypher.patterns.property.filter` | `Conformance` | lpg | `Passed` | 8.718 ms |
-| `grafeo.spec.lpg.cypher.patterns.outgoing.relationship` | `Conformance` | lpg | `Passed` | 9.545 ms |
-| `grafeo.spec.lpg.cypher.patterns.incoming.relationship` | `Conformance` | lpg | `Passed` | 9.218 ms |
-| `grafeo.spec.lpg.cypher.patterns.undirected.relationship` | `Conformance` | lpg | `Passed` | 9.782 ms |
-| `grafeo.spec.lpg.cypher.patterns.multiple.relationship.types` | `Conformance` | lpg | `Passed` | 11.681 ms |
-| `grafeo.spec.lpg.cypher.patterns.relationship.properties` | `Conformance` | lpg | `Passed` | 9.938 ms |
-| `grafeo.spec.lpg.cypher.patterns.untyped.relationship` | `Conformance` | lpg | `Failed` | 9.425 ms |
-| `grafeo.spec.lpg.cypher.patterns.anonymous.relationship` | `Conformance` | lpg | `Passed` | 9.451 ms |
-| `grafeo.spec.lpg.cypher.patterns.variable.length.unbounded` | `Conformance` | lpg | `Passed` | 11.792 ms |
-| `grafeo.spec.lpg.cypher.patterns.variable.length.exact` | `Conformance` | lpg | `Passed` | 23.505 ms |
-| `grafeo.spec.lpg.cypher.patterns.variable.length.range` | `Conformance` | lpg | `Passed` | 16.335 ms |
-| `grafeo.spec.lpg.cypher.patterns.variable.length.max.only` | `Conformance` | lpg | `Passed` | 13.927 ms |
-| `grafeo.spec.lpg.cypher.patterns.variable.length.min.only` | `Conformance` | lpg | `Passed` | 12.589 ms |
-| `grafeo.spec.lpg.cypher.patterns.path.alias` | `Conformance` | lpg | `Passed` | 9.993 ms |
-| `grafeo.spec.lpg.cypher.patterns.shortest.path` | `Conformance` | lpg | `Failed` | 0.030 ms |
-| `grafeo.spec.lpg.cypher.patterns.all.shortest.paths` | `Conformance` | lpg | `Failed` | 0.023 ms |
-| `grafeo.spec.lpg.cypher.patterns.pattern.comprehension` | `Conformance` | lpg | `Failed` | 0.104 ms |
-| `grafeo.spec.lpg.cypher.patterns.exists.subquery` | `Conformance` | lpg | `Passed` | 10.707 ms |
-| `grafeo.spec.lpg.cypher.patterns.not.exists` | `Conformance` | lpg | `Passed` | 9.915 ms |
-| `grafeo.spec.lpg.cypher.patterns.count.subquery` | `Conformance` | lpg | `Passed` | 11.139 ms |
-| `grafeo.spec.lpg.cypher.reading.clauses.match.single.node` | `Conformance` | lpg | `Passed` | 8.521 ms |
-| `grafeo.spec.lpg.cypher.reading.clauses.match.by.label` | `Conformance` | lpg | `Passed` | 8.354 ms |
-| `grafeo.spec.lpg.cypher.reading.clauses.match.by.property` | `Conformance` | lpg | `Passed` | 8.643 ms |
-| `grafeo.spec.lpg.cypher.reading.clauses.match.multi.label` | `Conformance` | lpg | `Passed` | 8.880 ms |
-| `grafeo.spec.lpg.cypher.reading.clauses.match.comma.patterns` | `Conformance` | lpg | `Passed` | 8.871 ms |
-| `grafeo.spec.lpg.cypher.reading.clauses.match.multiple.clauses` | `Conformance` | lpg | `Passed` | 8.703 ms |
-| `grafeo.spec.lpg.cypher.reading.clauses.match.edge.outgoing` | `Conformance` | lpg | `Passed` | 10.174 ms |
-| `grafeo.spec.lpg.cypher.reading.clauses.match.edge.incoming` | `Conformance` | lpg | `Passed` | 10.177 ms |
-| `grafeo.spec.lpg.cypher.reading.clauses.match.edge.undirected` | `Conformance` | lpg | `Passed` | 10.320 ms |
-| `grafeo.spec.lpg.cypher.reading.clauses.optional.match.with.result` | `Conformance` | lpg | `Passed` | 9.913 ms |
-| `grafeo.spec.lpg.cypher.reading.clauses.optional.match.null` | `Conformance` | lpg | `Passed` | 9.008 ms |
-| `grafeo.spec.lpg.cypher.reading.clauses.where.comparison` | `Conformance` | lpg | `Passed` | 8.837 ms |
-| `grafeo.spec.lpg.cypher.reading.clauses.where.and` | `Conformance` | lpg | `Passed` | 9.412 ms |
-| `grafeo.spec.lpg.cypher.reading.clauses.where.or` | `Conformance` | lpg | `Passed` | 9.722 ms |
-| `grafeo.spec.lpg.cypher.reading.clauses.where.not` | `Conformance` | lpg | `Passed` | 9.191 ms |
-| `grafeo.spec.lpg.cypher.reading.clauses.where.xor` | `Conformance` | lpg | `Passed` | 10.584 ms |
-| `grafeo.spec.lpg.cypher.reading.clauses.with.projection` | `Conformance` | lpg | `Passed` | 8.383 ms |
-| `grafeo.spec.lpg.cypher.reading.clauses.with.distinct` | `Conformance` | lpg | `Passed` | 9.050 ms |
-| `grafeo.spec.lpg.cypher.reading.clauses.with.where` | `Conformance` | lpg | `Passed` | 8.876 ms |
-| `grafeo.spec.lpg.cypher.reading.clauses.with.star` | `Conformance` | lpg | `Passed` | 7.890 ms |
-| `grafeo.spec.lpg.cypher.reading.clauses.unwind.list` | `Conformance` | lpg | `Passed` | 7.193 ms |
-| `grafeo.spec.lpg.cypher.reading.clauses.unwind.with.match` | `Conformance` | lpg | `Passed` | 9.052 ms |
-| `grafeo.spec.lpg.cypher.reading.clauses.union` | `Conformance` | lpg | `Passed` | 14.497 ms |
-| `grafeo.spec.lpg.cypher.reading.clauses.union.all` | `Conformance` | lpg | `Passed` | 11.136 ms |
-| `grafeo.spec.lpg.cypher.reading.clauses.call.db.labels` | `Conformance` | lpg | `Passed` | 9.089 ms |
-| `grafeo.spec.lpg.cypher.reading.clauses.call.db.relationship.types` | `Conformance` | lpg | `Passed` | 9.482 ms |
-| `grafeo.spec.lpg.cypher.reading.clauses.call.db.property.keys` | `Conformance` | lpg | `Failed` | 8.103 ms |
+| `grafeo.spec.lpg.cypher.expressions.addition` | `Conformance` | lpg | `Passed` | 9.054 ms |
+| `grafeo.spec.lpg.cypher.expressions.subtraction` | `Conformance` | lpg | `Passed` | 8.436 ms |
+| `grafeo.spec.lpg.cypher.expressions.multiplication` | `Conformance` | lpg | `Passed` | 8.433 ms |
+| `grafeo.spec.lpg.cypher.expressions.division` | `Conformance` | lpg | `Passed` | 8.586 ms |
+| `grafeo.spec.lpg.cypher.expressions.modulo` | `Conformance` | lpg | `Passed` | 8.387 ms |
+| `grafeo.spec.lpg.cypher.expressions.power` | `Conformance` | lpg | `Passed` | 8.383 ms |
+| `grafeo.spec.lpg.cypher.expressions.unary.minus` | `Conformance` | lpg | `Failed` | 0.047 ms |
+| `grafeo.spec.lpg.cypher.expressions.string.concat` | `Conformance` | lpg | `Failed` | 8.996 ms |
+| `grafeo.spec.lpg.cypher.expressions.equals` | `Conformance` | lpg | `Passed` | 8.490 ms |
+| `grafeo.spec.lpg.cypher.expressions.not.equals` | `Conformance` | lpg | `Passed` | 9.031 ms |
+| `grafeo.spec.lpg.cypher.expressions.less.than` | `Conformance` | lpg | `Passed` | 9.216 ms |
+| `grafeo.spec.lpg.cypher.expressions.greater.equal` | `Conformance` | lpg | `Passed` | 9.312 ms |
+| `grafeo.spec.lpg.cypher.expressions.starts.with` | `Conformance` | lpg | `Passed` | 9.434 ms |
+| `grafeo.spec.lpg.cypher.expressions.ends.with` | `Conformance` | lpg | `Passed` | 9.216 ms |
+| `grafeo.spec.lpg.cypher.expressions.contains` | `Conformance` | lpg | `Passed` | 9.019 ms |
+| `grafeo.spec.lpg.cypher.expressions.in.list` | `Conformance` | lpg | `Passed` | 17.422 ms |
+| `grafeo.spec.lpg.cypher.expressions.regex.match` | `Conformance` | lpg | `Failed` | 0.076 ms |
+| `grafeo.spec.lpg.cypher.expressions.is.null` | `Conformance` | lpg | `Passed` | 14.289 ms |
+| `grafeo.spec.lpg.cypher.expressions.is.not.null` | `Conformance` | lpg | `Passed` | 10.069 ms |
+| `grafeo.spec.lpg.cypher.expressions.case.simple` | `Conformance` | lpg | `Passed` | 9.375 ms |
+| `grafeo.spec.lpg.cypher.expressions.case.searched` | `Conformance` | lpg | `Passed` | 9.473 ms |
+| `grafeo.spec.lpg.cypher.expressions.list.literal` | `Conformance` | lpg | `Failed` | 9.487 ms |
+| `grafeo.spec.lpg.cypher.expressions.list.comprehension` | `Conformance` | lpg | `Failed` | 10.097 ms |
+| `grafeo.spec.lpg.cypher.expressions.list.comprehension.filter.only` | `Conformance` | lpg | `Failed` | 9.935 ms |
+| `grafeo.spec.lpg.cypher.expressions.list.slice` | `Conformance` | lpg | `Failed` | 10.177 ms |
+| `grafeo.spec.lpg.cypher.expressions.index.access` | `Conformance` | lpg | `Passed` | 9.684 ms |
+| `grafeo.spec.lpg.cypher.expressions.coalesce` | `Conformance` | lpg | `Passed` | 9.843 ms |
+| `grafeo.spec.lpg.cypher.expressions.reduce` | `Conformance` | lpg | `Failed` | 0.293 ms |
+| `grafeo.spec.lpg.cypher.expressions.all.predicate` | `Conformance` | lpg | `Passed` | 9.072 ms |
+| `grafeo.spec.lpg.cypher.expressions.any.predicate` | `Conformance` | lpg | `Passed` | 8.729 ms |
+| `grafeo.spec.lpg.cypher.expressions.none.predicate` | `Conformance` | lpg | `Passed` | 8.873 ms |
+| `grafeo.spec.lpg.cypher.expressions.single.predicate` | `Conformance` | lpg | `Passed` | 8.859 ms |
+| `grafeo.spec.lpg.cypher.expressions.any.with.labels.in.where` | `Conformance` | lpg | `Passed` | 9.651 ms |
+| `grafeo.spec.lpg.cypher.expressions.comparison.in.return` | `Conformance` | lpg | `Passed` | 8.385 ms |
+| `grafeo.spec.lpg.cypher.expressions.aggregate.comparison.in.return` | `Conformance` | lpg | `Passed` | 8.216 ms |
+| `grafeo.spec.lpg.cypher.functions.id.of.node` | `Conformance` | lpg | `Passed` | 8.098 ms |
+| `grafeo.spec.lpg.cypher.functions.labels.single` | `Conformance` | lpg | `Failed` | 8.191 ms |
+| `grafeo.spec.lpg.cypher.functions.labels.multiple` | `Conformance` | lpg | `Passed` | 10.289 ms |
+| `grafeo.spec.lpg.cypher.functions.type.of.relationship` | `Conformance` | lpg | `Failed` | 10.922 ms |
+| `grafeo.spec.lpg.cypher.functions.keys.of.node` | `Conformance` | lpg | `Failed` | 8.737 ms |
+| `grafeo.spec.lpg.cypher.functions.properties.of.node` | `Conformance` | lpg | `Failed` | 8.178 ms |
+| `grafeo.spec.lpg.cypher.functions.exists.property.true` | `Conformance` | lpg | `Failed` | 8.135 ms |
+| `grafeo.spec.lpg.cypher.functions.exists.property.false` | `Conformance` | lpg | `Failed` | 7.726 ms |
+| `grafeo.spec.lpg.cypher.functions.head.of.list` | `Conformance` | lpg | `Passed` | 8.597 ms |
+| `grafeo.spec.lpg.cypher.functions.last.of.list` | `Conformance` | lpg | `Passed` | 8.355 ms |
+| `grafeo.spec.lpg.cypher.functions.tail.of.list` | `Conformance` | lpg | `Failed` | 8.473 ms |
+| `grafeo.spec.lpg.cypher.functions.range.default.step` | `Conformance` | lpg | `Failed` | 8.163 ms |
+| `grafeo.spec.lpg.cypher.functions.range.with.step` | `Conformance` | lpg | `Failed` | 8.495 ms |
+| `grafeo.spec.lpg.cypher.functions.size.of.list` | `Conformance` | lpg | `Passed` | 8.415 ms |
+| `grafeo.spec.lpg.cypher.functions.size.of.string` | `Conformance` | lpg | `Passed` | 8.530 ms |
+| `grafeo.spec.lpg.cypher.functions.to.lower` | `Conformance` | lpg | `Passed` | 8.385 ms |
+| `grafeo.spec.lpg.cypher.functions.to.upper` | `Conformance` | lpg | `Passed` | 8.163 ms |
+| `grafeo.spec.lpg.cypher.functions.trim.whitespace` | `Conformance` | lpg | `Passed` | 8.346 ms |
+| `grafeo.spec.lpg.cypher.functions.replace.substring` | `Conformance` | lpg | `Passed` | 8.603 ms |
+| `grafeo.spec.lpg.cypher.functions.substring.from.start` | `Conformance` | lpg | `Failed` | 8.500 ms |
+| `grafeo.spec.lpg.cypher.functions.substring.to.end` | `Conformance` | lpg | `Failed` | 8.193 ms |
+| `grafeo.spec.lpg.cypher.functions.split.string` | `Conformance` | lpg | `Failed` | 8.928 ms |
+| `grafeo.spec.lpg.cypher.functions.left.string` | `Conformance` | lpg | `Passed` | 9.116 ms |
+| `grafeo.spec.lpg.cypher.functions.right.string` | `Conformance` | lpg | `Passed` | 9.089 ms |
+| `grafeo.spec.lpg.cypher.functions.reverse.string` | `Conformance` | lpg | `Passed` | 9.076 ms |
+| `grafeo.spec.lpg.cypher.functions.abs.positive` | `Conformance` | lpg | `Passed` | 9.319 ms |
+| `grafeo.spec.lpg.cypher.functions.ceil.float` | `Conformance` | lpg | `Passed` | 9.054 ms |
+| `grafeo.spec.lpg.cypher.functions.floor.float` | `Conformance` | lpg | `Passed` | 9.006 ms |
+| `grafeo.spec.lpg.cypher.functions.round.float` | `Conformance` | lpg | `Passed` | 9.335 ms |
+| `grafeo.spec.lpg.cypher.functions.sign.positive` | `Conformance` | lpg | `Passed` | 9.367 ms |
+| `grafeo.spec.lpg.cypher.functions.sign.negative` | `Conformance` | lpg | `Passed` | 9.261 ms |
+| `grafeo.spec.lpg.cypher.functions.sign.zero` | `Conformance` | lpg | `Passed` | 8.674 ms |
+| `grafeo.spec.lpg.cypher.functions.sqrt.perfect.square` | `Conformance` | lpg | `Passed` | 8.847 ms |
+| `grafeo.spec.lpg.cypher.functions.to.integer.from.string` | `Conformance` | lpg | `Passed` | 8.645 ms |
+| `grafeo.spec.lpg.cypher.functions.to.integer.from.float` | `Conformance` | lpg | `Passed` | 8.469 ms |
+| `grafeo.spec.lpg.cypher.functions.to.float.from.string` | `Conformance` | lpg | `Passed` | 8.383 ms |
+| `grafeo.spec.lpg.cypher.functions.to.float.from.integer` | `Conformance` | lpg | `Passed` | 8.057 ms |
+| `grafeo.spec.lpg.cypher.functions.to.string.from.integer` | `Conformance` | lpg | `Passed` | 8.202 ms |
+| `grafeo.spec.lpg.cypher.functions.to.boolean.from.string.true` | `Conformance` | lpg | `Passed` | 8.447 ms |
+| `grafeo.spec.lpg.cypher.functions.to.boolean.from.string.false` | `Conformance` | lpg | `Passed` | 8.492 ms |
+| `grafeo.spec.lpg.cypher.functions.date.from.string` | `Conformance` | lpg | `Passed` | 8.229 ms |
+| `grafeo.spec.lpg.cypher.functions.date.from.map` | `Conformance` | lpg | `Passed` | 8.387 ms |
+| `grafeo.spec.lpg.cypher.functions.datetime.from.string` | `Conformance` | lpg | `Passed` | 8.468 ms |
+| `grafeo.spec.lpg.cypher.functions.duration.from.string` | `Conformance` | lpg | `Passed` | 8.232 ms |
+| `grafeo.spec.lpg.cypher.functions.path.length` | `Conformance` | lpg | `Passed` | 13.103 ms |
+| `grafeo.spec.lpg.cypher.functions.path.length.single.hop` | `Conformance` | lpg | `Passed` | 9.745 ms |
+| `grafeo.spec.lpg.cypher.functions.collect.names` | `Conformance` | lpg | `Passed` | 8.948 ms |
+| `grafeo.spec.lpg.cypher.functions.collect.distinct` | `Conformance` | lpg | `Failed` | 9.501 ms |
+| `grafeo.spec.lpg.cypher.functions.count.with.distinct` | `Conformance` | lpg | `Passed` | 9.664 ms |
+| `grafeo.spec.lpg.cypher.functions.sum.values` | `Conformance` | lpg | `Passed` | 9.813 ms |
+| `grafeo.spec.lpg.cypher.functions.avg.values` | `Conformance` | lpg | `Passed` | 9.825 ms |
+| `grafeo.spec.lpg.cypher.functions.min.values` | `Conformance` | lpg | `Passed` | 9.516 ms |
+| `grafeo.spec.lpg.cypher.functions.max.values` | `Conformance` | lpg | `Passed` | 9.724 ms |
+| `grafeo.spec.lpg.cypher.functions.chained.string.functions` | `Conformance` | lpg | `Passed` | 8.325 ms |
+| `grafeo.spec.lpg.cypher.functions.nested.list.functions` | `Conformance` | lpg | `Passed` | 8.751 ms |
+| `grafeo.spec.lpg.cypher.functions.extended.log.of.e` | `Conformance` | lpg | `Failed` | 8.183 ms |
+| `grafeo.spec.lpg.cypher.functions.extended.log10.of.100` | `Conformance` | lpg | `Passed` | 8.030 ms |
+| `grafeo.spec.lpg.cypher.functions.extended.exp.of.zero` | `Conformance` | lpg | `Passed` | 8.084 ms |
+| `grafeo.spec.lpg.cypher.functions.extended.e.constant` | `Conformance` | lpg | `Failed` | 12.484 ms |
+| `grafeo.spec.lpg.cypher.functions.extended.pi.constant` | `Conformance` | lpg | `Passed` | 10.227 ms |
+| `grafeo.spec.lpg.cypher.functions.extended.rand.in.range` | `Conformance` | lpg | `Passed` | 8.257 ms |
+| `grafeo.spec.lpg.cypher.functions.extended.sin.of.zero` | `Conformance` | lpg | `Passed` | 8.260 ms |
+| `grafeo.spec.lpg.cypher.functions.extended.cos.of.zero` | `Conformance` | lpg | `Passed` | 8.134 ms |
+| `grafeo.spec.lpg.cypher.functions.extended.tan.of.zero` | `Conformance` | lpg | `Passed` | 8.992 ms |
+| `grafeo.spec.lpg.cypher.functions.extended.asin.of.one` | `Conformance` | lpg | `Passed` | 9.375 ms |
+| `grafeo.spec.lpg.cypher.functions.extended.acos.of.one` | `Conformance` | lpg | `Passed` | 9.048 ms |
+| `grafeo.spec.lpg.cypher.functions.extended.atan.of.one` | `Conformance` | lpg | `Passed` | 9.243 ms |
+| `grafeo.spec.lpg.cypher.functions.extended.atan2.unit` | `Conformance` | lpg | `Passed` | 9.349 ms |
+| `grafeo.spec.lpg.cypher.functions.extended.degrees.from.pi` | `Conformance` | lpg | `Passed` | 9.268 ms |
+| `grafeo.spec.lpg.cypher.functions.extended.radians.from.180` | `Conformance` | lpg | `Passed` | 9.330 ms |
+| `grafeo.spec.lpg.cypher.functions.extended.ltrim.whitespace` | `Conformance` | lpg | `Passed` | 9.448 ms |
+| `grafeo.spec.lpg.cypher.functions.extended.rtrim.whitespace` | `Conformance` | lpg | `Passed` | 9.474 ms |
+| `grafeo.spec.lpg.cypher.functions.extended.char.length.string` | `Conformance` | lpg | `Passed` | 9.140 ms |
+| `grafeo.spec.lpg.cypher.functions.extended.length.of.string` | `Conformance` | lpg | `Passed` | 9.338 ms |
+| `grafeo.spec.lpg.cypher.functions.extended.reverse.list` | `Conformance` | lpg | `Failed` | 9.553 ms |
+| `grafeo.spec.lpg.cypher.functions.extended.keys.of.map` | `Conformance` | lpg | `Passed` | 9.980 ms |
+| `grafeo.spec.lpg.cypher.functions.extended.stdev.sample` | `Conformance` | lpg | `Failed` | 13.001 ms |
+| `grafeo.spec.lpg.cypher.functions.extended.stdevp.population` | `Conformance` | lpg | `Failed` | 16.032 ms |
+| `grafeo.spec.lpg.cypher.functions.extended.percentile.cont.median` | `Conformance` | lpg | `Failed` | 13.343 ms |
+| `grafeo.spec.lpg.cypher.functions.extended.percentile.disc.median` | `Conformance` | lpg | `Failed` | 11.125 ms |
+| `grafeo.spec.lpg.cypher.functions.extended.element.id.not.null` | `Conformance` | lpg | `Failed` | 8.568 ms |
+| `grafeo.spec.lpg.cypher.functions.extended.count.star` | `Conformance` | lpg | `Passed` | 8.899 ms |
+| `grafeo.spec.lpg.cypher.functions.extended.count.expr` | `Conformance` | lpg | `Passed` | 9.275 ms |
+| `grafeo.spec.lpg.cypher.functions.extended.nodes.of.path` | `Conformance` | lpg | `Passed` | 10.558 ms |
+| `grafeo.spec.lpg.cypher.functions.extended.relationships.of.path` | `Conformance` | lpg | `Passed` | 10.567 ms |
+| `grafeo.spec.lpg.cypher.functions.extended.nodes.of.multi.hop.path` | `Conformance` | lpg | `Passed` | 13.654 ms |
+| `grafeo.spec.lpg.cypher.functions.extended.relationships.of.multi.hop.path` | `Conformance` | lpg | `Passed` | 17.962 ms |
+| `grafeo.spec.lpg.cypher.functions.extended.date.no.args` | `Conformance` | lpg | `Passed` | 8.515 ms |
+| `grafeo.spec.lpg.cypher.functions.extended.now.returns.value` | `Conformance` | lpg | `Failed` | 10.866 ms |
+| `grafeo.spec.lpg.cypher.functions.extended.year.accessor` | `Conformance` | lpg | `Failed` | 8.527 ms |
+| `grafeo.spec.lpg.cypher.functions.extended.month.accessor` | `Conformance` | lpg | `Failed` | 8.003 ms |
+| `grafeo.spec.lpg.cypher.functions.extended.day.accessor` | `Conformance` | lpg | `Failed` | 8.207 ms |
+| `grafeo.spec.lpg.cypher.functions.extended.time.from.string` | `Conformance` | lpg | `Passed` | 8.666 ms |
+| `grafeo.spec.lpg.cypher.functions.extended.duration.from.map` | `Conformance` | lpg | `Passed` | 8.299 ms |
+| `grafeo.spec.lpg.cypher.patterns.anonymous.node` | `Conformance` | lpg | `Passed` | 8.113 ms |
+| `grafeo.spec.lpg.cypher.patterns.variable.binding` | `Conformance` | lpg | `Passed` | 7.723 ms |
+| `grafeo.spec.lpg.cypher.patterns.single.label` | `Conformance` | lpg | `Passed` | 8.756 ms |
+| `grafeo.spec.lpg.cypher.patterns.multiple.labels` | `Conformance` | lpg | `Passed` | 9.013 ms |
+| `grafeo.spec.lpg.cypher.patterns.property.filter` | `Conformance` | lpg | `Passed` | 9.109 ms |
+| `grafeo.spec.lpg.cypher.patterns.outgoing.relationship` | `Conformance` | lpg | `Passed` | 9.467 ms |
+| `grafeo.spec.lpg.cypher.patterns.incoming.relationship` | `Conformance` | lpg | `Passed` | 9.737 ms |
+| `grafeo.spec.lpg.cypher.patterns.undirected.relationship` | `Conformance` | lpg | `Passed` | 9.983 ms |
+| `grafeo.spec.lpg.cypher.patterns.multiple.relationship.types` | `Conformance` | lpg | `Passed` | 12.267 ms |
+| `grafeo.spec.lpg.cypher.patterns.relationship.properties` | `Conformance` | lpg | `Passed` | 10.089 ms |
+| `grafeo.spec.lpg.cypher.patterns.untyped.relationship` | `Conformance` | lpg | `Failed` | 9.722 ms |
+| `grafeo.spec.lpg.cypher.patterns.anonymous.relationship` | `Conformance` | lpg | `Passed` | 9.390 ms |
+| `grafeo.spec.lpg.cypher.patterns.variable.length.unbounded` | `Conformance` | lpg | `Passed` | 11.910 ms |
+| `grafeo.spec.lpg.cypher.patterns.variable.length.exact` | `Conformance` | lpg | `Passed` | 13.452 ms |
+| `grafeo.spec.lpg.cypher.patterns.variable.length.range` | `Conformance` | lpg | `Passed` | 18.737 ms |
+| `grafeo.spec.lpg.cypher.patterns.variable.length.max.only` | `Conformance` | lpg | `Passed` | 12.734 ms |
+| `grafeo.spec.lpg.cypher.patterns.variable.length.min.only` | `Conformance` | lpg | `Passed` | 12.915 ms |
+| `grafeo.spec.lpg.cypher.patterns.path.alias` | `Conformance` | lpg | `Passed` | 9.884 ms |
+| `grafeo.spec.lpg.cypher.patterns.shortest.path` | `Conformance` | lpg | `Failed` | 0.031 ms |
+| `grafeo.spec.lpg.cypher.patterns.all.shortest.paths` | `Conformance` | lpg | `Failed` | 0.024 ms |
+| `grafeo.spec.lpg.cypher.patterns.pattern.comprehension` | `Conformance` | lpg | `Failed` | 0.105 ms |
+| `grafeo.spec.lpg.cypher.patterns.exists.subquery` | `Conformance` | lpg | `Passed` | 10.717 ms |
+| `grafeo.spec.lpg.cypher.patterns.not.exists` | `Conformance` | lpg | `Passed` | 9.769 ms |
+| `grafeo.spec.lpg.cypher.patterns.count.subquery` | `Conformance` | lpg | `Passed` | 11.394 ms |
+| `grafeo.spec.lpg.cypher.reading.clauses.match.single.node` | `Conformance` | lpg | `Passed` | 8.847 ms |
+| `grafeo.spec.lpg.cypher.reading.clauses.match.by.label` | `Conformance` | lpg | `Passed` | 8.461 ms |
+| `grafeo.spec.lpg.cypher.reading.clauses.match.by.property` | `Conformance` | lpg | `Passed` | 8.739 ms |
+| `grafeo.spec.lpg.cypher.reading.clauses.match.multi.label` | `Conformance` | lpg | `Passed` | 8.870 ms |
+| `grafeo.spec.lpg.cypher.reading.clauses.match.comma.patterns` | `Conformance` | lpg | `Passed` | 8.921 ms |
+| `grafeo.spec.lpg.cypher.reading.clauses.match.multiple.clauses` | `Conformance` | lpg | `Passed` | 8.809 ms |
+| `grafeo.spec.lpg.cypher.reading.clauses.match.edge.outgoing` | `Conformance` | lpg | `Passed` | 9.701 ms |
+| `grafeo.spec.lpg.cypher.reading.clauses.match.edge.incoming` | `Conformance` | lpg | `Passed` | 9.580 ms |
+| `grafeo.spec.lpg.cypher.reading.clauses.match.edge.undirected` | `Conformance` | lpg | `Passed` | 9.760 ms |
+| `grafeo.spec.lpg.cypher.reading.clauses.optional.match.with.result` | `Conformance` | lpg | `Passed` | 9.399 ms |
+| `grafeo.spec.lpg.cypher.reading.clauses.optional.match.null` | `Conformance` | lpg | `Passed` | 9.203 ms |
+| `grafeo.spec.lpg.cypher.reading.clauses.where.comparison` | `Conformance` | lpg | `Passed` | 8.925 ms |
+| `grafeo.spec.lpg.cypher.reading.clauses.where.and` | `Conformance` | lpg | `Passed` | 9.389 ms |
+| `grafeo.spec.lpg.cypher.reading.clauses.where.or` | `Conformance` | lpg | `Passed` | 9.909 ms |
+| `grafeo.spec.lpg.cypher.reading.clauses.where.not` | `Conformance` | lpg | `Passed` | 9.533 ms |
+| `grafeo.spec.lpg.cypher.reading.clauses.where.xor` | `Conformance` | lpg | `Passed` | 10.633 ms |
+| `grafeo.spec.lpg.cypher.reading.clauses.with.projection` | `Conformance` | lpg | `Passed` | 8.404 ms |
+| `grafeo.spec.lpg.cypher.reading.clauses.with.distinct` | `Conformance` | lpg | `Passed` | 9.213 ms |
+| `grafeo.spec.lpg.cypher.reading.clauses.with.where` | `Conformance` | lpg | `Passed` | 8.993 ms |
+| `grafeo.spec.lpg.cypher.reading.clauses.with.star` | `Conformance` | lpg | `Passed` | 8.140 ms |
+| `grafeo.spec.lpg.cypher.reading.clauses.unwind.list` | `Conformance` | lpg | `Passed` | 7.220 ms |
+| `grafeo.spec.lpg.cypher.reading.clauses.unwind.with.match` | `Conformance` | lpg | `Passed` | 8.897 ms |
+| `grafeo.spec.lpg.cypher.reading.clauses.union` | `Conformance` | lpg | `Passed` | 8.936 ms |
+| `grafeo.spec.lpg.cypher.reading.clauses.union.all` | `Conformance` | lpg | `Passed` | 8.361 ms |
+| `grafeo.spec.lpg.cypher.reading.clauses.call.db.labels` | `Conformance` | lpg | `Passed` | 8.308 ms |
+| `grafeo.spec.lpg.cypher.reading.clauses.call.db.relationship.types` | `Conformance` | lpg | `Passed` | 8.720 ms |
+| `grafeo.spec.lpg.cypher.reading.clauses.call.db.property.keys` | `Conformance` | lpg | `Failed` | 7.529 ms |
 | `grafeo.spec.lpg.cypher.reading.clauses.call.subquery.basic` | `Conformance` | lpg | `Failed` | 0.025 ms |
 | `grafeo.spec.lpg.cypher.reading.clauses.call.subquery.with.outer.scope` | `Conformance` | lpg | `Failed` | 0.057 ms |
-| `grafeo.spec.lpg.cypher.regression.not.exists.with.type.filter` | `Conformance` | lpg | `Failed` | 11.911 ms |
-| `grafeo.spec.lpg.cypher.regression.sum.case.when` | `Conformance` | lpg | `Passed` | 15.962 ms |
-| `grafeo.spec.lpg.cypher.regression.any.labels.in.list.matches` | `Conformance` | lpg | `Passed` | 9.250 ms |
-| `grafeo.spec.lpg.cypher.regression.any.labels.in.list.no.match` | `Conformance` | lpg | `Passed` | 9.241 ms |
-| `grafeo.spec.lpg.cypher.regression.any.with.single.match` | `Conformance` | lpg | `Passed` | 8.801 ms |
-| `grafeo.spec.lpg.cypher.regression.reduce.with.case.max` | `Conformance` | lpg | `Failed` | 0.235 ms |
-| `grafeo.spec.lpg.cypher.regression.reduce.with.case.min` | `Conformance` | lpg | `Failed` | 0.223 ms |
-| `grafeo.spec.lpg.cypher.regression.reduce.with.case.conditional.sum` | `Conformance` | lpg | `Failed` | 0.218 ms |
-| `grafeo.spec.lpg.cypher.regression.outgoing.target.property.filter` | `Conformance` | lpg | `Passed` | 12.234 ms |
-| `grafeo.spec.lpg.cypher.regression.target.property.filter.count` | `Conformance` | lpg | `Passed` | 11.634 ms |
-| `grafeo.spec.lpg.cypher.regression.target.property.filter.no.match` | `Conformance` | lpg | `Passed` | 9.489 ms |
-| `grafeo.spec.lpg.cypher.regression.edge.property.filter` | `Conformance` | lpg | `Passed` | 12.689 ms |
-| `grafeo.spec.lpg.cypher.regression.optional.match.count.preserves.all.rows` | `Conformance` | lpg | `Passed` | 10.692 ms |
-| `grafeo.spec.lpg.cypher.regression.union.deduplicates` | `Conformance` | lpg | `Passed` | 7.504 ms |
-| `grafeo.spec.lpg.cypher.regression.union.all.preserves` | `Conformance` | lpg | `Passed` | 7.108 ms |
-| `grafeo.spec.lpg.cypher.regression.two.hop.equivalence` | `Conformance` | lpg | `Passed` | 12.336 ms |
-| `grafeo.spec.lpg.cypher.regression.merge.creates.new.after.delete` | `Conformance` | lpg | `Passed` | 9.581 ms |
-| `grafeo.spec.lpg.cypher.regression.replace.edge` | `Conformance` | lpg | `Passed` | 13.238 ms |
-| `grafeo.spec.lpg.cypher.regression.backward.arrow.forward` | `Conformance` | lpg | `Passed` | 9.920 ms |
-| `grafeo.spec.lpg.cypher.regression.backward.arrow.reverse` | `Conformance` | lpg | `Passed` | 10.006 ms |
-| `grafeo.spec.lpg.cypher.regression.backward.arrow.wrong.direction` | `Conformance` | lpg | `Passed` | 9.587 ms |
-| `grafeo.spec.lpg.cypher.regression.null.equals.null.is.unknown` | `Conformance` | lpg | `Passed` | 8.186 ms |
-| `grafeo.spec.lpg.cypher.regression.null.is.null.is.true` | `Conformance` | lpg | `Passed` | 8.187 ms |
-| `grafeo.spec.lpg.cypher.regression.bool.to.string` | `Conformance` | lpg | `Passed` | 8.858 ms |
-| `grafeo.spec.lpg.cypher.regression.int.to.string` | `Conformance` | lpg | `Passed` | 8.640 ms |
-| `grafeo.spec.lpg.cypher.regression.string.false.ne.bool.false` | `Conformance` | lpg | `Failed` | 8.854 ms |
-| `grafeo.spec.lpg.cypher.regression.neq.excludes.null` | `Conformance` | lpg | `Passed` | 9.299 ms |
-| `grafeo.spec.lpg.cypher.regression.skip.plus.limit` | `Conformance` | lpg | `Passed` | 14.336 ms |
-| `grafeo.spec.lpg.cypher.regression.distinct.values` | `Conformance` | lpg | `Passed` | 10.433 ms |
-| `grafeo.spec.lpg.cypher.regression.distinct.collapses.nulls` | `Conformance` | lpg | `Passed` | 10.789 ms |
-| `grafeo.spec.lpg.cypher.regression.order.by.property.matching.return.alias.with.edge` | `Conformance` | lpg | `Passed` | 14.610 ms |
-| `grafeo.spec.lpg.cypher.regression.order.by.desc.with.relationship.traversal` | `Conformance` | lpg | `Passed` | 14.797 ms |
-| `grafeo.spec.lpg.cypher.return.ordering.return.expression` | `Conformance` | lpg | `Passed` | 8.874 ms |
-| `grafeo.spec.lpg.cypher.return.ordering.return.alias` | `Conformance` | lpg | `Passed` | 8.588 ms |
-| `grafeo.spec.lpg.cypher.return.ordering.return.distinct` | `Conformance` | lpg | `Passed` | 9.595 ms |
-| `grafeo.spec.lpg.cypher.return.ordering.return.star` | `Conformance` | lpg | `Passed` | 8.241 ms |
-| `grafeo.spec.lpg.cypher.return.ordering.return.count.star` | `Conformance` | lpg | `Passed` | 9.029 ms |
-| `grafeo.spec.lpg.cypher.return.ordering.return.arithmetic` | `Conformance` | lpg | `Passed` | 8.723 ms |
-| `grafeo.spec.lpg.cypher.return.ordering.return.boolean.expression` | `Conformance` | lpg | `Passed` | 8.697 ms |
-| `grafeo.spec.lpg.cypher.return.ordering.order.by.asc` | `Conformance` | lpg | `Passed` | 9.513 ms |
-| `grafeo.spec.lpg.cypher.return.ordering.order.by.desc` | `Conformance` | lpg | `Passed` | 9.416 ms |
-| `grafeo.spec.lpg.cypher.return.ordering.order.by.multiple.keys` | `Conformance` | lpg | `Passed` | 11.077 ms |
-| `grafeo.spec.lpg.cypher.return.ordering.limit` | `Conformance` | lpg | `Passed` | 11.448 ms |
-| `grafeo.spec.lpg.cypher.return.ordering.skip` | `Conformance` | lpg | `Passed` | 11.826 ms |
-| `grafeo.spec.lpg.cypher.return.ordering.skip.and.limit` | `Conformance` | lpg | `Passed` | 11.346 ms |
-| `grafeo.spec.lpg.cypher.types.integer.decimal` | `Conformance` | lpg | `Passed` | 8.233 ms |
-| `grafeo.spec.lpg.cypher.types.integer.negative` | `Conformance` | lpg | `Passed` | 8.437 ms |
-| `grafeo.spec.lpg.cypher.types.integer.zero` | `Conformance` | lpg | `Passed` | 8.250 ms |
-| `grafeo.spec.lpg.cypher.types.integer.hex` | `Conformance` | lpg | `Passed` | 8.173 ms |
-| `grafeo.spec.lpg.cypher.types.integer.octal` | `Conformance` | lpg | `Passed` | 8.210 ms |
-| `grafeo.spec.lpg.cypher.types.float.decimal` | `Conformance` | lpg | `Passed` | 8.522 ms |
-| `grafeo.spec.lpg.cypher.types.float.scientific` | `Conformance` | lpg | `Passed` | 8.080 ms |
-| `grafeo.spec.lpg.cypher.types.float.negative` | `Conformance` | lpg | `Passed` | 8.308 ms |
-| `grafeo.spec.lpg.cypher.types.string.single.quoted` | `Conformance` | lpg | `Passed` | 8.304 ms |
-| `grafeo.spec.lpg.cypher.types.string.double.quoted` | `Conformance` | lpg | `Passed` | 8.030 ms |
-| `grafeo.spec.lpg.cypher.types.string.empty` | `Conformance` | lpg | `Passed` | 8.220 ms |
-| `grafeo.spec.lpg.cypher.types.boolean.true` | `Conformance` | lpg | `Passed` | 7.944 ms |
-| `grafeo.spec.lpg.cypher.types.boolean.false` | `Conformance` | lpg | `Passed` | 8.069 ms |
-| `grafeo.spec.lpg.cypher.types.null.literal` | `Conformance` | lpg | `Passed` | 7.967 ms |
-| `grafeo.spec.lpg.cypher.types.null.comparison.is.null` | `Conformance` | lpg | `Passed` | 8.069 ms |
-| `grafeo.spec.lpg.cypher.types.null.comparison.is.not.null` | `Conformance` | lpg | `Passed` | 7.981 ms |
-| `grafeo.spec.lpg.cypher.types.null.equality.returns.null` | `Conformance` | lpg | `Failed` | 8.010 ms |
-| `grafeo.spec.lpg.cypher.types.missing.property.is.null` | `Conformance` | lpg | `Passed` | 8.322 ms |
-| `grafeo.spec.lpg.cypher.types.list.of.integers` | `Conformance` | lpg | `Failed` | 8.089 ms |
-| `grafeo.spec.lpg.cypher.types.list.empty` | `Conformance` | lpg | `Passed` | 8.018 ms |
-| `grafeo.spec.lpg.cypher.types.list.nested` | `Conformance` | lpg | `Passed` | 8.350 ms |
-| `grafeo.spec.lpg.cypher.types.list.size` | `Conformance` | lpg | `Passed` | 8.416 ms |
-| `grafeo.spec.lpg.cypher.types.map.literal` | `Conformance` | lpg | `Passed` | 8.077 ms |
-| `grafeo.spec.lpg.cypher.types.map.key.count` | `Conformance` | lpg | `Passed` | 8.656 ms |
-| `grafeo.spec.lpg.cypher.types.node.return` | `Conformance` | lpg | `Passed` | 7.772 ms |
-| `grafeo.spec.lpg.cypher.types.relationship.return` | `Conformance` | lpg | `Passed` | 18.530 ms |
-| `grafeo.spec.lpg.cypher.types.path.return` | `Conformance` | lpg | `Passed` | 18.426 ms |
-| `grafeo.spec.lpg.cypher.types.date.from.string` | `Conformance` | lpg | `Passed` | 8.265 ms |
-| `grafeo.spec.lpg.cypher.types.time.from.string` | `Conformance` | lpg | `Passed` | 8.111 ms |
-| `grafeo.spec.lpg.cypher.types.datetime.from.string` | `Conformance` | lpg | `Passed` | 8.113 ms |
-| `grafeo.spec.lpg.cypher.types.duration.from.string` | `Conformance` | lpg | `Passed` | 7.926 ms |
-| `grafeo.spec.lpg.cypher.types.date.stored.as.property` | `Conformance` | lpg | `Passed` | 8.329 ms |
-| `grafeo.spec.lpg.cypher.types.integer.to.float.arithmetic` | `Conformance` | lpg | `Passed` | 8.041 ms |
-| `grafeo.spec.lpg.cypher.types.to.integer.truncation` | `Conformance` | lpg | `Passed` | 7.994 ms |
-| `grafeo.spec.lpg.cypher.types.to.float.from.integer` | `Conformance` | lpg | `Passed` | 8.004 ms |
-| `grafeo.spec.lpg.cypher.types.to.string.from.boolean` | `Conformance` | lpg | `Failed` | 8.013 ms |
-| `grafeo.spec.lpg.cypher.types.to.boolean.from.string.false` | `Conformance` | lpg | `Passed` | 8.200 ms |
-| `grafeo.spec.lpg.cypher.writing.clauses.create.node` | `Conformance` | lpg | `Passed` | 7.720 ms |
-| `grafeo.spec.lpg.cypher.writing.clauses.create.node.multi.label` | `Conformance` | lpg | `Passed` | 8.372 ms |
-| `grafeo.spec.lpg.cypher.writing.clauses.create.relationship` | `Conformance` | lpg | `Passed` | 9.700 ms |
-| `grafeo.spec.lpg.cypher.writing.clauses.create.relationship.with.properties` | `Conformance` | lpg | `Passed` | 10.077 ms |
-| `grafeo.spec.lpg.cypher.writing.clauses.create.path.pattern` | `Conformance` | lpg | `Passed` | 10.289 ms |
-| `grafeo.spec.lpg.cypher.writing.clauses.delete.node` | `Conformance` | lpg | `Passed` | 8.867 ms |
-| `grafeo.spec.lpg.cypher.writing.clauses.delete.multiple` | `Conformance` | lpg | `Passed` | 9.569 ms |
-| `grafeo.spec.lpg.cypher.writing.clauses.detach.delete` | `Conformance` | lpg | `Passed` | 10.008 ms |
-| `grafeo.spec.lpg.cypher.writing.clauses.detach.delete.with.return` | `Conformance` | lpg | `Passed` | 12.462 ms |
-| `grafeo.spec.lpg.cypher.writing.clauses.set.property` | `Conformance` | lpg | `Passed` | 10.895 ms |
-| `grafeo.spec.lpg.cypher.writing.clauses.set.multiple.properties` | `Conformance` | lpg | `Passed` | 9.360 ms |
-| `grafeo.spec.lpg.cypher.writing.clauses.set.replace.all` | `Conformance` | lpg | `Passed` | 10.104 ms |
-| `grafeo.spec.lpg.cypher.writing.clauses.set.merge.map` | `Conformance` | lpg | `Passed` | 9.034 ms |
-| `grafeo.spec.lpg.cypher.writing.clauses.set.label` | `Conformance` | lpg | `Passed` | 8.379 ms |
-| `grafeo.spec.lpg.cypher.writing.clauses.set.multiple.labels` | `Conformance` | lpg | `Passed` | 8.991 ms |
-| `grafeo.spec.lpg.cypher.writing.clauses.set.label.preserves.variable.binding` | `Conformance` | lpg | `Passed` | 8.641 ms |
-| `grafeo.spec.lpg.cypher.writing.clauses.count.star.after.set.label` | `Conformance` | lpg | `Passed` | 10.001 ms |
-| `grafeo.spec.lpg.cypher.writing.clauses.count.var.after.set.label` | `Conformance` | lpg | `Passed` | 9.441 ms |
-| `grafeo.spec.lpg.cypher.writing.clauses.remove.property` | `Conformance` | lpg | `Passed` | 8.665 ms |
-| `grafeo.spec.lpg.cypher.writing.clauses.remove.label` | `Conformance` | lpg | `Failed` | 0.101 ms |
+| `grafeo.spec.lpg.cypher.regression.not.exists.with.type.filter` | `Conformance` | lpg | `Failed` | 11.747 ms |
+| `grafeo.spec.lpg.cypher.regression.sum.case.when` | `Conformance` | lpg | `Passed` | 16.068 ms |
+| `grafeo.spec.lpg.cypher.regression.any.labels.in.list.matches` | `Conformance` | lpg | `Passed` | 9.133 ms |
+| `grafeo.spec.lpg.cypher.regression.any.labels.in.list.no.match` | `Conformance` | lpg | `Passed` | 8.972 ms |
+| `grafeo.spec.lpg.cypher.regression.any.with.single.match` | `Conformance` | lpg | `Passed` | 8.863 ms |
+| `grafeo.spec.lpg.cypher.regression.reduce.with.case.max` | `Conformance` | lpg | `Failed` | 0.246 ms |
+| `grafeo.spec.lpg.cypher.regression.reduce.with.case.min` | `Conformance` | lpg | `Failed` | 0.225 ms |
+| `grafeo.spec.lpg.cypher.regression.reduce.with.case.conditional.sum` | `Conformance` | lpg | `Failed` | 0.222 ms |
+| `grafeo.spec.lpg.cypher.regression.outgoing.target.property.filter` | `Conformance` | lpg | `Passed` | 11.819 ms |
+| `grafeo.spec.lpg.cypher.regression.target.property.filter.count` | `Conformance` | lpg | `Passed` | 11.833 ms |
+| `grafeo.spec.lpg.cypher.regression.target.property.filter.no.match` | `Conformance` | lpg | `Passed` | 9.636 ms |
+| `grafeo.spec.lpg.cypher.regression.edge.property.filter` | `Conformance` | lpg | `Passed` | 12.226 ms |
+| `grafeo.spec.lpg.cypher.regression.optional.match.count.preserves.all.rows` | `Conformance` | lpg | `Passed` | 10.638 ms |
+| `grafeo.spec.lpg.cypher.regression.union.deduplicates` | `Conformance` | lpg | `Passed` | 7.361 ms |
+| `grafeo.spec.lpg.cypher.regression.union.all.preserves` | `Conformance` | lpg | `Passed` | 7.172 ms |
+| `grafeo.spec.lpg.cypher.regression.two.hop.equivalence` | `Conformance` | lpg | `Passed` | 12.380 ms |
+| `grafeo.spec.lpg.cypher.regression.merge.creates.new.after.delete` | `Conformance` | lpg | `Passed` | 9.979 ms |
+| `grafeo.spec.lpg.cypher.regression.replace.edge` | `Conformance` | lpg | `Passed` | 13.431 ms |
+| `grafeo.spec.lpg.cypher.regression.backward.arrow.forward` | `Conformance` | lpg | `Passed` | 9.877 ms |
+| `grafeo.spec.lpg.cypher.regression.backward.arrow.reverse` | `Conformance` | lpg | `Passed` | 9.766 ms |
+| `grafeo.spec.lpg.cypher.regression.backward.arrow.wrong.direction` | `Conformance` | lpg | `Passed` | 9.626 ms |
+| `grafeo.spec.lpg.cypher.regression.null.equals.null.is.unknown` | `Conformance` | lpg | `Passed` | 8.203 ms |
+| `grafeo.spec.lpg.cypher.regression.null.is.null.is.true` | `Conformance` | lpg | `Passed` | 8.077 ms |
+| `grafeo.spec.lpg.cypher.regression.bool.to.string` | `Conformance` | lpg | `Passed` | 8.746 ms |
+| `grafeo.spec.lpg.cypher.regression.int.to.string` | `Conformance` | lpg | `Passed` | 8.717 ms |
+| `grafeo.spec.lpg.cypher.regression.string.false.ne.bool.false` | `Conformance` | lpg | `Failed` | 9.053 ms |
+| `grafeo.spec.lpg.cypher.regression.neq.excludes.null` | `Conformance` | lpg | `Passed` | 9.328 ms |
+| `grafeo.spec.lpg.cypher.regression.skip.plus.limit` | `Conformance` | lpg | `Passed` | 14.066 ms |
+| `grafeo.spec.lpg.cypher.regression.distinct.values` | `Conformance` | lpg | `Passed` | 9.491 ms |
+| `grafeo.spec.lpg.cypher.regression.distinct.collapses.nulls` | `Conformance` | lpg | `Passed` | 9.900 ms |
+| `grafeo.spec.lpg.cypher.regression.order.by.property.matching.return.alias.with.edge` | `Conformance` | lpg | `Passed` | 13.346 ms |
+| `grafeo.spec.lpg.cypher.regression.order.by.desc.with.relationship.traversal` | `Conformance` | lpg | `Passed` | 13.704 ms |
+| `grafeo.spec.lpg.cypher.return.ordering.return.expression` | `Conformance` | lpg | `Passed` | 17.149 ms |
+| `grafeo.spec.lpg.cypher.return.ordering.return.alias` | `Conformance` | lpg | `Passed` | 11.568 ms |
+| `grafeo.spec.lpg.cypher.return.ordering.return.distinct` | `Conformance` | lpg | `Passed` | 8.832 ms |
+| `grafeo.spec.lpg.cypher.return.ordering.return.star` | `Conformance` | lpg | `Passed` | 7.826 ms |
+| `grafeo.spec.lpg.cypher.return.ordering.return.count.star` | `Conformance` | lpg | `Passed` | 8.312 ms |
+| `grafeo.spec.lpg.cypher.return.ordering.return.arithmetic` | `Conformance` | lpg | `Passed` | 8.040 ms |
+| `grafeo.spec.lpg.cypher.return.ordering.return.boolean.expression` | `Conformance` | lpg | `Passed` | 8.120 ms |
+| `grafeo.spec.lpg.cypher.return.ordering.order.by.asc` | `Conformance` | lpg | `Passed` | 8.736 ms |
+| `grafeo.spec.lpg.cypher.return.ordering.order.by.desc` | `Conformance` | lpg | `Passed` | 8.761 ms |
+| `grafeo.spec.lpg.cypher.return.ordering.order.by.multiple.keys` | `Conformance` | lpg | `Passed` | 9.978 ms |
+| `grafeo.spec.lpg.cypher.return.ordering.limit` | `Conformance` | lpg | `Passed` | 10.601 ms |
+| `grafeo.spec.lpg.cypher.return.ordering.skip` | `Conformance` | lpg | `Passed` | 10.907 ms |
+| `grafeo.spec.lpg.cypher.return.ordering.skip.and.limit` | `Conformance` | lpg | `Passed` | 11.176 ms |
+| `grafeo.spec.lpg.cypher.types.integer.decimal` | `Conformance` | lpg | `Passed` | 8.258 ms |
+| `grafeo.spec.lpg.cypher.types.integer.negative` | `Conformance` | lpg | `Passed` | 7.951 ms |
+| `grafeo.spec.lpg.cypher.types.integer.zero` | `Conformance` | lpg | `Passed` | 8.700 ms |
+| `grafeo.spec.lpg.cypher.types.integer.hex` | `Conformance` | lpg | `Passed` | 7.922 ms |
+| `grafeo.spec.lpg.cypher.types.integer.octal` | `Conformance` | lpg | `Passed` | 8.362 ms |
+| `grafeo.spec.lpg.cypher.types.float.decimal` | `Conformance` | lpg | `Passed` | 8.249 ms |
+| `grafeo.spec.lpg.cypher.types.float.scientific` | `Conformance` | lpg | `Passed` | 10.209 ms |
+| `grafeo.spec.lpg.cypher.types.float.negative` | `Conformance` | lpg | `Passed` | 8.858 ms |
+| `grafeo.spec.lpg.cypher.types.string.single.quoted` | `Conformance` | lpg | `Passed` | 8.260 ms |
+| `grafeo.spec.lpg.cypher.types.string.double.quoted` | `Conformance` | lpg | `Passed` | 8.162 ms |
+| `grafeo.spec.lpg.cypher.types.string.empty` | `Conformance` | lpg | `Passed` | 8.404 ms |
+| `grafeo.spec.lpg.cypher.types.boolean.true` | `Conformance` | lpg | `Passed` | 8.166 ms |
+| `grafeo.spec.lpg.cypher.types.boolean.false` | `Conformance` | lpg | `Passed` | 7.915 ms |
+| `grafeo.spec.lpg.cypher.types.null.literal` | `Conformance` | lpg | `Passed` | 7.924 ms |
+| `grafeo.spec.lpg.cypher.types.null.comparison.is.null` | `Conformance` | lpg | `Passed` | 8.349 ms |
+| `grafeo.spec.lpg.cypher.types.null.comparison.is.not.null` | `Conformance` | lpg | `Passed` | 8.031 ms |
+| `grafeo.spec.lpg.cypher.types.null.equality.returns.null` | `Conformance` | lpg | `Failed` | 8.185 ms |
+| `grafeo.spec.lpg.cypher.types.missing.property.is.null` | `Conformance` | lpg | `Passed` | 8.429 ms |
+| `grafeo.spec.lpg.cypher.types.list.of.integers` | `Conformance` | lpg | `Failed` | 8.260 ms |
+| `grafeo.spec.lpg.cypher.types.list.empty` | `Conformance` | lpg | `Passed` | 8.046 ms |
+| `grafeo.spec.lpg.cypher.types.list.nested` | `Conformance` | lpg | `Passed` | 8.335 ms |
+| `grafeo.spec.lpg.cypher.types.list.size` | `Conformance` | lpg | `Passed` | 8.372 ms |
+| `grafeo.spec.lpg.cypher.types.map.literal` | `Conformance` | lpg | `Passed` | 8.526 ms |
+| `grafeo.spec.lpg.cypher.types.map.key.count` | `Conformance` | lpg | `Passed` | 8.721 ms |
+| `grafeo.spec.lpg.cypher.types.node.return` | `Conformance` | lpg | `Passed` | 7.713 ms |
+| `grafeo.spec.lpg.cypher.types.relationship.return` | `Conformance` | lpg | `Passed` | 9.964 ms |
+| `grafeo.spec.lpg.cypher.types.path.return` | `Conformance` | lpg | `Passed` | 9.635 ms |
+| `grafeo.spec.lpg.cypher.types.date.from.string` | `Conformance` | lpg | `Passed` | 8.204 ms |
+| `grafeo.spec.lpg.cypher.types.time.from.string` | `Conformance` | lpg | `Passed` | 8.077 ms |
+| `grafeo.spec.lpg.cypher.types.datetime.from.string` | `Conformance` | lpg | `Passed` | 8.537 ms |
+| `grafeo.spec.lpg.cypher.types.duration.from.string` | `Conformance` | lpg | `Passed` | 8.420 ms |
+| `grafeo.spec.lpg.cypher.types.date.stored.as.property` | `Conformance` | lpg | `Passed` | 8.351 ms |
+| `grafeo.spec.lpg.cypher.types.integer.to.float.arithmetic` | `Conformance` | lpg | `Passed` | 8.149 ms |
+| `grafeo.spec.lpg.cypher.types.to.integer.truncation` | `Conformance` | lpg | `Passed` | 8.131 ms |
+| `grafeo.spec.lpg.cypher.types.to.float.from.integer` | `Conformance` | lpg | `Passed` | 8.116 ms |
+| `grafeo.spec.lpg.cypher.types.to.string.from.boolean` | `Conformance` | lpg | `Failed` | 8.029 ms |
+| `grafeo.spec.lpg.cypher.types.to.boolean.from.string.false` | `Conformance` | lpg | `Passed` | 8.225 ms |
+| `grafeo.spec.lpg.cypher.writing.clauses.create.node` | `Conformance` | lpg | `Passed` | 7.625 ms |
+| `grafeo.spec.lpg.cypher.writing.clauses.create.node.multi.label` | `Conformance` | lpg | `Passed` | 8.407 ms |
+| `grafeo.spec.lpg.cypher.writing.clauses.create.relationship` | `Conformance` | lpg | `Passed` | 9.702 ms |
+| `grafeo.spec.lpg.cypher.writing.clauses.create.relationship.with.properties` | `Conformance` | lpg | `Passed` | 10.132 ms |
+| `grafeo.spec.lpg.cypher.writing.clauses.create.path.pattern` | `Conformance` | lpg | `Passed` | 10.237 ms |
+| `grafeo.spec.lpg.cypher.writing.clauses.delete.node` | `Conformance` | lpg | `Passed` | 8.994 ms |
+| `grafeo.spec.lpg.cypher.writing.clauses.delete.multiple` | `Conformance` | lpg | `Passed` | 9.430 ms |
+| `grafeo.spec.lpg.cypher.writing.clauses.detach.delete` | `Conformance` | lpg | `Passed` | 9.796 ms |
+| `grafeo.spec.lpg.cypher.writing.clauses.detach.delete.with.return` | `Conformance` | lpg | `Passed` | 10.322 ms |
+| `grafeo.spec.lpg.cypher.writing.clauses.set.property` | `Conformance` | lpg | `Passed` | 8.940 ms |
+| `grafeo.spec.lpg.cypher.writing.clauses.set.multiple.properties` | `Conformance` | lpg | `Passed` | 9.479 ms |
+| `grafeo.spec.lpg.cypher.writing.clauses.set.replace.all` | `Conformance` | lpg | `Passed` | 10.034 ms |
+| `grafeo.spec.lpg.cypher.writing.clauses.set.merge.map` | `Conformance` | lpg | `Passed` | 9.327 ms |
+| `grafeo.spec.lpg.cypher.writing.clauses.set.label` | `Conformance` | lpg | `Passed` | 8.559 ms |
+| `grafeo.spec.lpg.cypher.writing.clauses.set.multiple.labels` | `Conformance` | lpg | `Passed` | 9.195 ms |
+| `grafeo.spec.lpg.cypher.writing.clauses.set.label.preserves.variable.binding` | `Conformance` | lpg | `Passed` | 8.489 ms |
+| `grafeo.spec.lpg.cypher.writing.clauses.count.star.after.set.label` | `Conformance` | lpg | `Passed` | 10.327 ms |
+| `grafeo.spec.lpg.cypher.writing.clauses.count.var.after.set.label` | `Conformance` | lpg | `Passed` | 9.529 ms |
+| `grafeo.spec.lpg.cypher.writing.clauses.remove.property` | `Conformance` | lpg | `Passed` | 8.712 ms |
+| `grafeo.spec.lpg.cypher.writing.clauses.remove.label` | `Conformance` | lpg | `Failed` | 0.102 ms |
 | `grafeo.spec.lpg.cypher.writing.clauses.remove.label.preserves.variable.binding` | `Conformance` | lpg | `Failed` | 0.049 ms |
-| `grafeo.spec.lpg.cypher.writing.clauses.match.create.edge.no.phantoms` | `Conformance` | lpg | `Passed` | 9.689 ms |
-| `grafeo.spec.lpg.cypher.writing.clauses.match.create.edge.correct.endpoints` | `Conformance` | lpg | `Passed` | 10.189 ms |
-| `grafeo.spec.lpg.cypher.writing.clauses.merge.create` | `Conformance` | lpg | `Passed` | 8.049 ms |
-| `grafeo.spec.lpg.cypher.writing.clauses.merge.match` | `Conformance` | lpg | `Passed` | 8.187 ms |
-| `grafeo.spec.lpg.cypher.writing.clauses.merge.on.create.set` | `Conformance` | lpg | `Failed` | 8.625 ms |
-| `grafeo.spec.lpg.cypher.writing.clauses.merge.on.match.set` | `Conformance` | lpg | `Passed` | 11.404 ms |
-| `grafeo.spec.lpg.cypher.writing.clauses.merge.on.match.set.self.reference.increment` | `Conformance` | lpg | `Passed` | 9.320 ms |
-| `grafeo.spec.lpg.cypher.writing.clauses.merge.on.create.set.self.reference.coalesce` | `Conformance` | lpg | `Passed` | 9.418 ms |
-| `grafeo.spec.lpg.cypher.writing.clauses.merge.relationship` | `Conformance` | lpg | `Passed` | 10.611 ms |
-| `grafeo.spec.lpg.cypher.writing.clauses.merge.relationship.set` | `Conformance` | lpg | `Passed` | 11.718 ms |
-| `grafeo.spec.lpg.cypher.writing.clauses.foreach.create` | `Conformance` | lpg | `Passed` | 10.220 ms |
-| `grafeo.spec.regression.edge.cases.cyclic.vlp.same.source.and.target.variable.cypher-variant` | `Conformance` | regression | `Failed` | 6.987 ms |
-| `grafeo.spec.regression.edge.cases.cyclic.vlp.no.cycle.returns.empty.cypher-variant` | `Conformance` | regression | `Failed` | 6.768 ms |
-| `grafeo.spec.rosetta.aggregation.count.products.cypher-variant` | `Conformance` | rosetta | `Failed` | 23.732 ms |
-| `grafeo.spec.rosetta.aggregation.sum.order.totals.cypher.cypher-variant` | `Conformance` | rosetta | `Failed` | 0.030 ms |
-| `grafeo.spec.rosetta.aggregation.avg.product.price.cypher-variant` | `Conformance` | rosetta | `Failed` | 24.172 ms |
-| `grafeo.spec.rosetta.aggregation.min.max.price.cypher.cypher-variant` | `Conformance` | rosetta | `Failed` | 23.583 ms |
-| `grafeo.spec.rosetta.aggregation.count.by.status.cypher.cypher-variant` | `Conformance` | rosetta | `Failed` | 0.026 ms |
+| `grafeo.spec.lpg.cypher.writing.clauses.match.create.edge.no.phantoms` | `Conformance` | lpg | `Passed` | 9.790 ms |
+| `grafeo.spec.lpg.cypher.writing.clauses.match.create.edge.correct.endpoints` | `Conformance` | lpg | `Passed` | 10.431 ms |
+| `grafeo.spec.lpg.cypher.writing.clauses.merge.create` | `Conformance` | lpg | `Passed` | 8.079 ms |
+| `grafeo.spec.lpg.cypher.writing.clauses.merge.match` | `Conformance` | lpg | `Passed` | 8.226 ms |
+| `grafeo.spec.lpg.cypher.writing.clauses.merge.on.create.set` | `Conformance` | lpg | `Failed` | 9.055 ms |
+| `grafeo.spec.lpg.cypher.writing.clauses.merge.on.match.set` | `Conformance` | lpg | `Passed` | 9.505 ms |
+| `grafeo.spec.lpg.cypher.writing.clauses.merge.on.match.set.self.reference.increment` | `Conformance` | lpg | `Passed` | 9.396 ms |
+| `grafeo.spec.lpg.cypher.writing.clauses.merge.on.create.set.self.reference.coalesce` | `Conformance` | lpg | `Passed` | 9.045 ms |
+| `grafeo.spec.lpg.cypher.writing.clauses.merge.relationship` | `Conformance` | lpg | `Passed` | 10.667 ms |
+| `grafeo.spec.lpg.cypher.writing.clauses.merge.relationship.set` | `Conformance` | lpg | `Passed` | 11.574 ms |
+| `grafeo.spec.lpg.cypher.writing.clauses.foreach.create` | `Conformance` | lpg | `Passed` | 10.284 ms |
+| `grafeo.spec.regression.edge.cases.cyclic.vlp.same.source.and.target.variable.cypher-variant` | `Conformance` | regression | `Failed` | 7.007 ms |
+| `grafeo.spec.regression.edge.cases.cyclic.vlp.no.cycle.returns.empty.cypher-variant` | `Conformance` | regression | `Failed` | 6.897 ms |
+| `grafeo.spec.rosetta.aggregation.count.products.cypher-variant` | `Conformance` | rosetta | `Failed` | 23.629 ms |
+| `grafeo.spec.rosetta.aggregation.sum.order.totals.cypher.cypher-variant` | `Conformance` | rosetta | `Failed` | 0.028 ms |
+| `grafeo.spec.rosetta.aggregation.avg.product.price.cypher-variant` | `Conformance` | rosetta | `Failed` | 23.636 ms |
+| `grafeo.spec.rosetta.aggregation.min.max.price.cypher.cypher-variant` | `Conformance` | rosetta | `Failed` | 24.273 ms |
+| `grafeo.spec.rosetta.aggregation.count.by.status.cypher.cypher-variant` | `Conformance` | rosetta | `Failed` | 0.029 ms |
 | `grafeo.spec.rosetta.aggregation.orders.per.customer.cypher.cypher-variant` | `Conformance` | rosetta | `Failed` | 0.043 ms |
 | `grafeo.spec.rosetta.aggregation.total.spend.per.customer.cypher.cypher-variant` | `Conformance` | rosetta | `Failed` | 0.043 ms |
 | `grafeo.spec.rosetta.aggregation.customers.with.multiple.orders.cypher.cypher-variant` | `Conformance` | rosetta | `Failed` | 0.042 ms |
-| `grafeo.spec.rosetta.aggregation.avg.review.rating.cypher-variant` | `Conformance` | rosetta | `Failed` | 23.582 ms |
-| `grafeo.spec.rosetta.basic.queries.count.all.nodes.cypher-variant` | `Conformance` | rosetta | `Passed` | 15.128 ms |
-| `grafeo.spec.rosetta.basic.queries.match.by.label.cypher-variant` | `Conformance` | rosetta | `Passed` | 15.383 ms |
-| `grafeo.spec.rosetta.basic.queries.filter.by.age.cypher-variant` | `Conformance` | rosetta | `Passed` | 15.420 ms |
-| `grafeo.spec.rosetta.basic.queries.edge.traversal.cypher-variant` | `Conformance` | rosetta | `Passed` | 16.155 ms |
-| `grafeo.spec.rosetta.basic.queries.two.hop.path.cypher-variant` | `Conformance` | rosetta | `Passed` | 16.436 ms |
-| `grafeo.spec.rosetta.basic.queries.aggregation.group.by.cypher-variant` | `Conformance` | rosetta | `Passed` | 15.946 ms |
-| `grafeo.spec.rosetta.crud.operations.create.node.and.count.cypher-variant` | `Conformance` | rosetta | `Failed` | 6.698 ms |
-| `grafeo.spec.rosetta.crud.operations.create.node.read.properties.cypher-variant` | `Conformance` | rosetta | `Failed` | 6.817 ms |
-| `grafeo.spec.rosetta.crud.operations.create.edge.and.traverse.cypher-variant` | `Conformance` | rosetta | `Failed` | 6.900 ms |
-| `grafeo.spec.rosetta.crud.operations.match.count.multiple.nodes.cypher-variant` | `Conformance` | rosetta | `Failed` | 6.708 ms |
-| `grafeo.spec.rosetta.crud.operations.set.property.and.read.cypher-variant` | `Conformance` | rosetta | `Failed` | 6.760 ms |
-| `grafeo.spec.rosetta.crud.operations.delete.node.and.count.cypher-variant` | `Conformance` | rosetta | `Failed` | 6.594 ms |
-| `grafeo.spec.rosetta.crud.operations.aggregate.sum.cypher-variant` | `Conformance` | rosetta | `Failed` | 6.712 ms |
-| `grafeo.spec.rosetta.crud.operations.aggregate.count.cypher-variant` | `Conformance` | rosetta | `Failed` | 6.827 ms |
-| `grafeo.spec.rosetta.crud.operations.aggregate.avg.cypher-variant` | `Conformance` | rosetta | `Failed` | 6.737 ms |
-| `grafeo.spec.rosetta.data.fidelity.gql.insert.cypher.read.name.cypher-variant` | `Conformance` | rosetta | `Failed` | 6.843 ms |
-| `grafeo.spec.rosetta.data.fidelity.gql.insert.cypher.read.count.cypher-variant` | `Conformance` | rosetta | `Failed` | 6.716 ms |
-| `grafeo.spec.rosetta.data.fidelity.gql.insert.cypher.read.edge.cypher-variant` | `Conformance` | rosetta | `Failed` | 6.634 ms |
-| `grafeo.spec.rosetta.data.fidelity.int.property.preserved.in.cypher.cypher-variant` | `Conformance` | rosetta | `Failed` | 6.657 ms |
-| `grafeo.spec.rosetta.data.fidelity.bool.property.preserved.in.cypher.cypher-variant` | `Conformance` | rosetta | `Failed` | 16.024 ms |
-| `grafeo.spec.rosetta.data.fidelity.string.property.preserved.in.cypher.cypher-variant` | `Conformance` | rosetta | `Failed` | 9.225 ms |
-| `grafeo.spec.rosetta.data.fidelity.missing.property.null.in.cypher.cypher-variant` | `Conformance` | rosetta | `Failed` | 6.670 ms |
-| `grafeo.spec.rosetta.data.fidelity.multi.label.visible.in.cypher.cypher-variant` | `Conformance` | rosetta | `Failed` | 6.659 ms |
-| `grafeo.spec.rosetta.data.fidelity.edge.type.in.cypher.cypher-variant` | `Conformance` | rosetta | `Failed` | 6.676 ms |
-| `grafeo.spec.rosetta.data.fidelity.gql.insert.all.read.count.cypher-variant` | `Conformance` | rosetta | `Failed` | 6.580 ms |
-| `grafeo.spec.rosetta.pattern.matching.count.actors.cypher-variant` | `Conformance` | rosetta | `Passed` | 65.393 ms |
-| `grafeo.spec.rosetta.pattern.matching.find.actor.by.name.cypher-variant` | `Conformance` | rosetta | `Passed` | 64.866 ms |
-| `grafeo.spec.rosetta.pattern.matching.actors.in.heist.cypher-variant` | `Conformance` | rosetta | `Passed` | 66.056 ms |
-| `grafeo.spec.rosetta.pattern.matching.genres.of.vincent.cypher-variant` | `Conformance` | rosetta | `Passed` | 74.849 ms |
-| `grafeo.spec.rosetta.pattern.matching.movies.per.director.cypher.cypher-variant` | `Conformance` | rosetta | `Passed` | 71.335 ms |
-| `grafeo.spec.rosetta.pattern.matching.actor.roles.in.movie.cypher-variant` | `Conformance` | rosetta | `Passed` | 66.237 ms |
-| `grafeo.spec.rosetta.pattern.matching.high.rated.movies.cypher-variant` | `Conformance` | rosetta | `Passed` | 64.654 ms |
+| `grafeo.spec.rosetta.aggregation.avg.review.rating.cypher-variant` | `Conformance` | rosetta | `Failed` | 24.030 ms |
+| `grafeo.spec.rosetta.basic.queries.count.all.nodes.cypher-variant` | `Conformance` | rosetta | `Passed` | 15.363 ms |
+| `grafeo.spec.rosetta.basic.queries.match.by.label.cypher-variant` | `Conformance` | rosetta | `Passed` | 15.456 ms |
+| `grafeo.spec.rosetta.basic.queries.filter.by.age.cypher-variant` | `Conformance` | rosetta | `Passed` | 15.856 ms |
+| `grafeo.spec.rosetta.basic.queries.edge.traversal.cypher-variant` | `Conformance` | rosetta | `Passed` | 16.026 ms |
+| `grafeo.spec.rosetta.basic.queries.two.hop.path.cypher-variant` | `Conformance` | rosetta | `Passed` | 16.658 ms |
+| `grafeo.spec.rosetta.basic.queries.aggregation.group.by.cypher-variant` | `Conformance` | rosetta | `Passed` | 16.411 ms |
+| `grafeo.spec.rosetta.crud.operations.create.node.and.count.cypher-variant` | `Conformance` | rosetta | `Failed` | 6.962 ms |
+| `grafeo.spec.rosetta.crud.operations.create.node.read.properties.cypher-variant` | `Conformance` | rosetta | `Failed` | 7.214 ms |
+| `grafeo.spec.rosetta.crud.operations.create.edge.and.traverse.cypher-variant` | `Conformance` | rosetta | `Failed` | 6.908 ms |
+| `grafeo.spec.rosetta.crud.operations.match.count.multiple.nodes.cypher-variant` | `Conformance` | rosetta | `Failed` | 6.987 ms |
+| `grafeo.spec.rosetta.crud.operations.set.property.and.read.cypher-variant` | `Conformance` | rosetta | `Failed` | 6.650 ms |
+| `grafeo.spec.rosetta.crud.operations.delete.node.and.count.cypher-variant` | `Conformance` | rosetta | `Failed` | 6.936 ms |
+| `grafeo.spec.rosetta.crud.operations.aggregate.sum.cypher-variant` | `Conformance` | rosetta | `Failed` | 6.895 ms |
+| `grafeo.spec.rosetta.crud.operations.aggregate.count.cypher-variant` | `Conformance` | rosetta | `Failed` | 6.809 ms |
+| `grafeo.spec.rosetta.crud.operations.aggregate.avg.cypher-variant` | `Conformance` | rosetta | `Failed` | 6.714 ms |
+| `grafeo.spec.rosetta.data.fidelity.gql.insert.cypher.read.name.cypher-variant` | `Conformance` | rosetta | `Failed` | 6.808 ms |
+| `grafeo.spec.rosetta.data.fidelity.gql.insert.cypher.read.count.cypher-variant` | `Conformance` | rosetta | `Failed` | 6.773 ms |
+| `grafeo.spec.rosetta.data.fidelity.gql.insert.cypher.read.edge.cypher-variant` | `Conformance` | rosetta | `Failed` | 6.578 ms |
+| `grafeo.spec.rosetta.data.fidelity.int.property.preserved.in.cypher.cypher-variant` | `Conformance` | rosetta | `Failed` | 6.639 ms |
+| `grafeo.spec.rosetta.data.fidelity.bool.property.preserved.in.cypher.cypher-variant` | `Conformance` | rosetta | `Failed` | 6.671 ms |
+| `grafeo.spec.rosetta.data.fidelity.string.property.preserved.in.cypher.cypher-variant` | `Conformance` | rosetta | `Failed` | 6.669 ms |
+| `grafeo.spec.rosetta.data.fidelity.missing.property.null.in.cypher.cypher-variant` | `Conformance` | rosetta | `Failed` | 6.711 ms |
+| `grafeo.spec.rosetta.data.fidelity.multi.label.visible.in.cypher.cypher-variant` | `Conformance` | rosetta | `Failed` | 6.732 ms |
+| `grafeo.spec.rosetta.data.fidelity.edge.type.in.cypher.cypher-variant` | `Conformance` | rosetta | `Failed` | 6.657 ms |
+| `grafeo.spec.rosetta.data.fidelity.gql.insert.all.read.count.cypher-variant` | `Conformance` | rosetta | `Failed` | 6.601 ms |
+| `grafeo.spec.rosetta.pattern.matching.count.actors.cypher-variant` | `Conformance` | rosetta | `Passed` | 66.008 ms |
+| `grafeo.spec.rosetta.pattern.matching.find.actor.by.name.cypher-variant` | `Conformance` | rosetta | `Passed` | 86.596 ms |
+| `grafeo.spec.rosetta.pattern.matching.actors.in.heist.cypher-variant` | `Conformance` | rosetta | `Passed` | 68.827 ms |
+| `grafeo.spec.rosetta.pattern.matching.genres.of.vincent.cypher-variant` | `Conformance` | rosetta | `Passed` | 67.400 ms |
+| `grafeo.spec.rosetta.pattern.matching.movies.per.director.cypher.cypher-variant` | `Conformance` | rosetta | `Passed` | 75.796 ms |
+| `grafeo.spec.rosetta.pattern.matching.actor.roles.in.movie.cypher-variant` | `Conformance` | rosetta | `Passed` | 66.624 ms |
+| `grafeo.spec.rosetta.pattern.matching.high.rated.movies.cypher-variant` | `Conformance` | rosetta | `Passed` | 65.619 ms |
 
 ## Latest `performance-deep` run
 
@@ -2131,8 +2027,8 @@ Generated from `graph/test-results/history.jsonl`. Results are grouped by stable
 
 ## Latest `sparrowdb-deep` run
 
-- Run: `20260719T212407.546154Z-85a6914ad0f4-corpus-deep`
-- Commit: `85a6914ad0f4c2cef535a00672ff738dbee37ef1` (dirty)
+- Run: `20260720T002817.263486Z-df32aa37c8ef-corpus-deep`
+- Commit: `df32aa37c8efdeaf4d822eda53fe116f64a22dc7` (dirty)
 - Package: `0.7.0`
 - Environment: `macos/aarch64` (`dev`)
 - Records: 2253
@@ -2140,16 +2036,9 @@ Generated from `graph/test-results/history.jsonl`. Results are grouped by stable
 - Unsupported: 0
 - Failed or changed: 111
 
-### Outcome changes from `20260719T211310.196868Z-2b3388a995ac-corpus-deep`
+### Outcome changes from `20260720T002342.835410Z-df32aa37c8ef-corpus-deep`
 
-- `sparrowdb.regression-380.on-create-set-fires-when-node-is-new.query-1`: Passed
-- `sparrowdb.regression-380.on-match-set-fires-when-node-exists.query-2`: Passed
-- `sparrowdb.regression-380.on-create-set-does-not-fire-on-existing-node.query-2`: Passed
-- `sparrowdb.regression-380.on-match-set-does-not-fire-on-new-node.query-1`: Passed
-- `sparrowdb.regression-380.both-on-clauses-first-call-fires-create.query-1`: Passed
-- `sparrowdb.regression-380.both-on-clauses-second-call-fires-match.query-1`: Passed
-- `sparrowdb.regression-380.both-on-clauses-second-call-fires-match.query-2`: Passed
-- `sparrowdb.spa-151-kms-query-validation.kms-q32-merge-relationship-pattern.query-3`: Passed
+- No outcome changes.
 
 ### Results by source area
 
@@ -2455,45 +2344,27 @@ Generated from `graph/test-results/history.jsonl`. Results are grouped by stable
 
 ## Latest `tck-deep` run
 
-- Run: `20260719T212407.546154Z-85a6914ad0f4-corpus-deep`
-- Commit: `85a6914ad0f4c2cef535a00672ff738dbee37ef1` (dirty)
+- Run: `20260720T002817.263486Z-df32aa37c8ef-corpus-deep`
+- Commit: `df32aa37c8efdeaf4d822eda53fe116f64a22dc7` (dirty)
 - Package: `0.7.0`
 - Environment: `macos/aarch64` (`dev`)
 - Records: 3926
-- Passed: 2816
+- Passed: 2937
 - Unsupported: 0
-- Failed or changed: 1110
+- Failed or changed: 989
 
-### Outcome changes from `20260719T211310.196868Z-2b3388a995ac-corpus-deep`
+### Outcome changes from `20260720T002342.835410Z-df32aa37c8ef-corpus-deep`
 
-- `tck.clauses.merge.merge6.scenario-1`: Passed
-- `tck.clauses.merge.merge6.scenario-2`: Passed
-- `tck.clauses.merge.merge6.scenario-3`: Passed
-- `tck.clauses.merge.merge6.scenario-4`: Passed
-- `tck.clauses.merge.merge6.scenario-7`: Passed
-- `tck.clauses.merge.merge7.scenario-1`: Passed
-- `tck.clauses.merge.merge7.scenario-2`: Passed
-- `tck.clauses.merge.merge7.scenario-3`: Passed
-- `tck.clauses.merge.merge8.scenario-1`: Passed
-- `tck.clauses.set.set3.scenario-5`: Passed
-- `tck.clauses.set.set3.scenario-6`: Passed
-- `tck.clauses.set.set3.scenario-7`: Passed
-- `tck.clauses.set.set6.scenario-8`: Passed
-- `tck.clauses.set.set6.scenario-9`: Passed
-- `tck.clauses.set.set6.scenario-10`: Passed
-- `tck.clauses.set.set6.scenario-11`: Passed
-- `tck.clauses.set.set6.scenario-12`: Passed
-- `tck.clauses.set.set6.scenario-13`: Passed
-- `tck.clauses.set.set6.scenario-14`: Passed
+- `tck.expressions.pattern.pattern1.scenario-24`: Passed
 
 ### Results by source area
 
 | Area | Outcome | Count |
 |---|---|---:|
-| clauses | `failed` | 371 |
-| clauses | `passed` | 880 |
-| expressions | `failed` | 718 |
-| expressions | `passed` | 1927 |
+| clauses | `failed` | 346 |
+| clauses | `passed` | 905 |
+| expressions | `failed` | 622 |
+| expressions | `passed` | 2023 |
 | useCases | `failed` | 21 |
 | useCases | `passed` | 9 |
 
@@ -2501,16 +2372,16 @@ Generated from `graph/test-results/history.jsonl`. Results are grouped by stable
 
 | Boundary | Outcome | Count |
 |---|---|---:|
-| `execution` | `failed` | 963 |
-| `execution` | `passed` | 2775 |
+| `execution` | `failed` | 843 |
+| `execution` | `passed` | 2896 |
 | `fixture-execution` | `failed` | 19 |
 | `parameter-binding` | `failed` | 20 |
 | `parser` | `failed` | 80 |
 | `parser` | `passed` | 41 |
 | `setup-execution` | `failed` | 4 |
-| `side-effect-comparison` | `failed` | 24 |
+| `side-effect-comparison` | `failed` | 23 |
 
-### Failures (1110)
+### Failures (989)
 
 - `tck.clauses.call.call1.scenario-1`: query execution failed: Parse error: procedures outside the built-in registry is not supported in the initial graph slice at byte 6..20; mutation execution failed: Cypher mutation binding failed: procedures in mutation queries is not supported in the initial graph slice at byte 1..23; query:
 CALL test.doNothing()
@@ -2601,20 +2472,6 @@ CREATE ()
 - `tck.clauses.create.create3.scenario-6`: expected [["(:X)"]], observed [["1"]]
 - `tck.clauses.create.create3.scenario-7`: expected [["( {name: 'A'})", "( {name: 'A'})"]], observed [["1", "1"]]
 - `tck.clauses.create.create3.scenario-8`: expected [["( {num: 5})"]], observed [["1"]]
-- `tck.clauses.create.create3.scenario-11`: query execution failed: Parse error: mutation clauses in read queries is not supported in the initial graph slice at byte 1..12; mutation execution failed: MERGE requires at least one property to identify the entity; query:
-CREATE (a)
-WITH a
-MERGE ()
-CREATE (b)
-CREATE (a)<-[:T]-(b)
-- `tck.clauses.create.create3.scenario-12`: query execution failed: Parse error: mutation clauses in read queries is not supported in the initial graph slice at byte 1..12; mutation execution failed: MERGE requires at least one property to identify the entity; query:
-CREATE (a)
-WITH a
-MERGE (x)
-MERGE (y)
-MERGE (x)-[:T]->(y)
-CREATE (b)
-CREATE (a)<-[:T]-(b)
 - `tck.clauses.create.create5.scenario-4`: expected EOI, UNION, clause, or relationship_pattern at byte 19..19
 - `tck.clauses.create.create5.scenario-5`: expected EOI, UNION, clause, or relationship_pattern at byte 11..11
 - `tck.clauses.delete.delete1.scenario-5`: expected [["<null>"]], observed []
@@ -2891,88 +2748,17 @@ OPTIONAL MATCH (a2)<-[r]-(b2)
 WHERE a1 = a2
 RETURN a1, r, b2, a2
 - `tck.clauses.match-where.matchwhere6.scenario-7`: expected [["(:X {val: 1})", "(:Y {val: 2})", "(:Z {val: 3})"], ["(:X {val: 4})", "<null>", "<null>"], ["(:X {val: 6})", "<null>", "<null>"]], observed [["(:X {val: 1})", "(:Y {val: 2})", "(:Z {val: 3})"], ["(:X {val: 4})", "(:Y {val: 5})", "<null>"], ["(:X {val: 6})", "<null>", "<null>"]]
-- `tck.clauses.merge.merge1.scenario-1`: query execution failed: Parse error: mutation clauses in read queries is not supported in the initial graph slice at byte 1..11; mutation execution failed: MERGE requires at least one property to identify the entity; query:
-MERGE (a)
-RETURN count(*) AS n
-- `tck.clauses.merge.merge1.scenario-2`: query execution failed: Parse error: mutation clauses in read queries is not supported in the initial graph slice at byte 1..20; mutation execution failed: MERGE requires at least one property to identify the entity; query:
-MERGE (a:TheLabel)
-RETURN labels(a)
-- `tck.clauses.merge.merge1.scenario-3`: query execution failed: Parse error: mutation clauses in read queries is not supported in the initial graph slice at byte 1..20; mutation execution failed: MERGE requires at least one property to identify the entity; query:
-MERGE (a:TheLabel)
-RETURN a.id
-- `tck.clauses.merge.merge1.scenario-7`: query execution failed: Parse error: mutation clauses in read queries is not supported in the initial graph slice at byte 1..13; mutation execution failed: MERGE requires at least one property to identify the entity; query:
-CREATE (:X)
-CREATE (:X)
-MERGE (:X)
-- `tck.clauses.merge.merge1.scenario-8`: side effect +nodes expected 1, observed 0
-- `tck.clauses.merge.merge1.scenario-9`: side effect +nodes expected 15, observed 6
-- `tck.clauses.merge.merge1.scenario-10`: side effect +nodes expected 1, observed 0
 - `tck.clauses.merge.merge1.scenario-13`: query execution failed: Parse error: mutation clauses in read queries is not supported in the initial graph slice at byte 1..24; mutation execution failed: graph mutation database operation failed: Parse error: no such table: q; query:
 MERGE p = (a {num: 1})
 RETURN p
-- `tck.clauses.merge.merge1.scenario-14`: query execution failed: Parse error: mutation clauses in read queries is not supported in the initial graph slice at byte 13..22; mutation execution failed: MERGE requires at least one property to identify the entity; query:
-MATCH (a:A)
-DELETE a
-MERGE (a2:A)
-RETURN a2.num
-- `tck.clauses.merge.merge2.scenario-1`: query execution failed: Parse error: mutation clauses in read queries is not supported in the initial graph slice at byte 1..42; mutation execution failed: MERGE requires at least one property to identify the entity; query:
-MERGE (a:TheLabel)
-  ON CREATE SET a:Foo
-RETURN labels(a)
-- `tck.clauses.merge.merge2.scenario-2`: query execution failed: Parse error: mutation clauses in read queries is not supported in the initial graph slice at byte 1..41; mutation execution failed: MERGE requires at least one property to identify the entity; query:
-MERGE (b)
-  ON CREATE SET b.created = 1
-- `tck.clauses.merge.merge2.scenario-3`: query execution failed: Parse error: mutation clauses in read queries is not supported in the initial graph slice at byte 1..47; mutation execution failed: MERGE requires at least one property to identify the entity; query:
-MERGE (a:TheLabel)
-  ON CREATE SET a.num = 42
-RETURN a.num
-- `tck.clauses.merge.merge2.scenario-4`: query execution failed: Parse error: mutation clauses in read queries is not supported in the initial graph slice at byte 1..47; mutation execution failed: MERGE requires at least one property to identify the entity; query:
-MERGE (a:TheLabel)
-  ON CREATE SET a.num = 42
-RETURN a.num
-- `tck.clauses.merge.merge2.scenario-5`: query execution failed: Parse error: mutation clauses in read queries is not supported in the initial graph slice at byte 23..83; mutation execution failed: MERGE requires at least one property to identify the entity; query:
-MATCH (person:Person)
-MERGE (city:City)
-  ON CREATE SET city.name = person.bornIn
-RETURN person.bornIn
-- `tck.clauses.merge.merge3.scenario-1`: query execution failed: Parse error: mutation clauses in read queries is not supported in the initial graph slice at byte 1..30; mutation execution failed: MERGE requires at least one property to identify the entity; query:
-MERGE (a)
-  ON MATCH SET a:L
-- `tck.clauses.merge.merge3.scenario-2`: query execution failed: Parse error: mutation clauses in read queries is not supported in the initial graph slice at byte 1..41; mutation execution failed: MERGE requires at least one property to identify the entity; query:
-MERGE (a:TheLabel)
-  ON MATCH SET a:Foo
-RETURN labels(a)
-- `tck.clauses.merge.merge3.scenario-3`: query execution failed: Parse error: mutation clauses in read queries is not supported in the initial graph slice at byte 1..46; mutation execution failed: MERGE requires at least one property to identify the entity; query:
-MERGE (a:TheLabel)
-  ON MATCH SET a.num = 42
-RETURN a.num
-- `tck.clauses.merge.merge3.scenario-4`: query execution failed: Parse error: mutation clauses in read queries is not supported in the initial graph slice at byte 23..82; mutation execution failed: MERGE requires at least one property to identify the entity; query:
-MATCH (person:Person)
-MERGE (city:City)
-  ON MATCH SET city.name = person.bornIn
-RETURN person.bornIn
-- `tck.clauses.merge.merge4.scenario-1`: query execution failed: Parse error: mutation clauses in read queries is not supported in the initial graph slice at byte 10..63; mutation execution failed: MERGE requires at least one property to identify the entity; query:
-MATCH ()
-MERGE (a:L)
-  ON MATCH SET a:M1
-  ON CREATE SET a:M2
-- `tck.clauses.merge.merge4.scenario-2`: query execution failed: Parse error: mutation clauses in read queries is not supported in the initial graph slice at byte 23..124; mutation execution failed: MERGE requires at least one property to identify the entity; query:
-MATCH (person:Person)
-MERGE (city:City)
-  ON MATCH SET city.name = person.bornIn
-  ON CREATE SET city.name = person.bornIn
-RETURN person.bornIn
+- `tck.clauses.merge.merge1.scenario-14`: side effect +nodes expected 1, observed 0
 - `tck.clauses.merge.merge5.scenario-3`: expected [["2"]], observed [["1"]]
-- `tck.clauses.merge.merge5.scenario-9`: query execution failed: Parse error: mutation clauses in read queries is not supported in the initial graph slice at byte 1..13; mutation execution failed: MERGE requires at least one property to identify the entity; query:
-MERGE (a:A)
-MERGE (b:B)
-MERGE (a)-[:FOO]->(b)
 - `tck.clauses.merge.merge5.scenario-10`: query execution failed: Parse error: mutation clauses in read queries is not supported in the initial graph slice at byte 1..20; mutation execution failed: graph mutation database operation failed: Parse error: no such table: q; query:
 MERGE (a {num: 1})
 MERGE (b {num: 2})
 MERGE p = (a)-[:R]->(b)
 RETURN p
-- `tck.clauses.merge.merge5.scenario-11`: query execution failed: Parse error: mutation clauses in read queries is not supported in the initial graph slice at byte 1..33; mutation execution failed: Cypher mutation binding failed: property access requires a node or relationship at byte 64..76; query:
+- `tck.clauses.merge.merge5.scenario-11`: query execution failed: Parse error: mutation clauses in read queries is not supported in the initial graph slice at byte 1..33; mutation execution failed: graph mutation database operation failed: Parse error: no such function: startNode; query:
 CREATE (a {id: 2}), (b {id: 1})
 MERGE (a)-[r:KNOWS]-(b)
 RETURN startNode(r).id AS s, endNode(r).id AS e
@@ -2985,32 +2771,7 @@ UNWIND ['a,b', 'a,b'] AS str
 WITH a, b, split(str, ',') AS roles
 MERGE (a)-[r:FB {foobar: roles}]->(b)
 RETURN count(*)
-- `tck.clauses.merge.merge5.scenario-18`: query execution failed: Parse error: mutation clauses in read queries is not supported in the initial graph slice at byte 41..61; mutation execution failed: MERGE requires at least one property to identify the entity; query:
-MATCH (n)
-MATCH (m)
-WITH n AS a, m AS b
-MERGE (a)-[:T]->(b)
-WITH a AS x, b AS y
-MERGE (a)
-MERGE (b)
-MERGE (a)-[:T]->(b)
-RETURN x.id AS x, y.id AS y
-- `tck.clauses.merge.merge5.scenario-19`: query execution failed: Parse error: mutation clauses in read queries is not supported in the initial graph slice at byte 23..33; mutation execution failed: MERGE requires at least one property to identify the entity; query:
-MATCH (n)
-WITH n AS a
-MERGE (c)
-MERGE (a)-[:T]->(c)
-WITH a AS x
-MERGE (c)
-MERGE (x)-[:T]->(c)
-RETURN x.id AS x
-- `tck.clauses.merge.merge5.scenario-20`: query execution failed: Parse error: mutation clauses in read queries is not supported in the initial graph slice at byte 37..56; mutation execution failed: MERGE requires at least one property to identify the entity; query:
-MATCH (a:A)-[ab]->(b:B)-[bc]->(c:C)
-DELETE ab, bc, b, c
-MERGE (newB:B {num: 1})
-MERGE (a)-[:REL]->(newB)
-MERGE (newC:C)
-MERGE (newB)-[:REL]->(newC)
+- `tck.clauses.merge.merge5.scenario-20`: side effect +nodes expected 2, observed 0
 - `tck.clauses.merge.merge5.scenario-21`: side effect +relationships expected 1, observed 0
 - `tck.clauses.merge.merge6.scenario-6`: query execution failed: Parse error: mutation clauses in read queries is not supported in the initial graph slice at byte 40..86; mutation execution failed: Cypher mutation binding failed: SET of a whole entity from a non-map value is not supported in the initial graph slice at byte 84..86; query:
 MATCH (a {name: 'A'}), (b {name: 'B'})
@@ -3195,9 +2956,6 @@ RETURN r2 AS rel
 MATCH p = (a)
 WITH p
 RETURN p
-- `tck.clauses.with.with2.scenario-2`: query execution failed: Parse error: property access requires a node or relationship at byte 49..58; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 42..70; query:
-WITH {name: {name2: 'baz'}} AS nestedMap
-RETURN nestedMap.name.name2
 - `tck.clauses.with.with3.scenario-1`: query execution failed: Parse error: duplicate variable `r` at byte 46..47; mutation execution failed: Cypher mutation binding failed: duplicate variable `r` at byte 46..47; query:
 MATCH (a)-[r]->(b:X)
 WITH a, r, b
@@ -3212,11 +2970,6 @@ WITH head(collect({likeTime: likeTime})) AS latestLike, person AS person
 WITH latestLike.likeTime AS likeTime
   ORDER BY likeTime
 RETURN likeTime
-- `tck.clauses.with.with4.scenario-7`: query execution failed: Parse error: mutation clauses in read queries is not supported in the initial graph slice at byte 1..20; mutation execution failed: Cypher mutation binding failed: property access requires a node or relationship at byte 58..59; query:
-CREATE (m {id: 0})
-WITH {first: m.id} AS m
-WITH {second: m.first} AS m
-RETURN m.second
 - `tck.clauses.with.with6.scenario-2`: query execution failed: Parse error: duplicate variable `r2` at byte 60..62; mutation execution failed: Cypher mutation binding failed: duplicate variable `r2` at byte 60..62; query:
 MATCH ()-[r1]->(:X)
 WITH r1 AS r2, count(*) AS c
@@ -3615,16 +3368,10 @@ RETURN type(list[0])
 - `tck.expressions.graph.graph5.scenario-2`: expected [["[:T1]", "0"], ["[:T2]", "1"], ["[:T3]", "0"], ["[:T4]", "0"], ["[:t2]", "0"]], observed [["[:T1]", "0"], ["[:T2]", "0"], ["[:T3]", "0"], ["[:T4]", "0"], ["[:t2]", "0"]]
 - `tck.expressions.graph.graph5.scenario-5`: expected [["<null>"]], observed [["0"]]
 - `tck.expressions.graph.graph6.scenario-3`: expected [["<null>"]], observed []
-- `tck.expressions.graph.graph6.scenario-4`: query execution failed: Parse error: property access requires a node or relationship at byte 41..48; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 33..100; query:
-MATCH (n)
-WITH [123, n] AS list
-RETURN (list[1]).missing, (list[1]).missingToo, (list[1]).existing
+- `tck.expressions.graph.graph6.scenario-4`: expected [["<null>", "<null>", "42"]], observed [["<null>", "<null>", "<null>"]]
 - `tck.expressions.graph.graph6.scenario-6`: expected [["<null>", "<null>", "42"]], observed [["<null>", "<null>", "42"], ["<null>", "<null>", "<null>"]]
 - `tck.expressions.graph.graph6.scenario-7`: expected [["<null>"]], observed []
-- `tck.expressions.graph.graph6.scenario-8`: query execution failed: Parse error: property access requires a node or relationship at byte 48..55; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 40..107; query:
-MATCH ()-[r]->()
-WITH [123, r] AS list
-RETURN (list[1]).missing, (list[1]).missingToo, (list[1]).existing
+- `tck.expressions.graph.graph6.scenario-8`: expected [["<null>", "<null>", "42"]], observed [["<null>", "<null>", "<null>"]]
 - `tck.expressions.graph.graph7.scenario-1`: query execution failed: Parse error: indexing this operand/key combination is not supported in the initial graph slice at byte 32..33; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 25..56; query:
 MATCH (n {name: 'Apa'})
 RETURN n['nam' + 'e'] AS value
@@ -3668,14 +3415,14 @@ UNWIND stepList AS step
 WITH start, stop, step, range(start, stop, step) AS list
 WITH start, stop, step, list, sign(stop-start) <> sign(step) AS empty
 RETURN ALL(ok IN collect((size(list) = 0) = empty) WHERE ok) AS okay
-- `tck.expressions.list.list12.scenario-1`: query execution failed: Parse error: unknown variable `x` at byte 69..70; mutation execution failed: Cypher mutation binding failed: unknown variable `x` at byte 69..70; query:
+- `tck.expressions.list.list12.scenario-1`: query execution failed: Parse error: property access requires a node or relationship at byte 69..70; mutation execution failed: Cypher mutation binding failed: property access requires a node or relationship at byte 69..70; query:
 MATCH (a:Label1)
 WITH collect(a) AS nodes
 WITH nodes, [x IN nodes | x.name] AS oldNames
 UNWIND nodes AS n
 SET n.name = 'newName'
 RETURN n.name, oldNames
-- `tck.expressions.list.list12.scenario-2`: query execution failed: Parse error: unknown variable `x` at byte 73..74; mutation execution failed: Cypher mutation binding failed: unknown variable `x` at byte 73..74; query:
+- `tck.expressions.list.list12.scenario-2`: query execution failed: Parse error: property access requires a node or relationship at byte 73..74; mutation execution failed: Cypher mutation binding failed: property access requires a node or relationship at byte 73..74; query:
 MATCH (a:Label1)
 WITH collect(a) AS nodes
 WITH nodes, [x IN nodes WHERE x.name = 'original'] AS noopFiltered
@@ -3757,39 +3504,6 @@ RETURN p, c
 - `tck.expressions.literals.literals8.scenario-16`: expected [["{a1: {a2: {a3: {a4: {a5: {a6: {a7: {a8: {a9: {a10: {a11: {a12: {a13: {a14: {a15: {a16: {a17: {a18: {a19: {a20: {a21: {a22: {a23: {a24: {a25: {a26: {a27: {a28: {a29: {a30: {a31: {a32: {a33: {a34: {a35: {a36: {a37: {a38: {a39: {}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}"]], observed [["{\"a1\":{\"a2\":{\"a3\":{\"a4\":{\"a5\":{\"a6\":{\"a7\":{\"a8\":{\"a9\":{\"a10\":{\"a11\":{\"a12\":{\"a13\":{\"a14\":{\"a15\":{\"a16\":{\"a17\":{\"a18\":{\"a19\":{\"a20\":{\"a21\":{\"a22\":{\"a23\":{\"a24\":{\"a25\":{\"a26\":{\"a27\":{\"a28\":{\"a29\":{\"a30\":{\"a31\":{\"a32\":{\"a33\":{\"a34\":{\"a35\":{\"a36\":{\"a37\":{\"a38\":{\"a39\":{}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}"]]
 - `tck.expressions.literals.literals8.scenario-17`: expected [["{a: ' { b : ', c: {d: ' '}, d: ' } '}"]], observed [["{\"a\":\" { b : \",\"c\":{\"d\":\" \"},\"d\":\" } \"}"]]
 - `tck.expressions.literals.literals8.scenario-18`: expected [["{data: [{batters: {batter: [{id: '1001', type: 'Regular'}, {id: '1002', type: 'Chocolate'}, {id: '1003', type: 'Blueberry'}, {id: '1004', type: 'Devils Food'}]}, id: '0001', name: 'Cake', ppu: 0.55, topping: [{id: '5001', type: 'None'}, {id: '5002', type: 'Glazed'}, {id: '5005', type: 'Sugar'}, {id: '5007', type: 'Powdered Sugar'}, {id: '5006', type: 'Chocolate Sprinkles'}, {id: '5003', type: 'Chocolate'}, {id: '5004', type: 'Maple'}], type: 'donut'}, {batters: {batter: [ {id: '1001', type: 'Regular'}]}, id: '0002', name: 'Raised', ppu: 0.55, topping: [{id: '5001', type: 'None'}, {id: '5002', type: 'Glazed'}, {id: '5005', type: 'Sugar'}, {id: '5003', type: 'Chocolate'}, {id: '5004', type: 'Maple'}], type: 'donut'}, {batters: {batter: [{id: '1001', type: 'Regular'}, {id: '1002', type: 'Chocolate'}]}, id: '0003', name: 'Old Fashioned', ppu: 0.55, topping: [{id: '5001', type: 'None'}, {id: '5002', type: 'Glazed'}, {id: '5003', type: 'Chocolate'}, {id: '5004', type: 'Maple'}], type: 'donut'}]}"]], observed [["{\"data\":[{\"id\":\"0001\",\"type\":\"donut\",\"name\":\"Cake\",\"ppu\":0.55,\"batters\":{\"batter\":[{\"id\":\"1001\",\"type\":\"Regular\"},{\"id\":\"1002\",\"type\":\"Chocolate\"},{\"id\":\"1003\",\"type\":\"Blueberry\"},{\"id\":\"1004\",\"type\":\"Devils Food\"}]},\"topping\":[{\"id\":\"5001\",\"type\":\"None\"},{\"id\":\"5002\",\"type\":\"Glazed\"},{\"id\":\"5005\",\"type\":\"Sugar\"},{\"id\":\"5007\",\"type\":\"Powdered Sugar\"},{\"id\":\"5006\",\"type\":\"Chocolate Sprinkles\"},{\"id\":\"5003\",\"type\":\"Chocolate\"},{\"id\":\"5004\",\"type\":\"Maple\"}]},{\"id\":\"0002\",\"type\":\"donut\",\"name\":\"Raised\",\"ppu\":0.55,\"batters\":{\"batter\":[{\"id\":\"1001\",\"type\":\"Regular\"}]},\"topping\":[{\"id\":\"5001\",\"type\":\"None\"},{\"id\":\"5002\",\"type\":\"Glazed\"},{\"id\":\"5005\",\"type\":\"Sugar\"},{\"id\":\"5003\",\"type\":\"Chocolate\"},{\"id\":\"5004\",\"type\":\"Maple\"}]},{\"id\":\"0003\",\"type\":\"donut\",\"name\":\"Old Fashioned\",\"ppu\":0.55,\"batters\":{\"batter\":[{\"id\":\"1001\",\"type\":\"Regular\"},{\"id\":\"1002\",\"type\":\"Chocolate\"}]},\"topping\":[{\"id\":\"5001\",\"type\":\"None\"},{\"id\":\"5002\",\"type\":\"Glazed\"},{\"id\":\"5003\",\"type\":\"Chocolate\"},{\"id\":\"5004\",\"type\":\"Maple\"}]}]}"]]
-- `tck.expressions.map.map1.scenario-1`: query execution failed: Parse error: property access requires a node or relationship at byte 51..52; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 44..87; query:
-WITH {existing: 42, notMissing: null} AS m
-RETURN m.missing, m.notMissing, m.existing
-- `tck.expressions.map.map1.scenario-2`: query execution failed: Parse error: property access requires a node or relationship at byte 23..24; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 16..33; query:
-WITH null AS m
-RETURN m.missing
-- `tck.expressions.map.map1.scenario-3`: query execution failed: Parse error: property access requires a node or relationship at byte 62..69; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 54..121; query:
-WITH [123, {existing: 42, notMissing: null}] AS list
-RETURN (list[1]).missing, (list[1]).notMissing, (list[1]).existing
-- `tck.expressions.map.map1.scenario-4.examples-1-row-1`: query execution failed: Parse error: property access requires a node or relationship at byte 51..54; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 44..70; query:
-WITH {name: 'Mats', nome: 'Pontus'} AS map
-RETURN map.name AS result
-- `tck.expressions.map.map1.scenario-4.examples-1-row-2`: query execution failed: Parse error: property access requires a node or relationship at byte 51..54; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 44..70; query:
-WITH {name: 'Mats', Name: 'Pontus'} AS map
-RETURN map.name AS result
-- `tck.expressions.map.map1.scenario-4.examples-1-row-3`: query execution failed: Parse error: property access requires a node or relationship at byte 51..54; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 44..70; query:
-WITH {name: 'Mats', Name: 'Pontus'} AS map
-RETURN map.Name AS result
-- `tck.expressions.map.map1.scenario-4.examples-1-row-4`: query execution failed: Parse error: property access requires a node or relationship at byte 51..54; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 44..70; query:
-WITH {name: 'Mats', Name: 'Pontus'} AS map
-RETURN map.nAMe AS result
-- `tck.expressions.map.map1.scenario-5.examples-1-row-1`: query execution failed: Parse error: property access requires a node or relationship at byte 51..54; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 44..72; query:
-WITH {name: 'Mats', nome: 'Pontus'} AS map
-RETURN map.`name` AS result
-- `tck.expressions.map.map1.scenario-5.examples-1-row-2`: query execution failed: Parse error: property access requires a node or relationship at byte 51..54; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 44..72; query:
-WITH {name: 'Mats', nome: 'Pontus'} AS map
-RETURN map.`nome` AS result
-- `tck.expressions.map.map1.scenario-5.examples-1-row-3`: query execution failed: Parse error: property access requires a node or relationship at byte 51..54; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 44..72; query:
-WITH {name: 'Mats', nome: 'Pontus'} AS map
-RETURN map.`Mats` AS result
-- `tck.expressions.map.map1.scenario-5.examples-1-row-4`: query execution failed: Parse error: property access requires a node or relationship at byte 51..54; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 44..72; query:
-WITH {name: 'Mats', nome: 'Pontus'} AS map
-RETURN map.`null` AS result
 - `tck.expressions.map.map1.scenario-5.examples-1-row-5`: expected identifier at byte 6..6
 - `tck.expressions.map.map1.scenario-5.examples-1-row-6`: expected identifier at byte 6..6
 - `tck.expressions.map.map2.scenario-1`: TCK parameter value is not representable by the generic adapter
@@ -3820,79 +3534,7 @@ RETURN map['null'] AS result
 - `tck.expressions.map.map3.scenario-3`: expected [["<null>", "<null>"]], observed [["[null]", "[null]"]]
 - `tck.expressions.map.map3.scenario-5`: expected [["1", "1", "0"]], observed [["0", "0", "0"]]
 - `tck.expressions.null.null1.scenario-3`: expected [["1"]], observed []
-- `tck.expressions.null.null1.scenario-5.examples-1-row-1`: query execution failed: Parse error: property access requires a node or relationship at byte 52..55; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 45..79; query:
-WITH {name: 'Mats', name2: 'Pontus'} AS map
-RETURN map.name IS NULL AS result
-- `tck.expressions.null.null1.scenario-5.examples-1-row-2`: query execution failed: Parse error: property access requires a node or relationship at byte 52..55; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 45..80; query:
-WITH {name: 'Mats', name2: 'Pontus'} AS map
-RETURN map.name2 IS NULL AS result
-- `tck.expressions.null.null1.scenario-5.examples-1-row-3`: query execution failed: Parse error: property access requires a node or relationship at byte 48..51; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 41..75; query:
-WITH {name: 'Mats', name2: null} AS map
-RETURN map.name IS NULL AS result
-- `tck.expressions.null.null1.scenario-5.examples-1-row-4`: query execution failed: Parse error: property access requires a node or relationship at byte 48..51; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 41..76; query:
-WITH {name: 'Mats', name2: null} AS map
-RETURN map.name2 IS NULL AS result
-- `tck.expressions.null.null1.scenario-5.examples-1-row-5`: query execution failed: Parse error: property access requires a node or relationship at byte 33..36; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 26..60; query:
-WITH {name: null} AS map
-RETURN map.name IS NULL AS result
-- `tck.expressions.null.null1.scenario-5.examples-1-row-6`: query execution failed: Parse error: property access requires a node or relationship at byte 46..49; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 39..73; query:
-WITH {name: null, name2: null} AS map
-RETURN map.name IS NULL AS result
-- `tck.expressions.null.null1.scenario-5.examples-1-row-7`: query execution failed: Parse error: property access requires a node or relationship at byte 46..49; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 39..74; query:
-WITH {name: null, name2: null} AS map
-RETURN map.name2 IS NULL AS result
-- `tck.expressions.null.null1.scenario-5.examples-1-row-8`: query execution failed: Parse error: property access requires a node or relationship at byte 52..55; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 45..79; query:
-WITH {notName: null, notName2: null} AS map
-RETURN map.name IS NULL AS result
-- `tck.expressions.null.null1.scenario-5.examples-1-row-9`: query execution failed: Parse error: property access requires a node or relationship at byte 49..52; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 42..76; query:
-WITH {notName: 0, notName2: null} AS map
-RETURN map.name IS NULL AS result
-- `tck.expressions.null.null1.scenario-5.examples-1-row-10`: query execution failed: Parse error: property access requires a node or relationship at byte 33..36; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 26..60; query:
-WITH {notName: 0} AS map
-RETURN map.name IS NULL AS result
-- `tck.expressions.null.null1.scenario-5.examples-1-row-11`: query execution failed: Parse error: property access requires a node or relationship at byte 23..26; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 16..50; query:
-WITH {} AS map
-RETURN map.name IS NULL AS result
-- `tck.expressions.null.null1.scenario-5.examples-1-row-12`: query execution failed: Parse error: property access requires a node or relationship at byte 25..28; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 18..52; query:
-WITH null AS map
-RETURN map.name IS NULL AS result
 - `tck.expressions.null.null2.scenario-3`: expected [["0"]], observed []
-- `tck.expressions.null.null2.scenario-5.examples-1-row-1`: query execution failed: Parse error: property access requires a node or relationship at byte 52..55; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 45..83; query:
-WITH {name: 'Mats', name2: 'Pontus'} AS map
-RETURN map.name IS NOT NULL AS result
-- `tck.expressions.null.null2.scenario-5.examples-1-row-2`: query execution failed: Parse error: property access requires a node or relationship at byte 52..55; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 45..84; query:
-WITH {name: 'Mats', name2: 'Pontus'} AS map
-RETURN map.name2 IS NOT NULL AS result
-- `tck.expressions.null.null2.scenario-5.examples-1-row-3`: query execution failed: Parse error: property access requires a node or relationship at byte 48..51; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 41..79; query:
-WITH {name: 'Mats', name2: null} AS map
-RETURN map.name IS NOT NULL AS result
-- `tck.expressions.null.null2.scenario-5.examples-1-row-4`: query execution failed: Parse error: property access requires a node or relationship at byte 48..51; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 41..80; query:
-WITH {name: 'Mats', name2: null} AS map
-RETURN map.name2 IS NOT NULL AS result
-- `tck.expressions.null.null2.scenario-5.examples-1-row-5`: query execution failed: Parse error: property access requires a node or relationship at byte 33..36; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 26..64; query:
-WITH {name: null} AS map
-RETURN map.name IS NOT NULL AS result
-- `tck.expressions.null.null2.scenario-5.examples-1-row-6`: query execution failed: Parse error: property access requires a node or relationship at byte 46..49; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 39..77; query:
-WITH {name: null, name2: null} AS map
-RETURN map.name IS NOT NULL AS result
-- `tck.expressions.null.null2.scenario-5.examples-1-row-7`: query execution failed: Parse error: property access requires a node or relationship at byte 46..49; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 39..78; query:
-WITH {name: null, name2: null} AS map
-RETURN map.name2 IS NOT NULL AS result
-- `tck.expressions.null.null2.scenario-5.examples-1-row-8`: query execution failed: Parse error: property access requires a node or relationship at byte 52..55; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 45..83; query:
-WITH {notName: null, notName2: null} AS map
-RETURN map.name IS NOT NULL AS result
-- `tck.expressions.null.null2.scenario-5.examples-1-row-9`: query execution failed: Parse error: property access requires a node or relationship at byte 49..52; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 42..80; query:
-WITH {notName: 0, notName2: null} AS map
-RETURN map.name IS NOT NULL AS result
-- `tck.expressions.null.null2.scenario-5.examples-1-row-10`: query execution failed: Parse error: property access requires a node or relationship at byte 33..36; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 26..64; query:
-WITH {notName: 0} AS map
-RETURN map.name IS NOT NULL AS result
-- `tck.expressions.null.null2.scenario-5.examples-1-row-11`: query execution failed: Parse error: property access requires a node or relationship at byte 23..26; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 16..54; query:
-WITH {} AS map
-RETURN map.name IS NOT NULL AS result
-- `tck.expressions.null.null2.scenario-5.examples-1-row-12`: query execution failed: Parse error: property access requires a node or relationship at byte 25..28; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 18..56; query:
-WITH null AS map
-RETURN map.name IS NOT NULL AS result
 - `tck.expressions.null.null3.scenario-4.examples-1-row-2`: TCK parameter value is not representable by the generic adapter
 - `tck.expressions.null.null3.scenario-4.examples-1-row-3`: TCK parameter value is not representable by the generic adapter
 - `tck.expressions.null.null3.scenario-4.examples-1-row-4`: TCK parameter value is not representable by the generic adapter
@@ -3960,29 +3602,11 @@ RETURN ('abc' STARTS WITH null OR true) = (('abc' STARTS WITH null) OR true) AS 
        ('abc' STARTS WITH null OR true) <> ('abc' STARTS WITH (null OR true)) AS b,
        (true OR null STARTS WITH 'abc') = (true OR (null STARTS WITH 'abc')) AS c,
        (true OR null STARTS WITH 'abc') <> ((true OR null) STARTS WITH 'abc') AS d
-- `tck.expressions.quantifier.quantifier1.scenario-7.examples-1-row-1`: query execution failed: Parse error: unknown variable `x` at byte 27..28; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..46; query:
-RETURN none(x IN [] WHERE x.a = 2) AS result
-- `tck.expressions.quantifier.quantifier1.scenario-7.examples-1-row-2`: query execution failed: Parse error: unknown variable `x` at byte 39..40; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..58; query:
-RETURN none(x IN [{a: 2, b: 5}] WHERE x.a = 2) AS result
-- `tck.expressions.quantifier.quantifier1.scenario-7.examples-1-row-3`: query execution failed: Parse error: unknown variable `x` at byte 33..34; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..52; query:
-RETURN none(x IN [{a: 4}] WHERE x.a = 2) AS result
-- `tck.expressions.quantifier.quantifier1.scenario-7.examples-1-row-4`: query execution failed: Parse error: unknown variable `x` at byte 47..48; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..66; query:
-RETURN none(x IN [{a: 2, b: 5}, {a: 4}] WHERE x.a = 2) AS result
-- `tck.expressions.quantifier.quantifier1.scenario-7.examples-1-row-5`: query execution failed: Parse error: unknown variable `x` at byte 47..48; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..66; query:
-RETURN none(x IN [{a: 4}, {a: 2, b: 5}] WHERE x.a = 2) AS result
-- `tck.expressions.quantifier.quantifier1.scenario-7.examples-1-row-6`: query execution failed: Parse error: unknown variable `x` at byte 61..62; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..80; query:
-RETURN none(x IN [{a: 2, b: 5}, {a: 4}, {a: 2, b: 5}] WHERE x.a = 2) AS result
-- `tck.expressions.quantifier.quantifier1.scenario-7.examples-1-row-7`: query execution failed: Parse error: unknown variable `x` at byte 55..56; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..74; query:
-RETURN none(x IN [{a: 4}, {a: 2, b: 5}, {a: 4}] WHERE x.a = 2) AS result
-- `tck.expressions.quantifier.quantifier1.scenario-7.examples-1-row-8`: query execution failed: Parse error: unknown variable `x` at byte 67..68; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..86; query:
-RETURN none(x IN [{a: 2, b: 5}, {a: 2, b: 5}, {a: 2, b: 5}] WHERE x.a = 2) AS result
-- `tck.expressions.quantifier.quantifier1.scenario-7.examples-1-row-9`: query execution failed: Parse error: unknown variable `x` at byte 49..50; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..68; query:
-RETURN none(x IN [{a: 4}, {a: 4}, {a: 4}] WHERE x.a = 2) AS result
-- `tck.expressions.quantifier.quantifier1.scenario-8`: query execution failed: Parse error: unknown variable `x` at byte 99..100; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 63..123; query:
+- `tck.expressions.quantifier.quantifier1.scenario-8`: query execution failed: Parse error: property access requires a node or relationship at byte 99..100; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 63..123; query:
 MATCH p = (:SNodes)-[*0..3]->(x)
 WITH tail(nodes(p)) AS nodes
 RETURN nodes, none(x IN nodes WHERE x.name = 'a') AS result
-- `tck.expressions.quantifier.quantifier1.scenario-9`: query execution failed: Parse error: unknown variable `x` at byte 154..155; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 102..178; query:
+- `tck.expressions.quantifier.quantifier1.scenario-9`: query execution failed: Parse error: property access requires a node or relationship at byte 154..155; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 102..178; query:
 MATCH p = (:SRelationships)-[*0..4]->(x)
 WITH tail(relationships(p)) AS relationships, COUNT(*) AS c
 RETURN relationships, none(x IN relationships WHERE x.name = 'a') AS result
@@ -3991,409 +3615,11 @@ RETURN relationships, none(x IN relationships WHERE x.name = 'a') AS result
 - `tck.expressions.quantifier.quantifier1.scenario-10.examples-1-row-3`: expected [["<null>"]], observed [["1"]]
 - `tck.expressions.quantifier.quantifier1.scenario-10.examples-1-row-7`: expected [["<null>"]], observed [["1"]]
 - `tck.expressions.quantifier.quantifier10.scenario-2`: expected [["0"]], observed [["1"]]
-- `tck.expressions.quantifier.quantifier10.scenario-4.examples-1-row-1`: query execution failed: Parse error: property access requires a node or relationship at byte 186..191; mutation execution failed: Cypher mutation binding failed: property access requires a node or relationship at byte 186..191; query:
-UNWIND [{list: [2], fixed: true},
-        {list: [6], fixed: true},
-        {list: [7], fixed: true},
-        {list: [1, 2, 3, 4, 5, 6, 7, 8, 9], fixed: false}] AS input
-WITH CASE WHEN input.fixed THEN input.list ELSE null END AS fixedList,
-     CASE WHEN NOT input.fixed THEN input.list ELSE [1] END AS inputList
-UNWIND inputList AS x
-WITH fixedList, inputList, x, [ y IN inputList WHERE rand() > 0.5 | y] AS list
-WITH fixedList, inputList, CASE WHEN rand() < 0.5 THEN reverse(list) ELSE list END + x AS list
-UNWIND inputList AS x
-WITH fixedList, inputList, x, [ y IN inputList WHERE rand() > 0.5 | y] AS list
-WITH fixedList, inputList, CASE WHEN rand() < 0.5 THEN reverse(list) ELSE list END + x AS list
-UNWIND inputList AS x
-WITH fixedList, inputList, x, [ y IN inputList WHERE rand() > 0.5 | y] AS list
-WITH fixedList, inputList, CASE WHEN rand() < 0.5 THEN reverse(list) ELSE list END + x AS list
-WITH coalesce(fixedList, list) AS list
-WITH single(x IN list WHERE x = 2) = (size([x IN list WHERE x = 2 | x]) = 1) AS result, count(*) AS cnt
-RETURN result
-- `tck.expressions.quantifier.quantifier10.scenario-4.examples-1-row-2`: query execution failed: Parse error: property access requires a node or relationship at byte 186..191; mutation execution failed: Cypher mutation binding failed: property access requires a node or relationship at byte 186..191; query:
-UNWIND [{list: [2], fixed: true},
-        {list: [6], fixed: true},
-        {list: [7], fixed: true},
-        {list: [1, 2, 3, 4, 5, 6, 7, 8, 9], fixed: false}] AS input
-WITH CASE WHEN input.fixed THEN input.list ELSE null END AS fixedList,
-     CASE WHEN NOT input.fixed THEN input.list ELSE [1] END AS inputList
-UNWIND inputList AS x
-WITH fixedList, inputList, x, [ y IN inputList WHERE rand() > 0.5 | y] AS list
-WITH fixedList, inputList, CASE WHEN rand() < 0.5 THEN reverse(list) ELSE list END + x AS list
-UNWIND inputList AS x
-WITH fixedList, inputList, x, [ y IN inputList WHERE rand() > 0.5 | y] AS list
-WITH fixedList, inputList, CASE WHEN rand() < 0.5 THEN reverse(list) ELSE list END + x AS list
-UNWIND inputList AS x
-WITH fixedList, inputList, x, [ y IN inputList WHERE rand() > 0.5 | y] AS list
-WITH fixedList, inputList, CASE WHEN rand() < 0.5 THEN reverse(list) ELSE list END + x AS list
-WITH coalesce(fixedList, list) AS list
-WITH single(x IN list WHERE x % 2 = 0) = (size([x IN list WHERE x % 2 = 0 | x]) = 1) AS result, count(*) AS cnt
-RETURN result
-- `tck.expressions.quantifier.quantifier10.scenario-4.examples-1-row-3`: query execution failed: Parse error: property access requires a node or relationship at byte 186..191; mutation execution failed: Cypher mutation binding failed: property access requires a node or relationship at byte 186..191; query:
-UNWIND [{list: [2], fixed: true},
-        {list: [6], fixed: true},
-        {list: [7], fixed: true},
-        {list: [1, 2, 3, 4, 5, 6, 7, 8, 9], fixed: false}] AS input
-WITH CASE WHEN input.fixed THEN input.list ELSE null END AS fixedList,
-     CASE WHEN NOT input.fixed THEN input.list ELSE [1] END AS inputList
-UNWIND inputList AS x
-WITH fixedList, inputList, x, [ y IN inputList WHERE rand() > 0.5 | y] AS list
-WITH fixedList, inputList, CASE WHEN rand() < 0.5 THEN reverse(list) ELSE list END + x AS list
-UNWIND inputList AS x
-WITH fixedList, inputList, x, [ y IN inputList WHERE rand() > 0.5 | y] AS list
-WITH fixedList, inputList, CASE WHEN rand() < 0.5 THEN reverse(list) ELSE list END + x AS list
-UNWIND inputList AS x
-WITH fixedList, inputList, x, [ y IN inputList WHERE rand() > 0.5 | y] AS list
-WITH fixedList, inputList, CASE WHEN rand() < 0.5 THEN reverse(list) ELSE list END + x AS list
-WITH coalesce(fixedList, list) AS list
-WITH single(x IN list WHERE x % 3 = 0) = (size([x IN list WHERE x % 3 = 0 | x]) = 1) AS result, count(*) AS cnt
-RETURN result
-- `tck.expressions.quantifier.quantifier10.scenario-4.examples-1-row-4`: query execution failed: Parse error: property access requires a node or relationship at byte 186..191; mutation execution failed: Cypher mutation binding failed: property access requires a node or relationship at byte 186..191; query:
-UNWIND [{list: [2], fixed: true},
-        {list: [6], fixed: true},
-        {list: [7], fixed: true},
-        {list: [1, 2, 3, 4, 5, 6, 7, 8, 9], fixed: false}] AS input
-WITH CASE WHEN input.fixed THEN input.list ELSE null END AS fixedList,
-     CASE WHEN NOT input.fixed THEN input.list ELSE [1] END AS inputList
-UNWIND inputList AS x
-WITH fixedList, inputList, x, [ y IN inputList WHERE rand() > 0.5 | y] AS list
-WITH fixedList, inputList, CASE WHEN rand() < 0.5 THEN reverse(list) ELSE list END + x AS list
-UNWIND inputList AS x
-WITH fixedList, inputList, x, [ y IN inputList WHERE rand() > 0.5 | y] AS list
-WITH fixedList, inputList, CASE WHEN rand() < 0.5 THEN reverse(list) ELSE list END + x AS list
-UNWIND inputList AS x
-WITH fixedList, inputList, x, [ y IN inputList WHERE rand() > 0.5 | y] AS list
-WITH fixedList, inputList, CASE WHEN rand() < 0.5 THEN reverse(list) ELSE list END + x AS list
-WITH coalesce(fixedList, list) AS list
-WITH single(x IN list WHERE x < 7) = (size([x IN list WHERE x < 7 | x]) = 1) AS result, count(*) AS cnt
-RETURN result
-- `tck.expressions.quantifier.quantifier10.scenario-4.examples-1-row-5`: query execution failed: Parse error: property access requires a node or relationship at byte 186..191; mutation execution failed: Cypher mutation binding failed: property access requires a node or relationship at byte 186..191; query:
-UNWIND [{list: [2], fixed: true},
-        {list: [6], fixed: true},
-        {list: [7], fixed: true},
-        {list: [1, 2, 3, 4, 5, 6, 7, 8, 9], fixed: false}] AS input
-WITH CASE WHEN input.fixed THEN input.list ELSE null END AS fixedList,
-     CASE WHEN NOT input.fixed THEN input.list ELSE [1] END AS inputList
-UNWIND inputList AS x
-WITH fixedList, inputList, x, [ y IN inputList WHERE rand() > 0.5 | y] AS list
-WITH fixedList, inputList, CASE WHEN rand() < 0.5 THEN reverse(list) ELSE list END + x AS list
-UNWIND inputList AS x
-WITH fixedList, inputList, x, [ y IN inputList WHERE rand() > 0.5 | y] AS list
-WITH fixedList, inputList, CASE WHEN rand() < 0.5 THEN reverse(list) ELSE list END + x AS list
-UNWIND inputList AS x
-WITH fixedList, inputList, x, [ y IN inputList WHERE rand() > 0.5 | y] AS list
-WITH fixedList, inputList, CASE WHEN rand() < 0.5 THEN reverse(list) ELSE list END + x AS list
-WITH coalesce(fixedList, list) AS list
-WITH single(x IN list WHERE x >= 3) = (size([x IN list WHERE x >= 3 | x]) = 1) AS result, count(*) AS cnt
-RETURN result
-- `tck.expressions.quantifier.quantifier11.scenario-3.examples-1-row-1`: query execution failed: Parse error: property access requires a node or relationship at byte 152..157; mutation execution failed: Cypher mutation binding failed: property access requires a node or relationship at byte 152..157; query:
-UNWIND [{list: [2], fixed: true},
-        {list: [6], fixed: true},
-        {list: [1, 2, 3, 4, 5, 6, 7, 8, 9], fixed: false}] AS input
-WITH CASE WHEN input.fixed THEN input.list ELSE null END AS fixedList,
-     CASE WHEN NOT input.fixed THEN input.list ELSE [1] END AS inputList
-UNWIND inputList AS x
-WITH fixedList, inputList, x, [ y IN inputList WHERE rand() > 0.5 | y] AS list
-WITH fixedList, inputList, CASE WHEN rand() < 0.5 THEN reverse(list) ELSE list END + x AS list
-UNWIND inputList AS x
-WITH fixedList, inputList, x, [ y IN inputList WHERE rand() > 0.5 | y] AS list
-WITH fixedList, inputList, CASE WHEN rand() < 0.5 THEN reverse(list) ELSE list END + x AS list
-UNWIND inputList AS x
-WITH fixedList, inputList, x, [ y IN inputList WHERE rand() > 0.5 | y] AS list
-WITH fixedList, inputList, CASE WHEN rand() < 0.5 THEN reverse(list) ELSE list END + x AS list
-WITH coalesce(fixedList, list) AS list
-WITH list WHERE single(x IN list WHERE x = 2) OR all(x IN list WHERE x = 2)
-WITH any(x IN list WHERE x = 2) AS result, count(*) AS cnt
-RETURN result
-- `tck.expressions.quantifier.quantifier11.scenario-3.examples-1-row-2`: query execution failed: Parse error: property access requires a node or relationship at byte 152..157; mutation execution failed: Cypher mutation binding failed: property access requires a node or relationship at byte 152..157; query:
-UNWIND [{list: [2], fixed: true},
-        {list: [6], fixed: true},
-        {list: [1, 2, 3, 4, 5, 6, 7, 8, 9], fixed: false}] AS input
-WITH CASE WHEN input.fixed THEN input.list ELSE null END AS fixedList,
-     CASE WHEN NOT input.fixed THEN input.list ELSE [1] END AS inputList
-UNWIND inputList AS x
-WITH fixedList, inputList, x, [ y IN inputList WHERE rand() > 0.5 | y] AS list
-WITH fixedList, inputList, CASE WHEN rand() < 0.5 THEN reverse(list) ELSE list END + x AS list
-UNWIND inputList AS x
-WITH fixedList, inputList, x, [ y IN inputList WHERE rand() > 0.5 | y] AS list
-WITH fixedList, inputList, CASE WHEN rand() < 0.5 THEN reverse(list) ELSE list END + x AS list
-UNWIND inputList AS x
-WITH fixedList, inputList, x, [ y IN inputList WHERE rand() > 0.5 | y] AS list
-WITH fixedList, inputList, CASE WHEN rand() < 0.5 THEN reverse(list) ELSE list END + x AS list
-WITH coalesce(fixedList, list) AS list
-WITH list WHERE single(x IN list WHERE x % 2 = 0) OR all(x IN list WHERE x % 2 = 0)
-WITH any(x IN list WHERE x % 2 = 0) AS result, count(*) AS cnt
-RETURN result
-- `tck.expressions.quantifier.quantifier11.scenario-3.examples-1-row-3`: query execution failed: Parse error: property access requires a node or relationship at byte 152..157; mutation execution failed: Cypher mutation binding failed: property access requires a node or relationship at byte 152..157; query:
-UNWIND [{list: [2], fixed: true},
-        {list: [6], fixed: true},
-        {list: [1, 2, 3, 4, 5, 6, 7, 8, 9], fixed: false}] AS input
-WITH CASE WHEN input.fixed THEN input.list ELSE null END AS fixedList,
-     CASE WHEN NOT input.fixed THEN input.list ELSE [1] END AS inputList
-UNWIND inputList AS x
-WITH fixedList, inputList, x, [ y IN inputList WHERE rand() > 0.5 | y] AS list
-WITH fixedList, inputList, CASE WHEN rand() < 0.5 THEN reverse(list) ELSE list END + x AS list
-UNWIND inputList AS x
-WITH fixedList, inputList, x, [ y IN inputList WHERE rand() > 0.5 | y] AS list
-WITH fixedList, inputList, CASE WHEN rand() < 0.5 THEN reverse(list) ELSE list END + x AS list
-UNWIND inputList AS x
-WITH fixedList, inputList, x, [ y IN inputList WHERE rand() > 0.5 | y] AS list
-WITH fixedList, inputList, CASE WHEN rand() < 0.5 THEN reverse(list) ELSE list END + x AS list
-WITH coalesce(fixedList, list) AS list
-WITH list WHERE single(x IN list WHERE x % 3 = 0) OR all(x IN list WHERE x % 3 = 0)
-WITH any(x IN list WHERE x % 3 = 0) AS result, count(*) AS cnt
-RETURN result
-- `tck.expressions.quantifier.quantifier11.scenario-3.examples-1-row-4`: query execution failed: Parse error: property access requires a node or relationship at byte 152..157; mutation execution failed: Cypher mutation binding failed: property access requires a node or relationship at byte 152..157; query:
-UNWIND [{list: [2], fixed: true},
-        {list: [6], fixed: true},
-        {list: [1, 2, 3, 4, 5, 6, 7, 8, 9], fixed: false}] AS input
-WITH CASE WHEN input.fixed THEN input.list ELSE null END AS fixedList,
-     CASE WHEN NOT input.fixed THEN input.list ELSE [1] END AS inputList
-UNWIND inputList AS x
-WITH fixedList, inputList, x, [ y IN inputList WHERE rand() > 0.5 | y] AS list
-WITH fixedList, inputList, CASE WHEN rand() < 0.5 THEN reverse(list) ELSE list END + x AS list
-UNWIND inputList AS x
-WITH fixedList, inputList, x, [ y IN inputList WHERE rand() > 0.5 | y] AS list
-WITH fixedList, inputList, CASE WHEN rand() < 0.5 THEN reverse(list) ELSE list END + x AS list
-UNWIND inputList AS x
-WITH fixedList, inputList, x, [ y IN inputList WHERE rand() > 0.5 | y] AS list
-WITH fixedList, inputList, CASE WHEN rand() < 0.5 THEN reverse(list) ELSE list END + x AS list
-WITH coalesce(fixedList, list) AS list
-WITH list WHERE single(x IN list WHERE x < 7) OR all(x IN list WHERE x < 7)
-WITH any(x IN list WHERE x < 7) AS result, count(*) AS cnt
-RETURN result
-- `tck.expressions.quantifier.quantifier11.scenario-3.examples-1-row-5`: query execution failed: Parse error: property access requires a node or relationship at byte 152..157; mutation execution failed: Cypher mutation binding failed: property access requires a node or relationship at byte 152..157; query:
-UNWIND [{list: [2], fixed: true},
-        {list: [6], fixed: true},
-        {list: [1, 2, 3, 4, 5, 6, 7, 8, 9], fixed: false}] AS input
-WITH CASE WHEN input.fixed THEN input.list ELSE null END AS fixedList,
-     CASE WHEN NOT input.fixed THEN input.list ELSE [1] END AS inputList
-UNWIND inputList AS x
-WITH fixedList, inputList, x, [ y IN inputList WHERE rand() > 0.5 | y] AS list
-WITH fixedList, inputList, CASE WHEN rand() < 0.5 THEN reverse(list) ELSE list END + x AS list
-UNWIND inputList AS x
-WITH fixedList, inputList, x, [ y IN inputList WHERE rand() > 0.5 | y] AS list
-WITH fixedList, inputList, CASE WHEN rand() < 0.5 THEN reverse(list) ELSE list END + x AS list
-UNWIND inputList AS x
-WITH fixedList, inputList, x, [ y IN inputList WHERE rand() > 0.5 | y] AS list
-WITH fixedList, inputList, CASE WHEN rand() < 0.5 THEN reverse(list) ELSE list END + x AS list
-WITH coalesce(fixedList, list) AS list
-WITH list WHERE single(x IN list WHERE x >= 3) OR all(x IN list WHERE x >= 3)
-WITH any(x IN list WHERE x >= 3) AS result, count(*) AS cnt
-RETURN result
-- `tck.expressions.quantifier.quantifier11.scenario-6.examples-1-row-1`: query execution failed: Parse error: property access requires a node or relationship at byte 186..191; mutation execution failed: Cypher mutation binding failed: property access requires a node or relationship at byte 186..191; query:
-UNWIND [{list: [2], fixed: true},
-        {list: [6], fixed: true},
-        {list: [7], fixed: true},
-        {list: [1, 2, 3, 4, 5, 6, 7, 8, 9], fixed: false}] AS input
-WITH CASE WHEN input.fixed THEN input.list ELSE null END AS fixedList,
-     CASE WHEN NOT input.fixed THEN input.list ELSE [1] END AS inputList
-UNWIND inputList AS x
-WITH fixedList, inputList, x, [ y IN inputList WHERE rand() > 0.5 | y] AS list
-WITH fixedList, inputList, CASE WHEN rand() < 0.5 THEN reverse(list) ELSE list END + x AS list
-UNWIND inputList AS x
-WITH fixedList, inputList, x, [ y IN inputList WHERE rand() > 0.5 | y] AS list
-WITH fixedList, inputList, CASE WHEN rand() < 0.5 THEN reverse(list) ELSE list END + x AS list
-UNWIND inputList AS x
-WITH fixedList, inputList, x, [ y IN inputList WHERE rand() > 0.5 | y] AS list
-WITH fixedList, inputList, CASE WHEN rand() < 0.5 THEN reverse(list) ELSE list END + x AS list
-WITH coalesce(fixedList, list) AS list
-WITH any(x IN list WHERE x = 2) = (size([x IN list WHERE x = 2 | x]) > 0) AS result, count(*) AS cnt
-RETURN result
-- `tck.expressions.quantifier.quantifier11.scenario-6.examples-1-row-2`: query execution failed: Parse error: property access requires a node or relationship at byte 186..191; mutation execution failed: Cypher mutation binding failed: property access requires a node or relationship at byte 186..191; query:
-UNWIND [{list: [2], fixed: true},
-        {list: [6], fixed: true},
-        {list: [7], fixed: true},
-        {list: [1, 2, 3, 4, 5, 6, 7, 8, 9], fixed: false}] AS input
-WITH CASE WHEN input.fixed THEN input.list ELSE null END AS fixedList,
-     CASE WHEN NOT input.fixed THEN input.list ELSE [1] END AS inputList
-UNWIND inputList AS x
-WITH fixedList, inputList, x, [ y IN inputList WHERE rand() > 0.5 | y] AS list
-WITH fixedList, inputList, CASE WHEN rand() < 0.5 THEN reverse(list) ELSE list END + x AS list
-UNWIND inputList AS x
-WITH fixedList, inputList, x, [ y IN inputList WHERE rand() > 0.5 | y] AS list
-WITH fixedList, inputList, CASE WHEN rand() < 0.5 THEN reverse(list) ELSE list END + x AS list
-UNWIND inputList AS x
-WITH fixedList, inputList, x, [ y IN inputList WHERE rand() > 0.5 | y] AS list
-WITH fixedList, inputList, CASE WHEN rand() < 0.5 THEN reverse(list) ELSE list END + x AS list
-WITH coalesce(fixedList, list) AS list
-WITH any(x IN list WHERE x % 2 = 0) = (size([x IN list WHERE x % 2 = 0 | x]) > 0) AS result, count(*) AS cnt
-RETURN result
-- `tck.expressions.quantifier.quantifier11.scenario-6.examples-1-row-3`: query execution failed: Parse error: property access requires a node or relationship at byte 186..191; mutation execution failed: Cypher mutation binding failed: property access requires a node or relationship at byte 186..191; query:
-UNWIND [{list: [2], fixed: true},
-        {list: [6], fixed: true},
-        {list: [7], fixed: true},
-        {list: [1, 2, 3, 4, 5, 6, 7, 8, 9], fixed: false}] AS input
-WITH CASE WHEN input.fixed THEN input.list ELSE null END AS fixedList,
-     CASE WHEN NOT input.fixed THEN input.list ELSE [1] END AS inputList
-UNWIND inputList AS x
-WITH fixedList, inputList, x, [ y IN inputList WHERE rand() > 0.5 | y] AS list
-WITH fixedList, inputList, CASE WHEN rand() < 0.5 THEN reverse(list) ELSE list END + x AS list
-UNWIND inputList AS x
-WITH fixedList, inputList, x, [ y IN inputList WHERE rand() > 0.5 | y] AS list
-WITH fixedList, inputList, CASE WHEN rand() < 0.5 THEN reverse(list) ELSE list END + x AS list
-UNWIND inputList AS x
-WITH fixedList, inputList, x, [ y IN inputList WHERE rand() > 0.5 | y] AS list
-WITH fixedList, inputList, CASE WHEN rand() < 0.5 THEN reverse(list) ELSE list END + x AS list
-WITH coalesce(fixedList, list) AS list
-WITH any(x IN list WHERE x % 3 = 0) = (size([x IN list WHERE x % 3 = 0 | x]) > 0) AS result, count(*) AS cnt
-RETURN result
-- `tck.expressions.quantifier.quantifier11.scenario-6.examples-1-row-4`: query execution failed: Parse error: property access requires a node or relationship at byte 186..191; mutation execution failed: Cypher mutation binding failed: property access requires a node or relationship at byte 186..191; query:
-UNWIND [{list: [2], fixed: true},
-        {list: [6], fixed: true},
-        {list: [7], fixed: true},
-        {list: [1, 2, 3, 4, 5, 6, 7, 8, 9], fixed: false}] AS input
-WITH CASE WHEN input.fixed THEN input.list ELSE null END AS fixedList,
-     CASE WHEN NOT input.fixed THEN input.list ELSE [1] END AS inputList
-UNWIND inputList AS x
-WITH fixedList, inputList, x, [ y IN inputList WHERE rand() > 0.5 | y] AS list
-WITH fixedList, inputList, CASE WHEN rand() < 0.5 THEN reverse(list) ELSE list END + x AS list
-UNWIND inputList AS x
-WITH fixedList, inputList, x, [ y IN inputList WHERE rand() > 0.5 | y] AS list
-WITH fixedList, inputList, CASE WHEN rand() < 0.5 THEN reverse(list) ELSE list END + x AS list
-UNWIND inputList AS x
-WITH fixedList, inputList, x, [ y IN inputList WHERE rand() > 0.5 | y] AS list
-WITH fixedList, inputList, CASE WHEN rand() < 0.5 THEN reverse(list) ELSE list END + x AS list
-WITH coalesce(fixedList, list) AS list
-WITH any(x IN list WHERE x < 7) = (size([x IN list WHERE x < 7 | x]) > 0) AS result, count(*) AS cnt
-RETURN result
-- `tck.expressions.quantifier.quantifier11.scenario-6.examples-1-row-5`: query execution failed: Parse error: property access requires a node or relationship at byte 186..191; mutation execution failed: Cypher mutation binding failed: property access requires a node or relationship at byte 186..191; query:
-UNWIND [{list: [2], fixed: true},
-        {list: [6], fixed: true},
-        {list: [7], fixed: true},
-        {list: [1, 2, 3, 4, 5, 6, 7, 8, 9], fixed: false}] AS input
-WITH CASE WHEN input.fixed THEN input.list ELSE null END AS fixedList,
-     CASE WHEN NOT input.fixed THEN input.list ELSE [1] END AS inputList
-UNWIND inputList AS x
-WITH fixedList, inputList, x, [ y IN inputList WHERE rand() > 0.5 | y] AS list
-WITH fixedList, inputList, CASE WHEN rand() < 0.5 THEN reverse(list) ELSE list END + x AS list
-UNWIND inputList AS x
-WITH fixedList, inputList, x, [ y IN inputList WHERE rand() > 0.5 | y] AS list
-WITH fixedList, inputList, CASE WHEN rand() < 0.5 THEN reverse(list) ELSE list END + x AS list
-UNWIND inputList AS x
-WITH fixedList, inputList, x, [ y IN inputList WHERE rand() > 0.5 | y] AS list
-WITH fixedList, inputList, CASE WHEN rand() < 0.5 THEN reverse(list) ELSE list END + x AS list
-WITH coalesce(fixedList, list) AS list
-WITH any(x IN list WHERE x >= 3) = (size([x IN list WHERE x >= 3 | x]) > 0) AS result, count(*) AS cnt
-RETURN result
-- `tck.expressions.quantifier.quantifier12.scenario-5.examples-1-row-1`: query execution failed: Parse error: property access requires a node or relationship at byte 186..191; mutation execution failed: Cypher mutation binding failed: property access requires a node or relationship at byte 186..191; query:
-UNWIND [{list: [2], fixed: true},
-        {list: [6], fixed: true},
-        {list: [7], fixed: true},
-        {list: [1, 2, 3, 4, 5, 6, 7, 8, 9], fixed: false}] AS input
-WITH CASE WHEN input.fixed THEN input.list ELSE null END AS fixedList,
-     CASE WHEN NOT input.fixed THEN input.list ELSE [1] END AS inputList
-UNWIND inputList AS x
-WITH fixedList, inputList, x, [ y IN inputList WHERE rand() > 0.5 | y] AS list
-WITH fixedList, inputList, CASE WHEN rand() < 0.5 THEN reverse(list) ELSE list END + x AS list
-UNWIND inputList AS x
-WITH fixedList, inputList, x, [ y IN inputList WHERE rand() > 0.5 | y] AS list
-WITH fixedList, inputList, CASE WHEN rand() < 0.5 THEN reverse(list) ELSE list END + x AS list
-UNWIND inputList AS x
-WITH fixedList, inputList, x, [ y IN inputList WHERE rand() > 0.5 | y] AS list
-WITH fixedList, inputList, CASE WHEN rand() < 0.5 THEN reverse(list) ELSE list END + x AS list
-WITH coalesce(fixedList, list) AS list
-WITH all(x IN list WHERE x = 2) = (size([x IN list WHERE x = 2 | x]) = size(list)) AS result, count(*) AS cnt
-RETURN result
-- `tck.expressions.quantifier.quantifier12.scenario-5.examples-1-row-2`: query execution failed: Parse error: property access requires a node or relationship at byte 186..191; mutation execution failed: Cypher mutation binding failed: property access requires a node or relationship at byte 186..191; query:
-UNWIND [{list: [2], fixed: true},
-        {list: [6], fixed: true},
-        {list: [7], fixed: true},
-        {list: [1, 2, 3, 4, 5, 6, 7, 8, 9], fixed: false}] AS input
-WITH CASE WHEN input.fixed THEN input.list ELSE null END AS fixedList,
-     CASE WHEN NOT input.fixed THEN input.list ELSE [1] END AS inputList
-UNWIND inputList AS x
-WITH fixedList, inputList, x, [ y IN inputList WHERE rand() > 0.5 | y] AS list
-WITH fixedList, inputList, CASE WHEN rand() < 0.5 THEN reverse(list) ELSE list END + x AS list
-UNWIND inputList AS x
-WITH fixedList, inputList, x, [ y IN inputList WHERE rand() > 0.5 | y] AS list
-WITH fixedList, inputList, CASE WHEN rand() < 0.5 THEN reverse(list) ELSE list END + x AS list
-UNWIND inputList AS x
-WITH fixedList, inputList, x, [ y IN inputList WHERE rand() > 0.5 | y] AS list
-WITH fixedList, inputList, CASE WHEN rand() < 0.5 THEN reverse(list) ELSE list END + x AS list
-WITH coalesce(fixedList, list) AS list
-WITH all(x IN list WHERE x % 2 = 0) = (size([x IN list WHERE x % 2 = 0 | x]) = size(list)) AS result, count(*) AS cnt
-RETURN result
-- `tck.expressions.quantifier.quantifier12.scenario-5.examples-1-row-3`: query execution failed: Parse error: property access requires a node or relationship at byte 186..191; mutation execution failed: Cypher mutation binding failed: property access requires a node or relationship at byte 186..191; query:
-UNWIND [{list: [2], fixed: true},
-        {list: [6], fixed: true},
-        {list: [7], fixed: true},
-        {list: [1, 2, 3, 4, 5, 6, 7, 8, 9], fixed: false}] AS input
-WITH CASE WHEN input.fixed THEN input.list ELSE null END AS fixedList,
-     CASE WHEN NOT input.fixed THEN input.list ELSE [1] END AS inputList
-UNWIND inputList AS x
-WITH fixedList, inputList, x, [ y IN inputList WHERE rand() > 0.5 | y] AS list
-WITH fixedList, inputList, CASE WHEN rand() < 0.5 THEN reverse(list) ELSE list END + x AS list
-UNWIND inputList AS x
-WITH fixedList, inputList, x, [ y IN inputList WHERE rand() > 0.5 | y] AS list
-WITH fixedList, inputList, CASE WHEN rand() < 0.5 THEN reverse(list) ELSE list END + x AS list
-UNWIND inputList AS x
-WITH fixedList, inputList, x, [ y IN inputList WHERE rand() > 0.5 | y] AS list
-WITH fixedList, inputList, CASE WHEN rand() < 0.5 THEN reverse(list) ELSE list END + x AS list
-WITH coalesce(fixedList, list) AS list
-WITH all(x IN list WHERE x % 3 = 0) = (size([x IN list WHERE x % 3 = 0 | x]) = size(list)) AS result, count(*) AS cnt
-RETURN result
-- `tck.expressions.quantifier.quantifier12.scenario-5.examples-1-row-4`: query execution failed: Parse error: property access requires a node or relationship at byte 186..191; mutation execution failed: Cypher mutation binding failed: property access requires a node or relationship at byte 186..191; query:
-UNWIND [{list: [2], fixed: true},
-        {list: [6], fixed: true},
-        {list: [7], fixed: true},
-        {list: [1, 2, 3, 4, 5, 6, 7, 8, 9], fixed: false}] AS input
-WITH CASE WHEN input.fixed THEN input.list ELSE null END AS fixedList,
-     CASE WHEN NOT input.fixed THEN input.list ELSE [1] END AS inputList
-UNWIND inputList AS x
-WITH fixedList, inputList, x, [ y IN inputList WHERE rand() > 0.5 | y] AS list
-WITH fixedList, inputList, CASE WHEN rand() < 0.5 THEN reverse(list) ELSE list END + x AS list
-UNWIND inputList AS x
-WITH fixedList, inputList, x, [ y IN inputList WHERE rand() > 0.5 | y] AS list
-WITH fixedList, inputList, CASE WHEN rand() < 0.5 THEN reverse(list) ELSE list END + x AS list
-UNWIND inputList AS x
-WITH fixedList, inputList, x, [ y IN inputList WHERE rand() > 0.5 | y] AS list
-WITH fixedList, inputList, CASE WHEN rand() < 0.5 THEN reverse(list) ELSE list END + x AS list
-WITH coalesce(fixedList, list) AS list
-WITH all(x IN list WHERE x < 7) = (size([x IN list WHERE x < 7 | x]) = size(list)) AS result, count(*) AS cnt
-RETURN result
-- `tck.expressions.quantifier.quantifier12.scenario-5.examples-1-row-5`: query execution failed: Parse error: property access requires a node or relationship at byte 186..191; mutation execution failed: Cypher mutation binding failed: property access requires a node or relationship at byte 186..191; query:
-UNWIND [{list: [2], fixed: true},
-        {list: [6], fixed: true},
-        {list: [7], fixed: true},
-        {list: [1, 2, 3, 4, 5, 6, 7, 8, 9], fixed: false}] AS input
-WITH CASE WHEN input.fixed THEN input.list ELSE null END AS fixedList,
-     CASE WHEN NOT input.fixed THEN input.list ELSE [1] END AS inputList
-UNWIND inputList AS x
-WITH fixedList, inputList, x, [ y IN inputList WHERE rand() > 0.5 | y] AS list
-WITH fixedList, inputList, CASE WHEN rand() < 0.5 THEN reverse(list) ELSE list END + x AS list
-UNWIND inputList AS x
-WITH fixedList, inputList, x, [ y IN inputList WHERE rand() > 0.5 | y] AS list
-WITH fixedList, inputList, CASE WHEN rand() < 0.5 THEN reverse(list) ELSE list END + x AS list
-UNWIND inputList AS x
-WITH fixedList, inputList, x, [ y IN inputList WHERE rand() > 0.5 | y] AS list
-WITH fixedList, inputList, CASE WHEN rand() < 0.5 THEN reverse(list) ELSE list END + x AS list
-WITH coalesce(fixedList, list) AS list
-WITH all(x IN list WHERE x >= 3) = (size([x IN list WHERE x >= 3 | x]) = size(list)) AS result, count(*) AS cnt
-RETURN result
-- `tck.expressions.quantifier.quantifier2.scenario-7.examples-1-row-1`: query execution failed: Parse error: unknown variable `x` at byte 29..30; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..48; query:
-RETURN single(x IN [] WHERE x.a = 2) AS result
-- `tck.expressions.quantifier.quantifier2.scenario-7.examples-1-row-2`: query execution failed: Parse error: unknown variable `x` at byte 41..42; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..60; query:
-RETURN single(x IN [{a: 2, b: 5}] WHERE x.a = 2) AS result
-- `tck.expressions.quantifier.quantifier2.scenario-7.examples-1-row-3`: query execution failed: Parse error: unknown variable `x` at byte 35..36; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..54; query:
-RETURN single(x IN [{a: 4}] WHERE x.a = 2) AS result
-- `tck.expressions.quantifier.quantifier2.scenario-7.examples-1-row-4`: query execution failed: Parse error: unknown variable `x` at byte 49..50; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..68; query:
-RETURN single(x IN [{a: 2, b: 5}, {a: 4}] WHERE x.a = 2) AS result
-- `tck.expressions.quantifier.quantifier2.scenario-7.examples-1-row-5`: query execution failed: Parse error: unknown variable `x` at byte 49..50; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..68; query:
-RETURN single(x IN [{a: 4}, {a: 2, b: 5}] WHERE x.a = 2) AS result
-- `tck.expressions.quantifier.quantifier2.scenario-7.examples-1-row-6`: query execution failed: Parse error: unknown variable `x` at byte 63..64; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..82; query:
-RETURN single(x IN [{a: 2, b: 5}, {a: 4}, {a: 2, b: 5}] WHERE x.a = 2) AS result
-- `tck.expressions.quantifier.quantifier2.scenario-7.examples-1-row-7`: query execution failed: Parse error: unknown variable `x` at byte 57..58; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..76; query:
-RETURN single(x IN [{a: 4}, {a: 2, b: 5}, {a: 4}] WHERE x.a = 2) AS result
-- `tck.expressions.quantifier.quantifier2.scenario-7.examples-1-row-8`: query execution failed: Parse error: unknown variable `x` at byte 69..70; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..88; query:
-RETURN single(x IN [{a: 2, b: 5}, {a: 2, b: 5}, {a: 2, b: 5}] WHERE x.a = 2) AS result
-- `tck.expressions.quantifier.quantifier2.scenario-7.examples-1-row-9`: query execution failed: Parse error: unknown variable `x` at byte 51..52; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..70; query:
-RETURN single(x IN [{a: 4}, {a: 4}, {a: 4}] WHERE x.a = 2) AS result
-- `tck.expressions.quantifier.quantifier2.scenario-8`: query execution failed: Parse error: unknown variable `x` at byte 101..102; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 63..125; query:
+- `tck.expressions.quantifier.quantifier2.scenario-8`: query execution failed: Parse error: property access requires a node or relationship at byte 101..102; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 63..125; query:
 MATCH p = (:SNodes)-[*0..3]->(x)
 WITH tail(nodes(p)) AS nodes
 RETURN nodes, single(x IN nodes WHERE x.name = 'a') AS result
-- `tck.expressions.quantifier.quantifier2.scenario-9`: query execution failed: Parse error: unknown variable `x` at byte 156..157; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 102..180; query:
+- `tck.expressions.quantifier.quantifier2.scenario-9`: query execution failed: Parse error: property access requires a node or relationship at byte 156..157; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 102..180; query:
 MATCH p = (:SRelationships)-[*0..4]->(x)
 WITH tail(relationships(p)) AS relationships, COUNT(*) AS c
 RETURN relationships, single(x IN relationships WHERE x.name = 'a') AS result
@@ -4403,29 +3629,11 @@ RETURN relationships, single(x IN relationships WHERE x.name = 'a') AS result
 - `tck.expressions.quantifier.quantifier2.scenario-10.examples-1-row-4`: expected [["<null>"]], observed [["1"]]
 - `tck.expressions.quantifier.quantifier2.scenario-10.examples-1-row-5`: expected [["<null>"]], observed [["1"]]
 - `tck.expressions.quantifier.quantifier2.scenario-10.examples-1-row-7`: expected [["<null>"]], observed [["0"]]
-- `tck.expressions.quantifier.quantifier3.scenario-7.examples-1-row-1`: query execution failed: Parse error: unknown variable `x` at byte 26..27; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..45; query:
-RETURN any(x IN [] WHERE x.a = 2) AS result
-- `tck.expressions.quantifier.quantifier3.scenario-7.examples-1-row-2`: query execution failed: Parse error: unknown variable `x` at byte 38..39; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..57; query:
-RETURN any(x IN [{a: 2, b: 5}] WHERE x.a = 2) AS result
-- `tck.expressions.quantifier.quantifier3.scenario-7.examples-1-row-3`: query execution failed: Parse error: unknown variable `x` at byte 32..33; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..51; query:
-RETURN any(x IN [{a: 4}] WHERE x.a = 2) AS result
-- `tck.expressions.quantifier.quantifier3.scenario-7.examples-1-row-4`: query execution failed: Parse error: unknown variable `x` at byte 46..47; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..65; query:
-RETURN any(x IN [{a: 2, b: 5}, {a: 4}] WHERE x.a = 2) AS result
-- `tck.expressions.quantifier.quantifier3.scenario-7.examples-1-row-5`: query execution failed: Parse error: unknown variable `x` at byte 46..47; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..65; query:
-RETURN any(x IN [{a: 4}, {a: 2, b: 5}] WHERE x.a = 2) AS result
-- `tck.expressions.quantifier.quantifier3.scenario-7.examples-1-row-6`: query execution failed: Parse error: unknown variable `x` at byte 60..61; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..79; query:
-RETURN any(x IN [{a: 2, b: 5}, {a: 4}, {a: 2, b: 5}] WHERE x.a = 2) AS result
-- `tck.expressions.quantifier.quantifier3.scenario-7.examples-1-row-7`: query execution failed: Parse error: unknown variable `x` at byte 54..55; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..73; query:
-RETURN any(x IN [{a: 4}, {a: 2, b: 5}, {a: 4}] WHERE x.a = 2) AS result
-- `tck.expressions.quantifier.quantifier3.scenario-7.examples-1-row-8`: query execution failed: Parse error: unknown variable `x` at byte 66..67; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..85; query:
-RETURN any(x IN [{a: 2, b: 5}, {a: 2, b: 5}, {a: 2, b: 5}] WHERE x.a = 2) AS result
-- `tck.expressions.quantifier.quantifier3.scenario-7.examples-1-row-9`: query execution failed: Parse error: unknown variable `x` at byte 48..49; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..67; query:
-RETURN any(x IN [{a: 4}, {a: 4}, {a: 4}] WHERE x.a = 2) AS result
-- `tck.expressions.quantifier.quantifier3.scenario-8`: query execution failed: Parse error: unknown variable `x` at byte 98..99; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 63..122; query:
+- `tck.expressions.quantifier.quantifier3.scenario-8`: query execution failed: Parse error: property access requires a node or relationship at byte 98..99; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 63..122; query:
 MATCH p = (:SNodes)-[*0..3]->(x)
 WITH tail(nodes(p)) AS nodes
 RETURN nodes, any(x IN nodes WHERE x.name = 'a') AS result
-- `tck.expressions.quantifier.quantifier3.scenario-9`: query execution failed: Parse error: unknown variable `x` at byte 153..154; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 102..177; query:
+- `tck.expressions.quantifier.quantifier3.scenario-9`: query execution failed: Parse error: property access requires a node or relationship at byte 153..154; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 102..177; query:
 MATCH p = (:SRelationships)-[*0..4]->(x)
 WITH tail(relationships(p)) AS relationships, COUNT(*) AS c
 RETURN relationships, any(x IN relationships WHERE x.name = 'a') AS result
@@ -4433,29 +3641,11 @@ RETURN relationships, any(x IN relationships WHERE x.name = 'a') AS result
 - `tck.expressions.quantifier.quantifier3.scenario-10.examples-1-row-2`: expected [["<null>"]], observed [["0"]]
 - `tck.expressions.quantifier.quantifier3.scenario-10.examples-1-row-3`: expected [["<null>"]], observed [["0"]]
 - `tck.expressions.quantifier.quantifier3.scenario-10.examples-1-row-7`: expected [["<null>"]], observed [["0"]]
-- `tck.expressions.quantifier.quantifier4.scenario-7.examples-1-row-1`: query execution failed: Parse error: unknown variable `x` at byte 26..27; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..45; query:
-RETURN all(x IN [] WHERE x.a = 2) AS result
-- `tck.expressions.quantifier.quantifier4.scenario-7.examples-1-row-2`: query execution failed: Parse error: unknown variable `x` at byte 38..39; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..57; query:
-RETURN all(x IN [{a: 2, b: 5}] WHERE x.a = 2) AS result
-- `tck.expressions.quantifier.quantifier4.scenario-7.examples-1-row-3`: query execution failed: Parse error: unknown variable `x` at byte 32..33; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..51; query:
-RETURN all(x IN [{a: 4}] WHERE x.a = 2) AS result
-- `tck.expressions.quantifier.quantifier4.scenario-7.examples-1-row-4`: query execution failed: Parse error: unknown variable `x` at byte 46..47; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..65; query:
-RETURN all(x IN [{a: 2, b: 5}, {a: 4}] WHERE x.a = 2) AS result
-- `tck.expressions.quantifier.quantifier4.scenario-7.examples-1-row-5`: query execution failed: Parse error: unknown variable `x` at byte 46..47; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..65; query:
-RETURN all(x IN [{a: 4}, {a: 2, b: 5}] WHERE x.a = 2) AS result
-- `tck.expressions.quantifier.quantifier4.scenario-7.examples-1-row-6`: query execution failed: Parse error: unknown variable `x` at byte 60..61; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..79; query:
-RETURN all(x IN [{a: 2, b: 5}, {a: 4}, {a: 2, b: 5}] WHERE x.a = 2) AS result
-- `tck.expressions.quantifier.quantifier4.scenario-7.examples-1-row-7`: query execution failed: Parse error: unknown variable `x` at byte 54..55; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..73; query:
-RETURN all(x IN [{a: 4}, {a: 2, b: 5}, {a: 4}] WHERE x.a = 2) AS result
-- `tck.expressions.quantifier.quantifier4.scenario-7.examples-1-row-8`: query execution failed: Parse error: unknown variable `x` at byte 66..67; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..85; query:
-RETURN all(x IN [{a: 2, b: 5}, {a: 2, b: 5}, {a: 2, b: 5}] WHERE x.a = 2) AS result
-- `tck.expressions.quantifier.quantifier4.scenario-7.examples-1-row-9`: query execution failed: Parse error: unknown variable `x` at byte 48..49; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..67; query:
-RETURN all(x IN [{a: 4}, {a: 4}, {a: 4}] WHERE x.a = 2) AS result
-- `tck.expressions.quantifier.quantifier4.scenario-8`: query execution failed: Parse error: unknown variable `x` at byte 98..99; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 63..122; query:
+- `tck.expressions.quantifier.quantifier4.scenario-8`: query execution failed: Parse error: property access requires a node or relationship at byte 98..99; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 63..122; query:
 MATCH p = (:SNodes)-[*0..3]->(x)
 WITH tail(nodes(p)) AS nodes
 RETURN nodes, all(x IN nodes WHERE x.name = 'a') AS result
-- `tck.expressions.quantifier.quantifier4.scenario-9`: query execution failed: Parse error: unknown variable `x` at byte 153..154; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 102..177; query:
+- `tck.expressions.quantifier.quantifier4.scenario-9`: query execution failed: Parse error: property access requires a node or relationship at byte 153..154; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 102..177; query:
 MATCH p = (:SRelationships)-[*0..4]->(x)
 WITH tail(relationships(p)) AS relationships, COUNT(*) AS c
 RETURN relationships, all(x IN relationships WHERE x.name = 'a') AS result
@@ -4560,101 +3750,6 @@ RETURN all(x IN list WHERE all(y IN list WHERE abs(x - y) < 10)) AS result
 - `tck.expressions.quantifier.quantifier8.scenario-2.examples-1-row-8`: query execution failed: Parse error: outer list-scope variables inside nested list scopes is not supported in the initial graph slice at byte 89..91; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 42..111; query:
 WITH [1, 2, 3, 4, 5, 6, 7, 8, 9] AS list
 RETURN all(x IN list WHERE all(y IN list WHERE x < y + 7)) AS result
-- `tck.expressions.quantifier.quantifier9.scenario-5.examples-1-row-1`: query execution failed: Parse error: property access requires a node or relationship at byte 186..191; mutation execution failed: Cypher mutation binding failed: property access requires a node or relationship at byte 186..191; query:
-UNWIND [{list: [2], fixed: true},
-        {list: [6], fixed: true},
-        {list: [7], fixed: true},
-        {list: [1, 2, 3, 4, 5, 6, 7, 8, 9], fixed: false}] AS input
-WITH CASE WHEN input.fixed THEN input.list ELSE null END AS fixedList,
-     CASE WHEN NOT input.fixed THEN input.list ELSE [1] END AS inputList
-UNWIND inputList AS x
-WITH fixedList, inputList, x, [ y IN inputList WHERE rand() > 0.5 | y] AS list
-WITH fixedList, inputList, CASE WHEN rand() < 0.5 THEN reverse(list) ELSE list END + x AS list
-UNWIND inputList AS x
-WITH fixedList, inputList, x, [ y IN inputList WHERE rand() > 0.5 | y] AS list
-WITH fixedList, inputList, CASE WHEN rand() < 0.5 THEN reverse(list) ELSE list END + x AS list
-UNWIND inputList AS x
-WITH fixedList, inputList, x, [ y IN inputList WHERE rand() > 0.5 | y] AS list
-WITH fixedList, inputList, CASE WHEN rand() < 0.5 THEN reverse(list) ELSE list END + x AS list
-WITH coalesce(fixedList, list) AS list
-WITH none(x IN list WHERE x = 2) = (size([x IN list WHERE x = 2 | x]) = 0) AS result, count(*) AS cnt
-RETURN result
-- `tck.expressions.quantifier.quantifier9.scenario-5.examples-1-row-2`: query execution failed: Parse error: property access requires a node or relationship at byte 186..191; mutation execution failed: Cypher mutation binding failed: property access requires a node or relationship at byte 186..191; query:
-UNWIND [{list: [2], fixed: true},
-        {list: [6], fixed: true},
-        {list: [7], fixed: true},
-        {list: [1, 2, 3, 4, 5, 6, 7, 8, 9], fixed: false}] AS input
-WITH CASE WHEN input.fixed THEN input.list ELSE null END AS fixedList,
-     CASE WHEN NOT input.fixed THEN input.list ELSE [1] END AS inputList
-UNWIND inputList AS x
-WITH fixedList, inputList, x, [ y IN inputList WHERE rand() > 0.5 | y] AS list
-WITH fixedList, inputList, CASE WHEN rand() < 0.5 THEN reverse(list) ELSE list END + x AS list
-UNWIND inputList AS x
-WITH fixedList, inputList, x, [ y IN inputList WHERE rand() > 0.5 | y] AS list
-WITH fixedList, inputList, CASE WHEN rand() < 0.5 THEN reverse(list) ELSE list END + x AS list
-UNWIND inputList AS x
-WITH fixedList, inputList, x, [ y IN inputList WHERE rand() > 0.5 | y] AS list
-WITH fixedList, inputList, CASE WHEN rand() < 0.5 THEN reverse(list) ELSE list END + x AS list
-WITH coalesce(fixedList, list) AS list
-WITH none(x IN list WHERE x % 2 = 0) = (size([x IN list WHERE x % 2 = 0 | x]) = 0) AS result, count(*) AS cnt
-RETURN result
-- `tck.expressions.quantifier.quantifier9.scenario-5.examples-1-row-3`: query execution failed: Parse error: property access requires a node or relationship at byte 186..191; mutation execution failed: Cypher mutation binding failed: property access requires a node or relationship at byte 186..191; query:
-UNWIND [{list: [2], fixed: true},
-        {list: [6], fixed: true},
-        {list: [7], fixed: true},
-        {list: [1, 2, 3, 4, 5, 6, 7, 8, 9], fixed: false}] AS input
-WITH CASE WHEN input.fixed THEN input.list ELSE null END AS fixedList,
-     CASE WHEN NOT input.fixed THEN input.list ELSE [1] END AS inputList
-UNWIND inputList AS x
-WITH fixedList, inputList, x, [ y IN inputList WHERE rand() > 0.5 | y] AS list
-WITH fixedList, inputList, CASE WHEN rand() < 0.5 THEN reverse(list) ELSE list END + x AS list
-UNWIND inputList AS x
-WITH fixedList, inputList, x, [ y IN inputList WHERE rand() > 0.5 | y] AS list
-WITH fixedList, inputList, CASE WHEN rand() < 0.5 THEN reverse(list) ELSE list END + x AS list
-UNWIND inputList AS x
-WITH fixedList, inputList, x, [ y IN inputList WHERE rand() > 0.5 | y] AS list
-WITH fixedList, inputList, CASE WHEN rand() < 0.5 THEN reverse(list) ELSE list END + x AS list
-WITH coalesce(fixedList, list) AS list
-WITH none(x IN list WHERE x % 3 = 0) = (size([x IN list WHERE x % 3 = 0 | x]) = 0) AS result, count(*) AS cnt
-RETURN result
-- `tck.expressions.quantifier.quantifier9.scenario-5.examples-1-row-4`: query execution failed: Parse error: property access requires a node or relationship at byte 186..191; mutation execution failed: Cypher mutation binding failed: property access requires a node or relationship at byte 186..191; query:
-UNWIND [{list: [2], fixed: true},
-        {list: [6], fixed: true},
-        {list: [7], fixed: true},
-        {list: [1, 2, 3, 4, 5, 6, 7, 8, 9], fixed: false}] AS input
-WITH CASE WHEN input.fixed THEN input.list ELSE null END AS fixedList,
-     CASE WHEN NOT input.fixed THEN input.list ELSE [1] END AS inputList
-UNWIND inputList AS x
-WITH fixedList, inputList, x, [ y IN inputList WHERE rand() > 0.5 | y] AS list
-WITH fixedList, inputList, CASE WHEN rand() < 0.5 THEN reverse(list) ELSE list END + x AS list
-UNWIND inputList AS x
-WITH fixedList, inputList, x, [ y IN inputList WHERE rand() > 0.5 | y] AS list
-WITH fixedList, inputList, CASE WHEN rand() < 0.5 THEN reverse(list) ELSE list END + x AS list
-UNWIND inputList AS x
-WITH fixedList, inputList, x, [ y IN inputList WHERE rand() > 0.5 | y] AS list
-WITH fixedList, inputList, CASE WHEN rand() < 0.5 THEN reverse(list) ELSE list END + x AS list
-WITH coalesce(fixedList, list) AS list
-WITH none(x IN list WHERE x < 7) = (size([x IN list WHERE x < 7 | x]) = 0) AS result, count(*) AS cnt
-RETURN result
-- `tck.expressions.quantifier.quantifier9.scenario-5.examples-1-row-5`: query execution failed: Parse error: property access requires a node or relationship at byte 186..191; mutation execution failed: Cypher mutation binding failed: property access requires a node or relationship at byte 186..191; query:
-UNWIND [{list: [2], fixed: true},
-        {list: [6], fixed: true},
-        {list: [7], fixed: true},
-        {list: [1, 2, 3, 4, 5, 6, 7, 8, 9], fixed: false}] AS input
-WITH CASE WHEN input.fixed THEN input.list ELSE null END AS fixedList,
-     CASE WHEN NOT input.fixed THEN input.list ELSE [1] END AS inputList
-UNWIND inputList AS x
-WITH fixedList, inputList, x, [ y IN inputList WHERE rand() > 0.5 | y] AS list
-WITH fixedList, inputList, CASE WHEN rand() < 0.5 THEN reverse(list) ELSE list END + x AS list
-UNWIND inputList AS x
-WITH fixedList, inputList, x, [ y IN inputList WHERE rand() > 0.5 | y] AS list
-WITH fixedList, inputList, CASE WHEN rand() < 0.5 THEN reverse(list) ELSE list END + x AS list
-UNWIND inputList AS x
-WITH fixedList, inputList, x, [ y IN inputList WHERE rand() > 0.5 | y] AS list
-WITH fixedList, inputList, CASE WHEN rand() < 0.5 THEN reverse(list) ELSE list END + x AS list
-WITH coalesce(fixedList, list) AS list
-WITH none(x IN list WHERE x >= 3) = (size([x IN list WHERE x >= 3 | x]) = 0) AS result, count(*) AS cnt
-RETURN result
 - `tck.expressions.string.string1.scenario-1`: expected [["123456789"]], observed [["0123456789"]]
 - `tck.expressions.string.string10.scenario-8`: expected [["<null>", "36"]], observed [["0", "16"], ["1", "9"], ["<null>", "11"]]
 - `tck.expressions.string.string4.scenario-1`: query execution failed: Parse error: no such function: split; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 38..65; query:
@@ -4768,10 +3863,10 @@ RETURN datetime.fromepoch(416779, 999999999) AS d1,
 - `tck.expressions.temporal.temporal10.scenario-11.examples-1-row-8`: expected [["PT-10M-0.3S"]], observed [["PT-10M-1.700000000S"]]
 - `tck.expressions.temporal.temporal10.scenario-11.examples-1-row-9`: expected [["PT-1.6S"]], observed [["PT-2.400000000S"]]
 - `tck.expressions.temporal.temporal10.scenario-11.examples-1-row-10`: expected [["PT1.6S"]], observed [["PT1.600000000S"]]
-- `tck.expressions.temporal.temporal10.scenario-12.examples-1-row-1`: expected [["PT0S"]], observed [["PT0.000004000S"]]
+- `tck.expressions.temporal.temporal10.scenario-12.examples-1-row-1`: expected [["PT0S"]], observed [["PT0.000006000S"]]
 - `tck.expressions.temporal.temporal10.scenario-12.examples-1-row-2`: expected [["PT0S"]], observed [["PT0.000004000S"]]
-- `tck.expressions.temporal.temporal10.scenario-12.examples-1-row-4`: expected [["PT0S"]], observed [["PT0.000003000S"]]
-- `tck.expressions.temporal.temporal10.scenario-12.examples-1-row-5`: expected [["PT0S"]], observed [["PT0.000003000S"]]
+- `tck.expressions.temporal.temporal10.scenario-12.examples-1-row-4`: expected [["PT0S"]], observed [["PT0.000005000S"]]
+- `tck.expressions.temporal.temporal10.scenario-12.examples-1-row-5`: expected [["PT0S"]], observed [["PT0.000004000S"]]
 - `tck.expressions.temporal.temporal2.scenario-1.examples-1-row-2`: expected [["2015-07-21"]], observed [["<null>"]]
 - `tck.expressions.temporal.temporal2.scenario-1.examples-1-row-3`: expected [["2015-07-01"]], observed [["<null>"]]
 - `tck.expressions.temporal.temporal2.scenario-1.examples-1-row-4`: expected [["2015-07-01"]], observed [["<null>"]]
@@ -4889,39 +3984,13 @@ RETURN datetime.transaction(null) AS t
 RETURN datetime.statement(null) AS t
 - `tck.expressions.temporal.temporal4.scenario-13.examples-1-row-20`: query execution failed: Parse error: invalid resolved function or parameter name: datetime.realtime; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 1..37; query:
 RETURN datetime.realtime(null) AS t
-- `tck.expressions.temporal.temporal5.scenario-1`: query execution failed: Parse error: property access requires a node or relationship at byte 39..40; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 32..134; query:
-MATCH (v:Val)
-WITH v.date AS d
-RETURN d.year, d.quarter, d.month, d.week, d.weekYear, d.day, d.ordinalDay, d.weekDay, d.dayOfQuarter
-- `tck.expressions.temporal.temporal5.scenario-2`: query execution failed: Parse error: property access requires a node or relationship at byte 39..40; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 32..77; query:
-MATCH (v:Val)
-WITH v.date AS d
-RETURN d.year, d.weekYear, d.week, d.weekDay
-- `tck.expressions.temporal.temporal5.scenario-3`: query execution failed: Parse error: property access requires a node or relationship at byte 39..40; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 32..110; query:
-MATCH (v:Val)
-WITH v.date AS d
-RETURN d.hour, d.minute, d.second, d.millisecond, d.microsecond, d.nanosecond
-- `tck.expressions.temporal.temporal5.scenario-4`: query execution failed: Parse error: property access requires a node or relationship at byte 39..40; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 32..166; query:
-MATCH (v:Val)
-WITH v.date AS d
-RETURN d.hour, d.minute, d.second, d.millisecond, d.microsecond, d.nanosecond, d.timezone, d.offset, d.offsetMinutes, d.offsetSeconds
-- `tck.expressions.temporal.temporal5.scenario-5`: query execution failed: Parse error: property access requires a node or relationship at byte 39..40; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 32..213; query:
-MATCH (v:Val)
-WITH v.date AS d
-RETURN d.year, d.quarter, d.month, d.week, d.weekYear, d.day, d.ordinalDay, d.weekDay, d.dayOfQuarter,
-       d.hour, d.minute, d.second, d.millisecond, d.microsecond, d.nanosecond
-- `tck.expressions.temporal.temporal5.scenario-6`: query execution failed: Parse error: property access requires a node or relationship at byte 39..40; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 32..307; query:
-MATCH (v:Val)
-WITH v.date AS d
-RETURN d.year, d.quarter, d.month, d.week, d.weekYear, d.day, d.ordinalDay, d.weekDay, d.dayOfQuarter,
-       d.hour, d.minute, d.second, d.millisecond, d.microsecond, d.nanosecond,
-       d.timezone, d.offset, d.offsetMinutes, d.offsetSeconds, d.epochSeconds, d.epochMillis
-- `tck.expressions.temporal.temporal5.scenario-7`: query execution failed: Parse error: property access requires a node or relationship at byte 39..40; mutation execution failed: Cypher mutation binding failed: projection clauses in mutation queries is not supported in the initial graph slice at byte 32..352; query:
-MATCH (v:Val)
-WITH v.date AS d
-RETURN d.years, d.quarters, d.months, d.weeks, d.days,
-       d.hours, d.minutes, d.seconds, d.milliseconds, d.microseconds, d.nanoseconds,
-       d.quartersOfYear, d.monthsOfQuarter, d.monthsOfYear, d.daysOfWeek, d.minutesOfHour, d.secondsOfMinute, d.millisecondsOfSecond, d.microsecondsOfSecond, d.nanosecondsOfSecond
+- `tck.expressions.temporal.temporal5.scenario-1`: expected [["1984", "4", "10", "41", "1984", "11", "285", "4", "11"]], observed [["<null>", "<null>", "<null>", "<null>", "<null>", "<null>", "<null>", "<null>", "<null>"]]
+- `tck.expressions.temporal.temporal5.scenario-2`: expected [["1984", "1983", "52", "7"]], observed [["<null>", "<null>", "<null>", "<null>"]]
+- `tck.expressions.temporal.temporal5.scenario-3`: expected [["12", "31", "14", "645", "645876", "645876123"]], observed [["<null>", "<null>", "<null>", "<null>", "<null>", "<null>"]]
+- `tck.expressions.temporal.temporal5.scenario-4`: expected [["12", "31", "14", "645", "645876", "645876123", "+01:00", "+01:00", "60", "3600"]], observed [["<null>", "<null>", "<null>", "<null>", "<null>", "<null>", "<null>", "<null>", "<null>", "<null>"]]
+- `tck.expressions.temporal.temporal5.scenario-5`: expected [["1984", "4", "11", "45", "1984", "11", "316", "7", "42", "12", "31", "14", "645", "645876", "645876123"]], observed [["<null>", "<null>", "<null>", "<null>", "<null>", "<null>", "<null>", "<null>", "<null>", "<null>", "<null>", "<null>", "<null>", "<null>", "<null>"]]
+- `tck.expressions.temporal.temporal5.scenario-6`: expected [["1984", "4", "11", "45", "1984", "11", "316", "7", "42", "12", "31", "14", "645", "645876", "645876123", "Europe/Stockholm", "+01:00", "60", "3600", "469020674", "469020674645"]], observed [["<null>", "<null>", "<null>", "<null>", "<null>", "<null>", "<null>", "<null>", "<null>", "<null>", "<null>", "<null>", "<null>", "<null>", "<null>", "<null>", "<null>", "<null>", "<null>", "<null>", "<null>"]]
+- `tck.expressions.temporal.temporal5.scenario-7`: expected [["1", "5", "16", "1", "10", "1", "61", "3661", "3661111", "3661111111", "3661111111111", "1", "1", "4", "3", "1", "1", "111", "111111", "111111111"]], observed [["<null>", "<null>", "<null>", "<null>", "<null>", "<null>", "<null>", "<null>", "<null>", "<null>", "<null>", "<null>", "<null>", "<null>", "<null>", "<null>", "<null>", "<null>", "<null>", "<null>"]]
 - `tck.expressions.temporal.temporal6.scenario-6.examples-1-row-4`: expected [["PT1.999S", "1"]], observed [["PT1.999000000S", "1"]]
 - `tck.expressions.temporal.temporal6.scenario-6.examples-1-row-5`: expected [["PT-1.999S", "1"]], observed [["PT-2.001000000S", "0"]]
 - `tck.expressions.temporal.temporal6.scenario-6.examples-1-row-6`: expected [["PT-2.001S", "1"]], observed [["PT-3.999000000S", "0"]]
@@ -5619,6 +4688,6 @@ CREATE (b1)-[:FRIEND]->(b2),
 
 ## Longitudinal inventory
 
-- Runs: 314
-- Result records: 644369
+- Runs: 324
+- Result records: 665153
 - Unique test identities: 10441
