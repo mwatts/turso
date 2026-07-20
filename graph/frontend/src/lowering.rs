@@ -1338,10 +1338,13 @@ fn lower_expression_with_references(
             let conditions = correlations
                 .iter()
                 .map(|(outer, inner)| {
+                    // The outer side may be a binding the enclosing join is
+                    // introducing (a predicate in a LEFT JOIN ON clause), so
+                    // resolve it through the reference overrides.
                     format!(
-                        "sub.{} = {input_alias}.{}",
+                        "sub.{} = {}",
                         binding_column(*inner),
-                        binding_column(*outer)
+                        binding_reference(*outer, input_alias, references)
                     )
                 })
                 .collect::<Vec<_>>();

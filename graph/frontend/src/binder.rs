@@ -899,15 +899,11 @@ impl<'a> Binder<'a> {
         let mut output_entities = HashMap::new();
         for item in &clause.items {
             match item {
-                cypher::ProjectionItem::All(_) => {
+                cypher::ProjectionItem::All(span) => {
                     for binding in &self.scope {
                         projections.push(StageProjection::Expression {
                             output: binding.id(),
-                            expression: ir::TypedExpression {
-                                expression: ir::Expression::Binding(binding.id()),
-                                value_type: binding.value_type().clone(),
-                                nullability: binding.nullability(),
-                            },
+                            expression: self.scope_binding_expression(binding, *span)?,
                         });
                         output_scope.push(binding.clone());
                         if let Some(entity) = self.entities.get(&binding.id()) {
@@ -991,6 +987,7 @@ impl<'a> Binder<'a> {
         }
         self.scope = output_scope;
         self.entities = output_entities;
+        self.rematerialize_path_compositions();
         let predicate = clause
             .predicate
             .as_ref()
@@ -2414,13 +2411,9 @@ impl<'a> Binder<'a> {
         let mut output_entities = HashMap::new();
         for item in &clause.items {
             match item {
-                cypher::ProjectionItem::All(_) => {
+                cypher::ProjectionItem::All(span) => {
                     for binding in &self.scope {
-                        let expression = ir::TypedExpression {
-                            expression: ir::Expression::Binding(binding.id()),
-                            value_type: binding.value_type().clone(),
-                            nullability: binding.nullability(),
-                        };
+                        let expression = self.scope_binding_expression(binding, *span)?;
                         projections.push(ir::Projection {
                             output: binding.clone(),
                             expression,
@@ -2554,6 +2547,7 @@ impl<'a> Binder<'a> {
         });
         self.scope = output_scope;
         self.entities = output_entities;
+        self.rematerialize_path_compositions();
         // Aggregating projections sort after grouping in the output scope,
         // where aggregate aliases are real bindings.
         if has_aggregates && !clause.order_by.is_empty() {
@@ -3649,6 +3643,60 @@ impl<'a> Binder<'a> {
                 "map literal outside a struct or union property",
             )),
         }
+    }
+
+    /// The projection expression for a scope binding carried through by `*`:
+    /// named paths are values composed from their component bindings (or the
+    /// column a previous projection materialized), never a bare reference to
+    /// the path binding itself, which no plan column backs.
+    fn scope_binding_expression(
+        &self,
+        binding: &ir::Binding,
+        span: cypher::Span,
+    ) -> Result<ir::TypedExpression, BindError> {
+        match self.path_compositions.get(binding.name()) {
+            Some(PathComposition::Fixed {
+                nodes,
+                relationships,
+            }) => Ok(ir::TypedExpression {
+                expression: ir::Expression::PathValue {
+                    nodes: nodes.clone(),
+                    relationships: relationships.clone(),
+                },
+                value_type: ir::ValueType::Path,
+                nullability: ir::Nullability::NonNull,
+            }),
+            Some(PathComposition::Expanded(materialized)) => Ok(ir::TypedExpression {
+                expression: ir::Expression::Binding(*materialized),
+                value_type: ir::ValueType::Path,
+                nullability: ir::Nullability::NonNull,
+            }),
+            Some(PathComposition::Unsupported) => {
+                Err(at_unsupported(span, "variable-length path values"))
+            }
+            None => Ok(ir::TypedExpression {
+                expression: ir::Expression::Binding(binding.id()),
+                value_type: binding.value_type().clone(),
+                nullability: binding.nullability(),
+            }),
+        }
+    }
+
+    /// A projection materializes every surviving path value as an output
+    /// column and drops the component bindings, so compositions re-anchor on
+    /// the output bindings and stale entries disappear.
+    fn rematerialize_path_compositions(&mut self) {
+        self.path_compositions = self
+            .scope
+            .iter()
+            .filter(|binding| matches!(binding.value_type(), ir::ValueType::Path))
+            .map(|binding| {
+                (
+                    binding.name().to_owned(),
+                    PathComposition::Expanded(binding.id()),
+                )
+            })
+            .collect();
     }
 
     fn resolve_binding(&self, name: &str, span: cypher::Span) -> Result<&ir::Binding, BindError> {
