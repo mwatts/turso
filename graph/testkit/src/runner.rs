@@ -450,4 +450,24 @@ mod tests {
         mutate("MERGE (m:Person {name: 'Hopper'}) ON CREATE SET m.age = 7");
         assert_eq!(row("MATCH (n {name: 'Hopper'}) RETURN n.age"), "7");
     }
+
+    #[test]
+    fn match_after_mutation_joins_current_rows() {
+        let fixture = empty_fixture("staged-match").expect("fixture should initialize");
+        let parameters = MutationParameters::new();
+        let mutate = |query: &str| {
+            fixture
+                .session
+                .mutate(query, &parameters)
+                .unwrap_or_else(|error| panic!("{query} failed: {error}"));
+        };
+        mutate("CREATE (:Person {name: 'A'})");
+        // The staged MATCH sees the freshly created node too.
+        mutate("CREATE (:Person {name: 'B'}) WITH * MATCH (n) SET n.tag = 1");
+        let rows = fixture
+            .session
+            .query("MATCH (n) RETURN count(n.tag)", &parameters)
+            .expect("count query");
+        assert_eq!(rows[0][0].to_string(), "2");
+    }
 }

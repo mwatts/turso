@@ -234,6 +234,22 @@ fn execute_bound(
                     }
                     rows = expanded;
                 }
+                StageItem::Match { plan, outputs } => {
+                    let lowered = lower_mutation_input(plan, catalog)?;
+                    let sql = mutation_rows_sql(&lowered, outputs);
+                    let matched = run_rows(connection, &sql, parameters, &HashMap::new())?;
+                    let mut expanded = Vec::new();
+                    for values in &rows {
+                        for matched_row in &matched {
+                            let mut next = values.clone();
+                            for (binding, value) in outputs.iter().zip(matched_row) {
+                                next.insert(*binding, value.clone());
+                            }
+                            expanded.push(next);
+                        }
+                    }
+                    rows = expanded;
+                }
             }
         }
     }
@@ -344,10 +360,10 @@ fn run_stage_items_once(
                     )?;
                 }
             }
-            StageItem::Unwind { .. } => {
+            StageItem::Unwind { .. } | StageItem::Match { .. } => {
                 return Err(MutationError::Database(
                     turso_core::LimboError::InternalError(
-                        "UNWIND is stage-level, not FOREACH-level".to_owned(),
+                        "UNWIND and MATCH are stage-level, not FOREACH-level".to_owned(),
                     ),
                 ));
             }

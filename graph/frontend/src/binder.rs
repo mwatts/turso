@@ -73,6 +73,12 @@ pub enum StageItem {
         output: ir::BindingId,
         list: ir::TypedExpression,
     },
+    /// MATCH after a mutation clause: joins each current row against the
+    /// (uncorrelated) match results, dropping rows when nothing matches.
+    Match {
+        plan: Box<ir::Plan>,
+        outputs: Vec<ir::BindingId>,
+    },
     /// FOREACH: run the nested items once per list element without changing
     /// the surrounding row set.
     Foreach {
@@ -415,9 +421,20 @@ impl<'a> Binder<'a> {
             match &clause.value {
                 cypher::Clause::Match(value) => {
                     if mutation_started {
-                        return Err(at_unsupported(clause.span, "MATCH after a mutation clause"));
+                        // The passthrough must snapshot scope before the
+                        // match introduces its bindings.
+                        if stages.is_empty() {
+                            stages.push(self.passthrough_stage());
+                        }
+                        let item = self.bind_staged_match(value, clause.span)?;
+                        stages
+                            .last_mut()
+                            .expect("stage pushed above")
+                            .items
+                            .push(item);
+                    } else {
+                        self.bind_match(value, clause.span)?;
                     }
-                    self.bind_match(value, clause.span)?;
                 }
                 cypher::Clause::Create(value) => {
                     mutation_started = true;
@@ -666,6 +683,65 @@ impl<'a> Binder<'a> {
     }
 
     /// A stage that forwards every current binding unchanged.
+    /// Binds a MATCH that follows a mutation clause as a staged join: the
+    /// pattern binds into a standalone plan whose rows cross-join the
+    /// current row set at execution. Correlated patterns (variables already
+    /// in scope) would need per-row execution and stay unsupported.
+    fn bind_staged_match(
+        &mut self,
+        clause: &cypher::MatchClause,
+        span: cypher::Span,
+    ) -> Result<StageItem, BindError> {
+        if clause.optional {
+            return Err(at_unsupported(
+                span,
+                "OPTIONAL MATCH after a mutation clause",
+            ));
+        }
+        for path in &clause.paths {
+            if path.variable.is_some() {
+                return Err(at_unsupported(
+                    span,
+                    "named paths in MATCH after a mutation clause",
+                ));
+            }
+            let mut variables = Vec::new();
+            if let Some(variable) = &path.start.variable {
+                variables.push(variable);
+            }
+            for (relationship, node) in &path.steps {
+                if let Some(variable) = &relationship.variable {
+                    variables.push(variable);
+                }
+                if let Some(variable) = &node.variable {
+                    variables.push(variable);
+                }
+            }
+            for variable in variables {
+                if self
+                    .scope
+                    .iter()
+                    .any(|binding| binding.name() == variable.value)
+                {
+                    return Err(at_unsupported(
+                        variable.span,
+                        "correlated MATCH after a mutation clause",
+                    ));
+                }
+            }
+        }
+        let outer = self.plan.take();
+        let before = self.scope.len();
+        self.bind_match(clause, span)?;
+        let plan = self.plan.take().ok_or(BindError::EmptyQuery)?;
+        self.plan = outer;
+        let outputs = self.scope[before..].iter().map(ir::Binding::id).collect();
+        Ok(StageItem::Match {
+            plan: Box::new(plan),
+            outputs,
+        })
+    }
+
     fn passthrough_stage(&self) -> MutationStage {
         MutationStage {
             projections: self
@@ -4086,8 +4162,16 @@ mod tests {
             .expect("WITH pipelines after mutations should bind");
         assert_eq!(staged.stages.len(), 1);
         assert_eq!(staged.returns.len(), 1);
+        let staged_match = bind_mutation_text("CREATE (:Person {id: 1}) MATCH (n) DELETE n")
+            .expect("uncorrelated MATCH after a mutation should bind as a stage");
+        assert!(staged_match.stages.iter().any(|stage| stage
+            .items
+            .iter()
+            .any(|item| matches!(item, StageItem::Match { .. }))));
+        // Correlated re-matching of a mutation binding needs per-row
+        // execution and stays rejected.
         assert!(matches!(
-            bind_mutation_text("CREATE (:Person {id: 1}) MATCH (n) DELETE n"),
+            bind_mutation_text("CREATE (a:Person {id: 1}) MATCH (a) DELETE a"),
             Err(BindError::Unsupported { .. })
         ));
     }
