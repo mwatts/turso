@@ -191,6 +191,9 @@ pub fn lower_relational(
             .join(", ");
         format!("SELECT {columns} FROM ({}) AS q", lowered.sql)
     };
+    if std::env::var_os("TURSO_GRAPH_DEBUG_SQL").is_some() {
+        eprintln!("SQL: {sql}");
+    }
     let (command, _) = turso_core::dialect::sqlite::parse(&sql)?;
     match command {
         Some(ast::Cmd::Stmt(statement)) => Ok(statement),
@@ -398,7 +401,7 @@ fn lower_plan(
         }),
         ir::PlanKind::NodeScan(scan) => lower_node_scan(scan, catalog, wanted),
         ir::PlanKind::FixedExpand(expand) => {
-            lower_fixed_expand(expand, catalog, optional, &[], wanted)
+            lower_fixed_expand(expand, catalog, optional, &[], wanted, None)
         }
         ir::PlanKind::GraphExpand(expand) => lower_graph_expand(expand, catalog, wanted),
         ir::PlanKind::Filter(filter) => {
@@ -417,7 +420,9 @@ fn lower_plan(
                 bindings: input.bindings,
             })
         }
-        ir::PlanKind::LeftApply(apply) => lower_optional_chain(&apply.right, catalog, wanted),
+        ir::PlanKind::LeftApply(apply) => {
+            lower_optional_chain(&apply.right, Some(&apply.left), catalog, wanted)
+        }
         ir::PlanKind::Aggregate(aggregate) => {
             let input = lower_plan(&aggregate.input, catalog, optional, wanted)?;
             let mut selects = Vec::new();
@@ -744,21 +749,39 @@ fn lower_graph_expand(
     })
 }
 
+/// Lowers a LeftApply's right side: expands and filters ABOVE `boundary`
+/// (the mandatory left plan embedded as the chain's input) belong to the
+/// OPTIONAL MATCH and lower as LEFT JOINs with their predicates folded
+/// into the join condition; the boundary subtree and everything below it
+/// is mandatory and lowers normally.
 fn lower_optional_chain(
     plan: &ir::Plan,
+    boundary: Option<&ir::Plan>,
     catalog: &dyn RelationalCatalogSnapshot,
     wanted: &WantedProperties,
 ) -> Result<Lowered, LowerError> {
+    if boundary.is_some_and(|boundary| plan == boundary) {
+        return lower_plan(plan, catalog, false, wanted);
+    }
     let original = plan;
     let mut current = plan;
     let mut predicates = Vec::new();
     while let ir::PlanKind::Filter(filter) = current.kind() {
+        if boundary.is_some_and(|boundary| current == boundary) {
+            return lower_plan(original, catalog, false, wanted);
+        }
         predicates.push(&filter.predicate);
         current = &filter.input;
     }
+    if boundary.is_some_and(|boundary| current == boundary) {
+        // Only filters sat above the boundary: they are optional-pattern
+        // predicates over the mandatory plan; treat them as a plain filter
+        // (an optional pattern with no expansion adds no bindings).
+        return lower_plan(original, catalog, false, wanted);
+    }
     match current.kind() {
         ir::PlanKind::FixedExpand(expand) => {
-            lower_fixed_expand(expand, catalog, true, &predicates, wanted)
+            lower_fixed_expand(expand, catalog, true, &predicates, wanted, boundary)
         }
         _ => lower_plan(original, catalog, false, wanted),
     }
@@ -884,9 +907,10 @@ fn lower_fixed_expand(
     optional: bool,
     join_predicates: &[&ir::TypedExpression],
     wanted: &WantedProperties,
+    boundary: Option<&ir::Plan>,
 ) -> Result<Lowered, LowerError> {
     let input = if optional {
-        lower_optional_chain(&expand.input, catalog, wanted)?
+        lower_optional_chain(&expand.input, boundary, catalog, wanted)?
     } else {
         lower_plan(&expand.input, catalog, false, wanted)?
     };

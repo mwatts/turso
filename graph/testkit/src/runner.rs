@@ -551,11 +551,10 @@ mod tests {
     /// CypherBench b5008120 shape: the first MATCH triggers anchor
     /// reversal (constant-property far node), then a correlated OPTIONAL
     /// MATCH aggregates per n. Ada knows Bob and Carol; Bob has 1 knower,
-    /// Carol 2. FIXME: currently loses Carol's row — the reversal's
-    /// binding order interacts badly with LeftApply lowering; on dense
-    /// data the same defect overcounts optional aggregates.
+    /// Carol 2. Regression coverage for the optional-chain boundary fix:
+    /// the mandatory left plan must lower with inner joins and applied
+    /// filters even when the optional chain sits above it.
     #[test]
-    #[ignore = "known defect: anchor reversal breaks following correlated OPTIONAL MATCH"]
     fn anchor_reversal_keeps_optional_match_groups() {
         let fixture = empty_fixture("opt-reversal").expect("fixture should initialize");
         let parameters = MutationParameters::new();
