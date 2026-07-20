@@ -1,0 +1,136 @@
+{
+  "name": "geography",
+  "entities": [
+    {
+      "label": "River",
+      "description": null,
+      "properties": {
+        "length_km": "float",
+        "discharge_m3_s": "float"
+      }
+    },
+    {
+      "label": "Ocean",
+      "description": null,
+      "properties": {
+        "area_km2": "float",
+        "max_vertical_depth_m": "float",
+        "avg_vertical_depth_m": "float"
+      }
+    },
+    {
+      "label": "Lake",
+      "description": null,
+      "properties": {
+        "area_km2": "float",
+        "vertical_depth_m": "float"
+      }
+    },
+    {
+      "label": "DrainageBasin",
+      "description": null,
+      "properties": {
+        "area_km2": "float"
+      }
+    },
+    {
+      "label": "Mountain",
+      "description": null,
+      "properties": {
+        "elevation_m": "float"
+      }
+    },
+    {
+      "label": "Country",
+      "description": null,
+      "properties": {
+        "capital": "str",
+        "area_km2": "float"
+      }
+    },
+    {
+      "label": "Continent",
+      "description": null,
+      "properties": {}
+    },
+    {
+      "label": "MountainRange",
+      "description": null,
+      "properties": {}
+    }
+  ],
+  "relations": [
+    {
+      "label": "flowsInto",
+      "subj_label": "River",
+      "obj_label": "River",
+      "properties": {}
+    },
+    {
+      "label": "flowsInto",
+      "subj_label": "River",
+      "obj_label": "Ocean",
+      "properties": {}
+    },
+    {
+      "label": "flowsInto",
+      "subj_label": "River",
+      "obj_label": "Lake",
+      "properties": {}
+    },
+    {
+      "label": "partOf",
+      "subj_label": "River",
+      "obj_label": "DrainageBasin",
+      "properties": {}
+    },
+    {
+      "label": "partOf",
+      "subj_label": "Lake",
+      "obj_label": "DrainageBasin",
+      "properties": {}
+    },
+    {
+      "label": "locatedIn",
+      "subj_label": "DrainageBasin",
+      "obj_label": "Country",
+      "properties": {}
+    },
+    {
+      "label": "flowsThrough",
+      "subj_label": "River",
+      "obj_label": "Country",
+      "properties": {}
+    },
+    {
+      "label": "locatedIn",
+      "subj_label": "Lake",
+      "obj_label": "Country",
+      "properties": {}
+    },
+    {
+      "label": "locatedIn",
+      "subj_label": "Mountain",
+      "obj_label": "Country",
+      "properties": {}
+    },
+    {
+      "label": "partOf",
+      "subj_label": "Mountain",
+      "obj_label": "MountainRange",
+      "properties": {}
+    },
+    {
+      "label": "partOf",
+      "subj_label": "MountainRange",
+      "obj_label": "MountainRange",
+      "properties": {}
+    },
+    {
+      "label": "locatedIn",
+      "subj_label": "Country",
+      "obj_label": "Continent",
+      "properties": {}
+    }
+  ]
+}

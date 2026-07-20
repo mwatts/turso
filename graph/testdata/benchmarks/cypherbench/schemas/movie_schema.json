@@ -1,0 +1,116 @@
+{
+  "name": "movie",
+  "entities": [
+    {
+      "label": "Movie",
+      "description": null,
+      "properties": {
+        "global_box_office_usd": "float",
+        "original_language": "list[str]",
+        "runtime_minute": "float",
+        "filming_location": "list[str]"
+      }
+    },
+    {
+      "label": "Person",
+      "description": null,
+      "properties": {
+        "date_of_birth": "date",
+        "date_of_death": "date",
+        "place_of_birth": "str",
+        "country_of_citizenship": "list[str]",
+        "gender": "str"
+      }
+    },
+    {
+      "label": "ProductionCompany",
+      "description": null,
+      "properties": {
+        "country": "str"
+      }
+    },
+    {
+      "label": "Country",
+      "description": null,
+      "properties": {}
+    },
+    {
+      "label": "FilmSeries",
+      "description": null,
+      "properties": {}
+    },
+    {
+      "label": "Award",
+      "description": null,
+      "properties": {}
+    },
+    {
+      "label": "Genre",
+      "description": null,
+      "properties": {}
+    }
+  ],
+  "relations": [
+    {
+      "label": "directedBy",
+      "subj_label": "Movie",
+      "obj_label": "Person",
+      "properties": {}
+    },
+    {
+      "label": "writtenBy",
+      "subj_label": "Movie",
+      "obj_label": "Person",
+      "properties": {}
+    },
+    {
+      "label": "hasCastMember",
+      "subj_label": "Movie",
+      "obj_label": "Person",
+      "properties": {
+        "character_role": "str"
+      }
+    },
+    {
+      "label": "partOfSeries",
+      "subj_label": "Movie",
+      "obj_label": "FilmSeries",
+      "properties": {}
+    },
+    {
+      "label": "receivesAward",
+      "subj_label": "Movie",
+      "obj_label": "Award",
+      "properties": {
+        "year": "int",
+        "winners": "list[str]"
+      }
+    },
+    {
+      "label": "producedBy",
+      "subj_label": "Movie",
+      "obj_label": "ProductionCompany",
+      "properties": {}
+    },
+    {
+      "label": "originatesFrom",
+      "subj_label": "Movie",
+      "obj_label": "Country",
+      "properties": {}
+    },
+    {
+      "label": "releasedIn",
+      "subj_label": "Movie",
+      "obj_label": "Country",
+      "properties": {
+        "date": "date"
+      }
+    },
+    {
+      "label": "hasGenre",
+      "subj_label": "Movie",
+      "obj_label": "Genre",
+      "properties": {}
+    }
+  ]
+}

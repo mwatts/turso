@@ -1,0 +1,87 @@
+{
+  "name": "flight_accident",
+  "entities": [
+    {
+      "label": "FlightAccident",
+      "description": null,
+      "properties": {
+        "number_of_survivors": "int",
+        "number_of_injuries": "int",
+        "number_of_deaths": "int",
+        "date": "date",
+        "location": "str",
+        "flight_number": "str"
+      }
+    },
+    {
+      "label": "AircraftModel",
+      "description": null,
+      "properties": {
+        "first_flight": "date",
+        "service_entry": "date",
+        "range_km": "float",
+        "wingspan_metre": "float",
+        "length_metre": "float",
+        "height_metre": "float"
+      }
+    },
+    {
+      "label": "Operator",
+      "description": null,
+      "properties": {
+        "launch_year": "int",
+        "country": "str"
+      }
+    },
+    {
+      "label": "Airport",
+      "description": null,
+      "properties": {
+        "iata_code": "str",
+        "icao_code": "str",
+        "location": "str",
+        "country": "str"
+      }
+    },
+    {
+      "label": "AircraftManufacturer",
+      "description": null,
+      "properties": {
+        "launch_year": "int",
+        "country": "str"
+      }
+    }
+  ],
+  "relations": [
+    {
+      "label": "operatedBy",
+      "subj_label": "FlightAccident",
+      "obj_label": "Operator",
+      "properties": {}
+    },
+    {
+      "label": "involves",
+      "subj_label": "FlightAccident",
+      "obj_label": "AircraftModel",
+      "properties": {}
+    },
+    {
+      "label": "manufacturedBy",
+      "subj_label": "AircraftModel",
+      "obj_label": "AircraftManufacturer",
+      "properties": {}
+    },
+    {
+      "label": "departsFrom",
+      "subj_label": "FlightAccident",
+      "obj_label": "Airport",
+      "properties": {}
+    },
+    {
+      "label": "destinedFor",
+      "subj_label": "FlightAccident",
+      "obj_label": "Airport",
+      "properties": {}
+    }
+  ]
+}

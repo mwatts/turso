@@ -1,0 +1,62 @@
+{
+  "name": "biology",
+  "entities": [
+    {
+      "label": "Taxon",
+      "description": null,
+      "properties": {
+        "taxon_name": "str",
+        "diel_cycle": "str",
+        "avg_gestation_period_days": "float",
+        "longest_lifespan_years": "float"
+      }
+    },
+    {
+      "label": "TaxonRank",
+      "description": null,
+      "properties": {}
+    },
+    {
+      "label": "Habitat",
+      "description": null,
+      "properties": {}
+    },
+    {
+      "label": "ConservationStatus",
+      "description": null,
+      "properties": {}
+    }
+  ],
+  "relations": [
+    {
+      "label": "hasRank",
+      "subj_label": "Taxon",
+      "obj_label": "TaxonRank",
+      "properties": {}
+    },
+    {
+      "label": "hasParent",
+      "subj_label": "Taxon",
+      "obj_label": "Taxon",
+      "properties": {}
+    },
+    {
+      "label": "inhabits",
+      "subj_label": "Taxon",
+      "obj_label": "Habitat",
+      "properties": {}
+    },
+    {
+      "label": "feedsOn",
+      "subj_label": "Taxon",
+      "obj_label": "Taxon",
+      "properties": {}
+    },
+    {
+      "label": "hasConservationStatus",
+      "subj_label": "Taxon",
+      "obj_label": "ConservationStatus",
+      "properties": {}
+    }
+  ]
+}

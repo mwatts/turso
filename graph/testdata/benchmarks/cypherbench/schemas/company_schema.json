@@ -1,0 +1,77 @@
+{
+  "name": "company",
+  "entities": [
+    {
+      "label": "Company",
+      "description": null,
+      "properties": {
+        "launch_year": "int"
+      }
+    },
+    {
+      "label": "Person",
+      "description": null,
+      "properties": {
+        "date_of_birth": "date",
+        "date_of_death": "date",
+        "place_of_birth": "str",
+        "country_of_citizenship": "list[str]",
+        "gender": "str"
+      }
+    },
+    {
+      "label": "Country",
+      "description": null,
+      "properties": {}
+    },
+    {
+      "label": "Industry",
+      "description": null,
+      "properties": {}
+    }
+  ],
+  "relations": [
+    {
+      "label": "subsidiaryOf",
+      "subj_label": "Company",
+      "obj_label": "Company",
+      "properties": {}
+    },
+    {
+      "label": "hasCEO",
+      "subj_label": "Company",
+      "obj_label": "Person",
+      "properties": {
+        "start_year": "int",
+        "end_year": "int"
+      }
+    },
+    {
+      "label": "hasBoardMember",
+      "subj_label": "Company",
+      "obj_label": "Person",
+      "properties": {
+        "start_year": "int",
+        "end_year": "int"
+      }
+    },
+    {
+      "label": "foundedBy",
+      "subj_label": "Company",
+      "obj_label": "Person",
+      "properties": {}
+    },
+    {
+      "label": "basedIn",
+      "subj_label": "Company",
+      "obj_label": "Country",
+      "properties": {}
+    },
+    {
+      "label": "operatesIn",
+      "subj_label": "Company",
+      "obj_label": "Industry",
+      "properties": {}
+    }
+  ]
+}

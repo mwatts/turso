@@ -1,0 +1,110 @@
+{
+  "name": "nba",
+  "entities": [
+    {
+      "label": "Team",
+      "description": null,
+      "properties": {
+        "inception_year": "int",
+        "owners": "list[str]",
+        "head_coach": "str"
+      }
+    },
+    {
+      "label": "Player",
+      "description": null,
+      "properties": {
+        "country_of_citizenship": "list[str]",
+        "place_of_birth": "str",
+        "gender": "str",
+        "date_of_birth": "date",
+        "date_of_death": "date",
+        "height_cm": "float",
+        "mass_kg": "float",
+        "nicknames": "list[str]",
+        "handedness": "str",
+        "schools_attended": "list[str]"
+      }
+    },
+    {
+      "label": "Venue",
+      "description": null,
+      "properties": {}
+    },
+    {
+      "label": "Division",
+      "description": null,
+      "properties": {}
+    },
+    {
+      "label": "Position",
+      "description": null,
+      "properties": {}
+    },
+    {
+      "label": "Award",
+      "description": null,
+      "properties": {}
+    },
+    {
+      "label": "Conference",
+      "description": null,
+      "properties": {}
+    }
+  ],
+  "relations": [
+    {
+      "label": "playsFor",
+      "subj_label": "Player",
+      "obj_label": "Team",
+      "properties": {
+        "start_year": "int",
+        "end_year": "int",
+        "sport_number": "int"
+      }
+    },
+    {
+      "label": "draftedBy",
+      "subj_label": "Player",
+      "obj_label": "Team",
+      "properties": {
+        "year": "int"
+      }
+    },
+    {
+      "label": "playsPosition",
+      "subj_label": "Player",
+      "obj_label": "Position",
+      "properties": {}
+    },
+    {
+      "label": "receivesAward",
+      "subj_label": "Player",
+      "obj_label": "Award",
+      "properties": {
+        "year": "int"
+      }
+    },
+    {
+      "label": "hasHomeVenue",
+      "subj_label": "Team",
+      "obj_label": "Venue",
+      "properties": {
+        "start_year": "int",
+        "end_year": "int"
+      }
+    },
+    {
+      "label": "partOfDivision",
+      "subj_label": "Team",
+      "obj_label": "Division",
+      "properties": {}
+    },
+    {
+      "label": "partOfConference",
+      "subj_label": "Division",
+      "obj_label": "Conference",
+      "properties": {}
+    }
+  ]
+}

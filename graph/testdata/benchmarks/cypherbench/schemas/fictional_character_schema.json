@@ -1,0 +1,103 @@
+{
+  "name": "fictional_character",
+  "entities": [
+    {
+      "label": "FictionalUniverse",
+      "description": null,
+      "properties": {
+        "inception_year": "int",
+        "copyright_holder": "str",
+        "creator": "str"
+      }
+    },
+    {
+      "label": "Character",
+      "description": null,
+      "properties": {
+        "creator": "str",
+        "gender": "str",
+        "occupation": "list[str]",
+        "country_of_citizenship": "list[str]",
+        "birth_name": "str"
+      }
+    },
+    {
+      "label": "Organization",
+      "description": null,
+      "properties": {}
+    },
+    {
+      "label": "Location",
+      "description": null,
+      "properties": {}
+    }
+  ],
+  "relations": [
+    {
+      "label": "fromUniverse",
+      "subj_label": "Character",
+      "obj_label": "FictionalUniverse",
+      "properties": {}
+    },
+    {
+      "label": "fromUniverse",
+      "subj_label": "Organization",
+      "obj_label": "FictionalUniverse",
+      "properties": {}
+    },
+    {
+      "label": "memberOf",
+      "subj_label": "Character",
+      "obj_label": "Organization",
+      "properties": {}
+    },
+    {
+      "label": "hasMother",
+      "subj_label": "Character",
+      "obj_label": "Character",
+      "properties": {}
+    },
+    {
+      "label": "hasFather",
+      "subj_label": "Character",
+      "obj_label": "Character",
+      "properties": {}
+    },
+    {
+      "label": "hasSpouse",
+      "subj_label": "Character",
+      "obj_label": "Character",
+      "properties": {}
+    },
+    {
+      "label": "hasStudent",
+      "subj_label": "Character",
+      "obj_label": "Character",
+      "properties": {}
+    },
+    {
+      "label": "killedBy",
+      "subj_label": "Character",
+      "obj_label": "Character",
+      "properties": {}
+    },
+    {
+      "label": "bornIn",
+      "subj_label": "Character",
+      "obj_label": "Location",
+      "properties": {}
+    },
+    {
+      "label": "diedIn",
+      "subj_label": "Character",
+      "obj_label": "Location",
+      "properties": {}
+    },
+    {
+      "label": "basedIn",
+      "subj_label": "Organization",
+      "obj_label": "Location",
+      "properties": {}
+    }
+  ]
+}

@@ -1,0 +1,130 @@
+{
+  "name": "politics",
+  "entities": [
+    {
+      "label": "Politician",
+      "description": null,
+      "properties": {
+        "date_of_birth": "date",
+        "date_of_death": "date",
+        "place_of_birth": "str",
+        "place_of_death": "str",
+        "country_of_citizenship": "list[str]",
+        "gender": "str",
+        "schools_attended": "list[str]"
+      }
+    },
+    {
+      "label": "Country",
+      "description": null,
+      "properties": {
+        "founding_date": "date",
+        "official_language": "list[str]"
+      }
+    },
+    {
+      "label": "PoliticalParty",
+      "description": null,
+      "properties": {
+        "founding_date": "date"
+      }
+    },
+    {
+      "label": "Position",
+      "description": null,
+      "properties": {}
+    },
+    {
+      "label": "InternationalOrganization",
+      "description": null,
+      "properties": {
+        "founding_year": "int"
+      }
+    },
+    {
+      "label": "GovernmentOrganization",
+      "description": null,
+      "properties": {}
+    }
+  ],
+  "relations": [
+    {
+      "label": "hasHeadOfState",
+      "subj_label": "Country",
+      "obj_label": "Politician",
+      "properties": {
+        "start_year": "int",
+        "end_year": "int"
+      }
+    },
+    {
+      "label": "hasHeadOfGovernment",
+      "subj_label": "Country",
+      "obj_label": "Politician",
+      "properties": {
+        "start_year": "int",
+        "end_year": "int"
+      }
+    },
+    {
+      "label": "headedBy",
+      "subj_label": "PoliticalParty",
+      "obj_label": "Politician",
+      "properties": {
+        "start_year": "int",
+        "end_year": "int"
+      }
+    },
+    {
+      "label": "holdsPosition",
+      "subj_label": "Politician",
+      "obj_label": "Position",
+      "properties": {
+        "start_year": "int",
+        "end_year": "int"
+      }
+    },
+    {
+      "label": "leads",
+      "subj_label": "Position",
+      "obj_label": "GovernmentOrganization",
+      "properties": {}
+    },
+    {
+      "label": "belongsTo",
+      "subj_label": "GovernmentOrganization",
+      "obj_label": "Country",
+      "properties": {}
+    },
+    {
+      "label": "memberOf",
+      "subj_label": "Politician",
+      "obj_label": "PoliticalParty",
+      "properties": {}
+    },
+    {
+      "label": "foundedBy",
+      "subj_label": "PoliticalParty",
+      "obj_label": "Politician",
+      "properties": {}
+    },
+    {
+      "label": "operatesIn",
+      "subj_label": "PoliticalParty",
+      "obj_label": "Country",
+      "properties": {}
+    },
+    {
+      "label": "hasDiplomaticRelationWith",
+      "subj_label": "Country",
+      "obj_label": "Country",
+      "properties": {}
+    },
+    {
+      "label": "memberOf",
+      "subj_label": "Country",
+      "obj_label": "InternationalOrganization",
+      "properties": {}
+    }
+  ]
+}

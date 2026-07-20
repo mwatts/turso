@@ -1,0 +1,66 @@
+{
+  "name": "terrorist_attack",
+  "entities": [
+    {
+      "label": "TerroristAttack",
+      "description": null,
+      "properties": {
+        "number_of_injuries": "int",
+        "number_of_deaths": "int",
+        "date": "date",
+        "locations": "list[str]"
+      }
+    },
+    {
+      "label": "Terrorist",
+      "description": null,
+      "properties": {
+        "country_of_citizenship": "list[str]",
+        "place_of_birth": "str",
+        "gender": "str",
+        "date_of_birth": "date"
+      }
+    },
+    {
+      "label": "Target",
+      "description": null,
+      "properties": {}
+    },
+    {
+      "label": "Country",
+      "description": null,
+      "properties": {}
+    },
+    {
+      "label": "Weapon",
+      "description": null,
+      "properties": {}
+    }
+  ],
+  "relations": [
+    {
+      "label": "perpetratedBy",
+      "subj_label": "TerroristAttack",
+      "obj_label": "Terrorist",
+      "properties": {}
+    },
+    {
+      "label": "occursIn",
+      "subj_label": "TerroristAttack",
+      "obj_label": "Country",
+      "properties": {}
+    },
+    {
+      "label": "employs",
+      "subj_label": "TerroristAttack",
+      "obj_label": "Weapon",
+      "properties": {}
+    },
+    {
+      "label": "targets",
+      "subj_label": "TerroristAttack",
+      "obj_label": "Target",
+      "properties": {}
+    }
+  ]
+}

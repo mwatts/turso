@@ -1,0 +1,99 @@
+{
+  "name": "art",
+  "entities": [
+    {
+      "label": "Person",
+      "description": null,
+      "properties": {
+        "place_of_birth": "str",
+        "gender": "str",
+        "date_of_birth": "date",
+        "date_of_death": "date"
+      }
+    },
+    {
+      "label": "Painting",
+      "description": null,
+      "properties": {
+        "country_of_origin": "str",
+        "creation_year": "int"
+      }
+    },
+    {
+      "label": "Sculpture",
+      "description": null,
+      "properties": {
+        "country_of_origin": "str",
+        "creation_year": "int"
+      }
+    },
+    {
+      "label": "Genre",
+      "description": null,
+      "properties": {}
+    },
+    {
+      "label": "ArtMovement",
+      "description": null,
+      "properties": {
+        "start_year": "int",
+        "end_year": "int"
+      }
+    },
+    {
+      "label": "Museum",
+      "description": null,
+      "properties": {}
+    }
+  ],
+  "relations": [
+    {
+      "label": "createdBy",
+      "subj_label": "Painting",
+      "obj_label": "Person",
+      "properties": {}
+    },
+    {
+      "label": "createdBy",
+      "subj_label": "Sculpture",
+      "obj_label": "Person",
+      "properties": {}
+    },
+    {
+      "label": "associatedWith",
+      "subj_label": "Painting",
+      "obj_label": "ArtMovement",
+      "properties": {}
+    },
+    {
+      "label": "associatedWith",
+      "subj_label": "Sculpture",
+      "obj_label": "ArtMovement",
+      "properties": {}
+    },
+    {
+      "label": "hasGenre",
+      "subj_label": "Painting",
+      "obj_label": "Genre",
+      "properties": {}
+    },
+    {
+      "label": "hasGenre",
+      "subj_label": "Sculpture",
+      "obj_label": "Genre",
+      "properties": {}
+    },
+    {
+      "label": "displayedAt",
+      "subj_label": "Painting",
+      "obj_label": "Museum",
+      "properties": {}
+    },
+    {
+      "label": "displayedAt",
+      "subj_label": "Sculpture",
+      "obj_label": "Museum",
+      "properties": {}
+    }
+  ]
+}

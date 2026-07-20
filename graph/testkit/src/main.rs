@@ -66,6 +66,18 @@ enum Command {
         no_record: bool,
     },
     CorpusStats,
+    /// CypherBench execution benchmark. Profiles: sample (sampled graphs,
+    /// capped queries) or full (full-scale graphs, every gold query).
+    Cypherbench {
+        #[arg(long, default_value = "sample")]
+        profile: String,
+        /// Restrict to one domain (e.g. nba).
+        #[arg(long)]
+        domain: Option<String>,
+        /// Cap queries per domain (overrides the profile default).
+        #[arg(long)]
+        limit: Option<usize>,
+    },
     Age {
         #[arg(long)]
         history: Option<PathBuf>,
@@ -132,6 +144,11 @@ fn run(arguments: Arguments) -> Result<bool> {
         Command::GrafeoStats => grafeo_stats(&root),
         Command::Corpus { history, no_record } => run_corpus(&root, history, no_record),
         Command::CorpusStats => corpus_stats(&root),
+        Command::Cypherbench {
+            profile,
+            domain,
+            limit,
+        } => run_cypherbench(&root, &profile, domain, limit),
         Command::Age { history, no_record } => run_age(&root, history, no_record),
         Command::AgeStats => age_stats(&root),
         Command::SparrowdbStats => rust_donor_stats(&root, SPARROWDB),
@@ -618,6 +635,75 @@ fn append_run_summary(
         .open(path)?;
     writeln!(file, "{line}")?;
     Ok(())
+}
+
+/// CypherBench: two profiles over the same task set. `sample` loads the
+/// sampled graph tier and caps queries per domain for quick regression;
+/// `full` loads the full-scale graphs and runs every gold query.
+fn run_cypherbench(
+    root: &Path,
+    profile: &str,
+    domain: Option<String>,
+    limit_override: Option<usize>,
+) -> Result<bool> {
+    use turso_graph_testkit::cypherbench;
+    let base = root.join("graph/testdata/benchmarks/cypherbench");
+    let tasks = cypherbench::load_tasks(&base.join("test.json"))?;
+    let (tier, suffix, mut limit) = match profile {
+        "sample" => ("simplekg_sampled", "_sampled_simplekg.json", Some(25)),
+        "full" => ("simplekg", "_simplekg.json", None),
+        other => anyhow::bail!("unknown profile `{other}` (sample|full)"),
+    };
+    if limit_override.is_some() {
+        limit = limit_override;
+    }
+    let data = base.join("data").join(tier);
+    anyhow::ensure!(
+        data.is_dir(),
+        "missing {}; run scripts/fetch-cypherbench.sh {}",
+        data.display(),
+        if profile == "full" { "full" } else { "sampled" },
+    );
+    let mut domains: Vec<String> = tasks
+        .iter()
+        .map(|task| task.graph.clone())
+        .collect::<std::collections::BTreeSet<_>>()
+        .into_iter()
+        .collect();
+    if let Some(only) = domain {
+        domains.retain(|candidate| *candidate == only);
+        anyhow::ensure!(!domains.is_empty(), "no tasks for domain `{only}`");
+    }
+    let mut reports = Vec::new();
+    for name in &domains {
+        let graph_path = data.join(format!("{name}{suffix}"));
+        let report = cypherbench::run_domain(name, &graph_path, &tasks, limit)?;
+        println!(
+            "{name}: entities={} relations={} load_ms={} queries={} matched={} mismatched={} errored={} query_ms={}",
+            report.entities,
+            report.relations,
+            report.load_ms,
+            report.queries,
+            report.matched,
+            report.mismatched,
+            report.errored,
+            report.query_ms_total,
+        );
+        reports.push(report);
+    }
+    let line = serde_json::json!({
+        "recorded_at": turso_graph_testkit::history::recorded_at(),
+        "benchmark": "cypherbench",
+        "profile": profile,
+        "domains": reports,
+    });
+    use std::io::Write as _;
+    let mut file = std::fs::OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open(root.join("graph/test-results/benchmarks.jsonl"))?;
+    writeln!(file, "{line}")?;
+    Ok(true)
 }
 
 #[cfg(test)]

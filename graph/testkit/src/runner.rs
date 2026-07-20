@@ -85,12 +85,14 @@ impl ScenarioRunner {
     }
 }
 
-pub(crate) struct GraphFixture {
-    pub(crate) connection: Arc<Connection>,
-    pub(crate) session: GraphSession,
+pub struct GraphFixture {
+    pub connection: Arc<Connection>,
+    pub session: GraphSession,
+    pub labels_table: String,
+    pub types_table: String,
 }
 
-pub(crate) fn empty_fixture(name: &str) -> Result<GraphFixture, RunnerError> {
+pub fn empty_fixture(name: &str) -> Result<GraphFixture, RunnerError> {
     build_fixture(name, "", ParameterTypes::new())
 }
 
@@ -203,6 +205,8 @@ fn build_fixture(
     Ok(GraphFixture {
         connection,
         session,
+        labels_table: turso_graph_frontend::labels_table_name(registered.id),
+        types_table: turso_graph_frontend::relationship_types_table_name(registered.id),
     })
 }
 
