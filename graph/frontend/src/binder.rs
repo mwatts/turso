@@ -2367,29 +2367,37 @@ impl<'a> Binder<'a> {
                 )?;
             }
         }
-        let sort_keys = clause
-            .order_by
-            .iter()
-            .map(|item| {
-                Ok(ir::SortKey {
-                    expression: self.bind_expression(&substitute_variables(
-                        &item.expression,
-                        &alias_sources,
-                        &shadowed,
-                    ))?,
-                    direction: if item.descending {
-                        ir::SortDirection::Descending
-                    } else {
-                        ir::SortDirection::Ascending
-                    },
-                    null_order: if item.descending {
-                        ir::NullOrder::First
-                    } else {
-                        ir::NullOrder::Last
-                    },
+        // Aggregating projections sort AFTER grouping, in the output scope
+        // where aggregate aliases are real bindings (ORDER BY sum for
+        // sum(..) AS sum); non-aggregating clauses keep the pre-projection
+        // sort with alias substitution.
+        let sort_keys = if has_aggregates {
+            Vec::new()
+        } else {
+            clause
+                .order_by
+                .iter()
+                .map(|item| {
+                    Ok(ir::SortKey {
+                        expression: self.bind_expression(&substitute_variables(
+                            &item.expression,
+                            &alias_sources,
+                            &shadowed,
+                        ))?,
+                        direction: if item.descending {
+                            ir::SortDirection::Descending
+                        } else {
+                            ir::SortDirection::Ascending
+                        },
+                        null_order: if item.descending {
+                            ir::NullOrder::First
+                        } else {
+                            ir::NullOrder::Last
+                        },
+                    })
                 })
-            })
-            .collect::<Result<Vec<_>, BindError>>()?;
+                .collect::<Result<Vec<_>, BindError>>()?
+        };
         if !sort_keys.is_empty() {
             input = ir::Plan::new(
                 ir::PlanKind::Sort(ir::Sort {
@@ -2546,6 +2554,59 @@ impl<'a> Binder<'a> {
         });
         self.scope = output_scope;
         self.entities = output_entities;
+        // Aggregating projections sort after grouping in the output scope,
+        // where aggregate aliases are real bindings.
+        if has_aggregates && !clause.order_by.is_empty() {
+            // A sort key naming an output alias binds directly; a key that
+            // syntactically repeats a projection item's source expression
+            // (ORDER BY a.name for a.name AS name) maps onto that output.
+            // A sort key may repeat a projection item's source expression
+            // (ORDER BY a.name for a.name AS name), possibly inside a larger
+            // expression (ORDER BY a.name + 'C'); rewrite those occurrences
+            // to the output alias so the key binds in the output scope.
+            let alias_for = |expression: &cypher::Expression| -> Option<String> {
+                clause.items.iter().find_map(|item| match item {
+                    cypher::ProjectionItem::Expression {
+                        expression: source,
+                        alias,
+                    } if expressions_match(&source.value, expression) => alias
+                        .as_ref()
+                        .map(|alias| alias.value.clone())
+                        .or_else(|| Some(projection_name(source))),
+                    _ => None,
+                })
+            };
+            let keys = clause
+                .order_by
+                .iter()
+                .map(|item| {
+                    let rewritten = replace_projected_sources(&item.expression, &alias_for);
+                    Ok(ir::SortKey {
+                        expression: self.bind_expression(&rewritten)?,
+                        direction: if item.descending {
+                            ir::SortDirection::Descending
+                        } else {
+                            ir::SortDirection::Ascending
+                        },
+                        null_order: if item.descending {
+                            ir::NullOrder::First
+                        } else {
+                            ir::NullOrder::Last
+                        },
+                    })
+                })
+                .collect::<Result<Vec<_>, BindError>>()?;
+            let input = self.plan.take().ok_or(BindError::EmptyQuery)?;
+            let result_shape = input.result_shape().clone();
+            self.plan = Some(ir::Plan::new(
+                ir::PlanKind::Sort(ir::Sort {
+                    input: Box::new(input),
+                    keys,
+                }),
+                ir::Scope::new(self.scope.clone())?,
+                result_shape,
+            )?);
+        }
         // Aggregating projections filter after grouping (HAVING shape);
         // non-aggregating clauses already filtered pre-projection.
         if has_aggregates {
@@ -4580,6 +4641,145 @@ fn rename_match_clause(
 /// Replaces bare `Variable` occurrences with their aliased source
 /// expressions (projection aliases visible to ORDER BY/WHERE), skipping
 /// names shadowed by quantifier or list-comprehension loop variables.
+/// Span-insensitive structural equality for the expression shapes that occur
+/// as post-aggregation sort keys: variables, property chains, literals, and
+/// (aggregate) function calls. Spanned's derived PartialEq compares byte
+/// spans, so it can never equate a sort key with a projection source.
+fn expressions_match(a: &cypher::Expression, b: &cypher::Expression) -> bool {
+    use cypher::Expression as E;
+    match (a, b) {
+        (E::Variable(x), E::Variable(y)) => x == y,
+        (E::Parameter(x), E::Parameter(y)) => x == y,
+        (E::Literal(x), E::Literal(y)) => x == y,
+        (
+            E::Property {
+                entity: entity_a,
+                name: name_a,
+            },
+            E::Property {
+                entity: entity_b,
+                name: name_b,
+            },
+        ) => name_a.value == name_b.value && expressions_match(&entity_a.value, &entity_b.value),
+        (
+            E::Function {
+                name: name_a,
+                arguments: arguments_a,
+                distinct: distinct_a,
+                star: star_a,
+            },
+            E::Function {
+                name: name_b,
+                arguments: arguments_b,
+                distinct: distinct_b,
+                star: star_b,
+            },
+        ) => {
+            name_a.value.eq_ignore_ascii_case(&name_b.value)
+                && distinct_a == distinct_b
+                && star_a == star_b
+                && arguments_a.len() == arguments_b.len()
+                && arguments_a
+                    .iter()
+                    .zip(arguments_b)
+                    .all(|(x, y)| expressions_match(&x.value, &y.value))
+        }
+        _ => false,
+    }
+}
+
+/// Rewrite every sub-expression for which `alias_for` yields an output alias
+/// into a bare variable reference to that alias, top-down, so post-aggregation
+/// sort keys built over projection sources bind in the output scope.
+fn replace_projected_sources(
+    expression: &cypher::Spanned<cypher::Expression>,
+    alias_for: &dyn Fn(&cypher::Expression) -> Option<String>,
+) -> cypher::Spanned<cypher::Expression> {
+    use cypher::Expression as E;
+    if let Some(alias) = alias_for(&expression.value) {
+        return cypher::Spanned::new(E::Variable(alias), expression.span);
+    }
+    let sub = |value: &cypher::Spanned<E>| Box::new(replace_projected_sources(value, alias_for));
+    let sub_opt = |value: &Option<Box<cypher::Spanned<E>>>| value.as_deref().map(sub);
+    let value = match &expression.value {
+        E::Property { entity, name } => E::Property {
+            entity: sub(entity),
+            name: name.clone(),
+        },
+        E::Binary {
+            left,
+            operator,
+            right,
+        } => E::Binary {
+            left: sub(left),
+            operator: *operator,
+            right: sub(right),
+        },
+        E::Unary { operator, operand } => E::Unary {
+            operator: *operator,
+            operand: sub(operand),
+        },
+        E::Function {
+            name,
+            arguments,
+            distinct,
+            star,
+        } => E::Function {
+            name: name.clone(),
+            arguments: arguments
+                .iter()
+                .map(|argument| replace_projected_sources(argument, alias_for))
+                .collect(),
+            distinct: *distinct,
+            star: *star,
+        },
+        E::Case {
+            subject,
+            branches,
+            default,
+        } => E::Case {
+            subject: sub_opt(subject),
+            branches: branches
+                .iter()
+                .map(|(when, then)| {
+                    (
+                        replace_projected_sources(when, alias_for),
+                        replace_projected_sources(then, alias_for),
+                    )
+                })
+                .collect(),
+            default: sub_opt(default),
+        },
+        E::Index { base, index } => E::Index {
+            base: sub(base),
+            index: sub(index),
+        },
+        E::Slice { base, from, to } => E::Slice {
+            base: sub(base),
+            from: sub_opt(from),
+            to: sub_opt(to),
+        },
+        E::Cast { operand, type_name } => E::Cast {
+            operand: sub(operand),
+            type_name: type_name.clone(),
+        },
+        E::List(values) => E::List(
+            values
+                .iter()
+                .map(|value| replace_projected_sources(value, alias_for))
+                .collect(),
+        ),
+        E::Map(entries) => E::Map(
+            entries
+                .iter()
+                .map(|(key, value)| (key.clone(), replace_projected_sources(value, alias_for)))
+                .collect(),
+        ),
+        other => other.clone(),
+    };
+    cypher::Spanned::new(value, expression.span)
+}
+
 fn substitute_variables(
     expression: &cypher::Spanned<cypher::Expression>,
     sources: &HashMap<String, cypher::Expression>,
