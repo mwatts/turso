@@ -238,7 +238,7 @@ pub fn run_domain(
     graph_path: &Path,
     tasks: &[BenchTask],
     limit: Option<usize>,
-    detail: Option<&mut Vec<QueryDetail>>,
+    mut detail: Option<&mut dyn FnMut(&QueryDetail)>,
     query_timeout: std::time::Duration,
 ) -> Result<DomainReport> {
     enum Event {
@@ -289,7 +289,7 @@ pub fn run_domain(
         .take(limit.unwrap_or(usize::MAX))
         .count();
     let timeout_cap = (total / 10).max(1);
-    let mut details_out = detail;
+    let mut completed_qids: Vec<String> = Vec::new();
     let mut in_flight: Option<String> = None;
     let mut timeouts = 0_usize;
     let mut matched = 0;
@@ -297,20 +297,16 @@ pub fn run_domain(
     let mut errored = 0;
     let mut query_ms_total = 0_u64;
     let mut seen = 0_usize;
-    let record_timeout = |qid: String, details_out: &mut Option<&mut Vec<QueryDetail>>| {
-        if let Some(details) = details_out.as_deref_mut() {
-            details.push(QueryDetail {
-                qid,
-                domain: domain.to_owned(),
-                verdict: "timeout",
-                duration_ms: query_timeout.as_millis() as u64,
-                observed_rows: 0,
-                expected_rows: 0,
-                observed_sample: String::new(),
-                expected_sample: String::new(),
-                error: "per-query watchdog expired".to_owned(),
-            });
-        }
+    let timeout_entry = |qid: String| QueryDetail {
+        qid,
+        domain: domain.to_owned(),
+        verdict: "timeout",
+        duration_ms: query_timeout.as_millis() as u64,
+        observed_rows: 0,
+        expected_rows: 0,
+        observed_sample: String::new(),
+        expected_sample: String::new(),
+        error: "per-query watchdog expired".to_owned(),
     };
     loop {
         // The load phase (before any query starts) gets a generous fixed
@@ -331,8 +327,9 @@ pub fn run_domain(
                     _ => errored += 1,
                 }
                 query_ms_total += entry.duration_ms;
-                if let Some(details) = details_out.as_deref_mut() {
-                    details.push(entry);
+                completed_qids.push(entry.qid.clone());
+                if let Some(sink) = detail.as_deref_mut() {
+                    sink(&entry);
                 }
             }
             Ok(Event::Done(report)) => {
@@ -350,7 +347,9 @@ pub fn run_domain(
                     .take()
                     .unwrap_or_else(|| format!("{domain}:load-or-stall"));
                 timeouts += 1;
-                record_timeout(qid.clone(), &mut details_out);
+                if let Some(sink) = detail.as_deref_mut() {
+                    sink(&timeout_entry(qid.clone()));
+                }
                 // More than 10% of a domain timing out is itself the
                 // signal: stop respawning and report the partial result.
                 if timeouts > timeout_cap {
@@ -380,10 +379,8 @@ pub fn run_domain(
                 // fresh worker reloads the graph and resumes past the
                 // wedged query and everything already completed.
                 skip.insert(qid);
-                if let Some(details) = details_out.as_deref() {
-                    for entry in details.iter() {
-                        skip.insert(entry.qid.clone());
-                    }
+                for completed in &completed_qids {
+                    skip.insert(completed.clone());
                 }
                 receiver = spawn_worker(skip.clone());
             }

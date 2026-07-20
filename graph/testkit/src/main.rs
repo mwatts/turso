@@ -686,7 +686,22 @@ fn run_cypherbench(
         anyhow::ensure!(!domains.is_empty(), "no tasks for domain `{only}`");
     }
     let mut reports = Vec::new();
-    let mut details: Vec<cypherbench::QueryDetail> = Vec::new();
+    // Details stream to disk per query so a killed run keeps its records.
+    use std::io::Write as _;
+    let mut detail_file = detail_path
+        .as_ref()
+        .map(std::fs::File::create)
+        .transpose()?;
+    let mut detail_rows = 0_usize;
+    let mut write_detail = |entry: &cypherbench::QueryDetail| {
+        if let Some(file) = detail_file.as_mut() {
+            if let Ok(line) = serde_json::to_string(entry) {
+                let _ = writeln!(file, "{line}");
+                let _ = file.flush();
+                detail_rows += 1;
+            }
+        }
+    };
     for name in &domains {
         let graph_path = data.join(format!("{name}{suffix}"));
         let report = cypherbench::run_domain(
@@ -694,7 +709,9 @@ fn run_cypherbench(
             &graph_path,
             &tasks,
             limit,
-            detail_path.is_some().then_some(&mut details),
+            detail_path
+                .is_some()
+                .then_some(&mut write_detail as &mut dyn FnMut(&cypherbench::QueryDetail)),
             std::time::Duration::from_secs(query_timeout_secs),
         )?;
         println!(
@@ -716,18 +733,13 @@ fn run_cypherbench(
         "profile": profile,
         "domains": reports,
     });
-    use std::io::Write as _;
     let mut file = std::fs::OpenOptions::new()
         .create(true)
         .append(true)
         .open(root.join("graph/test-results/benchmarks.jsonl"))?;
     writeln!(file, "{line}")?;
     if let Some(path) = detail_path {
-        let mut file = std::fs::File::create(&path)?;
-        for entry in &details {
-            writeln!(file, "{}", serde_json::to_string(entry)?)?;
-        }
-        println!("detail: {} rows -> {}", details.len(), path.display());
+        println!("detail: {detail_rows} rows -> {}", path.display());
     }
     Ok(true)
 }
