@@ -1042,17 +1042,30 @@ impl<'a> Binder<'a> {
     fn bind_set_item(&mut self, item: &cypher::SetItem) -> Result<ir::Mutation, BindError> {
         match item {
             cypher::SetItem::Property { target, value } => {
+                if contains_pattern_expression(value) {
+                    return Err(at_unsupported(
+                        value.span,
+                        "patterns in a SET value expression",
+                    ));
+                }
                 let (binding, kind, source) = self.resolve_mutation_target(target)?;
                 let property = self.resolve_property(kind, &target.property)?;
                 let bound = match &value.value {
-                    // Map values only bind against struct/union property
-                    // targets (openCypher forbids map-typed properties).
-                    cypher::Expression::Map(entries) => self.bind_map_property(
-                        &property.value_type,
-                        property.nullability,
-                        entries,
-                        value.span,
-                    )?,
+                    // Map values bind against struct/union property targets;
+                    // otherwise they store as JSON like any other map value.
+                    cypher::Expression::Map(entries)
+                        if matches!(
+                            property.value_type,
+                            ir::ValueType::Struct(_) | ir::ValueType::Union(_)
+                        ) =>
+                    {
+                        self.bind_map_property(
+                            &property.value_type,
+                            property.nullability,
+                            entries,
+                            value.span,
+                        )?
+                    }
                     _ => self.bind_expression(value)?,
                 };
                 Ok(ir::Mutation::SetProperty(ir::SetProperty {
@@ -1174,12 +1187,19 @@ impl<'a> Binder<'a> {
             .map(|(name, value)| {
                 let resolved = self.resolve_property(entity, name)?;
                 let bound_value = match &value.value {
-                    cypher::Expression::Map(entries) => self.bind_map_property(
-                        &resolved.value_type,
-                        resolved.nullability,
-                        entries,
-                        value.span,
-                    )?,
+                    cypher::Expression::Map(entries)
+                        if matches!(
+                            resolved.value_type,
+                            ir::ValueType::Struct(_) | ir::ValueType::Union(_)
+                        ) =>
+                    {
+                        self.bind_map_property(
+                            &resolved.value_type,
+                            resolved.nullability,
+                            entries,
+                            value.span,
+                        )?
+                    }
                     _ => self.bind_expression(value)?,
                 };
                 Ok(ir::PropertyValue {
@@ -1404,20 +1424,21 @@ impl<'a> Binder<'a> {
             path_binding.filter(|_| path.steps.len() == 1 && path.steps[0].0.range.is_some());
         let mut from = start;
         for (relationship, node) in &path.steps {
+            let mut relationship_list = None;
             if relationship.range.is_some() {
                 variable_length = true;
                 if let Some(variable) = &relationship.variable {
                     // A named variable-length relationship denotes the list
-                    // of traversed relationships; register the name so later
-                    // clauses can reference it while the expansion itself
-                    // stays anonymous.
+                    // of traversed relationships; the expansion materializes
+                    // it as a grouped output while staying anonymous itself.
                     let binding = ir::Binding::new(
                         self.next_id()?,
                         variable.value.clone(),
                         ir::ValueType::List(Box::new(ir::ValueType::Relationship)),
                         ir::Nullability::Nullable,
                     )?;
-                    self.scope.push(binding);
+                    self.scope.push(binding.clone());
+                    relationship_list = Some(binding);
                 }
             }
             if relationship.range.is_some() && !relationship.properties.is_empty() {
@@ -1549,6 +1570,7 @@ impl<'a> Binder<'a> {
                     max_hops,
                     uniqueness: ir::PathUniqueness::Trail,
                     path_output: expand_path.cloned(),
+                    relationship_list_output: relationship_list,
                 })
             } else {
                 ir::PlanKind::FixedExpand(ir::FixedExpand {
@@ -2240,13 +2262,33 @@ impl<'a> Binder<'a> {
                     }
                 }
                 let (root, field_chain) = flatten_property_chain(expression);
-                let cypher::Expression::Variable(variable) = &root.value else {
+                // Quantifier/list-comprehension variables resolve through
+                // bind_expression's list scopes, not the binding scope, so a
+                // failed entity lookup falls to the generic member path.
+                let entity_binding = match &root.value {
+                    cypher::Expression::Variable(variable) => self
+                        .resolve_binding(variable, root.span)
+                        .ok()
+                        .filter(|binding| self.entities.contains_key(&binding.id())),
+                    _ => None,
+                };
+                let Some(binding) = entity_binding else {
+                    // Member access over map-shaped values (map literals,
+                    // UNWIND elements, parameters): json_extract per field,
+                    // guarded so non-JSON values yield null, not an error.
+                    let base = self.bind_expression(root)?;
+                    if matches!(base.value_type, ir::ValueType::Map | ir::ValueType::Any) {
+                        let mut current = base;
+                        for field in &field_chain {
+                            current = json_member_access(current, &field.value);
+                        }
+                        return Ok(current);
+                    }
                     return Err(BindError::InvalidPropertyTarget {
                         span_start: root.span.start,
                         span_end: root.span.end,
                     });
                 };
-                let binding = self.resolve_binding(variable, root.span)?;
                 let kind = self
                     .entities
                     .get(&binding.id())
@@ -3356,6 +3398,30 @@ fn temporal_truncate_call(
     Some(call)
 }
 
+/// `base.field` over a map-shaped value: json_extract guarded by
+/// json_valid so non-JSON bases produce null instead of a runtime error.
+fn json_member_access(base: ir::TypedExpression, field: &str) -> ir::TypedExpression {
+    let path = ir::TypedExpression {
+        expression: ir::Expression::Literal(ir::Literal::Text(format!(
+            "$.\"{}\"",
+            field.replace('"', "\\\"")
+        ))),
+        value_type: ir::ValueType::Text,
+        nullability: ir::Nullability::NonNull,
+    };
+    let valid = sql_call("json_valid", vec![base.clone()], ir::ValueType::Boolean);
+    let extract = sql_call("json_extract", vec![base, path], ir::ValueType::Any);
+    ir::TypedExpression {
+        expression: ir::Expression::Case {
+            subject: None,
+            branches: vec![(valid, extract)],
+            default: None,
+        },
+        value_type: ir::ValueType::Any,
+        nullability: ir::Nullability::Nullable,
+    }
+}
+
 fn is_temporal_unit(name: &str) -> bool {
     matches!(
         name,
@@ -3680,6 +3746,38 @@ fn references_variable(expression: &cypher::Spanned<cypher::Expression>, names: 
         cypher::Expression::Binary { left, right, .. } => {
             references_variable(left, names) || references_variable(right, names)
         }
+        _ => false,
+    }
+}
+
+/// True when the expression nests a bare pattern (subquery or predicate)
+/// in a value position; openCypher only allows patterns in boolean
+/// contexts, and SET right-hand sides must reject them (TCK Pattern1).
+fn contains_pattern_expression(expression: &cypher::Spanned<cypher::Expression>) -> bool {
+    match &expression.value {
+        cypher::Expression::PatternSubquery { .. }
+        | cypher::Expression::PatternPredicate { .. } => true,
+        cypher::Expression::Function { arguments, .. } => {
+            arguments.iter().any(contains_pattern_expression)
+        }
+        cypher::Expression::Unary { operand, .. } => contains_pattern_expression(operand),
+        cypher::Expression::Binary { left, right, .. } => {
+            contains_pattern_expression(left) || contains_pattern_expression(right)
+        }
+        cypher::Expression::Property { entity, .. } => contains_pattern_expression(entity),
+        cypher::Expression::Index { base, index } => {
+            contains_pattern_expression(base) || contains_pattern_expression(index)
+        }
+        cypher::Expression::Slice { base, from, to } => {
+            contains_pattern_expression(base)
+                || from.as_deref().is_some_and(contains_pattern_expression)
+                || to.as_deref().is_some_and(contains_pattern_expression)
+        }
+        cypher::Expression::Cast { operand, .. } => contains_pattern_expression(operand),
+        cypher::Expression::List(values) => values.iter().any(contains_pattern_expression),
+        cypher::Expression::Map(entries) => entries
+            .iter()
+            .any(|(_, value)| contains_pattern_expression(value)),
         _ => false,
     }
 }

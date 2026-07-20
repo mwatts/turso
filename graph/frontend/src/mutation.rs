@@ -41,8 +41,6 @@ pub enum MutationError {
     ReservedParameter(String),
     #[error("created {entity} did not return exactly one identity")]
     MissingCreatedIdentity { entity: &'static str },
-    #[error("MERGE requires at least one property to identify the entity")]
-    MergeWithoutProperties,
     #[error("mutation references binding {0} before it has a value")]
     MissingBinding(ir::BindingId),
     #[error("cannot delete node while relationships still reference it; use DETACH DELETE")]
@@ -997,6 +995,16 @@ fn insert_node(
     let layout = catalog
         .node_layout(create.source)
         .ok_or(LowerError::MissingSource(create.source))?;
+    let merge_predicates = if merge {
+        node_label_predicates(
+            catalog,
+            &layout.table,
+            &layout.identity_column,
+            &create.labels,
+        )
+    } else {
+        Vec::new()
+    };
     insert_entity(
         connection,
         catalog,
@@ -1011,7 +1019,34 @@ fn insert_node(
         merge,
         "node",
         &[],
+        &merge_predicates,
     )
+}
+
+/// Label-membership predicates for a merge match against the label
+/// junction table; empty when the graph records no labels.
+fn node_label_predicates(
+    catalog: &dyn GraphCompilationCatalog,
+    table: &str,
+    identity: &str,
+    labels: &[ir::LabelId],
+) -> Vec<String> {
+    let Some(junction) = catalog.labels_table() else {
+        return Vec::new();
+    };
+    labels
+        .iter()
+        .filter_map(|label| catalog.label_name(*label))
+        .map(|name| {
+            format!(
+                "EXISTS (SELECT 1 FROM {} WHERE node_id = {}.{} AND label = '{}')",
+                quoted_identifier(&junction),
+                quoted_identifier(table),
+                quoted_identifier(identity),
+                name.replace('\'', "''"),
+            )
+        })
+        .collect()
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -1051,6 +1086,7 @@ fn insert_relationship(
             (layout.start_column, from.clone()),
             (layout.end_column, to.clone()),
         ],
+        &[],
     )
 }
 
@@ -1069,6 +1105,7 @@ fn insert_entity(
     merge: bool,
     entity: &'static str,
     fixed: &[(String, Value)],
+    merge_predicates: &[String],
 ) -> Result<(Value, bool), MutationError> {
     let references = reference_parameters(values);
     let mut columns = Vec::new();
@@ -1090,16 +1127,21 @@ fn insert_entity(
             entity_layouts,
         )?);
     }
-    if merge && columns.is_empty() {
-        return Err(MutationError::MergeWithoutProperties);
-    }
     if merge {
+        // A propertyless MERGE matches any candidate row (Cypher semantics);
+        // label membership arrives through merge_predicates.
         let predicate = columns
             .iter()
             .zip(&expressions)
             .map(|(column, expression)| format!("{} IS ({expression})", quoted_identifier(column)))
+            .chain(merge_predicates.iter().cloned())
             .collect::<Vec<_>>()
             .join(" AND ");
+        let predicate = if predicate.is_empty() {
+            "1 = 1".to_owned()
+        } else {
+            predicate
+        };
         let existing = run_rows(
             connection,
             &format!(
