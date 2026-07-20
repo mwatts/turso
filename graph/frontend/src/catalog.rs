@@ -412,6 +412,25 @@ fn register_graph_in_transaction(
             relationship_type_registry_table_name(graph_id)
         ),
     )?;
+    // Standard junction indexes: label-filtered scans probe (label,
+    // node_id); per-entity lookups (labels(n), type(r), snapshot builds)
+    // probe by identity.
+    for (table, columns) in [
+        (labels_table_name(graph_id), ["node_id, label"]),
+        (
+            relationship_types_table_name(graph_id),
+            ["relationship_id, type"],
+        ),
+    ] {
+        for (index, column_list) in columns.iter().enumerate() {
+            execute_internal(
+                connection,
+                format!(
+                    "CREATE INDEX IF NOT EXISTS \"{table}_ix{index}\" ON \"{table}\"({column_list})",
+                ),
+            )?;
+        }
+    }
     // Registered relationship sources keep their index-based identities so
     // the registry agrees with the schema catalog's static resolution.
     for (index, relationship) in registration.relationship_sources.iter().enumerate() {
