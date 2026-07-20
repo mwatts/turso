@@ -110,7 +110,7 @@ and_op = { AND }
 not_expression = { not_op* ~ comparison_expression }
 not_op = @{ ^"not" ~ !ident_char }
 comparison_expression = { predicate_expression ~ (comparison_op ~ predicate_expression)* }
-comparison_op = { "<>" | "!=" | "<=" | ">=" | "=" | "<" | ">" }
+comparison_op = { "<->" | "<=>" | "<#>" | "<>" | "!=" | "<=" | ">=" | "=" | "<" | ">" }
 predicate_expression = { additive_expression ~ predicate_suffix* }
 predicate_suffix = { in_suffix | null_suffix | starts_suffix | ends_suffix | contains_suffix | label_suffix }
 label_suffix = { node_labels }

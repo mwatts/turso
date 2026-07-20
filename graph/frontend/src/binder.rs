@@ -3049,10 +3049,11 @@ impl<'a> Binder<'a> {
                 let lowered = type_name.value.to_ascii_lowercase();
                 // AGE's universal and entity types cast as identity: the
                 // value already carries the right representation here.
-                if matches!(
-                    lowered.as_str(),
-                    "agtype" | "vertex" | "edge" | "path" | "vector"
-                ) {
+                if lowered == "vector" {
+                    // ::vector constructs a core vector value.
+                    return Ok(sql_call("vector32", vec![operand], ir::ValueType::Any));
+                }
+                if matches!(lowered.as_str(), "agtype" | "vertex" | "edge" | "path") {
                     return Ok(operand);
                 }
                 let target = match lowered.as_str() {
@@ -3208,6 +3209,9 @@ impl<'a> Binder<'a> {
                 let left = self.bind_expression(left)?;
                 let right = self.bind_expression(right)?;
                 if let Some(result) = duration_arithmetic(*operator, &left, &right) {
+                    return Ok(result);
+                }
+                if let Some(result) = vector_operator(*operator, &left, &right) {
                     return Ok(result);
                 }
                 match operator {
@@ -3879,6 +3883,38 @@ fn component_sum(
     total.unwrap_or_else(|| integer_literal(0))
 }
 
+/// pgvector distance operators map onto core's vector functions; the
+/// negative-inner-product operator negates vector_distance_dot.
+fn vector_operator(
+    operator: cypher::BinaryOperator,
+    left: &ir::TypedExpression,
+    right: &ir::TypedExpression,
+) -> Option<ir::TypedExpression> {
+    let function = match operator {
+        cypher::BinaryOperator::VectorL2 => "vector_distance_l2",
+        cypher::BinaryOperator::VectorCosine => "vector_distance_cos",
+        cypher::BinaryOperator::VectorInnerProduct => "vector_distance_dot",
+        _ => return None,
+    };
+    let call = sql_call(
+        function,
+        vec![left.clone(), right.clone()],
+        ir::ValueType::Real,
+    );
+    Some(if operator == cypher::BinaryOperator::VectorInnerProduct {
+        ir::TypedExpression {
+            expression: ir::Expression::Unary {
+                op: ir::UnaryOp::Negate,
+                expression: Box::new(call),
+            },
+            value_type: ir::ValueType::Real,
+            nullability: ir::Nullability::Nullable,
+        }
+    } else {
+        call
+    })
+}
+
 /// Rewrites datetime/duration arithmetic onto the duration extension
 /// functions. Returns None when neither operand carries a temporal or
 /// duration marker type.
@@ -4194,6 +4230,15 @@ fn rewrite_builtin_call(
                     value_type: ir::ValueType::Integer,
                     nullability: entity.nullability,
                 }
+            }
+            ("cosine_distance", [_, _]) => {
+                sql_function("vector_distance_cos", arguments, ir::ValueType::Real)
+            }
+            ("l2_distance", [_, _]) => {
+                sql_function("vector_distance_l2", arguments, ir::ValueType::Real)
+            }
+            ("inner_product", [_, _]) => {
+                sql_function("vector_distance_dot", arguments, ir::ValueType::Real)
             }
             ("toupper" | "touppercase", [_]) => {
                 sql_function("upper", arguments, ir::ValueType::Text)
@@ -4808,6 +4853,10 @@ fn bind_binary_operator(operator: cypher::BinaryOperator) -> ir::BinaryOp {
         cypher::BinaryOperator::Multiply => ir::BinaryOp::Multiply,
         cypher::BinaryOperator::Divide => ir::BinaryOp::Divide,
         cypher::BinaryOperator::Modulo => ir::BinaryOp::Modulo,
+        // Vector operators are intercepted before generic binding.
+        cypher::BinaryOperator::VectorL2
+        | cypher::BinaryOperator::VectorCosine
+        | cypher::BinaryOperator::VectorInnerProduct => ir::BinaryOp::Subtract,
         cypher::BinaryOperator::Power => ir::BinaryOp::Power,
     }
 }

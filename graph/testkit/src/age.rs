@@ -68,9 +68,8 @@ pub struct AgeStats {
 /// Donor files testing postgres/AGE-specific surfaces rather than Cypher:
 /// jsonb operator syntax, pgvector, postgres extensions, and jsonb casts.
 /// These stay out of the conformance corpus entirely.
-const AGE_SPECIFIC_FILES: [&str; 5] = [
+const AGE_SPECIFIC_FILES: [&str; 4] = [
     "jsonb_operators.sql",
-    "pgvector.sql",
     "pg_trgm.sql",
     "fuzzystrmatch.sql",
     "agtype_jsonb_cast.sql",
@@ -340,7 +339,7 @@ mod tests {
         let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../testdata/donors/age/sql");
         let corpus = AgeCorpus::load(root).unwrap();
         // Postgres/AGE-specific files and EXPLAIN queries are excluded.
-        assert_eq!(corpus.stats().files, 42);
+        assert_eq!(corpus.stats().files, 43);
         assert!(corpus
             .cases
             .iter()

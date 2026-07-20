@@ -237,6 +237,12 @@ pub enum BinaryOperator {
     Divide,
     Modulo,
     Power,
+    /// pgvector `<->` (L2 distance).
+    VectorL2,
+    /// pgvector `<=>` (cosine distance).
+    VectorCosine,
+    /// pgvector `<#>` (negative inner product).
+    VectorInnerProduct,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
