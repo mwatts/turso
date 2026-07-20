@@ -1042,6 +1042,20 @@ impl<'a> Binder<'a> {
             }
         }
         if let Some(variable) = &path.variable {
+            // A path variable cannot rebind a name already in scope
+            // (openCypher VariableTypeConflict); erroring here keeps the
+            // scope invariant from tripping downstream.
+            if self
+                .scope
+                .iter()
+                .any(|binding| binding.name() == variable.value)
+            {
+                return Err(BindError::DuplicateVariable {
+                    name: variable.value.clone(),
+                    span_start: variable.span.start,
+                    span_end: variable.span.end,
+                });
+            }
             // Register the path name so later clauses can reference it; the
             // path value itself is not materialized in the initial slice.
             let binding = ir::Binding::new(
@@ -1656,6 +1670,19 @@ impl<'a> Binder<'a> {
         }
         for path in &clause.paths {
             if let Some(variable) = &path.variable {
+                // A path variable cannot rebind a name already in scope
+                // (openCypher VariableTypeConflict).
+                if self
+                    .scope
+                    .iter()
+                    .any(|binding| binding.name() == variable.value)
+                {
+                    return Err(BindError::DuplicateVariable {
+                        name: variable.value.clone(),
+                        span_start: variable.span.start,
+                        span_end: variable.span.end,
+                    });
+                }
                 // Register the path name so later clauses can reference it.
                 let binding = ir::Binding::new(
                     self.next_id()?,
@@ -1763,22 +1790,52 @@ impl<'a> Binder<'a> {
         let expand_path =
             path_binding.filter(|_| path.steps.len() == 1 && path.steps[0].0.range.is_some());
         let mut from = start;
+        let mut list_equality: Option<(ir::Binding, ir::Binding)> = None;
         for (relationship, node) in &path.steps {
             let mut relationship_list = None;
             if relationship.range.is_some() {
                 variable_length = true;
                 if let Some(variable) = &relationship.variable {
-                    // A named variable-length relationship denotes the list
-                    // of traversed relationships; the expansion materializes
-                    // it as a grouped output while staying anonymous itself.
-                    let binding = ir::Binding::new(
-                        self.next_id()?,
-                        variable.value.clone(),
-                        ir::ValueType::List(Box::new(ir::ValueType::Relationship)),
-                        ir::Nullability::Nullable,
-                    )?;
-                    self.scope.push(binding.clone());
-                    relationship_list = Some(binding);
+                    if let Some(existing) = self
+                        .scope
+                        .iter()
+                        .find(|binding| binding.name() == variable.value)
+                        .cloned()
+                    {
+                        // A bound list reused in a variable-length pattern
+                        // constrains the traversal: materialize the walked
+                        // relationship list anonymously and require it to
+                        // equal the bound value (TCK Match4 [8]).
+                        if !matches!(existing.value_type(), ir::ValueType::List(_)) {
+                            return Err(BindError::DuplicateVariable {
+                                name: variable.value.clone(),
+                                span_start: variable.span.start,
+                                span_end: variable.span.end,
+                            });
+                        }
+                        let id = self.next_id()?;
+                        let binding = ir::Binding::new(
+                            id,
+                            format!("__rellist_{}", id.get()),
+                            ir::ValueType::List(Box::new(ir::ValueType::Relationship)),
+                            ir::Nullability::Nullable,
+                        )?;
+                        relationship_list = Some(binding.clone());
+                        list_equality = Some((binding, existing));
+                    } else {
+                        // A named variable-length relationship denotes the
+                        // list of traversed relationships; the expansion
+                        // materializes it as a grouped output while staying
+                        // anonymous itself.
+                        let binding = ir::Binding::new(
+                            self.next_id()?,
+                            variable.value.clone(),
+                            ir::ValueType::List(Box::new(ir::ValueType::Relationship)),
+                            ir::Nullability::Nullable,
+                        )?;
+                        self.scope.push(binding.clone());
+                        relationship_list = Some(binding);
+                    }
                 }
             }
             if relationship.range.is_some() && !relationship.properties.is_empty() {
@@ -1992,6 +2049,26 @@ impl<'a> Binder<'a> {
             }
             relationships.push(relationship_binding.id());
             nodes.push(from);
+        }
+        if let Some((materialized, bound)) = list_equality.take() {
+            let side = |binding: &ir::Binding| ir::TypedExpression {
+                expression: ir::Expression::Binding(binding.id()),
+                value_type: binding.value_type().clone(),
+                nullability: binding.nullability(),
+            };
+            let input = self.plan.take().ok_or(BindError::EmptyQuery)?;
+            self.wrap_plan(ir::PlanKind::Filter(ir::Filter {
+                input: Box::new(input),
+                predicate: ir::TypedExpression {
+                    expression: ir::Expression::Binary {
+                        left: Box::new(side(&materialized)),
+                        op: ir::BinaryOp::Equal,
+                        right: Box::new(side(&bound)),
+                    },
+                    value_type: ir::ValueType::Boolean,
+                    nullability: ir::Nullability::NonNull,
+                },
+            }))?;
         }
         // Cypher relationship isomorphism: relationships within one MATCH
         // pattern bind pairwise-distinct edges (a co-membership pattern
