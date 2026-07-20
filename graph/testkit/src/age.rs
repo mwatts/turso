@@ -65,11 +65,27 @@ pub struct AgeStats {
     pub duplicates: usize,
 }
 
+/// Donor files testing postgres/AGE-specific surfaces rather than Cypher:
+/// jsonb operator syntax, pgvector, postgres extensions, and jsonb casts.
+/// These stay out of the conformance corpus entirely.
+const AGE_SPECIFIC_FILES: [&str; 5] = [
+    "jsonb_operators.sql",
+    "pgvector.sql",
+    "pg_trgm.sql",
+    "fuzzystrmatch.sql",
+    "agtype_jsonb_cast.sql",
+];
+
 impl AgeCorpus {
     pub fn load(root: impl AsRef<Path>) -> Result<Self, AgeError> {
         let root = root.as_ref();
         let mut paths = Vec::new();
         collect_sql_files(root, &mut paths)?;
+        paths.retain(|path| {
+            path.file_name()
+                .and_then(|name| name.to_str())
+                .is_none_or(|name| !AGE_SPECIFIC_FILES.contains(&name))
+        });
         paths.sort();
         let invocation = Regex::new(r"(?is)cypher\s*\(\s*([^,]+?)\s*,\s*\$\$(.*?)\$\$")
             .expect("static AGE extraction regex is valid");
@@ -98,6 +114,14 @@ impl AgeCorpus {
                     .as_str()
                     .trim()
                     .to_owned();
+                // EXPLAIN output is postgres planner text, not Cypher; the
+                // index stays consumed so sibling query ids do not shift.
+                if query
+                    .get(..7)
+                    .is_some_and(|p| p.eq_ignore_ascii_case("explain"))
+                {
+                    continue;
+                }
                 let id = TestId::parse(format!(
                     "age.{}.query-{}",
                     normalize_identifier(relative.with_extension("").to_string_lossy().as_ref()),
@@ -315,7 +339,12 @@ mod tests {
     fn imports_every_dollar_quoted_cypher_invocation() {
         let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../testdata/donors/age/sql");
         let corpus = AgeCorpus::load(root).unwrap();
-        assert_eq!(corpus.stats().files, 47);
-        assert_eq!(corpus.stats().queries, 3_677);
+        // Postgres/AGE-specific files and EXPLAIN queries are excluded.
+        assert_eq!(corpus.stats().files, 42);
+        assert!(corpus
+            .cases
+            .iter()
+            .all(|case| !case.query.to_ascii_lowercase().starts_with("explain")));
+        assert_eq!(corpus.stats().queries, corpus.cases.len());
     }
 }
