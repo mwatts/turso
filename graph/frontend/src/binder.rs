@@ -2005,12 +2005,53 @@ impl<'a> Binder<'a> {
                 ir::ResultShape::default(),
             )?,
         };
+        // ORDER BY and WHERE see both projection aliases and pre-projection
+        // variables: alias references substitute their source expressions
+        // and everything binds in the pre-projection scope. Aliases of
+        // aggregate items cannot substitute (no value before grouping).
+        let mut alias_sources: HashMap<String, cypher::Expression> = HashMap::new();
+        let shadowed: std::collections::HashSet<String> = self
+            .scope
+            .iter()
+            .map(|binding| binding.name().to_owned())
+            .collect();
+        let mut has_aggregates = false;
+        for item in &clause.items {
+            if let cypher::ProjectionItem::Expression { expression, alias } = item {
+                if self.bind_aggregate_call(expression)?.is_some() {
+                    has_aggregates = true;
+                } else if let Some(alias) = alias {
+                    alias_sources.insert(alias.value.clone(), expression.value.clone());
+                }
+            }
+        }
+        if let Some(predicate) = &clause.predicate {
+            if !has_aggregates {
+                let predicate = self.bind_expression(&substitute_variables(
+                    predicate,
+                    &alias_sources,
+                    &shadowed,
+                ))?;
+                input = ir::Plan::new(
+                    ir::PlanKind::Filter(ir::Filter {
+                        input: Box::new(input),
+                        predicate,
+                    }),
+                    ir::Scope::new(self.scope.clone())?,
+                    ir::ResultShape::default(),
+                )?;
+            }
+        }
         let sort_keys = clause
             .order_by
             .iter()
             .map(|item| {
                 Ok(ir::SortKey {
-                    expression: self.bind_expression(&item.expression)?,
+                    expression: self.bind_expression(&substitute_variables(
+                        &item.expression,
+                        &alias_sources,
+                        &shadowed,
+                    ))?,
                     direction: if item.descending {
                         ir::SortDirection::Descending
                     } else {
@@ -2180,13 +2221,17 @@ impl<'a> Binder<'a> {
         });
         self.scope = output_scope;
         self.entities = output_entities;
-        if let Some(predicate) = &clause.predicate {
-            let predicate = self.bind_expression(predicate)?;
-            let input = self.plan.take().ok_or(BindError::EmptyQuery)?;
-            self.wrap_plan(ir::PlanKind::Filter(ir::Filter {
-                input: Box::new(input),
-                predicate,
-            }))?;
+        // Aggregating projections filter after grouping (HAVING shape);
+        // non-aggregating clauses already filtered pre-projection.
+        if has_aggregates {
+            if let Some(predicate) = &clause.predicate {
+                let predicate = self.bind_expression(predicate)?;
+                let input = self.plan.take().ok_or(BindError::EmptyQuery)?;
+                self.wrap_plan(ir::PlanKind::Filter(ir::Filter {
+                    input: Box::new(input),
+                    predicate,
+                }))?;
+            }
         }
         if clause.distinct {
             let keys = self
@@ -4107,6 +4152,145 @@ fn rename_match_clause(
             .as_ref()
             .map(|predicate| rename_expression(predicate, rename)),
     }
+}
+
+/// Replaces bare `Variable` occurrences with their aliased source
+/// expressions (projection aliases visible to ORDER BY/WHERE), skipping
+/// names shadowed by quantifier or list-comprehension loop variables.
+fn substitute_variables(
+    expression: &cypher::Spanned<cypher::Expression>,
+    sources: &HashMap<String, cypher::Expression>,
+    shadowed: &std::collections::HashSet<String>,
+) -> cypher::Spanned<cypher::Expression> {
+    if sources.is_empty() {
+        return expression.clone();
+    }
+    use cypher::Expression as E;
+    let sub = |value: &cypher::Spanned<E>| Box::new(substitute_variables(value, sources, shadowed));
+    let sub_opt = |value: &Option<Box<cypher::Spanned<E>>>| value.as_deref().map(sub);
+    let value = match &expression.value {
+        E::Variable(name) => match sources.get(name) {
+            Some(source) => source.clone(),
+            None => expression.value.clone(),
+        },
+        E::Property { entity, name } => E::Property {
+            // A property base whose alias shadows a pre-projection variable
+            // (RETURN n.name AS n ORDER BY n.name) keeps the original
+            // entity resolution; non-shadowing aliases substitute normally.
+            entity: match &entity.value {
+                E::Variable(base) if shadowed.contains(base) => entity.clone(),
+                _ => sub(entity),
+            },
+            name: name.clone(),
+        },
+        E::Binary {
+            left,
+            operator,
+            right,
+        } => E::Binary {
+            left: sub(left),
+            operator: *operator,
+            right: sub(right),
+        },
+        E::Unary { operator, operand } => E::Unary {
+            operator: *operator,
+            operand: sub(operand),
+        },
+        E::Function {
+            name,
+            arguments,
+            distinct,
+            star,
+        } => E::Function {
+            name: name.clone(),
+            arguments: arguments
+                .iter()
+                .map(|argument| substitute_variables(argument, sources, shadowed))
+                .collect(),
+            distinct: *distinct,
+            star: *star,
+        },
+        E::Case {
+            subject,
+            branches,
+            default,
+        } => E::Case {
+            subject: sub_opt(subject),
+            branches: branches
+                .iter()
+                .map(|(when, then)| {
+                    (
+                        substitute_variables(when, sources, shadowed),
+                        substitute_variables(then, sources, shadowed),
+                    )
+                })
+                .collect(),
+            default: sub_opt(default),
+        },
+        E::Index { base, index } => E::Index {
+            base: sub(base),
+            index: sub(index),
+        },
+        E::Slice { base, from, to } => E::Slice {
+            base: sub(base),
+            from: sub_opt(from),
+            to: sub_opt(to),
+        },
+        E::Cast { operand, type_name } => E::Cast {
+            operand: sub(operand),
+            type_name: type_name.clone(),
+        },
+        E::List(values) => E::List(
+            values
+                .iter()
+                .map(|value| substitute_variables(value, sources, shadowed))
+                .collect(),
+        ),
+        E::Map(entries) => E::Map(
+            entries
+                .iter()
+                .map(|(key, value)| (key.clone(), substitute_variables(value, sources, shadowed)))
+                .collect(),
+        ),
+        E::Quantifier {
+            kind,
+            variable,
+            list,
+            predicate,
+        } => {
+            let shadowed = sources.contains_key(&variable.value);
+            E::Quantifier {
+                kind: *kind,
+                variable: variable.clone(),
+                list: sub(list),
+                predicate: if shadowed {
+                    predicate.clone()
+                } else {
+                    sub(predicate)
+                },
+            }
+        }
+        E::ListComprehension {
+            variable,
+            list,
+            predicate,
+            map,
+        } => {
+            let shadowed = sources.contains_key(&variable.value);
+            E::ListComprehension {
+                variable: variable.clone(),
+                list: sub(list),
+                predicate: if shadowed {
+                    predicate.clone()
+                } else {
+                    sub_opt(predicate)
+                },
+                map: if shadowed { map.clone() } else { sub_opt(map) },
+            }
+        }
+        other => other.clone(),
+    };
+    cypher::Spanned::new(value, expression.span)
 }
 
 /// Renames bare `Variable` occurrences in an expression, skipping names
