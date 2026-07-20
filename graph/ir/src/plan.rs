@@ -105,6 +105,10 @@ pub struct GraphExpand {
     /// When set, the expansion also materializes each traversed path as a
     /// {nodes, relationships} value bound to this output.
     pub path_output: Option<Binding>,
+    /// When set, the expansion also materializes the traversed relationship
+    /// identities as a list value bound to this output (a named
+    /// variable-length relationship).
+    pub relationship_list_output: Option<Binding>,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]

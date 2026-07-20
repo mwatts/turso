@@ -416,10 +416,11 @@ fn lower_graph_expand(
             kind: EntityKind::Node,
         },
     );
-    if let Some(path_output) = &expand.path_output {
+    if expand.path_output.is_some() || expand.relationship_list_output.is_some() {
         // Materialize each traversed path: group the expansion's per-step
         // rows by path identity, building the {nodes, relationships} value
-        // alongside the terminal node/relationship columns.
+        // and/or the relationship-identity list alongside the terminal
+        // node/relationship columns.
         let group_columns = expand
             .input
             .scope()
@@ -441,12 +442,27 @@ fn lower_graph_expand(
         } else {
             format!("{group_columns}, ")
         };
+        let mut aggregates = Vec::new();
+        if let Some(path_output) = &expand.path_output {
+            aggregates.push(format!(
+                "json_object('nodes', json_group_array(gx.node_identity), \
+                 'relationships', json_group_array(gx.relationship_identity) \
+                 FILTER (WHERE gx.path_position > 0)) AS {}",
+                binding_column(path_output.id()),
+            ));
+        }
+        if let Some(list_output) = &expand.relationship_list_output {
+            aggregates.push(format!(
+                "json_group_array(gx.relationship_identity) \
+                 FILTER (WHERE gx.path_position > 0) AS {}",
+                binding_column(list_output.id()),
+            ));
+        }
+        let aggregates = aggregates.join(", ");
         return Ok(Lowered {
             sql: format!(
                 "SELECT g.*, r.{} AS {}, n.{} AS {} \
-                 FROM (SELECT {}json_object('nodes', json_group_array(gx.node_identity), \
-                 'relationships', json_group_array(gx.relationship_identity) \
-                 FILTER (WHERE gx.path_position > 0)) AS {}, \
+                 FROM (SELECT {}{aggregates}, \
                  max(CASE WHEN gx.is_terminal = 1 THEN gx.node_identity END) AS __gx_node, \
                  max(CASE WHEN gx.is_terminal = 1 THEN gx.relationship_identity END) AS __gx_rel \
                  FROM ({}) AS q \
@@ -459,7 +475,6 @@ fn lower_graph_expand(
                 quote_identifier(&target.identity_column),
                 binding_column(expand.to.id()),
                 inner_select,
-                binding_column(path_output.id()),
                 input.sql,
                 expand.graph.get(),
                 from.source.get(),
