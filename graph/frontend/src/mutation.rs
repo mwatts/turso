@@ -169,7 +169,15 @@ fn execute_bound(
     let input_bindings = request
         .input
         .as_ref()
-        .map(|plan| plan.scope().iter().map(ir::Binding::id).collect::<Vec<_>>())
+        .map(|plan| {
+            plan.scope()
+                .iter()
+                // Named paths have no backing column in the input plan;
+                // projections rebuild them from their component bindings.
+                .filter(|binding| !matches!(binding.value_type(), ir::ValueType::Path))
+                .map(ir::Binding::id)
+                .collect::<Vec<_>>()
+        })
         .unwrap_or_default();
     let initial = if request.input.is_some() {
         let sql = mutation_rows_sql(input, &input_bindings);
