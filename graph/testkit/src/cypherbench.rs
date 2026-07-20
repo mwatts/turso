@@ -44,6 +44,21 @@ pub struct BenchTask {
     pub answer_json: String,
 }
 
+/// Per-query outcome for triage: verdict, timing, and a bounded sample of
+/// the observed/expected divergence.
+#[derive(Debug, serde::Serialize)]
+pub struct QueryDetail {
+    pub qid: String,
+    pub domain: String,
+    pub verdict: &'static str,
+    pub duration_ms: u64,
+    pub observed_rows: usize,
+    pub expected_rows: usize,
+    pub observed_sample: String,
+    pub expected_sample: String,
+    pub error: String,
+}
+
 #[derive(Debug, serde::Serialize)]
 pub struct DomainReport {
     pub domain: String,
@@ -220,6 +235,7 @@ pub fn run_domain(
     graph_path: &Path,
     tasks: &[BenchTask],
     limit: Option<usize>,
+    detail: Option<&mut Vec<QueryDetail>>,
 ) -> Result<DomainReport> {
     let kg: SimpleKg = serde_json::from_str(
         &fs::read_to_string(graph_path)
@@ -240,6 +256,12 @@ pub fn run_domain(
     let mut mismatched = 0;
     let mut errored = 0;
     let mut query_ms_total = 0;
+    let mut details = detail;
+    let mut record = |entry: QueryDetail| {
+        if let Some(details) = details.as_deref_mut() {
+            details.push(entry);
+        }
+    };
     let parameters = MutationParameters::new();
     for task in &selected {
         let query_started = Instant::now();
@@ -273,11 +295,37 @@ pub fn run_domain(
                 );
                 observed.sort();
                 expected.sort();
-                if observed == expected {
+                let verdict = if observed == expected {
                     matched += 1;
+                    "matched"
                 } else {
                     mismatched += 1;
-                }
+                    "mismatched"
+                };
+                let sample = |rows: &[Vec<String>]| {
+                    let mut text = format!("{rows:?}");
+                    text.truncate(220);
+                    text
+                };
+                record(QueryDetail {
+                    qid: task.qid.clone(),
+                    domain: domain.to_owned(),
+                    verdict,
+                    duration_ms: query_started.elapsed().as_millis() as u64,
+                    observed_rows: observed.len(),
+                    expected_rows: expected.len(),
+                    observed_sample: if verdict == "mismatched" {
+                        sample(&observed)
+                    } else {
+                        String::new()
+                    },
+                    expected_sample: if verdict == "mismatched" {
+                        sample(&expected)
+                    } else {
+                        String::new()
+                    },
+                    error: String::new(),
+                });
             }
             Err(error) => {
                 query_ms_total += query_started.elapsed().as_millis() as u64;
@@ -288,6 +336,17 @@ pub fn run_domain(
                     error.to_string().chars().take(80).collect::<String>()
                 );
                 errored += 1;
+                record(QueryDetail {
+                    qid: task.qid.clone(),
+                    domain: domain.to_owned(),
+                    verdict: "errored",
+                    duration_ms: query_started.elapsed().as_millis() as u64,
+                    observed_rows: 0,
+                    expected_rows: 0,
+                    observed_sample: String::new(),
+                    expected_sample: String::new(),
+                    error: error.to_string().chars().take(160).collect(),
+                });
             }
         }
     }

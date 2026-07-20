@@ -77,6 +77,9 @@ enum Command {
         /// Cap queries per domain (overrides the profile default).
         #[arg(long)]
         limit: Option<usize>,
+        /// Write per-query verdicts and timings to this JSONL path.
+        #[arg(long)]
+        detail: Option<PathBuf>,
     },
     Age {
         #[arg(long)]
@@ -148,7 +151,8 @@ fn run(arguments: Arguments) -> Result<bool> {
             profile,
             domain,
             limit,
-        } => run_cypherbench(&root, &profile, domain, limit),
+            detail,
+        } => run_cypherbench(&root, &profile, domain, limit, detail),
         Command::Age { history, no_record } => run_age(&root, history, no_record),
         Command::AgeStats => age_stats(&root),
         Command::SparrowdbStats => rust_donor_stats(&root, SPARROWDB),
@@ -645,6 +649,7 @@ fn run_cypherbench(
     profile: &str,
     domain: Option<String>,
     limit_override: Option<usize>,
+    detail_path: Option<PathBuf>,
 ) -> Result<bool> {
     use turso_graph_testkit::cypherbench;
     let base = root.join("graph/testdata/benchmarks/cypherbench");
@@ -675,9 +680,16 @@ fn run_cypherbench(
         anyhow::ensure!(!domains.is_empty(), "no tasks for domain `{only}`");
     }
     let mut reports = Vec::new();
+    let mut details: Vec<cypherbench::QueryDetail> = Vec::new();
     for name in &domains {
         let graph_path = data.join(format!("{name}{suffix}"));
-        let report = cypherbench::run_domain(name, &graph_path, &tasks, limit)?;
+        let report = cypherbench::run_domain(
+            name,
+            &graph_path,
+            &tasks,
+            limit,
+            detail_path.is_some().then_some(&mut details),
+        )?;
         println!(
             "{name}: entities={} relations={} load_ms={} queries={} matched={} mismatched={} errored={} query_ms={}",
             report.entities,
@@ -703,6 +715,13 @@ fn run_cypherbench(
         .append(true)
         .open(root.join("graph/test-results/benchmarks.jsonl"))?;
     writeln!(file, "{line}")?;
+    if let Some(path) = detail_path {
+        let mut file = std::fs::File::create(&path)?;
+        for entry in &details {
+            writeln!(file, "{}", serde_json::to_string(entry)?)?;
+        }
+        println!("detail: {} rows -> {}", details.len(), path.display());
+    }
     Ok(true)
 }
 
