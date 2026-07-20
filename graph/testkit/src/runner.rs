@@ -540,6 +540,19 @@ mod tests {
     }
 
     #[test]
+    fn explain_prefix_returns_core_query_plan() {
+        let fixture = empty_fixture("explain-smoke").expect("fixture should initialize");
+        let rows = fixture
+            .session
+            .query(
+                "EXPLAIN (VERBOSE, COSTS OFF) MATCH (n:Person) RETURN n.name",
+                &MutationParameters::new(),
+            )
+            .expect("explain should compile through core's plan output");
+        assert!(!rows.is_empty(), "plan output should have rows");
+    }
+
+    #[test]
     fn optional_match_count_groups_stay_correlated() {
         let fixture = empty_fixture("opt-count").expect("fixture should initialize");
         let parameters = MutationParameters::new();

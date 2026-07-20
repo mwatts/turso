@@ -145,6 +145,32 @@ impl GraphSession {
         parameters: &MutationParameters,
         cancellation: &dyn Cancellation,
     ) -> Result<Statement, GraphSessionError> {
+        // EXPLAIN-prefixed queries (including postgres option lists like
+        // EXPLAIN (VERBOSE, COSTS OFF)) compile the inner query and return
+        // core's own plan via EXPLAIN QUERY PLAN over the lowered SQL.
+        if let Some(inner) = strip_explain_prefix(source) {
+            let syntax = turso_graph_cypher::parse(inner)?;
+            if requires_traversal_snapshot(&syntax) {
+                self.snapshots.refresh_visible_if_stale(
+                    &self.connection,
+                    &self.graph_name,
+                    self.limits,
+                    cancellation,
+                )?;
+            }
+            let bound = crate::bind(&syntax, self.graph, self.catalog.as_ref(), &self.parameters)?;
+            let statement =
+                crate::lower_relational(&bound.plan, self.catalog.as_ref()).map_err(|error| {
+                    GraphSessionError::Database(turso_core::LimboError::ParseError(
+                        error.to_string(),
+                    ))
+                })?;
+            let mut statement = self
+                .connection
+                .prepare(format!("EXPLAIN QUERY PLAN {statement}"))?;
+            bind_query_parameters(&mut statement, parameters)?;
+            return Ok(statement);
+        }
         let syntax = turso_graph_cypher::parse(source)?;
         if requires_traversal_snapshot(&syntax) {
             self.snapshots.refresh_visible_if_stale(
@@ -193,6 +219,34 @@ fn requires_traversal_snapshot(query: &turso_graph_cypher::Query) -> bool {
             .unions
             .iter()
             .any(|branch| branch.clauses.iter().any(clause_needs))
+}
+
+/// Strips a leading `EXPLAIN` (with an optional parenthesized postgres
+/// option list and bare ANALYZE/VERBOSE keywords) and returns the inner
+/// query, or None when the source is not an EXPLAIN form.
+pub fn strip_explain_prefix(source: &str) -> Option<&str> {
+    let trimmed = source.trim_start();
+    let rest = trimmed
+        .get(..7)
+        .filter(|prefix| prefix.eq_ignore_ascii_case("explain"))
+        .map(|_| &trimmed[7..])?;
+    let mut rest = rest.trim_start();
+    if let Some(options_start) = rest.strip_prefix('(') {
+        let close = options_start.find(')')?;
+        rest = options_start[close + 1..].trim_start();
+    }
+    loop {
+        let lowered = rest.to_ascii_lowercase();
+        if let Some(next) = ["analyze", "verbose"]
+            .iter()
+            .find(|keyword| lowered.starts_with(*keyword))
+        {
+            rest = rest[next.len()..].trim_start();
+        } else {
+            break;
+        }
+    }
+    (!rest.is_empty()).then_some(rest)
 }
 
 fn bind_query_parameters(

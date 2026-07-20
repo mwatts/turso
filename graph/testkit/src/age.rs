@@ -113,14 +113,6 @@ impl AgeCorpus {
                     .as_str()
                     .trim()
                     .to_owned();
-                // EXPLAIN output is postgres planner text, not Cypher; the
-                // index stays consumed so sibling query ids do not shift.
-                if query
-                    .get(..7)
-                    .is_some_and(|p| p.eq_ignore_ascii_case("explain"))
-                {
-                    continue;
-                }
                 let id = TestId::parse(format!(
                     "age.{}.query-{}",
                     normalize_identifier(relative.with_extension("").to_string_lossy().as_ref()),
@@ -338,12 +330,9 @@ mod tests {
     fn imports_every_dollar_quoted_cypher_invocation() {
         let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../testdata/donors/age/sql");
         let corpus = AgeCorpus::load(root).unwrap();
-        // Postgres/AGE-specific files and EXPLAIN queries are excluded.
+        // Postgres/AGE-specific files stay excluded; EXPLAIN queries run
+        // through core's EXPLAIN QUERY PLAN.
         assert_eq!(corpus.stats().files, 43);
-        assert!(corpus
-            .cases
-            .iter()
-            .all(|case| !case.query.to_ascii_lowercase().starts_with("explain")));
         assert_eq!(corpus.stats().queries, corpus.cases.len());
     }
 }

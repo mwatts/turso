@@ -30,15 +30,15 @@ fn vendored_corpus_has_all_source_identities() {
         RustDonorCorpus::load(root.join("graph/testdata/donors/cqlite/tests"), CQLITE).unwrap();
 
     // 10,392 raw cases minus the remaining postgres-specific rows (jsonb
-    // operators, pg extensions, EXPLAIN planner output); pgvector is back
-    // in, mapped onto core's vector functions.
+    // operators, pg extensions); pgvector maps onto core's vector
+    // functions and EXPLAIN runs through core's EXPLAIN QUERY PLAN.
     assert_eq!(
         tck.stats().expanded
             + grafeo.stats().cypher_cases
             + age.stats().queries
             + sparrowdb.stats().queries
             + cqlite.stats().queries,
-        10_153
+        10_213
     );
 }
 

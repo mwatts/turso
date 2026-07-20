@@ -38,10 +38,13 @@ impl QueryParseCache {
 }
 
 fn without_terminal_semicolon(query: &str) -> &str {
-    query
+    let query = query
         .trim()
         .strip_suffix(';')
-        .map_or_else(|| query.trim(), str::trim_end)
+        .map_or_else(|| query.trim(), str::trim_end);
+    // EXPLAIN-prefixed queries parse-check their inner query; the session
+    // compiles them through core's EXPLAIN QUERY PLAN.
+    turso_graph_frontend::strip_explain_prefix(query).unwrap_or(query)
 }
 
 fn normalized_query(query: &str) -> String {
