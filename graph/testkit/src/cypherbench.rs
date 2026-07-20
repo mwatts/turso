@@ -362,10 +362,16 @@ pub fn run_domain(
                 }
             }
             Ok(Event::Done(report)) => {
+                // The worker's counters cover only its own segment (a
+                // respawned worker skips completed queries); the
+                // supervisor's counters span every segment plus timeouts.
                 let mut report = *report;
-                report.errored += timeouts;
-                report.queries += timeouts;
-                report.query_ms_total += timeouts as u64 * query_timeout.as_millis() as u64;
+                report.matched = matched;
+                report.mismatched = mismatched;
+                report.errored = errored + timeouts;
+                report.queries = seen + timeouts;
+                report.query_ms_total =
+                    query_ms_total + timeouts as u64 * query_timeout.as_millis() as u64;
                 return Ok(report);
             }
             Ok(Event::Failed(error)) => {

@@ -1993,6 +1993,33 @@ impl<'a> Binder<'a> {
             relationships.push(relationship_binding.id());
             nodes.push(from);
         }
+        // Cypher relationship isomorphism: relationships within one MATCH
+        // pattern bind pairwise-distinct edges (a co-membership pattern
+        // must not reuse the anchor's own edge when both ends coincide).
+        if !variable_length && relationships.len() > 1 {
+            for i in 0..relationships.len() {
+                for j in (i + 1)..relationships.len() {
+                    let side = |id: ir::BindingId| ir::TypedExpression {
+                        expression: ir::Expression::Binding(id),
+                        value_type: ir::ValueType::Relationship,
+                        nullability: ir::Nullability::NonNull,
+                    };
+                    let input = self.plan.take().ok_or(BindError::EmptyQuery)?;
+                    self.wrap_plan(ir::PlanKind::Filter(ir::Filter {
+                        input: Box::new(input),
+                        predicate: ir::TypedExpression {
+                            expression: ir::Expression::Binary {
+                                left: Box::new(side(relationships[i])),
+                                op: ir::BinaryOp::NotEqual,
+                                right: Box::new(side(relationships[j])),
+                            },
+                            value_type: ir::ValueType::Boolean,
+                            nullability: ir::Nullability::NonNull,
+                        },
+                    }))?;
+                }
+            }
+        }
         Ok(if !variable_length {
             PathComposition::Fixed {
                 nodes,
