@@ -218,6 +218,15 @@ fn parameter_types(parameters: &MutationParameters) -> ParameterTypes {
                 Value::Numeric(Numeric::Float(_)) => {
                     (ir::ValueType::Real, ir::Nullability::NonNull)
                 }
+                // TCK list/map parameters arrive as JSON text (the
+                // frontend's list/map encoding); type them accordingly.
+                Value::Text(text) if text.value.starts_with('[') => (
+                    ir::ValueType::List(Box::new(ir::ValueType::Any)),
+                    ir::Nullability::NonNull,
+                ),
+                Value::Text(text) if text.value.starts_with('{') => {
+                    (ir::ValueType::Map, ir::Nullability::NonNull)
+                }
                 Value::Text(_) => (ir::ValueType::Text, ir::Nullability::NonNull),
                 Value::Blob(_) => (ir::ValueType::Bytes, ir::Nullability::NonNull),
             };
