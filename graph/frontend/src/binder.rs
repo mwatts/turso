@@ -1954,7 +1954,7 @@ impl<'a> Binder<'a> {
                 CatalogEntity::Relationship,
                 &relationship.properties,
             )?;
-            self.bind_labels(node)?;
+            self.enforce_labels(to.id(), node)?;
             self.bind_properties(&to, CatalogEntity::Node, &node.properties)?;
             let equality = |left: &ir::Binding, right: &ir::Binding| ir::TypedExpression {
                 expression: ir::Expression::Binary {
@@ -2023,7 +2023,7 @@ impl<'a> Binder<'a> {
                         "reusing a non-node variable in a node pattern",
                     ));
                 }
-                self.bind_labels(node)?;
+                self.enforce_labels(existing.id(), node)?;
                 self.bind_properties(&existing, CatalogEntity::Node, &node.properties)?;
                 return Ok(existing.id());
             }
@@ -2079,6 +2079,46 @@ impl<'a> Binder<'a> {
 
     fn bind_labels(&self, node: &cypher::NodePattern) -> Result<(), BindError> {
         self.resolve_labels(node).map(|_| ())
+    }
+
+    /// Enforces a node pattern's labels on an already-produced binding by
+    /// filtering through the label junction — used for step nodes and
+    /// reused variables, whose labels are not part of a NodeScan.
+    fn enforce_labels(
+        &mut self,
+        binding: ir::BindingId,
+        node: &cypher::NodePattern,
+    ) -> Result<(), BindError> {
+        self.bind_labels(node)?;
+        for label in &node.labels {
+            let predicate = ir::TypedExpression {
+                expression: ir::Expression::Function {
+                    function: ir::FunctionName::new("__cypher_has_label").expect("static name"),
+                    arguments: vec![
+                        ir::TypedExpression {
+                            expression: ir::Expression::Binding(binding),
+                            value_type: ir::ValueType::Node,
+                            nullability: ir::Nullability::NonNull,
+                        },
+                        ir::TypedExpression {
+                            expression: ir::Expression::Literal(ir::Literal::Text(
+                                label.value.clone(),
+                            )),
+                            value_type: ir::ValueType::Text,
+                            nullability: ir::Nullability::NonNull,
+                        },
+                    ],
+                },
+                value_type: ir::ValueType::Boolean,
+                nullability: ir::Nullability::NonNull,
+            };
+            let input = self.plan.take().ok_or(BindError::EmptyQuery)?;
+            self.wrap_plan(ir::PlanKind::Filter(ir::Filter {
+                input: Box::new(input),
+                predicate,
+            }))?;
+        }
+        Ok(())
     }
 
     fn resolve_labels(&self, node: &cypher::NodePattern) -> Result<Vec<ir::LabelId>, BindError> {

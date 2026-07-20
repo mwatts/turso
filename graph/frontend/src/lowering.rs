@@ -1704,6 +1704,18 @@ fn lower_expression_with_references(
                         quote_identifier(&table)
                     ));
                 }
+                ("__cypher_has_label", [value, name]) => {
+                    // No junction table means the graph does not track
+                    // labels; stay permissive as scans do.
+                    let Some(table) = catalog.labels_table() else {
+                        return Ok("TRUE".to_owned());
+                    };
+                    return Ok(format!(
+                        "EXISTS (SELECT 1 FROM {} AS lbl WHERE lbl.node_id = ({value}) \
+                         AND lbl.label = ({name}))",
+                        quote_identifier(&table)
+                    ));
+                }
                 ("__cypher_keys", [value]) => {
                     return Ok(format!(
                         "(SELECT json_group_array(k.key) FROM json_each(({value})) AS k)"
