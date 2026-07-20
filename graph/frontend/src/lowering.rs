@@ -1696,6 +1696,18 @@ fn lower_expression_with_references(
                         quote_identifier(&table)
                     ));
                 }
+                ("__cypher_relationship_type", [value]) => {
+                    // No junction table means the graph does not track
+                    // relationship types; nothing to report.
+                    let Some(table) = catalog.relationship_types_table() else {
+                        return Ok("NULL".to_owned());
+                    };
+                    return Ok(format!(
+                        "(SELECT jt.type FROM {} AS jt \
+                         WHERE jt.relationship_id = ({value}) LIMIT 1)",
+                        quote_identifier(&table)
+                    ));
+                }
                 ("__cypher_all_relationship_types", []) => {
                     let table = catalog.relationship_types_table().ok_or(
                         LowerError::UnsupportedOperator(

@@ -3445,6 +3445,70 @@ impl<'a> Binder<'a> {
                             }
                         }
                     }
+                    // Static resolution needs an entity record with declared
+                    // names; bindings without one (undirected hops, values
+                    // carried through WITH, NULL) resolve at runtime.
+                    let lowered_name = name.value.to_ascii_lowercase();
+                    if matches!(
+                        argument.expression,
+                        ir::Expression::Literal(ir::Literal::Null)
+                    ) {
+                        return Ok(ir::TypedExpression {
+                            expression: ir::Expression::Literal(ir::Literal::Null),
+                            value_type: ir::ValueType::Any,
+                            nullability: ir::Nullability::Nullable,
+                        });
+                    }
+                    match (lowered_name.as_str(), &argument.value_type) {
+                        ("type", ir::ValueType::Relationship) => {
+                            return Ok(ir::TypedExpression {
+                                expression: ir::Expression::Function {
+                                    function: ir::FunctionName::new("__cypher_relationship_type")
+                                        .expect("static name"),
+                                    arguments: vec![argument.clone()],
+                                },
+                                value_type: ir::ValueType::Text,
+                                nullability: ir::Nullability::Nullable,
+                            });
+                        }
+                        ("labels", ir::ValueType::Node) => {
+                            return Ok(ir::TypedExpression {
+                                expression: ir::Expression::Function {
+                                    function: ir::FunctionName::new("__cypher_labels")
+                                        .expect("static name"),
+                                    arguments: vec![argument.clone()],
+                                },
+                                value_type: ir::ValueType::List(Box::new(ir::ValueType::Text)),
+                                nullability: ir::Nullability::NonNull,
+                            });
+                        }
+                        ("label", ir::ValueType::Node) => {
+                            return Ok(ir::TypedExpression {
+                                expression: ir::Expression::Function {
+                                    function: ir::FunctionName::new("__cypher_label")
+                                        .expect("static name"),
+                                    arguments: vec![argument.clone()],
+                                },
+                                value_type: ir::ValueType::Text,
+                                nullability: ir::Nullability::Nullable,
+                            });
+                        }
+                        ("properties", ir::ValueType::Node | ir::ValueType::Relationship) => {
+                            return Ok(ir::TypedExpression {
+                                expression: ir::Expression::Function {
+                                    function: ir::FunctionName::new("__cypher_properties")
+                                        .expect("static name"),
+                                    arguments: vec![argument.clone()],
+                                },
+                                value_type: ir::ValueType::Map,
+                                nullability: argument.nullability,
+                            });
+                        }
+                        ("properties", ir::ValueType::Map) => {
+                            return Ok(argument.clone());
+                        }
+                        _ => {}
+                    }
                 }
                 if let ("nodes" | "relationships" | "length", [argument]) = (
                     name.value.to_ascii_lowercase().as_str(),
