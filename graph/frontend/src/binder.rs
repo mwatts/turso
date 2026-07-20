@@ -1533,6 +1533,119 @@ impl<'a> Binder<'a> {
         Ok(())
     }
 
+    /// Selectivity score for a pattern node: a constant property filter is
+    /// most selective (a single-row lookup), labels alone narrow a scan,
+    /// and a bare node is least selective (a full scan).
+    fn node_selectivity_score(node: &cypher::NodePattern) -> u8 {
+        let has_constant_property = node
+            .properties
+            .iter()
+            .any(|(_, value)| matches!(value.value, cypher::Expression::Literal(_)));
+        if has_constant_property {
+            2
+        } else if !node.labels.is_empty() {
+            1
+        } else {
+            0
+        }
+    }
+
+    /// Whether `path` is safe to bind in reverse and the last node is a
+    /// strictly better anchor than the first. See the MVP restrictions in
+    /// the module doc for why named paths, variable-length hops, and
+    /// bidirectional relationships are excluded: each has binding-order or
+    /// direction semantics that a pure AST-level reversal must not disturb.
+    ///
+    /// Also requires every node and relationship variable in the path to be
+    /// fresh (not already bound by an earlier clause or an earlier path in
+    /// this same MATCH). `bind_start_node` treats an already-bound start
+    /// specially: it resumes the existing plan instead of scanning, which is
+    /// how OPTIONAL MATCH and same-clause re-matching correlate. Reversing
+    /// such a path would move the already-bound variable into a step
+    /// position instead, trading that continuation for a fresh scan plus an
+    /// equality filter — a corpus regression (TCK Match7 [23] and similar
+    /// `OPTIONAL MATCH (a)-->(b:Label)` shapes) showed this breaks the
+    /// correlated LeftApply's null-preserving semantics.
+    fn should_reverse_path(&self, path: &cypher::PathPattern) -> bool {
+        if path.variable.is_some() || path.steps.is_empty() {
+            return false;
+        }
+        if path
+            .steps
+            .iter()
+            .any(|(relationship, _)| relationship.range.is_some())
+        {
+            return false;
+        }
+        if path
+            .steps
+            .iter()
+            .any(|(relationship, _)| relationship.direction == cypher::Direction::Both)
+        {
+            return false;
+        }
+        let already_bound = |name: &str| self.scope.iter().any(|binding| binding.name() == name);
+        if path
+            .start
+            .variable
+            .as_ref()
+            .is_some_and(|variable| already_bound(&variable.value))
+        {
+            return false;
+        }
+        if path.steps.iter().any(|(relationship, node)| {
+            relationship
+                .variable
+                .as_ref()
+                .is_some_and(|variable| already_bound(&variable.value))
+                || node
+                    .variable
+                    .as_ref()
+                    .is_some_and(|variable| already_bound(&variable.value))
+        }) {
+            return false;
+        }
+        let first_score = Self::node_selectivity_score(&path.start);
+        let last_score = Self::node_selectivity_score(&path.steps[path.steps.len() - 1].1);
+        last_score > first_score
+    }
+
+    /// Rebuilds `path` walked from its last node to its first, flipping each
+    /// relationship's direction so the reversed pattern matches exactly the
+    /// same rows (Cypher `MATCH` is declarative; only join order changes).
+    /// Callers must have already checked [`Self::should_reverse_path`].
+    fn reverse_path(path: &cypher::PathPattern) -> cypher::PathPattern {
+        let mut node_chain = Vec::with_capacity(path.steps.len() + 1);
+        node_chain.push(path.start.clone());
+        node_chain.extend(path.steps.iter().map(|(_, node)| node.clone()));
+        let flip_direction = |direction: cypher::Direction| match direction {
+            cypher::Direction::Outgoing => cypher::Direction::Incoming,
+            cypher::Direction::Incoming => cypher::Direction::Outgoing,
+            cypher::Direction::Both => cypher::Direction::Both,
+        };
+        let new_start = node_chain
+            .last()
+            .expect("node_chain always has start plus one node per step")
+            .clone();
+        let new_steps = path
+            .steps
+            .iter()
+            .enumerate()
+            .rev()
+            .map(|(index, (relationship, _))| {
+                let mut relationship = relationship.clone();
+                relationship.direction = flip_direction(relationship.direction);
+                (relationship, node_chain[index].clone())
+            })
+            .collect();
+        cypher::PathPattern {
+            variable: path.variable.clone(),
+            start: new_start,
+            steps: new_steps,
+            span: path.span,
+        }
+    }
+
     fn bind_match(
         &mut self,
         clause: &cypher::MatchClause,
@@ -1573,7 +1686,15 @@ impl<'a> Binder<'a> {
                     .find(|binding| binding.name() == variable.value)
                     .cloned()
             });
-            let composition = self.bind_path(path, path_binding.as_ref(), old_ids.len())?;
+            // Anchor the join at whichever end is more selective: a scan
+            // that starts from a constant-property lookup is far cheaper
+            // than one that starts from a bare label scan and only applies
+            // the selective filter after every hop.
+            let reversed = self
+                .should_reverse_path(path)
+                .then(|| Self::reverse_path(path));
+            let bound_path = reversed.as_ref().unwrap_or(path);
+            let composition = self.bind_path(bound_path, path_binding.as_ref(), old_ids.len())?;
             if let Some(variable) = &path.variable {
                 self.path_compositions
                     .insert(variable.value.clone(), composition);
@@ -4839,6 +4960,128 @@ mod tests {
         .expect("optional match should bind");
         let friend = bound.plan.scope().resolve("friend").expect("friend output");
         assert_eq!(friend.nullability(), ir::Nullability::Nullable);
+    }
+
+    /// Descends single-input plan nodes to the innermost `NodeScan`'s
+    /// binding, so a test can assert which variable ended up as the join
+    /// anchor without hardcoding the exact operator tree shape.
+    fn innermost_node_scan_binding(plan: &ir::Plan) -> ir::BindingId {
+        match plan.kind() {
+            ir::PlanKind::NodeScan(scan) => scan.binding,
+            ir::PlanKind::FixedExpand(expand) => innermost_node_scan_binding(&expand.input),
+            ir::PlanKind::GraphExpand(expand) => innermost_node_scan_binding(&expand.input),
+            ir::PlanKind::Filter(filter) => innermost_node_scan_binding(&filter.input),
+            ir::PlanKind::Project(project) => innermost_node_scan_binding(&project.input),
+            ir::PlanKind::Aggregate(aggregate) => innermost_node_scan_binding(&aggregate.input),
+            ir::PlanKind::Distinct(distinct) => innermost_node_scan_binding(&distinct.input),
+            ir::PlanKind::Sort(sort) => innermost_node_scan_binding(&sort.input),
+            ir::PlanKind::Skip(skip) => innermost_node_scan_binding(&skip.input),
+            ir::PlanKind::Limit(limit) => innermost_node_scan_binding(&limit.input),
+            ir::PlanKind::Unwind(unwind) => innermost_node_scan_binding(&unwind.input),
+            other => panic!("no single-input descent to a NodeScan from {other:?}"),
+        }
+    }
+
+    /// Binds a single MATCH clause in isolation and returns the binder's raw
+    /// scope and plan. RETURN/WITH projections allocate fresh output
+    /// `BindingId`s for every projected column (see `bind_projection`), so
+    /// comparing a final `BoundQuery`'s scope against internal `NodeScan`
+    /// bindings never matches; binding the MATCH alone keeps the original
+    /// ids so a test can check which variable the binder anchored on.
+    fn bind_match_only(source: &str) -> (Vec<ir::Binding>, ir::Plan) {
+        let query = cypher::parse(source).expect("fixture must parse");
+        let cypher::Clause::Match(match_clause) = &query.clauses[0].value else {
+            panic!("fixture must start with a MATCH clause");
+        };
+        let parameters = ParameterTypes::new();
+        let mut binder = Binder::new(
+            ir::GraphId::new(1).expect("non-zero"),
+            &Catalog,
+            &parameters,
+        );
+        binder
+            .bind_match(match_clause, query.span)
+            .expect("match should bind");
+        (
+            binder.scope,
+            binder.plan.expect("match must produce a plan"),
+        )
+    }
+
+    fn binding_id(scope: &[ir::Binding], name: &str) -> ir::BindingId {
+        scope
+            .iter()
+            .find(|binding| binding.name() == name)
+            .unwrap_or_else(|| panic!("{name} must be in scope"))
+            .id()
+    }
+
+    #[test]
+    fn anchors_pattern_binding_at_the_most_selective_node() {
+        // n is a bare label scan, k carries a constant property filter: the
+        // binder should reverse the path and anchor the join at k instead
+        // of walking left-to-right from n and filtering by id last.
+        let (scope, plan) =
+            bind_match_only("MATCH (n:Person)-[:KNOWS]->(m:Person)<-[:KNOWS]-(k:Person {id: 1})");
+        assert_eq!(innermost_node_scan_binding(&plan), binding_id(&scope, "k"));
+    }
+
+    #[test]
+    fn does_not_reverse_when_the_first_node_is_already_more_selective() {
+        // Mirror image of the above: n now carries the constant filter, so
+        // the existing left-to-right order is already optimal and must be
+        // left alone.
+        let (scope, plan) =
+            bind_match_only("MATCH (n:Person {id: 1})-[:KNOWS]->(m:Person)<-[:KNOWS]-(k:Person)");
+        assert_eq!(innermost_node_scan_binding(&plan), binding_id(&scope, "n"));
+    }
+
+    #[test]
+    fn does_not_reverse_a_named_path_or_variable_length_pattern() {
+        // Named paths build their PathValue node/relationship lists in
+        // binding order; variable-length hops have their own materialized
+        // path_output machinery. Both must keep first-to-last binding order
+        // even when the last node would otherwise look more selective.
+        let (scope, plan) = bind_match_only(
+            "MATCH p = (n:Person)-[:KNOWS]->(m:Person)<-[:KNOWS]-(k:Person {id: 1})",
+        );
+        assert_eq!(innermost_node_scan_binding(&plan), binding_id(&scope, "n"));
+
+        let (scope, plan) = bind_match_only(
+            "MATCH (n:Person)-[:KNOWS*1..3]->(m:Person)<-[:KNOWS]-(k:Person {id: 1})",
+        );
+        assert_eq!(innermost_node_scan_binding(&plan), binding_id(&scope, "n"));
+    }
+
+    #[test]
+    fn does_not_reverse_an_optional_match_continuing_from_an_earlier_binding() {
+        // Regression (TCK Match7 [23] and similar `OPTIONAL MATCH
+        // (a)-->(b:Label)` shapes in the corpus): `a` is already bound by
+        // the preceding MATCH, so the OPTIONAL MATCH path must keep
+        // resuming from `a`'s existing plan rather than reversing to scan
+        // `b` and demoting `a` to a step-target equality filter — that
+        // reversal broke the correlated LeftApply's null-preserving
+        // semantics (duplicated matched rows, dropped the unmatched null
+        // row).
+        let query = cypher::parse("MATCH (a:Person) OPTIONAL MATCH (a)-[:KNOWS]->(b:Person)")
+            .expect("fixture must parse");
+        let parameters = ParameterTypes::new();
+        let mut binder = Binder::new(
+            ir::GraphId::new(1).expect("non-zero"),
+            &Catalog,
+            &parameters,
+        );
+        binder
+            .bind_read_clauses(&query.clauses, &query)
+            .expect("query should bind");
+        let a_id = binding_id(&binder.scope, "a");
+        let plan = binder.plan.expect("query must produce a plan");
+        let ir::PlanKind::LeftApply(left_apply) = plan.kind() else {
+            panic!("expected OPTIONAL MATCH to bind as a LeftApply");
+        };
+        // If the path had been reversed, the right side's innermost scan
+        // would be a fresh NodeScan for `b`, not a continuation of `a`.
+        assert_eq!(innermost_node_scan_binding(&left_apply.right), a_id);
     }
 
     #[test]
