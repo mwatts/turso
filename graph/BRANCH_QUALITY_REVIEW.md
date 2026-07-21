@@ -246,19 +246,19 @@ Severity key: **bug** = correctness or safety contract break; **suggestion** = i
 ### Document alignment
 
 #### Issue 32 — Severity: bug
-- **File:** `graph/CONFORMANCE.md`, `graph/README.md`, `graph/CYPHER_CORPUS_GAPS.md`
+- **File:** `graph/CONFORMANCE.md`, `graph/README.md`, `graph/archive/CYPHER_CORPUS_GAPS.md`
 - **Description:** Published conformance still claims a strict run of **10,392** identities with **1,413 passed / 8,979 failed**. Live truth in `graph/test-results/REPORT.md` (run `20260721T112742…corpus-deep`) is **10,242** records with **8,711 passed / 1,531 failed**. README treats CONFORMANCE as the compatibility source of truth — agents and humans will understate maturity badly or chase phantom failures.
 - **Suggestion:** Regenerate CONFORMANCE/GAPS from the latest REPORT; or demote CONFORMANCE to historical appendix and point README at REPORT.md + history.
 - **Status:** fixed — CONFORMANCE.md regenerated from live data (10,242 identities; 8,800 passed / 1,442 failed, run 20260721T115532) and demoted to a summary that names `test-results/REPORT.md` as the source of truth; README points at REPORT.md; GAPS carries a historical-snapshot banner.
 
 #### Issue 33 — Severity: bug
-- **File:** `graph/LONG_TAIL.md`, `graph/DESIGN_DECISIONS.md`
+- **File:** `graph/archive/LONG_TAIL.md`, `graph/DESIGN_DECISIONS.md`
 - **Description:** Metrics and architecture claims lag code: older pass rates; `DESIGN_DECISIONS` still references non-existent `graph/duration` (real crate is `graph/temporal`); some option analyses still recommend designs already replaced by junction tables.
 - **Suggestion:** Rebase long-tail triage on latest REPORT histogram; fix crate names; mark superseded decisions clearly.
 - **Status:** fixed — LONG_TAIL.md carries a dated-snapshot banner pointing at REPORT.md; DESIGN_DECISIONS fixes `graph/duration`→`graph/temporal`, chrono→jiff, marks the reduce() hard-block superseded, and labels the option analysis historical.
 
 #### Issue 34 — Severity: bug
-- **File:** `docs/multi-frontend.md`, `docs/plans/2026-07-17-graph-*.md`
+- **File:** `docs/multi-frontend.md`, `docs/archive/plans/2026-07-17-graph-*.md`
 - **Description:** Plan/architecture docs still speak in present tense about Ladybug, empty `graph/testdata/conformance/`, an 18-scenario deep suite, and names like `ReprepareRecipe`. Code has `PreparedSource` + `FrontendCompiler`, Ladybug removed, deep corpus ~10k, GraphExpand shipped.
 - **Suggestion:** Add a “status as of &lt;date&gt;” banner on plans; update multi-frontend § blockers that GraphExpand/reprepare recipe already address; keep plans archival with explicit superseded markers.
 - **Status:** fixed — status-as-of-2026-07-21 banners added to all `docs/plans/2026-07-1*graph*` docs and `docs/multi-frontend.md` (Ladybug removed, ~10k corpus, PreparedSource/FrontendCompiler, GraphExpand shipped).

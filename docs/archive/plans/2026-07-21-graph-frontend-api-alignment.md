@@ -1,5 +1,12 @@
 # Graph Frontend API Alignment Implementation Plan
 
+> **Status: fully executed on 2026-07-21.** All six tasks landed on
+> `feature/graph-frontend` (commits `88cc63ce7`..`44dca7653`, follow-up
+> `440a4195f`), each task-reviewed plus a final whole-branch review. The
+> checkboxes below were tracked externally and are retained unticked as
+> written; do not re-execute this plan. `graph/README.md` documents the
+> delivered API.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Align `turso_graph_frontend`'s consumer API (names, types, entry points) with the `turso` (bindings/rust) and `turso_pg` baselines, and close the open-helper / statement-metadata / re-export gaps found in the API review.

@@ -8,6 +8,16 @@
 > shipped as the `__turso_graph_expand` internal vtab. Where this guide and
 > the code disagree, the code and `graph/test-results/REPORT.md` are
 > authoritative.
+>
+> **Update (2026-07-21, later):** the public session API was subsequently
+> renamed (`GraphSession`->`GraphConnection`, `prepare_query`->`prepare`,
+> `mutate`->`execute`, `query_result_types`->`Statement::result_types()`,
+> `MutationParameters`->`Parameters`), and the Postgres
+> `graph.cypher()`/`install_graph` adapter described here was deliberately
+> **removed** -- the Postgres and graph frontends are separate crates; apps
+> compose them on one core connection via
+> `Connection::register_frontend_compiler`. See `graph/README.md` for the
+> current API.
 
 How Turso exposes database work as VDBE bytecode, how the SQLite and Postgres
 frontends share one backend, and what it would take to add further frontends

@@ -29,7 +29,7 @@ pub enum ValueType {
     /// The result of a typed vector function call (`vector32`, `vector64`, ...).
     /// Dims are known only when statically determinable from the call site —
     /// never from a column declaration, since no schema-level VECTOR column
-    /// type exists (see `docs/plans/2026-07-17-graph-type-system-design.md`).
+    /// type exists (see `docs/archive/plans/2026-07-17-graph-type-system-design.md`).
     Vector(VectorKind, Option<u32>),
 }
 

@@ -1,5 +1,11 @@
 # Cypher parser gap histograms and quality impact
 
+> **Historical snapshot.** The numbers below describe the corpus run made
+> shortly after the LadybugDB/Kuzu removal (10,392 identities). The corpus
+> and pass rate have moved substantially since — see
+> `graph/test-results/REPORT.md` for the current record (latest run:
+> 10,242 identities).
+
 This report reflects the five-source corpus after removing the entire
 LadybugDB/Kuzu suite, its 15,940 source identities, four curated fixture
 adaptations, loader, CLI commands, history records, and vendored files. The
@@ -7,7 +13,7 @@ suite was removed as a unit because standard-looking queries still depended on
 vendor datasets, types, functions, and result semantics; a statement-prefix
 filter could not provide a reliable compatibility boundary.
 
-## Current corpus
+## Corpus at time of writing
 
 | Source | Imported identities | Canonical contracts | Exact duplicates |
 | --- | ---: | ---: | ---: |

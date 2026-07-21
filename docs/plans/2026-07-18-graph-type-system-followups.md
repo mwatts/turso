@@ -7,6 +7,16 @@
 > replaced the `ReprepareRecipe` naming, and `__turso_graph_expand`
 > (GraphExpand) shipped. Where this text and the code disagree, the code and
 > `graph/test-results/REPORT.md` are authoritative.
+>
+> **Update (2026-07-21, later):** the public session API was subsequently
+> renamed (`GraphSession`->`GraphConnection`, `prepare_query`->`prepare`,
+> `mutate`->`execute`, `query_result_types`->`Statement::result_types()`,
+> `MutationParameters`->`Parameters`), and the Postgres
+> `graph.cypher()`/`install_graph` adapter described here was deliberately
+> **removed** -- the Postgres and graph frontends are separate crates; apps
+> compose them on one core connection via
+> `Connection::register_frontend_compiler`. See `graph/README.md` for the
+> current API.
 
 Source: final whole-branch review of `feature/graph-type-system`
 (`a31ce0ef7..f55c23199`, plus the subsequent fix-forward round at

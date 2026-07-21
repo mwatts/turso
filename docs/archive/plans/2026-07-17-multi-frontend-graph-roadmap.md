@@ -15,6 +15,16 @@ agent_pattern: pipeline
 > replaced the `ReprepareRecipe` naming, and `__turso_graph_expand`
 > (GraphExpand) shipped. Where this text and the code disagree, the code and
 > `graph/test-results/REPORT.md` are authoritative.
+>
+> **Update (2026-07-21, later):** the public session API was subsequently
+> renamed (`GraphSession`->`GraphConnection`, `prepare_query`->`prepare`,
+> `mutate`->`execute`, `query_result_types`->`Statement::result_types()`,
+> `MutationParameters`->`Parameters`), and the Postgres
+> `graph.cypher()`/`install_graph` adapter described here was deliberately
+> **removed** -- the Postgres and graph frontends are separate crates; apps
+> compose them on one core connection via
+> `Connection::register_frontend_compiler`. See `graph/README.md` for the
+> current API.
 
 This roadmap turns the selected architecture in
 [`docs/multi-frontend.md`](../multi-frontend.md) into three sequential,

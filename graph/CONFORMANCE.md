@@ -65,9 +65,9 @@ Grafeo named datasets, and multi-statement cases. Missing grammar or semantics
 therefore appear as failed tests with their parser, setup, execution, or
 comparison reason rather than as an accepted coverage category.
 
-See [`CYPHER_CORPUS_GAPS.md`](CYPHER_CORPUS_GAPS.md) and
-[`LONG_TAIL.md`](LONG_TAIL.md) for dated gap-analysis snapshots and
-[`CYPHER_PARSER_GAP_HISTOGRAMS.md`](CYPHER_PARSER_GAP_HISTOGRAMS.md)
+See [`CYPHER_CORPUS_GAPS.md`](archive/CYPHER_CORPUS_GAPS.md) and
+[`LONG_TAIL.md`](archive/LONG_TAIL.md) for dated gap-analysis snapshots and
+[`CYPHER_PARSER_GAP_HISTOGRAMS.md`](archive/CYPHER_PARSER_GAP_HISTOGRAMS.md)
 for provenance and quality-impact histograms after the source removal.
 
 ## Running it
