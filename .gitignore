@@ -120,3 +120,5 @@ postgres/regress/results/
 graph/test-results/history.jsonl
 # CypherBench graphs download on demand (scripts/fetch-cypherbench.sh)
 graph/testdata/benchmarks/cypherbench/data/
+# Local terminalgraph tool state
+.terminalgraph/
