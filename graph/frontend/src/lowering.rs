@@ -1346,20 +1346,32 @@ fn lower_expression_with_references(
                 // contains null, or a null probe over a non-empty list, is
                 // null rather than false.
                 ir::BinaryOp::In => {
-                    let strict_match = format!(
-                        "((typeof(e.value) IN ('integer', 'real') \
-                          AND typeof(({left})) IN ('integer', 'real')) \
-                          OR typeof(e.value) = typeof(({left}))) AND e.value = ({left})"
-                    );
+                    // cypher_equals gives each membership probe Cypher's
+                    // three-valued deep equality (nested lists/maps, null
+                    // uncertainty); a definite hit wins, any uncertain
+                    // probe makes the whole membership null.
                     format!(
                         "(CASE WHEN ({right}) IS NULL THEN NULL \
                           WHEN EXISTS (SELECT 1 FROM json_each(({right})) AS e \
-                          WHERE {strict_match}) THEN 1 \
-                          WHEN ({left}) IS NULL AND json_array_length(({right})) > 0 THEN NULL \
+                          WHERE cypher_equals(e.value, ({left})) = 1) THEN 1 \
                           WHEN EXISTS (SELECT 1 FROM json_each(({right})) AS e \
-                          WHERE e.value IS NULL) THEN NULL \
+                          WHERE cypher_equals(e.value, ({left})) IS NULL) THEN NULL \
                           ELSE 0 END)"
                     )
+                }
+                // Structural equality: lists/maps lower to JSON text, where
+                // SQL's = does definite text comparison; Cypher requires
+                // recursive three-valued equality (a nested null makes the
+                // result uncertain, not false).
+                ir::BinaryOp::Equal
+                    if structural_comparison(&left_type) || structural_comparison(&right_type) =>
+                {
+                    format!("cypher_equals(({left}), ({right}))")
+                }
+                ir::BinaryOp::NotEqual
+                    if structural_comparison(&left_type) || structural_comparison(&right_type) =>
+                {
+                    format!("(NOT cypher_equals(({left}), ({right})))")
                 }
                 // List append: `[1] + 2` produces `[1, 2]`.
                 ir::BinaryOp::Add
@@ -2061,6 +2073,12 @@ fn is_container_text(operand: &str) -> String {
 
 /// True when an ordering comparison needs the runtime typeof guard: the
 /// operands are not statically known to be the same comparable class.
+/// Types whose SQL encoding is JSON text and whose equality therefore
+/// needs recursive three-valued comparison rather than SQL's text =.
+fn structural_comparison(value_type: &ir::ValueType) -> bool {
+    matches!(value_type, ir::ValueType::List(_) | ir::ValueType::Map)
+}
+
 fn comparison_needs_type_guard(left: &ir::ValueType, right: &ir::ValueType) -> bool {
     fn class(value_type: &ir::ValueType) -> Option<u8> {
         match value_type {

@@ -54,6 +54,7 @@ pub fn install_temporal_extension(connection: &Connection) {
         register(c"jsonb_exists_all".as_ptr(), jsonb_exists_all);
         register(c"jsonb_contains".as_ptr(), jsonb_contains);
         register(c"cypher_raise".as_ptr(), cypher_raise);
+        register(c"cypher_equals".as_ptr(), cypher_equals);
     });
 }
 
@@ -1310,6 +1311,93 @@ fn cypher_raise(args: &[ExtValue]) -> ExtValue {
 
 fn json_argument(value: &ExtValue) -> Option<serde_json::Value> {
     serde_json::from_str(&text(value)?).ok()
+}
+
+/// Three-valued deep equality over Cypher values encoded as SQL values
+/// (lists/maps as JSON text, JSON null as Cypher null). Returns 1, 0, or
+/// SQL NULL for Cypher's `null`-propagating `=`.
+#[scalar(name = "cypher_equals")]
+fn cypher_equals(args: &[ExtValue]) -> ExtValue {
+    let (Some(left), Some(right)) = (args.first(), args.get(1)) else {
+        return ExtValue::null();
+    };
+    match deep_equal(&comparison_value(left), &comparison_value(right)) {
+        Some(true) => ExtValue::from_integer(1),
+        Some(false) => ExtValue::from_integer(0),
+        None => ExtValue::null(),
+    }
+}
+
+/// Interprets an SQL value for structural comparison: text that parses as
+/// a JSON array or object is a list/map, any other text is a plain string,
+/// numbers map directly, SQL NULL is Cypher null.
+fn comparison_value(value: &ExtValue) -> serde_json::Value {
+    use turso_ext::ValueType;
+    match value.value_type() {
+        ValueType::Null => serde_json::Value::Null,
+        ValueType::Integer => serde_json::Value::from(value.to_integer().unwrap_or_default()),
+        ValueType::Float => serde_json::Value::from(value.to_float().unwrap_or_default()),
+        ValueType::Text => {
+            let text = value.to_text().unwrap_or_default();
+            match serde_json::from_str::<serde_json::Value>(text) {
+                Ok(parsed @ (serde_json::Value::Array(_) | serde_json::Value::Object(_))) => parsed,
+                _ => serde_json::Value::String(text.to_owned()),
+            }
+        }
+        _ => serde_json::Value::String(value.to_text_coerced().unwrap_or_default()),
+    }
+}
+
+/// `Some(true)`/`Some(false)`/`None` per Cypher equality: null makes any
+/// comparison uncertain, a definite element mismatch makes a container
+/// definitely unequal, and remaining uncertainty propagates outward.
+fn deep_equal(left: &serde_json::Value, right: &serde_json::Value) -> Option<bool> {
+    use serde_json::Value as V;
+    match (left, right) {
+        (V::Null, _) | (_, V::Null) => None,
+        (V::Array(left), V::Array(right)) => {
+            if left.len() != right.len() {
+                return Some(false);
+            }
+            let mut uncertain = false;
+            for (left, right) in left.iter().zip(right) {
+                match deep_equal(left, right) {
+                    Some(false) => return Some(false),
+                    None => uncertain = true,
+                    Some(true) => {}
+                }
+            }
+            if uncertain {
+                None
+            } else {
+                Some(true)
+            }
+        }
+        (V::Object(left), V::Object(right)) => {
+            if left.len() != right.len() || left.keys().any(|key| !right.contains_key(key)) {
+                return Some(false);
+            }
+            let mut uncertain = false;
+            for (key, value) in left {
+                match deep_equal(value, &right[key]) {
+                    Some(false) => return Some(false),
+                    None => uncertain = true,
+                    Some(true) => {}
+                }
+            }
+            if uncertain {
+                None
+            } else {
+                Some(true)
+            }
+        }
+        (V::Number(left), V::Number(right)) => {
+            Some(left.as_f64().unwrap_or(f64::NAN) == right.as_f64().unwrap_or(f64::NAN))
+        }
+        (V::Bool(left), V::Bool(right)) => Some(left == right),
+        (V::String(left), V::String(right)) => Some(left == right),
+        _ => Some(false),
+    }
 }
 
 fn render_json(value: &serde_json::Value) -> ExtValue {
