@@ -658,8 +658,8 @@ fn walk_expression(pair: Pair<'_, Rule>) -> Result<Spanned<Expression>, ParseErr
         | Rule::and_expression
         | Rule::additive_expression
         | Rule::multiplicative_expression
-        | Rule::power_expression
         | Rule::json_expression => walk_binary(pair)?,
+        Rule::power_expression => walk_binary_right(pair)?,
         Rule::comparison_expression => walk_comparison(pair)?,
         Rule::not_expression => walk_not(pair)?,
         Rule::predicate_expression => walk_predicate(pair)?,
@@ -719,6 +719,43 @@ fn walk_binary(pair: Pair<'_, Rule>) -> Result<Expression, ParseError> {
         );
     }
     Ok(left.value)
+}
+
+/// Exponentiation is right-associative: `2^3^2` is `2^(3^2)`, unlike the
+/// left fold used for the other arithmetic chains.
+fn walk_binary_right(pair: Pair<'_, Rule>) -> Result<Expression, ParseError> {
+    let span = pair_span(&pair);
+    let mut inner = pair.into_inner();
+    let first = inner
+        .next()
+        .ok_or_else(|| ParseError::at(span, "expression has no operand"))?;
+    let mut operands = vec![walk_expression(first)?];
+    let mut operators = Vec::new();
+    while let Some(operator) = inner.next() {
+        let right = inner
+            .next()
+            .ok_or_else(|| ParseError::at(span, "operator has no right operand"))?;
+        operators.push(binary_operator(&operator)?);
+        operands.push(walk_expression(right)?);
+    }
+    let mut result = operands
+        .pop()
+        .ok_or_else(|| ParseError::at(span, "expression has no operand"))?;
+    while let Some(operator) = operators.pop() {
+        let left = operands
+            .pop()
+            .ok_or_else(|| ParseError::at(span, "operator has no left operand"))?;
+        let combined_span = Span::new(left.span.start, result.span.end);
+        result = Spanned::new(
+            Expression::Binary {
+                left: Box::new(left),
+                operator,
+                right: Box::new(result),
+            },
+            combined_span,
+        );
+    }
+    Ok(result.value)
 }
 
 /// Comparison chains are pairwise conjunctions in Cypher:
@@ -1437,6 +1474,38 @@ mod tests {
     fn rejects_invalid_string_escapes() {
         parse(r"RETURN 'bad\q' AS v").expect_err("unsupported escape must fail");
         parse(r"RETURN 'bad\uZZZZ' AS v").expect_err("invalid unicode escape must fail");
+    }
+
+    /// `^` is right-associative in Cypher and mathematics:
+    /// `2^3^2 = 2^(3^2) = 512`, not `(2^3)^2 = 64`.
+    #[test]
+    fn power_operator_is_right_associative() {
+        let query = parse("RETURN 2^3^2 AS v").expect("query should parse");
+        let Clause::Return(clause) = &query.clauses[0].value else {
+            panic!("expected RETURN")
+        };
+        let ProjectionItem::Expression { expression, .. } = &clause.items[0] else {
+            panic!("expected expression item")
+        };
+        let Expression::Binary {
+            left,
+            operator: BinaryOperator::Power,
+            right,
+        } = &expression.value
+        else {
+            panic!("expected power expression, got {:?}", expression.value)
+        };
+        assert!(matches!(
+            left.value,
+            Expression::Literal(Literal::Integer(2))
+        ));
+        assert!(matches!(
+            right.value,
+            Expression::Binary {
+                operator: BinaryOperator::Power,
+                ..
+            }
+        ));
     }
 
     fn relationship(query: &str) -> RelationshipPattern {

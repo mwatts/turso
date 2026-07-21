@@ -32,8 +32,10 @@ crate, follow
 adaptation, add file-level attribution, and install the required license and
 NOTICE text in the same commit.
 
-The current compatibility result is published in
-[`CONFORMANCE.md`](CONFORMANCE.md). The `turso_graph_testkit` crate owns the
+The live compatibility result is published in
+[`test-results/REPORT.md`](test-results/REPORT.md) (regenerated on every
+recorded baseline run); [`CONFORMANCE.md`](CONFORMANCE.md) summarizes the
+corpus contract. The `turso_graph_testkit` crate owns the
 typed mixed-source manifests, smoke/deep execution, append-only JSONL history,
 longitudinal reporting, and lifecycle performance workloads. Run the gates and
 representative CSR benchmarks with:
@@ -54,7 +56,7 @@ stable test identity to `graph/test-results/history.jsonl` and regenerate
 `graph/test-results/REPORT.md`. Use `verify-history` to validate the persisted
 schema and uniqueness contract without running a workload.
 
-The corpus commands cover all 10,392 imported source identities from the
+The corpus commands cover all imported source identities from the
 openCypher TCK, Grafeo, Apache AGE, SparrowDB, and CQLite. LadybugDB/Kuzu is
 excluded because its suite mixes vendor-specific database language and result
 contracts into standard-looking Cypher queries.

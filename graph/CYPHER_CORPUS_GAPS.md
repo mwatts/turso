@@ -1,10 +1,19 @@
 # Cypher corpus gap analysis
 
+> **Historical snapshot.** The numbers below describe the corpus run made
+> shortly after the LadybugDB/Kuzu removal (10,392 identities: 1,413 passed,
+> 8,979 failed). The corpus and pass rate have moved substantially since —
+> the latest recorded run covers 10,242 identities with 8,800 passing. For
+> current results always use
+> [`test-results/REPORT.md`](test-results/REPORT.md); the family-level
+> analysis below is retained for its qualitative triage, not its counts.
+
 This analysis describes the five-source corpus after removing the complete
-LadybugDB/Kuzu donor suite and its curated fixture adaptations. The current
-corpus run contains 10,392 independently executed identities: 1,413 passed and
-8,979 failed with a recorded reason. No identity is skipped, classified as
-unsupported, or satisfied by copying another identity's result.
+LadybugDB/Kuzu donor suite and its curated fixture adaptations. At the time
+of this snapshot the corpus run contained 10,392 independently executed
+identities: 1,413 passed and 8,979 failed with a recorded reason. No identity
+is skipped, classified as unsupported, or satisfied by copying another
+identity's result.
 
 ## Failure boundaries
 

@@ -1,6 +1,6 @@
 # Memory Observability Design — Graph Frontend
 
-Status: design (phase 1 shipped; phases 2–4 planned)
+Status: design (phases 1–2 shipped; phases 3–4 planned)
 Owner: graph frontend
 Last updated: 2026-07-21
 
@@ -40,22 +40,21 @@ fixtures (`TURSO_GRAPH_BENCH_DB_DIR`) bound residency at ~1.7 GB
 pragma under-reports WAL frames on the bench connection (0 against a
 322 MB WAL file) — frame-count read needs fixing.
 
-## Phase 2 — engine counters via pragmas (next)
+## Phase 2 — engine counters via pragmas (shipped)
 
-turso_core already tracks the inputs; expose them read-only:
+Shipped shape differs from the original `(component, bytes, count)`
+sketch: `PRAGMA memory_stats` returns `(stat, value)` rows —
+`page_cache_pages`, `page_cache_capacity`, `page_size`,
+`page_cache_bytes`, `wal_frames`, and `wal_bytes` (frame = page image +
+24-byte frame header). See `PragmaName::MemoryStats` in
+`core/translate/pragma.rs`. Hit/miss/eviction counters remain future
+work.
 
-- `PageCache`: `capacity`, live entry count (`n()`), and page size are
-  present in `core/storage/page_cache.rs`; multiply for resident bytes.
-  Add hit/miss/eviction counters (three `AtomicU64`s on the cache).
-- WAL: frame count × frame size from the WAL header state in
-  `core/storage/wal.rs`.
-- Surface as `PRAGMA memory_stats` returning rows of
-  `(component, bytes, count)` — pragma plumbing exists in
-  `core/pragma.rs` (`cache_size`, `page_count` are precedents).
-
-The graph session then reads it through the normal connection, no new
-API. Record it in the bench harness next to `peak_rss_mb` as
-`page_cache_mb` / `wal_mb`.
+The graph session reads it through the normal connection, no new API.
+The bench harness records it next to `peak_rss_mb` as `page_cache_mb` /
+`wal_mb`. Known gaps: the pragma has thin direct test coverage, and the
+harness records zeroed stats rather than failing when the pragma is
+unavailable — treat zero `wal_mb` next to a large WAL file as suspect.
 
 ## Phase 3 — graph-layer attribution
 

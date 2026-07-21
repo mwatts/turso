@@ -1,5 +1,11 @@
 # Graph frontend: remaining failure long tail
 
+> **Dated snapshot** of run `20260720T190819.946079Z-5f1aa4051d8d-corpus-deep`
+> (10,082 records, 8,203 passed, 1,879 failing). Later runs have improved on
+> these numbers — see [`test-results/REPORT.md`](test-results/REPORT.md) for
+> the live histogram. The bucket-level triage below remains useful as a map of
+> failure shapes, not as current counts.
+
 Triage of every currently-failing record in the conformance corpus and the
 CypherBench benchmark, as of the data below. No corpus or benchmark run was
 executed to produce this report; both are read directly from their existing

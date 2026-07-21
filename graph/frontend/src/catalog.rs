@@ -84,6 +84,10 @@ pub enum CatalogError {
     EmptyName { kind: &'static str },
     #[error("graph registration requires at least one node source")]
     NoNodeSources,
+    #[error("graph registration supports exactly one {kind} source; binding, mutation, and detach-delete resolve only the first registered source")]
+    MultipleSourcesUnsupported { kind: &'static str },
+    #[error("graph registration inside an open transaction requires a write transaction (BEGIN IMMEDIATE or a prior write)")]
+    RequiresWriteTransaction,
     #[error("{kind} name `{name}` is duplicated")]
     DuplicateName { kind: &'static str, name: String },
     #[error("graph `{0}` is already registered")]
@@ -116,25 +120,60 @@ pub enum CatalogError {
     },
 }
 
+const REGISTRATION_SAVEPOINT: &str = "turso_graph_register";
+
 pub fn register_graph(
     connection: &Arc<Connection>,
     registration: &GraphRegistration,
 ) -> Result<RegisteredGraph, CatalogError> {
     validate_registration_names(registration)?;
-    connection.execute("BEGIN IMMEDIATE")?;
-    let result = register_graph_in_transaction(connection, registration).and_then(|graph| {
-        connection.execute("COMMIT")?;
-        Ok(graph)
-    });
-    match result {
-        Ok(graph) => Ok(graph),
-        Err(cause) => match connection.execute("ROLLBACK") {
-            Ok(()) => Err(cause),
-            Err(rollback) => Err(CatalogError::RollbackFailed {
-                cause: Box::new(cause),
-                rollback,
-            }),
-        },
+    // Inside an open user transaction a top-level BEGIN would fail (or
+    // interfere with the caller's transaction state), so scope the
+    // registration with a savepoint there; it then commits or rolls back
+    // with the outer transaction. Registration runs internal (nested)
+    // statements, which cannot upgrade a read transaction to a write
+    // transaction, so a deferred transaction that has not yet written must
+    // be rejected instead of panicking in the engine.
+    if !connection.get_auto_commit() && !connection.in_write_transaction() {
+        return Err(CatalogError::RequiresWriteTransaction);
+    }
+    if connection.get_auto_commit() {
+        connection.execute("BEGIN IMMEDIATE")?;
+        let result = register_graph_in_transaction(connection, registration).and_then(|graph| {
+            connection.execute("COMMIT")?;
+            Ok(graph)
+        });
+        match result {
+            Ok(graph) => Ok(graph),
+            Err(cause) => match connection.execute("ROLLBACK") {
+                Ok(()) => Err(cause),
+                Err(rollback) => Err(CatalogError::RollbackFailed {
+                    cause: Box::new(cause),
+                    rollback,
+                }),
+            },
+        }
+    } else {
+        connection.execute(format!("SAVEPOINT {REGISTRATION_SAVEPOINT}"))?;
+        let result = register_graph_in_transaction(connection, registration).and_then(|graph| {
+            connection.execute(format!("RELEASE {REGISTRATION_SAVEPOINT}"))?;
+            Ok(graph)
+        });
+        match result {
+            Ok(graph) => Ok(graph),
+            Err(cause) => {
+                let rollback = connection
+                    .execute(format!("ROLLBACK TO {REGISTRATION_SAVEPOINT}"))
+                    .and_then(|()| connection.execute(format!("RELEASE {REGISTRATION_SAVEPOINT}")));
+                match rollback {
+                    Ok(()) => Err(cause),
+                    Err(rollback) => Err(CatalogError::RollbackFailed {
+                        cause: Box::new(cause),
+                        rollback,
+                    }),
+                }
+            }
+        }
     }
 }
 
@@ -541,6 +580,18 @@ fn validate_registration_names(registration: &GraphRegistration) -> Result<(), C
             });
         }
     }
+    // The rest of the stack (SchemaCatalog layout/property resolution, binder
+    // CREATE/MATCH targets, DETACH DELETE) resolves only the first source of
+    // each kind. Accepting more would silently misroute reads and writes, so
+    // fail closed until multi-source resolution is implemented end to end.
+    if registration.node_sources.len() > 1 {
+        return Err(CatalogError::MultipleSourcesUnsupported { kind: "node" });
+    }
+    if registration.relationship_sources.len() > 1 {
+        return Err(CatalogError::MultipleSourcesUnsupported {
+            kind: "relationship",
+        });
+    }
     Ok(())
 }
 
@@ -915,6 +966,71 @@ mod tests {
     }
 
     #[test]
+    fn register_graph_inside_a_transaction_scopes_to_the_outer_transaction() {
+        // A bare BEGIN IMMEDIATE would fail inside an open user transaction;
+        // registration must fall back to a savepoint and commit or roll back
+        // with the caller's transaction.
+        let connection = connection();
+        create_sources(&connection);
+        connection.execute("BEGIN IMMEDIATE").expect("begin");
+        register_graph(&connection, &registration("social")).expect("register inside txn");
+        load_registered_graph(&connection, "social").expect("visible inside txn");
+        connection.execute("ROLLBACK").expect("rollback");
+        assert!(matches!(
+            load_registered_graph(&connection, "social"),
+            Err(CatalogError::GraphNotFound(_))
+        ));
+        register_graph(&connection, &registration("social")).expect("register after rollback");
+    }
+
+    #[test]
+    fn register_graph_rejects_a_read_only_open_transaction() {
+        // Registration runs internal (nested) statements, which cannot
+        // upgrade a deferred read transaction to a write transaction; the
+        // engine would otherwise panic on the first catalog DDL.
+        let connection = connection();
+        create_sources(&connection);
+        connection.execute("BEGIN").expect("begin deferred");
+        assert!(matches!(
+            register_graph(&connection, &registration("social")),
+            Err(CatalogError::RequiresWriteTransaction)
+        ));
+        connection.execute("ROLLBACK").expect("rollback");
+        register_graph(&connection, &registration("social")).expect("register in autocommit");
+    }
+
+    #[test]
+    fn register_graph_rejects_multiple_sources_per_kind() {
+        // Layout, binder, and detach-delete resolution only honor the first
+        // registered source of each kind; accepting more would silently
+        // misroute reads and writes, so registration must fail closed.
+        let connection = connection();
+        create_sources(&connection);
+
+        let mut multi_node = registration("multi_node");
+        multi_node.node_sources.push(NodeSourceRegistration {
+            name: "Company".to_owned(),
+            table: "people".to_owned(),
+            identity_column: "id".to_owned(),
+        });
+        assert!(matches!(
+            register_graph(&connection, &multi_node),
+            Err(CatalogError::MultipleSourcesUnsupported { kind: "node" })
+        ));
+
+        let mut multi_relationship = registration("multi_relationship");
+        let mut second = multi_relationship.relationship_sources[0].clone();
+        second.name = "LIKES".to_owned();
+        multi_relationship.relationship_sources.push(second);
+        assert!(matches!(
+            register_graph(&connection, &multi_relationship),
+            Err(CatalogError::MultipleSourcesUnsupported {
+                kind: "relationship"
+            })
+        ));
+    }
+
+    #[test]
     fn register_graph_allows_struct_column_with_custom_types_enabled() {
         let connection = connection_with_custom_types();
         connection
@@ -1039,7 +1155,8 @@ mod tests {
             "SELECT name FROM sqlite_schema WHERE type = 'index' AND name LIKE '__turso_internal_graph_ep_%'",
         )
         .expect("query endpoint indexes");
-        assert_eq!(indexes.len(), 2);
+        // start, end, and the composite (start, end) pair index.
+        assert_eq!(indexes.len(), 3);
     }
 
     #[test]

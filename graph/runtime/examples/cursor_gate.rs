@@ -27,6 +27,7 @@ fn main() {
         relationship_types: Vec::new(),
         min_hops: 2,
         max_hops: 2,
+        error_at_max_hops: false,
         uniqueness: Uniqueness::Trail,
         order: TraversalOrder::BreadthFirst,
     };

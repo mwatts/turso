@@ -188,6 +188,10 @@ pub enum BindError {
     },
 }
 
+/// Resource cap applied to unbounded variable-length ranges (`[*]`,
+/// `[*min..]`). This is not query semantics: the expansion marks such ranges
+/// `unbounded`, and the traversal errors with a hops limit-exceeded when a
+/// longer admissible path exists instead of silently truncating results.
 const DEFAULT_UNBOUNDED_MAX_HOPS: u32 = 64;
 
 pub fn bind(
@@ -2000,6 +2004,7 @@ impl<'a> Binder<'a> {
             };
             let kind = if let Some(range) = &relationship.range {
                 let min_hops = range.value.min.unwrap_or(1);
+                let unbounded = range.value.max.is_none();
                 let max_hops = range
                     .value
                     .max
@@ -2024,6 +2029,7 @@ impl<'a> Binder<'a> {
                     relationship_types,
                     min_hops,
                     max_hops,
+                    unbounded,
                     uniqueness: ir::PathUniqueness::Trail,
                     path_output: expand_path.cloned(),
                     relationship_list_output: relationship_list,
@@ -2354,7 +2360,7 @@ impl<'a> Binder<'a> {
         let mut has_aggregates = false;
         for item in &clause.items {
             if let cypher::ProjectionItem::Expression { expression, alias } = item {
-                if self.bind_aggregate_call(expression)?.is_some() {
+                if contains_aggregate_call(&expression.value) {
                     has_aggregates = true;
                 } else if let Some(alias) = alias {
                     alias_sources.insert(alias.value.clone(), expression.value.clone());
@@ -2419,10 +2425,22 @@ impl<'a> Binder<'a> {
                 ir::ResultShape::default(),
             )?;
         }
+        // Final result column per item: either a stage-one binding passed
+        // through, or a post-aggregate expression over hidden aggregation
+        // outputs (`count(*) + 1`).
+        enum ItemOutput {
+            Direct(ir::Binding, cypher::Span),
+            Compound {
+                name: String,
+                expression: cypher::Spanned<cypher::Expression>,
+            },
+        }
         let mut projections = Vec::new();
         let mut aggregations: Vec<ir::Aggregation> = Vec::new();
         let mut output_scope = Vec::new();
         let mut output_entities = HashMap::new();
+        let mut item_outputs: Vec<ItemOutput> = Vec::new();
+        let mut has_compound_aggregates = false;
         for item in &clause.items {
             match item {
                 cypher::ProjectionItem::All(span) => {
@@ -2433,6 +2451,7 @@ impl<'a> Binder<'a> {
                             expression,
                         });
                         output_scope.push(binding.clone());
+                        item_outputs.push(ItemOutput::Direct(binding.clone(), *span));
                         if let Some(entity) = self.entities.get(&binding.id()) {
                             output_entities.insert(binding.id(), entity.clone());
                         }
@@ -2468,15 +2487,7 @@ impl<'a> Binder<'a> {
                     if let Some((function, argument, distinct)) =
                         self.bind_aggregate_call(expression)?
                     {
-                        let value_type = match (&function, &argument) {
-                            (ir::AggregateFunction::Count, _) => ir::ValueType::Integer,
-                            (ir::AggregateFunction::Average, _) => ir::ValueType::Real,
-                            (ir::AggregateFunction::Collect, Some(argument)) => {
-                                ir::ValueType::List(Box::new(argument.value_type.clone()))
-                            }
-                            (_, Some(argument)) => argument.value_type.clone(),
-                            (_, None) => ir::ValueType::Any,
-                        };
+                        let value_type = aggregate_value_type(&function, &argument);
                         let output = ir::Binding::new(
                             self.next_id()?,
                             name,
@@ -2489,7 +2500,26 @@ impl<'a> Binder<'a> {
                             expression: argument,
                             distinct,
                         });
+                        item_outputs.push(ItemOutput::Direct(output.clone(), expression.span));
                         output_scope.push(output);
+                        continue;
+                    }
+                    if contains_aggregate_call(&expression.value) {
+                        // Aggregates inside a larger expression: hoist each
+                        // call into a hidden aggregation, bind the remainder
+                        // after grouping.
+                        let mut hidden = Vec::new();
+                        let rewritten = self.extract_aggregate_calls(
+                            expression,
+                            &mut aggregations,
+                            &mut hidden,
+                        )?;
+                        output_scope.extend(hidden);
+                        item_outputs.push(ItemOutput::Compound {
+                            name,
+                            expression: rewritten,
+                        });
+                        has_compound_aggregates = true;
                         continue;
                     }
                     let bound = self.bind_expression(expression)?;
@@ -2514,34 +2544,16 @@ impl<'a> Binder<'a> {
                         output: output.clone(),
                         expression: bound,
                     });
+                    item_outputs.push(ItemOutput::Direct(output.clone(), expression.span));
                     output_scope.push(output);
                 }
             }
         }
-        let scope = ir::Scope::new(output_scope.clone())?;
-        let shape = if is_return {
-            ir::ResultShape::new(
-                output_scope
-                    .iter()
-                    .map(|binding| ir::ResultColumn::new(binding.id(), binding.name()))
-                    .collect::<Result<_, _>>()?,
-                &scope,
-            )?
-        } else {
-            ir::ResultShape::default()
-        };
-        self.plan = Some(if aggregations.is_empty() {
-            ir::Plan::new(
-                ir::PlanKind::Project(ir::Project {
-                    input: Box::new(input),
-                    projections,
-                }),
-                scope,
-                shape,
-            )?
-        } else {
-            // Cypher implicit grouping: non-aggregated projection items
-            // become the grouping keys.
+        if has_compound_aggregates {
+            // Stage one groups and aggregates (hidden outputs included in
+            // its scope); stage two projects the final columns, binding
+            // compound remainders in the post-aggregate scope where only
+            // grouping keys and aggregation outputs are visible.
             let groupings = projections
                 .into_iter()
                 .map(|projection| ir::Grouping {
@@ -2549,18 +2561,116 @@ impl<'a> Binder<'a> {
                     expression: projection.expression,
                 })
                 .collect();
-            ir::Plan::new(
+            let aggregate_plan = ir::Plan::new(
                 ir::PlanKind::Aggregate(ir::Aggregate {
                     input: Box::new(input),
                     groupings,
                     aggregations,
                 }),
+                ir::Scope::new(output_scope.clone())?,
+                ir::ResultShape::default(),
+            )?;
+            self.scope = output_scope;
+            self.entities = output_entities.clone();
+            let mut final_projections = Vec::new();
+            let mut final_scope = Vec::new();
+            let mut final_entities = HashMap::new();
+            for item in item_outputs {
+                match item {
+                    ItemOutput::Direct(binding, span) => {
+                        let expression = self.scope_binding_expression(&binding, span)?;
+                        final_projections.push(ir::Projection {
+                            output: binding.clone(),
+                            expression,
+                        });
+                        if let Some(entity) = output_entities.get(&binding.id()) {
+                            final_entities.insert(binding.id(), entity.clone());
+                        }
+                        final_scope.push(binding);
+                    }
+                    ItemOutput::Compound { name, expression } => {
+                        let bound = self.bind_expression(&expression)?;
+                        let output = ir::Binding::new(
+                            self.next_id()?,
+                            name,
+                            bound.value_type.clone(),
+                            bound.nullability,
+                        )?;
+                        final_projections.push(ir::Projection {
+                            output: output.clone(),
+                            expression: bound,
+                        });
+                        final_scope.push(output);
+                    }
+                }
+            }
+            let scope = ir::Scope::new(final_scope.clone())?;
+            let shape = if is_return {
+                ir::ResultShape::new(
+                    final_scope
+                        .iter()
+                        .map(|binding| ir::ResultColumn::new(binding.id(), binding.name()))
+                        .collect::<Result<_, _>>()?,
+                    &scope,
+                )?
+            } else {
+                ir::ResultShape::default()
+            };
+            self.plan = Some(ir::Plan::new(
+                ir::PlanKind::Project(ir::Project {
+                    input: Box::new(aggregate_plan),
+                    projections: final_projections,
+                }),
                 scope,
                 shape,
-            )?
-        });
-        self.scope = output_scope;
-        self.entities = output_entities;
+            )?);
+            self.scope = final_scope;
+            self.entities = final_entities;
+        } else {
+            let scope = ir::Scope::new(output_scope.clone())?;
+            let shape = if is_return {
+                ir::ResultShape::new(
+                    output_scope
+                        .iter()
+                        .map(|binding| ir::ResultColumn::new(binding.id(), binding.name()))
+                        .collect::<Result<_, _>>()?,
+                    &scope,
+                )?
+            } else {
+                ir::ResultShape::default()
+            };
+            self.plan = Some(if aggregations.is_empty() {
+                ir::Plan::new(
+                    ir::PlanKind::Project(ir::Project {
+                        input: Box::new(input),
+                        projections,
+                    }),
+                    scope,
+                    shape,
+                )?
+            } else {
+                // Cypher implicit grouping: non-aggregated projection items
+                // become the grouping keys.
+                let groupings = projections
+                    .into_iter()
+                    .map(|projection| ir::Grouping {
+                        output: projection.output,
+                        expression: projection.expression,
+                    })
+                    .collect();
+                ir::Plan::new(
+                    ir::PlanKind::Aggregate(ir::Aggregate {
+                        input: Box::new(input),
+                        groupings,
+                        aggregations,
+                    }),
+                    scope,
+                    shape,
+                )?
+            });
+            self.scope = output_scope;
+            self.entities = output_entities;
+        }
         self.rematerialize_path_compositions();
         // Aggregating projections sort after grouping in the output scope,
         // where aggregate aliases are real bindings.
@@ -2675,6 +2785,179 @@ impl<'a> Binder<'a> {
             )?);
         }
         Ok(())
+    }
+
+    /// Rewrites every aggregate call inside a projection expression into a
+    /// hidden aggregation output and returns the expression with each call
+    /// replaced by a reference to its hidden binding. The remainder then
+    /// binds after grouping (`count(*) + 1`, `2 * sum(x)`); non-aggregate
+    /// variable references survive only when they are also grouping keys,
+    /// otherwise post-aggregate binding fails loudly instead of silently
+    /// mis-grouping.
+    fn extract_aggregate_calls(
+        &mut self,
+        expression: &cypher::Spanned<cypher::Expression>,
+        aggregations: &mut Vec<ir::Aggregation>,
+        hidden: &mut Vec<ir::Binding>,
+    ) -> Result<cypher::Spanned<cypher::Expression>, BindError> {
+        if let Some((function, argument, distinct)) = self.bind_aggregate_call(expression)? {
+            let value_type = aggregate_value_type(&function, &argument);
+            let id = self.next_id()?;
+            let name = format!("__turso_aggregate_{id}");
+            let output = ir::Binding::new(id, name.clone(), value_type, ir::Nullability::Nullable)?;
+            aggregations.push(ir::Aggregation {
+                output: output.clone(),
+                function,
+                expression: argument,
+                distinct,
+            });
+            hidden.push(output);
+            return Ok(cypher::Spanned {
+                value: cypher::Expression::Variable(name),
+                span: expression.span,
+            });
+        }
+        use cypher::Expression as E;
+        let value = match &expression.value {
+            E::Binary {
+                left,
+                operator,
+                right,
+            } => E::Binary {
+                left: self
+                    .extract_aggregate_calls(left, aggregations, hidden)
+                    .map(Box::new)?,
+                operator: *operator,
+                right: self
+                    .extract_aggregate_calls(right, aggregations, hidden)
+                    .map(Box::new)?,
+            },
+            E::Unary { operator, operand } => E::Unary {
+                operator: *operator,
+                operand: self
+                    .extract_aggregate_calls(operand, aggregations, hidden)
+                    .map(Box::new)?,
+            },
+            E::Case {
+                subject,
+                branches,
+                default,
+            } => E::Case {
+                subject: subject
+                    .as_ref()
+                    .map(|subject| {
+                        self.extract_aggregate_calls(subject, aggregations, hidden)
+                            .map(Box::new)
+                    })
+                    .transpose()?,
+                branches: branches
+                    .iter()
+                    .map(|(when, then)| {
+                        Ok((
+                            self.extract_aggregate_calls(when, aggregations, hidden)?,
+                            self.extract_aggregate_calls(then, aggregations, hidden)?,
+                        ))
+                    })
+                    .collect::<Result<_, BindError>>()?,
+                default: default
+                    .as_ref()
+                    .map(|default| {
+                        self.extract_aggregate_calls(default, aggregations, hidden)
+                            .map(Box::new)
+                    })
+                    .transpose()?,
+            },
+            E::Property { entity, name } => E::Property {
+                entity: self
+                    .extract_aggregate_calls(entity, aggregations, hidden)
+                    .map(Box::new)?,
+                name: name.clone(),
+            },
+            E::HasLabels { operand, labels } => E::HasLabels {
+                operand: self
+                    .extract_aggregate_calls(operand, aggregations, hidden)
+                    .map(Box::new)?,
+                labels: labels.clone(),
+            },
+            E::Index { base, index } => E::Index {
+                base: self
+                    .extract_aggregate_calls(base, aggregations, hidden)
+                    .map(Box::new)?,
+                index: self
+                    .extract_aggregate_calls(index, aggregations, hidden)
+                    .map(Box::new)?,
+            },
+            E::Slice { base, from, to } => E::Slice {
+                base: self
+                    .extract_aggregate_calls(base, aggregations, hidden)
+                    .map(Box::new)?,
+                from: from
+                    .as_ref()
+                    .map(|from| {
+                        self.extract_aggregate_calls(from, aggregations, hidden)
+                            .map(Box::new)
+                    })
+                    .transpose()?,
+                to: to
+                    .as_ref()
+                    .map(|to| {
+                        self.extract_aggregate_calls(to, aggregations, hidden)
+                            .map(Box::new)
+                    })
+                    .transpose()?,
+            },
+            E::Cast { operand, type_name } => E::Cast {
+                operand: self
+                    .extract_aggregate_calls(operand, aggregations, hidden)
+                    .map(Box::new)?,
+                type_name: type_name.clone(),
+            },
+            E::Function {
+                name,
+                arguments,
+                distinct,
+                star,
+            } => E::Function {
+                name: name.clone(),
+                arguments: arguments
+                    .iter()
+                    .map(|argument| self.extract_aggregate_calls(argument, aggregations, hidden))
+                    .collect::<Result<_, BindError>>()?,
+                distinct: *distinct,
+                star: *star,
+            },
+            E::List(items) => E::List(
+                items
+                    .iter()
+                    .map(|item| self.extract_aggregate_calls(item, aggregations, hidden))
+                    .collect::<Result<_, BindError>>()?,
+            ),
+            E::Map(entries) => E::Map(
+                entries
+                    .iter()
+                    .map(|(key, value)| {
+                        Ok((
+                            key.clone(),
+                            self.extract_aggregate_calls(value, aggregations, hidden)?,
+                        ))
+                    })
+                    .collect::<Result<_, BindError>>()?,
+            ),
+            // Loop bodies, folds, and pattern subqueries have their own
+            // variable scopes; aggregates are not hoisted out of them.
+            E::Literal(_)
+            | E::Variable(_)
+            | E::Parameter(_)
+            | E::Quantifier { .. }
+            | E::Reduce { .. }
+            | E::PatternSubquery { .. }
+            | E::PatternPredicate { .. }
+            | E::ListComprehension { .. } => expression.value.clone(),
+        };
+        Ok(cypher::Spanned {
+            value,
+            span: expression.span,
+        })
     }
 
     /// Detects a projection item that is a single aggregate call and binds
@@ -5418,6 +5701,78 @@ fn nullable(left: ir::Nullability, right: ir::Nullability) -> ir::Nullability {
         ir::Nullability::Nullable
     } else {
         ir::Nullability::NonNull
+    }
+}
+
+/// The result type of an aggregate call, shared by visible and hidden
+/// aggregation outputs.
+fn aggregate_value_type(
+    function: &ir::AggregateFunction,
+    argument: &Option<ir::TypedExpression>,
+) -> ir::ValueType {
+    match (function, argument) {
+        (ir::AggregateFunction::Count, _) => ir::ValueType::Integer,
+        (ir::AggregateFunction::Average, _) => ir::ValueType::Real,
+        (ir::AggregateFunction::Collect, Some(argument)) => {
+            ir::ValueType::List(Box::new(argument.value_type.clone()))
+        }
+        (_, Some(argument)) => argument.value_type.clone(),
+        (_, None) => ir::ValueType::Any,
+    }
+}
+
+/// True when the expression tree contains an aggregate call in a position
+/// this binder hoists (see `extract_aggregate_calls` for the scope rules).
+/// A bare top-level call is also "contained".
+fn contains_aggregate_call(expression: &cypher::Expression) -> bool {
+    use cypher::Expression as E;
+    let spanned =
+        |child: &cypher::Spanned<cypher::Expression>| contains_aggregate_call(&child.value);
+    match expression {
+        E::Function {
+            name,
+            arguments,
+            star,
+            ..
+        } => {
+            let aggregate = matches!(
+                name.value.to_ascii_lowercase().as_str(),
+                "count" | "sum" | "avg" | "min" | "max" | "collect"
+            ) && (*star || arguments.len() == 1);
+            aggregate || arguments.iter().any(spanned)
+        }
+        E::Binary { left, right, .. } => spanned(left) || spanned(right),
+        E::Unary { operand, .. } => spanned(operand),
+        E::Case {
+            subject,
+            branches,
+            default,
+        } => {
+            subject.as_deref().is_some_and(spanned)
+                || branches
+                    .iter()
+                    .any(|(when, then)| spanned(when) || spanned(then))
+                || default.as_deref().is_some_and(spanned)
+        }
+        E::Property { entity, .. } => spanned(entity),
+        E::HasLabels { operand, .. } => spanned(operand),
+        E::Index { base, index } => spanned(base) || spanned(index),
+        E::Slice { base, from, to } => {
+            spanned(base)
+                || from.as_deref().is_some_and(spanned)
+                || to.as_deref().is_some_and(spanned)
+        }
+        E::Cast { operand, .. } => spanned(operand),
+        E::List(items) => items.iter().any(spanned),
+        E::Map(entries) => entries.iter().any(|(_, value)| spanned(value)),
+        E::Literal(_)
+        | E::Variable(_)
+        | E::Parameter(_)
+        | E::Quantifier { .. }
+        | E::Reduce { .. }
+        | E::PatternSubquery { .. }
+        | E::PatternPredicate { .. }
+        | E::ListComprehension { .. } => false,
     }
 }
 

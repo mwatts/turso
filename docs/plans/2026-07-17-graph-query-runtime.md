@@ -9,6 +9,14 @@ estimated_tokens: 30000
 
 # Graph query lowering and traversal runtime plan
 
+> **Status as of 2026-07-21:** this document predates the graph frontend
+> delivery on `feature/graph-frontend` and is retained as an archival plan.
+> Since it was written: Ladybug/Kuzu was removed from the corpus, the deep
+> corpus grew to ~10k identities, `PreparedSource` + `FrontendCompiler`
+> replaced the `ReprepareRecipe` naming, and `__turso_graph_expand`
+> (GraphExpand) shipped. Where this text and the code disagree, the code and
+> `graph/test-results/REPORT.md` are authoritative.
+
 ## Goal
 
 Execute fixed Cypher patterns through Turso's ordinary relational planner and

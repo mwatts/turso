@@ -106,6 +106,10 @@ pub struct GraphExpand {
     pub relationship_types: Vec<RelationshipTypeId>,
     pub min_hops: u32,
     pub max_hops: u32,
+    /// True when the source range had no upper bound (`[*]`, `[*min..]`):
+    /// `max_hops` is then a resource cap, and execution must error instead
+    /// of silently truncating when a longer admissible path exists.
+    pub unbounded: bool,
     pub uniqueness: PathUniqueness,
     /// When set, the expansion also materializes each traversed path as a
     /// {nodes, relationships} value bound to this output.

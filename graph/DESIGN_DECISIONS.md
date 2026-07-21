@@ -12,15 +12,18 @@ Status: all decisions are made and implemented on this branch
 - Temporal: **core time_* functions** (chosen, implemented — constructors,
   accessors, ISO rendering).
 - Durations: **graph-owned custom type over the static-extension mechanism**
-  (chosen, implemented — `graph/duration` registers `duration_*` scalar
-  functions backed by Rust/chrono arithmetic; fixtures declare
+  (chosen, implemented — `graph/temporal` registers `duration_*` scalar
+  functions backed by Rust/jiff arithmetic; fixtures declare
   `CREATE TYPE duration BASE TEXT` with experimental custom types enabled;
   the binder types values with a `cypher_duration` marker and rewrites
   constructors, accessors, `duration.between`, and datetime ± duration).
 - CALL: **minimal registry** (chosen, implemented — db.labels,
   db.relationshipTypes).
 
-Original option analysis below.
+Original option analysis below — retained as a historical record; several
+recommendations were superseded by the implemented decisions listed above
+(e.g. junction tables over Option A label columns). For current pass rates
+see [`test-results/REPORT.md`](test-results/REPORT.md).
 
 Corpus state when written: 6,161 / 10,392 passing. Each decision below
 blocks a measured family of remaining failures. Options are ordered by
@@ -116,7 +119,9 @@ Recommendation: A with three to five procedures.
 
 ## Acknowledged hard blocks (no decision needed)
 
-- `reduce()` (71) needs recursive CTEs; turso core rejects them today.
+- ~~`reduce()` (71) needs recursive CTEs; turso core rejects them today.~~
+  Superseded: `reduce()` shipped with polymorphic `+`/`/` semantics without
+  recursive CTEs.
 - Runtime TypeErrors for entity values flowing through `Any`-typed lists
   (~19) need an error-raising SQL function; SELECT cannot raise.
 - AGE jsonb (`?`, `@>`, `#>`), pgvector `OPERATOR(...)`, and ~40

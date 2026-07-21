@@ -927,13 +927,18 @@ fn execute_operation(
                 entity_layouts,
                 true,
             )?;
-            record_relationship_type(
-                connection,
-                catalog,
-                &merge.create.relationship_types,
-                &identity,
-                parameters,
-            )?;
+            if created {
+                // A pure match already carries the requested types (the merge
+                // predicates require them); recording here would attach types
+                // to a relationship the merge did not create.
+                record_relationship_type(
+                    connection,
+                    catalog,
+                    &merge.create.relationship_types,
+                    &identity,
+                    parameters,
+                )?;
+            }
             values.insert(merge.create.binding.id(), identity);
             entity_layouts.insert(
                 merge.create.binding.id(),
@@ -1245,6 +1250,34 @@ fn insert_node(
     )
 }
 
+/// Type-membership predicates for a relationship merge match against the
+/// type junction table; empty when the graph records no relationship types.
+/// Without these, MERGE would match a relationship of a different type
+/// between the same endpoints and attach the requested type to it.
+fn relationship_type_predicates(
+    catalog: &dyn GraphCompilationCatalog,
+    table: &str,
+    identity: &str,
+    relationship_types: &[ir::RelationshipTypeId],
+) -> Vec<String> {
+    let Some(junction) = catalog.relationship_types_table() else {
+        return Vec::new();
+    };
+    relationship_types
+        .iter()
+        .filter_map(|relationship_type| catalog.relationship_type_name(*relationship_type))
+        .map(|name| {
+            format!(
+                "EXISTS (SELECT 1 FROM {} WHERE relationship_id = {}.{} AND type = '{}')",
+                quoted_identifier(&junction),
+                quoted_identifier(table),
+                quoted_identifier(identity),
+                name.replace('\'', "''"),
+            )
+        })
+        .collect()
+}
+
 /// Label-membership predicates for a merge match against the label
 /// junction table; empty when the graph records no labels.
 fn node_label_predicates(
@@ -1291,6 +1324,16 @@ fn insert_relationship(
     let to = values
         .get(&create.to)
         .ok_or(MutationError::MissingBinding(create.to))?;
+    let merge_predicates = if merge {
+        relationship_type_predicates(
+            catalog,
+            &layout.table,
+            &layout.identity_column,
+            &create.relationship_types,
+        )
+    } else {
+        Vec::new()
+    };
     insert_entity(
         connection,
         catalog,
@@ -1308,7 +1351,7 @@ fn insert_relationship(
             (layout.start_column, from.clone()),
             (layout.end_column, to.clone()),
         ],
-        &[],
+        &merge_predicates,
     )
 }
 
@@ -1632,6 +1675,8 @@ mod tests {
     struct Catalog {
         node_source: ir::SourceTableId,
         relationship_source: ir::SourceTableId,
+        relationship_types: &'static [(u32, &'static str)],
+        types_table: Option<&'static str>,
     }
 
     impl GraphCatalogSnapshot for Catalog {
@@ -1652,7 +1697,10 @@ mod tests {
             _graph: ir::GraphId,
             name: &str,
         ) -> Option<ir::RelationshipTypeId> {
-            (name == "KNOWS").then(|| ir::RelationshipTypeId::new(1).unwrap())
+            self.relationship_types
+                .iter()
+                .find(|(_, candidate)| *candidate == name)
+                .map(|(id, _)| ir::RelationshipTypeId::new(*id).unwrap())
         }
 
         fn property(
@@ -1713,6 +1761,20 @@ mod tests {
                 _ => None,
             }
         }
+
+        fn relationship_types_table(&self) -> Option<String> {
+            self.types_table.map(str::to_owned)
+        }
+
+        fn relationship_type_name(
+            &self,
+            relationship_type: ir::RelationshipTypeId,
+        ) -> Option<String> {
+            self.relationship_types
+                .iter()
+                .find(|(id, _)| *id == relationship_type.get())
+                .map(|(_, name)| (*name).to_owned())
+        }
     }
 
     fn setup() -> (Arc<Connection>, Arc<Catalog>, ir::GraphId) {
@@ -1735,6 +1797,41 @@ mod tests {
             Arc::new(Catalog {
                 node_source: ir::SourceTableId::new(1).unwrap(),
                 relationship_source: ir::SourceTableId::new(2).unwrap(),
+                relationship_types: &[(1, "KNOWS")],
+                types_table: None,
+            }),
+            ir::GraphId::new(1).unwrap(),
+        )
+    }
+
+    /// Fixture with a relationship-type junction table and two registered
+    /// types over one relationship table, so merge type matching is
+    /// observable. The relationship table deliberately has no UNIQUE(src,
+    /// dst): one endpoint pair may carry differently-typed relationships.
+    fn setup_typed() -> (Arc<Connection>, Arc<Catalog>, ir::GraphId) {
+        let io = Arc::new(MemoryIO::new());
+        let connection =
+            Database::open_file(io, ":memory:graph-mutation-typed", Arc::new(SqliteDialect))
+                .unwrap()
+                .connect()
+                .unwrap();
+        connection
+            .execute(
+                "CREATE TABLE people(id INTEGER PRIMARY KEY, name TEXT UNIQUE); \
+                 CREATE TABLE relationships( \
+                   id INTEGER PRIMARY KEY, src INTEGER NOT NULL, dst INTEGER NOT NULL, since INTEGER, \
+                   FOREIGN KEY(src) REFERENCES people(id), \
+                   FOREIGN KEY(dst) REFERENCES people(id)); \
+                 CREATE TABLE rel_types(relationship_id INTEGER NOT NULL, type TEXT NOT NULL);",
+            )
+            .unwrap();
+        (
+            connection,
+            Arc::new(Catalog {
+                node_source: ir::SourceTableId::new(1).unwrap(),
+                relationship_source: ir::SourceTableId::new(2).unwrap(),
+                relationship_types: &[(1, "KNOWS"), (2, "LIKES")],
+                types_table: Some("rel_types"),
             }),
             ir::GraphId::new(1).unwrap(),
         )
@@ -1921,6 +2018,44 @@ mod tests {
         assert_eq!(
             rows(&connection, "SELECT count(*) FROM relationships"),
             vec![vec![Value::from_i64(1)]]
+        );
+    }
+
+    #[test]
+    fn merge_relationship_does_not_match_a_different_type() {
+        // openCypher: MERGE (a)-[:KNOWS]->(b) must not be satisfied by an
+        // existing (a)-[:LIKES]->(b); it creates a distinct relationship and
+        // must not attach KNOWS to the LIKES relationship's identity.
+        let (connection, catalog, graph) = setup_typed();
+        execute(
+            &connection,
+            &catalog,
+            graph,
+            "CREATE (a:Person {id: 1, name: 'Ada'})-[:LIKES]->(b:Person {id: 2, name: 'Grace'})",
+        )
+        .unwrap();
+        let source =
+            "MERGE (a:Person {id: 1, name: 'Ada'})-[:KNOWS]->(b:Person {id: 2, name: 'Grace'})";
+        execute(&connection, &catalog, graph, source).unwrap();
+        assert_eq!(
+            rows(&connection, "SELECT count(*) FROM relationships"),
+            vec![vec![Value::from_i64(2)]]
+        );
+        assert_eq!(
+            rows(
+                &connection,
+                "SELECT relationship_id, type FROM rel_types ORDER BY relationship_id, type"
+            ),
+            vec![
+                vec![Value::from_i64(1), Value::build_text("LIKES")],
+                vec![Value::from_i64(2), Value::build_text("KNOWS")],
+            ]
+        );
+        // Re-merging the same type matches its own relationship: idempotent.
+        execute(&connection, &catalog, graph, source).unwrap();
+        assert_eq!(
+            rows(&connection, "SELECT count(*) FROM relationships"),
+            vec![vec![Value::from_i64(2)]]
         );
     }
 

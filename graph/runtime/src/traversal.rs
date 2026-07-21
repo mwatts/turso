@@ -37,6 +37,10 @@ pub struct TraversalRequest {
     pub relationship_types: Vec<RelationshipTypeId>,
     pub min_hops: u32,
     pub max_hops: u32,
+    /// When true, `max_hops` is a resource cap on an unbounded pattern
+    /// (`[*]`), not part of the query's meaning: reaching it while a longer
+    /// admissible path exists is an error rather than silent truncation.
+    pub error_at_max_hops: bool,
     pub uniqueness: Uniqueness,
     pub order: TraversalOrder,
 }
@@ -69,6 +73,9 @@ struct ActivePath {
     state: PathState,
     neighbors: Option<NeighborCursor>,
     emit: bool,
+    /// The path already has `max_hops` hops; any admissible extension found
+    /// under `error_at_max_hops` proves silent truncation and must error.
+    at_cap: bool,
 }
 
 impl TraversalCursor {
@@ -145,7 +152,9 @@ impl TraversalCursor {
                         limit: u64::from(self.request.max_hops),
                     }
                 })?;
-                let neighbors = (hops < self.request.max_hops)
+                let at_cap = hops >= self.request.max_hops;
+                let expand = !at_cap || self.request.error_at_max_hops;
+                let neighbors = expand
                     .then(|| {
                         graph.neighbor_cursor(
                             *state.nodes.last().expect("path state always has a node"),
@@ -157,6 +166,7 @@ impl TraversalCursor {
                     state,
                     neighbors,
                     emit: hops >= self.request.min_hops,
+                    at_cap,
                 });
             }
 
@@ -185,6 +195,14 @@ impl TraversalCursor {
                             neighbor.relationship,
                         ) {
                             continue;
+                        }
+                        if active.at_cap {
+                            // An admissible edge beyond the cap exists, so
+                            // results would be silently incomplete.
+                            return Err(RuntimeError::LimitExceeded {
+                                kind: crate::LimitKind::Hops,
+                                limit: u64::from(self.request.max_hops),
+                            });
                         }
                         let mut child = active.state.clone();
                         child.nodes.push(neighbor.node);
@@ -398,9 +416,54 @@ mod tests {
             relationship_types: vec![],
             min_hops: 1,
             max_hops: 2,
+            error_at_max_hops: false,
             uniqueness,
             order,
         }
+    }
+
+    #[test]
+    fn error_at_max_hops_rejects_silent_truncation() {
+        // 1 -> 4 -> 5 has an admissible edge past a 1-hop cap. With
+        // error_at_max_hops the cap is a resource limit on an unbounded
+        // pattern, so hitting it with a longer real path must error rather
+        // than silently drop paths; without it the cap is query semantics
+        // and truncation is correct.
+        let graph = graph();
+        let mut capped = request(TraversalOrder::BreadthFirst, Uniqueness::Trail);
+        capped.relationship_types = vec![relationship_type(2)];
+        capped.max_hops = 1;
+        assert!(traverse(
+            &graph,
+            &capped,
+            TraversalLimits::default(),
+            &crate::NeverCancelled,
+        )
+        .is_ok());
+
+        capped.error_at_max_hops = true;
+        assert!(matches!(
+            traverse(
+                &graph,
+                &capped,
+                TraversalLimits::default(),
+                &crate::NeverCancelled,
+            ),
+            Err(RuntimeError::LimitExceeded {
+                kind: LimitKind::Hops,
+                limit: 1,
+            })
+        ));
+
+        // A cap deep enough to hold every path stays error-free.
+        capped.max_hops = 2;
+        assert!(traverse(
+            &graph,
+            &capped,
+            TraversalLimits::default(),
+            &crate::NeverCancelled,
+        )
+        .is_ok());
     }
 
     #[test]
@@ -460,6 +523,7 @@ mod tests {
             relationship_types: vec![],
             min_hops: 2,
             max_hops: 2,
+            error_at_max_hops: false,
             uniqueness: Uniqueness::Trail,
             order: TraversalOrder::BreadthFirst,
         };
@@ -524,6 +588,7 @@ mod tests {
             relationship_types: vec![],
             min_hops: 2,
             max_hops: 2,
+            error_at_max_hops: false,
             uniqueness: Uniqueness::Walk,
             order: TraversalOrder::BreadthFirst,
         };
@@ -558,6 +623,7 @@ mod tests {
             relationship_types: vec![],
             min_hops: 0,
             max_hops: 0,
+            error_at_max_hops: false,
             uniqueness: Uniqueness::Trail,
             order: TraversalOrder::BreadthFirst,
         };

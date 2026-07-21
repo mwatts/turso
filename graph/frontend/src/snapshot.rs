@@ -20,6 +20,22 @@ pub enum SourceIdentity {
     Blob(Vec<u8>),
 }
 
+impl SourceIdentity {
+    /// Total canonical bit encoding for REAL identity values used as hash
+    /// keys: +0.0 and -0.0 collapse to one key, and every NaN payload
+    /// collapses to the canonical quiet NaN so equal-comparing (or
+    /// all-incomparable) floats cannot produce distinct identities.
+    pub fn real(value: f64) -> Self {
+        Self::Real(if value == 0.0 {
+            0
+        } else if value.is_nan() {
+            f64::NAN.to_bits()
+        } else {
+            value.to_bits()
+        })
+    }
+}
+
 #[derive(Clone, Debug, Eq, Hash, PartialEq)]
 pub struct NodeCoordinate {
     pub source: SourceTableId,
@@ -193,6 +209,8 @@ pub enum SnapshotError {
     },
     #[error("snapshot store lock is poisoned")]
     StorePoisoned,
+    #[error("shared snapshot refresh requires autocommit; it publishes committed state only")]
+    RefreshInsideTransaction,
 }
 
 #[derive(Default)]
@@ -423,14 +441,36 @@ impl SessionSnapshotStore {
             .clear();
         Ok(())
     }
+
+    #[cfg(test)]
+    pub(crate) fn poison_for_test(&self) {
+        let _ = std::thread::scope(|scope| {
+            scope
+                .spawn(|| {
+                    let _guard = self.local.write().unwrap();
+                    panic!("poison session snapshot store");
+                })
+                .join()
+        });
+        assert!(self.local.read().is_err());
+    }
 }
 
+/// Build a snapshot of committed state for shared publication.
+///
+/// Requires autocommit: inside an open transaction this connection could
+/// observe (and publish) uncommitted rows, so refuse instead of opening a
+/// nested transaction. Use [`build_visible_traversal_snapshot`] for
+/// connection-local reads inside a transaction.
 pub fn build_traversal_snapshot(
     connection: &Arc<Connection>,
     graph_name: &str,
     limits: BuildLimits,
     cancellation: &dyn Cancellation,
 ) -> Result<TraversalSnapshot, SnapshotError> {
+    if !connection.get_auto_commit() {
+        return Err(SnapshotError::RefreshInsideTransaction);
+    }
     connection.execute("BEGIN")?;
     let result = build_in_transaction(connection, graph_name, limits, cancellation);
     match result {
@@ -737,14 +777,7 @@ fn source_identity(
 ) -> Result<SourceIdentity, SnapshotError> {
     match value {
         Some(Value::Numeric(Numeric::Integer(value))) => Ok(SourceIdentity::Integer(*value)),
-        Some(Value::Numeric(Numeric::Float(value))) => {
-            let value = f64::from(*value);
-            Ok(SourceIdentity::Real(if value == 0.0 {
-                0
-            } else {
-                value.to_bits()
-            }))
-        }
+        Some(Value::Numeric(Numeric::Float(value))) => Ok(SourceIdentity::real(f64::from(*value))),
         Some(Value::Text(value)) => Ok(SourceIdentity::Text(value.as_str().to_owned())),
         Some(Value::Blob(value)) => Ok(SourceIdentity::Blob(value.to_vec())),
         Some(Value::Null) | None => Err(SnapshotError::InvalidSourceIdentity {
@@ -839,6 +872,56 @@ mod tests {
             },
         )
         .unwrap()
+    }
+
+    #[test]
+    fn real_identity_encoding_is_total_and_canonical() {
+        // Hash-key encoding must not split one logical identity into many:
+        // +0.0/-0.0 collapse, and every NaN payload maps to one canonical
+        // key (duplicate NaN identities then fail loudly as duplicates
+        // instead of silently splitting).
+        assert_eq!(SourceIdentity::real(0.0), SourceIdentity::real(-0.0));
+        let payload_nan = f64::from_bits(0x7ff8_0000_0000_1234);
+        assert!(payload_nan.is_nan());
+        assert_eq!(
+            SourceIdentity::real(f64::NAN),
+            SourceIdentity::real(payload_nan)
+        );
+        assert_ne!(SourceIdentity::real(1.5), SourceIdentity::real(2.5));
+        assert_eq!(
+            SourceIdentity::real(1.5),
+            SourceIdentity::Real(1.5f64.to_bits())
+        );
+    }
+
+    #[test]
+    fn shared_refresh_refuses_an_open_transaction() {
+        // The shared store publishes committed state only. A refresh inside
+        // an open transaction would either fail on the nested BEGIN or
+        // publish rows the caller has not committed, so it must refuse
+        // loudly instead.
+        let connection = connection(":memory:snapshot-open-txn");
+        register(&connection);
+        let store = SnapshotStore::default();
+        connection.execute("BEGIN").unwrap();
+        assert!(matches!(
+            store.refresh(
+                &connection,
+                "social",
+                BuildLimits::default(),
+                &turso_graph_runtime::NeverCancelled,
+            ),
+            Err(SnapshotError::RefreshInsideTransaction)
+        ));
+        connection.execute("ROLLBACK").unwrap();
+        store
+            .refresh(
+                &connection,
+                "social",
+                BuildLimits::default(),
+                &turso_graph_runtime::NeverCancelled,
+            )
+            .expect("refresh works again in autocommit");
     }
 
     #[test]
@@ -945,6 +1028,7 @@ mod tests {
                 relationship_types: vec![RelationshipTypeId::new(1).unwrap()],
                 min_hops: 2,
                 max_hops: 2,
+                error_at_max_hops: false,
                 uniqueness: Uniqueness::Trail,
                 order: TraversalOrder::BreadthFirst,
             },

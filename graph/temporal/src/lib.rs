@@ -1406,6 +1406,11 @@ fn cypher_div(args: &[ExtValue]) -> ExtValue {
 /// Interprets an SQL value for structural comparison: text that parses as
 /// a JSON array or object is a list/map, any other text is a plain string,
 /// numbers map directly, SQL NULL is Cypher null.
+///
+/// Known limitation: lists and maps lower to JSON text, so a genuine Cypher
+/// string that happens to be valid JSON (`'[]'`) is indistinguishable from a
+/// list at runtime and compares structurally. Removing this ambiguity needs
+/// a typed Cypher value boundary rather than a change here.
 fn comparison_value(value: &ExtValue) -> serde_json::Value {
     use turso_ext::ValueType;
     match value.value_type() {

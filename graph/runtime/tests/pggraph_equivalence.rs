@@ -92,6 +92,7 @@ fn normalized_cases_match_the_pinned_pggraph_behavior() {
                         relationship_types: vec![],
                         min_hops: 1,
                         max_hops: fixture.max_hops,
+                        error_at_max_hops: false,
                         uniqueness: Uniqueness::Trail,
                         order: TraversalOrder::BreadthFirst,
                     },

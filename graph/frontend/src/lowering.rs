@@ -725,7 +725,7 @@ fn lower_graph_expand(
                  max(CASE WHEN gx.is_terminal = 1 THEN gx.node_identity END) AS __gx_node, \
                  max(CASE WHEN gx.is_terminal = 1 THEN gx.relationship_identity END) AS __gx_rel \
                  FROM ({}) AS q \
-                 JOIN __turso_graph_expand({}, {}, q.{}, '{}', '{}', {}, {}, '{}', {}, {}, {}, {}, {}) AS gx \
+                 JOIN __turso_graph_expand({}, {}, q.{}, '{}', '{}', {}, {}, {}, '{}', {}, {}, {}, {}, {}) AS gx \
                  GROUP BY {}gx.path_id) AS g \
                  JOIN {} AS n ON n.{} = g.__gx_node \
                  LEFT JOIN {} AS r ON r.{} = g.__gx_rel",
@@ -742,6 +742,7 @@ fn lower_graph_expand(
                 relationship_types,
                 expand.min_hops,
                 expand.max_hops,
+                u8::from(expand.unbounded),
                 uniqueness,
                 limits.max_node_visits,
                 limits.max_edge_visits,
@@ -761,7 +762,7 @@ fn lower_graph_expand(
         sql: format!(
             "SELECT q.*, r.{} AS {}, n.{} AS {} \
              FROM ({}) AS q \
-             JOIN __turso_graph_expand({}, {}, q.{}, '{}', '{}', {}, {}, '{}', {}, {}, {}, {}, {}) AS gx \
+             JOIN __turso_graph_expand({}, {}, q.{}, '{}', '{}', {}, {}, {}, '{}', {}, {}, {}, {}, {}) AS gx \
              JOIN {} AS n ON gx.is_terminal = 1 AND gx.node_source_id = {} AND n.{} = gx.node_identity \
              LEFT JOIN {} AS r ON gx.relationship_source_id = {} AND r.{} = gx.relationship_identity",
             quote_identifier(&relationship.identity_column),
@@ -776,6 +777,7 @@ fn lower_graph_expand(
             relationship_types,
             expand.min_hops,
             expand.max_hops,
+            u8::from(expand.unbounded),
             uniqueness,
             limits.max_node_visits,
             limits.max_edge_visits,
@@ -2160,8 +2162,16 @@ fn is_container_text(operand: &str) -> String {
 /// operands are not statically known to be the same comparable class.
 /// Types whose SQL encoding is JSON text and whose equality therefore
 /// needs recursive three-valued comparison rather than SQL's text =.
+/// `Any` is included because dynamically-typed values (parameters, UNWIND
+/// elements, untyped properties) may hold lists or maps at runtime; SQL `=`
+/// on their text encoding would silently do definite text comparison. This
+/// also keeps `=` consistent with `IN`, which always routes through
+/// `cypher_equals`.
 fn structural_comparison(value_type: &ir::ValueType) -> bool {
-    matches!(value_type, ir::ValueType::List(_) | ir::ValueType::Map)
+    matches!(
+        value_type,
+        ir::ValueType::List(_) | ir::ValueType::Map | ir::ValueType::Any
+    )
 }
 
 fn comparison_needs_type_guard(left: &ir::ValueType, right: &ir::ValueType) -> bool {
@@ -2379,7 +2389,33 @@ mod tests {
         let sql = lower_expression(&expression, &bindings, &catalog, "n")
             .expect("IN lowering should succeed");
         assert!(sql.starts_with("(CASE WHEN (json_array(1, 2)) IS NULL"));
-        assert!(sql.contains("typeof(e.value)"));
+        assert!(sql.contains("cypher_equals(e.value"));
+    }
+
+    /// Dynamically-typed operands (parameters, UNWIND elements, untyped
+    /// properties) may hold lists or maps at runtime, so `=` must use
+    /// Cypher's null-aware deep equality, not SQL's definite text `=`.
+    #[test]
+    fn lowers_any_typed_equality_through_cypher_equals() {
+        let catalog = Catalog;
+        let bindings = HashMap::new();
+        let any = |name: &str| ir::TypedExpression {
+            expression: ir::Expression::Parameter(name.to_owned()),
+            value_type: ir::ValueType::Any,
+            nullability: ir::Nullability::Nullable,
+        };
+        let expression = ir::TypedExpression {
+            expression: ir::Expression::Binary {
+                left: Box::new(any("left")),
+                op: ir::BinaryOp::Equal,
+                right: Box::new(any("right")),
+            },
+            value_type: ir::ValueType::Boolean,
+            nullability: ir::Nullability::Nullable,
+        };
+        let sql = lower_expression(&expression, &bindings, &catalog, "n")
+            .expect("Any equality lowering should succeed");
+        assert!(sql.contains("cypher_equals"), "{sql}");
     }
 
     #[test]

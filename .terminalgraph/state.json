@@ -13,20 +13,20 @@
         "workingDirectory" : "/Users/markwatts/code/github/mwatts/turso"
       },
       "height" : 500,
-      "id" : "A2E74A17-664D-44A1-B9A6-D361C7CD38A4",
-      "project" : "E82E8EE5-179B-43AE-9CCD-5A405A28A6C1",
+      "id" : "A76D4144-EAF1-4297-AC90-40C0F294DBC2",
+      "project" : "FAF53525-3113-4F3A-AD66-AC830F102237",
       "title" : "…/github/mwatts/turso",
       "type" : "terminal",
       "width" : 700,
-      "x" : -20,
-      "y" : -160,
+      "x" : 620,
+      "y" : -80,
       "zIndex" : 0
     }
   ],
   "version" : 3,
   "viewport" : {
-    "offsetX" : -400,
-    "offsetY" : -300,
+    "offsetX" : 244,
+    "offsetY" : -211,
     "scale" : 1
   },
   "window" : {

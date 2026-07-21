@@ -2845,6 +2845,15 @@ impl Connection {
         self.auto_commit.load(Ordering::SeqCst)
     }
 
+    /// Whether the connection currently holds a write transaction.
+    ///
+    /// Internal (nested) statements never upgrade a read transaction to a
+    /// write transaction, so callers that run internal writes inside an
+    /// explicit transaction must check this before proceeding.
+    pub fn in_write_transaction(&self) -> bool {
+        matches!(self.get_tx_state(), TransactionState::Write { .. })
+    }
+
     /// Mark the active explicit transaction poisoned so COMMIT rolls it back.
     ///
     /// This is used when a write statement under BEGIN is abandoned before it
