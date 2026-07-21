@@ -7460,11 +7460,13 @@ dependencies = [
  "tempfile",
  "thiserror 2.0.16",
  "toml",
+ "tracing",
  "turso_core",
  "turso_ext",
  "turso_graph_cypher",
  "turso_graph_ir",
  "turso_graph_runtime",
+ "turso_graph_temporal",
  "turso_parser",
 ]
 
@@ -7572,8 +7574,6 @@ dependencies = [
  "tempfile",
  "turso_core",
  "turso_ext",
- "turso_graph_frontend",
- "turso_graph_ir",
  "turso_parser",
  "turso_pg_parser",
 ]

@@ -1,5 +1,14 @@
 # Multi-Frontend Architecture Guide
 
+> **Status as of 2026-07-21:** the graph sections of this guide predate the
+> delivered graph frontend. Since it was written: the Ladybug/Kuzu donor
+> suite was removed from the corpus (see `graph/CONFORMANCE.md`), the deep
+> corpus grew to ~10k identities, `PreparedSource` + `FrontendCompiler`
+> replaced the `ReprepareRecipe` naming, and variable-length traversal
+> shipped as the `__turso_graph_expand` internal vtab. Where this guide and
+> the code disagree, the code and `graph/test-results/REPORT.md` are
+> authoritative.
+
 How Turso exposes database work as VDBE bytecode, how the SQLite and Postgres
 frontends share one backend, and what it would take to add further frontends
 (for example Neo4j/Cypher graph queries and a Kafka-style append-only log).
@@ -749,25 +758,6 @@ measurement-gated optimization, not part of the correctness contract.
   triggers, and background maintenance rather than approximating them.
 - Optionally accept `CREATE EXTENSION graph` only as activation syntax for the
   built-in adapter; it must not claim general pgrx extension loading.
-
-**D3 implementation checkpoint (2026-07-17):** `postgres/frontend` now depends
-only on the shared graph frontend boundary and exposes one deliberately narrow
-call: `SELECT * FROM graph.cypher('graph-name', 'Cypher text')`. The Postgres
-parser recognizes and validates the qualified range function before general
-translation can discard its schema. `PgConnection::install_graph` resolves the
-name to an existing `RegisteredGraph`/stable `GraphId` and installs the same
-`GraphSession`; the returned statement therefore uses the shared binder,
-relational lowering, private transaction-visible CSR, traversal cursor, and
-wire-supported scalar result columns.
-
-The adapter rejects named arguments, non-string/OID-style identity, compound
-arguments, surrounding SQL filtering/grouping/ordering, unknown graph names,
-and inactive sessions with boundary-specific errors. It is read-only and
-supports one installed graph compiler per Postgres connection. Generic pgrx
-loading, ACL/RLS, GUCs, callbacks, triggers, background workers, and sidecars
-remain unsupported; `CREATE EXTENSION graph` is not accepted as activation.
-Cross-dialect tests query the same graph directly through `GraphSession` and
-through Postgres and compare the exact rows, including bounded traversal.
 
 **Exit:** Postgres clients can create/register a graph, build it, and execute
 the supported graph query/functions through the shared runtime, with an exact

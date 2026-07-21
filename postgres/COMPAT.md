@@ -491,38 +491,8 @@ Upgrade is not supported.
 | Feature | Status | Notes |
 |---------|--------|-------|
 | CREATE EXTENSION .. CASCADE | ❌ Not supported | |
-| Extension installation | ❌ Not supported | `CREATE EXTENSION` is not a pgrx/extension-loading mechanism; the built-in graph adapter uses the Rust session API below |
+| Extension installation | ❌ Not supported | CREATE EXTENSION not translated |
 | Trusted extensions | ❌ Not supported | |
-
-### Built-in graph adapter
-
-The Postgres frontend can expose an already registered Turso graph through the
-same catalog, Cypher compiler, transaction-local snapshot, and traversal
-runtime used by `GraphSession`. An embedder activates it with
-`PgConnection::install_graph`; activation does not install PostgreSQL extension
-code or create a second graph catalog.
-
-The intentionally narrow SQL surface is:
-
-```sql
-SELECT *
-FROM graph.cypher('social', 'MATCH (n:Person) RETURN n.name AS name');
-```
-
-The adapter preserves the `graph` qualification before the general translator
-can strip it, resolves the graph name to its stable Turso graph identity, then
-returns the shared Cypher statement directly. Dynamic scalar result columns
-therefore use the existing Postgres wire types. The current slice is read-only,
-accepts exactly two positional string literals, requires the call to be the
-sole source of `SELECT *`, and supports one installed graph compiler per
-Postgres connection.
-
-The following are rejected rather than approximated: named arguments,
-`regclass` or synthesized OID identity, arrays and PostgreSQL compound return
-types, SQL filtering/grouping/ordering around the graph call, generic pgrx
-loading, ACL/RLS semantics, GUCs, triggers, transaction callbacks, background
-workers, and sidecar lifecycle. `CREATE EXTENSION graph` is not activation
-syntax in this implementation.
 
 ## Internationalisation
 

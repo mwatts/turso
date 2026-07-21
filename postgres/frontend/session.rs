@@ -4,20 +4,15 @@ use std::sync::{Arc, OnceLock};
 
 use crate::aliases;
 use crate::catalog::{self, PostgresDialect};
-use parking_lot::RwLock;
 use turso_core::{
     Connection, FrontendCompilation, FrontendCompiler, FrontendId, LimboError, Result, Statement,
     Value,
 };
-use turso_graph_frontend::{
-    GraphCompilationCatalog, GraphSession, MutationParameters, ParameterTypes, RegisteredGraph,
-    SnapshotStore,
-};
 use turso_parser::ast;
 use turso_pg_parser::translator::{
     is_comment_on, is_refresh_matview, try_extract_copy_from, try_extract_create_schema,
-    try_extract_drop_schema, try_extract_graph_cypher, try_extract_set, try_extract_show,
-    PgCopyFromStmt, PgCreateSchemaStmt, PgDropSchemaStmt, PostgreSQLTranslator,
+    try_extract_drop_schema, try_extract_set, try_extract_show, PgCopyFromStmt, PgCreateSchemaStmt,
+    PgDropSchemaStmt, PostgreSQLTranslator,
 };
 
 use crate::copy::parse_copy_text_format;
@@ -26,7 +21,6 @@ use crate::copy::parse_copy_text_format;
 pub struct PgConnection {
     conn: Arc<Connection>,
     compiler_registration_error: Option<LimboError>,
-    graph_session: Arc<RwLock<Option<Arc<GraphSession>>>>,
 }
 
 const POSTGRES_FRONTEND_NAME: &str = "postgres";
@@ -110,7 +104,6 @@ impl PgConnection {
         Self {
             conn,
             compiler_registration_error,
-            graph_session: Arc::new(RwLock::new(None)),
         }
     }
 
@@ -122,37 +115,7 @@ impl PgConnection {
         if let Some(err) = &self.compiler_registration_error {
             return Err(err.clone());
         }
-        prepare_connection_statement(&self.conn, &self.graph_session, sql.as_ref())
-    }
-
-    pub fn install_graph(
-        &self,
-        graph: &RegisteredGraph,
-        catalog: Arc<dyn GraphCompilationCatalog>,
-        parameters: ParameterTypes,
-        shared_snapshots: Arc<SnapshotStore>,
-    ) -> Result<()> {
-        let mut installed = self.graph_session.write();
-        if let Some(existing) = installed.as_ref() {
-            if existing.graph_id() == graph.id {
-                return Ok(());
-            }
-            return Err(LimboError::ParseError(format!(
-                "Postgres graph adapter already targets graph `{}`; multiple graph compilers on one connection are not yet supported",
-                existing.graph_name()
-            )));
-        }
-        let session = GraphSession::install(
-            self.conn.clone(),
-            graph,
-            catalog,
-            parameters,
-            shared_snapshots,
-            Default::default(),
-        )
-        .map_err(|error| LimboError::ParseError(error.to_string()))?;
-        *installed = Some(Arc::new(session));
-        Ok(())
+        prepare_statement(&self.conn, sql.as_ref())
     }
 
     pub fn query(&self, sql: impl AsRef<str>) -> Result<Option<Statement>> {
@@ -183,18 +146,12 @@ impl PgConnection {
     }
 
     pub fn query_runner<'a>(&'a self, sql: &'a [u8]) -> PgQueryRunner<'a> {
-        PgQueryRunner::new(
-            &self.conn,
-            &self.graph_session,
-            sql,
-            self.compiler_registration_error.clone(),
-        )
+        PgQueryRunner::new(&self.conn, sql, self.compiler_registration_error.clone())
     }
 }
 
 pub struct PgQueryRunner<'a> {
     conn: &'a Arc<Connection>,
-    graph_session: &'a Arc<RwLock<Option<Arc<GraphSession>>>>,
     stmts: Vec<String>,
     index: usize,
     compiler_registration_error: Option<LimboError>,
@@ -203,14 +160,12 @@ pub struct PgQueryRunner<'a> {
 impl<'a> PgQueryRunner<'a> {
     fn new(
         conn: &'a Arc<Connection>,
-        graph_session: &'a Arc<RwLock<Option<Arc<GraphSession>>>>,
         sql: &'a [u8],
         compiler_registration_error: Option<LimboError>,
     ) -> Self {
         let sql = str::from_utf8(sql).unwrap_or("");
         Self {
             conn,
-            graph_session,
             stmts: split_statements(sql)
                 .unwrap_or_else(|_| vec![sql.trim().to_string()])
                 .into_iter()
@@ -235,40 +190,8 @@ impl Iterator for PgQueryRunner<'_> {
 
         let sql = &self.stmts[self.index];
         self.index += 1;
-        Some(prepare_connection_statement(self.conn, self.graph_session, sql).map(Some))
+        Some(prepare_statement(self.conn, sql).map(Some))
     }
-}
-
-fn prepare_connection_statement(
-    conn: &Arc<Connection>,
-    graph_session: &Arc<RwLock<Option<Arc<GraphSession>>>>,
-    sql: &str,
-) -> Result<Statement> {
-    let parse_result =
-        turso_pg_parser::parse(sql).map_err(|error| LimboError::ParseError(error.to_string()))?;
-    let graph_call = try_extract_graph_cypher(&parse_result)
-        .map_err(|error| LimboError::ParseError(error.to_string()))?;
-    let Some(graph_call) = graph_call else {
-        return prepare_statement(conn, sql);
-    };
-    let session = graph_session.read().clone().ok_or_else(|| {
-        LimboError::ParseError(
-            "graph.cypher is not active on this Postgres connection; install a registered Turso graph first"
-                .to_owned(),
-        )
-    })?;
-    if !session
-        .graph_name()
-        .eq_ignore_ascii_case(&graph_call.graph_name)
-    {
-        return Err(LimboError::ParseError(format!(
-            "graph `{}` is not installed on this Postgres connection",
-            graph_call.graph_name
-        )));
-    }
-    session
-        .prepare_query(&graph_call.cypher, &MutationParameters::new())
-        .map_err(|error| LimboError::ParseError(error.to_string()))
 }
 
 pub fn split_statements(sql: &str) -> Result<Vec<String>> {
@@ -603,202 +526,4 @@ fn schema_exists(conn: &Arc<Connection>, schema_name: &str) -> Result<bool> {
     let mut stmt = conn.prepare_internal(&sql)?;
     let rows = stmt.run_collect_rows()?;
     Ok(!rows.is_empty())
-}
-
-#[cfg(test)]
-mod graph_tests {
-    use super::*;
-    use turso_core::{DatabaseOpts, MemoryIO, OpenFlags};
-    use turso_graph_frontend::{
-        register_graph, CatalogEntity, GraphCatalogSnapshot, GraphRegistration,
-        NodeSourceRegistration, NodeTableLayout, RelationalCatalogSnapshot,
-        RelationshipSourceRegistration, RelationshipTableLayout, ResolvedProperty,
-    };
-    use turso_graph_ir as ir;
-
-    struct Catalog {
-        node_source: ir::SourceTableId,
-        relationship_source: ir::SourceTableId,
-    }
-
-    impl GraphCatalogSnapshot for Catalog {
-        fn node_source(&self, _graph: ir::GraphId) -> Option<ir::SourceTableId> {
-            Some(self.node_source)
-        }
-
-        fn relationship_source(&self, _graph: ir::GraphId) -> Option<ir::SourceTableId> {
-            Some(self.relationship_source)
-        }
-
-        fn label(&self, _graph: ir::GraphId, name: &str) -> Option<ir::LabelId> {
-            (name == "Person").then(|| ir::LabelId::new(1).unwrap())
-        }
-
-        fn relationship_type(
-            &self,
-            _graph: ir::GraphId,
-            name: &str,
-        ) -> Option<ir::RelationshipTypeId> {
-            (name == "KNOWS").then(|| ir::RelationshipTypeId::new(1).unwrap())
-        }
-
-        fn property(
-            &self,
-            _graph: ir::GraphId,
-            entity: CatalogEntity,
-            name: &str,
-        ) -> Option<ResolvedProperty> {
-            let (id, value_type, nullability) = match (entity, name) {
-                (CatalogEntity::Node, "id") => {
-                    (1, ir::ValueType::Integer, ir::Nullability::NonNull)
-                }
-                (CatalogEntity::Node, "name") => {
-                    (2, ir::ValueType::Text, ir::Nullability::Nullable)
-                }
-                _ => return None,
-            };
-            Some(ResolvedProperty {
-                id: ir::PropertyId::new(id).unwrap(),
-                value_type,
-                nullability,
-            })
-        }
-    }
-
-    impl RelationalCatalogSnapshot for Catalog {
-        fn node_layout(&self, source: ir::SourceTableId) -> Option<NodeTableLayout> {
-            (source == self.node_source).then(|| NodeTableLayout {
-                table: "people".to_owned(),
-                identity_column: "id".to_owned(),
-            })
-        }
-
-        fn relationship_layout(
-            &self,
-            source: ir::SourceTableId,
-        ) -> Option<RelationshipTableLayout> {
-            (source == self.relationship_source).then(|| RelationshipTableLayout {
-                table: "relationships".to_owned(),
-                identity_column: "id".to_owned(),
-                start_column: "src".to_owned(),
-                end_column: "dst".to_owned(),
-            })
-        }
-
-        fn property_column(
-            &self,
-            source: ir::SourceTableId,
-            property: ir::PropertyId,
-        ) -> Option<String> {
-            match (source, property.get()) {
-                (source, 1) if source == self.node_source => Some("id".to_owned()),
-                (source, 2) if source == self.node_source => Some("name".to_owned()),
-                _ => None,
-            }
-        }
-    }
-
-    fn setup() -> PgConnection {
-        let database = open_database_with_io(
-            Arc::new(MemoryIO::new()),
-            ":memory:postgres-graph-adapter",
-            OpenFlags::default(),
-            DatabaseOpts::new(),
-        )
-        .unwrap();
-        let connection = PgConnection::new(database.connect().unwrap());
-        connection
-            .execute(
-                "CREATE TABLE people(id BIGINT PRIMARY KEY, name TEXT); \
-                 CREATE TABLE relationships(id BIGINT PRIMARY KEY, src BIGINT, dst BIGINT); \
-                 INSERT INTO people VALUES (1, 'Ada'), (2, 'Grace'), (3, 'Linus'); \
-                 INSERT INTO relationships VALUES (10, 1, 2), (20, 2, 3)",
-            )
-            .unwrap();
-        let registered = register_graph(
-            connection.inner(),
-            &GraphRegistration {
-                name: "social".to_owned(),
-                node_sources: vec![NodeSourceRegistration {
-                    name: "Person".to_owned(),
-                    table: "people".to_owned(),
-                    identity_column: "id".to_owned(),
-                }],
-                relationship_sources: vec![RelationshipSourceRegistration {
-                    name: "KNOWS".to_owned(),
-                    table: "relationships".to_owned(),
-                    identity_column: "id".to_owned(),
-                    start_column: "src".to_owned(),
-                    end_column: "dst".to_owned(),
-                    start_node_source: "Person".to_owned(),
-                    end_node_source: "Person".to_owned(),
-                }],
-            },
-        )
-        .unwrap();
-        let catalog = Arc::new(Catalog {
-            node_source: registered.node_sources[0].id,
-            relationship_source: registered.relationship_sources[0].id,
-        });
-        connection
-            .install_graph(
-                &registered,
-                catalog,
-                ParameterTypes::new(),
-                Arc::new(SnapshotStore::default()),
-            )
-            .unwrap();
-        connection
-    }
-
-    #[test]
-    fn postgres_graph_call_delegates_to_the_shared_cypher_session() {
-        let connection = setup();
-        let cypher = "MATCH (a:Person {id: 1})-[:KNOWS*1..2]->(friend) RETURN friend.name AS name ORDER BY friend.name";
-        let direct = connection
-            .graph_session
-            .read()
-            .as_ref()
-            .unwrap()
-            .query(cypher, &MutationParameters::new())
-            .unwrap();
-        let postgres = connection
-            .prepare(format!(
-                "SELECT * FROM graph.cypher('social', '{}')",
-                cypher.replace('\'', "''")
-            ))
-            .unwrap()
-            .run_collect_rows()
-            .unwrap();
-        assert_eq!(postgres, direct);
-        assert_eq!(
-            postgres,
-            vec![
-                vec![Value::build_text("Grace")],
-                vec![Value::build_text("Linus")]
-            ]
-        );
-    }
-
-    #[test]
-    fn postgres_graph_call_rejects_missing_or_mismatched_registration() {
-        let connection = setup();
-        let error = connection
-            .prepare("SELECT * FROM graph.cypher('other', 'MATCH (n) RETURN n')")
-            .expect_err("unknown graph must fail");
-        assert!(error.to_string().contains("not installed"));
-
-        let database = open_database_with_io(
-            Arc::new(MemoryIO::new()),
-            ":memory:postgres-graph-inactive",
-            OpenFlags::default(),
-            DatabaseOpts::new(),
-        )
-        .unwrap();
-        let inactive = PgConnection::new(database.connect().unwrap());
-        let error = inactive
-            .prepare("SELECT * FROM graph.cypher('social', 'MATCH (n) RETURN n')")
-            .expect_err("inactive graph API must fail");
-        assert!(error.to_string().contains("not active"));
-    }
 }
