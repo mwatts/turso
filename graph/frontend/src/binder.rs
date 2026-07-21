@@ -3395,7 +3395,7 @@ impl<'a> Binder<'a> {
                     .collect::<Result<Vec<_>, _>>()?;
                 // labels(n) / type(r) resolve statically from the labels and
                 // relationship types declared where the entity was bound.
-                if let ("labels" | "type" | "label" | "properties", [argument]) = (
+                if let ("labels" | "type" | "label" | "properties" | "keys", [argument]) = (
                     name.value.to_ascii_lowercase().as_str(),
                     arguments.as_slice(),
                 ) {
@@ -3412,6 +3412,30 @@ impl<'a> Binder<'a> {
                                         arguments: vec![argument.clone()],
                                     },
                                     value_type: ir::ValueType::Map,
+                                    nullability: argument.nullability,
+                                });
+                            }
+                            if lowered_name == "keys" {
+                                // keys() reads an entity's property map, not
+                                // its identity value; route through
+                                // __cypher_properties first the same way the
+                                // "properties" arm above does.
+                                let properties = ir::TypedExpression {
+                                    expression: ir::Expression::Function {
+                                        function: ir::FunctionName::new("__cypher_properties")
+                                            .expect("static name"),
+                                        arguments: vec![argument.clone()],
+                                    },
+                                    value_type: ir::ValueType::Map,
+                                    nullability: argument.nullability,
+                                };
+                                return Ok(ir::TypedExpression {
+                                    expression: ir::Expression::Function {
+                                        function: ir::FunctionName::new("__cypher_keys")
+                                            .expect("static name"),
+                                        arguments: vec![properties],
+                                    },
+                                    value_type: ir::ValueType::List(Box::new(ir::ValueType::Text)),
                                     nullability: argument.nullability,
                                 });
                             }
@@ -3517,6 +3541,26 @@ impl<'a> Binder<'a> {
                         }
                         ("properties", ir::ValueType::Map) => {
                             return Ok(argument.clone());
+                        }
+                        ("keys", ir::ValueType::Node | ir::ValueType::Relationship) => {
+                            let properties = ir::TypedExpression {
+                                expression: ir::Expression::Function {
+                                    function: ir::FunctionName::new("__cypher_properties")
+                                        .expect("static name"),
+                                    arguments: vec![argument.clone()],
+                                },
+                                value_type: ir::ValueType::Map,
+                                nullability: argument.nullability,
+                            };
+                            return Ok(ir::TypedExpression {
+                                expression: ir::Expression::Function {
+                                    function: ir::FunctionName::new("__cypher_keys")
+                                        .expect("static name"),
+                                    arguments: vec![properties],
+                                },
+                                value_type: ir::ValueType::List(Box::new(ir::ValueType::Text)),
+                                nullability: argument.nullability,
+                            });
                         }
                         _ => {}
                     }
