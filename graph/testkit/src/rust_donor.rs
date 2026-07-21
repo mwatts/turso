@@ -10,7 +10,7 @@ use syn::{
     Expr, ExprMethodCall, ItemFn, Lit, Local, Pat,
 };
 use thiserror::Error;
-use turso_graph_frontend::MutationParameters;
+use turso_graph_frontend::Parameters;
 
 use crate::{
     history::recorded_at,
@@ -256,7 +256,7 @@ impl RustDonorCorpus {
                 Ok(()) => match empty_fixture(case.id.as_str()) {
                     Ok(fixture) => match fixture
                         .session
-                        .query(&case.query, &MutationParameters::new())
+                        .query(&case.query, &Parameters::new())
                     {
                         Ok(_) => (Outcome::Passed, None, "execution"),
                         // Mirror the TCK statement router: statements the
@@ -264,7 +264,7 @@ impl RustDonorCorpus {
                         // mutations.
                         Err(query_error) => match fixture
                             .session
-                            .mutate(&case.query, &MutationParameters::new())
+                            .mutate(&case.query, &Parameters::new())
                         {
                             Ok(_) => (Outcome::Passed, None, "execution"),
                             Err(mutation_error) => (

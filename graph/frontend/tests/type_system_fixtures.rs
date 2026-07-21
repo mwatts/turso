@@ -7,8 +7,8 @@ use std::sync::Arc;
 use turso_core::{Database, DatabaseOpts, MemoryIO, OpenFlags, SqliteDialect};
 use turso_graph_cypher::parse;
 use turso_graph_frontend::{
-    bind, GraphCompilationCatalog, GraphRegistration, GraphSession, MutationParameters,
-    NodeSourceRegistration, ParameterTypes, SchemaCatalog, SnapshotStore,
+    bind, GraphCompilationCatalog, GraphConnection, GraphRegistration, NodeSourceRegistration,
+    ParameterTypes, Parameters, SchemaCatalog, SnapshotStore,
 };
 use turso_graph_ir::{self as ir, GraphId, PlanKind};
 use turso_graph_runtime::{BuildLimits, NeverCancelled};
@@ -123,7 +123,7 @@ fn blob_column_resolves_to_bytes_value_type() {
     assert_eq!(value_type, ir::ValueType::Bytes);
 }
 
-/// Installs a `GraphSession` for a single-node-source graph over `table`,
+/// Installs a `GraphConnection` for a single-node-source graph over `table`,
 /// reusing the writer-session setup `session.rs`'s own tests establish
 /// (register the graph, publish an initial shared traversal snapshot, then
 /// install the session), but backed by `SchemaCatalog` so STRICT struct/union
@@ -132,7 +132,7 @@ fn graph_session_for_node_source(
     connection: &Arc<turso_core::Connection>,
     label: &str,
     table: &str,
-) -> GraphSession {
+) -> GraphConnection {
     let registered = turso_graph_frontend::register_graph(
         connection,
         &GraphRegistration {
@@ -157,7 +157,7 @@ fn graph_session_for_node_source(
             &NeverCancelled,
         )
         .expect("build initial traversal snapshot");
-    GraphSession::install(
+    GraphConnection::install(
         connection.clone(),
         &registered,
         catalog,
@@ -199,10 +199,7 @@ fn create_with_struct_map_literal_lowers_and_executes() {
     let session = graph_session_for_node_source(&connection, "Shape", "shapes");
 
     session
-        .mutate(
-            "CREATE (:Shape {origin: {x: 1, y: 2}})",
-            &MutationParameters::new(),
-        )
+        .mutate("CREATE (:Shape {origin: {x: 1, y: 2}})", &Parameters::new())
         .expect("create struct-valued node");
 
     let stored = connection
@@ -237,7 +234,7 @@ fn create_with_union_map_literal_lowers_and_executes() {
     session
         .mutate(
             "CREATE (:Person {reach: {email: 'a@example.com'}})",
-            &MutationParameters::new(),
+            &Parameters::new(),
         )
         .expect("create union-valued node");
 
@@ -304,7 +301,7 @@ fn matches_two_level_nested_struct_field_read_executes() {
     let rows = session
         .query(
             "MATCH (z:Zone) RETURN z.bounds.origin.x",
-            &MutationParameters::new(),
+            &Parameters::new(),
         )
         .expect("2-level nested field read must execute, not fail with a SQL syntax error");
 
@@ -339,7 +336,7 @@ fn nested_struct_field_read_lowers_and_executes() {
     let rows = session
         .query(
             "MATCH (p:Person) RETURN p.info.home.city",
-            &MutationParameters::new(),
+            &Parameters::new(),
         )
         .expect("2-level nested field read must execute, not fail with a SQL syntax error");
 
@@ -354,7 +351,7 @@ fn nested_struct_field_read_lowers_and_executes() {
     // pattern `binder.rs`'s own `#[cfg(test)]` module uses for asserting a
     // specific bind-time error (e.g.
     // `rejects_field_access_deeper_than_two_levels`) — rather than through
-    // `GraphSession::query`, whose `FrontendCompiler` impl (`compiler.rs`)
+    // `GraphConnection::query`, whose `FrontendCompiler` impl (`compiler.rs`)
     // collapses every bind error into an opaque `LimboError::ParseError`
     // string. Registering a second graph on this connection allocates a
     // new `GraphId` (the first, from `graph_session_for_node_source`

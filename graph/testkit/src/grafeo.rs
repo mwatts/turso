@@ -9,7 +9,7 @@ use serde::Deserialize;
 use serde_yaml::Value as YamlValue;
 use thiserror::Error;
 use turso_core::{Numeric, Value};
-use turso_graph_frontend::{GraphSession, MutationParameters};
+use turso_graph_frontend::{GraphConnection, Parameters};
 
 use crate::{
     history::{recorded_at, result_digest},
@@ -506,8 +506,11 @@ fn dataset_statements(dataset: &str) -> Result<Vec<String>, String> {
         .collect())
 }
 
-fn execute_statement(session: &GraphSession, statement: &str) -> Result<Vec<Vec<Value>>, String> {
-    let parameters = MutationParameters::new();
+fn execute_statement(
+    session: &GraphConnection,
+    statement: &str,
+) -> Result<Vec<Vec<Value>>, String> {
+    let parameters = Parameters::new();
     match session.query(statement, &parameters) {
         Ok(rows) => Ok(rows),
         Err(query_error) => session

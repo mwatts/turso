@@ -17,7 +17,7 @@ use crate::{
 const SAVEPOINT: &str = "__turso_graph_mutation";
 pub(crate) const INTERNAL_PARAMETER_PREFIX: &str = "__turso_internal_graph_ref_";
 
-pub type MutationParameters = HashMap<String, Value>;
+pub type Parameters = HashMap<String, Value>;
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct MutationSummary {
@@ -57,7 +57,7 @@ pub fn execute_cypher_mutation(
     graph: ir::GraphId,
     catalog: Arc<dyn GraphCompilationCatalog>,
     source: &str,
-    parameters: &MutationParameters,
+    parameters: &Parameters,
 ) -> Result<MutationSummary, MutationError> {
     for name in parameters.keys() {
         if name.starts_with(INTERNAL_PARAMETER_PREFIX) {
@@ -163,7 +163,7 @@ fn execute_bound(
     catalog: &dyn GraphCompilationCatalog,
     bound: &BoundMutation,
     input: &LoweredMutationInput,
-    parameters: &MutationParameters,
+    parameters: &Parameters,
 ) -> Result<MutationSummary, MutationError> {
     let request = &bound.request;
     let input_bindings = request
@@ -394,7 +394,7 @@ fn run_stage_items_once(
     graph: ir::GraphId,
     input: &LoweredMutationInput,
     items: &[StageItem],
-    parameters: &MutationParameters,
+    parameters: &Parameters,
     values: &mut HashMap<ir::BindingId, Value>,
     entity_layouts: &mut HashMap<ir::BindingId, (ir::SourceTableId, MutationEntityKind)>,
     operations_executed: &mut u64,
@@ -472,7 +472,7 @@ fn project_stage(
     connection: &Arc<Connection>,
     catalog: &dyn GraphCompilationCatalog,
     input: &LoweredMutationInput,
-    parameters: &MutationParameters,
+    parameters: &Parameters,
     projections: &[StageProjection],
     predicate: Option<&ir::TypedExpression>,
     distinct: bool,
@@ -637,7 +637,7 @@ fn sort_stage_rows(
     connection: &Arc<Connection>,
     catalog: &dyn GraphCompilationCatalog,
     input: &LoweredMutationInput,
-    parameters: &MutationParameters,
+    parameters: &Parameters,
     order: &[(ir::TypedExpression, bool)],
     rows: Vec<HashMap<ir::BindingId, Value>>,
     entity_layouts: &HashMap<ir::BindingId, (ir::SourceTableId, MutationEntityKind)>,
@@ -692,7 +692,7 @@ fn sort_stage_rows(
 
 fn fold_aggregate(
     connection: &Arc<Connection>,
-    parameters: &MutationParameters,
+    parameters: &Parameters,
     function: ir::AggregateFunction,
     count_star: bool,
     mut values: Vec<Value>,
@@ -828,7 +828,7 @@ fn execute_operation(
     graph: ir::GraphId,
     input: &LoweredMutationInput,
     operation: &ir::Mutation,
-    parameters: &MutationParameters,
+    parameters: &Parameters,
     values: &mut HashMap<ir::BindingId, Value>,
     entity_layouts: &mut HashMap<ir::BindingId, (ir::SourceTableId, MutationEntityKind)>,
 ) -> Result<(), MutationError> {
@@ -1147,7 +1147,7 @@ fn record_node_labels(
     catalog: &dyn GraphCompilationCatalog,
     labels: &[ir::LabelId],
     identity: &Value,
-    parameters: &MutationParameters,
+    parameters: &Parameters,
 ) -> Result<(), MutationError> {
     let Some(table) = catalog.labels_table() else {
         return Ok(());
@@ -1181,7 +1181,7 @@ fn record_relationship_type(
     catalog: &dyn GraphCompilationCatalog,
     relationship_types: &[ir::RelationshipTypeId],
     identity: &Value,
-    parameters: &MutationParameters,
+    parameters: &Parameters,
 ) -> Result<(), MutationError> {
     let Some(table) = catalog.relationship_types_table() else {
         return Ok(());
@@ -1214,7 +1214,7 @@ fn insert_node(
     catalog: &dyn GraphCompilationCatalog,
     input: &LoweredMutationInput,
     create: &ir::CreateNode,
-    parameters: &MutationParameters,
+    parameters: &Parameters,
     values: &HashMap<ir::BindingId, Value>,
     entity_layouts: &HashMap<ir::BindingId, (ir::SourceTableId, MutationEntityKind)>,
     merge: bool,
@@ -1310,7 +1310,7 @@ fn insert_relationship(
     catalog: &dyn GraphCompilationCatalog,
     input: &LoweredMutationInput,
     create: &ir::CreateRelationship,
-    parameters: &MutationParameters,
+    parameters: &Parameters,
     values: &HashMap<ir::BindingId, Value>,
     entity_layouts: &HashMap<ir::BindingId, (ir::SourceTableId, MutationEntityKind)>,
     merge: bool,
@@ -1364,7 +1364,7 @@ fn insert_entity(
     identity: &str,
     source: ir::SourceTableId,
     properties: &[ir::PropertyValue],
-    parameters: &MutationParameters,
+    parameters: &Parameters,
     values: &HashMap<ir::BindingId, Value>,
     entity_layouts: &HashMap<ir::BindingId, (ir::SourceTableId, MutationEntityKind)>,
     merge: bool,
@@ -1453,7 +1453,7 @@ fn delete_entity(
     catalog: &dyn GraphCompilationCatalog,
     graph: ir::GraphId,
     delete: &ir::DeleteEntity,
-    parameters: &MutationParameters,
+    parameters: &Parameters,
     values: &HashMap<ir::BindingId, Value>,
 ) -> Result<(), MutationError> {
     let identity = values
@@ -1611,7 +1611,7 @@ fn identity_parameter(binding: ir::BindingId) -> String {
 fn run_ignore(
     connection: &Arc<Connection>,
     sql: &str,
-    parameters: &MutationParameters,
+    parameters: &Parameters,
     internal: &HashMap<String, Value>,
 ) -> Result<(), turso_core::LimboError> {
     let mut statement = connection.prepare(sql)?;
@@ -1622,7 +1622,7 @@ fn run_ignore(
 fn run_rows(
     connection: &Arc<Connection>,
     sql: &str,
-    parameters: &MutationParameters,
+    parameters: &Parameters,
     internal: &HashMap<String, Value>,
 ) -> Result<Vec<Vec<Value>>, turso_core::LimboError> {
     let mut statement = connection.prepare(sql)?;
@@ -1632,7 +1632,7 @@ fn run_rows(
 
 fn bind_parameters(
     statement: &mut turso_core::Statement,
-    parameters: &MutationParameters,
+    parameters: &Parameters,
     internal: &HashMap<String, Value>,
 ) -> Result<(), turso_core::LimboError> {
     for (name, value) in parameters.iter().chain(internal) {
@@ -1643,7 +1643,7 @@ fn bind_parameters(
     Ok(())
 }
 
-fn parameter_types(parameters: &MutationParameters) -> ParameterTypes {
+fn parameter_types(parameters: &Parameters) -> ParameterTypes {
     parameters
         .iter()
         .map(|(name, value)| {
@@ -1848,7 +1848,7 @@ mod tests {
             graph,
             catalog.clone(),
             source,
-            &MutationParameters::new(),
+            &Parameters::new(),
         )
     }
 

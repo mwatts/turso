@@ -7,7 +7,7 @@ use std::{
 
 use regex::Regex;
 use thiserror::Error;
-use turso_graph_frontend::MutationParameters;
+use turso_graph_frontend::Parameters;
 
 use crate::{
     history::recorded_at,
@@ -290,20 +290,14 @@ fn run_canonical(
     };
     let (outcome, message, execution) = match parse_cache.parse(&case.query) {
         Ok(()) => match empty_fixture(case.id.as_str()) {
-            Ok(fixture) => match fixture
-                .session
-                .query(&case.query, &MutationParameters::new())
-            {
+            Ok(fixture) => match fixture.session.query(&case.query, &Parameters::new()) {
                 Ok(_) => {
                     let (outcome, message) = succeeded(None);
                     (outcome, message, "execution")
                 }
                 // Mirror the TCK statement router: statements the read
                 // pipeline rejects may still be executable mutations.
-                Err(query_error) => match fixture
-                    .session
-                    .mutate(&case.query, &MutationParameters::new())
-                {
+                Err(query_error) => match fixture.session.mutate(&case.query, &Parameters::new()) {
                     Ok(_) => {
                         let (outcome, message) = succeeded(None);
                         (outcome, message, "execution")

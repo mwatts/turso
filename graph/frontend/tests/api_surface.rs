@@ -16,3 +16,14 @@ fn baseline_aligned_reexports_are_usable() {
         Ok(())
     }
 }
+
+#[test]
+fn session_type_names_match_baseline_convention() {
+    // GraphConnection is aliased to Connection at the root, mirroring
+    // `pub use session::PgConnection as Connection` in turso_pg.
+    fn _takes_conn(_c: &turso_graph_frontend::Connection) {}
+    fn _takes_graph_conn(_c: &turso_graph_frontend::GraphConnection) {}
+
+    let params: turso_graph_frontend::Parameters = Default::default();
+    assert!(params.is_empty());
+}

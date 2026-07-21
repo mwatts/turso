@@ -9,7 +9,7 @@ use std::{collections::HashMap, fs, path::Path, time::Instant};
 use anyhow::{Context, Result};
 use serde::Deserialize;
 use turso_core::{Numeric, Value};
-use turso_graph_frontend::MutationParameters;
+use turso_graph_frontend::Parameters;
 
 use crate::runner::{empty_fixture, GraphFixture};
 
@@ -563,7 +563,7 @@ fn run_domain_worker(
     let mut errored = 0;
     let mut query_ms_total = 0;
     let mut record = |entry: QueryDetail| sink(entry);
-    let parameters = MutationParameters::new();
+    let parameters = Parameters::new();
     for task in &selected {
         if skip.contains(&task.qid) {
             continue;

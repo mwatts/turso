@@ -2,7 +2,7 @@ use std::{collections::BTreeMap, fmt::Write as _, fs, path::Path, time::Instant}
 
 use anyhow::{Context, Result};
 use serde::Deserialize;
-use turso_graph_frontend::MutationParameters;
+use turso_graph_frontend::Parameters;
 
 use crate::{
     history::{recorded_at, result_digest},
@@ -119,7 +119,7 @@ fn run_scale(
 
 fn measure_create(scale: u64) -> Result<Measurement> {
     let fixture = empty_fixture(&format!("perf-create-{scale}"))?;
-    let parameters = MutationParameters::new();
+    let parameters = Parameters::new();
     let started = Instant::now();
     for id in 1..=scale {
         fixture.session.mutate(
@@ -164,7 +164,7 @@ fn measure_load(scale: u64) -> Result<Measurement> {
     let started = Instant::now();
     let rows = fixture.session.query(
         "MATCH (:Person {name: 'node-1'})-[:KNOWS*1..3]->(b:Person) RETURN count(b)",
-        &MutationParameters::new(),
+        &Parameters::new(),
     )?;
     let duration_ns = elapsed_ns(started);
     anyhow::ensure!(
@@ -190,7 +190,7 @@ fn measure_query(scale: u64, iterations: u32) -> Result<Measurement> {
         "MATCH (n:Person {{name: 'node-{}'}}) RETURN n.name",
         scale / 2
     );
-    let parameters = MutationParameters::new();
+    let parameters = Parameters::new();
     fixture.session.query(&query, &parameters)?;
     let started = Instant::now();
     let mut rows = Vec::new();
@@ -218,17 +218,16 @@ fn measure_delete(scale: u64) -> Result<Measurement> {
     fixture.connection.execute(line_graph_sql(scale))?;
     seed_labels(&fixture)?;
     let started = Instant::now();
-    fixture.session.mutate(
-        "MATCH (n:Person) DETACH DELETE n",
-        &MutationParameters::new(),
-    )?;
+    fixture
+        .session
+        .mutate("MATCH (n:Person) DETACH DELETE n", &Parameters::new())?;
     let duration_ns = elapsed_ns(started);
     validate_counts(&fixture, 0, 0)?;
     Ok(measurement(&fixture, duration_ns, scale, Vec::new(), 0, 0))
 }
 
 fn validate_counts(fixture: &GraphFixture, nodes: u64, relationships: u64) -> Result<()> {
-    let parameters = MutationParameters::new();
+    let parameters = Parameters::new();
     let actual_nodes = stringify_rows(
         fixture
             .session

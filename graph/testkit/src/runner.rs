@@ -9,8 +9,9 @@ use turso_core::{
     Connection, Database, DatabaseOpts, MemoryIO, Numeric, OpenFlags, SqliteDialect, Value,
 };
 use turso_graph_frontend::{
-    register_graph, GraphCompilationCatalog, GraphRegistration, GraphSession, MutationParameters,
-    NodeSourceRegistration, ParameterTypes, RelationshipSourceRegistration, SnapshotStore,
+    register_graph, GraphCompilationCatalog, GraphConnection, GraphRegistration,
+    NodeSourceRegistration, ParameterTypes, Parameters, RelationshipSourceRegistration,
+    SnapshotStore,
 };
 use turso_graph_ir as ir;
 
@@ -87,7 +88,7 @@ impl ScenarioRunner {
 
 pub struct GraphFixture {
     pub connection: Arc<Connection>,
-    pub session: GraphSession,
+    pub session: GraphConnection,
     pub labels_table: String,
     pub types_table: String,
 }
@@ -124,7 +125,7 @@ pub fn empty_fixture_on_disk(
 
 pub(crate) fn empty_fixture_with_parameters(
     name: &str,
-    parameters: &MutationParameters,
+    parameters: &Parameters,
 ) -> Result<GraphFixture, RunnerError> {
     build_fixture(name, "", parameter_types(parameters))
 }
@@ -236,7 +237,7 @@ fn build_fixture_with_io(
             "people".to_owned(),
             "relationships".to_owned(),
         ));
-    let session = GraphSession::install(
+    let session = GraphConnection::install(
         connection.clone(),
         &registered,
         catalog,
@@ -253,7 +254,7 @@ fn build_fixture_with_io(
     })
 }
 
-fn parameter_types(parameters: &MutationParameters) -> ParameterTypes {
+fn parameter_types(parameters: &Parameters) -> ParameterTypes {
     parameters
         .iter()
         .map(|(name, value)| {
@@ -282,7 +283,7 @@ fn parameter_types(parameters: &MutationParameters) -> ParameterTypes {
         .collect()
 }
 
-fn parameters(values: &BTreeMap<String, toml::Value>) -> Result<MutationParameters, RunnerError> {
+fn parameters(values: &BTreeMap<String, toml::Value>) -> Result<Parameters, RunnerError> {
     values
         .iter()
         .map(|(name, value)| {
@@ -304,9 +305,9 @@ fn parameters(values: &BTreeMap<String, toml::Value>) -> Result<MutationParamete
 }
 
 fn execute(
-    session: &GraphSession,
+    session: &GraphConnection,
     scenario: &Scenario,
-    parameters: &MutationParameters,
+    parameters: &Parameters,
 ) -> Result<Vec<Vec<String>>, String> {
     let rows = match scenario.action.as_str() {
         "query" => session.query(&scenario.query, parameters),
@@ -413,13 +414,13 @@ mod tests {
 
         let rows = fixture
             .session
-            .query("RETURN 1 AS value", &MutationParameters::new())
+            .query("RETURN 1 AS value", &Parameters::new())
             .expect("standalone projection should execute over one unit row");
         assert_eq!(rows, vec![vec![Value::from_i64(1)]]);
 
         let rows = fixture
             .session
-            .query("MATCH (n:Person) RETURN n.name", &MutationParameters::new())
+            .query("MATCH (n:Person) RETURN n.name", &Parameters::new())
             .expect("fixture storage should remain available after construction");
 
         assert!(rows.is_empty());
@@ -436,7 +437,7 @@ mod tests {
         let text = |query: &str| {
             let rows = fixture
                 .session
-                .query(query, &MutationParameters::new())
+                .query(query, &Parameters::new())
                 .unwrap_or_else(|error| panic!("{query} failed: {error}"));
             rows[0][0].to_string()
         };
@@ -464,7 +465,7 @@ mod tests {
     #[test]
     fn entity_set_forms_and_merge_actions_update_rows() {
         let fixture = empty_fixture("set-forms").expect("fixture should initialize");
-        let parameters = MutationParameters::new();
+        let parameters = Parameters::new();
         let mutate = |query: &str| {
             fixture
                 .session
@@ -501,7 +502,7 @@ mod tests {
     #[test]
     fn properties_reads_and_copies_whole_entities() {
         let fixture = empty_fixture("properties-smoke").expect("fixture should initialize");
-        let parameters = MutationParameters::new();
+        let parameters = Parameters::new();
         let mutate = |query: &str| {
             fixture
                 .session
@@ -536,7 +537,7 @@ mod tests {
     #[test]
     fn mutation_return_supports_order_and_distinct() {
         let fixture = empty_fixture("return-order").expect("fixture should initialize");
-        let parameters = MutationParameters::new();
+        let parameters = Parameters::new();
         let summary = fixture
             .session
             .mutate(
@@ -552,7 +553,7 @@ mod tests {
     #[test]
     fn bound_relationship_list_constrains_variable_length_match() {
         let fixture = empty_fixture("bound-rellist").expect("fixture should initialize");
-        let parameters = MutationParameters::new();
+        let parameters = Parameters::new();
         for statement in [
             "CREATE (:Person {name: 'A'})",
             "CREATE (:Person {name: 'B'})",
@@ -589,7 +590,7 @@ mod tests {
             .session
             .query(
                 "EXPLAIN (VERBOSE, COSTS OFF) MATCH (n:Person) RETURN n.name",
-                &MutationParameters::new(),
+                &Parameters::new(),
             )
             .expect("explain should compile through core's plan output");
         assert!(!rows.is_empty(), "plan output should have rows");
@@ -598,7 +599,7 @@ mod tests {
     #[test]
     fn optional_match_count_groups_stay_correlated() {
         let fixture = empty_fixture("opt-count").expect("fixture should initialize");
-        let parameters = MutationParameters::new();
+        let parameters = Parameters::new();
         fixture
             .session
             .mutate(
@@ -646,7 +647,7 @@ mod tests {
     #[test]
     fn anchor_reversal_keeps_optional_match_groups() {
         let fixture = empty_fixture("opt-reversal").expect("fixture should initialize");
-        let parameters = MutationParameters::new();
+        let parameters = Parameters::new();
         for statement in [
             "CREATE (:Person {name: 'Ada'}) CREATE (:Person {name: 'Bob'})",
             "CREATE (:Person {name: 'Carol'}) CREATE (:Person {name: 'Dan'})",
@@ -685,7 +686,7 @@ mod tests {
     #[test]
     fn correlated_and_optional_match_after_mutation() {
         let fixture = empty_fixture("correlated-staged").expect("fixture should initialize");
-        let parameters = MutationParameters::new();
+        let parameters = Parameters::new();
         // TCK Match8 [2] shape: MERGE then re-match both endpoints.
         let summary = fixture
             .session
@@ -713,7 +714,7 @@ mod tests {
     #[test]
     fn match_after_mutation_joins_current_rows() {
         let fixture = empty_fixture("staged-match").expect("fixture should initialize");
-        let parameters = MutationParameters::new();
+        let parameters = Parameters::new();
         let mutate = |query: &str| {
             fixture
                 .session

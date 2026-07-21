@@ -7,8 +7,8 @@ use turso_graph_runtime::{BuildLimits, Cancellation, NeverCancelled};
 
 use crate::{
     execute_cypher_mutation, graph_frontend_id, install_graph_catalog, GraphCompilationCatalog,
-    GraphCompiler, MutationError, MutationParameters, MutationSummary, ParameterTypes,
-    RegisteredGraph, SessionSnapshotStore, SnapshotError, SnapshotStore,
+    GraphCompiler, MutationError, MutationSummary, ParameterTypes, Parameters, RegisteredGraph,
+    SessionSnapshotStore, SnapshotError, SnapshotStore,
 };
 
 #[derive(Debug, Error)]
@@ -34,7 +34,7 @@ pub enum Error {
 /// Read compilation stays on `FrontendCompiler`. Variable traversal rebuilds
 /// a private snapshot immediately before execution, so it observes the rows
 /// visible to this connection without publishing uncommitted state globally.
-pub struct GraphSession {
+pub struct GraphConnection {
     connection: Arc<Connection>,
     graph: GraphId,
     graph_name: String,
@@ -44,14 +44,14 @@ pub struct GraphSession {
     limits: BuildLimits,
 }
 
-impl Drop for GraphSession {
+impl Drop for GraphConnection {
     fn drop(&mut self) {
         self.connection
             .unregister_frontend_compiler(&graph_frontend_id());
     }
 }
 
-impl GraphSession {
+impl GraphConnection {
     pub fn install(
         connection: Arc<Connection>,
         graph: &RegisteredGraph,
@@ -93,29 +93,21 @@ impl GraphSession {
         &self.graph_name
     }
 
-    pub fn query(
-        &self,
-        source: &str,
-        parameters: &MutationParameters,
-    ) -> Result<Vec<Vec<Value>>, Error> {
+    pub fn query(&self, source: &str, parameters: &Parameters) -> Result<Vec<Vec<Value>>, Error> {
         self.query_cancellable(source, parameters, &NeverCancelled)
     }
 
     pub fn query_cancellable(
         &self,
         source: &str,
-        parameters: &MutationParameters,
+        parameters: &Parameters,
         cancellation: &dyn Cancellation,
     ) -> Result<Vec<Vec<Value>>, Error> {
         let mut statement = self.prepare_query_cancellable(source, parameters, cancellation)?;
         Ok(statement.run_collect_rows()?)
     }
 
-    pub fn prepare_query(
-        &self,
-        source: &str,
-        parameters: &MutationParameters,
-    ) -> Result<Statement, Error> {
+    pub fn prepare_query(&self, source: &str, parameters: &Parameters) -> Result<Statement, Error> {
         self.prepare_query_cancellable(source, parameters, &NeverCancelled)
     }
 
@@ -145,7 +137,7 @@ impl GraphSession {
     pub fn prepare_query_cancellable(
         &self,
         source: &str,
-        parameters: &MutationParameters,
+        parameters: &Parameters,
         cancellation: &dyn Cancellation,
     ) -> Result<Statement, Error> {
         // EXPLAIN-prefixed queries (including postgres option lists like
@@ -188,11 +180,7 @@ impl GraphSession {
         Ok(statement)
     }
 
-    pub fn mutate(
-        &self,
-        source: &str,
-        parameters: &MutationParameters,
-    ) -> Result<MutationSummary, Error> {
+    pub fn mutate(&self, source: &str, parameters: &Parameters) -> Result<MutationSummary, Error> {
         let result = execute_cypher_mutation(
             &self.connection,
             self.graph,
@@ -370,8 +358,8 @@ mod tests {
     struct Fixture {
         writer: Arc<Connection>,
         reader: Arc<Connection>,
-        writer_session: GraphSession,
-        reader_session: GraphSession,
+        writer_session: GraphConnection,
+        reader_session: GraphConnection,
     }
 
     fn fixture(name: &str) -> Fixture {
@@ -422,7 +410,7 @@ mod tests {
         shared
             .refresh(&writer, "social", BuildLimits::default(), &NeverCancelled)
             .unwrap();
-        let writer_session = GraphSession::install(
+        let writer_session = GraphConnection::install(
             writer.clone(),
             &registered,
             catalog.clone(),
@@ -431,7 +419,7 @@ mod tests {
             BuildLimits::default(),
         )
         .unwrap();
-        let reader_session = GraphSession::install(
+        let reader_session = GraphConnection::install(
             reader.clone(),
             &registered,
             catalog,
@@ -448,11 +436,11 @@ mod tests {
         }
     }
 
-    fn outgoing(session: &GraphSession) -> Vec<Vec<Value>> {
+    fn outgoing(session: &GraphConnection) -> Vec<Vec<Value>> {
         session
             .query(
                 "MATCH (a:Person {id: 1})-[:KNOWS*1..1]->(b) RETURN b.name AS name ORDER BY b.name",
-                &MutationParameters::new(),
+                &Parameters::new(),
             )
             .unwrap()
     }
@@ -465,7 +453,7 @@ mod tests {
             .writer_session
             .mutate(
                 "MATCH (a:Person {id: 1}) CREATE (a)-[:KNOWS]->(:Person {id: 3, name: 'C'})",
-                &MutationParameters::new(),
+                &Parameters::new(),
             )
             .unwrap();
         assert_eq!(
@@ -487,7 +475,7 @@ mod tests {
             .writer_session
             .mutate(
                 "MATCH (a:Person {id: 1}) CREATE (a)-[:KNOWS]->(:Person {id: 3, name: 'C'})",
-                &MutationParameters::new(),
+                &Parameters::new(),
             )
             .unwrap();
         assert!(outgoing(&fixture.reader_session).is_empty());
@@ -501,7 +489,7 @@ mod tests {
             .writer_session
             .mutate(
                 "MATCH (a:Person {id: 1}) CREATE (a)-[:KNOWS]->(:Person {id: 4, name: 'D'})",
-                &MutationParameters::new(),
+                &Parameters::new(),
             )
             .unwrap();
         assert_eq!(
@@ -521,7 +509,7 @@ mod tests {
             .writer_session
             .mutate(
                 "MATCH (a:Person {id: 1}) CREATE (a)-[:KNOWS]->(:Person {id: 3, name: 'C'})",
-                &MutationParameters::new(),
+                &Parameters::new(),
             )
             .unwrap();
         assert_eq!(
@@ -558,7 +546,7 @@ mod tests {
         let fixture = fixture(":memory:graph-session-failure");
         let result = fixture.writer_session.mutate(
             "CREATE (:Person {id: 3, name: 'C'}), (:Person {id: 1, name: 'duplicate'})",
-            &MutationParameters::new(),
+            &Parameters::new(),
         );
         assert!(result.is_err());
         assert!(outgoing(&fixture.writer_session).is_empty());
@@ -584,7 +572,7 @@ mod tests {
             .reader_session
             .query(
                 "MATCH (a:Person) RETURN count(*) + 1 AS c",
-                &MutationParameters::new(),
+                &Parameters::new(),
             )
             .expect("count(*) + 1 must aggregate");
         assert_eq!(rows, vec![vec![Value::from_i64(3)]]);
@@ -593,7 +581,7 @@ mod tests {
             .reader_session
             .query(
                 "MATCH (a:Person) RETURN 2 * sum(a.id) AS s",
-                &MutationParameters::new(),
+                &Parameters::new(),
             )
             .expect("2 * sum(x) must aggregate");
         assert_eq!(rows, vec![vec![Value::from_i64(6)]]);
@@ -603,7 +591,7 @@ mod tests {
             .reader_session
             .query(
                 "MATCH (a:Person) RETURN a.name AS name, count(*) + 1 AS c ORDER BY name",
-                &MutationParameters::new(),
+                &Parameters::new(),
             )
             .expect("grouped compound aggregate");
         assert_eq!(
@@ -638,7 +626,7 @@ mod tests {
             .writer_session
             .query(
                 "MATCH (a:Person {id: 1})-[:KNOWS*]->(b) RETURN b.id",
-                &MutationParameters::new(),
+                &Parameters::new(),
             )
             .expect_err("65-hop chain must overflow the 64-hop implicit cap");
         assert!(
@@ -650,7 +638,7 @@ mod tests {
             .writer_session
             .query(
                 "MATCH (a:Person {id: 1})-[:KNOWS*1..3]->(b) RETURN b.id",
-                &MutationParameters::new(),
+                &Parameters::new(),
             )
             .expect("explicit bounds keep truncation semantics");
         assert_eq!(rows.len(), 3);
@@ -666,7 +654,7 @@ mod tests {
             .reader_session
             .query(
                 "MATCH (a:Person) WHERE a.name IN ['Ada'] RETURN a.id",
-                &MutationParameters::new(),
+                &Parameters::new(),
             )
             .expect("IN lowering depends on session-installed cypher_equals");
         assert_eq!(rows, vec![vec![Value::from_i64(1)]]);
@@ -682,10 +670,7 @@ mod tests {
 
         let summary = fixture
             .writer_session
-            .mutate(
-                "CREATE (:Person {id: 3, name: 'C'})",
-                &MutationParameters::new(),
-            )
+            .mutate("CREATE (:Person {id: 3, name: 'C'})", &Parameters::new())
             .expect("clear failure must not flip a successful mutation to Err");
         assert_eq!(summary.operations_executed, 1);
         assert_eq!(
@@ -702,7 +687,7 @@ mod tests {
             .writer_session
             .mutate(
                 "CREATE (:Person {id: 3, name: 'duplicate'})",
-                &MutationParameters::new(),
+                &Parameters::new(),
             )
             .expect_err("duplicate identity must fail");
         assert!(
@@ -726,7 +711,7 @@ mod tests {
             .writer_session
             .query_cancellable(
                 "MATCH (a:Person {id: 1})-[:KNOWS*1..1]->(b) RETURN b.name",
-                &MutationParameters::new(),
+                &Parameters::new(),
                 &Cancelled,
             )
             .expect_err("cancelled rebuild must fail");
@@ -793,7 +778,7 @@ mod tests {
             .writer_session
             .mutate(
                 "MATCH (a:Person {id: 1}) CREATE (a)-[:KNOWS]->(:Person {id: 3, name: 'C'})",
-                &MutationParameters::new(),
+                &Parameters::new(),
             )
             .unwrap();
         assert_eq!(

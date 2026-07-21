@@ -9,7 +9,7 @@ use gherkin::{Feature, GherkinEnv, Scenario, Step, StepType};
 use regex::Regex;
 use thiserror::Error;
 use turso_core::{Numeric, Value};
-use turso_graph_frontend::MutationParameters;
+use turso_graph_frontend::Parameters;
 
 use crate::{
     history::{recorded_at, result_digest},
@@ -709,9 +709,9 @@ fn named_graph_setup(name: &str) -> Result<String, String> {
 }
 
 fn execute_tck_statement(
-    session: &turso_graph_frontend::GraphSession,
+    session: &turso_graph_frontend::GraphConnection,
     statement: &str,
-    parameters: &MutationParameters,
+    parameters: &Parameters,
 ) -> Result<Vec<Vec<Value>>, String> {
     match session.query(statement, parameters) {
         Ok(rows) => Ok(rows),
@@ -726,13 +726,13 @@ fn execute_tck_statement(
     }
 }
 
-fn parameters(case: &TckCase) -> Option<MutationParameters> {
+fn parameters(case: &TckCase) -> Option<Parameters> {
     let Some(step) = case
         .steps
         .iter()
         .find(|step| step.value.contains("parameters are"))
     else {
-        return Some(MutationParameters::new());
+        return Some(Parameters::new());
     };
     step.table
         .as_ref()?
