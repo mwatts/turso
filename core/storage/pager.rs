@@ -3470,6 +3470,23 @@ impl Pager {
         })
     }
 
+    /// Point-in-time memory usage of this pager for `PRAGMA memory_stats`:
+    /// (resident page-cache pages, page-cache capacity in pages, page size
+    /// in bytes, WAL frames). WAL frames are 0 for non-WAL databases.
+    pub fn memory_stats(&self) -> (usize, usize, u32, u64) {
+        let (pages, capacity) = {
+            let cache = self.page_cache.read();
+            (cache.len(), cache.capacity())
+        };
+        let page_size = self.get_page_size().unwrap_or_default().get();
+        let wal_frames = self
+            .wal
+            .as_ref()
+            .map(|wal| wal.get_max_frame())
+            .unwrap_or(0);
+        (pages, capacity, page_size, wal_frames)
+    }
+
     /// Flush all dirty pages to disk (async/re-entrant).
     /// Unlike commit_wal, this function does not commit, checkpoint nor sync the WAL/Database.
     #[instrument(skip_all, level = Level::DEBUG)]

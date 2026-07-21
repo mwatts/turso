@@ -1819,6 +1819,8 @@ pub enum PragmaName {
     LegacyFileFormat,
     /// Set or get the maximum number of pages in the database file.
     MaxPageCount,
+    /// Report engine memory usage (page cache and WAL) as name/value rows.
+    MemoryStats,
     /// `module_list` pragma
     /// `module_list` lists modules used by virtual tables.
     ModuleList,

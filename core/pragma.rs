@@ -88,6 +88,7 @@ pub fn pragma_for(pragma: &PragmaName) -> Pragma {
                 | PragmaFlags::NoColumns1,
             &["max_page_count"],
         ),
+        MemoryStats => Pragma::new(PragmaFlags::Result0, &["name", "value"]),
         SchemaVersion => Pragma::new(
             PragmaFlags::NoColumns1 | PragmaFlags::Result0,
             &["schema_version"],

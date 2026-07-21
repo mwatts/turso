@@ -102,6 +102,41 @@ pub struct DomainReport {
     /// Process peak RSS in megabytes when the domain finished; monotone
     /// across domains within a run, so per-domain growth is the delta.
     pub peak_rss_mb: u64,
+    /// Resident page-cache megabytes when the domain finished
+    /// (PRAGMA memory_stats).
+    pub page_cache_mb: u64,
+    /// WAL megabytes when the domain finished (PRAGMA memory_stats).
+    pub wal_mb: u64,
+}
+
+/// Reads PRAGMA memory_stats off a connection as (page_cache_mb, wal_mb);
+/// zero on any failure so diagnostics never fail a run.
+fn memory_stats_mb(connection: &std::sync::Arc<turso_core::Connection>) -> (u64, u64) {
+    let Ok(mut statement) = connection.prepare("PRAGMA memory_stats") else {
+        return (0, 0);
+    };
+    let Ok(rows) = statement.run_collect_rows() else {
+        return (0, 0);
+    };
+    let mut page_cache = 0_u64;
+    let mut wal = 0_u64;
+    for row in rows {
+        let (Some(turso_core::Value::Text(name)), Some(value)) = (row.first(), row.get(1)) else {
+            continue;
+        };
+        let value = match value {
+            turso_core::Value::Numeric(turso_core::Numeric::Integer(value)) => {
+                (*value).max(0) as u64
+            }
+            _ => 0,
+        };
+        match name.to_string().as_str() {
+            "page_cache_bytes" => page_cache = value / (1024 * 1024),
+            "wal_bytes" => wal = value / (1024 * 1024),
+            _ => {}
+        }
+    }
+    (page_cache, wal)
 }
 
 /// Peak resident set size of this process in megabytes. macOS reports
@@ -464,6 +499,8 @@ pub fn run_domain(
                         query_ms_total: query_ms_total
                             + timeouts as u64 * query_timeout.as_millis() as u64,
                         peak_rss_mb: peak_rss_mb(),
+                        page_cache_mb: 0,
+                        wal_mb: 0,
                     });
                 }
                 eprintln!(
@@ -609,6 +646,7 @@ fn run_domain_worker(
             }
         }
     }
+    let (page_cache_mb, wal_mb) = memory_stats_mb(&fixture.connection);
     Ok(DomainReport {
         domain: domain.to_owned(),
         entities: kg.entities.len(),
@@ -620,6 +658,8 @@ fn run_domain_worker(
         errored,
         query_ms_total,
         peak_rss_mb: peak_rss_mb(),
+        page_cache_mb,
+        wal_mb,
     })
 }
 

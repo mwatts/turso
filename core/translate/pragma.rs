@@ -445,6 +445,18 @@ fn update_pragma(
             schema_was_explicit,
             program,
         ),
+        // Read-only diagnostics: a supplied value is ignored, the pragma
+        // still reports.
+        PragmaName::MemoryStats => query_pragma(
+            PragmaName::MemoryStats,
+            resolver,
+            None,
+            pager,
+            connection,
+            database_id,
+            schema_was_explicit,
+            program,
+        ),
         PragmaName::MaxPageCount => {
             let data = parse_signed_number(&value)?;
             let max_page_count_value = match data {
@@ -1004,6 +1016,39 @@ fn query_pragma(
             program.emit_result_row(register, 1);
             program.add_pragma_result_column(pragma.to_string());
             Ok(TransactionMode::Read)
+        }
+        PragmaName::MemoryStats => {
+            // Diagnostics snapshot taken at prepare time; pragma statements
+            // are prepared and run immediately, so the values are current.
+            let base_reg = register;
+            program.alloc_register();
+            let (pages, capacity, page_size, wal_frames) = pager.memory_stats();
+            // A WAL frame is the page image plus its 24-byte frame header.
+            const WAL_FRAME_HEADER_BYTES: u64 = 24;
+            let rows: [(&str, i64); 6] = [
+                ("page_cache_pages", pages as i64),
+                ("page_cache_capacity", capacity as i64),
+                ("page_size", i64::from(page_size)),
+                (
+                    "page_cache_bytes",
+                    (pages as u64 * u64::from(page_size)) as i64,
+                ),
+                ("wal_frames", wal_frames as i64),
+                (
+                    "wal_bytes",
+                    (wal_frames * (u64::from(page_size) + WAL_FRAME_HEADER_BYTES)) as i64,
+                ),
+            ];
+            for (stat, value) in rows {
+                program.emit_string8(stat.to_string(), base_reg);
+                program.emit_int(value, base_reg + 1);
+                program.emit_result_row(base_reg, 2);
+            }
+            let pragma_meta = pragma_for(&pragma);
+            for col_name in pragma_meta.columns.iter() {
+                program.add_pragma_result_column(col_name.to_string());
+            }
+            Ok(TransactionMode::None)
         }
         PragmaName::MaxPageCount => {
             program.emit_insn(Insn::MaxPgcnt {
