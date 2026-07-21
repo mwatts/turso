@@ -27,6 +27,16 @@ pub trait RelationalCatalogSnapshot {
         source: ir::SourceTableId,
         property: ir::PropertyId,
     ) -> Option<String>;
+    /// Whether the property's column stores jsonb blobs (declared JSONB).
+    /// Lowering renders such columns through json() so every consumer sees
+    /// canonical JSON text, exactly as with text-encoded properties.
+    fn property_column_is_jsonb(
+        &self,
+        _source: ir::SourceTableId,
+        _property: ir::PropertyId,
+    ) -> bool {
+        false
+    }
     /// Junction table recording each node's labels, when the graph has one.
     fn labels_table(&self) -> Option<String> {
         None
@@ -1207,14 +1217,17 @@ fn lower_expression_with_references(
             // direct reference replaces the correlated subquery. Reference
             // overrides (mutation rows, join predicates) bypass this: their
             // contexts never carry materialized property columns.
+            let jsonb = catalog.property_column_is_jsonb(binding.source, *property);
             if fields.is_empty()
                 && binding.properties.contains(&property.get())
                 && !references.contains_key(entity)
             {
-                return Ok(format!(
-                    "{input_alias}.{}",
-                    property_column_ref(*entity, *property)
-                ));
+                let column = format!("{input_alias}.{}", property_column_ref(*entity, *property));
+                return Ok(if jsonb {
+                    format!("json({column})")
+                } else {
+                    column
+                });
             }
             let column = catalog.property_column(binding.source, *property).ok_or(
                 LowerError::MissingProperty {
@@ -1257,6 +1270,11 @@ fn lower_expression_with_references(
             // identity correlation keeps using the `p.` alias either way.
             let selector = if fields.len() < 2 {
                 format!("p.{selector}")
+            } else {
+                selector
+            };
+            let selector = if jsonb && fields.is_empty() {
+                format!("json({selector})")
             } else {
                 selector
             };

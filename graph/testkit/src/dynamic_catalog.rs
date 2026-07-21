@@ -244,6 +244,14 @@ impl RelationalCatalogSnapshot for DynamicCatalog {
             .cloned()
     }
 
+    fn property_column_is_jsonb(
+        &self,
+        source: ir::SourceTableId,
+        property: ir::PropertyId,
+    ) -> bool {
+        self.inner.property_column_is_jsonb(source, property)
+    }
+
     fn payload_columns(&self, source: ir::SourceTableId) -> Option<Vec<(String, String)>> {
         self.inner.payload_columns(source)
     }

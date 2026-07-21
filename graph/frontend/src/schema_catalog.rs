@@ -392,6 +392,39 @@ impl RelationalCatalogSnapshot for SchemaCatalog {
         table.get_column_at(index)?.name.clone()
     }
 
+    fn property_column_is_jsonb(
+        &self,
+        source: ir::SourceTableId,
+        property: ir::PropertyId,
+    ) -> bool {
+        let table_name = if self
+            .node_source_entry()
+            .is_some_and(|entry| entry.id == source)
+        {
+            self.node_source_entry().map(|entry| entry.table.clone())
+        } else if self
+            .relationship_source_entry()
+            .is_some_and(|entry| entry.id == source)
+        {
+            self.relationship_source_entry()
+                .map(|entry| entry.table.clone())
+        } else {
+            None
+        };
+        let Some(table_name) = table_name else {
+            return false;
+        };
+        let Some(table) = self.connection.current_schema().get_table(&table_name) else {
+            return false;
+        };
+        let Some(index) = (property.get() as usize).checked_sub(1) else {
+            return false;
+        };
+        table
+            .get_column_at(index)
+            .is_some_and(|column| column.ty_str.eq_ignore_ascii_case("JSONB"))
+    }
+
     fn payload_columns(&self, source: ir::SourceTableId) -> Option<Vec<(String, String)>> {
         let (table_name, structural) =
             if let Some(entry) = self.node_source_entry().filter(|entry| entry.id == source) {

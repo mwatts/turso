@@ -126,6 +126,13 @@ fn sql_quote(value: &str) -> String {
     value.replace('\'', "''")
 }
 
+/// Renders any value as a jsonb() blob constructor for declared-JSONB
+/// columns; scalars JSON-encode so a mixed-shape property stays uniformly
+/// JSON inside its column.
+fn jsonb_sql(value: &serde_json::Value) -> String {
+    format!("jsonb('{}')", sql_quote(&value.to_string()))
+}
+
 fn scalar_sql(value: &serde_json::Value) -> String {
     match value {
         serde_json::Value::Null => "NULL".to_owned(),
@@ -143,6 +150,25 @@ fn scalar_sql(value: &serde_json::Value) -> String {
 pub fn load_graph(kg: &SimpleKg) -> Result<GraphFixture> {
     let fixture = empty_fixture("cypherbench").context("fixture")?;
     let connection = &fixture.connection;
+    // Properties that ever carry a list or map value store jsonb blobs in a
+    // declared-JSONB column: binary encoding is smaller and parse-free, and
+    // the lowering renders such columns back to JSON text through json().
+    let mut json_shaped: std::collections::HashSet<String> = std::collections::HashSet::new();
+    for entity in &kg.entities {
+        for (key, value) in &entity.properties {
+            if value.is_array() || value.is_object() {
+                json_shaped.insert(format!("people.{key}"));
+            }
+        }
+    }
+    for relation in &kg.relations {
+        for (key, value) in &relation.properties {
+            if value.is_array() || value.is_object() {
+                json_shaped.insert(format!("relationships.{key}"));
+            }
+        }
+    }
+    let json_shaped = &json_shaped;
     let mut columns: HashMap<String, String> = HashMap::new();
     let mut ensure_column = |connection: &std::sync::Arc<turso_core::Connection>,
                              table: &str,
@@ -160,9 +186,14 @@ pub fn load_graph(kg: &SimpleKg) -> Result<GraphFixture> {
             _ => name.to_owned(),
         };
         if !(table == "people" && (physical == "name" || physical == "age")) {
+            let declared_type = if json_shaped.contains(&key) {
+                " JSONB"
+            } else {
+                ""
+            };
             connection
                 .execute(format!(
-                    "ALTER TABLE {table} ADD COLUMN \"{}\"",
+                    "ALTER TABLE {table} ADD COLUMN \"{}\"{declared_type}",
                     physical.replace('"', "\"\"")
                 ))
                 .with_context(|| format!("add column {physical}"))?;
@@ -221,7 +252,11 @@ pub fn load_graph(kg: &SimpleKg) -> Result<GraphFixture> {
                 "\"{}\"",
                 ensure_column(connection, "people", key)?.replace('"', "\"\"")
             ));
-            values.push(scalar_sql(value));
+            values.push(if json_shaped.contains(&format!("people.{key}")) {
+                jsonb_sql(value)
+            } else {
+                scalar_sql(value)
+            });
         }
         groups
             .entry(names.join(", "))
@@ -257,7 +292,11 @@ pub fn load_graph(kg: &SimpleKg) -> Result<GraphFixture> {
                 "\"{}\"",
                 ensure_column(connection, "relationships", key)?.replace('"', "\"\"")
             ));
-            values.push(scalar_sql(value));
+            values.push(if json_shaped.contains(&format!("relationships.{key}")) {
+                jsonb_sql(value)
+            } else {
+                scalar_sql(value)
+            });
         }
         groups
             .entry(names.join(", "))
