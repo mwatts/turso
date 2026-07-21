@@ -12,7 +12,7 @@ use crate::{
 };
 
 #[derive(Debug, Error)]
-pub enum GraphSessionError {
+pub enum Error {
     #[error(transparent)]
     Parse(#[from] turso_graph_cypher::ParseError),
     #[error(transparent)]
@@ -59,10 +59,13 @@ impl GraphSession {
         parameters: ParameterTypes,
         shared_snapshots: Arc<SnapshotStore>,
         limits: BuildLimits,
-    ) -> Result<Self, GraphSessionError> {
+    ) -> Result<Self, Error> {
         let snapshots = Arc::new(SessionSnapshotStore::new(shared_snapshots.clone()));
         shared_snapshots.register_session(&connection, &snapshots)?;
         install_graph_catalog(connection.as_ref(), shared_snapshots)?;
+        // Lowered SQL calls temporal/duration scalars; without them embedders
+        // hit "runtime scalar function missing" on any temporal query.
+        turso_graph_temporal::install_temporal_extension(connection.as_ref());
         connection.register_frontend_compiler(
             graph_frontend_id(),
             Arc::new(GraphCompiler::new(
@@ -94,7 +97,7 @@ impl GraphSession {
         &self,
         source: &str,
         parameters: &MutationParameters,
-    ) -> Result<Vec<Vec<Value>>, GraphSessionError> {
+    ) -> Result<Vec<Vec<Value>>, Error> {
         self.query_cancellable(source, parameters, &NeverCancelled)
     }
 
@@ -103,7 +106,7 @@ impl GraphSession {
         source: &str,
         parameters: &MutationParameters,
         cancellation: &dyn Cancellation,
-    ) -> Result<Vec<Vec<Value>>, GraphSessionError> {
+    ) -> Result<Vec<Vec<Value>>, Error> {
         let mut statement = self.prepare_query_cancellable(source, parameters, cancellation)?;
         Ok(statement.run_collect_rows()?)
     }
@@ -112,7 +115,7 @@ impl GraphSession {
         &self,
         source: &str,
         parameters: &MutationParameters,
-    ) -> Result<Statement, GraphSessionError> {
+    ) -> Result<Statement, Error> {
         self.prepare_query_cancellable(source, parameters, &NeverCancelled)
     }
 
@@ -122,7 +125,7 @@ impl GraphSession {
     pub fn query_result_types(
         &self,
         source: &str,
-    ) -> Result<Vec<turso_graph_ir::ValueType>, GraphSessionError> {
+    ) -> Result<Vec<turso_graph_ir::ValueType>, Error> {
         let syntax = turso_graph_cypher::parse(source)?;
         let bound = crate::bind(&syntax, self.graph, self.catalog.as_ref(), &self.parameters)?;
         let scope = bound.plan.scope();
@@ -144,7 +147,7 @@ impl GraphSession {
         source: &str,
         parameters: &MutationParameters,
         cancellation: &dyn Cancellation,
-    ) -> Result<Statement, GraphSessionError> {
+    ) -> Result<Statement, Error> {
         // EXPLAIN-prefixed queries (including postgres option lists like
         // EXPLAIN (VERBOSE, COSTS OFF)) compile the inner query and return
         // core's own plan via EXPLAIN QUERY PLAN over the lowered SQL.
@@ -161,9 +164,7 @@ impl GraphSession {
             let bound = crate::bind(&syntax, self.graph, self.catalog.as_ref(), &self.parameters)?;
             let statement =
                 crate::lower_relational(&bound.plan, self.catalog.as_ref()).map_err(|error| {
-                    GraphSessionError::Database(turso_core::LimboError::ParseError(
-                        error.to_string(),
-                    ))
+                    Error::Database(turso_core::LimboError::ParseError(error.to_string()))
                 })?;
             let mut statement = self
                 .connection
@@ -191,7 +192,7 @@ impl GraphSession {
         &self,
         source: &str,
         parameters: &MutationParameters,
-    ) -> Result<MutationSummary, GraphSessionError> {
+    ) -> Result<MutationSummary, Error> {
         let result = execute_cypher_mutation(
             &self.connection,
             self.graph,
@@ -199,8 +200,15 @@ impl GraphSession {
             source,
             parameters,
         );
-        self.snapshots.clear()?;
-        Ok(result?)
+        let cleared = self.snapshots.clear();
+        let summary = result?;
+        if let Err(error) = cleared {
+            // The mutation is already durable; a poisoned local snapshot
+            // cache must not turn that success into an error. The store
+            // surfaces its own failure on the next traversal read.
+            tracing::warn!("clearing session snapshots after mutation failed: {error}");
+        }
+        Ok(summary)
     }
 }
 
@@ -235,16 +243,11 @@ pub fn strip_explain_prefix(source: &str) -> Option<&str> {
         let close = options_start.find(')')?;
         rest = options_start[close + 1..].trim_start();
     }
-    loop {
-        let lowered = rest.to_ascii_lowercase();
-        if let Some(next) = ["analyze", "verbose"]
-            .iter()
-            .find(|keyword| lowered.starts_with(*keyword))
-        {
-            rest = rest[next.len()..].trim_start();
-        } else {
-            break;
-        }
+    while let Some(next) = ["analyze", "verbose"].iter().find(|keyword| {
+        rest.get(..keyword.len())
+            .is_some_and(|prefix| prefix.eq_ignore_ascii_case(keyword))
+    }) {
+        rest = rest[next.len()..].trim_start();
     }
     (!rest.is_empty()).then_some(rest)
 }
@@ -252,22 +255,24 @@ pub fn strip_explain_prefix(source: &str) -> Option<&str> {
 fn bind_query_parameters(
     statement: &mut Statement,
     parameters: &HashMap<String, Value>,
-) -> Result<(), GraphSessionError> {
+) -> Result<(), Error> {
     for (name, value) in parameters {
         let parameter = format!("${name}");
         let index = statement
             .parameter_index(&parameter)
-            .ok_or_else(|| GraphSessionError::UndeclaredParameter(name.clone()))?;
+            .ok_or_else(|| Error::UndeclaredParameter(name.clone()))?;
         statement.bind_at(index, value.clone())?;
     }
     for raw_index in 1..=statement.parameters_count() {
-        let index = NonZero::new(raw_index).expect("parameter indexes start at one");
+        let Some(index) = NonZero::new(raw_index) else {
+            continue;
+        };
         let Some(name) = statement.parameters().name(index) else {
             continue;
         };
         let name = name.strip_prefix('$').unwrap_or(name.as_str()).to_owned();
         if !parameters.contains_key(&name) {
-            return Err(GraphSessionError::MissingParameter(name));
+            return Err(Error::MissingParameter(name));
         }
     }
     Ok(())
@@ -569,6 +574,144 @@ mod tests {
     }
 
     #[test]
+    fn compound_aggregate_projections_compute_after_grouping() {
+        // Aggregates inside larger expressions must still introduce the
+        // aggregate stage; lowering them as scalar SQL calls would collapse
+        // all rows with no GROUP BY and return one mis-grouped row.
+        let fixture = fixture(":memory:graph-session-compound-aggregates");
+
+        let rows = fixture
+            .reader_session
+            .query(
+                "MATCH (a:Person) RETURN count(*) + 1 AS c",
+                &MutationParameters::new(),
+            )
+            .expect("count(*) + 1 must aggregate");
+        assert_eq!(rows, vec![vec![Value::from_i64(3)]]);
+
+        let rows = fixture
+            .reader_session
+            .query(
+                "MATCH (a:Person) RETURN 2 * sum(a.id) AS s",
+                &MutationParameters::new(),
+            )
+            .expect("2 * sum(x) must aggregate");
+        assert_eq!(rows, vec![vec![Value::from_i64(6)]]);
+
+        // With a grouping key the remainder computes per group, not once.
+        let rows = fixture
+            .reader_session
+            .query(
+                "MATCH (a:Person) RETURN a.name AS name, count(*) + 1 AS c ORDER BY name",
+                &MutationParameters::new(),
+            )
+            .expect("grouped compound aggregate");
+        assert_eq!(
+            rows,
+            vec![
+                vec![Value::build_text("Ada"), Value::from_i64(2)],
+                vec![Value::build_text("Grace"), Value::from_i64(2)],
+            ]
+        );
+    }
+
+    #[test]
+    fn unbounded_expansion_past_the_hop_cap_fails_loudly() {
+        // `[*]` has no semantic upper bound; the implicit 64-hop cap is a
+        // resource limit. A graph with a longer real path must error rather
+        // than silently return truncated results, while explicit bounds keep
+        // truncation-as-semantics behavior.
+        let fixture = fixture(":memory:graph-session-unbounded");
+        let mut sql = String::new();
+        for id in 3..=66 {
+            sql.push_str(&format!("INSERT INTO people VALUES ({id}, 'P{id}'); "));
+        }
+        for from in 1..=65 {
+            sql.push_str(&format!(
+                "INSERT INTO relationships VALUES ({from}, {from}, {}); ",
+                from + 1
+            ));
+        }
+        fixture.writer.execute(sql).unwrap();
+
+        let error = fixture
+            .writer_session
+            .query(
+                "MATCH (a:Person {id: 1})-[:KNOWS*]->(b) RETURN b.id",
+                &MutationParameters::new(),
+            )
+            .expect_err("65-hop chain must overflow the 64-hop implicit cap");
+        assert!(
+            error.to_string().contains("limit exceeded"),
+            "unexpected error: {error}"
+        );
+
+        let rows = fixture
+            .writer_session
+            .query(
+                "MATCH (a:Person {id: 1})-[:KNOWS*1..3]->(b) RETURN b.id",
+                &MutationParameters::new(),
+            )
+            .expect("explicit bounds keep truncation semantics");
+        assert_eq!(rows.len(), 3);
+    }
+
+    #[test]
+    fn install_registers_runtime_scalar_functions() {
+        // cypher_equals (and the temporal scalars) are registered by the
+        // temporal extension. Lowered SQL calls them, so a session installed
+        // without the testkit must not fail with a missing scalar function.
+        let fixture = fixture(":memory:graph-session-scalars");
+        let rows = fixture
+            .reader_session
+            .query(
+                "MATCH (a:Person) WHERE a.name IN ['Ada'] RETURN a.id",
+                &MutationParameters::new(),
+            )
+            .expect("IN lowering depends on session-installed cypher_equals");
+        assert_eq!(rows, vec![vec![Value::from_i64(1)]]);
+    }
+
+    #[test]
+    fn mutate_result_survives_snapshot_clear_failure() {
+        // A durable write must never be reported as failed because the local
+        // snapshot cache could not be cleared afterwards, and a failed
+        // mutation must keep its own error instead of the clear failure.
+        let fixture = fixture(":memory:graph-session-poisoned-clear");
+        fixture.writer_session.snapshots.poison_for_test();
+
+        let summary = fixture
+            .writer_session
+            .mutate(
+                "CREATE (:Person {id: 3, name: 'C'})",
+                &MutationParameters::new(),
+            )
+            .expect("clear failure must not flip a successful mutation to Err");
+        assert_eq!(summary.operations_executed, 1);
+        assert_eq!(
+            fixture
+                .reader
+                .prepare("SELECT count(*) FROM people")
+                .unwrap()
+                .run_collect_rows()
+                .unwrap(),
+            vec![vec![Value::from_i64(3)]]
+        );
+
+        let error = fixture
+            .writer_session
+            .mutate(
+                "CREATE (:Person {id: 3, name: 'duplicate'})",
+                &MutationParameters::new(),
+            )
+            .expect_err("duplicate identity must fail");
+        assert!(
+            matches!(error, Error::Mutation(_)),
+            "mutation error must not be replaced by the clear failure: {error}"
+        );
+    }
+
+    #[test]
     fn cancelled_local_rebuild_is_not_installed() {
         struct Cancelled;
 
@@ -589,7 +732,7 @@ mod tests {
             .expect_err("cancelled rebuild must fail");
         assert!(matches!(
             error,
-            GraphSessionError::Snapshot(SnapshotError::Runtime(
+            Error::Snapshot(SnapshotError::Runtime(
                 turso_graph_runtime::RuntimeError::Cancelled
             ))
         ));

@@ -35,9 +35,17 @@ pub use lowering::{
 };
 pub use mutation::{execute_cypher_mutation, MutationError, MutationParameters, MutationSummary};
 pub use schema_catalog::SchemaCatalog;
-pub use session::{strip_explain_prefix, GraphSession, GraphSessionError};
+pub use session::{strip_explain_prefix, Error, GraphSession};
 pub use snapshot::{
     build_traversal_snapshot, build_visible_traversal_snapshot, NodeCoordinate, PublishOutcome,
     RelationshipCoordinate, SessionSnapshotStore, SnapshotError, SnapshotMetadata,
     SnapshotPersistenceMode, SnapshotStatus, SnapshotStore, SourceIdentity, TraversalSnapshot,
 };
+
+/// Full access to the underlying engine, mirroring `turso`'s `core` re-export.
+pub use turso_core as core;
+pub use turso_core::{
+    Database, DatabaseOpts, LimboError, Numeric, OpenFlags, Row, StepResult, Value,
+};
+
+pub type Result<T> = std::result::Result<T, Error>;
