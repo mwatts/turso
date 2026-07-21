@@ -1,6 +1,8 @@
 //! Cypher conformance, regression, and lifecycle performance test support.
 
-#![forbid(unsafe_code)]
+// Denied rather than forbidden: cypherbench::peak_rss_mb carries the one
+// scoped allow for the getrusage FFI call.
+#![deny(unsafe_code)]
 
 pub mod age;
 pub mod cypherbench;

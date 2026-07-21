@@ -99,6 +99,27 @@ pub struct DomainReport {
     pub mismatched: usize,
     pub errored: usize,
     pub query_ms_total: u64,
+    /// Process peak RSS in megabytes when the domain finished; monotone
+    /// across domains within a run, so per-domain growth is the delta.
+    pub peak_rss_mb: u64,
+}
+
+/// Peak resident set size of this process in megabytes. macOS reports
+/// ru_maxrss in bytes, Linux in kilobytes.
+#[allow(unsafe_code)]
+pub fn peak_rss_mb() -> u64 {
+    let mut usage = std::mem::MaybeUninit::<libc::rusage>::zeroed();
+    // SAFETY: getrusage writes a plain-old-data struct for our own process.
+    let code = unsafe { libc::getrusage(libc::RUSAGE_SELF, usage.as_mut_ptr()) };
+    if code != 0 {
+        return 0;
+    }
+    let max_rss = unsafe { usage.assume_init() }.ru_maxrss.max(0) as u64;
+    if cfg!(target_os = "macos") {
+        max_rss / (1024 * 1024)
+    } else {
+        max_rss / 1024
+    }
 }
 
 fn sql_quote(value: &str) -> String {
@@ -403,6 +424,7 @@ pub fn run_domain(
                         errored: errored + timeouts,
                         query_ms_total: query_ms_total
                             + timeouts as u64 * query_timeout.as_millis() as u64,
+                        peak_rss_mb: peak_rss_mb(),
                     });
                 }
                 eprintln!(
@@ -558,6 +580,7 @@ fn run_domain_worker(
         mismatched,
         errored,
         query_ms_total,
+        peak_rss_mb: peak_rss_mb(),
     })
 }
 
