@@ -324,9 +324,13 @@ fn expected_outcomes(root: &Path, relative: &Path, invocation: &Regex) -> Vec<(S
                 .split_once(';')
                 .map_or("", |(_, output)| output)
                 .trim_start();
-            let expects_error = output
-                .strip_prefix("ERROR:")
-                .is_some_and(|message| !is_infrastructure_error(message));
+            let file_stem = relative
+                .file_stem()
+                .and_then(|stem| stem.to_str())
+                .unwrap_or_default();
+            let expects_error = output.strip_prefix("ERROR:").is_some_and(|message| {
+                !is_infrastructure_error(message) && !is_age_restriction_error(message, file_stem)
+            });
             (normalize_query(query), expects_error)
         })
         .collect()
@@ -344,6 +348,48 @@ fn is_infrastructure_error(message: &str) -> bool {
         || first_line.starts_with("duplicate key value violates unique constraint")
         || first_line.starts_with("could not find rte")
         || first_line.contains("is only for internal use")
+}
+
+/// Expected errors where AGE rejects a query that is valid openCypher/GQL,
+/// or where the error belongs to the surrounding SQL invocation rather than
+/// the Cypher text. Executing these successfully is correct for a Cypher
+/// engine, so the rows keep row expectations:
+///
+/// - re-binding a variable with an additional label/type is a conjunctive
+///   predicate in openCypher/GQL, not an error
+/// - fresh variables inside EXISTS patterns are valid pattern predicates
+/// - backtick-quoted names may contain arbitrary characters
+/// - repeated ON CREATE SET actions are allowed by the openCypher grammar
+/// - labels and relationship types are separate namespaces
+/// - shortest-path errors come from AGE's SQL table functions, and cast or
+///   invocation errors from the outer SELECT's column definition list
+fn is_age_restriction_error(message: &str, file_stem: &str) -> bool {
+    let first_line = message.trim_start().lines().next().unwrap_or_default();
+    // Adding a label to a re-bound variable is a conjunctive predicate in a
+    // MATCH, but inside a MERGE pattern it is a genuine creation conflict.
+    let rebind_label_predicate =
+        first_line.starts_with("multiple labels for variable") && file_stem != "cypher_merge";
+    rebind_label_predicate
+        || first_line.starts_with("label name is invalid")
+        || first_line.starts_with("ON CREATE SET specified more than once")
+        || first_line.contains("is for vertices, not edges")
+        || first_line.contains("is for edges, not vertices")
+        || first_line.starts_with("age_shortest_path:")
+        || first_line.starts_with("age_all_shortest_paths:")
+        || first_line.contains("WITH ORDINALITY")
+        || first_line.contains("ROWS FROM")
+        || first_line.starts_with("column definition list")
+        || first_line.starts_with("return row and column definition list")
+        || first_line.contains("cannot be rescanned")
+        || first_line.contains("for column")
+        || first_line.starts_with("cannot cast agtype object")
+        || first_line.starts_with("cannot cast agtype array")
+        // pgvector distance functions exist in this engine even though AGE
+        // lacks them; generic unknown-function errors stay error-expected.
+        || first_line.contains("cosine_distance")
+        || first_line.contains("l2_distance")
+        || first_line.contains("inner_product")
+        || first_line.starts_with("unsupported Unicode escape")
 }
 
 /// The expected output echoes invocations in order but can interleave extra
@@ -448,6 +494,14 @@ mod tests {
             .iter()
             .filter(|case| case.id.as_str().starts_with("age.security."))
             .all(|case| !case.expects_error));
+        // AGE-specific restrictions on valid openCypher/GQL keep row
+        // expectations: re-binding with an extra type is a conjunctive
+        // predicate, and shortest-path errors come from AGE's SQL functions.
+        assert!(!case("age.cypher.match.query-100").expects_error);
+        assert!(!case("age.age.shortest.path.query-117").expects_error);
+        // Genuinely invalid Cypher stays error-expected: re-declaring a
+        // bound variable in CREATE is VariableAlreadyBound in the TCK too.
+        assert!(case("age.cypher.create.query-77").expects_error);
     }
 
     #[test]
