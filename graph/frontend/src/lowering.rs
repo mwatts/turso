@@ -936,7 +936,38 @@ fn lower_fixed_expand(
     let from = format!("q.{}", binding_column(expand.from));
     let relationship_alias = "r";
     let target_alias = "n";
-    let (relationship_on, mut node_on) = match expand.direction {
+    // A cycle-closing target equates to an existing binding: both endpoint
+    // conditions go on the relationship join (composite endpoint indexes
+    // apply) and the node table is not re-joined.
+    let bound_reference = expand
+        .bound_target
+        .map(|binding| format!("q.{}", binding_column(binding)));
+    let (relationship_on, mut node_on) = match (&bound_reference, expand.direction) {
+        (Some(bound), ir::Direction::Outgoing) => (
+            format!(
+                "{relationship_alias}.{} = {from} AND {relationship_alias}.{} = {bound}",
+                quote_identifier(&relationship.start_column),
+                quote_identifier(&relationship.end_column)
+            ),
+            String::new(),
+        ),
+        (Some(bound), ir::Direction::Incoming) => (
+            format!(
+                "{relationship_alias}.{} = {from} AND {relationship_alias}.{} = {bound}",
+                quote_identifier(&relationship.end_column),
+                quote_identifier(&relationship.start_column)
+            ),
+            String::new(),
+        ),
+        (Some(bound), ir::Direction::Both) => (
+            format!(
+                "(({relationship_alias}.{start} = {from} AND {relationship_alias}.{end} = {bound})                  OR ({relationship_alias}.{end} = {from} AND {relationship_alias}.{start} = {bound}))",
+                start = quote_identifier(&relationship.start_column),
+                end = quote_identifier(&relationship.end_column)
+            ),
+            String::new(),
+        ),
+        (None, _) => match expand.direction {
         ir::Direction::Outgoing => (
             format!(
                 "{relationship_alias}.{} = {from}",
@@ -974,10 +1005,11 @@ fn lower_fixed_expand(
                 quote_identifier(&relationship.start_column)
             ),
         ),
+        },
     };
     // Filter typed hops through the relationship-type junction; recorded
     // types are authoritative, untyped rows only match untyped patterns.
-    let relationship_on = if expand.relationship_types.is_empty() {
+    let mut relationship_on = if expand.relationship_types.is_empty() {
         relationship_on
     } else if let Some(types_table) = catalog.relationship_types_table() {
         let names = expand
@@ -1034,20 +1066,24 @@ fn lower_fixed_expand(
             catalog,
             &mut relationship_layout,
         ));
-        let mut to_layout = bindings
-            .get(&expand.to.id())
-            .cloned()
-            .expect("inserted above");
-        extra.push_str(&materialize_properties(
-            wanted,
-            expand.to.id(),
-            expand.target_node_source,
-            target_alias,
-            catalog,
-            &mut to_layout,
-        ));
+        // A cycle-closing target has no node alias to materialize from;
+        // downstream references go through the pre-bound variable instead.
+        if bound_reference.is_none() {
+            let mut to_layout = bindings
+                .get(&expand.to.id())
+                .cloned()
+                .expect("inserted above");
+            extra.push_str(&materialize_properties(
+                wanted,
+                expand.to.id(),
+                expand.target_node_source,
+                target_alias,
+                catalog,
+                &mut to_layout,
+            ));
+            bindings.insert(expand.to.id(), to_layout);
+        }
         bindings.insert(expand.relationship.id(), relationship_layout);
-        bindings.insert(expand.to.id(), to_layout);
     }
     if !join_predicates.is_empty() {
         let references = HashMap::from([
@@ -1060,10 +1096,13 @@ fn lower_fixed_expand(
             ),
             (
                 expand.to.id(),
-                format!(
-                    "{target_alias}.{}",
-                    quote_identifier(&target.identity_column)
-                ),
+                match &bound_reference {
+                    Some(bound) => bound.clone(),
+                    None => format!(
+                        "{target_alias}.{}",
+                        quote_identifier(&target.identity_column)
+                    ),
+                },
             ),
         ]);
         let predicates = join_predicates
@@ -1073,12 +1112,25 @@ fn lower_fixed_expand(
             })
             .collect::<Result<Vec<_>, _>>()?
             .join(" AND ");
-        node_on = format!("({node_on}) AND ({predicates})");
+        if node_on.is_empty() {
+            relationship_on = format!("({relationship_on}) AND ({predicates})");
+        } else {
+            node_on = format!("({node_on}) AND ({predicates})");
+        }
     }
+    let null_probe = match &bound_reference {
+        Some(_) => format!(
+            "{relationship_alias}.{}",
+            quote_identifier(&relationship.identity_column)
+        ),
+        None => format!(
+            "{target_alias}.{}",
+            quote_identifier(&target.identity_column)
+        ),
+    };
     let relationship_identity = if optional {
         format!(
-            "CASE WHEN {target_alias}.{} IS NULL THEN NULL ELSE {relationship_alias}.{} END",
-            quote_identifier(&target.identity_column),
+            "CASE WHEN {null_probe} IS NULL THEN NULL ELSE {relationship_alias}.{} END",
             quote_identifier(&relationship.identity_column)
         )
     } else {
@@ -1087,17 +1139,31 @@ fn lower_fixed_expand(
             quote_identifier(&relationship.identity_column)
         )
     };
+    let target_value = match &bound_reference {
+        Some(bound) if optional => {
+            format!("CASE WHEN {null_probe} IS NULL THEN NULL ELSE {bound} END")
+        }
+        Some(bound) => bound.clone(),
+        None => format!(
+            "{target_alias}.{}",
+            quote_identifier(&target.identity_column)
+        ),
+    };
+    let node_join = match &bound_reference {
+        Some(_) => String::new(),
+        None => format!(
+            " {join} {} AS {target_alias} ON {node_on}",
+            quote_identifier(&target.table)
+        ),
+    };
     Ok(Lowered {
         sql: format!(
-            "SELECT q.*, {relationship_identity} AS {}, {target_alias}.{} AS {}{extra} \
-             FROM ({}) AS q {join} {} AS {relationship_alias} ON {relationship_on} \
-             {join} {} AS {target_alias} ON {node_on}",
+            "SELECT q.*, {relationship_identity} AS {}, {target_value} AS {}{extra} \
+             FROM ({}) AS q {join} {} AS {relationship_alias} ON {relationship_on}{node_join}",
             binding_column(expand.relationship.id()),
-            quote_identifier(&target.identity_column),
             binding_column(expand.to.id()),
             input.sql,
             quote_identifier(&relationship.table),
-            quote_identifier(&target.table),
         ),
         bindings,
     })

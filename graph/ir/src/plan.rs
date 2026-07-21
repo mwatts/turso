@@ -85,6 +85,11 @@ pub struct FixedExpand {
     pub to: Binding,
     pub direction: Direction,
     pub relationship_types: Vec<RelationshipTypeId>,
+    /// When the target closes a cycle onto an already-bound node, the
+    /// binding whose identity the target must equal. Lowering folds the
+    /// equality into the relationship join (making composite endpoint
+    /// indexes usable) instead of filtering after an extra node join.
+    pub bound_target: Option<BindingId>,
 }
 
 /// A bounded variable-length expansion from an already-bound node.

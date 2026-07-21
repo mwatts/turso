@@ -1987,6 +1987,14 @@ impl<'a> Binder<'a> {
             };
             let input = self.plan.take().ok_or(BindError::EmptyQuery)?;
             let scope = ir::Scope::new(self.scope.clone())?;
+            // Cycle-closing without target properties folds the identity
+            // equality into the relationship join (composite endpoint
+            // indexes apply); targets with property maps still need the
+            // node join, so they keep the post-expand filter.
+            let bound_target = match (&reused, &relationship.range) {
+                (Some(existing), None) if node.properties.is_empty() => Some(existing.id()),
+                _ => None,
+            };
             let kind = if let Some(range) = &relationship.range {
                 let min_hops = range.value.min.unwrap_or(1);
                 let max_hops = range
@@ -2027,6 +2035,7 @@ impl<'a> Binder<'a> {
                     to: to.clone(),
                     direction,
                     relationship_types,
+                    bound_target,
                 })
             };
             self.plan = Some(ir::Plan::new(kind, scope, ir::ResultShape::default())?);
@@ -2062,11 +2071,13 @@ impl<'a> Binder<'a> {
                 }))?;
             }
             if let Some(existing) = reused {
-                let input = self.plan.take().ok_or(BindError::EmptyQuery)?;
-                self.wrap_plan(ir::PlanKind::Filter(ir::Filter {
-                    input: Box::new(input),
-                    predicate: equality(&to, &existing),
-                }))?;
+                if bound_target.is_none() {
+                    let input = self.plan.take().ok_or(BindError::EmptyQuery)?;
+                    self.wrap_plan(ir::PlanKind::Filter(ir::Filter {
+                        input: Box::new(input),
+                        predicate: equality(&to, &existing),
+                    }))?;
+                }
                 from = existing.id();
             } else {
                 from = to.id();

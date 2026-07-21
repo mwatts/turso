@@ -373,6 +373,10 @@ fn register_graph_in_transaction(
             "end",
             &relationship.end_column,
         )?;
+        // Co-membership patterns bind both endpoints before matching the
+        // second relationship; the composite index turns that probe from an
+        // in-degree scan into an exact lookup.
+        install_endpoint_pair_index(connection, graph_id, relationship)?;
     }
 
     let mut mapped_tables = HashSet::new();
@@ -715,6 +719,34 @@ fn install_endpoint_index(
             quote_identifier(&name),
             quote_identifier(&source.table),
             quote_identifier(column)
+        ),
+    )?;
+    Ok(())
+}
+
+/// Composite (start, end) index for expands whose both endpoints are
+/// already bound (co-membership patterns).
+fn install_endpoint_pair_index(
+    connection: &Arc<Connection>,
+    graph: GraphId,
+    source: &RelationshipSourceRegistration,
+) -> Result<(), CatalogError> {
+    let name = format!(
+        "{TURSO_GRAPH_CATALOG_PREFIX}ep_{}_pair_{:016x}",
+        graph.get(),
+        stable_hash(&format!(
+            "{}:{}:{}",
+            source.table, source.start_column, source.end_column
+        ))
+    );
+    execute_internal(
+        connection,
+        format!(
+            "CREATE INDEX IF NOT EXISTS {} ON {}({}, {})",
+            quote_identifier(&name),
+            quote_identifier(&source.table),
+            quote_identifier(&source.start_column),
+            quote_identifier(&source.end_column)
         ),
     )?;
     Ok(())
