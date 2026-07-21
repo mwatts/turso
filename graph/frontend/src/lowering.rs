@@ -1395,20 +1395,38 @@ fn lower_expression_with_references(
                 ir::BinaryOp::Power => format!("pow(({left}), ({right}))"),
                 // The CASE guards keep the empty-needle results Cypher
                 // defines (always true) while still propagating NULL inputs;
-                // instr/substr alone return false for an empty needle.
+                // instr/substr alone return false for an empty needle. A
+                // non-string operand (int/float/bool/list/map) is a type
+                // mismatch in Cypher, which these operators define as NULL
+                // rather than coercing through SQLite's lenient substr/instr.
+                // Lists/maps lower to JSON text, so typeof() alone can't
+                // exclude them; is_container_text() layers a json_valid-
+                // gated check on top (json_type errors on non-JSON text).
                 ir::BinaryOp::StartsWith => format!(
                     "(CASE WHEN ({left}) IS NULL OR ({right}) IS NULL THEN NULL \
-                     ELSE substr(({left}), 1, length(({right}))) = ({right}) END)"
+                     WHEN typeof(({left})) != 'text' OR typeof(({right})) != 'text' THEN NULL \
+                     WHEN {left_container} OR {right_container} THEN NULL \
+                     ELSE substr(({left}), 1, length(({right}))) = ({right}) END)",
+                    left_container = is_container_text(&left),
+                    right_container = is_container_text(&right),
                 ),
                 ir::BinaryOp::EndsWith => format!(
                     "(CASE WHEN ({left}) IS NULL OR ({right}) IS NULL THEN NULL \
+                     WHEN typeof(({left})) != 'text' OR typeof(({right})) != 'text' THEN NULL \
+                     WHEN {left_container} OR {right_container} THEN NULL \
                      WHEN length(({right})) = 0 THEN 1 \
-                     ELSE substr(({left}), -length(({right}))) = ({right}) END)"
+                     ELSE substr(({left}), -length(({right}))) = ({right}) END)",
+                    left_container = is_container_text(&left),
+                    right_container = is_container_text(&right),
                 ),
                 ir::BinaryOp::Contains => format!(
                     "(CASE WHEN ({left}) IS NULL OR ({right}) IS NULL THEN NULL \
+                     WHEN typeof(({left})) != 'text' OR typeof(({right})) != 'text' THEN NULL \
+                     WHEN {left_container} OR {right_container} THEN NULL \
                      WHEN length(({right})) = 0 THEN 1 \
-                     ELSE instr(({left}), ({right})) > 0 END)"
+                     ELSE instr(({left}), ({right})) > 0 END)",
+                    left_container = is_container_text(&left),
+                    right_container = is_container_text(&right),
                 ),
                 _ => format!("({left}) {} ({right})", binary_operator(*op)),
             })
@@ -2027,6 +2045,18 @@ fn lower_literal(literal: &ir::Literal) -> String {
             format!("X'{hex}'")
         }
     }
+}
+
+/// SQL fragment that evaluates to true when `operand` is JSON text
+/// representing a list or map, as opposed to a genuine Cypher string (both
+/// lower to SQLite TEXT, so typeof() alone can't tell them apart). Nests the
+/// json_type() check under json_valid() because json_type() errors on text
+/// that isn't valid JSON, e.g. an ordinary string.
+fn is_container_text(operand: &str) -> String {
+    format!(
+        "(CASE WHEN json_valid(({operand})) \
+         THEN json_type(({operand})) IN ('array', 'object') ELSE 0 END)"
+    )
 }
 
 /// True when an ordering comparison needs the runtime typeof guard: the
