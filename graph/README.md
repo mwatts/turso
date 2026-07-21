@@ -36,7 +36,7 @@ let conn = db.connect()?;
 let graph = turso_graph_frontend::GraphConnection::open(conn, "social")?;
 let stmt = graph.prepare("MATCH (n:Person) RETURN n.name", &Default::default())?;
 let types = stmt.result_types();
-let summary = graph.execute("CREATE (:Person {name: $name})", &params)?;
+let summary = graph.execute("CREATE (:Person {name: 'Ada'})", &Default::default())?;
 ```
 
 `open_database`/`open_database_with_io` return `turso_core::Result`;

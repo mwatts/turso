@@ -258,14 +258,14 @@ impl GraphConnection {
             parameters,
         );
         let cleared = self.snapshots.clear();
-        let summary = result?;
-        if let Err(error) = cleared {
-            // The mutation is already durable; a poisoned local snapshot
-            // cache must not turn that success into an error. The store
-            // surfaces its own failure on the next traversal read.
+        if let Err(error) = &cleared {
+            // The mutation outcome must not be masked by cache state: on
+            // success a poisoned local snapshot cache is not an error, and
+            // on failure the mutation's own error takes precedence. The
+            // store surfaces its own failure on the next traversal read.
             tracing::warn!("clearing session snapshots after mutation failed: {error}");
         }
-        Ok(summary)
+        Ok(result?)
     }
 }
 
