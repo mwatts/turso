@@ -524,18 +524,17 @@ fn duration_between(args: &[ExtValue]) -> ExtValue {
             start.until((largest, &end)).ok()
         }
         _ => {
-            let promote = |value: &Temporal| -> Option<civil::DateTime> {
-                match value {
-                    Temporal::LocalTime(time) | Temporal::Time(time, _) => {
-                        Some(civil::Date::new(1970, 1, 1).ok()?.to_datetime(*time))
-                    }
-                    _ => Some(
-                        temporal_date(value)?
-                            .to_datetime(temporal_time(value).unwrap_or(civil::Time::midnight())),
-                    ),
-                }
+            // A value missing a date (a time) borrows the other argument's
+            // date so date-to-time differences stay within one day, per
+            // openCypher's component-filling rule; missing times default to
+            // midnight from their own value.
+            let promote = |value: &Temporal, other: &Temporal| -> Option<civil::DateTime> {
+                let date = temporal_date(value)
+                    .or_else(|| temporal_date(other))
+                    .or_else(|| civil::Date::new(1970, 1, 1).ok())?;
+                Some(date.to_datetime(temporal_time(value).unwrap_or(civil::Time::midnight())))
             };
-            let (Some(start), Some(end)) = (promote(&start), promote(&end)) else {
+            let (Some(start), Some(end)) = (promote(&start, &end), promote(&end, &start)) else {
                 return ExtValue::null();
             };
             start.until((largest, end)).ok()
@@ -614,8 +613,29 @@ fn temporal_truncate(args: &[ExtValue]) -> ExtValue {
                 None => zone,
             };
             (|| {
+                // Sub-second overrides replace their own field on the
+                // truncated base: truncate('millisecond', .645876123,
+                // {nanosecond: 2}) keeps .645 and yields .645000002.
+                let base_subsec = i64::from(time.subsec_nanosecond());
+                let merged_subsec = component_i64(&map, "millisecond")
+                    .unwrap_or(base_subsec / 1_000_000)
+                    * 1_000_000
+                    + component_i64(&map, "microsecond").unwrap_or(base_subsec / 1_000 % 1_000)
+                        * 1_000
+                    + component_i64(&map, "nanosecond").unwrap_or(base_subsec % 1_000);
+                let mut map = map;
+                for key in ["millisecond", "microsecond", "nanosecond"] {
+                    map.remove(key);
+                }
                 let date = build_date(&map, date)?;
                 let time = build_time(&map, Some(time))?;
+                let time = civil::Time::new(
+                    time.hour(),
+                    time.minute(),
+                    time.second(),
+                    i32::try_from(merged_subsec).ok()?,
+                )
+                .ok()?;
                 assemble_temporal(&kind, date, time, zone)
             })()
         }
@@ -716,12 +736,44 @@ fn build_temporal(
     let base_date = component_text(map, "date").and_then(|value| parse_temporal(&value));
     let base_time = component_text(map, "time").and_then(|value| parse_temporal(&value));
 
+    let explicit_zone = component_text(map, "timezone").is_some();
     let zone = match component_text(map, "timezone") {
         Some(name) => Some(parse_timezone(&name)?),
         None => [&base_time, &base_datetime]
             .into_iter()
             .flatten()
             .find_map(temporal_zone),
+    };
+
+    // An explicit timezone over a zoned base converts the instant into the
+    // new zone (12:00+01:00 selected into +05:00 reads 16:00); unzoned
+    // bases just attach the zone.
+    let convert = |value: &Temporal| -> Option<Temporal> {
+        let target = zone.clone()?;
+        match value {
+            Temporal::Time(time, offset) => {
+                // jiff converts through the instant: anchor the wall time on
+                // an arbitrary date, resolve it with the old offset, and read
+                // it back in the new one.
+                let target_offset = target.to_offset(Timestamp::now());
+                let anchored = civil::Date::new(2000, 1, 1).ok()?.to_datetime(*time);
+                let timestamp = offset.to_timestamp(anchored).ok()?;
+                Some(Temporal::Time(
+                    target_offset.to_datetime(timestamp).time(),
+                    target_offset,
+                ))
+            }
+            Temporal::DateTime(zoned) => Some(Temporal::DateTime(zoned.with_time_zone(target))),
+            _ => None,
+        }
+    };
+    let base_datetime = match (&base_datetime, explicit_zone) {
+        (Some(value), true) => convert(value).or(base_datetime),
+        _ => base_datetime,
+    };
+    let base_time = match (&base_time, explicit_zone) {
+        (Some(value), true) => convert(value).or(base_time),
+        _ => base_time,
     };
 
     // Epoch construction takes precedence for datetimes.
@@ -798,8 +850,13 @@ fn build_date(
     }
     let year = i16::try_from(year.unwrap_or_else(|| i64::from(inherited.unwrap().year()))).ok()?;
     if let Some(week) = component_i64(map, "week") {
+        // Overriding the week keeps the base date's position within the
+        // week: {date: <sunday>, week: 1} lands on the Sunday of week 1.
+        let default_weekday = inherited
+            .map(|date| i64::from(date.weekday().to_monday_one_offset()))
+            .unwrap_or(1);
         let weekday = civil::Weekday::from_monday_one_offset(
-            i8::try_from(component_i64(map, "dayOfWeek").unwrap_or(1)).ok()?,
+            i8::try_from(component_i64(map, "dayOfWeek").unwrap_or(default_weekday)).ok()?,
         )
         .ok()?;
         let week_date = civil::ISOWeekDate::new(year, i8::try_from(week).ok()?, weekday).ok()?;
@@ -812,7 +869,16 @@ fn build_date(
     if let Some(quarter) = component_i64(map, "quarter") {
         let month = i8::try_from((quarter - 1) * 3 + 1).ok()?;
         let start = civil::Date::new(year, month, 1).ok()?;
-        let day_of_quarter = component_i64(map, "dayOfQuarter").unwrap_or(1);
+        // Overriding the quarter keeps the base date's day-of-quarter.
+        let default_day_of_quarter = inherited
+            .map(|date| {
+                let quarter_start_month = (date.month() - 1) / 3 * 3 + 1;
+                let quarter_start = civil::Date::new(date.year(), quarter_start_month, 1)
+                    .expect("first day of a quarter is always valid");
+                i64::from(date.day_of_year()) - i64::from(quarter_start.day_of_year()) + 1
+            })
+            .unwrap_or(1);
+        let day_of_quarter = component_i64(map, "dayOfQuarter").unwrap_or(default_day_of_quarter);
         return Some(Some(
             start
                 .checked_add(Span::new().days(day_of_quarter - 1))
