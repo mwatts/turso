@@ -482,7 +482,11 @@ fn execute_case(
             "execution",
         ),
         rows => {
-            let types = fixture.session.query_result_types(&case.query).ok();
+            let types = fixture
+                .session
+                .prepare(&case.query, &Parameters::new())
+                .ok()
+                .map(|statement| statement.result_types().to_vec());
             compare_rows(case, stringify_rows_with_types(rows, types.as_deref()))
         }
     }

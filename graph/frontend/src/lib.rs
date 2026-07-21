@@ -16,6 +16,7 @@ mod mutation;
 mod schema_catalog;
 mod session;
 mod snapshot;
+mod statement;
 
 pub use binder::{
     bind, bind_mutation, BindError, BoundMutation, BoundQuery, CatalogEntity, GraphCatalogSnapshot,
@@ -41,6 +42,7 @@ pub use snapshot::{
     RelationshipCoordinate, SessionSnapshotStore, SnapshotError, SnapshotMetadata,
     SnapshotPersistenceMode, SnapshotStatus, SnapshotStore, SourceIdentity, TraversalSnapshot,
 };
+pub use statement::Statement;
 
 /// Full access to the underlying engine, mirroring `turso`'s `core` re-export.
 pub use turso_core as core;

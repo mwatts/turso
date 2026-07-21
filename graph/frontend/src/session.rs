@@ -1,7 +1,7 @@
 use std::{collections::HashMap, num::NonZero, sync::Arc};
 
 use thiserror::Error;
-use turso_core::{Connection, Statement, Value};
+use turso_core::{Connection, Value};
 use turso_graph_ir::GraphId;
 use turso_graph_runtime::{BuildLimits, Cancellation, NeverCancelled};
 
@@ -103,23 +103,26 @@ impl GraphConnection {
         parameters: &Parameters,
         cancellation: &dyn Cancellation,
     ) -> Result<Vec<Vec<Value>>, Error> {
-        let mut statement = self.prepare_query_cancellable(source, parameters, cancellation)?;
+        let mut statement = self.prepare_cancellable(source, parameters, cancellation)?;
         Ok(statement.run_collect_rows()?)
     }
 
-    pub fn prepare_query(&self, source: &str, parameters: &Parameters) -> Result<Statement, Error> {
-        self.prepare_query_cancellable(source, parameters, &NeverCancelled)
+    pub fn prepare(
+        &self,
+        source: &str,
+        parameters: &Parameters,
+    ) -> Result<crate::Statement, Error> {
+        self.prepare_cancellable(source, parameters, &NeverCancelled)
     }
 
     /// Static result-column types of a read query, in projection order.
     /// Booleans reach storage as integers, so callers that need to render
     /// Cypher values faithfully must consult these types.
-    pub fn query_result_types(
+    fn result_types_for(
         &self,
-        source: &str,
+        syntax: &turso_graph_cypher::Query,
     ) -> Result<Vec<turso_graph_ir::ValueType>, Error> {
-        let syntax = turso_graph_cypher::parse(source)?;
-        let bound = crate::bind(&syntax, self.graph, self.catalog.as_ref(), &self.parameters)?;
+        let bound = crate::bind(syntax, self.graph, self.catalog.as_ref(), &self.parameters)?;
         let scope = bound.plan.scope();
         Ok(bound
             .plan
@@ -134,12 +137,12 @@ impl GraphConnection {
             .collect())
     }
 
-    pub fn prepare_query_cancellable(
+    pub fn prepare_cancellable(
         &self,
         source: &str,
         parameters: &Parameters,
         cancellation: &dyn Cancellation,
-    ) -> Result<Statement, Error> {
+    ) -> Result<crate::Statement, Error> {
         // EXPLAIN-prefixed queries (including postgres option lists like
         // EXPLAIN (VERBOSE, COSTS OFF)) compile the inner query and return
         // core's own plan via EXPLAIN QUERY PLAN over the lowered SQL.
@@ -162,7 +165,7 @@ impl GraphConnection {
                 .connection
                 .prepare(format!("EXPLAIN QUERY PLAN {statement}"))?;
             bind_query_parameters(&mut statement, parameters)?;
-            return Ok(statement);
+            return Ok(crate::Statement::new(statement, Vec::new()));
         }
         let syntax = turso_graph_cypher::parse(source)?;
         if requires_traversal_snapshot(&syntax) {
@@ -177,7 +180,8 @@ impl GraphConnection {
             .connection
             .prepare_frontend(&graph_frontend_id(), source)?;
         bind_query_parameters(&mut statement, parameters)?;
-        Ok(statement)
+        let result_types = self.result_types_for(&syntax)?;
+        Ok(crate::Statement::new(statement, result_types))
     }
 
     pub fn mutate(&self, source: &str, parameters: &Parameters) -> Result<MutationSummary, Error> {
@@ -241,7 +245,7 @@ pub fn strip_explain_prefix(source: &str) -> Option<&str> {
 }
 
 fn bind_query_parameters(
-    statement: &mut Statement,
+    statement: &mut turso_core::Statement,
     parameters: &HashMap<String, Value>,
 ) -> Result<(), Error> {
     for (name, value) in parameters {

@@ -1,6 +1,23 @@
 //! Compile-time surface check: the crate exposes baseline-aligned names so
 //! consumers do not need a direct `turso_core` dependency for common types.
 
+mod fixture;
+
+#[test]
+fn prepare_exposes_result_types_on_the_statement() {
+    let (connection, session) = fixture::social_graph_connection();
+    let stmt = session
+        .prepare("MATCH (n:Person) RETURN n.name, n.age", &Default::default())
+        .expect("prepare");
+    // Metadata rides on the statement — no second parse call.
+    assert_eq!(stmt.result_types().len(), 2);
+    // Deref gives the full core statement surface.
+    assert_eq!(stmt.num_columns(), 2);
+    drop(stmt);
+    drop(session);
+    drop(connection);
+}
+
 #[test]
 fn baseline_aligned_reexports_are_usable() {
     // Value/Row/StepResult come from the crate root, mirroring turso_pg.

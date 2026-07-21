@@ -514,7 +514,11 @@ fn execute_case(
                     "graph-comparison",
                 );
             }
-            let types = fixture.session.query_result_types(query).ok();
+            let types = fixture
+                .session
+                .prepare(query, &parameters)
+                .ok()
+                .map(|statement| statement.result_types().to_vec());
             let rows = stringify_rows_with_entities(
                 rows,
                 types.as_deref(),
