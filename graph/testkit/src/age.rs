@@ -69,9 +69,107 @@ pub struct AgeStats {
 }
 
 /// Donor files testing postgres/AGE-specific surfaces rather than Cypher:
-/// jsonb operator syntax, pgvector, postgres extensions, and jsonb casts.
-/// These stay out of the conformance corpus entirely.
+/// trigram similarity and fuzzy-string-match functions layered on top of
+/// postgres, not Cypher parsing. These stay out of the conformance corpus
+/// entirely.
 const AGE_SPECIFIC_FILES: [&str; 2] = ["pg_trgm.sql", "fuzzystrmatch.sql"];
+
+/// Individual cypher invocations that exercise AGE/postgres-specific syntax
+/// rather than openCypher or GQL, or that are deliberately malformed to test
+/// error handling. Excluded case by case (rather than by whole file) because
+/// their donor files otherwise contain genuine openCypher coverage:
+///
+/// - `<label> ={...}` / `= $param` node and relationship property filters are
+///   AGE's `age.enable_containment` extension (see `cypher_match.sql`'s
+///   `test_enable_containment` graph), not part of the openCypher or GQL
+///   property-specification grammar, which never places `=` before a map
+///   literal or parameter.
+/// - postgres-style `EXPLAIN (VERBOSE, COSTS OFF)`/`EXPLAIN (costs off)`
+///   embed postgres `EXPLAIN` options inside the cypher() body; neither
+///   openCypher nor GQL define an EXPLAIN clause at all, let alone one with
+///   parenthesized planner options.
+/// - `reduce(s, x IN [1, 2] | s + x)` omits the required
+///   `<binding variable> = <value expression>` accumulator initialization;
+///   AGE itself rejects it with a syntax error ("missing \", var IN list\"").
+/// - `toIntegerList(32[])` and the unterminated string literal in `scan.sql`
+///   are deliberately malformed syntax used to test error messages.
+const NON_GQL_CASES: &[&str] = &[
+    // cypher_match.sql: AGE containment `={...}`/`= $param` property filters.
+    "age.cypher.match.query-354",
+    "age.cypher.match.query-355",
+    "age.cypher.match.query-356",
+    "age.cypher.match.query-357",
+    "age.cypher.match.query-358",
+    "age.cypher.match.query-359",
+    "age.cypher.match.query-360",
+    "age.cypher.match.query-361",
+    "age.cypher.match.query-362",
+    "age.cypher.match.query-363",
+    "age.cypher.match.query-364",
+    "age.cypher.match.query-365",
+    "age.cypher.match.query-366",
+    "age.cypher.match.query-367",
+    "age.cypher.match.query-369",
+    "age.cypher.match.query-370",
+    "age.cypher.match.query-371",
+    "age.cypher.match.query-372",
+    "age.cypher.match.query-373",
+    "age.cypher.match.query-374",
+    "age.cypher.match.query-375",
+    "age.cypher.match.query-376",
+    "age.cypher.match.query-377",
+    "age.cypher.match.query-378",
+    "age.cypher.match.query-379",
+    "age.cypher.match.query-380",
+    "age.cypher.match.query-381",
+    "age.cypher.match.query-382",
+    "age.cypher.match.query-383",
+    "age.cypher.match.query-384",
+    "age.cypher.match.query-386",
+    "age.cypher.match.query-387",
+    "age.cypher.match.query-399",
+    "age.cypher.match.query-400",
+    "age.cypher.match.query-401",
+    // expr.sql: postgres EXPLAIN options and a deliberately malformed literal.
+    "age.expr.query-460",
+    "age.expr.query-1053",
+    // list_comprehension.sql: AGE containment `={...}` property filters.
+    "age.list.comprehension.query-101",
+    "age.list.comprehension.query-102",
+    "age.list.comprehension.query-104",
+    "age.list.comprehension.query-105",
+    // scan.sql: deliberately unterminated string literal.
+    "age.scan.query-46",
+    // age_reduce.sql: reduce() missing its required accumulator init.
+    "age.age.reduce.query-70",
+    // pgvector.sql: postgres `OPERATOR(schema.op)` explicit-operator-
+    // invocation syntax around pgvector distance operators (`<->`, `<#>`,
+    // `<=>`, `<+>`); `OPERATOR(...)` is a postgres SQL construct with no
+    // counterpart in openCypher or GQL expression grammar. The file's other
+    // `::vector` cast queries stay in the corpus (see the `::` note above).
+    "age.pgvector.query-32",
+    "age.pgvector.query-35",
+    "age.pgvector.query-36",
+    "age.pgvector.query-37",
+    "age.pgvector.query-38",
+    "age.pgvector.query-39",
+    "age.pgvector.query-40",
+    "age.pgvector.query-41",
+    "age.pgvector.query-42",
+    "age.pgvector.query-43",
+    "age.pgvector.query-44",
+    "age.pgvector.query-45",
+    "age.pgvector.query-46",
+    "age.pgvector.query-47",
+    "age.pgvector.query-48",
+    "age.pgvector.query-49",
+    "age.pgvector.query-50",
+    "age.pgvector.query-51",
+    "age.pgvector.query-52",
+    "age.pgvector.query-62",
+    "age.pgvector.query-64",
+    "age.pgvector.query-69",
+];
 
 impl AgeCorpus {
     pub fn load(root: impl AsRef<Path>) -> Result<Self, AgeError> {
@@ -136,6 +234,7 @@ impl AgeCorpus {
                 });
             }
         }
+        cases.retain(|case| !NON_GQL_CASES.contains(&case.id.as_str()));
         Ok(Self {
             cases,
             file_count: paths.len(),

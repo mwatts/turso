@@ -51,6 +51,76 @@ pub const CQLITE: RustDonorSource = RustDonorSource {
     license: "MIT",
 };
 
+/// SparrowDB and CQLite cases that exercise surfaces outside openCypher and
+/// GQL rather than genuine parser gaps: storage-admin commands
+/// (`CHECKPOINT`/`OPTIMIZE`), legacy Neo4j 3.x index/constraint DDL
+/// (`CREATE INDEX ON :Label(prop)`, `CREATE CONSTRAINT ... ASSERT`),
+/// deliberately malformed syntax used to test error messages, and CQLite's
+/// own dialect relaxations:
+///
+/// - CQLite writes single-dash relationship shorthand (`(a) -> (b)`,
+///   `(a) <- (b)`, `(a) - (b)`) where openCypher/GQL require a doubled dash
+///   (`-->`, `<--`, `--`); the grammar's `<arrow line>` appears twice around
+///   the optional bracket, so the minimum directed form is three characters.
+/// - CQLite also accepts a bare `WHERE ...` query with no preceding
+///   `MATCH`/`WITH`; the grammar only ever attaches `<where clause>` to
+///   `WITH`, `YIELD`, or a pattern, never as a standalone top-level clause.
+const NON_GQL_CASES: &[&str] = &[
+    // acceptance.rs, match_after_create.rs, readtx_query.rs, regression_379.rs,
+    // spa_189_checkpoint_optimize.rs, spa_200_batch_hop_perf.rs: CHECKPOINT
+    // and OPTIMIZE are storage-admin commands, not Cypher.
+    "sparrowdb.acceptance.check-4-checkpoint-optimize-no-error.query-3",
+    "sparrowdb.acceptance.check-4-checkpoint-optimize-no-error.query-4",
+    "sparrowdb.match-after-create.match-finds-all-nodes-after-wal-only-creates.query-1",
+    "sparrowdb.readtx-query.readtx-query-rejects-checkpoint.query-1",
+    "sparrowdb.regression-379.detach-delete-after-checkpoint.query-4",
+    "sparrowdb.spa-189-checkpoint-optimize.checkpoint-command-runs-without-error.query-1",
+    "sparrowdb.spa-189-checkpoint-optimize.checkpoint-command-runs-after-writes.query-3",
+    "sparrowdb.spa-189-checkpoint-optimize.optimize-command-runs-without-error.query-1",
+    "sparrowdb.spa-189-checkpoint-optimize.optimize-command-runs-after-writes.query-3",
+    "sparrowdb.spa-200-batch-hop-perf.two-hop-returns-valid-names.query-2",
+    // spa_151_kms_query_validation.rs, spa_235_234_create_index_constraint.rs,
+    // spa_306_constraint_persistence.rs, vector_index.rs: legacy Neo4j 3.x
+    // `CREATE INDEX ON :Label(prop)` / `CREATE CONSTRAINT ... ASSERT` and
+    // vector index DDL, none of which are openCypher or GQL.
+    "sparrowdb.spa-151-kms-query-validation.kms-q33-create-unique-constraint.query-1",
+    "sparrowdb.spa-151-kms-query-validation.kms-q34-create-property-index.query-1",
+    "sparrowdb.spa-235-234-create-index-constraint.create-index-supports-equality-lookup.query-3",
+    "sparrowdb.spa-235-234-create-index-constraint.create-index-on-missing-label-is-noop.query-1",
+    "sparrowdb.spa-235-234-create-index-constraint.unique-constraint-allows-first-insert.query-1",
+    "sparrowdb.spa-235-234-create-index-constraint.unique-constraint-rejects-duplicate.query-1",
+    "sparrowdb.spa-235-234-create-index-constraint.unique-constraint-is-label-scoped.query-1",
+    "sparrowdb.spa-235-234-create-index-constraint.unique-constraint-rejects-duplicate-within-same-statement.query-1",
+    "sparrowdb.spa-235-234-create-index-constraint.unique-constraint-allows-different-values.query-1",
+    "sparrowdb.spa-306-constraint-persistence.unique-constraint-persists-across-reopen.query-1",
+    "sparrowdb.spa-306-constraint-persistence.multiple-constraints-persist.query-1",
+    "sparrowdb.spa-306-constraint-persistence.multiple-constraints-persist.query-2",
+    "sparrowdb.vector-index.create-vector-index-ddl.query-1",
+    "sparrowdb.vector-index.create-vector-index-ddl.query-2",
+    // spa_243_create_entity.rs, spa_244_mcp_errors.rs,
+    // spa_265_backtick_escaping.rs: deliberately malformed syntax exercised
+    // to test error-message quality, not valid under any Cypher/GQL grammar.
+    "sparrowdb.spa-243-create-entity.spa243-empty-class-name-returns-descriptive-error.query-1",
+    "sparrowdb.spa-244-mcp-errors.spa244-empty-query-returns-meaningful-error.query-1",
+    "sparrowdb.spa-244-mcp-errors.spa244-syntax-error-returns-meaningful-error.query-1",
+    "sparrowdb.spa-265-backtick-escaping.unterminated-backtick-is-error.query-1",
+    // CQLite: single-dash relationship shorthand instead of `-->`/`<--`/`--`.
+    "cqlite.basic-queries.match-multiple-edges.query-2",
+    "cqlite.delete-queries.delete-edge.query-2",
+    "cqlite.delete-queries.delete-edge.query-4",
+    "cqlite.match-queries.match-single-path.query-1",
+    "cqlite.match-queries.match-path-with-multiple-clauses.query-1",
+    "cqlite.match-queries.match-long-path.query-1",
+    "cqlite.match-queries-where.match-long-path-with-id-constraint.query-1",
+    "cqlite.match-queries-where.match-long-path-with-id-constraint.query-2",
+    "cqlite.match-queries-where.match-short-path-with-id-constraint.query-1",
+    // CQLite: bare `WHERE ...` query with no preceding MATCH/WITH.
+    "cqlite.where-conditions.where-a-and-b.query-1",
+    "cqlite.where-conditions.where-a-or-b.query-1",
+    "cqlite.where-conditions.where-a.query-1",
+    "cqlite.where-conditions.where-not-a.query-1",
+];
+
 #[derive(Debug, Error)]
 pub enum RustDonorError {
     #[error("failed to read donor directory {path}: {source}")]
@@ -149,6 +219,8 @@ impl RustDonorCorpus {
                 }
             }
         }
+        cases.retain(|case| !NON_GQL_CASES.contains(&case.id.as_str()));
+
         Ok(Self {
             source,
             cases,
@@ -427,8 +499,8 @@ mod tests {
         let sparrowdb = RustDonorCorpus::load(root.join("sparrowdb/tests"), SPARROWDB).unwrap();
         let cqlite = RustDonorCorpus::load(root.join("cqlite/tests"), CQLITE).unwrap();
         assert_eq!(sparrowdb.stats().files, 161);
-        assert_eq!(sparrowdb.stats().queries, 2_253);
+        assert_eq!(sparrowdb.stats().queries, 2_225);
         assert_eq!(cqlite.stats().files, 12);
-        assert_eq!(cqlite.stats().queries, 137);
+        assert_eq!(cqlite.stats().queries, 124);
     }
 }

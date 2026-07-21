@@ -24,6 +24,46 @@ use crate::{
 
 const GRAFEO_REVISION: &str = "4ebae02f06f8f0cbc57543f74b6ba06f259dbed3";
 
+/// Scenarios that exercise Neo4j administrative commands rather than
+/// openCypher or GQL: index DDL (`CREATE`/`DROP INDEX`, `SHOW INDEXES`),
+/// constraint DDL (`CREATE`/`DROP CONSTRAINT`, `SHOW CONSTRAINTS`), and the
+/// `PROFILE` command. None of these appear in the openCypher or GQL
+/// grammars, so they stay out of the conformance corpus.
+const NON_GQL_CASES: &[&str] = &[
+    // spec/common/index_correctness.gtest: CREATE INDEX is the only
+    // supported index DDL exercised by this file (see its header comment).
+    "grafeo.spec.common.index.correctness.create.index.then.query",
+    "grafeo.spec.common.index.correctness.index.query.no.match",
+    "grafeo.spec.common.index.correctness.index.multiple.matches",
+    "grafeo.spec.common.index.correctness.index.with.null.property",
+    "grafeo.spec.common.index.correctness.index.after.property.update",
+    "grafeo.spec.common.index.correctness.index.old.value.gone.after.update",
+    "grafeo.spec.common.index.correctness.index.after.delete",
+    "grafeo.spec.common.index.correctness.index.remaining.after.delete",
+    "grafeo.spec.common.index.correctness.index.reinsert.after.delete",
+    "grafeo.spec.common.index.correctness.numeric.index.exact.lookup",
+    "grafeo.spec.common.index.correctness.numeric.index.range.query",
+    "grafeo.spec.common.index.correctness.bulk.insert.then.index",
+    "grafeo.spec.common.index.correctness.index.count.all",
+    "grafeo.spec.common.index.correctness.drop.index.query.still.works",
+    // spec/lpg/cypher/admin.gtest: CREATE/DROP INDEX, SHOW INDEXES, PROFILE.
+    "grafeo.spec.lpg.cypher.admin.create.index.on.label.property",
+    "grafeo.spec.lpg.cypher.admin.create.index.and.query",
+    "grafeo.spec.lpg.cypher.admin.drop.index",
+    "grafeo.spec.lpg.cypher.admin.show.indexes.empty",
+    "grafeo.spec.lpg.cypher.admin.show.indexes.after.create",
+    "grafeo.spec.lpg.cypher.admin.profile.match",
+    // spec/lpg/cypher/constraints.gtest: CREATE/DROP CONSTRAINT, SHOW
+    // CONSTRAINTS.
+    "grafeo.spec.lpg.cypher.constraints.create.unique.constraint",
+    "grafeo.spec.lpg.cypher.constraints.create.not.null.constraint",
+    "grafeo.spec.lpg.cypher.constraints.create.node.key.constraint",
+    "grafeo.spec.lpg.cypher.constraints.drop.constraint",
+    "grafeo.spec.lpg.cypher.constraints.drop.constraint.if.exists",
+    "grafeo.spec.lpg.cypher.constraints.show.constraints.after.create",
+    "grafeo.spec.lpg.cypher.constraints.show.constraints.empty",
+];
+
 #[derive(Debug, Error)]
 pub enum GrafeoError {
     #[error("failed to read Grafeo directory {path}: {source}")]
@@ -189,6 +229,7 @@ impl GrafeoCorpus {
                 }
             }
         }
+        cases.retain(|case| !NON_GQL_CASES.contains(&case.id.as_str()));
         Ok(Self {
             cases,
             manifest_count: paths.len(),
@@ -703,6 +744,6 @@ mod tests {
         let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../testdata/donors/grafeo/tests");
         let corpus = GrafeoCorpus::load(root).unwrap();
         assert_eq!(corpus.stats().manifests, 157);
-        assert_eq!(corpus.stats().cypher_cases, 399);
+        assert_eq!(corpus.stats().cypher_cases, 372);
     }
 }

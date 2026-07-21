@@ -29,16 +29,22 @@ fn vendored_corpus_has_all_source_identities() {
     let cqlite =
         RustDonorCorpus::load(root.join("graph/testdata/donors/cqlite/tests"), CQLITE).unwrap();
 
-    // 10,392 raw cases minus the pg_trgm/fuzzystrmatch extension rows;
-    // pgvector and jsonb operators map onto core and extension functions,
-    // EXPLAIN runs through core's EXPLAIN QUERY PLAN.
+    // 10,392 raw cases minus the pg_trgm/fuzzystrmatch/pgvector extension
+    // files; pgvector and jsonb operators map onto core and extension
+    // functions, EXPLAIN runs through core's EXPLAIN QUERY PLAN. Also
+    // excludes non-openCypher/GQL cases: Grafeo's Neo4j-style index/
+    // constraint admin DDL, AGE's `age.enable_containment` map-literal
+    // extension (`={...}`/`= $param`) and postgres-style EXPLAIN options,
+    // SparrowDB's storage-admin commands (CHECKPOINT/OPTIMIZE) and legacy
+    // index/constraint DDL, and CQLite's single-dash relationship shorthand
+    // and standalone WHERE clauses.
     assert_eq!(
         tck.stats().expanded
             + grafeo.stats().cypher_cases
             + age.stats().queries
             + sparrowdb.stats().queries
             + cqlite.stats().queries,
-        10_375
+        10_242
     );
 }
 
