@@ -44,3 +44,17 @@ fn session_type_names_match_baseline_convention() {
     let params: turso_graph_frontend::Parameters = Default::default();
     assert!(params.is_empty());
 }
+
+#[test]
+fn open_replaces_the_install_ceremony() {
+    // The fixture registers a graph the long way; a consumer then attaches
+    // with one call instead of load + catalog + store + limits + install.
+    let (connection, _existing) = fixture::social_graph_connection();
+    let conn2 = fixture::second_connection(&connection);
+    let session =
+        turso_graph_frontend::GraphConnection::open(conn2, "social").expect("open by graph name");
+    let rows = session
+        .query("MATCH (n:Person) RETURN n.name", &Default::default())
+        .expect("query through opened session");
+    assert!(!rows.is_empty());
+}

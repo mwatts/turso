@@ -36,7 +36,10 @@ pub use lowering::{
 };
 pub use mutation::{execute_cypher_mutation, MutationError, MutationSummary, Parameters};
 pub use schema_catalog::SchemaCatalog;
-pub use session::{strip_explain_prefix, Error, GraphConnection, GraphConnection as Connection};
+pub use session::{
+    open_database, open_database_with_io, strip_explain_prefix, Error, GraphConnection,
+    GraphConnection as Connection,
+};
 pub use snapshot::{
     build_traversal_snapshot, build_visible_traversal_snapshot, NodeCoordinate, PublishOutcome,
     RelationshipCoordinate, SessionSnapshotStore, SnapshotError, SnapshotMetadata,

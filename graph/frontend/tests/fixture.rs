@@ -10,20 +10,21 @@ use std::sync::Arc;
 use turso_core::{Connection, Database, MemoryIO, SqliteDialect};
 use turso_graph_frontend::{
     register_graph, GraphCompilationCatalog, GraphConnection, GraphRegistration,
-    NodeSourceRegistration, ParameterTypes, RelationshipSourceRegistration, SchemaCatalog,
-    SnapshotStore,
+    NodeSourceRegistration, ParameterTypes, Parameters, RelationshipSourceRegistration,
+    SchemaCatalog, SnapshotStore,
 };
 use turso_graph_runtime::{BuildLimits, NeverCancelled};
 
 /// Installs a `GraphConnection` over a fresh in-memory "social" graph:
 /// `Person` nodes (`people(id, name, age)`), `KNOWS` relationships
-/// (`relationships(id, src, dst)`).
-pub fn social_graph_connection() -> (Arc<Connection>, GraphConnection) {
+/// (`relationships(id, src, dst)`), seeded with two people. Returns the
+/// `Arc<Database>` alongside the session so callers can open further
+/// connections onto the same graph (see [`second_connection`]).
+pub fn social_graph_connection() -> (Arc<Database>, GraphConnection) {
     let io = Arc::new(MemoryIO::new());
-    let connection = Database::open_file(io, ":memory:fixture-social", Arc::new(SqliteDialect))
-        .expect("open database")
-        .connect()
-        .expect("connect");
+    let database = Database::open_file(io, ":memory:fixture-social", Arc::new(SqliteDialect))
+        .expect("open database");
+    let connection = database.connect().expect("connect");
     connection
         .execute(
             "CREATE TABLE people(id INTEGER PRIMARY KEY, name TEXT, age INTEGER); \
@@ -63,7 +64,7 @@ pub fn social_graph_connection() -> (Arc<Connection>, GraphConnection) {
         )
         .expect("build initial traversal snapshot");
     let session = GraphConnection::install(
-        connection.clone(),
+        connection,
         &registered,
         catalog,
         ParameterTypes::new(),
@@ -71,5 +72,22 @@ pub fn social_graph_connection() -> (Arc<Connection>, GraphConnection) {
         BuildLimits::default(),
     )
     .expect("install graph session");
-    (connection, session)
+    // Seeded through Cypher CREATE (not a raw INSERT) so the label junction
+    // table `SchemaCatalog` relies on is populated the same way production
+    // writes populate it.
+    session
+        .execute(
+            "CREATE (:Person {id: 1, name: 'Ada', age: 36}), \
+             (:Person {id: 2, name: 'Grace', age: 85})",
+            &Parameters::new(),
+        )
+        .expect("seed people");
+    (database, session)
+}
+
+/// A second connection onto the same underlying database as `database`, for
+/// exercising session setup (like [`GraphConnection::open`]) that must not
+/// depend on the connection that performed the original registration.
+pub fn second_connection(database: &Arc<Database>) -> Arc<Connection> {
+    database.connect().expect("connect")
 }

@@ -29,6 +29,42 @@ pub enum Error {
     MissingParameter(String),
 }
 
+/// Open a database with the default SQLite dialect, resolving the IO backend
+/// from `vfs` or the path. Mirrors `turso_pg::open_database`; the graph layer
+/// itself is dialect-agnostic and attaches to any core connection.
+pub fn open_database(
+    path: &str,
+    vfs: Option<&str>,
+    flags: turso_core::OpenFlags,
+    opts: turso_core::DatabaseOpts,
+) -> turso_core::Result<(Arc<dyn turso_core::IO>, Arc<turso_core::Database>)> {
+    let io = match vfs {
+        Some(vfs) => turso_core::Database::io_for_vfs(vfs)?,
+        None => turso_core::Database::io_for_path(path)?,
+    };
+    let db = open_database_with_io(io.clone(), path, flags, opts)?;
+    Ok((io, db))
+}
+
+/// Open a database with the default SQLite dialect on an existing IO backend.
+pub fn open_database_with_io(
+    io: Arc<dyn turso_core::IO>,
+    path: &str,
+    flags: turso_core::OpenFlags,
+    opts: turso_core::DatabaseOpts,
+) -> turso_core::Result<Arc<turso_core::Database>> {
+    let file = io.open_file(path, flags, true)?;
+    let db_file = Arc::new(turso_core::storage::database::DatabaseFile::new(file));
+    turso_core::Database::open(
+        io,
+        path,
+        turso_core::OpenOptions::new(Arc::new(turso_core::SqliteDialect))
+            .storage(db_file)
+            .flags(flags)
+            .db_opts(opts),
+    )
+}
+
 /// Connection-local graph service boundary.
 ///
 /// Read compilation stays on `FrontendCompiler`. Variable traversal rebuilds
@@ -83,6 +119,35 @@ impl GraphConnection {
             snapshots,
             limits,
         })
+    }
+
+    /// Attach to an already-registered graph by name with default limits and a
+    /// private snapshot store. This is the one-call counterpart of
+    /// [`GraphConnection::install`]; use `install` directly to share a
+    /// [`SnapshotStore`] across connections or tune [`BuildLimits`].
+    pub fn open(connection: Arc<Connection>, graph_name: &str) -> Result<Self, Error> {
+        Self::open_with_parameters(connection, graph_name, ParameterTypes::new())
+    }
+
+    /// Like [`GraphConnection::open`], additionally declaring the `$parameter`
+    /// names/types this session's queries may bind.
+    pub fn open_with_parameters(
+        connection: Arc<Connection>,
+        graph_name: &str,
+        parameters: ParameterTypes,
+    ) -> Result<Self, Error> {
+        let graph = crate::load_registered_graph(&connection, graph_name).map_err(|error| {
+            Error::Database(turso_core::LimboError::ParseError(error.to_string()))
+        })?;
+        let catalog = Arc::new(crate::SchemaCatalog::new(connection.clone(), graph.clone()));
+        Self::install(
+            connection,
+            &graph,
+            catalog,
+            parameters,
+            Arc::new(SnapshotStore::default()),
+            BuildLimits::default(),
+        )
     }
 
     pub fn graph_id(&self) -> GraphId {
