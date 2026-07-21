@@ -122,7 +122,7 @@ fn measure_create(scale: u64) -> Result<Measurement> {
     let parameters = Parameters::new();
     let started = Instant::now();
     for id in 1..=scale {
-        fixture.session.mutate(
+        fixture.session.execute(
             &format!("CREATE (:Person {{id: {id}, name: 'node-{id}', age: {id}}})"),
             &parameters,
         )?;
@@ -220,7 +220,7 @@ fn measure_delete(scale: u64) -> Result<Measurement> {
     let started = Instant::now();
     fixture
         .session
-        .mutate("MATCH (n:Person) DETACH DELETE n", &Parameters::new())?;
+        .execute("MATCH (n:Person) DETACH DELETE n", &Parameters::new())?;
     let duration_ns = elapsed_ns(started);
     validate_counts(&fixture, 0, 0)?;
     Ok(measurement(&fixture, duration_ns, scale, Vec::new(), 0, 0))

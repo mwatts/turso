@@ -264,7 +264,7 @@ impl RustDonorCorpus {
                         // mutations.
                         Err(query_error) => match fixture
                             .session
-                            .mutate(&case.query, &Parameters::new())
+                            .execute(&case.query, &Parameters::new())
                         {
                             Ok(_) => (Outcome::Passed, None, "execution"),
                             Err(mutation_error) => (

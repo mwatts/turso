@@ -184,7 +184,7 @@ impl GraphConnection {
         Ok(crate::Statement::new(statement, result_types))
     }
 
-    pub fn mutate(&self, source: &str, parameters: &Parameters) -> Result<MutationSummary, Error> {
+    pub fn execute(&self, source: &str, parameters: &Parameters) -> Result<MutationSummary, Error> {
         let result = execute_cypher_mutation(
             &self.connection,
             self.graph,
@@ -455,7 +455,7 @@ mod tests {
         fixture.writer.execute("BEGIN").unwrap();
         fixture
             .writer_session
-            .mutate(
+            .execute(
                 "MATCH (a:Person {id: 1}) CREATE (a)-[:KNOWS]->(:Person {id: 3, name: 'C'})",
                 &Parameters::new(),
             )
@@ -477,7 +477,7 @@ mod tests {
         fixture.writer.execute("BEGIN").unwrap();
         fixture
             .writer_session
-            .mutate(
+            .execute(
                 "MATCH (a:Person {id: 1}) CREATE (a)-[:KNOWS]->(:Person {id: 3, name: 'C'})",
                 &Parameters::new(),
             )
@@ -491,7 +491,7 @@ mod tests {
 
         fixture
             .writer_session
-            .mutate(
+            .execute(
                 "MATCH (a:Person {id: 1}) CREATE (a)-[:KNOWS]->(:Person {id: 4, name: 'D'})",
                 &Parameters::new(),
             )
@@ -511,7 +511,7 @@ mod tests {
             .unwrap();
         fixture
             .writer_session
-            .mutate(
+            .execute(
                 "MATCH (a:Person {id: 1}) CREATE (a)-[:KNOWS]->(:Person {id: 3, name: 'C'})",
                 &Parameters::new(),
             )
@@ -548,7 +548,7 @@ mod tests {
     #[test]
     fn failed_mutation_does_not_leak_partial_rows_into_traversal() {
         let fixture = fixture(":memory:graph-session-failure");
-        let result = fixture.writer_session.mutate(
+        let result = fixture.writer_session.execute(
             "CREATE (:Person {id: 3, name: 'C'}), (:Person {id: 1, name: 'duplicate'})",
             &Parameters::new(),
         );
@@ -674,7 +674,7 @@ mod tests {
 
         let summary = fixture
             .writer_session
-            .mutate("CREATE (:Person {id: 3, name: 'C'})", &Parameters::new())
+            .execute("CREATE (:Person {id: 3, name: 'C'})", &Parameters::new())
             .expect("clear failure must not flip a successful mutation to Err");
         assert_eq!(summary.operations_executed, 1);
         assert_eq!(
@@ -689,7 +689,7 @@ mod tests {
 
         let error = fixture
             .writer_session
-            .mutate(
+            .execute(
                 "CREATE (:Person {id: 3, name: 'duplicate'})",
                 &Parameters::new(),
             )
@@ -780,7 +780,7 @@ mod tests {
         fixture.writer.execute("BEGIN CONCURRENT").unwrap();
         fixture
             .writer_session
-            .mutate(
+            .execute(
                 "MATCH (a:Person {id: 1}) CREATE (a)-[:KNOWS]->(:Person {id: 3, name: 'C'})",
                 &Parameters::new(),
             )

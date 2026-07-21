@@ -199,7 +199,7 @@ fn create_with_struct_map_literal_lowers_and_executes() {
     let session = graph_session_for_node_source(&connection, "Shape", "shapes");
 
     session
-        .mutate("CREATE (:Shape {origin: {x: 1, y: 2}})", &Parameters::new())
+        .execute("CREATE (:Shape {origin: {x: 1, y: 2}})", &Parameters::new())
         .expect("create struct-valued node");
 
     let stored = connection
@@ -232,7 +232,7 @@ fn create_with_union_map_literal_lowers_and_executes() {
     let session = graph_session_for_node_source(&connection, "Person", "people");
 
     session
-        .mutate(
+        .execute(
             "CREATE (:Person {reach: {email: 'a@example.com'}})",
             &Parameters::new(),
         )

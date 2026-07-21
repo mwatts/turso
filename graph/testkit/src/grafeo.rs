@@ -518,7 +518,7 @@ fn execute_statement(
     match session.query(statement, &parameters) {
         Ok(rows) => Ok(rows),
         Err(query_error) => session
-            .mutate(statement, &parameters)
+            .execute(statement, &parameters)
             .map(|summary| summary.rows)
             .map_err(|mutation_error| {
                 format!(

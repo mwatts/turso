@@ -297,18 +297,20 @@ fn run_canonical(
                 }
                 // Mirror the TCK statement router: statements the read
                 // pipeline rejects may still be executable mutations.
-                Err(query_error) => match fixture.session.mutate(&case.query, &Parameters::new()) {
-                    Ok(_) => {
-                        let (outcome, message) = succeeded(None);
-                        (outcome, message, "execution")
-                    }
-                    Err(mutation_error) => {
-                        let (outcome, message) = succeeded(Some(format!(
+                Err(query_error) => {
+                    match fixture.session.execute(&case.query, &Parameters::new()) {
+                        Ok(_) => {
+                            let (outcome, message) = succeeded(None);
+                            (outcome, message, "execution")
+                        }
+                        Err(mutation_error) => {
+                            let (outcome, message) = succeeded(Some(format!(
                             "query execution failed: {query_error}; mutation execution failed: {mutation_error}"
                         )));
-                        (outcome, message, "execution")
+                            (outcome, message, "execution")
+                        }
                     }
-                },
+                }
             },
             Err(error) => (
                 Outcome::Failed,

@@ -313,12 +313,12 @@ fn execute(
         "query" => session.query(&scenario.query, parameters),
         "mutation" => match scenario.verification_query.as_deref() {
             Some(verification) => session
-                .mutate(&scenario.query, parameters)
+                .execute(&scenario.query, parameters)
                 .and_then(|_| session.query(verification, parameters)),
             // Expected-error scenarios carry no verification query; when the
             // mutation unexpectedly succeeds, classify sees empty rows.
             None => session
-                .mutate(&scenario.query, parameters)
+                .execute(&scenario.query, parameters)
                 .map(|_| Vec::new()),
         },
         _ => unreachable!("manifest validation constrains actions"),
@@ -469,7 +469,7 @@ mod tests {
         let mutate = |query: &str| {
             fixture
                 .session
-                .mutate(query, &parameters)
+                .execute(query, &parameters)
                 .unwrap_or_else(|error| panic!("{query} failed: {error}"));
         };
         let row = |query: &str| {
@@ -506,7 +506,7 @@ mod tests {
         let mutate = |query: &str| {
             fixture
                 .session
-                .mutate(query, &parameters)
+                .execute(query, &parameters)
                 .unwrap_or_else(|error| panic!("{query} failed: {error}"));
         };
         let row = |query: &str| {
@@ -540,7 +540,7 @@ mod tests {
         let parameters = Parameters::new();
         let summary = fixture
             .session
-            .mutate(
+            .execute(
                 "UNWIND [3, 1, 2, 1] AS x CREATE (:Person {age: x}) \
                  RETURN DISTINCT x ORDER BY x DESC",
                 &parameters,
@@ -563,7 +563,7 @@ mod tests {
         ] {
             fixture
                 .session
-                .mutate(statement, &parameters)
+                .execute(statement, &parameters)
                 .expect("seed");
         }
         // TCK Match4 [8] shape: capture two relationships as a list, then
@@ -602,14 +602,14 @@ mod tests {
         let parameters = Parameters::new();
         fixture
             .session
-            .mutate(
+            .execute(
                 "CREATE (:Person {name: 'Ada'}) CREATE (:Person {name: 'Bob'})",
                 &parameters,
             )
             .expect("seed");
         fixture
             .session
-            .mutate(
+            .execute(
                 "MATCH (a {name: 'Ada'}) MATCH (b {name: 'Bob'}) CREATE (a)-[:KNOWS]->(b)",
                 &parameters,
             )
@@ -657,7 +657,7 @@ mod tests {
         ] {
             fixture
                 .session
-                .mutate(statement, &parameters)
+                .execute(statement, &parameters)
                 .expect("seed");
         }
         let rows = fixture
@@ -690,7 +690,7 @@ mod tests {
         // TCK Match8 [2] shape: MERGE then re-match both endpoints.
         let summary = fixture
             .session
-            .mutate(
+            .execute(
                 "CREATE (a:Person {name: 'X'}) \
                  CREATE (b:Person {name: 'Y'}) \
                  CREATE (a)-[:KNOWS]->(b) \
@@ -702,7 +702,7 @@ mod tests {
         // Optional staged match keeps the row with null outputs.
         let summary = fixture
             .session
-            .mutate(
+            .execute(
                 "CREATE (c:Person {name: 'Z'}) \
                  WITH * OPTIONAL MATCH (c)-[m:KNOWS]->(unmatched) RETURN count(*)",
                 &parameters,
@@ -718,7 +718,7 @@ mod tests {
         let mutate = |query: &str| {
             fixture
                 .session
-                .mutate(query, &parameters)
+                .execute(query, &parameters)
                 .unwrap_or_else(|error| panic!("{query} failed: {error}"));
         };
         mutate("CREATE (:Person {name: 'A'})");
