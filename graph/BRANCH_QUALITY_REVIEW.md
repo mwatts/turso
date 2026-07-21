@@ -83,7 +83,7 @@ Severity key: **bug** = correctness or safety contract break; **suggestion** = i
 
 #### Issue 6 — Severity: bug
 - **File:** `graph/frontend/src/session.rs:190–204`
-- **Description:** `GraphSession::mutate` always `clear()`s the local snapshot store before returning the mutation `Result`. If the mutation succeeds but `clear` fails (`StorePoisoned`), the caller sees an error after a durable write. If the mutation fails and then `clear` fails, the original mutation error is discarded.
+- **Description:** `GraphConnection::execute` always `clear()`s the local snapshot store before returning the mutation `Result`. If the mutation succeeds but `clear` fails (`StorePoisoned`), the caller sees an error after a durable write. If the mutation fails and then `clear` fails, the original mutation error is discarded.
 - **Suggestion:** Propagate the mutation result first; treat clear failure as secondary (log/attach), never overwrite a successful write with clear failure.
 - **Status:** fixed — mutation result is consumed first; clear failure after a successful write is logged, never flips Ok to Err; a failed mutation keeps its own error. Regression: `mutate_result_survives_snapshot_clear_failure`.
 
@@ -203,7 +203,7 @@ Severity key: **bug** = correctness or safety contract break; **suggestion** = i
 
 #### Issue 25 — Severity: suggestion
 - **File:** `graph/frontend/src/session.rs` / `compiler.rs` — single `graph-cypher` FrontendId
-- **Description:** Only one graph frontend compiler per connection. Second `GraphSession::install` fails with already-registered; `Drop` unregisters the shared id. Multi-graph-per-connection is unsupported and surprising.
+- **Description:** Only one graph frontend compiler per connection. Second `GraphConnection::install` fails with already-registered; `Drop` unregisters the shared id. Multi-graph-per-connection is unsupported and surprising.
 - **Suggestion:** Multiplexer compiler, or `FrontendId` per graph name; document single-graph session limit.
 - **Status:** open — triaged, not addressed in this pass.
 
@@ -270,10 +270,10 @@ Severity key: **bug** = correctness or safety contract break; **suggestion** = i
 - **Status:** fixed (doc alignment) — memory-observability.md marks phase 2 shipped and documents the real `(stat, value)` row schema plus the thin-test / zeroed-stats caveats. Dedicated pragma tests and fail-closed harness behavior remain follow-ups.
 
 #### Issue 36 — Severity: suggestion
-- **File:** temporal install ownership vs `GraphSession`
-- **Description:** Duration/temporal functions live in `turso_graph_temporal`, but only the testkit reliably installs them. Embedders using `GraphSession` alone can hit “runtime scalar function missing” (a top REPORT failure family: 269).
-- **Suggestion:** Install temporal (and other required graph scalars) from `GraphSession::install` or document a single `install_graph_runtime(connection)` entrypoint.
-- **Status:** fixed — `GraphSession::install` installs the temporal extension (which also provides `cypher_equals`); bare sessions no longer hit missing scalar functions. Regression: `install_registers_runtime_scalar_functions` (proven to fail without the install).
+- **File:** temporal install ownership vs `GraphConnection`
+- **Description:** Duration/temporal functions live in `turso_graph_temporal`, but only the testkit reliably installs them. Embedders using `GraphConnection` alone can hit “runtime scalar function missing” (a top REPORT failure family: 269).
+- **Suggestion:** Install temporal (and other required graph scalars) from `GraphConnection::install` or document a single `install_graph_runtime(connection)` entrypoint.
+- **Status:** fixed — `GraphConnection::install` installs the temporal extension (which also provides `cypher_equals`); bare sessions no longer hit missing scalar functions. Regression: `install_registers_runtime_scalar_functions` (proven to fail without the install).
 
 ### Testkit / infrastructure
 

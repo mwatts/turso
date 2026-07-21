@@ -68,7 +68,7 @@ Graph-specific allocations that RSS cannot separate:
 - Materialized path/list JSON: count bytes produced by
   `json_object('nodes', ...)` projections per query. Cheapest proxy:
   track cumulative result-text bytes in the session
-  (`GraphSession::query` already owns the row loop). Expose as a
+  (`GraphConnection::query` already owns the row loop). Expose as a
   per-query stat in the detail JSONL (`result_bytes`).
 
 ## Phase 4 — allocator-level (on demand, not CI)
