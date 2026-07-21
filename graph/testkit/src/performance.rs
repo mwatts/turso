@@ -82,6 +82,8 @@ struct Measurement {
     rows: Vec<Vec<String>>,
     nodes: u64,
     relationships: u64,
+    page_cache_mb: u64,
+    wal_mb: u64,
 }
 
 fn run_scale(
@@ -127,7 +129,14 @@ fn measure_create(scale: u64) -> Result<Measurement> {
     }
     let duration_ns = elapsed_ns(started);
     validate_counts(&fixture, scale, 0)?;
-    Ok(measurement(duration_ns, scale, Vec::new(), scale, 0))
+    Ok(measurement(
+        &fixture,
+        duration_ns,
+        scale,
+        Vec::new(),
+        scale,
+        0,
+    ))
 }
 
 fn measure_bulk_load(scale: u64) -> Result<Measurement> {
@@ -139,6 +148,7 @@ fn measure_bulk_load(scale: u64) -> Result<Measurement> {
     let duration_ns = elapsed_ns(started);
     validate_counts(&fixture, scale, scale - 1)?;
     Ok(measurement(
+        &fixture,
         duration_ns,
         scale.saturating_mul(2).saturating_sub(1),
         Vec::new(),
@@ -163,6 +173,7 @@ fn measure_load(scale: u64) -> Result<Measurement> {
     );
     validate_counts(&fixture, scale, scale - 1)?;
     Ok(measurement(
+        &fixture,
         duration_ns,
         scale.saturating_mul(2).saturating_sub(1),
         stringify_rows(rows),
@@ -193,6 +204,7 @@ fn measure_query(scale: u64, iterations: u32) -> Result<Measurement> {
     );
     validate_counts(&fixture, scale, scale - 1)?;
     Ok(measurement(
+        &fixture,
         duration_ns,
         u64::from(iterations),
         rows,
@@ -212,7 +224,7 @@ fn measure_delete(scale: u64) -> Result<Measurement> {
     )?;
     let duration_ns = elapsed_ns(started);
     validate_counts(&fixture, 0, 0)?;
-    Ok(measurement(duration_ns, scale, Vec::new(), 0, 0))
+    Ok(measurement(&fixture, duration_ns, scale, Vec::new(), 0, 0))
 }
 
 fn validate_counts(fixture: &GraphFixture, nodes: u64, relationships: u64) -> Result<()> {
@@ -236,18 +248,22 @@ fn validate_counts(fixture: &GraphFixture, nodes: u64, relationships: u64) -> Re
 }
 
 fn measurement(
+    fixture: &GraphFixture,
     duration_ns: u64,
     units: u64,
     rows: Vec<Vec<String>>,
     nodes: u64,
     relationships: u64,
 ) -> Measurement {
+    let (page_cache_mb, wal_mb) = crate::cypherbench::memory_stats_mb(&fixture.connection);
     Measurement {
         duration_ns,
         units,
         rows,
         nodes,
         relationships,
+        page_cache_mb,
+        wal_mb,
     }
 }
 
@@ -305,7 +321,18 @@ fn record(
             relationship_count: Some(measurement.relationships),
             result_digest: Some(result_digest(&measurement.rows)),
             message: None,
-            dimensions: BTreeMap::from([("units".to_owned(), measurement.units.to_string())]),
+            dimensions: BTreeMap::from([
+                ("units".to_owned(), measurement.units.to_string()),
+                (
+                    "peak_rss_mb".to_owned(),
+                    crate::cypherbench::peak_rss_mb().to_string(),
+                ),
+                (
+                    "page_cache_mb".to_owned(),
+                    measurement.page_cache_mb.to_string(),
+                ),
+                ("wal_mb".to_owned(), measurement.wal_mb.to_string()),
+            ]),
         },
         Err(error) => ResultRecord {
             schema_version: HISTORY_SCHEMA_VERSION,

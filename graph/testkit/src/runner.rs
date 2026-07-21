@@ -96,6 +96,32 @@ pub fn empty_fixture(name: &str) -> Result<GraphFixture, RunnerError> {
     build_fixture(name, "", ParameterTypes::new())
 }
 
+/// Empty fixture backed by a database file instead of MemoryIO, so
+/// residency is bounded by the page cache rather than the whole database.
+/// Any existing database at `path` (and its WAL) is removed first.
+pub fn empty_fixture_on_disk(
+    name: &str,
+    path: &std::path::Path,
+) -> Result<GraphFixture, RunnerError> {
+    for suffix in ["", "-wal", "-shm"] {
+        let target = format!("{}{suffix}", path.display());
+        if std::path::Path::new(&target).exists() {
+            std::fs::remove_file(&target)
+                .map_err(|error| RunnerError::Fixture(error.to_string()))?;
+        }
+    }
+    let io = Arc::new(
+        turso_core::PlatformIO::new().map_err(|error| RunnerError::Fixture(error.to_string()))?,
+    );
+    build_fixture_with_io(
+        name,
+        "",
+        ParameterTypes::new(),
+        io,
+        &path.display().to_string(),
+    )
+}
+
 pub(crate) fn empty_fixture_with_parameters(
     name: &str,
     parameters: &MutationParameters,
@@ -132,9 +158,26 @@ fn build_fixture(
     seed_sql: &str,
     parameter_types: ParameterTypes,
 ) -> Result<GraphFixture, RunnerError> {
-    let database = Database::open_file_with_flags(
+    build_fixture_with_io(
+        name,
+        seed_sql,
+        parameter_types,
         Arc::new(MemoryIO::new()),
         &format!(":memory:{name}"),
+    )
+}
+
+fn build_fixture_with_io(
+    name: &str,
+    seed_sql: &str,
+    parameter_types: ParameterTypes,
+    io: Arc<dyn turso_core::IO>,
+    path: &str,
+) -> Result<GraphFixture, RunnerError> {
+    let _ = name;
+    let database = Database::open_file_with_flags(
+        io,
+        path,
         OpenFlags::default(),
         DatabaseOpts::new().with_custom_types(true),
         None,

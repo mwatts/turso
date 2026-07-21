@@ -111,7 +111,7 @@ pub struct DomainReport {
 
 /// Reads PRAGMA memory_stats off a connection as (page_cache_mb, wal_mb);
 /// zero on any failure so diagnostics never fail a run.
-fn memory_stats_mb(connection: &std::sync::Arc<turso_core::Connection>) -> (u64, u64) {
+pub(crate) fn memory_stats_mb(connection: &std::sync::Arc<turso_core::Connection>) -> (u64, u64) {
     let Ok(mut statement) = connection.prepare("PRAGMA memory_stats") else {
         return (0, 0);
     };
@@ -183,7 +183,17 @@ fn scalar_sql(value: &serde_json::Value) -> String {
 /// relations into the relationship table, labels and types into the
 /// junction tables the frontend scans.
 pub fn load_graph(kg: &SimpleKg) -> Result<GraphFixture> {
-    let fixture = empty_fixture("cypherbench").context("fixture")?;
+    // TURSO_GRAPH_BENCH_DB_DIR switches the fixture from MemoryIO to a
+    // database file in that directory, bounding residency by the page
+    // cache instead of the whole graph (memory-observability phase 2/3
+    // measurement lever).
+    let fixture = match std::env::var_os("TURSO_GRAPH_BENCH_DB_DIR") {
+        Some(directory) => {
+            let path = std::path::Path::new(&directory).join("cypherbench.db");
+            crate::runner::empty_fixture_on_disk("cypherbench", &path).context("disk fixture")?
+        }
+        None => empty_fixture("cypherbench").context("fixture")?,
+    };
     let connection = &fixture.connection;
     // Properties that ever carry a list or map value store jsonb blobs in a
     // declared-JSONB column: binary encoding is smaller and parse-free, and

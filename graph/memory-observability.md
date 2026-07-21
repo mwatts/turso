@@ -22,6 +22,24 @@ growth is the delta). Zero engine changes.
 Limits: whole-process, monotone (no release visibility), includes
 allocator slack and harness overhead.
 
+## Policy — memory in every perf evaluation
+
+Every performance surface records memory next to time, from two sources:
+process peak RSS (`peak_rss_mb`) and engine-attributed `PRAGMA
+memory_stats` (`page_cache_mb`, `wal_mb`). Current coverage:
+
+- CypherBench domains: all three fields in `benchmarks.jsonl`.
+- Lifecycle performance suite: all three in each record's `dimensions`.
+- New perf harnesses must do the same before merging.
+
+First attribution results (movie, 459k entities / 1.9M relations):
+in-memory fixtures peak at ~5.5 GB RSS with only 7 MB of page cache —
+the driver is the in-memory database heap, not the pager. File-backed
+fixtures (`TURSO_GRAPH_BENCH_DB_DIR`) bound residency at ~1.7 GB
+(-69%) for ~10% query latency; accuracy identical. Known issue: the
+pragma under-reports WAL frames on the bench connection (0 against a
+322 MB WAL file) — frame-count read needs fixing.
+
 ## Phase 2 — engine counters via pragmas (next)
 
 turso_core already tracks the inputs; expose them read-only:
