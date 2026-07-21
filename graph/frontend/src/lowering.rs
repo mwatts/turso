@@ -438,12 +438,13 @@ fn lower_plan(
             let mut selects = Vec::new();
             let mut groups = Vec::new();
             let mut bindings = HashMap::new();
+            let mut columns = Vec::new();
+            let mut collect_columns = Vec::new();
             for grouping in &aggregate.groupings {
                 let sql = lower_expression(&grouping.expression, &input.bindings, catalog, "q")?;
-                selects.push(format!(
-                    "({sql}) AS {}",
-                    binding_column(grouping.output.id())
-                ));
+                let column = binding_column(grouping.output.id());
+                selects.push(format!("({sql}) AS {column}"));
+                columns.push(column);
                 groups.push(format!("({sql})"));
                 // Entity groupings keep their relational layout addressable
                 // for later property access.
@@ -484,6 +485,7 @@ fn lower_plan(
                         format!("max({distinct}({argument}))")
                     }
                     (ir::AggregateFunction::Collect, Some(argument)) => {
+                        collect_columns.push(binding_column(aggregation.output.id()));
                         format!("json_group_array({distinct}({argument}))")
                     }
                     _ => {
@@ -492,24 +494,44 @@ fn lower_plan(
                         ));
                     }
                 };
-                selects.push(format!(
-                    "{call} AS {}",
-                    binding_column(aggregation.output.id())
-                ));
+                let column = binding_column(aggregation.output.id());
+                selects.push(format!("{call} AS {column}"));
+                columns.push(column);
             }
             let group_by = if groups.is_empty() {
                 String::new()
             } else {
                 format!(" GROUP BY {}", groups.join(", "))
             };
-            Ok(Lowered {
-                sql: format!(
-                    "SELECT {} FROM ({}) AS q{group_by}",
-                    selects.join(", "),
-                    input.sql
-                ),
-                bindings,
-            })
+            let sql = format!(
+                "SELECT {} FROM ({}) AS q{group_by}",
+                selects.join(", "),
+                input.sql
+            );
+            // Cypher's collect() ignores null inputs, unlike json_group_array
+            // (which records them as JSON null); round-trip the affected
+            // columns through json_each to drop them after aggregating.
+            let sql = if collect_columns.is_empty() {
+                sql
+            } else {
+                let projection = columns
+                    .iter()
+                    .map(|column| {
+                        if collect_columns.contains(column) {
+                            format!(
+                                "(SELECT json_group_array(collected.value) \
+                                 FROM json_each(agg.{column}) AS collected \
+                                 WHERE collected.value IS NOT NULL) AS {column}"
+                            )
+                        } else {
+                            format!("agg.{column} AS {column}")
+                        }
+                    })
+                    .collect::<Vec<_>>()
+                    .join(", ");
+                format!("SELECT {projection} FROM ({sql}) AS agg")
+            };
+            Ok(Lowered { sql, bindings })
         }
         ir::PlanKind::Sort(sort) => {
             let input = lower_plan(&sort.input, catalog, optional, wanted)?;
@@ -1550,21 +1572,39 @@ fn lower_expression_with_references(
                 references,
             )?;
             let alias = format!("lst{depth}");
+            // A bare `WHERE (predicate)` filters out rows where predicate is
+            // NULL the same way it filters out false rows, collapsing
+            // Cypher's three-valued quantifier semantics to a boolean. Each
+            // arm below probes true/false/null membership separately so a
+            // NULL-valued predicate can surface as NULL instead of vanishing.
+            let has_true = format!(
+                "EXISTS (SELECT 1 FROM json_each(({list})) AS {alias} WHERE ({predicate}) = 1)"
+            );
+            let has_false = format!(
+                "EXISTS (SELECT 1 FROM json_each(({list})) AS {alias} WHERE ({predicate}) = 0)"
+            );
+            let has_null = format!(
+                "EXISTS (SELECT 1 FROM json_each(({list})) AS {alias} WHERE ({predicate}) IS NULL)"
+            );
             Ok(match kind {
-                ir::QuantifierKind::Any => format!(
-                    "EXISTS (SELECT 1 FROM json_each(({list})) AS {alias} WHERE ({predicate}))"
-                ),
-                ir::QuantifierKind::All => format!(
-                    "NOT EXISTS (SELECT 1 FROM json_each(({list})) AS {alias} \
-                     WHERE NOT ({predicate}))"
-                ),
-                ir::QuantifierKind::None => format!(
-                    "NOT EXISTS (SELECT 1 FROM json_each(({list})) AS {alias} \
-                     WHERE ({predicate}))"
-                ),
+                ir::QuantifierKind::Any => {
+                    format!("(CASE WHEN {has_true} THEN 1 WHEN {has_null} THEN NULL ELSE 0 END)")
+                }
+                ir::QuantifierKind::All => {
+                    format!("(CASE WHEN {has_false} THEN 0 WHEN {has_null} THEN NULL ELSE 1 END)")
+                }
+                ir::QuantifierKind::None => {
+                    format!("(CASE WHEN {has_true} THEN 0 WHEN {has_null} THEN NULL ELSE 1 END)")
+                }
+                // A count of two or more true matches already breaks
+                // "exactly one" no matter how any null element resolves, so
+                // that branch must be checked before the null branch.
                 ir::QuantifierKind::Single => format!(
-                    "((SELECT count(*) FROM json_each(({list})) AS {alias} \
-                     WHERE ({predicate})) = 1)"
+                    "(CASE WHEN (SELECT count(*) FROM json_each(({list})) AS {alias} \
+                     WHERE ({predicate}) = 1) >= 2 THEN 0 \
+                     WHEN (SELECT count(*) FROM json_each(({list})) AS {alias} \
+                     WHERE ({predicate}) = 1) = 1 AND NOT {has_null} THEN 1 \
+                     WHEN {has_null} THEN NULL ELSE 0 END)"
                 ),
             })
         }
