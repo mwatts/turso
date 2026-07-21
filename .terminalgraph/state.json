@@ -1,0 +1,38 @@
+{
+  "connections" : [
+
+  ],
+  "nodes" : [
+    {
+      "config" : {
+        "notifications" : {
+          "alertOnFailure" : true,
+          "alertOnLongRunning" : false,
+          "longRunningThreshold" : 10
+        },
+        "workingDirectory" : "/Users/markwatts/code/github/mwatts/turso"
+      },
+      "height" : 500,
+      "id" : "A2E74A17-664D-44A1-B9A6-D361C7CD38A4",
+      "project" : "E82E8EE5-179B-43AE-9CCD-5A405A28A6C1",
+      "title" : "…/github/mwatts/turso",
+      "type" : "terminal",
+      "width" : 700,
+      "x" : -20,
+      "y" : -160,
+      "zIndex" : 0
+    }
+  ],
+  "version" : 3,
+  "viewport" : {
+    "offsetX" : -400,
+    "offsetY" : -300,
+    "scale" : 1
+  },
+  "window" : {
+    "height" : 762,
+    "width" : 1452,
+    "x" : 186,
+    "y" : 288
+  }
+}

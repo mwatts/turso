@@ -15,9 +15,9 @@ use turso_graph_frontend::{
 };
 use turso_parser::ast;
 use turso_pg_parser::translator::{
-    is_refresh_matview, try_extract_copy_from, try_extract_create_schema, try_extract_drop_schema,
-    try_extract_graph_cypher, try_extract_set, try_extract_show, PgCopyFromStmt,
-    PgCreateSchemaStmt, PgDropSchemaStmt, PostgreSQLTranslator,
+    is_comment_on, is_refresh_matview, try_extract_copy_from, try_extract_create_schema,
+    try_extract_drop_schema, try_extract_graph_cypher, try_extract_set, try_extract_show,
+    PgCopyFromStmt, PgCreateSchemaStmt, PgDropSchemaStmt, PostgreSQLTranslator,
 };
 
 use crate::copy::parse_copy_text_format;
@@ -91,16 +91,13 @@ pub fn open_database_with_io(
 ) -> Result<Arc<turso_core::Database>> {
     let file = io.open_file(path, flags, true)?;
     let db_file = Arc::new(turso_core::storage::database::DatabaseFile::new(file));
-    turso_core::Database::open_with_flags_with_allocator(
+    turso_core::Database::open(
         io,
         path,
-        db_file,
-        flags,
-        opts,
-        None,
-        None,
-        turso_core::alloc::DynAllocator::default(),
-        Arc::new(PostgresDialect),
+        turso_core::OpenOptions::new(Arc::new(PostgresDialect))
+            .storage(db_file)
+            .flags(flags)
+            .db_opts(opts),
     )
 }
 
@@ -368,6 +365,10 @@ fn try_prepare_special(conn: &Arc<Connection>, sql: &str) -> Result<Option<State
     }
 
     if is_refresh_matview(&parse_result) {
+        return Ok(Some(noop_statement(conn)?));
+    }
+
+    if is_comment_on(&parse_result) {
         return Ok(Some(noop_statement(conn)?));
     }
 

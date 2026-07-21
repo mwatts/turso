@@ -1,0 +1,28 @@
+#!/bin/bash
+#
+# post-worktree-create — runs after a new worktree is created
+#
+# This script runs in an interactive terminal. You can see its output,
+# cancel it with Ctrl+C, and continue typing after it finishes.
+#
+# Available environment variables:
+#   TG_EVENT            — hook name (post-worktree-create)
+#   TG_WORKSPACE_PATH   — workspace root path
+#   TG_WORKTREE_PATH    — newly created worktree directory (also the cwd)
+#   TG_WORKTREE_NAME    — display name
+#   TG_BRANCH_NAME      — branch name (empty if detached HEAD)
+#   TG_BASE_BRANCH_NAME — branch created from (empty if checking out existing)
+#
+# Examples:
+#
+#   # Install dependencies
+#   npm install
+#
+#   # Copy shared env file
+#   cp "$TG_WORKSPACE_PATH/.env" "$TG_WORKTREE_PATH/.env"
+#
+#   # Symlink shared env instead of copying
+#   ln -sf "$TG_WORKSPACE_PATH/.env" "$TG_WORKTREE_PATH/.env"
+#
+#   # Run database migrations
+#   npm run db:migrate
