@@ -55,6 +55,8 @@ pub fn install_temporal_extension(connection: &Connection) {
         register(c"jsonb_contains".as_ptr(), jsonb_contains);
         register(c"cypher_raise".as_ptr(), cypher_raise);
         register(c"cypher_equals".as_ptr(), cypher_equals);
+        register(c"cypher_add".as_ptr(), cypher_add);
+        register(c"cypher_div".as_ptr(), cypher_div);
     });
 }
 
@@ -1326,6 +1328,79 @@ fn cypher_equals(args: &[ExtValue]) -> ExtValue {
         Some(false) => ExtValue::from_integer(0),
         None => ExtValue::null(),
     }
+}
+
+/// Cypher `+` over dynamically typed operands: numbers add (integers stay
+/// integers), strings concatenate (numbers stringify when paired with a
+/// string), lists concatenate or append, null propagates.
+#[scalar(name = "cypher_add")]
+fn cypher_add(args: &[ExtValue]) -> ExtValue {
+    use turso_ext::ValueType;
+    let (Some(left), Some(right)) = (args.first(), args.get(1)) else {
+        return ExtValue::null();
+    };
+    if left.value_type() == ValueType::Null || right.value_type() == ValueType::Null {
+        return ExtValue::null();
+    }
+    let structured = |value: &ExtValue| -> serde_json::Value { comparison_value(value) };
+    let (left, right) = (structured(left), structured(right));
+    use serde_json::Value as V;
+    match (left, right) {
+        (V::Array(mut left), V::Array(right)) => {
+            left.extend(right);
+            ExtValue::from_text(V::Array(left).to_string())
+        }
+        (V::Array(mut left), scalar) => {
+            left.push(scalar);
+            ExtValue::from_text(V::Array(left).to_string())
+        }
+        (scalar, V::Array(mut right)) => {
+            right.insert(0, scalar);
+            ExtValue::from_text(V::Array(right).to_string())
+        }
+        (V::Number(left), V::Number(right)) => match (left.as_i64(), right.as_i64()) {
+            (Some(left), Some(right)) => ExtValue::from_integer(left.wrapping_add(right)),
+            _ => ExtValue::from_float(
+                left.as_f64().unwrap_or_default() + right.as_f64().unwrap_or_default(),
+            ),
+        },
+        (V::String(left), V::String(right)) => ExtValue::from_text(format!("{left}{right}")),
+        (V::String(left), V::Number(right)) => ExtValue::from_text(format!("{left}{right}")),
+        (V::Number(left), V::String(right)) => ExtValue::from_text(format!("{left}{right}")),
+        // Maps and booleans have no + in Cypher: a genuine TypeError, not a
+        // silent null.
+        _ => ExtValue::error_with_message("TypeError: invalid operand types for +".to_owned()),
+    }
+}
+
+/// Cypher `/` over dynamically typed operands: integer division truncates
+/// and raises on a zero divisor, mixed/float division divides as doubles,
+/// null propagates.
+#[scalar(name = "cypher_div")]
+fn cypher_div(args: &[ExtValue]) -> ExtValue {
+    use turso_ext::ValueType;
+    let (Some(left), Some(right)) = (args.first(), args.get(1)) else {
+        return ExtValue::null();
+    };
+    if left.value_type() == ValueType::Null || right.value_type() == ValueType::Null {
+        return ExtValue::null();
+    }
+    if left.value_type() == ValueType::Integer && right.value_type() == ValueType::Integer {
+        let (Some(left), Some(right)) = (left.to_integer(), right.to_integer()) else {
+            return ExtValue::null();
+        };
+        if right == 0 {
+            return ExtValue::error_with_message("ArithmeticError: / by zero".to_owned());
+        }
+        return ExtValue::from_integer(left.wrapping_div(right));
+    }
+    let (Some(left), Some(right)) = (left.to_float(), right.to_float()) else {
+        return ExtValue::null();
+    };
+    if right == 0.0 {
+        return ExtValue::error_with_message("ArithmeticError: / by zero".to_owned());
+    }
+    ExtValue::from_float(left / right)
 }
 
 /// Interprets an SQL value for structural comparison: text that parses as

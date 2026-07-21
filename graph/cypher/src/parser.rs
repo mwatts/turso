@@ -679,6 +679,7 @@ fn walk_expression(pair: Pair<'_, Rule>) -> Result<Spanned<Expression>, ParseErr
         Rule::function_call => walk_function(pair)?,
         Rule::case_expression => walk_case(pair)?,
         Rule::quantifier_expression => walk_quantifier(pair)?,
+        Rule::reduce_expression => walk_reduce(pair)?,
         Rule::list_comprehension => walk_list_comprehension(pair)?,
         Rule::pattern_subquery => walk_pattern_subquery(pair)?,
         Rule::pattern_predicate => walk_pattern_predicate(pair)?,
@@ -885,6 +886,36 @@ fn walk_pattern_predicate(pair: Pair<'_, Rule>) -> Result<Expression, ParseError
             steps,
             span,
         }),
+    })
+}
+
+fn walk_reduce(pair: Pair<'_, Rule>) -> Result<Expression, ParseError> {
+    let span = pair_span(&pair);
+    let mut identifiers = Vec::new();
+    let mut expressions = Vec::new();
+    for child in pair.into_inner() {
+        match child.as_rule() {
+            Rule::identifier => identifiers.push(walk_identifier(child)),
+            Rule::expression => expressions.push(walk_expression(child)?),
+            _ => {}
+        }
+    }
+    let mut identifiers = identifiers.into_iter();
+    let mut expressions = expressions.into_iter();
+    let (Some(accumulator), Some(variable)) = (identifiers.next(), identifiers.next()) else {
+        return Err(ParseError::at(span, "reduce is missing its variables"));
+    };
+    let (Some(initial), Some(list), Some(expression)) =
+        (expressions.next(), expressions.next(), expressions.next())
+    else {
+        return Err(ParseError::at(span, "reduce is missing its expressions"));
+    };
+    Ok(Expression::Reduce {
+        accumulator,
+        initial: Box::new(initial),
+        variable,
+        list: Box::new(list),
+        expression: Box::new(expression),
     })
 }
 

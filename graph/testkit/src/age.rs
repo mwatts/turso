@@ -489,6 +489,8 @@ fn is_age_restriction_error(message: &str, file_stem: &str) -> bool {
         || first_line.contains("l2_distance")
         || first_line.contains("inner_product")
         || first_line.starts_with("unsupported Unicode escape")
+        // Nested reduce() is valid openCypher; AGE's planner rejects it.
+        || first_line.contains("not supported in a reduce")
 }
 
 /// The expected output echoes invocations in order but can interleave extra

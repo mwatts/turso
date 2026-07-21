@@ -139,11 +139,13 @@ index_suffix = { "[" ~ dotdot ~ expression ~ "]" | "[" ~ expression ~ (dotdot ~ 
 dotdot = @{ ".." }
 cast_suffix = { "::" ~ identifier }
 call_suffix = { "(" ~ DISTINCT? ~ expression_list? ~ ")" }
-primary_expression = { case_expression | quantifier_expression | pattern_subquery | function_call | list_comprehension | list_literal | map_literal | literal | parameter | identifier | pattern_predicate | "(" ~ expression ~ ")" }
+primary_expression = { case_expression | quantifier_expression | reduce_expression | pattern_subquery | function_call | list_comprehension | list_literal | map_literal | literal | parameter | identifier | pattern_predicate | "(" ~ expression ~ ")" }
 pattern_subquery = { subquery_kind ~ ("{" ~ MATCH? ~ pattern ~ where_clause? ~ return_clause? ~ "}" | "(" ~ pattern ~ ")") }
 subquery_kind = @{ (^"exists" | ^"count") ~ !ident_char }
 pattern_predicate = { node_pattern ~ (relationship_pattern ~ node_pattern)+ }
 quantifier_expression = { quantifier_kind ~ "(" ~ identifier ~ in_op ~ expression ~ WHERE ~ expression ~ ")" }
+reduce_expression = { reduce_kw ~ "(" ~ identifier ~ "=" ~ expression ~ "," ~ identifier ~ in_op ~ expression ~ "|" ~ expression ~ ")" }
+reduce_kw = @{ ^"reduce" ~ !ident_char }
 quantifier_kind = @{ (^"all" | ^"any" | ^"none" | ^"single") ~ !ident_char }
 list_comprehension = { "[" ~ identifier ~ in_op ~ expression ~ (WHERE ~ expression)? ~ ("|" ~ expression)? ~ "]" }
 case_expression = { CASE ~ case_subject? ~ when_clause+ ~ case_else? ~ END }

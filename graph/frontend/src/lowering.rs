@@ -1380,6 +1380,30 @@ fn lower_expression_with_references(
                 {
                     format!("json_insert(({left}), '$[#]', ({right}))")
                 }
+                // Cypher + concatenates strings; SQL + coerces them to 0.
+                ir::BinaryOp::Add
+                    if left_type == ir::ValueType::Text && right_type == ir::ValueType::Text =>
+                {
+                    format!("(({left}) || ({right}))")
+                }
+                // Dynamically typed operands dispatch in the cypher_add
+                // extension scalar (numbers add, strings concatenate, lists
+                // concatenate/append, null propagates); a compact call keeps
+                // unrolled contexts like reduce() small.
+                ir::BinaryOp::Add
+                    if matches!(left_type, ir::ValueType::Any | ir::ValueType::Text)
+                        || matches!(right_type, ir::ValueType::Any | ir::ValueType::Text) =>
+                {
+                    format!("cypher_add(({left}), ({right}))")
+                }
+                // Division on dynamic operands raises Cypher's zero-divisor
+                // error instead of SQL's silent NULL.
+                ir::BinaryOp::Divide
+                    if matches!(left_type, ir::ValueType::Any)
+                        || matches!(right_type, ir::ValueType::Any) =>
+                {
+                    format!("cypher_div(({left}), ({right}))")
+                }
                 // Ordering comparisons are ternary and type-strict: numbers
                 // compare with numbers and text with text; anything else
                 // (including null operands) is null. SQLite's cross-type
@@ -1444,6 +1468,59 @@ fn lower_expression_with_references(
             })
         }
         ir::Expression::ListElement(depth) => Ok(format!("lst{depth}.value")),
+        ir::Expression::ReduceAccumulator(depth) => Ok(format!("rq{depth}.acc{depth}")),
+        ir::Expression::ReduceElement(depth) => Ok(format!(
+            "json_extract(rq{depth}.lst{depth}, '$[' || rq{depth}.idx{depth} || ']')"
+        )),
+        ir::Expression::Reduce {
+            depth,
+            initial,
+            list,
+            body,
+        } => {
+            // Recursive CTEs are unavailable, so the fold unrolls into a
+            // fixed ladder of nested scalar subqueries. Every rung carries
+            // (accumulator, list, index) and applies the body only while the
+            // index is inside the list, so the SQL is linear in the cap and
+            // identical per rung; lists longer than the cap raise instead of
+            // silently truncating.
+            const REDUCE_UNROLL_CAP: usize = 10;
+            let initial = lower_expression_with_references(
+                initial,
+                bindings,
+                catalog,
+                input_alias,
+                references,
+            )?;
+            let list =
+                lower_expression_with_references(list, bindings, catalog, input_alias, references)?;
+            let body =
+                lower_expression_with_references(body, bindings, catalog, input_alias, references)?;
+            // Flat sibling CTEs keep parser recursion linear; nesting the
+            // rungs as FROM subqueries overflows the stack at this cap.
+            let mut rungs = vec![format!(
+                "r{depth}_0 AS (SELECT ({initial}) AS acc{depth}, \
+                 ({list}) AS lst{depth}, 0 AS idx{depth})"
+            )];
+            for rung in 1..=REDUCE_UNROLL_CAP {
+                let previous = rung - 1;
+                rungs.push(format!(
+                    "r{depth}_{rung} AS (SELECT CASE WHEN rq{depth}.idx{depth} < \
+                     json_array_length(rq{depth}.lst{depth}) THEN ({body}) \
+                     ELSE rq{depth}.acc{depth} END AS acc{depth}, \
+                     rq{depth}.lst{depth} AS lst{depth}, \
+                     rq{depth}.idx{depth} + 1 AS idx{depth} \
+                     FROM r{depth}_{previous} AS rq{depth})"
+                ));
+            }
+            Ok(format!(
+                "(WITH {} SELECT CASE WHEN rq{depth}.lst{depth} IS NULL THEN NULL \
+                 WHEN json_array_length(rq{depth}.lst{depth}) > {REDUCE_UNROLL_CAP} \
+                 THEN cypher_raise('Error', 'reduce() list exceeds {REDUCE_UNROLL_CAP} elements') \
+                 ELSE rq{depth}.acc{depth} END FROM r{depth}_{REDUCE_UNROLL_CAP} AS rq{depth})",
+                rungs.join(", ")
+            ))
+        }
         ir::Expression::PathValue {
             nodes,
             relationships,
@@ -1926,6 +2003,14 @@ fn lower_expression_with_references(
                          THEN json_array_length(({value})) = 0 \
                          ELSE length(({value})) = 0 END) \
                          ELSE length(({value})) = 0 END)"
+                    ));
+                }
+                ("__cypher_list_reverse", [value]) => {
+                    return Ok(format!(
+                        "(CASE WHEN ({value}) IS NULL THEN NULL ELSE \
+                         (SELECT json_group_array(value) FROM \
+                         (SELECT value FROM json_each(({value})) \
+                         ORDER BY key DESC)) END)"
                     ));
                 }
                 ("__cypher_list_real", [value]) => {

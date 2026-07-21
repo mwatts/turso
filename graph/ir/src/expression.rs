@@ -139,6 +139,17 @@ pub enum Expression {
     /// The loop variable of the list scope at the recorded depth (1-based).
     /// Only the innermost scope is addressable; the binder enforces this.
     ListElement(usize),
+    /// A left fold over a list (`reduce`), identified by nesting depth.
+    Reduce {
+        depth: usize,
+        initial: Box<TypedExpression>,
+        list: Box<TypedExpression>,
+        body: Box<TypedExpression>,
+    },
+    /// The accumulator of the `Reduce` at the given nesting depth.
+    ReduceAccumulator(usize),
+    /// The current list element of the `Reduce` at the given nesting depth.
+    ReduceElement(usize),
     /// A fixed-length path value: the ordered node and relationship
     /// bindings the path traverses.
     PathValue {

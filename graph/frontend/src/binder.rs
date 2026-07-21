@@ -238,6 +238,8 @@ struct Binder<'a> {
     entities: HashMap<ir::BindingId, EntityBinding>,
     plan: Option<ir::Plan>,
     list_scopes: std::cell::RefCell<Vec<(String, ir::ValueType)>>,
+    /// Nested reduce() scopes as (accumulator name, element name).
+    reduce_scopes: std::cell::RefCell<Vec<(String, String)>>,
     path_compositions: HashMap<String, PathComposition>,
 }
 
@@ -256,6 +258,7 @@ impl<'a> Binder<'a> {
             entities: HashMap::new(),
             plan: None,
             list_scopes: std::cell::RefCell::new(Vec::new()),
+            reduce_scopes: std::cell::RefCell::new(Vec::new()),
             path_compositions: HashMap::new(),
         }
     }
@@ -2804,6 +2807,25 @@ impl<'a> Binder<'a> {
                 (ir::Expression::Literal(literal), value_type, nullability)
             }
             cypher::Expression::Variable(name) => {
+                // reduce() variables shadow everything else; innermost wins.
+                let reduce_hit = {
+                    let scopes = self.reduce_scopes.borrow();
+                    scopes
+                        .iter()
+                        .rposition(|(accumulator, element)| accumulator == name || element == name)
+                        .map(|depth| (depth, scopes[depth].0 == *name))
+                };
+                if let Some((depth, is_accumulator)) = reduce_hit {
+                    return Ok(ir::TypedExpression {
+                        expression: if is_accumulator {
+                            ir::Expression::ReduceAccumulator(depth)
+                        } else {
+                            ir::Expression::ReduceElement(depth)
+                        },
+                        value_type: ir::ValueType::Any,
+                        nullability: ir::Nullability::Nullable,
+                    });
+                }
                 let scope_hit = {
                     let scopes = self.list_scopes.borrow();
                     scopes
@@ -3209,6 +3231,34 @@ impl<'a> Binder<'a> {
                     ir::Nullability::Nullable,
                 )
             }
+            cypher::Expression::Reduce {
+                accumulator,
+                initial,
+                variable,
+                list,
+                expression: body,
+            } => {
+                let initial = self.bind_expression(initial)?;
+                let list = self.bind_expression(list)?;
+                let depth = self.reduce_scopes.borrow().len();
+                self.reduce_scopes
+                    .borrow_mut()
+                    .push((accumulator.value.clone(), variable.value.clone()));
+                let body = self.bind_expression(body);
+                self.reduce_scopes.borrow_mut().pop();
+                let body = body?;
+                let value_type = initial.value_type.clone();
+                (
+                    ir::Expression::Reduce {
+                        depth,
+                        initial: Box::new(initial),
+                        list: Box::new(list),
+                        body: Box::new(body),
+                    },
+                    value_type,
+                    ir::Nullability::Nullable,
+                )
+            }
             cypher::Expression::ListComprehension {
                 variable,
                 list,
@@ -3563,6 +3613,24 @@ impl<'a> Binder<'a> {
                             });
                         }
                         _ => {}
+                    }
+                }
+                if let ("reverse", [argument]) = (
+                    name.value.to_ascii_lowercase().as_str(),
+                    arguments.as_slice(),
+                ) {
+                    // List reversal reorders elements; core's reverse() is a
+                    // string reverse and would flip the JSON text itself.
+                    if matches!(argument.value_type, ir::ValueType::List(_)) {
+                        return Ok(ir::TypedExpression {
+                            expression: ir::Expression::Function {
+                                function: ir::FunctionName::new("__cypher_list_reverse")
+                                    .expect("static name"),
+                                arguments: vec![argument.clone()],
+                            },
+                            value_type: argument.value_type.clone(),
+                            nullability: argument.nullability,
+                        });
                     }
                 }
                 if let ("nodes" | "relationships" | "length", [argument]) = (

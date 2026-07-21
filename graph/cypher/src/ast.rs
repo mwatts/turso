@@ -307,6 +307,14 @@ pub enum Expression {
         list: Box<Spanned<Expression>>,
         predicate: Box<Spanned<Expression>>,
     },
+    /// `reduce(acc = init, x IN list | expr)` — a left fold over a list.
+    Reduce {
+        accumulator: Spanned<String>,
+        initial: Box<Spanned<Expression>>,
+        variable: Spanned<String>,
+        list: Box<Spanned<Expression>>,
+        expression: Box<Spanned<Expression>>,
+    },
     PatternSubquery {
         count: bool,
         paths: Vec<PathPattern>,
