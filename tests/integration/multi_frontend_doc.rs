@@ -120,16 +120,13 @@ fn prepare_translated_stmt_frontend_boundary_executes() {
         .open_file("multi-frontend-boundary.db", OpenFlags::Create, true)
         .unwrap();
     let db_file = Arc::new(turso_core::storage::database::DatabaseFile::new(file));
-    let db = Database::open_with_flags_with_allocator(
+    let db = Database::open(
         io,
         "multi-frontend-boundary.db",
-        db_file,
-        OpenFlags::default(),
-        DatabaseOpts::new(),
-        None,
-        None,
-        turso_core::alloc::DynAllocator::default(),
-        Arc::new(SqliteDialect),
+        turso_core::OpenOptions::new(Arc::new(SqliteDialect))
+            .storage(db_file)
+            .flags(OpenFlags::default())
+            .db_opts(DatabaseOpts::new()),
     )
     .unwrap();
     let conn = db.connect().unwrap();
