@@ -832,6 +832,7 @@ fn binary_operator(pair: &Pair<'_, Rule>) -> Result<BinaryOperator, ParseError> 
         ">" => Ok(BinaryOperator::Greater),
         ">=" => Ok(BinaryOperator::GreaterOrEqual),
         "in" => Ok(BinaryOperator::In),
+        "||" => Ok(BinaryOperator::Concat),
         "+" => Ok(BinaryOperator::Add),
         "-" => Ok(BinaryOperator::Subtract),
         "*" => Ok(BinaryOperator::Multiply),
@@ -1503,6 +1504,33 @@ mod tests {
             right.value,
             Expression::Binary {
                 operator: BinaryOperator::Power,
+                ..
+            }
+        ));
+    }
+
+    #[test]
+    fn parses_agtype_concatenation_as_left_associative() {
+        let query = parse("RETURN true || false || {a: 'string'}").expect("query should parse");
+        let Clause::Return(clause) = &query.clauses[0].value else {
+            panic!("expected RETURN")
+        };
+        let ProjectionItem::Expression { expression, .. } = &clause.items[0] else {
+            panic!("expected expression item")
+        };
+        let Expression::Binary {
+            left,
+            operator: BinaryOperator::Concat,
+            right,
+        } = &expression.value
+        else {
+            panic!("expected outer concatenation, got {:?}", expression.value)
+        };
+        assert!(matches!(right.value, Expression::Map(_)));
+        assert!(matches!(
+            left.value,
+            Expression::Binary {
+                operator: BinaryOperator::Concat,
                 ..
             }
         ));

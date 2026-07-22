@@ -231,6 +231,8 @@ pub enum BinaryOperator {
     StartsWith,
     EndsWith,
     Contains,
+    /// Apache AGE agtype concatenation (`||`).
+    Concat,
     Add,
     Subtract,
     Multiply,

@@ -57,6 +57,7 @@ pub fn install_temporal_extension(connection: &Connection) {
         register(c"cypher_equals".as_ptr(), cypher_equals);
         register(c"cypher_add".as_ptr(), cypher_add);
         register(c"cypher_sub".as_ptr(), cypher_sub);
+        register(c"cypher_concat".as_ptr(), cypher_concat);
         register(c"cypher_div".as_ptr(), cypher_div);
         register(c"split".as_ptr(), split);
     });
@@ -90,6 +91,7 @@ pub const FUNCTION_NAMES: &[&str] = &[
     "cypher_equals",
     "cypher_add",
     "cypher_sub",
+    "cypher_concat",
     "cypher_div",
     "split",
 ];
@@ -122,6 +124,7 @@ pub fn dispatch(name: &str, args: &[ExtValue]) -> Option<ExtValue> {
         "cypher_equals" => cypher_equals_impl(args),
         "cypher_add" => cypher_add_impl(args),
         "cypher_sub" => cypher_sub_impl(args),
+        "cypher_concat" => cypher_concat_impl(args),
         "cypher_div" => cypher_div_impl(args),
         "split" => split_impl(args),
         _ => return None,
@@ -1586,6 +1589,56 @@ fn cypher_sub_impl(args: &[ExtValue]) -> ExtValue {
     ExtValue::from_float(left - right)
 }
 
+/// Apache AGE agtype `||`: arrays concatenate or absorb a scalar, maps merge,
+/// and other values form a two-element array. The binder supplies map-kind
+/// flags so entity objects remain scalar values rather than being merged.
+#[scalar(name = "cypher_concat")]
+fn cypher_concat(args: &[ExtValue]) -> ExtValue {
+    cypher_concat_impl(args)
+}
+
+fn cypher_concat_impl(args: &[ExtValue]) -> ExtValue {
+    let (Some(left), Some(right), Some(left_kind), Some(right_kind)) =
+        (args.first(), args.get(1), args.get(2), args.get(3))
+    else {
+        return ExtValue::null();
+    };
+    let (left, right) = (comparison_value(left), comparison_value(right));
+    let map_kind = |kind: &ExtValue, value: &serde_json::Value| {
+        value.is_object() && kind.to_integer() != Some(3)
+    };
+    let left_map = map_kind(left_kind, &left);
+    let right_map = map_kind(right_kind, &right);
+    let left_entity = left_kind.to_integer() == Some(3);
+    let right_entity = right_kind.to_integer() == Some(3);
+    use serde_json::Value as V;
+    match (left, right) {
+        (V::Array(mut left), V::Array(right)) => {
+            left.extend(right);
+            ExtValue::from_text(V::Array(left).to_string())
+        }
+        (V::Array(mut left), right) => {
+            left.push(right);
+            ExtValue::from_text(V::Array(left).to_string())
+        }
+        (left, V::Array(mut right)) => {
+            right.insert(0, left);
+            ExtValue::from_text(V::Array(right).to_string())
+        }
+        (V::Object(mut left), V::Object(right)) if left_map && right_map => {
+            left.extend(right);
+            ExtValue::from_text(V::Object(left).to_string())
+        }
+        (_, right) if left_map && !right_entity => ExtValue::error_with_message(format!(
+            "TypeError: invalid right operand for ||: {right}"
+        )),
+        (left, _) if right_map && !left_entity => {
+            ExtValue::error_with_message(format!("TypeError: invalid left operand for ||: {left}"))
+        }
+        (left, right) => ExtValue::from_text(V::Array(vec![left, right]).to_string()),
+    }
+}
+
 /// Cypher `/` over dynamically typed operands: integer division truncates
 /// and raises on a zero divisor, mixed/float division divides as doubles,
 /// null propagates.
@@ -2128,5 +2181,52 @@ mod dispatch_tests {
         // duration_parse normalizes but must not carry fields across:
         // P1DT25H keeps 25 hours (module doc, lib.rs:8).
         assert_eq!(out.to_text(), Some("P1DT25H"));
+    }
+
+    #[test]
+    fn agtype_concatenation_distinguishes_maps_from_entity_objects() {
+        let concat = |left: ExtValue, right: ExtValue, left_kind: i64, right_kind: i64| {
+            cypher_concat_impl(&[
+                left,
+                right,
+                ExtValue::from_integer(left_kind),
+                ExtValue::from_integer(right_kind),
+            ])
+            .to_text()
+            .expect("concatenation returns JSON text")
+            .to_owned()
+        };
+
+        assert_eq!(
+            concat(
+                ExtValue::from_text("[1,2]".to_owned()),
+                ExtValue::from_integer(2),
+                0,
+                0
+            ),
+            "[1,2,2]"
+        );
+        assert_eq!(
+            concat(ExtValue::from_integer(1), ExtValue::from_integer(0), 0, 0),
+            "[1,0]"
+        );
+        assert_eq!(
+            concat(
+                ExtValue::from_text(r#"{"a":1}"#.to_owned()),
+                ExtValue::from_text(r#"{"a":2,"b":3}"#.to_owned()),
+                1,
+                1
+            ),
+            r#"{"a":2,"b":3}"#
+        );
+        assert_eq!(
+            concat(
+                ExtValue::from_text(r#"{"properties":{}}"#.to_owned()),
+                ExtValue::from_text(r#"{"properties":{}}"#.to_owned()),
+                3,
+                3
+            ),
+            r#"[{"properties":{}},{"properties":{}}]"#
+        );
     }
 }

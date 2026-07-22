@@ -3672,6 +3672,28 @@ impl<'a> Binder<'a> {
                 let right_span = right.span;
                 let left = self.bind_expression(left)?;
                 let right = self.bind_expression(right)?;
+                if *operator == cypher::BinaryOperator::Concat {
+                    let map_kind = |value_type: &ir::ValueType| {
+                        let value = match value_type {
+                            ir::ValueType::Map | ir::ValueType::Struct(_) => 1,
+                            ir::ValueType::Any => 2,
+                            ir::ValueType::Node | ir::ValueType::Relationship => 3,
+                            _ => 0,
+                        };
+                        ir::TypedExpression {
+                            expression: ir::Expression::Literal(ir::Literal::Integer(value)),
+                            value_type: ir::ValueType::Integer,
+                            nullability: ir::Nullability::NonNull,
+                        }
+                    };
+                    let left_kind = map_kind(&left.value_type);
+                    let right_kind = map_kind(&right.value_type);
+                    return Ok(sql_call(
+                        "cypher_concat",
+                        vec![left, right, left_kind, right_kind],
+                        ir::ValueType::Any,
+                    ));
+                }
                 if let Some(result) = duration_arithmetic(*operator, &left, &right) {
                     return Ok(result);
                 }
@@ -5718,7 +5740,8 @@ fn bind_binary_operator(operator: cypher::BinaryOperator) -> ir::BinaryOp {
         | cypher::BinaryOperator::JsonExistsAny
         | cypher::BinaryOperator::JsonExistsAll
         | cypher::BinaryOperator::JsonContains
-        | cypher::BinaryOperator::JsonContainedBy => ir::BinaryOp::Subtract,
+        | cypher::BinaryOperator::JsonContainedBy
+        | cypher::BinaryOperator::Concat => ir::BinaryOp::Subtract,
         cypher::BinaryOperator::Power => ir::BinaryOp::Power,
     }
 }
@@ -5742,6 +5765,7 @@ fn binary_type(
         | cypher::BinaryOperator::StartsWith
         | cypher::BinaryOperator::EndsWith
         | cypher::BinaryOperator::Contains => ir::ValueType::Boolean,
+        cypher::BinaryOperator::Concat => ir::ValueType::Any,
         cypher::BinaryOperator::Power => ir::ValueType::Real,
         _ if left == &ir::ValueType::Real || right == &ir::ValueType::Real => ir::ValueType::Real,
         _ if left == &ir::ValueType::Integer && right == &ir::ValueType::Integer => {
