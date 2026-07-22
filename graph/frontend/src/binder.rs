@@ -3720,8 +3720,10 @@ impl<'a> Binder<'a> {
                     | cypher::BinaryOperator::Divide
                     | cypher::BinaryOperator::Modulo
                     | cypher::BinaryOperator::Power
-                        if !numeric_compatible(&left.value_type)
-                            || !numeric_compatible(&right.value_type) =>
+                        if (!numeric_compatible(&left.value_type)
+                            && !matches!(right.value_type, ir::ValueType::Any))
+                            || (!numeric_compatible(&right.value_type)
+                                && !matches!(left.value_type, ir::ValueType::Any)) =>
                     {
                         return Err(at_unsupported(
                             right_span,

@@ -56,6 +56,7 @@ pub fn install_temporal_extension(connection: &Connection) {
         register(c"cypher_raise".as_ptr(), cypher_raise);
         register(c"cypher_equals".as_ptr(), cypher_equals);
         register(c"cypher_add".as_ptr(), cypher_add);
+        register(c"cypher_sub".as_ptr(), cypher_sub);
         register(c"cypher_div".as_ptr(), cypher_div);
         register(c"split".as_ptr(), split);
     });
@@ -88,6 +89,7 @@ pub const FUNCTION_NAMES: &[&str] = &[
     "cypher_raise",
     "cypher_equals",
     "cypher_add",
+    "cypher_sub",
     "cypher_div",
     "split",
 ];
@@ -119,6 +121,7 @@ pub fn dispatch(name: &str, args: &[ExtValue]) -> Option<ExtValue> {
         "cypher_raise" => cypher_raise_impl(args),
         "cypher_equals" => cypher_equals_impl(args),
         "cypher_add" => cypher_add_impl(args),
+        "cypher_sub" => cypher_sub_impl(args),
         "cypher_div" => cypher_div_impl(args),
         "split" => split_impl(args),
         _ => return None,
@@ -347,13 +350,8 @@ fn parse_temporal(text: &str) -> Option<Temporal> {
     let (core, zone) = strip_zone(text);
     let has_date = core.len() >= 8 && core.as_bytes().get(4) == Some(&b'-');
     if has_date {
-        if let Ok(datetime) = core.parse::<civil::DateTime>() {
-            return Some(match zone_of(&zone) {
-                None => Temporal::LocalDateTime(datetime),
-                Some(tz) => Temporal::DateTime(datetime.to_zoned(tz).ok()?),
-            });
-        }
-        if let Ok(date) = core.parse::<civil::Date>() {
+        if !core.contains('T') {
+            let date = core.parse::<civil::Date>().ok()?;
             return Some(match zone_of(&zone) {
                 None => Temporal::Date(date),
                 Some(tz) => Temporal::DateTime(
@@ -363,7 +361,11 @@ fn parse_temporal(text: &str) -> Option<Temporal> {
                 ),
             });
         }
-        return None;
+        let datetime = core.parse::<civil::DateTime>().ok()?;
+        return Some(match zone_of(&zone) {
+            None => Temporal::LocalDateTime(datetime),
+            Some(tz) => Temporal::DateTime(datetime.to_zoned(tz).ok()?),
+        });
     }
     let time = core.parse::<civil::Time>().ok()?;
     Some(match zone {
@@ -1472,9 +1474,9 @@ fn cypher_equals_impl(args: &[ExtValue]) -> ExtValue {
     }
 }
 
-/// Cypher `+` over dynamically typed operands: numbers add (integers stay
-/// integers), strings concatenate (numbers stringify when paired with a
-/// string), lists concatenate or append, null propagates.
+/// Cypher `+` over dynamically typed operands: temporal and duration values
+/// retain their arithmetic after storage erases their marker types; numbers
+/// add, strings concatenate, lists concatenate or append, and null propagates.
 #[scalar(name = "cypher_add")]
 fn cypher_add(args: &[ExtValue]) -> ExtValue {
     cypher_add_impl(args)
@@ -1487,6 +1489,27 @@ fn cypher_add_impl(args: &[ExtValue]) -> ExtValue {
     };
     if left.value_type() == ValueType::Null || right.value_type() == ValueType::Null {
         return ExtValue::null();
+    }
+    if let (Some(left), Some(right)) = (duration_value(left), duration_value(right)) {
+        return ExtValue::from_text(
+            Dur {
+                months: left.months + right.months,
+                days: left.days + right.days,
+                seconds: left.seconds + right.seconds,
+                nanos: left.nanos + right.nanos,
+            }
+            .render(),
+        );
+    }
+    if let (Some(value), Some(duration)) = (temporal_argument(left), duration_value(right)) {
+        return shift_temporal(value, duration, 1)
+            .map(|shifted| ExtValue::from_text(render_temporal(&shifted)))
+            .unwrap_or_else(ExtValue::null);
+    }
+    if let (Some(duration), Some(value)) = (duration_value(left), temporal_argument(right)) {
+        return shift_temporal(value, duration, 1)
+            .map(|shifted| ExtValue::from_text(render_temporal(&shifted)))
+            .unwrap_or_else(ExtValue::null);
     }
     let structured = |value: &ExtValue| -> serde_json::Value { comparison_value(value) };
     let (left, right) = (structured(left), structured(right));
@@ -1517,6 +1540,50 @@ fn cypher_add_impl(args: &[ExtValue]) -> ExtValue {
         // silent null.
         _ => ExtValue::error_with_message("TypeError: invalid operand types for +".to_owned()),
     }
+}
+
+/// Cypher `-` over dynamically typed operands. Persisted graph properties are
+/// untyped at bind time, so duration subtraction and temporal shifting must be
+/// selected from their runtime values before falling back to numeric math.
+#[scalar(name = "cypher_sub")]
+fn cypher_sub(args: &[ExtValue]) -> ExtValue {
+    cypher_sub_impl(args)
+}
+
+fn cypher_sub_impl(args: &[ExtValue]) -> ExtValue {
+    use turso_ext::ValueType;
+    let (Some(left), Some(right)) = (args.first(), args.get(1)) else {
+        return ExtValue::null();
+    };
+    if left.value_type() == ValueType::Null || right.value_type() == ValueType::Null {
+        return ExtValue::null();
+    }
+    if let (Some(left), Some(right)) = (duration_value(left), duration_value(right)) {
+        return ExtValue::from_text(
+            Dur {
+                months: left.months - right.months,
+                days: left.days - right.days,
+                seconds: left.seconds - right.seconds,
+                nanos: left.nanos - right.nanos,
+            }
+            .render(),
+        );
+    }
+    if let (Some(value), Some(duration)) = (temporal_argument(left), duration_value(right)) {
+        return shift_temporal(value, duration, -1)
+            .map(|shifted| ExtValue::from_text(render_temporal(&shifted)))
+            .unwrap_or_else(ExtValue::null);
+    }
+    if left.value_type() == ValueType::Integer && right.value_type() == ValueType::Integer {
+        let (Some(left), Some(right)) = (left.to_integer(), right.to_integer()) else {
+            return ExtValue::null();
+        };
+        return ExtValue::from_integer(left.wrapping_sub(right));
+    }
+    let (Some(left), Some(right)) = (left.to_float(), right.to_float()) else {
+        return ExtValue::error_with_message("TypeError: invalid operand types for -".to_owned());
+    };
+    ExtValue::from_float(left - right)
 }
 
 /// Cypher `/` over dynamically typed operands: integer division truncates
@@ -2014,6 +2081,28 @@ mod tests {
             ExtValue::from_text(",".to_owned()),
         ]);
         assert_eq!(invalid.value_type(), turso_ext::ValueType::Error);
+    }
+
+    #[test]
+    fn dynamic_arithmetic_recovers_temporal_and_duration_values() {
+        let text = |value: &str| ExtValue::from_text(value.to_owned());
+
+        assert_eq!(
+            cypher_add_impl(&[text("1984-10-11"), text("P1M")]).to_text(),
+            Some("1984-11-11")
+        );
+        assert_eq!(
+            cypher_sub_impl(&[text("1984-10-11"), text("P1M")]).to_text(),
+            Some("1984-09-11")
+        );
+        assert_eq!(
+            cypher_add_impl(&[text("P1Y2D"), text("P2M3D")]).to_text(),
+            Some("P1Y2M5D")
+        );
+        assert_eq!(
+            cypher_sub_impl(&[text("P1Y2D"), text("P2M3D")]).to_text(),
+            Some("P10M-1D")
+        );
     }
 }
 

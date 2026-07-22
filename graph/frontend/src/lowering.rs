@@ -1398,6 +1398,15 @@ fn lower_expression_with_references(
                 {
                     format!("cypher_add(({left}), ({right}))")
                 }
+                // Persisted duration properties lose their marker types, so
+                // dynamic subtraction must recover duration/temporal behavior
+                // before applying ordinary numeric subtraction.
+                ir::BinaryOp::Subtract
+                    if matches!(left_type, ir::ValueType::Any)
+                        || matches!(right_type, ir::ValueType::Any) =>
+                {
+                    format!("cypher_sub(({left}), ({right}))")
+                }
                 // Division on dynamic operands raises Cypher's zero-divisor
                 // error instead of SQL's silent NULL.
                 ir::BinaryOp::Divide
@@ -2416,6 +2425,29 @@ mod tests {
         let sql = lower_expression(&expression, &bindings, &catalog, "n")
             .expect("Any equality lowering should succeed");
         assert!(sql.contains("cypher_equals"), "{sql}");
+    }
+
+    #[test]
+    fn lowers_any_typed_subtraction_through_cypher_sub() {
+        let catalog = Catalog;
+        let bindings = HashMap::new();
+        let any = |name: &str| ir::TypedExpression {
+            expression: ir::Expression::Parameter(name.to_owned()),
+            value_type: ir::ValueType::Any,
+            nullability: ir::Nullability::Nullable,
+        };
+        let expression = ir::TypedExpression {
+            expression: ir::Expression::Binary {
+                left: Box::new(any("left")),
+                op: ir::BinaryOp::Subtract,
+                right: Box::new(any("right")),
+            },
+            value_type: ir::ValueType::Any,
+            nullability: ir::Nullability::Nullable,
+        };
+        let sql = lower_expression(&expression, &bindings, &catalog, "n")
+            .expect("Any subtraction lowering should succeed");
+        assert!(sql.contains("cypher_sub"), "{sql}");
     }
 
     #[test]
