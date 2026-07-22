@@ -57,6 +57,7 @@ pub fn install_temporal_extension(connection: &Connection) {
         register(c"cypher_equals".as_ptr(), cypher_equals);
         register(c"cypher_add".as_ptr(), cypher_add);
         register(c"cypher_div".as_ptr(), cypher_div);
+        register(c"split".as_ptr(), split);
     });
 }
 
@@ -88,6 +89,7 @@ pub const FUNCTION_NAMES: &[&str] = &[
     "cypher_equals",
     "cypher_add",
     "cypher_div",
+    "split",
 ];
 
 /// Execute a temporal/cypher scalar by name outside the extension ABI.
@@ -118,6 +120,7 @@ pub fn dispatch(name: &str, args: &[ExtValue]) -> Option<ExtValue> {
         "cypher_equals" => cypher_equals_impl(args),
         "cypher_add" => cypher_add_impl(args),
         "cypher_div" => cypher_div_impl(args),
+        "split" => split_impl(args),
         _ => return None,
     })
 }
@@ -1550,6 +1553,38 @@ fn cypher_div_impl(args: &[ExtValue]) -> ExtValue {
     ExtValue::from_float(left / right)
 }
 
+/// Cypher `split(text, delimiter)` as a JSON list. An empty delimiter splits
+/// at Unicode scalar boundaries; null propagates from either argument.
+#[scalar(name = "split")]
+fn split(args: &[ExtValue]) -> ExtValue {
+    split_impl(args)
+}
+
+fn split_impl(args: &[ExtValue]) -> ExtValue {
+    use turso_ext::ValueType;
+    let (Some(value), Some(delimiter)) = (args.first(), args.get(1)) else {
+        return ExtValue::error_with_message("split() requires exactly two arguments".to_owned());
+    };
+    if value.value_type() == ValueType::Null || delimiter.value_type() == ValueType::Null {
+        return ExtValue::null();
+    }
+    let (Some(value), Some(delimiter)) = (value.to_text(), delimiter.to_text()) else {
+        return ExtValue::error_with_message("split() requires text arguments".to_owned());
+    };
+    let parts = if delimiter.is_empty() {
+        value
+            .chars()
+            .map(|character| character.to_string())
+            .collect::<Vec<_>>()
+    } else {
+        value
+            .split(delimiter)
+            .map(str::to_owned)
+            .collect::<Vec<_>>()
+    };
+    ExtValue::from_text(serde_json::to_string(&parts).expect("serializing strings cannot fail"))
+}
+
 /// Interprets an SQL value for structural comparison: text that parses as
 /// a JSON array or object is a list/map, any other text is a plain string,
 /// numbers map directly, SQL NULL is Cypher null.
@@ -1958,6 +1993,27 @@ mod tests {
             render("datetime", r#"{"date": "1984-03-07", "time": "12:31:14"}"#),
             "1984-03-07T12:31:14Z"
         );
+    }
+
+    #[test]
+    fn split_preserves_empty_parts_and_unicode_characters() {
+        let split_text = |value: &str, delimiter: &str| {
+            split_impl(&[
+                ExtValue::from_text(value.to_owned()),
+                ExtValue::from_text(delimiter.to_owned()),
+            ])
+        };
+        assert_eq!(split_text("a  b", " ").to_text(), Some(r#"["a","","b"]"#));
+        assert_eq!(split_text("aé", "").to_text(), Some(r#"["a","é"]"#));
+        assert_eq!(split_text("aaa", "aa").to_text(), Some(r#"["","a"]"#));
+
+        let null = split_impl(&[ExtValue::null(), ExtValue::from_text(",".to_owned())]);
+        assert_eq!(null.value_type(), turso_ext::ValueType::Null);
+        let invalid = split_impl(&[
+            ExtValue::from_integer(1),
+            ExtValue::from_text(",".to_owned()),
+        ]);
+        assert_eq!(invalid.value_type(), turso_ext::ValueType::Error);
     }
 }
 

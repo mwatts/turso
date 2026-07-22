@@ -705,6 +705,47 @@ mod tests {
     }
 
     #[test]
+    fn split_follows_cypher_string_and_null_semantics() {
+        let fixture = fixture(":memory:graph-session-split");
+
+        let rows = fixture
+            .reader_session
+            .query(
+                "UNWIND split('one1two', '1') AS item RETURN item",
+                &Parameters::new(),
+            )
+            .expect("split result should be a list");
+        assert_eq!(
+            rows,
+            vec![
+                vec![Value::build_text("one")],
+                vec![Value::build_text("two")]
+            ]
+        );
+
+        let rows = fixture
+            .reader_session
+            .query(
+                "RETURN split('a,b', '') AS characters, split('a  b', ' ') AS repeated, \
+                 split(null, ',') AS null_text, split('a,b', null) AS null_delimiter",
+                &Parameters::new(),
+            )
+            .expect("split edge cases");
+        assert_eq!(rows[0][0].to_string(), r#"["a",",","b"]"#);
+        assert_eq!(rows[0][1].to_string(), r#"["a","","b"]"#);
+        assert_eq!(rows[0][2], Value::Null);
+        assert_eq!(rows[0][3], Value::Null);
+
+        let error = fixture
+            .reader_session
+            .query("RETURN split(1, ',')", &Parameters::new())
+            .expect_err("non-text split input must fail");
+        assert!(error
+            .to_string()
+            .contains("split() over non-text arguments"));
+    }
+
+    #[test]
     fn unbounded_expansion_past_the_hop_cap_fails_loudly() {
         // `[*]` has no semantic upper bound; the implicit 64-hop cap is a
         // resource limit. A graph with a longer real path must error rather

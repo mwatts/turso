@@ -4987,6 +4987,21 @@ fn rewrite_builtin_call(
                     ir::ValueType::List(Box::new(ir::ValueType::Integer)),
                 )
             }
+            ("split", [text, delimiter]) => {
+                if [text, delimiter].iter().any(|argument| {
+                    !matches!(
+                        argument.value_type,
+                        ir::ValueType::Text | ir::ValueType::Any
+                    )
+                }) {
+                    return Err(at_unsupported(span, "split() over non-text arguments"));
+                }
+                sql_function(
+                    "split",
+                    arguments,
+                    ir::ValueType::List(Box::new(ir::ValueType::Text)),
+                )
+            }
             ("keys", [_]) => sql_function(
                 "__cypher_keys",
                 arguments,
