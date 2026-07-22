@@ -29,9 +29,14 @@ pub enum Error {
     MissingParameter(String),
 }
 
-/// Open a database with the default SQLite dialect, resolving the IO backend
-/// from `vfs` or the path. Mirrors `turso_pg::open_database`; the graph layer
-/// itself is dialect-agnostic and attaches to any core connection.
+/// Open a database with the graph-cypher schema dialect, resolving the IO
+/// backend from `vfs` or the path like [`turso_core::Database::open_new`].
+///
+/// This is the graph mirror of `turso_pg::open_database`. To attach the
+/// graph layer to an existing SQLite-dialect database instead, open it
+/// yourself and use [`GraphConnection::install`]/[`GraphConnection::open`];
+/// in that mode call `turso_graph_temporal::install_temporal_extension`
+/// per connection (GraphConnection::install already does).
 pub fn open_database(
     path: &str,
     vfs: Option<&str>,
@@ -46,7 +51,8 @@ pub fn open_database(
     Ok((io, db))
 }
 
-/// Open a database with the default SQLite dialect on an existing IO backend.
+/// Open a database with the graph-cypher schema dialect on an existing IO
+/// backend.
 pub fn open_database_with_io(
     io: Arc<dyn turso_core::IO>,
     path: &str,
@@ -58,7 +64,7 @@ pub fn open_database_with_io(
     turso_core::Database::open(
         io,
         path,
-        turso_core::OpenOptions::new(Arc::new(turso_core::SqliteDialect))
+        turso_core::OpenOptions::new(Arc::new(crate::GraphDialect))
             .storage(db_file)
             .flags(flags)
             .db_opts(opts),
@@ -883,5 +889,85 @@ mod tests {
         assert!(outgoing(&fixture.reader_session).is_empty());
         fixture.writer.execute("ROLLBACK").unwrap();
         assert!(outgoing(&fixture.writer_session).is_empty());
+    }
+
+    fn social_registration() -> GraphRegistration {
+        GraphRegistration {
+            name: "social".to_owned(),
+            node_sources: vec![NodeSourceRegistration {
+                name: "Person".to_owned(),
+                table: "people".to_owned(),
+                identity_column: "id".to_owned(),
+            }],
+            relationship_sources: vec![RelationshipSourceRegistration {
+                name: "KNOWS".to_owned(),
+                table: "relationships".to_owned(),
+                identity_column: "id".to_owned(),
+                start_column: "src".to_owned(),
+                end_column: "dst".to_owned(),
+                start_node_source: "Person".to_owned(),
+                end_node_source: "Person".to_owned(),
+            }],
+        }
+    }
+
+    #[test]
+    fn open_database_pins_the_graph_dialect() {
+        let (_io, db) = crate::open_database(
+            ":memory:graph-dialect-open",
+            None,
+            turso_core::OpenFlags::default(),
+            turso_core::DatabaseOpts::new(),
+        )
+        .unwrap();
+        let conn = db.connect().unwrap();
+        // Dialect-owned surface proves which dialect is live: temporal
+        // functions resolve with no extension install.
+        let rows = conn
+            .prepare("SELECT duration_parse('P1D')")
+            .unwrap()
+            .run_collect_rows()
+            .unwrap();
+        assert_eq!(rows[0][0].to_string(), "P1D");
+    }
+
+    #[test]
+    fn full_cycle_register_reopen_query() {
+        // register + close + reopen the same file, then GraphConnection::open
+        // by name — proves catalog persistence needs no re-registration.
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("graph.db");
+        let path = path.to_str().unwrap();
+        {
+            let (_io, db) = crate::open_database(
+                path,
+                None,
+                turso_core::OpenFlags::default(),
+                turso_core::DatabaseOpts::new(),
+            )
+            .unwrap();
+            let conn = db.connect().unwrap();
+            conn.execute("CREATE TABLE people(id INTEGER PRIMARY KEY, name TEXT)")
+                .unwrap();
+            conn.execute(
+                "CREATE TABLE relationships(id INTEGER PRIMARY KEY, src INTEGER, dst INTEGER)",
+            )
+            .unwrap();
+            crate::register_graph(&conn, &social_registration()).unwrap();
+            conn.close().unwrap();
+        }
+        let (_io, db) = crate::open_database(
+            path,
+            None,
+            turso_core::OpenFlags::default(),
+            turso_core::DatabaseOpts::new(),
+        )
+        .unwrap();
+        let conn = db.connect().unwrap();
+        let session = crate::GraphConnection::open(conn, "social").unwrap();
+        let rows = session
+            .query("MATCH (n:Person) RETURN n.name", &crate::Parameters::new())
+            .unwrap();
+        assert!(rows.is_empty());
     }
 }
