@@ -51,7 +51,22 @@ pub struct AgeCase {
     /// AGE's expected output for this invocation is an ERROR, so erroring is
     /// the passing outcome and successful execution is the failure.
     pub expects_error: bool,
+    /// AGE-only administrative or catalog function exercised by this query.
+    /// These queries remain executable so newly added support is detected.
+    pub vendor_unsupported_function: Option<&'static str>,
     semantic_key: String,
+}
+
+impl AgeCase {
+    fn expectation(&self) -> Expectation {
+        if self.vendor_unsupported_function.is_some() {
+            Expectation::Unsupported
+        } else if self.expects_error {
+            Expectation::Error
+        } else {
+            Expectation::Rows
+        }
+    }
 }
 
 #[derive(Debug)]
@@ -184,6 +199,10 @@ impl AgeCorpus {
         paths.sort();
         let invocation = Regex::new(r"(?is)cypher\s*\(\s*([^,]+?)\s*,\s*\$\$(.*?)\$\$")
             .expect("static AGE extraction regex is valid");
+        let vendor_function = Regex::new(
+            r"(?i)\b(vertex_stats|delete_global_graphs|graph_stats|is_valid_label_name)\s*\(",
+        )
+        .expect("static AGE vendor-function regex is valid");
         let mut identities = HashSet::new();
         let mut cases = Vec::new();
         for path in &paths {
@@ -222,6 +241,10 @@ impl AgeCorpus {
                 let semantic_key = normalize_query(&query);
                 let expects_error =
                     aligned_expectation(&expected, &mut expected_cursor, &semantic_key);
+                let vendor_unsupported_function = vendor_function
+                    .captures(&query)
+                    .and_then(|captures| captures.get(1))
+                    .and_then(|name| canonical_vendor_function(name.as_str()));
                 cases.push(AgeCase {
                     id,
                     source_path: source_path.clone(),
@@ -230,6 +253,7 @@ impl AgeCorpus {
                     graph_argument,
                     semantic_fingerprint: fingerprint(&semantic_key),
                     expects_error,
+                    vendor_unsupported_function,
                     semantic_key,
                 });
             }
@@ -276,23 +300,16 @@ fn run_canonical(
     parse_cache: &mut QueryParseCache,
 ) -> ResultRecord {
     let started = Instant::now();
+    let expectation = case.expectation();
     // Rows whose expected AGE output is an ERROR pass by erroring: rejecting
-    // the query anywhere in the pipeline matches AGE's observable behavior,
-    // while executing it successfully accepts a query AGE rejects.
-    let succeeded = |error: Option<String>| match (case.expects_error, error) {
-        (false, None) => (Outcome::Passed, None),
-        (false, Some(message)) => (Outcome::Failed, Some(message)),
-        (true, Some(_)) => (Outcome::Passed, None),
-        (true, None) => (
-            Outcome::Failed,
-            Some("query succeeded but AGE expects an error".to_owned()),
-        ),
-    };
+    // the query anywhere in the pipeline matches AGE's observable behavior.
+    // Vendor-unsupported rows deliberately remain failures either way so the
+    // binary conformance contract stays red until the policy changes.
     let (outcome, message, execution) = match parse_cache.parse(&case.query) {
         Ok(()) => match empty_fixture(case.id.as_str()) {
             Ok(fixture) => match fixture.session.query(&case.query, &Parameters::new()) {
                 Ok(_) => {
-                    let (outcome, message) = succeeded(None);
+                    let (outcome, message) = classify_execution(expectation, None);
                     (outcome, message, "execution")
                 }
                 // Mirror the TCK statement router: statements the read
@@ -300,11 +317,11 @@ fn run_canonical(
                 Err(query_error) => {
                     match fixture.session.execute(&case.query, &Parameters::new()) {
                         Ok(_) => {
-                            let (outcome, message) = succeeded(None);
+                            let (outcome, message) = classify_execution(expectation, None);
                             (outcome, message, "execution")
                         }
                         Err(mutation_error) => {
-                            let (outcome, message) = succeeded(Some(format!(
+                            let (outcome, message) = classify_execution(expectation, Some(format!(
                             "query execution failed: {query_error}; mutation execution failed: {mutation_error}"
                         )));
                             (outcome, message, "execution")
@@ -319,7 +336,7 @@ fn run_canonical(
             ),
         },
         Err(error) => {
-            let (outcome, message) = succeeded(Some(error));
+            let (outcome, message) = classify_execution(expectation, Some(error));
             (outcome, message, "parser")
         }
     };
@@ -353,11 +370,7 @@ fn base_record(
         kind: TestKind::Conformance,
         area: case.source_path.trim_end_matches(".sql").to_owned(),
         fixture: case.graph_argument.clone(),
-        expectation: if case.expects_error {
-            Expectation::Error
-        } else {
-            Expectation::Rows
-        },
+        expectation: case.expectation(),
         outcome,
         duration_ns,
         source: SourceIdentity {
@@ -388,8 +401,50 @@ fn base_record(
             ),
             ("execution".to_owned(), execution.to_owned()),
             ("source_line".to_owned(), case.source_line.to_string()),
-        ]),
+        ])
+        .into_iter()
+        .chain(case.vendor_unsupported_function.map(|function| {
+            (
+                "vendor_unsupported_function".to_owned(),
+                function.to_owned(),
+            )
+        }))
+        .collect(),
     }
+}
+
+fn classify_execution(
+    expectation: Expectation,
+    error: Option<String>,
+) -> (Outcome, Option<String>) {
+    match (expectation, error) {
+        (Expectation::Rows, None) => (Outcome::Passed, None),
+        (Expectation::Rows | Expectation::Unsupported, Some(message)) => {
+            (Outcome::Failed, Some(message))
+        }
+        (Expectation::Error, Some(_)) => (Outcome::Passed, None),
+        (Expectation::Error, None) => (
+            Outcome::Failed,
+            Some("query succeeded but AGE expects an error".to_owned()),
+        ),
+        (Expectation::Unsupported, None) => (
+            Outcome::Failed,
+            Some(
+                "known vendor-unsupported query succeeded and requires reclassification".to_owned(),
+            ),
+        ),
+    }
+}
+
+fn canonical_vendor_function(name: &str) -> Option<&'static str> {
+    [
+        "vertex_stats",
+        "delete_global_graphs",
+        "graph_stats",
+        "is_valid_label_name",
+    ]
+    .into_iter()
+    .find(|candidate| name.eq_ignore_ascii_case(candidate))
 }
 
 /// Parse the psql expected output alongside a regression file into the
@@ -609,5 +664,80 @@ mod tests {
         // through core's EXPLAIN QUERY PLAN.
         assert_eq!(corpus.stats().files, 45);
         assert_eq!(corpus.stats().queries, corpus.cases.len());
+    }
+
+    #[test]
+    fn classifies_only_age_administrative_and_catalog_functions_as_vendor_unsupported() {
+        let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../testdata/donors/age/sql");
+        let corpus = AgeCorpus::load(root).unwrap();
+        let case = |id: &str| {
+            corpus
+                .cases
+                .iter()
+                .find(|case| case.id.as_str() == id)
+                .unwrap()
+        };
+
+        assert_eq!(
+            case("age.age.global.graph.query-4").vendor_unsupported_function,
+            Some("vertex_stats")
+        );
+        assert_eq!(
+            case("age.age.global.graph.query-8").vendor_unsupported_function,
+            Some("delete_global_graphs")
+        );
+        assert_eq!(
+            case("age.age.global.graph.query-28").vendor_unsupported_function,
+            Some("graph_stats")
+        );
+        assert_eq!(
+            case("age.name.validation.query-5").vendor_unsupported_function,
+            Some("is_valid_label_name")
+        );
+
+        let counts = corpus
+            .cases
+            .iter()
+            .filter_map(|case| case.vendor_unsupported_function)
+            .fold(BTreeMap::new(), |mut counts, function| {
+                *counts.entry(function).or_insert(0) += 1;
+                counts
+            });
+        assert_eq!(
+            counts,
+            BTreeMap::from([
+                ("delete_global_graphs", 16),
+                ("graph_stats", 7),
+                ("is_valid_label_name", 9),
+                ("vertex_stats", 21),
+            ])
+        );
+
+        // Entity accessors remain portable graph work rather than AGE policy.
+        assert_eq!(
+            case("age.direct.field.access.query-30").vendor_unsupported_function,
+            None
+        );
+        assert_eq!(
+            case("age.direct.field.access.query-31").vendor_unsupported_function,
+            None
+        );
+
+        let unsupported = case("age.age.global.graph.query-4");
+        assert_eq!(unsupported.expectation(), Expectation::Unsupported);
+        assert_eq!(
+            classify_execution(
+                unsupported.expectation(),
+                Some("no such function: vertex_stats".to_owned())
+            ),
+            (
+                Outcome::Failed,
+                Some("no such function: vertex_stats".to_owned())
+            )
+        );
+        assert_eq!(
+            classify_execution(unsupported.expectation(), None).0,
+            Outcome::Failed
+        );
     }
 }

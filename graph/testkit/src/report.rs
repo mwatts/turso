@@ -142,7 +142,13 @@ fn failure_family(record: &ResultRecord) -> String {
         .map(String::as_str)
         .unwrap_or("unknown");
     let message = record.message.as_deref().unwrap_or_default();
-    let reason = if boundary == "parser" {
+    let reason = if record.expectation == crate::model::Expectation::Unsupported
+        && record
+            .dimensions
+            .contains_key("vendor_unsupported_function")
+    {
+        "expected vendor-unsupported function"
+    } else if boundary == "parser" {
         if message.starts_with("expected clause at byte 0") {
             "unsupported starting clause"
         } else if message.contains("comparison_op")
@@ -335,5 +341,25 @@ mod tests {
 
         assert!(report.contains("Latest complete corpus run"));
         assert!(report.contains("`execution`: standalone projection has no input plan | 1"));
+    }
+
+    #[test]
+    fn report_separates_vendor_unsupported_functions_from_stdlib_gaps() {
+        let mut record = test_record("run-corpus-deep");
+        record.outcome = Outcome::Failed;
+        record.expectation = crate::model::Expectation::Unsupported;
+        record.message = Some("Parse error: no such function: vertex_stats".to_owned());
+        record
+            .dimensions
+            .insert("execution".to_owned(), "execution".to_owned());
+        record.dimensions.insert(
+            "vendor_unsupported_function".to_owned(),
+            "vertex_stats".to_owned(),
+        );
+
+        let report = render(&[record]);
+
+        assert!(report.contains("`execution`: expected vendor-unsupported function | 1"));
+        assert!(!report.contains("runtime scalar function missing | 1"));
     }
 }
