@@ -254,10 +254,14 @@ fn run_age(root: &Path, history: Option<PathBuf>, no_record: bool) -> Result<boo
         .iter()
         .filter(|record| record.outcome == Outcome::Passed)
         .count();
-    let failed = records.len() - passed;
+    let unsupported = records
+        .iter()
+        .filter(|record| record.outcome == Outcome::Unsupported)
+        .count();
+    let failed = records.len() - passed - unsupported;
     println!(
-        "files={} queries={} canonical={} deduplicated={} passed={} failed={}",
-        stats.files, stats.queries, stats.canonical, stats.duplicates, passed, failed
+        "files={} queries={} canonical={} deduplicated={} passed={} unsupported={} failed={}",
+        stats.files, stats.queries, stats.canonical, stats.duplicates, passed, unsupported, failed
     );
     print_classifications(&records);
     print_failures(&records);
@@ -283,7 +287,7 @@ fn run_corpus(root: &Path, history: Option<PathBuf>, no_record: bool) -> Result<
     records.extend(age.run_with_cache(environment.clone(), &run_id, &mut parse_cache));
     records.extend(sparrowdb.run_with_cache(environment.clone(), &run_id, &mut parse_cache));
     records.extend(cqlite.run_with_cache(environment, &run_id, &mut parse_cache));
-    validate_binary_outcomes(&records)?;
+    validate_conformance_outcomes(&records)?;
     let passed = records
         .iter()
         .filter(|record| record.outcome == Outcome::Passed)
@@ -452,7 +456,9 @@ fn outcomes_are_clean(records: &[turso_graph_testkit::model::ResultRecord]) -> b
         .all(|record| record.outcome == Outcome::Passed)
 }
 
-fn validate_binary_outcomes(records: &[turso_graph_testkit::model::ResultRecord]) -> Result<()> {
+fn validate_conformance_outcomes(
+    records: &[turso_graph_testkit::model::ResultRecord],
+) -> Result<()> {
     for record in records {
         anyhow::ensure!(
             record.dimensions.get("execution").map(String::as_str) != Some("deduplicated"),
@@ -460,18 +466,21 @@ fn validate_binary_outcomes(records: &[turso_graph_testkit::model::ResultRecord]
             record.test_id
         );
         anyhow::ensure!(
-            matches!(record.outcome, Outcome::Passed | Outcome::Failed),
-            "{} emitted non-binary outcome {:?}",
+            matches!(
+                record.outcome,
+                Outcome::Passed | Outcome::Failed | Outcome::Unsupported
+            ),
+            "{} emitted invalid conformance outcome {:?}",
             record.test_id,
             record.outcome
         );
-        if record.outcome == Outcome::Failed {
+        if matches!(record.outcome, Outcome::Failed | Outcome::Unsupported) {
             anyhow::ensure!(
                 record
                     .message
                     .as_ref()
                     .is_some_and(|message| !message.is_empty()),
-                "{} failed without a reason",
+                "{} did not pass but has no reason",
                 record.test_id
             );
         }
@@ -816,19 +825,23 @@ mod tests {
     }
 
     #[test]
-    fn binary_outcome_validation_rejects_unsupported_and_reasonless_failures() {
-        assert!(validate_binary_outcomes(&[record(Outcome::Passed)]).is_ok());
-        assert!(validate_binary_outcomes(&[record(Outcome::Unsupported)]).is_err());
-        assert!(validate_binary_outcomes(&[record(Outcome::Failed)]).is_err());
+    fn outcome_validation_accepts_explained_unsupported_records() {
+        assert!(validate_conformance_outcomes(&[record(Outcome::Passed)]).is_ok());
+        assert!(validate_conformance_outcomes(&[record(Outcome::Unsupported)]).is_err());
+        assert!(validate_conformance_outcomes(&[record(Outcome::Failed)]).is_err());
+
+        let mut unsupported = record(Outcome::Unsupported);
+        unsupported.message = Some("AGE-only function".to_owned());
+        assert!(validate_conformance_outcomes(&[unsupported]).is_ok());
 
         let mut failed = record(Outcome::Failed);
         failed.message = Some("parser rejected the query".to_owned());
-        assert!(validate_binary_outcomes(&[failed]).is_ok());
+        assert!(validate_conformance_outcomes(&[failed]).is_ok());
 
         let mut aliased = record(Outcome::Passed);
         aliased
             .dimensions
             .insert("execution".to_owned(), "deduplicated".to_owned());
-        assert!(validate_binary_outcomes(&[aliased]).is_err());
+        assert!(validate_conformance_outcomes(&[aliased]).is_err());
     }
 }

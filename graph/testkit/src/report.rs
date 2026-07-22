@@ -113,6 +113,10 @@ fn append_latest_corpus_histogram(report: &mut String, records: &[ResultRecord])
         .iter()
         .filter(|record| record.outcome == Outcome::Passed)
         .count();
+    let unsupported = run
+        .iter()
+        .filter(|record| record.outcome == Outcome::Unsupported)
+        .count();
     let failures = run
         .iter()
         .filter(|record| record.outcome == Outcome::Failed)
@@ -125,7 +129,7 @@ fn append_latest_corpus_histogram(report: &mut String, records: &[ResultRecord])
     histogram.sort_by(|left, right| right.1.cmp(&left.1).then_with(|| left.0.cmp(&right.0)));
 
     report.push_str(&format!(
-        "## Latest complete corpus run\n\n- Run: `{run_id}`\n- Records: {}\n- Passed: {passed}\n- Failed: {}\n\n### Failure-reason histogram\n\n| Failure family | Count |\n|---|---:|\n",
+        "## Latest complete corpus run\n\n- Run: `{run_id}`\n- Records: {}\n- Passed: {passed}\n- Unsupported: {unsupported}\n- Failed: {}\n\n### Failure-reason histogram\n\n| Failure family | Count |\n|---|---:|\n",
         run.len(),
         failures.len()
     ));
@@ -346,7 +350,7 @@ mod tests {
     #[test]
     fn report_separates_vendor_unsupported_functions_from_stdlib_gaps() {
         let mut record = test_record("run-corpus-deep");
-        record.outcome = Outcome::Failed;
+        record.outcome = Outcome::Unsupported;
         record.expectation = crate::model::Expectation::Unsupported;
         record.message = Some("Parse error: no such function: vertex_stats".to_owned());
         record
@@ -359,7 +363,9 @@ mod tests {
 
         let report = render(&[record]);
 
-        assert!(report.contains("`execution`: expected vendor-unsupported function | 1"));
+        assert!(report.contains("Unsupported: 1"));
+        assert!(report.contains("Failed: 0"));
+        assert!(!report.contains("expected vendor-unsupported function | 1"));
         assert!(!report.contains("runtime scalar function missing | 1"));
     }
 }

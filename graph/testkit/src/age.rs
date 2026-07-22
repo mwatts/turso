@@ -303,8 +303,8 @@ fn run_canonical(
     let expectation = case.expectation();
     // Rows whose expected AGE output is an ERROR pass by erroring: rejecting
     // the query anywhere in the pipeline matches AGE's observable behavior.
-    // Vendor-unsupported rows deliberately remain failures either way so the
-    // binary conformance contract stays red until the policy changes.
+    // Vendor-unsupported rows remain red as Unsupported; successful execution
+    // is a failure because the policy then requires reclassification.
     let (outcome, message, execution) = match parse_cache.parse(&case.query) {
         Ok(()) => match empty_fixture(case.id.as_str()) {
             Ok(fixture) => match fixture.session.query(&case.query, &Parameters::new()) {
@@ -419,9 +419,8 @@ fn classify_execution(
 ) -> (Outcome, Option<String>) {
     match (expectation, error) {
         (Expectation::Rows, None) => (Outcome::Passed, None),
-        (Expectation::Rows | Expectation::Unsupported, Some(message)) => {
-            (Outcome::Failed, Some(message))
-        }
+        (Expectation::Rows, Some(message)) => (Outcome::Failed, Some(message)),
+        (Expectation::Unsupported, Some(message)) => (Outcome::Unsupported, Some(message)),
         (Expectation::Error, Some(_)) => (Outcome::Passed, None),
         (Expectation::Error, None) => (
             Outcome::Failed,
@@ -731,7 +730,7 @@ mod tests {
                 Some("no such function: vertex_stats".to_owned())
             ),
             (
-                Outcome::Failed,
+                Outcome::Unsupported,
                 Some("no such function: vertex_stats".to_owned())
             )
         );
