@@ -9,6 +9,7 @@
 mod binder;
 mod catalog;
 mod compiler;
+mod dialect;
 mod functions;
 mod graph_expand;
 mod lowering;
@@ -29,6 +30,7 @@ pub use catalog::{
     RegisteredRelationshipSource, RelationshipSourceRegistration, GRAPH_CATALOG_VERSION,
 };
 pub use compiler::{graph_frontend_id, GraphCompilationCatalog, GraphCompiler};
+pub use dialect::{GraphDialect, GRAPH_DIALECT_NAME};
 pub use graph_expand::{install_graph_catalog, register_graph_catalog, GRAPH_EXPAND_TABLE_NAME};
 pub use lowering::{
     lower_relational, LowerError, NodeTableLayout, RelationalCatalogSnapshot,
