@@ -73,7 +73,42 @@ impl Dialect for GraphDialect {
     }
 
     fn resolve_function(&self, name: &str, arg_count: usize) -> Result<Option<turso_core::Func>> {
+        if turso_graph_temporal::FUNCTION_NAMES
+            .iter()
+            .any(|candidate| candidate.eq_ignore_ascii_case(name))
+        {
+            return Ok(Some(turso_core::Func::Dialect(name.to_ascii_lowercase())));
+        }
         turso_core::dialect::sqlite::resolve_builtin_function(name, arg_count)
+    }
+
+    fn exec_scalar_function(
+        &self,
+        _conn: &turso_core::Connection,
+        name: &str,
+        args: &[turso_core::Value],
+    ) -> Result<turso_core::Value> {
+        // Mirrors the ownership pattern core uses for `Func::External` scalar
+        // calls (core/vdbe/execute.rs, the `ExtFunc::Scalar` arm): `to_ffi`
+        // allocates an owned `ExtValue` per argument, `dispatch` only
+        // borrows `&[ExtValue]`, and the caller stays responsible for
+        // freeing every argument after the call — on both the success and
+        // the "no such function" path. `Value::from_ffi` is core's safe
+        // wrapper around that free (`core/types.rs:657`); this crate
+        // forbids `unsafe_code`, so we reuse it purely for the free side
+        // effect and discard its round-tripped `Value`.
+        let ext_args: Vec<turso_ext::Value> = args.iter().map(turso_core::Value::to_ffi).collect();
+        let out = turso_graph_temporal::dispatch(name, &ext_args);
+        let result = match out {
+            Some(v) => turso_core::Value::from_ffi(v),
+            None => Err(turso_core::LimboError::ParseError(format!(
+                "no such function: {name}"
+            ))),
+        };
+        for ext_arg in ext_args {
+            let _ = turso_core::Value::from_ffi(ext_arg);
+        }
+        result
     }
 
     fn requires_custom_types(&self) -> bool {
@@ -128,6 +163,63 @@ mod tests {
             err.to_string().contains("GraphConnection"),
             "want a pointer to the frontend path, got: {err}"
         );
+    }
+
+    #[test]
+    fn temporal_functions_resolve_without_extension_install() {
+        let io: Arc<dyn IO> = Arc::new(MemoryIO::new());
+        let db = open_graph_db(&io, ":memory:gd-funcs");
+        let conn = db.connect().unwrap();
+        // No install_temporal_extension call anywhere on this connection.
+        let rows = conn
+            .prepare("SELECT duration_parse('P1DT25H')")
+            .unwrap()
+            .run_collect_rows()
+            .unwrap();
+        assert_eq!(rows[0][0].to_string(), "P1DT25H");
+
+        // SQLite builtins still resolve through the fallback.
+        let rows = conn
+            .prepare("SELECT abs(-7)")
+            .unwrap()
+            .run_collect_rows()
+            .unwrap();
+        assert_eq!(rows[0][0], turso_core::Value::from_i64(7));
+    }
+
+    #[test]
+    fn dialect_and_extension_paths_agree() {
+        // Dialect path (GraphDialect database, no install):
+        let io: Arc<dyn IO> = Arc::new(MemoryIO::new());
+        let db = open_graph_db(&io, ":memory:gd-agree");
+        let conn = db.connect().unwrap();
+        let via_dialect = conn
+            .prepare("SELECT duration_add('P1D', 'PT25H')")
+            .unwrap()
+            .run_collect_rows()
+            .unwrap();
+
+        // Extension path (SqliteDialect database + install), the
+        // dialect-agnostic mode existing consumers use:
+        let io2: Arc<dyn IO> = Arc::new(MemoryIO::new());
+        let db2 = Database::open_file_with_flags(
+            io2.clone(),
+            ":memory:gd-agree-ext",
+            OpenFlags::default(),
+            DatabaseOpts::new(),
+            None,
+            Arc::new(turso_core::SqliteDialect),
+        )
+        .unwrap();
+        let conn2 = db2.connect().unwrap();
+        turso_graph_temporal::install_temporal_extension(&conn2);
+        let via_extension = conn2
+            .prepare("SELECT duration_add('P1D', 'PT25H')")
+            .unwrap()
+            .run_collect_rows()
+            .unwrap();
+
+        assert_eq!(via_dialect, via_extension);
     }
 
     #[test]
