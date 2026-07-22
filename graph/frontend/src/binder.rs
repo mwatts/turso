@@ -58,6 +58,8 @@ pub struct BoundMutation {
     /// Number of user-visible RETURN columns (sort keys follow).
     pub returns_visible: usize,
     pub returns_distinct: bool,
+    /// Static types of the user-visible RETURN columns, in projection order.
+    pub return_types: Vec<ir::ValueType>,
     /// Entity kind of every binding the pipeline can reference, letting the
     /// executor resolve relational layouts for projected entities.
     pub entity_kinds: std::collections::HashMap<ir::BindingId, CatalogEntity>,
@@ -660,6 +662,16 @@ impl<'a> Binder<'a> {
             .iter()
             .map(|(id, entity)| (*id, entity.kind))
             .collect();
+        let return_types = returns
+            .iter()
+            .take(returns_visible)
+            .map(|projection| match projection {
+                StageProjection::Expression { expression, .. } => expression.value_type.clone(),
+                StageProjection::Aggregate {
+                    function, argument, ..
+                } => aggregate_value_type(function, argument),
+            })
+            .collect();
         Ok(BoundMutation {
             request: ir::MutationRequest {
                 graph: self.graph,
@@ -673,6 +685,7 @@ impl<'a> Binder<'a> {
             returns_order,
             returns_visible,
             returns_distinct,
+            return_types,
             entity_kinds,
         })
     }

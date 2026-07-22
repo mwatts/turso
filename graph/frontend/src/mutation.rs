@@ -25,6 +25,8 @@ pub struct MutationSummary {
     pub operations_executed: u64,
     /// Rows produced by a trailing RETURN clause, one per input row.
     pub rows: Vec<Vec<Value>>,
+    /// Static types of the user-visible RETURN columns, in projection order.
+    pub result_types: Vec<ir::ValueType>,
 }
 
 #[derive(Debug, Error)]
@@ -381,6 +383,7 @@ fn execute_bound(
         matched_rows,
         operations_executed,
         rows: returned_rows,
+        result_types: bound.return_types.clone(),
     })
 }
 
@@ -1882,6 +1885,23 @@ mod tests {
                 Value::from_i64(2),
                 Value::from_i64(2020),
             ]]
+        );
+    }
+
+    #[test]
+    fn mutation_return_preserves_entity_result_types() {
+        let (connection, catalog, graph) = setup();
+        let summary = execute(
+            &connection,
+            &catalog,
+            graph,
+            "CREATE (a:Person {id: 1, name: 'Ada'})-[r:KNOWS]->(b:Person {id: 2}) RETURN a, r",
+        )
+        .unwrap();
+
+        assert_eq!(
+            summary.result_types,
+            vec![ir::ValueType::Node, ir::ValueType::Relationship]
         );
     }
 

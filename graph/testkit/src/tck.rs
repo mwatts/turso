@@ -473,13 +473,14 @@ fn execute_case(
             (Outcome::Passed, None, Some(error), "execution")
         }
         Err(error) => (Outcome::Failed, None, Some(error), "execution"),
-        Ok(rows) if expectation == Expectation::Error => (
+        Ok(execution) if expectation == Expectation::Error => (
             Outcome::Failed,
-            Some(stringify_rows(rows)),
+            Some(stringify_rows(execution.rows)),
             Some("expected an error but execution succeeded".to_owned()),
             "execution",
         ),
-        Ok(rows) => {
+        Ok(execution) => {
+            let rows = execution.rows;
             if let Some(step) = case
                 .steps
                 .iter()
@@ -514,11 +515,13 @@ fn execute_case(
                     "graph-comparison",
                 );
             }
-            let types = fixture
-                .session
-                .prepare(query, &parameters)
-                .ok()
-                .map(|statement| statement.result_types().to_vec());
+            let types = execution.result_types.or_else(|| {
+                fixture
+                    .session
+                    .prepare(query, &parameters)
+                    .ok()
+                    .map(|statement| statement.result_types().to_vec())
+            });
             let rows = stringify_rows_with_entities(
                 rows,
                 types.as_deref(),
@@ -716,18 +719,29 @@ fn execute_tck_statement(
     session: &turso_graph_frontend::GraphConnection,
     statement: &str,
     parameters: &Parameters,
-) -> Result<Vec<Vec<Value>>, String> {
+) -> Result<ExecutedRows, String> {
     match session.query(statement, parameters) {
-        Ok(rows) => Ok(rows),
+        Ok(rows) => Ok(ExecutedRows {
+            rows,
+            result_types: None,
+        }),
         Err(query_error) => session
             .execute(statement, parameters)
-            .map(|summary| summary.rows)
+            .map(|summary| ExecutedRows {
+                rows: summary.rows,
+                result_types: Some(summary.result_types),
+            })
             .map_err(|mutation_error| {
                 format!(
                     "query execution failed: {query_error}; mutation execution failed: {mutation_error}; query: {statement}"
                 )
             }),
     }
+}
+
+struct ExecutedRows {
+    rows: Vec<Vec<Value>>,
+    result_types: Option<Vec<turso_graph_ir::ValueType>>,
 }
 
 fn parameters(case: &TckCase) -> Option<Parameters> {
@@ -1606,6 +1620,24 @@ mod tests {
             .cases
             .iter()
             .find(|case| case.id.as_str() == "tck.clauses.match.match1.scenario-1")
+            .unwrap();
+        let query = query(case).unwrap();
+
+        assert_eq!(
+            execute_case(case, query, Expectation::Rows).0,
+            Outcome::Passed
+        );
+    }
+
+    #[test]
+    fn mutation_return_entity_types_are_used_for_tck_rendering() {
+        let root =
+            Path::new(env!("CARGO_MANIFEST_DIR")).join("../testdata/tck/opencypher/features");
+        let corpus = TckCorpus::load(root).unwrap();
+        let case = corpus
+            .cases
+            .iter()
+            .find(|case| case.id.as_str() == "tck.clauses.create.create3.scenario-5")
             .unwrap();
         let query = query(case).unwrap();
 
