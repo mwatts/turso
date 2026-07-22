@@ -1,0 +1,1592 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>turso — Architecture</title>
+<script src="https://cdn.jsdelivr.net/npm/d3@7.9.0/dist/d3.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<style>
+  :root {
+    color-scheme: light;
+    --surface-1: #fcfcfb;      /* chart surface */
+    --page: #f9f9f7;           /* page plane */
+    --text-primary: #0b0b0b;
+    --text-secondary: #52514e;
+    --text-muted: #898781;
+    --grid: #e1e0d9;
+    --baseline: #c3c2b7;
+    --border: rgba(11,11,11,0.10);
+    /* layer colors — validated categorical order (blue, orange, aqua, yellow, magenta, green) + muted gray for externals */
+    --c-1: #2a78d6;
+    --c-2: #eb6834;
+    --c-3: #1baf7a;
+    --c-4: #eda100;
+    --c-5: #e87ba4;
+    --c-6: #008300;
+    --c-7: #7a5fc0;
+    --c-8: #0f9bb0;
+    --c-9: #a07440;
+    --c-10: #5f7d9c;
+    --c-external: #898781;
+    --link: #c3c2b7;
+    --link-dim: #e1e0d9;
+  }
+  :root[data-theme="dark"] {
+    color-scheme: dark;
+    --surface-1: #1a1a19;
+    --page: #0d0d0d;
+    --text-primary: #ffffff;
+    --text-secondary: #c3c2b7;
+    --text-muted: #898781;
+    --grid: #2c2c2a;
+    --baseline: #383835;
+    --border: rgba(255,255,255,0.10);
+    --c-1: #3987e5;
+    --c-2: #d95926;
+    --c-3: #199e70;
+    --c-4: #c98500;
+    --c-5: #d55181;
+    --c-6: #008300;
+    --c-7: #9077d0;
+    --c-8: #2aa8bd;
+    --c-9: #b08450;
+    --c-10: #7d9ab8;
+    --c-external: #898781;
+    --link: #383835;
+    --link-dim: #2c2c2a;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      color-scheme: dark;
+      --surface-1: #1a1a19; --page: #0d0d0d;
+      --text-primary: #ffffff; --text-secondary: #c3c2b7; --text-muted: #898781;
+      --grid: #2c2c2a; --baseline: #383835; --border: rgba(255,255,255,0.10);
+      --c-1: #3987e5; --c-2: #d95926; --c-3: #199e70;
+      --c-4: #c98500; --c-5: #d55181; --c-6: #008300;
+      --c-7: #9077d0; --c-8: #2aa8bd; --c-9: #b08450; --c-10: #7d9ab8;
+      --c-external: #898781; --link: #383835; --link-dim: #2c2c2a;
+    }
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; }
+  body {
+    font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+    background: var(--page);
+    color: var(--text-primary);
+    display: flex;
+    overflow: hidden;
+  }
+  #sidebar {
+    width: 300px; min-width: 300px;
+    height: 100vh;
+    overflow-y: auto;
+    background: var(--surface-1);
+    border-right: 1px solid var(--grid);
+    padding: 16px;
+    font-size: 13px;
+  }
+  #sidebar h1 { font-size: 16px; margin-bottom: 2px; }
+  #sidebar .sub { color: var(--text-muted); font-size: 11px; margin-bottom: 12px; }
+  #sidebar p.summary { color: var(--text-secondary); font-size: 12px; line-height: 1.45; margin-bottom: 14px; }
+  #sidebar h2 { font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: var(--text-muted); margin: 16px 0 6px; }
+  .legend-row { display: flex; align-items: center; gap: 8px; padding: 3px 0; cursor: pointer; user-select: none; }
+  .legend-row input { accent-color: var(--c-1); }
+  .swatch { width: 12px; height: 12px; border-radius: 3px; border: 1px solid var(--border); flex: none; }
+  .legend-row .name { color: var(--text-secondary); }
+  .legend-row .count { margin-left: auto; color: var(--text-muted); font-variant-numeric: tabular-nums; }
+  #stats { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 4px; }
+  .stat { background: var(--page); border: 1px solid var(--grid); border-radius: 8px; padding: 8px 10px; }
+  .stat .v { font-size: 18px; font-weight: 650; }
+  .stat .k { font-size: 10px; color: var(--text-muted); text-transform: uppercase; letter-spacing: .05em; }
+  #nodelist { max-height: 30vh; overflow-y: auto; border: 1px solid var(--grid); border-radius: 8px; }
+  #nodelist .group-h { padding: 4px 8px; font-size: 10px; text-transform: uppercase; letter-spacing: .05em; color: var(--text-muted); background: var(--page); position: sticky; top: 0; }
+  #nodelist .nrow { display: flex; align-items: center; gap: 6px; padding: 3px 8px; cursor: pointer; font-size: 12px; color: var(--text-secondary); }
+  #nodelist .nrow:hover { background: var(--page); color: var(--text-primary); }
+  #nodelist .nrow .dot { width: 8px; height: 8px; border-radius: 50%; flex: none; border: 1px solid var(--border); }
+  #nodelist .nrow .loc { margin-left: auto; color: var(--text-muted); font-size: 10px; font-variant-numeric: tabular-nums; }
+  #main { flex: 1; position: relative; height: 100vh; display: flex; flex-direction: column; }
+  #toolbar {
+    z-index: 5; padding: 12px;
+    display: flex; gap: 8px; align-items: center; flex-wrap: wrap;
+    border-bottom: 1px solid var(--grid); background: var(--surface-1);
+  }
+  #tabs { display: flex; gap: 4px; margin-right: 8px; flex-wrap: wrap; }
+  #toolbar input[type="search"] {
+    flex: 0 1 180px; padding: 7px 10px; font-size: 13px;
+    border: 1px solid var(--grid); border-radius: 8px;
+    background: var(--page); color: var(--text-primary);
+  }
+  .btn {
+    padding: 7px 11px; font-size: 12px; cursor: pointer;
+    border: 1px solid var(--grid); border-radius: 8px;
+    background: var(--surface-1); color: var(--text-secondary);
+  }
+  .btn:hover { color: var(--text-primary); border-color: var(--baseline); }
+  .btn.active { color: var(--text-primary); border-color: var(--c-1); box-shadow: inset 0 0 0 1px var(--c-1); }
+  #views { flex: 1; position: relative; overflow: hidden; }
+  .view { position: absolute; inset: 0; display: none; background: var(--page); }
+  .view.active { display: block; }
+  .view.scroll-view { overflow: auto; padding: 24px; }
+  .view.scroll-view .desc {
+    max-width: 900px; margin: 0 auto 16px; font-size: 13px; line-height: 1.5;
+    color: var(--text-secondary); background: var(--surface-1);
+    border: 1px solid var(--grid); border-radius: 10px; padding: 12px 14px;
+  }
+  .view.scroll-view .mmd-holder {
+    background: var(--surface-1); border: 1px solid var(--grid); border-radius: 10px;
+    padding: 16px; overflow-x: auto; max-width: 1200px; margin: 0 auto;
+  }
+  .view.scroll-view .mmd-holder svg { max-width: 100%; height: auto; }
+  /* commentary article */
+  .article {
+    max-width: 860px; margin: 0 auto; background: var(--surface-1);
+    border: 1px solid var(--grid); border-radius: 10px; padding: 28px 32px 32px;
+    font-size: 14px; line-height: 1.6; color: var(--text-secondary);
+  }
+  .article h1 { font-size: 22px; color: var(--text-primary); margin-bottom: 4px; }
+  .article .dateline { font-size: 12px; color: var(--text-muted); margin-bottom: 18px; }
+  .article h2 { font-size: 16px; color: var(--text-primary); margin: 22px 0 8px; }
+  .article p { margin: 8px 0; }
+  .article ul, .article ol { margin: 8px 0 8px 22px; }
+  .article li { margin: 4px 0; }
+  .article table { border-collapse: collapse; margin: 10px 0; width: 100%; font-size: 13px; }
+  .article th, .article td { border: 1px solid var(--grid); padding: 6px 9px; text-align: left; vertical-align: top; }
+  .article th { color: var(--text-primary); background: var(--page); font-weight: 650; }
+  .article code { font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; font-size: 12px; background: var(--page); border: 1px solid var(--grid); border-radius: 4px; padding: 0 4px; }
+  .article b, .article strong { color: var(--text-primary); }
+  .changed { border-left: 3px solid var(--c-1); padding-left: 12px; }
+  /* raw json */
+  #json-pre {
+    max-width: 1100px; margin: 0 auto; background: var(--surface-1);
+    border: 1px solid var(--grid); border-radius: 10px; padding: 16px;
+    font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    font-size: 11px; line-height: 1.5; color: var(--text-secondary);
+    white-space: pre; overflow: auto; max-height: calc(100vh - 160px);
+  }
+  #copy-json-wrap { max-width: 1100px; margin: 0 auto 10px; display: flex; gap: 8px; align-items: center; }
+  #copy-status { font-size: 12px; color: var(--text-muted); }
+  svg#viz { display: block; width: 100%; height: 100%; background: var(--page); }
+  .link-line { stroke: var(--link); fill: none; }
+  .link-line.dimmed { stroke: var(--link-dim); stroke-opacity: .35; }
+  .link-line.hl { stroke: var(--text-secondary); }
+  .node-g { cursor: grab; }
+  .node-g circle { stroke: var(--surface-1); stroke-width: 2px; }
+  .node-g.dimmed { opacity: .18; }
+  .node-g text {
+    fill: var(--text-secondary); font-size: 10px; pointer-events: none;
+    paint-order: stroke; stroke: var(--page); stroke-width: 3px; stroke-linejoin: round;
+  }
+  .node-g.crate text, .node-g.service text { font-size: 11.5px; font-weight: 650; fill: var(--text-primary); }
+  #tooltip {
+    position: absolute; z-index: 10; pointer-events: none; display: none;
+    max-width: 320px; padding: 10px 12px; font-size: 12px; line-height: 1.4;
+    background: var(--surface-1); color: var(--text-secondary);
+    border: 1px solid var(--grid); border-radius: 10px;
+    box-shadow: 0 4px 16px rgba(0,0,0,.14);
+  }
+  #tooltip .t { font-weight: 650; color: var(--text-primary); font-size: 13px; }
+  #tooltip .meta { color: var(--text-muted); font-size: 11px; margin: 2px 0 6px; }
+  #tooltip .tags span {
+    display: inline-block; margin: 4px 4px 0 0; padding: 1px 7px; font-size: 10px;
+    border: 1px solid var(--grid); border-radius: 999px; color: var(--text-muted);
+  }
+  #detail {
+    position: absolute; bottom: 12px; left: 12px; z-index: 5; display: none;
+    max-width: 380px; padding: 12px 14px; font-size: 12px; line-height: 1.45;
+    background: var(--surface-1); border: 1px solid var(--grid); border-radius: 10px;
+    color: var(--text-secondary); box-shadow: 0 4px 16px rgba(0,0,0,.10);
+  }
+  #detail .t { font-weight: 650; color: var(--text-primary); font-size: 14px; }
+  #detail .close { float: right; cursor: pointer; color: var(--text-muted); padding: 0 4px; }
+  #detail .deps { margin-top: 6px; font-size: 11px; color: var(--text-muted); }
+  #edge-legend { display: flex; flex-direction: column; gap: 4px; }
+  #edge-legend .er { display: flex; align-items: center; gap: 8px; color: var(--text-secondary); font-size: 12px; }
+  #edge-legend svg { width: 34px; height: 10px; background: none; flex: none; }
+  @media (max-width: 900px) { #sidebar { display: none; } }
+</style>
+</head>
+<body>
+<aside id="sidebar">
+  <h1>turso</h1>
+  <div class="sub" id="meta-line"></div>
+  <p class="summary">Turso is a from-scratch Rust rewrite of SQLite. It offers <b>three query frontends</b> &mdash; SQLite/SQL, PostgreSQL, and an experimental Graph/Cypher dialect &mdash; and all three compile down to the same <code>core/translate</code> &rarr; <code>core/vdbe</code> &rarr; <code>core/storage</code> pipeline. Each frontend attaches through one of two seams: the <code>Dialect</code> trait, or the lighter <code>FrontendCompiler</code> registry. The team keeps the frontends decoupled from each other at the crate level.</p>
+  <div id="stats"></div>
+  <h2>Layers <span style="float:right;font-weight:400;text-transform:none;letter-spacing:0">(click to toggle)</span></h2>
+  <div id="legend"></div>
+  <h2>Edge types</h2>
+  <div id="edge-legend"></div>
+  <h2>Nodes</h2>
+  <div id="nodelist"></div>
+  <h2>Patterns</h2>
+  <div id="patterns" style="font-size:11px;color:var(--text-secondary);line-height:1.5"></div>
+  <h2>Limitations</h2>
+  <div id="limits" style="font-size:11px;color:var(--text-muted);line-height:1.5"></div>
+</aside>
+<main id="main">
+  <div id="toolbar">
+    <div id="tabs">
+      <button class="btn tab" data-view="overview">Overview &amp; Commentary</button>
+      <button class="btn tab active" data-view="force">Interactive Graph</button>
+      <button class="btn tab" data-view="layer">Layers</button>
+      <button class="btn tab" data-view="component">Components</button>
+      <button class="btn tab" data-view="data_flow">Data Flow</button>
+      <button class="btn tab" data-view="json">Raw JSON</button>
+    </div>
+    <input id="search" type="search" placeholder="Search nodes… ( / )">
+    <button class="btn" id="layout-layered">Columns</button>
+    <button class="btn" id="toggle-modules">Modules: on</button>
+    <button class="btn" id="toggle-theme" title="Toggle dark / light">◐ Theme</button>
+    <button class="btn" id="export-png">PNG</button>
+    <button class="btn" id="export-svg">SVG</button>
+    <button class="btn" id="export-json">JSON</button>
+    <button class="btn" id="reset-view">Reset</button>
+  </div>
+  <div id="views">
+    <div class="view scroll-view" id="view-overview">
+      <article class="article">
+        <h1>turso — Architecture Analysis</h1>
+        <div class="dateline" id="article-dateline"></div>
+
+<h2>Executive Summary</h2>
+<p>Turso is a from-scratch Rust rewrite of SQLite. It exposes <b>three independently-maintained query frontends</b> that compile down to one shared relational engine. The native SQLite/SQL frontend uses <code>sqlite/parser</code>, which feeds <code>core/translate</code>. A PostgreSQL wire-protocol frontend wraps <code>libpg_query</code> in <code>postgres/parser</code>, and adds <code>postgres/frontend</code>, <code>postgres/server</code>, and the <code>tursopg</code> CLI. An experimental Graph/Cypher frontend, built from <code>graph/cypher</code>, <code>graph/ir</code>, <code>graph/frontend</code>, <code>graph/runtime</code>, and <code>graph/temporal</code>, compiles openCypher onto ordinary SQL tables plus label and relationship-type junction tables. All three frontends converge on <code>core/translate</code> &rarr; <code>core/vdbe</code> (<code>execute.rs</code>, an 18,212-line register-machine interpreter) &rarr; <code>core/storage</code> (<code>btree.rs</code>, <code>wal.rs</code>, <code>pager.rs</code>), with an optional <code>core/mvcc</code> row-versioning path.</p>
+<p>Turso's main goal is SQL compatibility with SQLite, plus optional Postgres and Cypher dialects, on one storage engine. The project treats the engine, not the frontend, as the single source of correctness and durability.</p>
+
+<h2>Layer Descriptions</h2>
+<table>
+<tr><th>Layer</th><th>Members</th><th>Role</th></tr>
+<tr><td><code>SQLite/SQL Frontend</code></td><td><code>turso_parser</code> (lexer/AST/grammar), <code>SqliteDialect</code>, SQLite conformance harness</td><td>This is the native default dialect. Its hand-written recursive-descent parser produces the canonical engine AST that every other frontend also targets.</td></tr>
+<tr><td><code>PostgreSQL Frontend</code></td><td><code>turso_pg_parser</code>, <code>PostgresDialect</code>, <code>PgConnection</code>, <code>TursoPgServer</code>, <code>tursopg</code> CLI, test client, conformance harness</td><td>This frontend wraps real Postgres grammar, through <code>pg_query</code> and <code>libpg_query</code>, and re-emits the same engine AST. It speaks the wire protocol over <code>pgwire</code> and Tokio.</td></tr>
+<tr><td><code>Graph/Cypher Frontend</code></td><td><code>turso_graph_cypher</code>, <code>turso_graph_ir</code>, Binder, catalog, lowering, <code>GraphCompiler</code>, <code>GraphConnection</code>, snapshot store, <code>turso_graph_runtime</code> (CSR traversal), <code>__turso_graph_expand</code> vtab, <code>turso_graph_temporal</code>, testkit</td><td>This frontend binds and lowers openCypher to relational SQL joins, over registered node and relationship tables. An in-memory CSR graph, behind an internal virtual table, serves variable-length traversal. It is experimental and unmerged, on the <code>feature/graph-frontend</code> branch.</td></tr>
+<tr><td><code>Core Engine — Dialect &amp; Frontend Seam</code></td><td><code>Dialect</code> trait, <code>FrontendCompiler</code> trait &amp; registry, <code>Connection</code>, <code>Database</code>, <code>Schema</code></td><td>These are the two extension points that frontends attach through, plus the per-session and per-file state they attach to.</td></tr>
+<tr><td><code>Core Engine — Translate &amp; Execution</code></td><td><code>core/translate</code> (planner/codegen), <code>core/translate/optimizer</code>, <code>core/vdbe</code></td><td>This layer lowers the engine AST to an optimized logical plan, emits register-machine bytecode, and runs it.</td></tr>
+<tr><td><code>Core Engine — Storage &amp; Durability</code></td><td><code>storage/btree.rs</code>, <code>storage/wal.rs</code>, <code>storage/pager.rs</code>, <code>core/io</code>, <code>core/index_method</code> (FTS/vector), <code>core/incremental</code> (materialized views), <code>core/mvcc</code> (experimental)</td><td>This layer holds the on-disk B-tree, WAL, and pager stack that every frontend's rows live in. It also holds the async I/O abstraction, pluggable index methods, incremental view maintenance, and an alternate row-level MVCC durability path.</td></tr>
+<tr><td><code>Entry Points, Bindings &amp; Ecosystem</code></td><td><code>tursodb</code> CLI, 9 language bindings, <code>extensions/*</code>, <code>sdk-kit</code>/<code>sdk-kit-macros</code>, <code>sync/engine</code>+<code>sync/sdk-kit</code></td><td>This layer shows how applications reach a <code>Connection</code>, through the REPL, FFI bindings, or the C ABI. It also shows how third-party scalar and vtab functions register, and how committed state replicates to Turso Cloud.</td></tr>
+<tr><td><code>Testing &amp; Conformance</code></td><td><code>testing/simulator</code>+<code>concurrent-simulator</code>, <code>testing/differential-oracle</code>+<code>stress</code>, <code>tools/dbhash</code></td><td>This layer adds deterministic fault injection, differential and fuzz testing against a reference, and B-tree content-hash checks, on top of the per-frontend <code>.sqltest</code> conformance harnesses.</td></tr>
+</table>
+
+<h2>Data Flows</h2>
+<ol>
+<li><b>SQL path:</b> the client sends text to <code>SqliteDialect::parse</code>, which calls <code>turso_parser::parser::Parser</code> and produces an <code>ast::Cmd</code>/<code>Stmt</code>. <code>Connection::prepare</code> passes this AST to <code>core/translate</code>, where <code>plan.rs</code>/<code>planner.rs</code> build a plan, <code>optimizer::optimize_plan</code> rewrites it, and <code>emitter/</code> plus <code>main_loop/</code> walk it to build a <code>ProgramBuilder</code>. <code>Vdbe::step</code> (<code>execute.rs</code>) then runs the program and drives <code>BTreeCursor</code> operations against <code>btree.rs</code>, <code>wal.rs</code>, and <code>pager.rs</code>. The engine returns each <code>Row</code>, or a final <code>StepResult</code>, to the caller.</li>
+<li><b>Postgres path:</b> a wire-protocol client sends a query to <code>TursoPgServer</code>, which routes it through <code>pgwire</code>'s simple- or extended-query handlers to <code>PgConnection::prepare_statement</code>. This method calls <code>turso_pg_parser::parse</code> and <code>PostgreSQLTranslator::translate_with_prereqs</code>, and produces the same <code>ast::Stmt</code> type that the SQL path uses. <code>conn.prepare_translated_stmt</code> then hands the statement to the same translate, VDBE, and storage pipeline described above. When <code>pg_query</code> rejects an engine-generated helper statement, <code>PostgresDialect</code> falls back to <code>core::dialect::sqlite::parse</code>.</li>
+<li><b>Cypher path:</b> <code>GraphConnection::query</code> or <code>execute</code> calls <code>turso_graph_cypher::parse</code>, then <code>Binder::bind</code> resolves the result against a <code>GraphCatalogSnapshot</code>. The binder produces a bound <code>PlanKind</code> value, and <code>lower_relational</code> emits an ordinary <code>ast::Stmt</code>, built from SQL joins over the node and relationship tables and the label and relationship-type junction tables. This statement runs through the same translate, VDBE, and storage pipeline. A variable-length <code>MATCH</code> pattern instead routes through the <code>__turso_graph_expand</code> internal virtual table, which VDBE drives with ordinary <code>best_index</code>/<code>VNext</code> opcodes. This virtual table reads an in-memory CSR snapshot (<code>TraversalSnapshot</code>), rebuilt from committed and uncommitted B-tree rows.</li>
+<li><b>Durability:</b> by default, VDBE's commit-path opcodes append full changed pages to the WAL (<code>storage/wal.rs</code>), and the pager checks the WAL before it reads the main file. When a database sets <code>PRAGMA journal_mode='mvcc'</code>, cursor operations instead route through <code>core/mvcc</code>'s row-versioned <code>MvStore</code>, which writes a logical log of the affected rows only. Both paths share <code>core/io</code>'s <code>IOResult</code> async abstraction, across the io_uring, IOCP, unix, and simulated backends.</li>
+<li><b>Replication:</b> <code>sync/engine</code> reads committed WAL or logical-log state to replicate data to and from Turso Cloud. It works the same way regardless of which frontend produced the write.</li>
+</ol>
+
+<h2>Key Design Decisions &amp; Patterns</h2>
+<ul>
+<li><b>One shared engine AST is the convergence point.</b> All three frontends produce a <code>turso_parser::ast::Cmd</code>/<code>Stmt</code> value before they reach <code>core/translate</code>. Verified by: <code>PostgresDialect::parse</code> and <code>lower_relational</code> both return this exact type; neither feeds a frontend-specific IR into a second translator.</li>
+<li><b>The engine offers two seams, chosen by DDL-ownership need.</b> <code>SqliteDialect</code> and <code>PostgresDialect</code> implement <code>Dialect</code> (<code>core/dialect/mod.rs</code>, added in commit <code>9b10c496d</code>), because both must encode and decode schema DDL text. <code>GraphCompiler</code> implements the lighter <code>FrontendCompiler</code> trait and registry instead (<code>core/connection.rs:569</code>, <code>prepare_frontend</code> at line 1115). Cypher schema rides on the existing <code>SqliteDialect</code>'s catalog representation, so it needs no DDL encoding of its own.</li>
+<li><b>The team decouples frontends from each other on purpose.</b> Commit <code>a7a22ff16</code> added a <code>graph.cypher()</code> adapter that coupled <code>postgres/frontend</code> to <code>turso_graph_frontend</code>, and commit <code>178437223</code> reverted it. Verified by: <code>postgres/frontend/Cargo.toml</code> today lists no graph crate dependency, and both frontends compose only by calling <code>Connection::register_frontend_compiler</code> or opening a <code>Dialect</code> on the same shared <code>core::Connection</code>.</li>
+<li><b>"Everything is a B-tree."</b> FTS and vector indexes (<code>core/index_method/backing_btree.rs</code>), the graph frontend's label and relationship-type junction tables (<code>graph/frontend/catalog.rs</code>), and materialized-view bookkeeping (<code>core/incremental</code>) all persist through the one B-tree substrate. None of them invents its own file format. Verified by: all three route writes through the same <code>core-storage-btree</code> node in this graph.</li>
+<li><b>A database chooses durability at runtime, not at compile time.</b> <code>PRAGMA journal_mode='mvcc'</code> switches a per-database <code>MvStore</code> behind <code>ArcSwapOption</code> on <code>Database</code>. The default WAL path stays untouched when MVCC is off. This design keeps an experimental subsystem, marked not production-ready in <code>docs/agent-guides/mvcc.md</code>, opt-in per file.</li>
+</ul>
+
+<h2>Strengths</h2>
+<ul>
+<li><b>The frontends converge for real, not just in name.</b> The Postgres and Cypher frontends produce the same AST type that the SQLite parser produces. The team writes and tests the roughly 89k-line <code>core/translate</code> optimizer and the 18k-line VDBE interpreter once, and all three dialects exercise them.</li>
+<li><b>The Dialect/FrontendCompiler split fits the need.</b> A frontend that must own schema DDL text, such as SQLite or Postgres, implements the heavier <code>Dialect</code> trait. A frontend that does not, such as Cypher, uses the lighter registry instead. This design avoids one abstraction that tries to fit every case.</li>
+<li><b>The codebase enforces storage-format reuse by construction.</b> A new capability, such as FTS, a vector index, or a graph junction table, must express itself as B-tree tables; it may not invent its own on-disk format. This rule keeps the single-writer WAL, checkpoint, and backup story valid for every feature.</li>
+<li><b>Conformance testing is extensive and kept separate per frontend.</b> Each frontend has its own <code>.sqltest</code>-driven differential harness that checks it against a real reference: <code>sqlite3</code> for SQLite, a spawned <code>tursopg</code> for Postgres, and the openCypher TCK plus CypherBench for Graph. Deterministic simulators and a B-tree content-hash tool (<code>tools/dbhash</code>) add storage-level checks.</li>
+</ul>
+
+<h2>Weaknesses &amp; Risks</h2>
+<ul>
+<li><b>The Graph/Cypher frontend is unmerged and library-only.</b> The repository's <code>HEAD</code> sits on <code>feature/graph-frontend</code>, and the <code>graph-session</code> node itself notes that no CLI subcommand and no language binding wires it in yet. Nine of this model's 45 nodes, and one full architectural layer, describe code that no user can reach from <code>main</code> or from any shipped binding today.</li>
+<li><b>MVCC is not production-ready, but it sits on the hot commit path.</b> <code>docs/agent-guides/mvcc.md</code> calls it explicitly not production-ready, yet <code>core/vdbe</code> wires straight into it (the <code>core-vdbe</code> &rarr; <code>core-mvcc</code> edge). A runtime PRAGMA turns it on, not a build flag, so an operator can switch a live database into this experimental path with one statement.</li>
+<li><b>Several very large files sit at the center of the hot path.</b> <code>core/vdbe/execute.rs</code> holds 18,212 lines, <code>core/translate</code>'s <code>optimizer</code> holds 16,455 lines across 9 files, <code>core/schema.rs</code> holds 7,250 lines, and <code>postgres/frontend/catalog.rs</code> holds 4,093 lines. Every frontend's queries pass through these files, so their size raises review cost and concentrates risk.</li>
+<li><b>The latest Cypher/TCK run shows a real failure rate.</b> <code>graph/test-results/REPORT.md</code>, from run <code>20260721T115532</code>, records 10,242 identities, with 8,800 passing and 1,442 failing. About 14% of the openCypher/CypherBench corpus does not pass yet.</li>
+<li><b>An internal-helper bypass skips the database's own dialect.</b> Engine-internal helpers always resolve functions with SqliteDialect semantics, no matter which dialect opened the database (<code>StatementOrigin::InternalHelper</code>). So a Postgres- or Cypher-opened database can still run SQLite-flavored internal SQL. Audit this seam if dialect-specific function semantics diverge further.</li>
+</ul>
+
+<h2>Recommendations</h2>
+<ol>
+<li>Add a <code>tags: ["unmerged"]</code> marker to the Graph/Cypher frontend's nodes in this model. Do this so downstream readers of <code>architecture_graph.json</code> do not assume it ships on <code>main</code>.</li>
+<li>Write a compatibility matrix that lists which VDBE opcodes and dialects the team has validated against MVCC. Do this before you promote MVCC past experimental status. The <code>core-vdbe</code> &rarr; <code>core-mvcc</code> edge today implies all opcodes, which claims more than the work-in-progress status in <code>core/mvcc</code>'s own docs supports.</li>
+<li>Split <code>core/vdbe/execute.rs</code> and the largest files in <code>core/translate/optimizer</code> along opcode-family or pass-family lines, where you can. Use the existing <code>op_*</code>-per-opcode structure as your guide; it makes a mechanical split lower-risk than it looks.</li>
+<li>Publish the CypherBench/TCK pass-rate trend, not just the latest run, alongside <code>graph/test-results/REPORT.md</code>. Triage the 1,442 failing identities into regressions and known gaps before you add any CLI or binding surface.</li>
+<li>Document the <code>StatementOrigin::InternalHelper</code> SqliteDialect bypass directly in <code>core/dialect/mod.rs</code>'s own doc comment, not only in <code>DESIGN_DECISIONS.md</code> or the agent guides. Call out that it breaks the "one Dialect per Database" rule that the trait's public API otherwise implies.</li>
+</ol>
+
+<h2>Revision History</h2>
+<div class="changed">
+<p><b>Revision 3 — 2026-07-22.</b> The team rewrote all prose in this model and in this commentary in ASD-STE100 Simplified Technical English: active voice, short sentences, present tense, and simple approved words. This pass changed no facts and no model structure. Node count (45), edge count (68), layer count (8), and every LOC, path, and commit citation stay exactly as revision 2 verified them.</p>
+</div>
+<p><b>Revision 2 — 2026-07-22.</b> The team re-rendered the page onto the standard architecture-docs template, replacing the earlier hand-authored, ad hoc HTML. It re-verified every LOC figure and file path against the current <code>feature/graph-frontend</code> worktree, using <code>tokei</code> and <code>wc -l</code>; all matched except one path bug, now fixed (<code>turso_pg_parser</code> has no <code>src/</code> subdirectory, so the <code>pg-parser</code> node's path was corrected from <code>postgres/parser/src/...</code> to <code>postgres/parser/...</code>). It consolidated the model's 12 layers into 8, merging <code>Translate &amp; Optimizer</code> with <code>VDBE Execution</code>, and folding <code>MVCC (Experimental)</code> and <code>Extensions &amp; SDK</code>/<code>Sync</code> into neighboring layers. It added <code>stats.cards</code>, <code>architectural_patterns</code>, and <code>limitations</code>, none of which existed before. Node and edge content (45 nodes, 68 edges) stayed unchanged from revision 1.</p>
+<p><b>Revision 1 — 2026-07-22.</b> This revision ran the initial architecture analysis: 45 nodes and 68 edges across 12 layers, covering the three query frontends (SQLite/SQL, PostgreSQL, Graph/Cypher), the two engine/frontend seams (<code>Dialect</code> trait, <code>FrontendCompiler</code> trait), the translate/optimizer/VDBE/storage/MVCC core, and the entry-point/binding/extension/sync/testing ecosystem. It rendered the page with a hand-authored, ad hoc HTML file, not the shared template.</p>
+
+<h2>Method &amp; Limitations</h2>
+<p>This analysis combines directory traversal, direct reading of source files at the cited paths, <code>tokei</code> and <code>wc -l</code> line counts, and <code>Cargo.toml</code> dependency and workspace-member checks. It also checks <code>git log</code> and <code>git branch</code> against the specific commit hashes named in node descriptions (<code>9b10c496d</code>, <code>a7a22ff16</code>, <code>178437223</code>); all three resolve in this worktree's history. It is <b>not</b> a compiler-derived call graph: edge types such as <code>calls</code>, <code>depends</code>, <code>reads</code>, <code>writes</code>, and <code>emits</code> come from reading code and commit messages, not from a symbol-level cross-reference tool.</p>
+<p>The analysis covers the <code>feature/graph-frontend</code> branch: 52 Cargo workspace members, about 939 Rust source files, and about 557.8k lines of Rust, per <code>tokei</code>. The model covers a curated set of about 45 nodes, at crate and module granularity, to match the architecture-docs altitude guidance. Many individual optimizer passes, per-language binding internals, and single-purpose extension crates appear under one parent node instead of on their own. Revision 3 rewrote all prose in ASD-STE100 Simplified Technical English but re-checked no facts; it reused every number and citation revision 2 verified.</p>
+
+      </article>
+    </div>
+    <div class="view active" id="view-force">
+      <svg id="viz" role="img" aria-label="turso architecture dependency graph"></svg>
+      <div id="tooltip"></div>
+      <div id="detail"></div>
+    </div>
+    <div class="view scroll-view" id="view-layer">
+      <div class="desc" id="desc-layer"></div>
+      <div class="mmd-holder" id="mmd-layer"></div>
+    </div>
+    <div class="view scroll-view" id="view-component">
+      <div class="desc" id="desc-component"></div>
+      <div class="mmd-holder" id="mmd-component"></div>
+    </div>
+    <div class="view scroll-view" id="view-data_flow">
+      <div class="desc" id="desc-data_flow"></div>
+      <div class="mmd-holder" id="mmd-data_flow"></div>
+    </div>
+    <div class="view scroll-view" id="view-json">
+      <div id="copy-json-wrap">
+        <button class="btn" id="copy-json">Copy JSON</button>
+        <span id="copy-status"></span>
+      </div>
+      <pre id="json-pre"></pre>
+    </div>
+  </div>
+</main>
+<script id="graph-data" type="application/json">
+{
+  "repo": "turso",
+  "analysis_date": "2026-07-22",
+  "previous_analysis_date": "2026-07-22",
+  "summary": "Turso is a from-scratch Rust rewrite of SQLite. It offers three separate query frontends that share one relational engine. The native SQLite/SQL frontend uses a hand-written parser in sqlite/parser and feeds core/translate's planner, optimizer, and VDBE emitter. The PostgreSQL frontend wraps libpg_query in postgres/parser; postgres/frontend supplies PostgresDialect and PgConnection, postgres/server implements the wire protocol with pgwire, and the tursopg CLI hosts it. An experimental Graph/Cypher frontend compiles openCypher into ordinary SQL tables plus label and relationship-type junction tables, using a Pest grammar in graph/cypher, a plan IR in graph/ir, binder/lowering/catalog/session/snapshot code in graph/frontend, a CSR traversal engine in graph/runtime, and a value-semantics extension in graph/temporal. All three frontends converge on one pipeline: core/translate feeds core/vdbe (execute.rs, an 18k-line register-machine interpreter), which drives core/storage (btree.rs, wal.rs, pager.rs), with an optional core/mvcc row-versioning path. Two seams mediate the boundary between the engine and each frontend: the Dialect trait (core/dialect/mod.rs, added in commit 9b10c496d) routes schema loading through one interface for SqliteDialect and PostgresDialect, and the lighter FrontendCompiler trait and registry (core/connection.rs) serve the graph frontend instead, because Cypher does not own schema DDL encoding. The Postgres and Graph frontends stay decoupled from each other at the crate level: an earlier graph.cypher() adapter coupled them (commit a7a22ff16), but a later commit (178437223) reverted this coupling, and the two frontends now compose only through Connection::register_frontend_compiler on a shared core Connection, never through a direct crate dependency.",
+  "layers": [
+    "SQLite/SQL Frontend",
+    "PostgreSQL Frontend",
+    "Graph/Cypher Frontend",
+    "Core Engine — Dialect & Frontend Seam",
+    "Core Engine — Translate & Execution",
+    "Core Engine — Storage & Durability",
+    "Entry Points, Bindings & Ecosystem",
+    "Testing & Conformance"
+  ],
+  "nodes": [
+    {
+      "id": "sqlite-parser",
+      "label": "turso_parser (lexer/AST/grammar)",
+      "type": "module",
+      "layer": "SQLite/SQL Frontend",
+      "path": "sqlite/parser/src/{lexer.rs,ast.rs,parser.rs,token.rs}",
+      "description": "The crate uses a hand-written lexer (lexer.rs, 1,344 LOC) and a recursive-descent grammar (parser.rs, 13,193 LOC). Together they produce turso_parser::ast::Cmd/Stmt (ast.rs, 2,218 LOC), the one AST every frontend shares. Parser<'a> wraps the Lexer and implements Iterator<Item=Result<Cmd>>. Turso caps MAX_EXPR_DEPTH at 100, not SQLite's 1,000, because the recursive translator uses larger stack frames. ast/fmt.rs (2,752 LOC) renders the AST back to SQL text for schema round-tripping. This crate holds the primary SQL dialect, at about 20.4k LOC total."
+    },
+    {
+      "id": "sqlite-dialect",
+      "label": "SqliteDialect",
+      "type": "component",
+      "layer": "SQLite/SQL Frontend",
+      "path": "core/dialect/sqlite.rs",
+      "description": "SqliteDialect is the default Dialect implementation, at 528 LOC. It lives inside core/, not in its own crate, because SQLite is the native default dialect; the Postgres and Graph adapters live in separate crates instead. parse() sends text straight to turso_parser::parser::Parser. register_builtin_catalog installs pragma table-valued functions and JSON virtual tables. The dialect stores canonical SQLite CREATE TABLE text with no marker prefix. Every Database::open call in cli/ and bindings/ passes Arc::new(SqliteDialect) directly."
+    },
+    {
+      "id": "sqlite-conformance",
+      "label": "SQLite conformance harness",
+      "type": "component",
+      "layer": "SQLite/SQL Frontend",
+      "path": "sqlite/conformance/{sqlite-sqltests,turso-sqltests,upstream}/",
+      "description": "The harness tests in two tiers. sqlite-sqltests/ holds 260 .sqltest files that use the @database/test/expect DSL. The command make -C sqlite/conformance run-rust runs each query against both tursodb and real sqlite3, then diffs the output; tests are grouped by topic, such as select/, join/, groupby/, window/, pragma/, and json/. turso-sqltests/ holds Turso-only extensions, such as ATTACH. sqlite/conformance/upstream/ imports the original SQLite TCL golden tests word for word (select1.test, join3.test, tester.tcl). CLAUDE.md forbids edits to these files for Turso-specific behavior; contributors update them only to sync with upstream. The command make test adds the broader legacy TCL, sqlite3, extension, and MVCC suite on top."
+    },
+    {
+      "id": "pg-parser",
+      "label": "turso_pg_parser",
+      "type": "module",
+      "layer": "PostgreSQL Frontend",
+      "path": "postgres/parser/{lib.rs,ast.rs,translator.rs,parser.rs,lexer.rs}",
+      "description": "Unlike sqlite/parser, this crate does not hand-roll its grammar. It wraps pg_query, a Rust binding to libpg_query, the real Postgres C parser, for full grammar coverage. translator.rs (6,723 LOC, the crate's largest file) walks pg_query's protobuf parse tree and re-emits it onto turso_parser::ast::Stmt/Cmd, the same engine AST that sqlite/parser produces. Along the way it handles PG/SQLite differences, such as turning an implicit SERIAL column into a CREATE SEQUENCE statement. ast.rs (1,103 LOC) defines a Turso-flavored PG AST layer, and a separate parser.rs/lexer.rs (about 3.7k LOC combined) handle auxiliary tokenization. The crate totals about 12.2k LOC."
+    },
+    {
+      "id": "pg-dialect",
+      "label": "PostgresDialect",
+      "type": "component",
+      "layer": "PostgreSQL Frontend",
+      "path": "postgres/frontend/catalog.rs",
+      "description": "PostgresDialect implements the core Dialect trait, in a 4,093-line file. parse() tries the PG parse-and-translate path first. If pg_query rejects an engine-generated helper statement or PRAGMA, parse() falls back to core::dialect::sqlite::parse. The dialect stores user table DDL with a marker prefix, `/* turso_frontend:postgres */ <original PG text>` (STORED_PG_SCHEMA_PREFIX), so schema reload re-parses it through the PG translator; unmarked rows, such as sqlite_sequence, stay in plain SQLite form. register_catalog first calls sqlite::register_builtin_catalog, then installs virtual tables such as pg_class, pg_namespace, pg_attribute, pg_roles, pg_am, and pg_proc, with OIDs starting at 16384.",
+      "note": "No dependency on the graph frontend: postgres/frontend/Cargo.toml lists chrono, parking_lot, rustc-hash, tempfile, turso_core, turso_parser, turso_ext, turso_pg_parser — no graph crate. Commit 178437223 (\"revert(postgres): remove graph.cypher adapter coupling from pg frontend\") deliberately removed an earlier graph.cypher()/install_graph adapter (added in a7a22ff16) that had made turso_pg depend on turso_graph_frontend at compile time. See the Graph/Cypher Frontend section for the other side of this decoupling."
+    },
+    {
+      "id": "pg-session",
+      "label": "PgConnection / session",
+      "type": "component",
+      "layer": "PostgreSQL Frontend",
+      "path": "postgres/frontend/session.rs",
+      "description": "prepare_statement() runs five steps. First, it special-cases COPY, CREATE/DROP SCHEMA, SET/SHOW, and materialized-view refresh. Second, it calls turso_pg_parser::parse(sql). Third, PostgreSQLTranslator::translate_with_prereqs produces an ast::Stmt plus any prerequisite statements, such as an implicit CREATE SEQUENCE for a serial column. Fourth, it rejects DML against emulated pg_catalog tables. Fifth, it runs the prerequisites, then calls conn.prepare_translated_stmt(stmt, original_sql), the same translate-and-VDBE pipeline SQLite uses; the code never generates SQLite text. PgConnection also registers a PostgresCompiler that implements FrontendCompiler, for prepared-statement recompilation; open_database and open_database_with_io both pass Arc::new(PostgresDialect) into Database::open."
+    },
+    {
+      "id": "pg-server",
+      "label": "TursoPgServer (wire protocol)",
+      "type": "component",
+      "layer": "PostgreSQL Frontend",
+      "path": "postgres/server/lib.rs",
+      "description": "TursoPgServer is 837 LOC, built on the pgwire crate (v0.36) over Tokio. It binds a TcpListener and spawns one task per socket through pgwire::tokio::process_socket. It implements PgWireServerHandlers. For startup, it uses pgwire's NoopHandler, so it does not yet check real authentication. SimpleQueryHandler::do_query splits multi-statement text and runs each statement through conn.prepare(sql) on a shared Arc<Mutex<PgConnection>>. ExtendedQueryHandler implements bind, describe, and execute for the prepared-statement and portal protocol, and it translates column metadata into PG FieldInfo/Type values."
+    },
+    {
+      "id": "pg-cli",
+      "label": "tursopg CLI",
+      "type": "entrypoint",
+      "layer": "PostgreSQL Frontend",
+      "path": "postgres/cli/main.rs",
+      "description": "tursopg is a psql-like REPL and server host, at 2,842 LOC across main.rs, build.rs, and read_state_machine.rs. It reuses the main tursodb CLI's config and helper code through #[path] includes. It can open a local file directly through PgConnection, or launch TursoPgServer to serve the wire protocol. It plays the same role as tursodb, but for the PG dialect."
+    },
+    {
+      "id": "pg-client",
+      "label": "turso_pg_client (test tooling)",
+      "type": "component",
+      "layer": "PostgreSQL Frontend",
+      "path": "postgres/client/lib.rs",
+      "description": "turso_pg_client is a minimal, synchronous PG wire-protocol client, at 470 LOC, with few dependencies. It speaks protocol 3.0 simple query over TCP. The team built it only for test tooling, for the sqltest pg backend and postgres/regress. It is not a general end-user driver."
+    },
+    {
+      "id": "pg-conformance",
+      "label": "Postgres conformance harness",
+      "type": "component",
+      "layer": "PostgreSQL Frontend",
+      "path": "postgres/conformance/{pg-sqltests,upstream}/, postgres/regress/",
+      "description": "pg-sqltests/ reuses the same .sqltest DSL and the testing/sqltest runner crate as the SQLite corpus, but adds a pg backend. The command make -C postgres/conformance run spawns one tursopg server per database instance and drives it over the wire protocol (sqltest run pg-sqltests --backend pg --binary tursopg). Test headers assert only behavior that real PostgreSQL also shows, so the corpus stays valid for differential runs. Separately, postgres/conformance/upstream/ holds pristine upstream PostgreSQL regression fixtures, as .sql/.out pairs. The dedicated pgregress binary (postgres/regress/main.rs, 914 LOC) drives these fixtures; it speaks the wire protocol directly and reproduces psql -X -a -q transcript formatting byte for byte."
+    },
+    {
+      "id": "graph-cypher-parser",
+      "label": "turso_graph_cypher",
+      "type": "module",
+      "layer": "Graph/Cypher Frontend",
+      "path": "graph/cypher/src/{parser.rs,ast.rs}",
+      "description": "turso_graph_cypher is a grammar-only crate. It holds a Pest grammar (cypher.pest), parser.rs (1,781 LOC, with pub fn parse(source) -> Result<Query, ParseError>), and ast.rs (358 LOC). ast.rs defines Cypher-shaped types such as Query, Clause, MatchClause, and CreateClause. The crate depends only on turso_graph_ir, so its donor-adapted parser types stay self-contained. It handles syntax only; it does not bind names or add semantics."
+    },
+    {
+      "id": "graph-ir",
+      "label": "turso_graph_ir",
+      "type": "module",
+      "layer": "Graph/Cypher Frontend",
+      "path": "graph/ir/src/{plan.rs,expression.rs,identity.rs,mutation.rs}",
+      "description": "turso_graph_ir is the dependency root for the whole graph stack. It must not depend on parser, storage, or Postgres types. plan.rs (331 LOC) defines PlanKind, a relational-algebra-style logical plan, not bytecode; its variants include Unit, NodeScan, FixedExpand, GraphExpand, Filter, Project, Aggregate, Distinct, Sort, Skip, Limit, LeftApply, Unwind, Union, and Join. identity.rs defines newtype IDs, such as GraphId, NodeId, RelationshipId, LabelId, RelationshipTypeId, SourceTableId, BindingId, and PropertyId. mutation.rs defines write-plan types, such as CreateNode, CreateRelationship, MergeNode, and SetLabels."
+    },
+    {
+      "id": "graph-binder",
+      "label": "Binder",
+      "type": "component",
+      "layer": "Graph/Cypher Frontend",
+      "path": "graph/frontend/src/binder.rs",
+      "description": "Binder is 6,348 LOC, the largest file in the graph stack. It resolves the Cypher AST that turso_graph_cypher::parse produces, against the registered graph catalog. It produces BoundQuery or BoundMutation values over graph-ir's PlanKind. It exposes bind(), bind_mutation(), ParameterTypes, ResolvedProperty, GraphCatalogSnapshot, and a span-annotated BindError type."
+    },
+    {
+      "id": "graph-catalog",
+      "label": "Graph catalog & registration",
+      "type": "component",
+      "layer": "Graph/Cypher Frontend",
+      "path": "graph/frontend/src/catalog.rs",
+      "description": "The catalog module is 1,342 LOC. register_graph() writes into internal SQLite tables — __turso_internal_graph_graphs, __turso_internal_graph_sources, __turso_internal_graph_node_sources, and __turso_internal_graph_relationship_sources — inside a BEGIN IMMEDIATE/SAVEPOINT block, for transactional registration. The module also owns labels_table_name, relationship_types_table_name, and relationship_type_registry_table_name, which name per-graph label and relationship-type junction tables (__turso_graph_node_labels_{id}, __turso_graph_relationship_types_{id}); a MATCH (n:Label) pattern joins against these tables. Today the catalog supports only one node source and one relationship source per graph; CatalogError::MultipleSourcesUnsupported signals the limit."
+    },
+    {
+      "id": "graph-lowering",
+      "label": "Relational lowering",
+      "type": "component",
+      "layer": "Graph/Cypher Frontend",
+      "path": "graph/frontend/src/lowering.rs",
+      "description": "The lowering module is 2,457 LOC. lower_relational(plan, catalog) walks a PlanKind value and returns Result<ast::Stmt, LowerError>. It emits SQL text as nested subqueries, in the form SELECT {columns} FROM (...) AS q, producing an ordinary turso_parser::ast::Stmt. RelationalCatalogSnapshot exposes labels_table() and relationship_types_table(), so label and type predicates compile into joins against the junction tables; node_layout and relationship_layout map each SourceTableId to its physical table and identity column. A fixed-length MATCH pattern lowers entirely into plain relational joins, with normal read-your-writes semantics."
+    },
+    {
+      "id": "graph-compiler",
+      "label": "GraphCompiler",
+      "type": "component",
+      "layer": "Graph/Cypher Frontend",
+      "path": "graph/frontend/src/compiler.rs",
+      "description": "GraphCompiler is 67 LOC. It implements core's FrontendCompiler trait, not the Dialect trait. compile() parses the Cypher text, binds it, lowers it to an ast::Stmt, and returns FrontendCompilation{ cmd: Some(Cmd::Stmt(stmt)), .. }. graph_frontend_id() returns a static FrontendId::new(\"graph-cypher\")."
+    },
+    {
+      "id": "graph-session",
+      "label": "GraphConnection",
+      "type": "entrypoint",
+      "layer": "Graph/Cypher Frontend",
+      "path": "graph/frontend/src/session.rs",
+      "description": "GraphConnection is 887 LOC. The struct holds connection: Arc<Connection>, graph: GraphId, catalog, parameters, snapshots: Arc<SessionSnapshotStore>, and limits, and it wraps a turso_core::Connection, the same session object SQL uses. Its public API offers open, open_with_parameters, and install; prepare and prepare_cancellable, which return a Statement wrapper with result_types(); query and query_cancellable; and execute, which returns a MutationSummary. GraphConnection is the frontend's only public entry point today. No CLI subcommand and no language binding calls it yet; it is a library-only, source-only API on the feature/graph-frontend branch (docs/graph.md)."
+    },
+    {
+      "id": "graph-snapshot",
+      "label": "Traversal snapshot store",
+      "type": "component",
+      "layer": "Graph/Cypher Frontend",
+      "path": "graph/frontend/src/snapshot.rs",
+      "description": "The snapshot module is 1,382 LOC. TraversalSnapshot, SnapshotStore, and SessionSnapshotStore build an in-memory CSR adjacency graph (turso_graph_runtime::Graph) from the current node and relationship table rows, keyed by NodeCoordinate and RelationshipCoordinate. Each connection keeps its own local snapshot, rebuilt inside a nested savepoint whenever the graph's generation counter moves, so a session sees its own uncommitted writes without publishing them to other sessions. A shared SnapshotStore caches the last committed snapshot per graph; a refresh needs autocommit mode. Every snapshot is derived, stays local to the process, and the engine never persists it to disk."
+    },
+    {
+      "id": "graph-runtime",
+      "label": "turso_graph_runtime (CSR traversal)",
+      "type": "module",
+      "layer": "Graph/Cypher Frontend",
+      "path": "graph/runtime/src/{csr.rs,traversal.rs,shortest.rs,limits.rs}",
+      "description": "turso_graph_runtime never touches core storage or the VDBE directly. csr.rs (439 LOC) and traversal.rs (727 LOC) implement safe, owned forward and reverse CSR arrays over NodeId and RelationshipId; the team adapted this code from the external pgGraph project (Apache-2.0). traverse() supports BFS and DFS, with Walk, Trail, and Path uniqueness rules and hop-bounded budgets, defined in limits.rs (BuildLimits, TraversalLimits, Cancellation). shortest.rs (339 LOC) adds Dijkstra-style shortest-path and weighted-shortest-path search. The runtime builds one traversal structure per query, from a TraversalSnapshot."
+    },
+    {
+      "id": "graph-expand-vtab",
+      "label": "__turso_graph_expand internal vtab",
+      "type": "component",
+      "layer": "Graph/Cypher Frontend",
+      "path": "graph/frontend/src/graph_expand.rs",
+      "description": "This module is 913 LOC. register_graph_catalog and install_graph_catalog register an InternalVirtualTable named __turso_graph_expand on the core Schema and Connection. It backs the GraphExpand IR operator with a resumable, yield-safe cursor over graph-runtime's traversal. This is how variable-length traversal, written as * or *min..max, reaches the VDBE: as a virtual table, driven by ordinary best_index and VNext opcodes, not by a native bytecode operator. core/translate/planner.rs still rejects WITH RECURSIVE; GraphExpand is a separate, purpose-built path, so it does not need core recursive CTEs."
+    },
+    {
+      "id": "graph-temporal",
+      "label": "turso_graph_temporal extension",
+      "type": "module",
+      "layer": "Graph/Cypher Frontend",
+      "path": "graph/temporal/src/lib.rs",
+      "description": "turso_graph_temporal is a single 1,757-line file. It is a statically registered scalar-function extension, through turso_ext::ExtensionApi and install_temporal_extension. It gives Cypher and GQL temporal value semantics: functions such as duration_make, duration_parse, duration_get, duration_add, duration_neg, and duration_between; temporal_make, temporal_truncate, temporal_parse, temporal_get, and temporal_now; datetime_add_duration and datetime_sub_duration; JSONB helpers; and Cypher-operator scalars such as cypher_equals, cypher_add, cypher_div, and cypher_raise. It builds on the jiff crate for civil dates and zoned datetimes. This module does not add bitemporal or point-in-time graph queries; it only supports value semantics."
+    },
+    {
+      "id": "graph-testkit",
+      "label": "turso_graph_testkit",
+      "type": "component",
+      "layer": "Graph/Cypher Frontend",
+      "path": "graph/testkit/src/{tck.rs,cypherbench.rs,runner.rs,main.rs}",
+      "description": "turso_graph_testkit is a binary crate; main.rs (834 LOC) defines clap subcommands, including Run{Suite}, Performance, Tck, TckStats, and Grafeo. tck.rs (1,686 LOC) parses the openCypher TCK, a set of Cucumber .feature files read through the gherkin crate at a pinned TCK_REVISION, and runs each scenario through runner.rs's ScenarioRunner (733 LOC). age.rs, grafeo.rs, and rust_donor.rs run extra donor corpora, from Apache AGE, Grafeo, and cqlite/sparrowdb. cypherbench.rs (681 LOC) is the CypherBench benchmark harness; it loads Wikidata-derived SimpleKg graphs and gold Cypher queries from megagonlabs/cypherbench, then diffs the results against pre-verified JSON answers. The latest recorded corpus run, in graph/test-results/REPORT.md, covers 10,242 identities and passes 8,800 of them."
+    },
+    {
+      "id": "core-dialect-trait",
+      "label": "Dialect trait",
+      "type": "component",
+      "layer": "Core Engine — Dialect & Frontend Seam",
+      "path": "core/dialect/mod.rs",
+      "description": "Dialect is defined as pub trait Dialect: Send + Sync + 'static, at core/dialect/mod.rs line 24. It marks the boundary between the engine and each frontend. name() returns a stable ID, used as the open-registry key. parse(sql) turns frontend text into an engine Cmd plus a byte count; both initial prepare and reprepare use it. parse_table_sql and parse_table_sql_ast decode sqlite_schema rows into table definitions. format_table_sql and format_rewritten_table_sql encode DDL into stored schema text, often with a frontend marker (lines 84 and 97). table_sql_for_replay supports VACUUM and replay (line 74). register_catalog installs dialect catalog vtabs on every schema build (line 117). resolve_function and exec_scalar_function resolve and run functions (lines 133 and 142), and requires_custom_types has a default value (line 157). Commit 9b10c496d, \"core: add Dialect trait and route schema loading through it\" (2026-07-15), added this trait to route schema loading through one seam instead of hardcoding SQLite parsing. Only SqliteDialect and PostgresDialect implement it in production, along with test fixtures such as TestDialect, StrictTestDialect, and NoFunctionsDialect in core/dialect/mod.rs's own #[cfg(test)] module. The graph frontend does not implement Dialect; it uses FrontendCompiler instead, and it builds its Database on the existing SqliteDialect, so Cypher schema storage rides on SQLite's catalog and DDL representation.",
+      "note": "Every Database carries exactly one Arc<dyn Dialect> for its lifetime, fixed at open time because schema is parsed during open; ATTACH propagates the parent's dialect; a process-wide registry rejects opening the same file under a different dialect name. Internal engine helpers always resolve functions with SqliteDialect semantics regardless of the database's dialect (StatementOrigin::InternalHelper)."
+    },
+    {
+      "id": "core-frontend-compiler",
+      "label": "FrontendCompiler trait & registry",
+      "type": "component",
+      "layer": "Core Engine — Dialect & Frontend Seam",
+      "path": "core/connection.rs",
+      "description": "FrontendCompiler is a second, lighter seam alongside Dialect. Connection::register_frontend_compiler(FrontendId, Arc<dyn FrontendCompiler>), at core/connection.rs line 569, and prepare_frontend, at line 1115, let a frontend supply compilation without owning schema DDL encoding, unlike a Dialect. PreparedSource::Frontend{ frontend, source } keeps the frontend's identity through Statement::reprepare, which re-dispatches through the registered FrontendCompiler, so frontend identity survives reprepare without any host-dialect source marker. The graph frontend uses this mechanism instead of implementing Dialect. The multi-frontend guide also points to it for composing Postgres and Cypher on one connection without crate coupling: Connection::register_frontend_compiler lets an application install both a PgConnection and a GraphConnection on the same Arc<turso_core::Connection>."
+    },
+    {
+      "id": "core-connection",
+      "label": "Connection",
+      "type": "component",
+      "layer": "Core Engine — Dialect & Frontend Seam",
+      "path": "core/connection.rs",
+      "description": "Connection is 5,607 LOC. It is the per-session handle that exposes the public API: prepare, prepare_sqlite, prepare_internal, prepare_frontend, and prepare_translated_stmt all return a Statement, and query, query_runner, execute, and prepare_execute_batch wrap prepare and step for convenience. A frontend attaches in one of two ways: it implements Dialect, so Connection can prepare raw text directly, or it translates to the engine AST itself and calls prepare_translated_stmt or prepare_frontend. Internally, Connection drives a Pager (btree.rs, wal.rs) for each transaction, and when MVCC is on, it also drives the mvcc module, instead of or alongside the pager."
+    },
+    {
+      "id": "core-database",
+      "label": "Database",
+      "type": "component",
+      "layer": "Core Engine — Dialect & Frontend Seam",
+      "path": "core/lib.rs",
+      "description": "Database<A> is a struct at core/lib.rs line 697, in a 3,435-line file. It holds shared state for one file: db_file (Arc<dyn DatabaseStorage>), io (Arc<dyn IO>), buffer_pool, shared_wal (Arc<RwLock<WalFileShared>>), schema (Arc<Mutex<Arc<Schema>>>), and dialect (Arc<dyn Dialect>). In MVCC mode it also holds mv_store, an ArcSwapOption<mvcc::MvStore<...>>. Each Database keeps exactly one open dialect for its whole lifetime."
+    },
+    {
+      "id": "core-schema",
+      "label": "Schema",
+      "type": "component",
+      "layer": "Core Engine — Dialect & Frontend Seam",
+      "path": "core/schema.rs",
+      "description": "Schema is 7,250 LOC. It holds an in-memory copy of sqlite_schema: tables, indexes, views, triggers, and virtual tables. When Schema loads from disk, it resolves each object through the database's Dialect, using BTreeTable::from_sql or a dialect-specific decode. core/translate reads Schema for name resolution, and the storage layer reads it for root-page lookups."
+    },
+    {
+      "id": "core-translate",
+      "label": "core/translate (planner + codegen)",
+      "type": "module",
+      "layer": "Core Engine — Translate & Execution",
+      "path": "core/translate/{mod.rs,plan.rs,planner.rs,select.rs,insert.rs,update.rs,delete.rs,emitter/,main_loop/,expr/}",
+      "description": "core/translate spans 76 files and about 89k LOC. The pipeline starts from an AST Cmd or Stmt. plan.rs and planner.rs build a logical Plan, such as a SelectPlan, and optimizer::optimize_plan rewrites it. Then emitter/ (select.rs, update.rs, delete.rs, gencol.rs) and main_loop/ (init, open, body, close, seek, in_seek, hash, conditions, multi_index — the shared row-iteration loop for SELECT, UPDATE, and DELETE) walk the optimized plan and emit VDBE Insn values through a ProgramBuilder. expr/ handles expression codegen, covering translation, binding, affinity, arrays, vectors, functions, tree-walking, and conditions. Separate per-statement compilers handle pragma, attach, alter, analyze, vacuum, trigger, view, transaction, upsert, window, subquery, compound_select, group_by, order_by, index, expression_index, fkeys, integrity_check, collate, and sequence statements. All three frontends converge on this module as their single compilation target."
+    },
+    {
+      "id": "core-optimizer",
+      "label": "core/translate/optimizer",
+      "type": "module",
+      "layer": "Core Engine — Translate & Execution",
+      "path": "core/translate/optimizer/{mod.rs,join.rs,access_method.rs,cost.rs,constraints.rs,order.rs,unnest.rs,multi_index.rs,lift_common_subexpressions.rs}",
+      "description": "optimize_select_plan, at optimizer/mod.rs line 737, runs four passes in order. First, a MATCH-to-fts_match() rewrite recognizes FTS queries. Second, optimize_subqueries runs. Third, optimize_table_access orders joins with best_join_order in join.rs, picks indexes and access methods in access_method.rs, and applies OR-optimization across multiple indexes in multi_index.rs. Fourth, reoptimize_correlated_subqueries runs. Supporting passes include cost.rs and cost_params.rs for the cost model, constraints.rs for predicate pushdown, order.rs for ORDER BY and index-order checks, unnest.rs for subquery unnesting, and lift_common_subexpressions.rs for common-subexpression elimination. The entry point, optimize_plan at mod.rs line 539, dispatches by Plan::Select, Delete, Update, or CompoundSelect."
+    },
+    {
+      "id": "core-vdbe",
+      "label": "core/vdbe (VDBE interpreter)",
+      "type": "module",
+      "layer": "Core Engine — Translate & Execution",
+      "path": "core/vdbe/{mod.rs,execute.rs,insn.rs,builder.rs}",
+      "description": "core/vdbe is a register-based bytecode machine, using a SQLite-family instruction set. builder.rs builds a Program from a ProgramBuilder. insn.rs defines the Insn enum: control opcodes such as Init, Goto, Halt, ResultRow, Transaction, and Jump; cursor and B-tree opcodes such as OpenRead, OpenWrite, Rewind, Next, SeekGE, Insert, and NewRowid; index and sorter opcodes such as IdxInsert and SorterInsert; and virtual-table opcodes such as VUpdate and VNext. execute.rs is the interpreter, at 18,212 LOC measured, organized as roughly one pub fn op_*() function per opcode, rather than one large match statement. Dispatch itself lives in mod.rs's Vdbe::step() at line 1564, which branches by QueryMode to normal_step, explain_step, or explain_query_plan_step. normal_step, at line 1736, runs an outer 'io_check loop that handles re-entrant I/O completions, wrapped around an inner fetch-dispatch loop that calls insn.to_function(), a function-pointer table keyed by the instruction enum variant. Statement::step, in core/statement.rs, returns a StepResult value: Row, Done, IO, Yield, Busy, or Interrupt."
+    },
+    {
+      "id": "core-storage-btree",
+      "label": "storage/btree.rs (B-tree)",
+      "type": "module",
+      "layer": "Core Engine — Storage & Durability",
+      "path": "core/storage/btree.rs",
+      "description": "storage/btree.rs is 13,966 LOC. It implements a SQLite-compatible on-disk B-tree page format and a cursor type, BTreeCursor, covering table B-trees, index B-trees, overflow pages, cell layout (IndexInteriorCell, IndexLeafCell, OverflowCell), and page balancing. Every frontend's rows and indexes live in this durable structure. VDBE opcodes such as OpenRead, SeekGE, Insert, and Next drive it directly."
+    },
+    {
+      "id": "core-storage-wal",
+      "label": "storage/wal.rs (WAL)",
+      "type": "module",
+      "layer": "Core Engine — Storage & Durability",
+      "path": "core/storage/wal.rs",
+      "description": "storage/wal.rs is 10,256 LOC. It implements the write-ahead log and checkpointing. A reader sees a page-level snapshot fixed at its read-mark time, and a writer appends full changed pages to the WAL without blocking readers. CheckpointLockSource and PreparedFrames coordinate the checkpoint, which transfers WAL frames back into the main database file. The WAL is the default durability mode; PRAGMA journal_mode='mvcc' switches the database to row-level MVCC instead."
+    },
+    {
+      "id": "core-storage-pager",
+      "label": "storage/pager.rs (Pager)",
+      "type": "module",
+      "layer": "Core Engine — Storage & Durability",
+      "path": "core/storage/pager.rs",
+      "description": "storage/pager.rs is 6,666 LOC. Pager owns the page cache and page allocation, and it sits between B-tree cursors, the WAL, and async I/O. It checks the WAL for the current page version first, then falls back to the main database file. It submits page reads and writes through the IOResult abstraction, and it works together with buffer_pool.rs, page_cache.rs, subjournal.rs, and slot_bitmap.rs."
+    },
+    {
+      "id": "core-io",
+      "label": "core/io (async I/O)",
+      "type": "module",
+      "layer": "Core Engine — Storage & Durability",
+      "path": "core/io/{mod.rs,unix.rs,windows.rs,io_uring.rs,win_iocp.rs,generic.rs,memory.rs}",
+      "description": "core/io builds its async I/O abstraction around IOResult and explicit state machines, not futures or async/await. This design lets the VDBE step loop suspend and resume mid-instruction while it waits for I/O; see docs/agent-guides/async-io-model.md (210 lines) for detail. Platform backends include unix.rs; windows.rs and windows_lock.rs; io_uring.rs for Linux io_uring; win_iocp.rs for Windows IOCP; and generic.rs. memory.rs and memory_yield.rs provide in-memory, simulated I/O for the deterministic simulator."
+    },
+    {
+      "id": "core-index-method",
+      "label": "core/index_method (FTS & vector index)",
+      "type": "module",
+      "layer": "Core Engine — Storage & Durability",
+      "path": "core/index_method/{fts.rs,toy_vector_sparse_ivf.rs,backing_btree.rs}",
+      "description": "core/index_method holds pluggable index implementations, layered on the same B-tree substrate as ordinary tables. fts.rs implements full-text search, backing SQLite-FTS-compatible virtual tables; sqlite-conformance's fts/ suite exercises it. toy_vector_sparse_ivf.rs implements a sparse-IVF vector index. backing_btree.rs is the shared adapter: it lets both index methods store their structures as ordinary B-tree tables, not a bespoke file format. The graph frontend's label and type junction tables, and __turso_graph_expand, rely on this same pattern."
+    },
+    {
+      "id": "core-incremental",
+      "label": "core/incremental (materialized views)",
+      "type": "module",
+      "layer": "Core Engine — Storage & Durability",
+      "path": "core/incremental/{compiler.rs,view.rs,dbsp.rs,aggregate_operator.rs,join_operator.rs}",
+      "description": "core/incremental implements DBSP-style incremental view maintenance. compiler.rs compiles a view definition into a dataflow of operators, such as those in aggregate_operator.rs and join_operator.rs. These operators update materialized results as base tables change, instead of recomputing the view from scratch. core/translate/view.rs calls this module for CREATE MATERIALIZED VIEW-style DDL."
+    },
+    {
+      "id": "core-mvcc",
+      "label": "core/mvcc (experimental MVCC)",
+      "type": "module",
+      "layer": "Core Engine — Storage & Durability",
+      "path": "core/mvcc/{mod.rs,cursor.rs,clock.rs,portable_logical.rs,yield_hooks.rs,yield_points.rs}",
+      "description": "core/mvcc is work in progress and is not production-ready; see docs/agent-guides/mvcc.md. A database turns it on at runtime, through PRAGMA journal_mode='mvcc', not through a compile-time flag. WAL gives page-level snapshot isolation, with a full-page write on each commit. MVCC instead gives row-level snapshot isolation: each row version tracks begin and end visibility timestamps and a btree_resident flag. MVCC persists these versions to a logical log (.db-log), not to .db-wal, and writes only the affected rows, not full pages. MvStore lives on Database behind an ArcSwapOption, so it coexists with the normal Pager and WAL path when a database turns MVCC off."
+    },
+    {
+      "id": "cli-tursodb",
+      "label": "tursodb CLI",
+      "type": "entrypoint",
+      "layer": "Entry Points, Bindings & Ecosystem",
+      "path": "cli/{app.rs,main.rs,mcp_server.rs,sync_server.rs,mvcc_repl.rs}",
+      "description": "tursodb is the primary interactive REPL. It always opens with Arc::new(SqliteDialect), for example at cli/app.rs line 260, and it drives the engine only through conn.query(sql) and conn.execute(sql). It also hosts an MCP server (mcp_server.rs) for agent tool access, a sync server (sync_server.rs) for Turso Cloud sync, and a dedicated multi-connection MVCC testing REPL (mvcc_repl.rs). Turso has no SQLite wire-protocol server that matches postgres/server; the SQLite \"frontend\" is mainly a language and prepare API, not a network protocol."
+    },
+    {
+      "id": "bindings",
+      "label": "Language bindings",
+      "type": "component",
+      "layer": "Entry Points, Bindings & Ecosystem",
+      "path": "bindings/{python,javascript,java,dotnet,go,rust,c,react-native,tcl}/",
+      "description": "Turso ships nine binding crates. Each one wraps Database, Connection, and Statement, with the SQLite dialect by default, through its own FFI layer: python uses PyO3, javascript uses NAPI-RS, java uses JNI, dotnet and go (through cgo) have their own layers, rust offers a thin native wrapper (the turso crate), c exposes the underlying C ABI that other bindings and embedders can target directly, and react-native and tcl (turso_tcl.c) round out the set. The Postgres and Graph frontends do not use this binding surface today; they instead expose their own separate embedding APIs, PgConnection and GraphConnection."
+    },
+    {
+      "id": "extensions",
+      "label": "extensions/",
+      "type": "component",
+      "layer": "Entry Points, Bindings & Ecosystem",
+      "path": "extensions/{core,crypto,csv,ipaddr,regexp,fuzzy,completion}/",
+      "description": "extensions/core defines ExtensionApi and the scalar, aggregate, and virtual-table traits that extensions implement. crypto, csv, ipaddr, regexp, fuzzy, and completion are concrete extensions built on this API, and each one can load statically or dynamically. graph/temporal uses this same mechanism to register its Cypher-value-semantics scalar functions."
+    },
+    {
+      "id": "sdk-kit",
+      "label": "sdk-kit / sdk-kit-macros",
+      "type": "component",
+      "layer": "Entry Points, Bindings & Ecosystem",
+      "path": "sdk-kit/, sdk-kit-macros/",
+      "description": "sdk-kit offers a low-level C ABI for building Turso language bindings; the project's own docs tell Rust applications to use the turso crate instead. It gives new-language bindings a shared foundation, so they do not need to reimplement FFI plumbing against Database, Connection, and Statement from scratch. sync/sdk-kit is the sync-specific counterpart."
+    },
+    {
+      "id": "sync",
+      "label": "sync/engine & sync/sdk-kit",
+      "type": "component",
+      "layer": "Entry Points, Bindings & Ecosystem",
+      "path": "sync/{engine,sdk-kit}/",
+      "description": "sync/engine is the Turso Cloud sync engine. sync/sdk-kit is its low-level C ABI counterpart, for embedding sync into language bindings. Sync reads committed WAL or logical-log state to replicate data; it does not care which query frontend produced the writes."
+    },
+    {
+      "id": "testing-simulator",
+      "label": "testing/simulator & concurrent-simulator",
+      "type": "component",
+      "layer": "Testing & Conformance",
+      "path": "testing/{simulator,concurrent-simulator}/",
+      "description": "testing/simulator and concurrent-simulator test concurrency and fault injection at the IOResult and async state-machine boundary. They run reproducible schedules, inject I/O failures, and compare outcomes differentially. The storage, WAL, pager, and MVCC correctness work relies heavily on these tools."
+    },
+    {
+      "id": "testing-differential",
+      "label": "testing/differential-oracle & stress",
+      "type": "component",
+      "layer": "Testing & Conformance",
+      "path": "testing/{differential-oracle,stress}/",
+      "description": "differential-oracle/ holds the sql_gen, sql_gen_prop, and fuzzer crates. These crates generate random SQL and compare Turso's output against a reference implementation. stress/ runs long-running workloads for deeper validation. The team uses both for investigation and specialized checks, not as first-line regression coverage."
+    },
+    {
+      "id": "tools-dbhash",
+      "label": "tools/dbhash",
+      "type": "component",
+      "layer": "Testing & Conformance",
+      "path": "tools/dbhash/",
+      "description": "dbhash computes a stable content hash of a database by walking its B-tree pages. Engineers use it to check that two database files hold the same logical content, for example before and after a WAL checkpoint, or when they compare Turso output against sqlite3."
+    }
+  ],
+  "edges": [
+    {
+      "source": "sqlite-dialect",
+      "target": "sqlite-parser",
+      "type": "calls",
+      "description": "SqliteDialect::parse sends text directly to turso_parser::parser::Parser."
+    },
+    {
+      "source": "sqlite-dialect",
+      "target": "core-dialect-trait",
+      "type": "depends",
+      "description": "SqliteDialect is the default production implementation of the Dialect trait."
+    },
+    {
+      "source": "sqlite-dialect",
+      "target": "core-connection",
+      "type": "calls",
+      "description": "Database::open binds Arc<SqliteDialect> as the database-wide dialect, and Connection::prepare routes text through it."
+    },
+    {
+      "source": "sqlite-conformance",
+      "target": "sqlite-parser",
+      "type": "calls",
+      "description": "Each .sqltest run sends generated or handwritten SQL through the parser."
+    },
+    {
+      "source": "sqlite-conformance",
+      "target": "core-translate",
+      "type": "calls",
+      "description": "Each test case drives a full prepare and execute through core/translate, then diffs the output against real sqlite3."
+    },
+    {
+      "source": "pg-parser",
+      "target": "pg-dialect",
+      "type": "calls",
+      "description": "PostgresDialect::parse calls turso_pg_parser::parse and PostgreSQLTranslator to produce the engine AST."
+    },
+    {
+      "source": "pg-dialect",
+      "target": "core-dialect-trait",
+      "type": "depends",
+      "description": "PostgresDialect implements the Dialect trait (postgres/frontend/catalog.rs:21)."
+    },
+    {
+      "source": "pg-dialect",
+      "target": "sqlite-parser",
+      "type": "calls",
+      "description": "pg_query rejects some engine-generated helper statements and PRAGMAs, which are canonical SQLite text, so PostgresDialect falls back to core::dialect::sqlite::parse."
+    },
+    {
+      "source": "pg-session",
+      "target": "pg-parser",
+      "type": "calls",
+      "description": "prepare_statement calls turso_pg_parser::parse then PostgreSQLTranslator::translate_with_prereqs."
+    },
+    {
+      "source": "pg-session",
+      "target": "pg-dialect",
+      "type": "depends",
+      "description": "PgConnection opens the underlying Database with Arc::new(PostgresDialect)."
+    },
+    {
+      "source": "pg-session",
+      "target": "core-connection",
+      "type": "calls",
+      "description": "prepare_translated_stmt hands the translated ast::Stmt to core, and it keeps the original PG text for reprepare and schema storage."
+    },
+    {
+      "source": "pg-server",
+      "target": "pg-session",
+      "type": "calls",
+      "description": "The pgwire simple- and extended-query handlers run through a shared Arc<Mutex<PgConnection>>."
+    },
+    {
+      "source": "pg-cli",
+      "target": "pg-server",
+      "type": "calls",
+      "description": "tursopg can launch TursoPgServer to host the wire protocol."
+    },
+    {
+      "source": "pg-cli",
+      "target": "pg-session",
+      "type": "calls",
+      "description": "tursopg can also drive PgConnection directly as a local REPL without networking."
+    },
+    {
+      "source": "pg-client",
+      "target": "pg-server",
+      "type": "calls",
+      "description": "Conformance and regress tooling use this minimal wire-protocol client to talk to a running tursopg server."
+    },
+    {
+      "source": "pg-conformance",
+      "target": "pg-server",
+      "type": "calls",
+      "description": "sqltest's pg backend spawns a tursopg server per test file and drives it over the wire protocol."
+    },
+    {
+      "source": "pg-conformance",
+      "target": "pg-client",
+      "type": "depends",
+      "description": "pgregress and the sqltest pg backend both speak the wire protocol through turso_pg_client-style tooling."
+    },
+    {
+      "source": "graph-cypher-parser",
+      "target": "graph-binder",
+      "type": "calls",
+      "description": "Binder consumes turso_graph_cypher::parse's Query AST as its input."
+    },
+    {
+      "source": "graph-binder",
+      "target": "graph-ir",
+      "type": "depends",
+      "description": "Binder produces BoundQuery and BoundMutation values, expressed over graph-ir's PlanKind and typed-expression types."
+    },
+    {
+      "source": "graph-binder",
+      "target": "graph-catalog",
+      "type": "reads",
+      "description": "Binder resolves labels, relationship types, and properties against the registered graph's catalog snapshot."
+    },
+    {
+      "source": "graph-lowering",
+      "target": "graph-ir",
+      "type": "depends",
+      "description": "lower_relational walks the bound PlanKind plan produced by the binder."
+    },
+    {
+      "source": "graph-lowering",
+      "target": "core-translate",
+      "type": "emits",
+      "description": "graph-lowering emits an ordinary turso_parser::ast::Stmt, with joins over the registered node and relationship tables plus the label and type junction tables, for the standard SQL translate pipeline."
+    },
+    {
+      "source": "graph-compiler",
+      "target": "graph-binder",
+      "type": "calls",
+      "description": "GraphCompiler::compile binds the parsed Cypher source before lowering it."
+    },
+    {
+      "source": "graph-compiler",
+      "target": "graph-lowering",
+      "type": "calls",
+      "description": "GraphCompiler::compile lowers the bound plan to ast::Stmt for FrontendCompilation."
+    },
+    {
+      "source": "graph-compiler",
+      "target": "core-frontend-compiler",
+      "type": "depends",
+      "description": "GraphCompiler implements FrontendCompiler, the lighter seam, because Cypher does not own schema DDL encoding the way a Dialect must."
+    },
+    {
+      "source": "graph-session",
+      "target": "graph-compiler",
+      "type": "calls",
+      "description": "GraphConnection::open installs GraphCompiler on the connection through register_frontend_compiler."
+    },
+    {
+      "source": "graph-session",
+      "target": "graph-catalog",
+      "type": "calls",
+      "description": "GraphConnection loads the registration and builds a SchemaCatalog when it opens or installs."
+    },
+    {
+      "source": "graph-session",
+      "target": "core-connection",
+      "type": "depends",
+      "description": "GraphConnection wraps an Arc<turso_core::Connection>, the same session object the SQL frontends use."
+    },
+    {
+      "source": "graph-session",
+      "target": "sqlite-dialect",
+      "type": "depends",
+      "description": "GraphConnection opens the underlying Database with SqliteDialect. Cypher does not depend on a dialect itself; it layers on top through FrontendCompiler instead of competing for the Dialect slot."
+    },
+    {
+      "source": "graph-catalog",
+      "target": "core-storage-btree",
+      "type": "writes",
+      "description": "register_graph creates and writes __turso_internal_graph_* registration tables and per-graph label/relationship-type junction tables as ordinary B-tree tables."
+    },
+    {
+      "source": "graph-snapshot",
+      "target": "core-storage-btree",
+      "type": "reads",
+      "description": "graph-snapshot builds an in-memory CSR adjacency snapshot from the current node and relationship table rows, inside a nested savepoint."
+    },
+    {
+      "source": "graph-runtime",
+      "target": "graph-snapshot",
+      "type": "depends",
+      "description": "BFS, DFS, and shortest-path traversal run over the connection-local TraversalSnapshot's CSR arrays."
+    },
+    {
+      "source": "graph-expand-vtab",
+      "target": "graph-runtime",
+      "type": "calls",
+      "description": "The __turso_graph_expand cursor drives graph-runtime's traversal to back the GraphExpand IR operator."
+    },
+    {
+      "source": "graph-expand-vtab",
+      "target": "core-vdbe",
+      "type": "depends",
+      "description": "The engine registers __turso_graph_expand as an InternalVirtualTable, and VDBE drives it through ordinary best_index and VNext virtual-table opcodes."
+    },
+    {
+      "source": "graph-temporal",
+      "target": "extensions",
+      "type": "depends",
+      "description": "graph-temporal registers through turso_ext::ExtensionApi, the same static scalar-function extension mechanism that crypto, regexp, and csv use."
+    },
+    {
+      "source": "graph-testkit",
+      "target": "graph-session",
+      "type": "calls",
+      "description": "The openCypher TCK and CypherBench harnesses drive GraphConnection::query/execute end to end."
+    },
+    {
+      "source": "core-database",
+      "target": "core-dialect-trait",
+      "type": "depends",
+      "description": "Database owns exactly one Arc<dyn Dialect> for its lifetime, fixed at open time."
+    },
+    {
+      "source": "core-database",
+      "target": "core-schema",
+      "type": "depends",
+      "description": "Database owns Arc<Mutex<Arc<Schema>>>, and it parses the schema through the dialect at open time."
+    },
+    {
+      "source": "core-connection",
+      "target": "core-database",
+      "type": "depends",
+      "description": "Connection is the per-session handle over a shared Database."
+    },
+    {
+      "source": "core-connection",
+      "target": "core-frontend-compiler",
+      "type": "depends",
+      "description": "register_frontend_compiler and prepare_frontend let a non-Dialect frontend, such as Cypher, plug in without owning schema DDL encoding."
+    },
+    {
+      "source": "core-connection",
+      "target": "core-translate",
+      "type": "calls",
+      "description": "compile_cmd dispatches a parsed Cmd/Stmt into translate::translate."
+    },
+    {
+      "source": "core-translate",
+      "target": "core-optimizer",
+      "type": "depends",
+      "description": "The planner runs optimize_plan before emission, to order joins, pick access methods, and prune the plan by cost."
+    },
+    {
+      "source": "core-translate",
+      "target": "core-schema",
+      "type": "reads",
+      "description": "Name resolution and DDL compilation read the current Schema."
+    },
+    {
+      "source": "core-translate",
+      "target": "core-vdbe",
+      "type": "emits",
+      "description": "emitter/ and main_loop/ walk the optimized plan and emit Insn values into a ProgramBuilder, which produces a Program."
+    },
+    {
+      "source": "core-schema",
+      "target": "core-storage-btree",
+      "type": "reads",
+      "description": "Schema objects, such as tables and indexes, map to root pages that the B-tree layer manages."
+    },
+    {
+      "source": "core-vdbe",
+      "target": "core-storage-btree",
+      "type": "calls",
+      "description": "Opcodes such as OpenRead, OpenWrite, SeekGE, Insert, and Next drive BTreeCursor operations."
+    },
+    {
+      "source": "core-vdbe",
+      "target": "core-storage-wal",
+      "type": "calls",
+      "description": "Transaction and commit-path opcodes read and append WAL frames."
+    },
+    {
+      "source": "core-vdbe",
+      "target": "core-storage-pager",
+      "type": "calls",
+      "description": "Cursors request pages through the pager's page cache and allocator."
+    },
+    {
+      "source": "core-vdbe",
+      "target": "core-mvcc",
+      "type": "depends",
+      "description": "When a database sets PRAGMA journal_mode='mvcc', cursor operations route through mvcc row-versioning, instead of or alongside the pager."
+    },
+    {
+      "source": "core-storage-pager",
+      "target": "core-storage-wal",
+      "type": "depends",
+      "description": "Pager consults the WAL for the current page version before it falls back to the main database file."
+    },
+    {
+      "source": "core-storage-pager",
+      "target": "core-io",
+      "type": "depends",
+      "description": "Pager submits page reads and writes through the IOResult async abstraction."
+    },
+    {
+      "source": "core-mvcc",
+      "target": "core-io",
+      "type": "calls",
+      "description": "Logical-log I/O for row versions goes through the same async I/O abstraction."
+    },
+    {
+      "source": "core-index-method",
+      "target": "core-storage-btree",
+      "type": "depends",
+      "description": "core/index_method stores FTS and vector index structures as ordinary B-tree tables through backing_btree.rs, the same pattern the graph frontend's junction tables use."
+    },
+    {
+      "source": "core-vdbe",
+      "target": "core-index-method",
+      "type": "calls",
+      "description": "Virtual-table opcodes, such as VNext and best_index, drive FTS and vector index scans."
+    },
+    {
+      "source": "core-incremental",
+      "target": "core-vdbe",
+      "type": "depends",
+      "description": "Materialized-view maintenance emits its own operator dataflow, which runs alongside ordinary DML opcodes on write."
+    },
+    {
+      "source": "core-translate",
+      "target": "core-incremental",
+      "type": "calls",
+      "description": "core/translate/view.rs compiles materialized view DDL through core/incremental's compiler."
+    },
+    {
+      "source": "cli-tursodb",
+      "target": "sqlite-dialect",
+      "type": "depends",
+      "description": "tursodb opens every database with Arc::new(SqliteDialect)."
+    },
+    {
+      "source": "cli-tursodb",
+      "target": "core-connection",
+      "type": "calls",
+      "description": "tursodb drives the engine only through conn.query and conn.execute."
+    },
+    {
+      "source": "bindings",
+      "target": "sqlite-dialect",
+      "type": "depends",
+      "description": "Each binding opens databases with the SQLite dialect by default."
+    },
+    {
+      "source": "bindings",
+      "target": "core-connection",
+      "type": "calls",
+      "description": "Each binding's FFI layer ultimately calls prepare/step on Connection/Statement."
+    },
+    {
+      "source": "bindings",
+      "target": "sdk-kit",
+      "type": "depends",
+      "description": "Several bindings build on the shared C ABI rather than reimplementing FFI plumbing per language."
+    },
+    {
+      "source": "extensions",
+      "target": "core-connection",
+      "type": "depends",
+      "description": "ExtensionApi's scalar, aggregate, and virtual-table traits register against a Connection and Database."
+    },
+    {
+      "source": "sdk-kit",
+      "target": "core-connection",
+      "type": "depends",
+      "description": "sdk-kit's low-level C ABI wraps Database, Connection, and Statement, for building new language bindings."
+    },
+    {
+      "source": "sync",
+      "target": "core-storage-wal",
+      "type": "reads",
+      "description": "The sync engine reads committed WAL and logical-log state to replicate data to and from Turso Cloud."
+    },
+    {
+      "source": "testing-simulator",
+      "target": "core-io",
+      "type": "calls",
+      "description": "Deterministic fault injection operates at the IOResult/async state-machine boundary."
+    },
+    {
+      "source": "testing-simulator",
+      "target": "core-storage-wal",
+      "type": "calls",
+      "description": "testing/simulator exercises WAL and checkpoint interleavings under injected failures and reproducible schedules."
+    },
+    {
+      "source": "testing-differential",
+      "target": "core-connection",
+      "type": "calls",
+      "description": "Differential and property-based fuzzing drives prepare and execute over randomly generated SQL."
+    },
+    {
+      "source": "tools-dbhash",
+      "target": "core-storage-btree",
+      "type": "reads",
+      "description": "dbhash computes a stable content hash by walking B-tree pages directly."
+    }
+  ],
+  "diagrams": {
+    "layer": {
+      "description": "This is a high-level layered view. Each of the three query frontends implements the Dialect trait or registers through FrontendCompiler. All three converge on Connection and Schema, then flow through translate and the optimizer, VDBE execution, and storage and durability, with an optional MVCC path. The entry-point, binding, and ecosystem layer surrounds this core.",
+      "mermaid_syntax": "graph TB\n  subgraph FE[\"Three Query Frontends\"]\n    SQLF[\"SQLite/SQL Frontend<br/>sqlite/parser + core/dialect/sqlite.rs\"]\n    PGF[\"PostgreSQL Frontend<br/>postgres/parser, frontend, server, cli\"]\n    GRF[\"Graph/Cypher Frontend<br/>graph/cypher, ir, frontend, runtime, temporal\"]\n  end\n  subgraph SEAM[\"Engine <-> Frontend Seam\"]\n    DIA[\"Dialect trait<br/>core/dialect/mod.rs\"]\n    FCM[\"FrontendCompiler trait<br/>core/connection.rs\"]\n  end\n  subgraph CONN[\"Connection & Schema\"]\n    DB[\"Database\"]\n    CN[\"Connection\"]\n    SC[\"Schema\"]\n  end\n  subgraph XLYR[\"Translate & Optimizer\"]\n    XL[\"core/translate\"]\n    OPT[\"core/translate/optimizer\"]\n  end\n  subgraph VDBE[\"VDBE Execution\"]\n    VD[\"core/vdbe execute.rs\"]\n  end\n  subgraph STORE[\"Storage & Durability\"]\n    BT[\"storage/btree.rs\"]\n    WL[\"storage/wal.rs\"]\n    PG[\"storage/pager.rs\"]\n    IOA[\"core/io\"]\n  end\n  subgraph MVCCL[\"MVCC (Experimental)\"]\n    MV[\"core/mvcc\"]\n  end\n  subgraph ECO[\"Entry Points, Bindings, Ecosystem\"]\n    CLI[\"cli/ tursodb\"]\n    BIND[\"bindings/*\"]\n    EXT[\"extensions/*\"]\n    SYN[\"sync/*\"]\n  end\n  SQLF -- implements --> DIA\n  PGF -- implements --> DIA\n  GRF -- registers via --> FCM\n  DIA --> CN\n  FCM --> CN\n  CN --> DB\n  DB --> SC\n  CN --> XL\n  XL --> OPT\n  XL --> VD\n  VD --> BT\n  VD --> WL\n  VD --> PG\n  VD --> MV\n  PG --> WL\n  PG --> IOA\n  MV --> IOA\n  CLI --> SQLF\n  BIND --> SQLF\n"
+    },
+    "component": {
+      "description": "This diagram shows the major components in each of the three frontends and in the core engine. It shows how each component calls or implements another.",
+      "mermaid_syntax": "graph LR\n  subgraph S1[\"SQLite Frontend\"]\n    sp[\"turso_parser<br/>sqlite/parser\"]\n    sd[\"SqliteDialect<br/>core/dialect/sqlite.rs\"]\n  end\n  subgraph S2[\"PostgreSQL Frontend\"]\n    pp[\"turso_pg_parser<br/>pg_query + translator\"]\n    pd[\"PostgresDialect<br/>postgres/frontend/catalog.rs\"]\n    ps[\"PgConnection<br/>postgres/frontend/session.rs\"]\n    pw[\"TursoPgServer<br/>postgres/server (pgwire)\"]\n    pc[\"tursopg CLI<br/>postgres/cli\"]\n  end\n  subgraph S3[\"Graph/Cypher Frontend\"]\n    gc[\"turso_graph_cypher<br/>Pest grammar\"]\n    gb[\"Binder<br/>graph/frontend/binder.rs\"]\n    gl[\"Lowering<br/>graph/frontend/lowering.rs\"]\n    gcmp[\"GraphCompiler<br/>FrontendCompiler impl\"]\n    gs[\"GraphConnection<br/>graph/frontend/session.rs\"]\n    gr[\"Traversal Runtime<br/>graph/runtime CSR\"]\n    ge[\"__turso_graph_expand<br/>internal vtab\"]\n  end\n  subgraph S4[\"Core Engine\"]\n    conn[\"Connection / Database\"]\n    xlate[\"core/translate\"]\n    vdbe[\"core/vdbe\"]\n    store[\"core/storage\"]\n  end\n  sp --> sd --> conn\n  pp --> pd\n  pd --> ps --> conn\n  pw --> ps\n  pc --> pw\n  pc --> ps\n  gc --> gb --> gl --> gcmp --> conn\n  gr --> ge --> vdbe\n  gs --> gcmp\n  gs --> gr\n  conn --> xlate --> vdbe --> store\n"
+    },
+    "data_flow": {
+      "description": "This diagram traces one query from a client of any frontend. The frontend parses or binds the query, then lowers it to the shared engine AST. The engine then runs it through translate, VDBE, and storage, and returns rows to the client.",
+      "mermaid_syntax": "flowchart LR\n  ClientSQL[\"SQL client<br/>cli / bindings\"] --> ParseSQL[\"SqliteDialect.parse\"]\n  ClientPG[\"Wire-protocol client<br/>psql-style\"] --> ParsePG[\"PostgresDialect.parse<br/>pg_query + translator\"]\n  ClientCypher[\"Cypher caller<br/>GraphConnection\"] --> ParseCypher[\"Cypher parse + bind<br/>graph/cypher + binder\"]\n  ParseSQL --> AST[\"turso_parser::ast::Cmd / Stmt<br/>(shared engine AST)\"]\n  ParsePG --> AST\n  ParseCypher --> Lower[\"lower_relational<br/>PlanKind -> ast::Stmt\"]\n  Lower --> AST\n  AST --> Translate[\"core/translate<br/>planner + optimizer\"]\n  Translate --> Program[\"VDBE Program<br/>Vec of Insn\"]\n  Program --> Execute[\"core/vdbe execute.rs<br/>step interpreter\"]\n  Execute --> BTree[\"storage/btree.rs<br/>cursors\"]\n  Execute --> WAL[\"storage/wal.rs\"]\n  Execute --> MVCC[\"core/mvcc<br/>optional\"]\n  BTree --> Pager[\"storage/pager.rs\"]\n  WAL --> Pager\n  Pager --> IOL[\"core/io<br/>async IOResult\"]\n  Execute --> Rows[\"Row / StepResult\"]\n  Rows --> ClientSQL\n  Rows --> ClientPG\n  Rows --> ClientCypher\n"
+    }
+  },
+  "stats": {
+    "node_count": 45,
+    "edge_count": 68,
+    "layer_count": 8,
+    "files_analyzed": 240,
+    "cards": [
+      {
+        "label": "Workspace Crates",
+        "value": 52
+      },
+      {
+        "label": "Rust LOC",
+        "value": 557762
+      },
+      {
+        "label": "Query Frontends",
+        "value": 3
+      },
+      {
+        "label": "Modeled Components",
+        "value": 45
+      }
+    ],
+    "architectural_patterns": [
+      "Multiple frontends converge on one engine. SQLite/SQL, PostgreSQL, and Graph/Cypher all compile down to the same turso_parser::ast::Cmd/Stmt, and they share one core/translate -> core/vdbe -> core/storage pipeline. No frontend module holds its own bytecode emitter or B-tree code.",
+      "The engine offers two seams to frontends. SqliteDialect and PostgresDialect use the heavier Dialect trait (core/dialect/mod.rs), which owns schema DDL parsing and formatting. The Graph frontend uses the lighter FrontendCompiler trait and registry (core/connection.rs:569) instead, because Cypher does not own schema DDL encoding.",
+      "The team keeps frontends decoupled at the crate level on purpose. Commit a7a22ff16 added a graph.cypher() adapter that coupled postgres/frontend to turso_graph_frontend, and commit 178437223 reverted it. Frontends compose only through Connection::register_frontend_compiler on a shared core Connection, never through a direct crate dependency.",
+      "\"Everything is a B-tree.\" FTS and vector indexes (core/index_method/backing_btree.rs), graph label and relationship-type junction tables (graph/frontend/catalog.rs), and materialized-view bookkeeping all persist as ordinary B-tree tables, not as bespoke on-disk formats.",
+      "A register-machine bytecode VM, the SQLite-style VDBE in core/vdbe/execute.rs (18,212 LOC), serves as the single execution target. All three frontends and the internal __turso_graph_expand virtual table run on it.",
+      "Durability is pluggable. A database uses page-level WAL by default, but PRAGMA journal_mode='mvcc' switches it to row-level MVCC at runtime, not at compile time. Both paths coexist behind Database's ArcSwapOption<MvStore>.",
+      "core/io uses explicit state machines (IOResult) for async I/O, instead of async/await. This design lets the VDBE step loop suspend and resume mid-instruction, across io_uring, IOCP, unix, and simulated in-memory backends."
+    ],
+    "limitations": [
+      "This analysis is static. It reads files, counts lines with tokei and wc -l, reads Cargo.toml dependency declarations, and greps for module references; it does not build a compiler-derived call graph. Edge types such as calls, depends, reads, writes, and emits reflect how the code reads and how commit messages describe it, not a symbol-level cross-reference tool.",
+      "This analysis covers the feature/graph-frontend branch, confirmed by git rev-parse --abbrev-ref HEAD. The Graph/Cypher frontend, its 6 crates, and its 9 nodes in this model are unmerged and library-only. No CLI subcommand and no language binding wires GraphConnection in yet, so this model does not show what ships on main today.",
+      "This model covers a curated set of about 45 nodes, out of the workspace's 52 crates and about 939 Rust source files (per tokei). It stays at architectural altitude, within the 30-to-80-node target. Many individual optimizer passes, per-language binding internals, and single-purpose extension crates fold into one parent node instead of appearing on their own.",
+      "This revision checked every LOC figure named in a node description against tokei and wc -l, file by file, and all of them matched exactly. The 557,762-line Rust LOC stat card is a whole-workspace tokei total. The analysis has not broken this total down per crate, and has not removed generated or vendored code that the pg_query bindings pull in.",
+      "This model collapses the dependency and call edges for all nine binding crates (bindings/{python,javascript,java,dotnet,go,rust,c,react-native,tcl}) into one bindings node. It does not model the FFI differences between languages."
+    ]
+  },
+  "revision": 3,
+  "revision_history": [
+    {
+      "revision": 3,
+      "date": "2026-07-22",
+      "summary": "Revision 3 (2026-07-22) — all prose rewritten in ASD-STE100 Simplified Technical English; no model changes (45 nodes / 68 edges)."
+    },
+    {
+      "revision": 2,
+      "date": "2026-07-22",
+      "summary": "Re-rendered onto the standard architecture-docs template (previous HTML was hand-authored/ad-hoc and has been fully replaced). Re-verified every LOC figure and file path cited in the model against the current feature/graph-frontend worktree via tokei and direct wc -l (all matched, except one path bug fixed: pg-parser's crate root has no src/ subdirectory — turso_pg_parser's Cargo.toml overrides `path = \"lib.rs\"`). Consolidated 12 layers to 8 by merging Translate & Optimizer with VDBE Execution into a single \"Translate & Execution\" layer, and folding the MVCC (Experimental) layer and the Extensions & SDK / Sync layers into Storage & Durability and Entry Points/Bindings/Ecosystem respectively, per the 5–9 layer guidance. Added stats.cards, architectural_patterns, and limitations. Node/edge content is otherwise unchanged from revision 1 — it was already accurate."
+    },
+    {
+      "revision": 1,
+      "date": "2026-07-22",
+      "summary": "Initial architecture analysis: 45 nodes / 68 edges across 12 layers covering the three query frontends (SQLite/SQL, PostgreSQL, Graph/Cypher), the two engine/frontend seams (Dialect trait, FrontendCompiler trait), the translate/optimizer/VDBE/storage/MVCC core, and the entry-point/binding/extension/sync/testing ecosystem. Rendered with an ad-hoc, hand-authored HTML page (not the shared template)."
+    }
+  ]
+}
+</script>
+<script>
+const GRAPH = JSON.parse(document.getElementById('graph-data').textContent);
+
+const PALETTE = ['--c-1','--c-2','--c-3','--c-4','--c-5','--c-6','--c-7','--c-8','--c-9','--c-10'];
+const LAYER_ORDER = GRAPH.layers.slice();
+const LAYER_COLOR = {};
+{ let i = 0;
+  for (const l of LAYER_ORDER) LAYER_COLOR[l] = /external|third.?party|vendor/i.test(l) ? '--c-external' : PALETTE[i++ % PALETTE.length];
+}
+const SOLID_EDGE = t => /^(depends|depends_on|imports|calls|uses)$/.test(t);
+const layerFill = layer => `var(${LAYER_COLOR[layer] || '--c-external'})`;
+
+document.getElementById('meta-line').textContent =
+  `architecture · analyzed ${GRAPH.analysis_date} (rev ${GRAPH.revision || 1})` + (GRAPH.version ? ` · v${GRAPH.version}` : '');
+document.getElementById('article-dateline').textContent =
+  `Analyzed ${GRAPH.analysis_date} · revision ${GRAPH.revision || 1}` + (GRAPH.version ? ` · v${GRAPH.version}` : '');
+document.getElementById('json-pre').textContent = JSON.stringify(GRAPH, null, 2);
+
+const nodes = GRAPH.nodes.map(d => ({...d}));
+const links = GRAPH.edges.map(d => ({...d}));
+const byId = new Map(nodes.map(n => [n.id, n]));
+const neighbors = new Map(nodes.map(n => [n.id, new Set([n.id])]));
+links.forEach(l => { neighbors.get(l.source).add(l.target); neighbors.get(l.target).add(l.source); });
+// invisible containment links keep module clusters attached to their parent crate
+const parentLinks = nodes.filter(n => n.parent && byId.has(n.parent))
+  .map(n => ({ source: n.id, target: n.parent }));
+
+const state = {
+  hiddenLayers: new Set(),
+  showModules: true,
+  layout: 'force',
+  selected: null,
+  search: '',
+  activeView: 'force'
+};
+
+const svg = d3.select('#viz');
+const W = () => document.getElementById('views').clientWidth;
+const H = () => document.getElementById('views').clientHeight;
+
+const root = svg.append('g');
+const linkG = root.append('g');
+const nodeG = root.append('g');
+
+const zoom = d3.zoom().scaleExtent([0.25, 6]).on('zoom', e => root.attr('transform', e.transform));
+svg.call(zoom).on('dblclick.zoom', null);
+svg.on('click', () => { state.selected = null; applyHighlight(); hideDetail(); });
+
+const r = d => Math.max(7, Math.min(30, 6 + Math.sqrt(d.loc || 400) / 8));
+
+const sim = d3.forceSimulation(nodes)
+  .force('link', d3.forceLink(links).id(d => d.id)
+    .distance(l => (l.type === 'imports' ? 62 : 110))
+    .strength(l => (l.type === 'imports' ? 0.5 : 0.25)))
+  .force('parent', d3.forceLink(parentLinks).id(d => d.id).distance(90).strength(0.35))
+  .force('charge', d3.forceManyBody().strength(d => d.type === 'module' ? -160 : -420))
+  .force('collide', d3.forceCollide().radius(d => r(d) + 6))
+  .force('x', d3.forceX(() => W() / 2).strength(0.04))
+  .force('y', d3.forceY(() => H() / 2).strength(0.04));
+
+function layerX(layer) {
+  const visible = LAYER_ORDER.filter(l => !state.hiddenLayers.has(l));
+  const i = visible.indexOf(layer);
+  const n = Math.max(visible.length, 1);
+  return (W() * (i + 0.5)) / n;
+}
+function applyLayout() {
+  if (state.layout === 'layered') {
+    sim.force('x', d3.forceX(d => layerX(d.layer)).strength(0.5));
+    sim.force('y', d3.forceY(() => H() / 2).strength(0.05));
+  } else {
+    sim.force('x', d3.forceX(() => W() / 2).strength(0.04));
+    sim.force('y', d3.forceY(() => H() / 2).strength(0.04));
+  }
+  sim.alpha(0.8).restart();
+}
+
+const link = linkG.selectAll('path').data(links).join('path')
+  .attr('class', 'link-line')
+  .attr('stroke-width', d => 0.75 + d.weight * 0.6)
+  .attr('stroke-dasharray', d => SOLID_EDGE(d.type) ? null : '4 3')
+  .attr('stroke-opacity', d => d.type === 'imports' ? 0.55 : 0.8)
+  .attr('marker-end', 'url(#arrow)');
+
+svg.append('defs').append('marker')
+  .attr('id', 'arrow').attr('viewBox', '0 -4 8 8')
+  .attr('refX', 8).attr('markerWidth', 7).attr('markerHeight', 7).attr('orient', 'auto')
+  .append('path').attr('d', 'M0,-3.5L8,0L0,3.5').attr('fill', 'var(--baseline)');
+
+const node = nodeG.selectAll('g').data(nodes).join('g')
+  .attr('class', d => `node-g ${d.type}`)
+  .call(d3.drag()
+    .on('start', (e, d) => { if (!e.active) sim.alphaTarget(0.25).restart(); d.fx = d.x; d.fy = d.y; })
+    .on('drag', (e, d) => { d.fx = e.x; d.fy = e.y; })
+    .on('end', (e, d) => { if (!e.active) sim.alphaTarget(0); d.fx = null; d.fy = null; }))
+  .on('mouseenter', (e, d) => showTooltip(e, d))
+  .on('mousemove', (e, d) => moveTooltip(e))
+  .on('mouseleave', hideTooltip)
+  .on('click', (e, d) => { e.stopPropagation(); state.selected = d.id; applyHighlight(); showDetail(d); });
+
+node.append('circle')
+  .attr('r', r)
+  .style('fill', d => layerFill(d.layer))
+  .style('fill-opacity', d => d.type === 'module' ? 0.75 : (d.type === 'external' ? 0.55 : 0.95));
+
+node.append('text')
+  .attr('dy', d => -r(d) - 4)
+  .attr('text-anchor', 'middle')
+  .text(d => d.label);
+
+sim.on('tick', () => {
+  link.attr('d', d => {
+    const sx = d.source.x, sy = d.source.y, tx = d.target.x, ty = d.target.y;
+    const dx = tx - sx, dy = ty - sy;
+    const dist = Math.hypot(dx, dy) || 1;
+    const tr = r(d.target) + 3;
+    const ex = tx - (dx / dist) * tr, ey = ty - (dy / dist) * tr;
+    return `M${sx},${sy}L${ex},${ey}`;
+  });
+  node.attr('transform', d => `translate(${d.x},${d.y})`);
+});
+
+// ---- visibility + highlighting -------------------------------------------
+function nodeVisible(d) {
+  if (state.hiddenLayers.has(d.layer)) return false;
+  if (!state.showModules && d.type === 'module' && d.parent) return false;
+  return true;
+}
+function applyVisibility() {
+  node.style('display', d => nodeVisible(d) ? null : 'none');
+  link.style('display', d => nodeVisible(d.source) && nodeVisible(d.target) ? null : 'none');
+  applyHighlight();
+}
+function matchesSearch(d) {
+  if (!state.search) return true;
+  const q = state.search.toLowerCase();
+  return d.label.toLowerCase().includes(q) || d.id.toLowerCase().includes(q) ||
+    (d.tags || []).some(t => t.toLowerCase().includes(q)) || (d.layer || '').includes(q);
+}
+function applyHighlight() {
+  const sel = state.selected;
+  node.classed('dimmed', d => {
+    if (!matchesSearch(d)) return true;
+    if (sel && !neighbors.get(sel).has(d.id)) return true;
+    return false;
+  });
+  link.classed('dimmed', d => sel ? !(d.source.id === sel || d.target.id === sel) : !!state.search)
+      .classed('hl', d => sel && (d.source.id === sel || d.target.id === sel));
+}
+
+// ---- tooltip / detail -----------------------------------------------------
+const tip = document.getElementById('tooltip');
+function showTooltip(e, d) {
+  tip.innerHTML = `
+    <div class="t">${d.label}</div>
+    <div class="meta">${d.type} · ${d.layer} · ${d.language}${d.loc ? ` · ${d.loc.toLocaleString()} LOC` : ''} · fan-in ${d.fan_in} / fan-out ${d.fan_out}</div>
+    <div>${d.description}</div>
+    <div class="meta" style="margin-top:6px">${d.path}</div>
+    <div class="tags">${(d.tags || []).map(t => `<span>${t}</span>`).join('')}</div>`;
+  tip.style.display = 'block';
+  moveTooltip(e);
+}
+function moveTooltip(e) {
+  const m = document.getElementById('views').getBoundingClientRect();
+  let x = e.clientX - m.left + 16, y = e.clientY - m.top + 12;
+  if (x + 330 > m.width) x = e.clientX - m.left - 336;
+  if (y + 160 > m.height) y = e.clientY - m.top - 150;
+  tip.style.left = x + 'px'; tip.style.top = y + 'px';
+}
+function hideTooltip() { tip.style.display = 'none'; }
+
+const detail = document.getElementById('detail');
+function showDetail(d) {
+  const out = links.filter(l => l.source.id === d.id).map(l => `→ ${l.target.label} <i>(${l.type}${l.label ? ': ' + l.label : ''})</i>`);
+  const inn = links.filter(l => l.target.id === d.id).map(l => `← ${l.source.label} <i>(${l.type})</i>`);
+  detail.innerHTML = `
+    <span class="close" onclick="this.parentElement.style.display='none'">✕</span>
+    <div class="t">${d.label}</div>
+    <div style="color:var(--text-muted);font-size:11px;margin:2px 0 6px">${d.path} · ${d.loc ? d.loc.toLocaleString() + ' LOC · ' : ''}fan-in ${d.fan_in} / fan-out ${d.fan_out}</div>
+    <div>${d.description}</div>
+    <div class="deps">${out.concat(inn).slice(0, 14).join('<br>')}${out.length + inn.length > 14 ? '<br>…' : ''}</div>`;
+  detail.style.display = 'block';
+}
+function hideDetail() { detail.style.display = 'none'; }
+
+// ---- sidebar --------------------------------------------------------------
+const statsEl = document.getElementById('stats');
+((GRAPH.stats.cards && GRAPH.stats.cards.length)
+  ? GRAPH.stats.cards.map(c => [c.label, typeof c.value === 'number' ? c.value.toLocaleString() : c.value])
+  : [['Nodes', GRAPH.stats.node_count], ['Edges', GRAPH.stats.edge_count], ['Layers', GRAPH.layers.length]])
+  .forEach(([k, v]) => { statsEl.insertAdjacentHTML('beforeend', `<div class="stat"><div class="v">${v}</div><div class="k">${k}</div></div>`); });
+
+const legendEl = document.getElementById('legend');
+LAYER_ORDER.forEach(layer => {
+  const count = nodes.filter(n => n.layer === layer).length;
+  const row = document.createElement('label');
+  row.className = 'legend-row';
+  row.innerHTML = `<input type="checkbox" checked><span class="swatch" style="background:${layerFill(layer)}"></span><span class="name">${layer}</span><span class="count">${count}</span>`;
+  row.querySelector('input').addEventListener('change', ev => {
+    ev.target.checked ? state.hiddenLayers.delete(layer) : state.hiddenLayers.add(layer);
+    applyVisibility(); if (state.layout === 'layered') applyLayout();
+  });
+  legendEl.appendChild(row);
+});
+
+{
+  const types = [...new Set(GRAPH.edges.map(e => e.type))];
+  const solid = types.filter(SOLID_EDGE), dashed = types.filter(t => !SOLID_EDGE(t));
+  document.getElementById('edge-legend').innerHTML = [
+    solid.length && [solid.join(' / '), ''],
+    dashed.length && [dashed.join(' / '), '4 3']
+  ].filter(Boolean).map(([name, dash]) => `<div class="er"><svg viewBox="0 0 34 10"><path d="M2,5L28,5" stroke="var(--text-muted)" stroke-width="1.5" ${dash ? `stroke-dasharray="${dash}"` : ''} marker-end="url(#arrow)"/></svg>${name}</div>`).join('');
+}
+
+const listEl = document.getElementById('nodelist');
+LAYER_ORDER.forEach(layer => {
+  const group = nodes.filter(n => n.layer === layer).sort((a, b) => (b.loc || 0) - (a.loc || 0));
+  if (!group.length) return;
+  listEl.insertAdjacentHTML('beforeend', `<div class="group-h">${layer}</div>`);
+  group.forEach(n => {
+    const row = document.createElement('div');
+    row.className = 'nrow';
+    row.innerHTML = `<span class="dot" style="background:${layerFill(n.layer)}"></span>${n.label}<span class="loc">${n.loc ? n.loc.toLocaleString() : ''}</span>`;
+    row.addEventListener('click', () => { switchView('force'); focusNode(n.id); });
+    listEl.appendChild(row);
+  });
+});
+
+for (const [id, arr] of [['patterns', GRAPH.stats.architectural_patterns], ['limits', GRAPH.stats.limitations]]) {
+  const el = document.getElementById(id);
+  if (arr && arr.length) el.innerHTML = arr.map(p => `• ${p}`).join('<br>');
+  else { el.previousElementSibling.remove(); el.remove(); }
+}
+
+// ---- mermaid views --------------------------------------------------------
+function mermaidTheme() {
+  const dark = document.documentElement.dataset.theme === 'dark'
+    || (!document.documentElement.dataset.theme && matchMedia('(prefers-color-scheme: dark)').matches);
+  return dark ? 'dark' : 'neutral';
+}
+let mmdSeq = 0;
+async function renderMermaidAll() {
+  mermaid.initialize({ startOnLoad: false, theme: mermaidTheme(), securityLevel: 'strict' });
+  for (const key of ['layer', 'component', 'data_flow']) {
+    const spec = GRAPH.diagrams && GRAPH.diagrams[key];
+    if (!spec) continue;
+    document.getElementById('desc-' + key).textContent = spec.description;
+    const holder = document.getElementById('mmd-' + key);
+    try {
+      const { svg } = await mermaid.render('mmd-svg-' + key + '-' + (mmdSeq++), spec.mermaid_syntax);
+      holder.innerHTML = svg;
+    } catch (err) {
+      holder.innerHTML = `<pre style="font-size:11px;color:var(--text-muted);white-space:pre-wrap">${spec.mermaid_syntax}</pre>`;
+      console.error('mermaid render failed for', key, err);
+    }
+  }
+}
+renderMermaidAll();
+
+// ---- tabs -----------------------------------------------------------------
+function switchView(name) {
+  state.activeView = name;
+  document.querySelectorAll('#tabs .tab').forEach(b => b.classList.toggle('active', b.dataset.view === name));
+  document.querySelectorAll('.view').forEach(v => v.classList.toggle('active', v.id === 'view-' + name));
+}
+document.querySelectorAll('#tabs .tab').forEach(b =>
+  b.addEventListener('click', () => switchView(b.dataset.view)));
+
+// ---- toolbar --------------------------------------------------------------
+function focusNode(id) {
+  const n = byId.get(id);
+  if (!n) return;
+  state.selected = id; applyHighlight(); showDetail(n);
+  const t = d3.zoomIdentity.translate(W() / 2 - n.x * 1.4, H() / 2 - n.y * 1.4).scale(1.4);
+  svg.transition().duration(500).call(zoom.transform, t);
+}
+const searchEl = document.getElementById('search');
+searchEl.addEventListener('input', () => { state.search = searchEl.value.trim(); applyHighlight(); });
+document.addEventListener('keydown', e => {
+  if (e.key === '/' && document.activeElement !== searchEl) { e.preventDefault(); searchEl.focus(); switchView('force'); }
+  if (e.key === 'Escape') { searchEl.value = ''; state.search = ''; state.selected = null; applyHighlight(); hideDetail(); }
+});
+
+document.getElementById('layout-layered').addEventListener('click', function () {
+  state.layout = state.layout === 'layered' ? 'force' : 'layered';
+  this.classList.toggle('active', state.layout === 'layered');
+  switchView('force');
+  applyLayout();
+});
+document.getElementById('toggle-modules').addEventListener('click', function () {
+  state.showModules = !state.showModules;
+  this.textContent = `Modules: ${state.showModules ? 'on' : 'off'}`;
+  applyVisibility(); sim.alpha(0.5).restart();
+});
+document.getElementById('toggle-theme').addEventListener('click', () => {
+  const cur = document.documentElement.dataset.theme
+    || (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+  document.documentElement.dataset.theme = cur === 'dark' ? 'light' : 'dark';
+  renderMermaidAll();
+});
+document.getElementById('reset-view').addEventListener('click', () => {
+  svg.transition().duration(400).call(zoom.transform, d3.zoomIdentity);
+  state.selected = null; searchEl.value = ''; state.search = '';
+  applyHighlight(); hideDetail();
+});
+document.getElementById('copy-json').addEventListener('click', async () => {
+  const status = document.getElementById('copy-status');
+  try {
+    await navigator.clipboard.writeText(JSON.stringify(GRAPH, null, 2));
+    status.textContent = 'Copied to clipboard.';
+  } catch {
+    status.textContent = 'Clipboard unavailable — select the text below and copy manually.';
+  }
+  setTimeout(() => { status.textContent = ''; }, 4000);
+});
+document.getElementById('export-json').addEventListener('click', () => {
+  const blob = new Blob([JSON.stringify(GRAPH, null, 2)], { type: 'application/json' });
+  const a = Object.assign(document.createElement('a'), { href: URL.createObjectURL(blob), download: 'architecture_graph.json' });
+  a.click(); URL.revokeObjectURL(a.href);
+});
+
+// ---- export active view as SVG/PNG ---------------------------------------
+function activeSvgElement() {
+  if (state.activeView === 'force') return document.getElementById('viz');
+  const holder = document.getElementById('mmd-' + state.activeView);
+  return holder ? holder.querySelector('svg') : null;
+}
+function inlinedSvgClone(src) {
+  const clone = src.cloneNode(true);
+  const w = src.clientWidth || src.viewBox?.baseVal?.width || 1200;
+  const h = src.clientHeight || src.viewBox?.baseVal?.height || 800;
+  clone.setAttribute('width', w); clone.setAttribute('height', h);
+  clone.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
+  const srcEls = src.querySelectorAll('*');
+  const cloneEls = clone.querySelectorAll('*');
+  cloneEls.forEach((el, i) => {
+    const s = srcEls[i];
+    if (!s) return;
+    const cs = getComputedStyle(s);
+    ['fill', 'stroke', 'opacity', 'stroke-width', 'stroke-dasharray', 'font-size', 'font-weight', 'font-family', 'display', 'color'].forEach(p => {
+      const v = cs.getPropertyValue(p); if (v) el.setAttribute('style', (el.getAttribute('style') || '') + `${p}:${v};`);
+    });
+  });
+  return { clone, w, h };
+}
+document.getElementById('export-svg').addEventListener('click', () => {
+  const src = activeSvgElement();
+  if (!src) return;
+  const { clone } = inlinedSvgClone(src);
+  const xml = new XMLSerializer().serializeToString(clone);
+  const blob = new Blob([xml], { type: 'image/svg+xml' });
+  const a = Object.assign(document.createElement('a'), { href: URL.createObjectURL(blob), download: `${GRAPH.repo}-architecture-${state.activeView}.svg` });
+  a.click(); URL.revokeObjectURL(a.href);
+});
+document.getElementById('export-png').addEventListener('click', () => {
+  const src = activeSvgElement();
+  if (!src) return;
+  const { clone, w, h } = inlinedSvgClone(src);
+  const xml = new XMLSerializer().serializeToString(clone);
+  const img = new Image();
+  img.onload = () => {
+    const c = document.createElement('canvas');
+    c.width = w * 2; c.height = h * 2;
+    const ctx = c.getContext('2d');
+    ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--page').trim() || '#f9f9f7';
+    ctx.fillRect(0, 0, c.width, c.height);
+    ctx.scale(2, 2); ctx.drawImage(img, 0, 0);
+    const a = Object.assign(document.createElement('a'), { href: c.toDataURL('image/png'), download: `${GRAPH.repo}-architecture-${state.activeView}.png` });
+    a.click();
+  };
+  img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(xml);
+});
+
+window.addEventListener('resize', () => { applyLayout(); });
+applyVisibility();
+</script>
+</body>
+</html>

@@ -1,0 +1,862 @@
+{
+  "repo": "turso",
+  "analysis_date": "2026-07-22",
+  "previous_analysis_date": "2026-07-22",
+  "summary": "Turso is a from-scratch Rust rewrite of SQLite. It offers three separate query frontends that share one relational engine. The native SQLite/SQL frontend uses a hand-written parser in sqlite/parser and feeds core/translate's planner, optimizer, and VDBE emitter. The PostgreSQL frontend wraps libpg_query in postgres/parser; postgres/frontend supplies PostgresDialect and PgConnection, postgres/server implements the wire protocol with pgwire, and the tursopg CLI hosts it. An experimental Graph/Cypher frontend compiles openCypher into ordinary SQL tables plus label and relationship-type junction tables, using a Pest grammar in graph/cypher, a plan IR in graph/ir, binder/lowering/catalog/session/snapshot code in graph/frontend, a CSR traversal engine in graph/runtime, and a value-semantics extension in graph/temporal. All three frontends converge on one pipeline: core/translate feeds core/vdbe (execute.rs, an 18k-line register-machine interpreter), which drives core/storage (btree.rs, wal.rs, pager.rs), with an optional core/mvcc row-versioning path. Two seams mediate the boundary between the engine and each frontend: the Dialect trait (core/dialect/mod.rs, added in commit 9b10c496d) routes schema loading through one interface for SqliteDialect and PostgresDialect, and the lighter FrontendCompiler trait and registry (core/connection.rs) serve the graph frontend instead, because Cypher does not own schema DDL encoding. The Postgres and Graph frontends stay decoupled from each other at the crate level: an earlier graph.cypher() adapter coupled them (commit a7a22ff16), but a later commit (178437223) reverted this coupling, and the two frontends now compose only through Connection::register_frontend_compiler on a shared core Connection, never through a direct crate dependency.",
+  "layers": [
+    "SQLite/SQL Frontend",
+    "PostgreSQL Frontend",
+    "Graph/Cypher Frontend",
+    "Core Engine — Dialect & Frontend Seam",
+    "Core Engine — Translate & Execution",
+    "Core Engine — Storage & Durability",
+    "Entry Points, Bindings & Ecosystem",
+    "Testing & Conformance"
+  ],
+  "nodes": [
+    {
+      "id": "sqlite-parser",
+      "label": "turso_parser (lexer/AST/grammar)",
+      "type": "module",
+      "layer": "SQLite/SQL Frontend",
+      "path": "sqlite/parser/src/{lexer.rs,ast.rs,parser.rs,token.rs}",
+      "description": "The crate uses a hand-written lexer (lexer.rs, 1,344 LOC) and a recursive-descent grammar (parser.rs, 13,193 LOC). Together they produce turso_parser::ast::Cmd/Stmt (ast.rs, 2,218 LOC), the one AST every frontend shares. Parser<'a> wraps the Lexer and implements Iterator<Item=Result<Cmd>>. Turso caps MAX_EXPR_DEPTH at 100, not SQLite's 1,000, because the recursive translator uses larger stack frames. ast/fmt.rs (2,752 LOC) renders the AST back to SQL text for schema round-tripping. This crate holds the primary SQL dialect, at about 20.4k LOC total."
+    },
+    {
+      "id": "sqlite-dialect",
+      "label": "SqliteDialect",
+      "type": "component",
+      "layer": "SQLite/SQL Frontend",
+      "path": "core/dialect/sqlite.rs",
+      "description": "SqliteDialect is the default Dialect implementation, at 528 LOC. It lives inside core/, not in its own crate, because SQLite is the native default dialect; the Postgres and Graph adapters live in separate crates instead. parse() sends text straight to turso_parser::parser::Parser. register_builtin_catalog installs pragma table-valued functions and JSON virtual tables. The dialect stores canonical SQLite CREATE TABLE text with no marker prefix. Every Database::open call in cli/ and bindings/ passes Arc::new(SqliteDialect) directly."
+    },
+    {
+      "id": "sqlite-conformance",
+      "label": "SQLite conformance harness",
+      "type": "component",
+      "layer": "SQLite/SQL Frontend",
+      "path": "sqlite/conformance/{sqlite-sqltests,turso-sqltests,upstream}/",
+      "description": "The harness tests in two tiers. sqlite-sqltests/ holds 260 .sqltest files that use the @database/test/expect DSL. The command make -C sqlite/conformance run-rust runs each query against both tursodb and real sqlite3, then diffs the output; tests are grouped by topic, such as select/, join/, groupby/, window/, pragma/, and json/. turso-sqltests/ holds Turso-only extensions, such as ATTACH. sqlite/conformance/upstream/ imports the original SQLite TCL golden tests word for word (select1.test, join3.test, tester.tcl). CLAUDE.md forbids edits to these files for Turso-specific behavior; contributors update them only to sync with upstream. The command make test adds the broader legacy TCL, sqlite3, extension, and MVCC suite on top."
+    },
+    {
+      "id": "pg-parser",
+      "label": "turso_pg_parser",
+      "type": "module",
+      "layer": "PostgreSQL Frontend",
+      "path": "postgres/parser/{lib.rs,ast.rs,translator.rs,parser.rs,lexer.rs}",
+      "description": "Unlike sqlite/parser, this crate does not hand-roll its grammar. It wraps pg_query, a Rust binding to libpg_query, the real Postgres C parser, for full grammar coverage. translator.rs (6,723 LOC, the crate's largest file) walks pg_query's protobuf parse tree and re-emits it onto turso_parser::ast::Stmt/Cmd, the same engine AST that sqlite/parser produces. Along the way it handles PG/SQLite differences, such as turning an implicit SERIAL column into a CREATE SEQUENCE statement. ast.rs (1,103 LOC) defines a Turso-flavored PG AST layer, and a separate parser.rs/lexer.rs (about 3.7k LOC combined) handle auxiliary tokenization. The crate totals about 12.2k LOC."
+    },
+    {
+      "id": "pg-dialect",
+      "label": "PostgresDialect",
+      "type": "component",
+      "layer": "PostgreSQL Frontend",
+      "path": "postgres/frontend/catalog.rs",
+      "description": "PostgresDialect implements the core Dialect trait, in a 4,093-line file. parse() tries the PG parse-and-translate path first. If pg_query rejects an engine-generated helper statement or PRAGMA, parse() falls back to core::dialect::sqlite::parse. The dialect stores user table DDL with a marker prefix, `/* turso_frontend:postgres */ <original PG text>` (STORED_PG_SCHEMA_PREFIX), so schema reload re-parses it through the PG translator; unmarked rows, such as sqlite_sequence, stay in plain SQLite form. register_catalog first calls sqlite::register_builtin_catalog, then installs virtual tables such as pg_class, pg_namespace, pg_attribute, pg_roles, pg_am, and pg_proc, with OIDs starting at 16384.",
+      "note": "No dependency on the graph frontend: postgres/frontend/Cargo.toml lists chrono, parking_lot, rustc-hash, tempfile, turso_core, turso_parser, turso_ext, turso_pg_parser — no graph crate. Commit 178437223 (\"revert(postgres): remove graph.cypher adapter coupling from pg frontend\") deliberately removed an earlier graph.cypher()/install_graph adapter (added in a7a22ff16) that had made turso_pg depend on turso_graph_frontend at compile time. See the Graph/Cypher Frontend section for the other side of this decoupling."
+    },
+    {
+      "id": "pg-session",
+      "label": "PgConnection / session",
+      "type": "component",
+      "layer": "PostgreSQL Frontend",
+      "path": "postgres/frontend/session.rs",
+      "description": "prepare_statement() runs five steps. First, it special-cases COPY, CREATE/DROP SCHEMA, SET/SHOW, and materialized-view refresh. Second, it calls turso_pg_parser::parse(sql). Third, PostgreSQLTranslator::translate_with_prereqs produces an ast::Stmt plus any prerequisite statements, such as an implicit CREATE SEQUENCE for a serial column. Fourth, it rejects DML against emulated pg_catalog tables. Fifth, it runs the prerequisites, then calls conn.prepare_translated_stmt(stmt, original_sql), the same translate-and-VDBE pipeline SQLite uses; the code never generates SQLite text. PgConnection also registers a PostgresCompiler that implements FrontendCompiler, for prepared-statement recompilation; open_database and open_database_with_io both pass Arc::new(PostgresDialect) into Database::open."
+    },
+    {
+      "id": "pg-server",
+      "label": "TursoPgServer (wire protocol)",
+      "type": "component",
+      "layer": "PostgreSQL Frontend",
+      "path": "postgres/server/lib.rs",
+      "description": "TursoPgServer is 837 LOC, built on the pgwire crate (v0.36) over Tokio. It binds a TcpListener and spawns one task per socket through pgwire::tokio::process_socket. It implements PgWireServerHandlers. For startup, it uses pgwire's NoopHandler, so it does not yet check real authentication. SimpleQueryHandler::do_query splits multi-statement text and runs each statement through conn.prepare(sql) on a shared Arc<Mutex<PgConnection>>. ExtendedQueryHandler implements bind, describe, and execute for the prepared-statement and portal protocol, and it translates column metadata into PG FieldInfo/Type values."
+    },
+    {
+      "id": "pg-cli",
+      "label": "tursopg CLI",
+      "type": "entrypoint",
+      "layer": "PostgreSQL Frontend",
+      "path": "postgres/cli/main.rs",
+      "description": "tursopg is a psql-like REPL and server host, at 2,842 LOC across main.rs, build.rs, and read_state_machine.rs. It reuses the main tursodb CLI's config and helper code through #[path] includes. It can open a local file directly through PgConnection, or launch TursoPgServer to serve the wire protocol. It plays the same role as tursodb, but for the PG dialect."
+    },
+    {
+      "id": "pg-client",
+      "label": "turso_pg_client (test tooling)",
+      "type": "component",
+      "layer": "PostgreSQL Frontend",
+      "path": "postgres/client/lib.rs",
+      "description": "turso_pg_client is a minimal, synchronous PG wire-protocol client, at 470 LOC, with few dependencies. It speaks protocol 3.0 simple query over TCP. The team built it only for test tooling, for the sqltest pg backend and postgres/regress. It is not a general end-user driver."
+    },
+    {
+      "id": "pg-conformance",
+      "label": "Postgres conformance harness",
+      "type": "component",
+      "layer": "PostgreSQL Frontend",
+      "path": "postgres/conformance/{pg-sqltests,upstream}/, postgres/regress/",
+      "description": "pg-sqltests/ reuses the same .sqltest DSL and the testing/sqltest runner crate as the SQLite corpus, but adds a pg backend. The command make -C postgres/conformance run spawns one tursopg server per database instance and drives it over the wire protocol (sqltest run pg-sqltests --backend pg --binary tursopg). Test headers assert only behavior that real PostgreSQL also shows, so the corpus stays valid for differential runs. Separately, postgres/conformance/upstream/ holds pristine upstream PostgreSQL regression fixtures, as .sql/.out pairs. The dedicated pgregress binary (postgres/regress/main.rs, 914 LOC) drives these fixtures; it speaks the wire protocol directly and reproduces psql -X -a -q transcript formatting byte for byte."
+    },
+    {
+      "id": "graph-cypher-parser",
+      "label": "turso_graph_cypher",
+      "type": "module",
+      "layer": "Graph/Cypher Frontend",
+      "path": "graph/cypher/src/{parser.rs,ast.rs}",
+      "description": "turso_graph_cypher is a grammar-only crate. It holds a Pest grammar (cypher.pest), parser.rs (1,781 LOC, with pub fn parse(source) -> Result<Query, ParseError>), and ast.rs (358 LOC). ast.rs defines Cypher-shaped types such as Query, Clause, MatchClause, and CreateClause. The crate depends only on turso_graph_ir, so its donor-adapted parser types stay self-contained. It handles syntax only; it does not bind names or add semantics."
+    },
+    {
+      "id": "graph-ir",
+      "label": "turso_graph_ir",
+      "type": "module",
+      "layer": "Graph/Cypher Frontend",
+      "path": "graph/ir/src/{plan.rs,expression.rs,identity.rs,mutation.rs}",
+      "description": "turso_graph_ir is the dependency root for the whole graph stack. It must not depend on parser, storage, or Postgres types. plan.rs (331 LOC) defines PlanKind, a relational-algebra-style logical plan, not bytecode; its variants include Unit, NodeScan, FixedExpand, GraphExpand, Filter, Project, Aggregate, Distinct, Sort, Skip, Limit, LeftApply, Unwind, Union, and Join. identity.rs defines newtype IDs, such as GraphId, NodeId, RelationshipId, LabelId, RelationshipTypeId, SourceTableId, BindingId, and PropertyId. mutation.rs defines write-plan types, such as CreateNode, CreateRelationship, MergeNode, and SetLabels."
+    },
+    {
+      "id": "graph-binder",
+      "label": "Binder",
+      "type": "component",
+      "layer": "Graph/Cypher Frontend",
+      "path": "graph/frontend/src/binder.rs",
+      "description": "Binder is 6,348 LOC, the largest file in the graph stack. It resolves the Cypher AST that turso_graph_cypher::parse produces, against the registered graph catalog. It produces BoundQuery or BoundMutation values over graph-ir's PlanKind. It exposes bind(), bind_mutation(), ParameterTypes, ResolvedProperty, GraphCatalogSnapshot, and a span-annotated BindError type."
+    },
+    {
+      "id": "graph-catalog",
+      "label": "Graph catalog & registration",
+      "type": "component",
+      "layer": "Graph/Cypher Frontend",
+      "path": "graph/frontend/src/catalog.rs",
+      "description": "The catalog module is 1,342 LOC. register_graph() writes into internal SQLite tables — __turso_internal_graph_graphs, __turso_internal_graph_sources, __turso_internal_graph_node_sources, and __turso_internal_graph_relationship_sources — inside a BEGIN IMMEDIATE/SAVEPOINT block, for transactional registration. The module also owns labels_table_name, relationship_types_table_name, and relationship_type_registry_table_name, which name per-graph label and relationship-type junction tables (__turso_graph_node_labels_{id}, __turso_graph_relationship_types_{id}); a MATCH (n:Label) pattern joins against these tables. Today the catalog supports only one node source and one relationship source per graph; CatalogError::MultipleSourcesUnsupported signals the limit."
+    },
+    {
+      "id": "graph-lowering",
+      "label": "Relational lowering",
+      "type": "component",
+      "layer": "Graph/Cypher Frontend",
+      "path": "graph/frontend/src/lowering.rs",
+      "description": "The lowering module is 2,457 LOC. lower_relational(plan, catalog) walks a PlanKind value and returns Result<ast::Stmt, LowerError>. It emits SQL text as nested subqueries, in the form SELECT {columns} FROM (...) AS q, producing an ordinary turso_parser::ast::Stmt. RelationalCatalogSnapshot exposes labels_table() and relationship_types_table(), so label and type predicates compile into joins against the junction tables; node_layout and relationship_layout map each SourceTableId to its physical table and identity column. A fixed-length MATCH pattern lowers entirely into plain relational joins, with normal read-your-writes semantics."
+    },
+    {
+      "id": "graph-compiler",
+      "label": "GraphCompiler",
+      "type": "component",
+      "layer": "Graph/Cypher Frontend",
+      "path": "graph/frontend/src/compiler.rs",
+      "description": "GraphCompiler is 67 LOC. It implements core's FrontendCompiler trait, not the Dialect trait. compile() parses the Cypher text, binds it, lowers it to an ast::Stmt, and returns FrontendCompilation{ cmd: Some(Cmd::Stmt(stmt)), .. }. graph_frontend_id() returns a static FrontendId::new(\"graph-cypher\")."
+    },
+    {
+      "id": "graph-session",
+      "label": "GraphConnection",
+      "type": "entrypoint",
+      "layer": "Graph/Cypher Frontend",
+      "path": "graph/frontend/src/session.rs",
+      "description": "GraphConnection is 887 LOC. The struct holds connection: Arc<Connection>, graph: GraphId, catalog, parameters, snapshots: Arc<SessionSnapshotStore>, and limits, and it wraps a turso_core::Connection, the same session object SQL uses. Its public API offers open, open_with_parameters, and install; prepare and prepare_cancellable, which return a Statement wrapper with result_types(); query and query_cancellable; and execute, which returns a MutationSummary. GraphConnection is the frontend's only public entry point today. No CLI subcommand and no language binding calls it yet; it is a library-only, source-only API on the feature/graph-frontend branch (docs/graph.md)."
+    },
+    {
+      "id": "graph-snapshot",
+      "label": "Traversal snapshot store",
+      "type": "component",
+      "layer": "Graph/Cypher Frontend",
+      "path": "graph/frontend/src/snapshot.rs",
+      "description": "The snapshot module is 1,382 LOC. TraversalSnapshot, SnapshotStore, and SessionSnapshotStore build an in-memory CSR adjacency graph (turso_graph_runtime::Graph) from the current node and relationship table rows, keyed by NodeCoordinate and RelationshipCoordinate. Each connection keeps its own local snapshot, rebuilt inside a nested savepoint whenever the graph's generation counter moves, so a session sees its own uncommitted writes without publishing them to other sessions. A shared SnapshotStore caches the last committed snapshot per graph; a refresh needs autocommit mode. Every snapshot is derived, stays local to the process, and the engine never persists it to disk."
+    },
+    {
+      "id": "graph-runtime",
+      "label": "turso_graph_runtime (CSR traversal)",
+      "type": "module",
+      "layer": "Graph/Cypher Frontend",
+      "path": "graph/runtime/src/{csr.rs,traversal.rs,shortest.rs,limits.rs}",
+      "description": "turso_graph_runtime never touches core storage or the VDBE directly. csr.rs (439 LOC) and traversal.rs (727 LOC) implement safe, owned forward and reverse CSR arrays over NodeId and RelationshipId; the team adapted this code from the external pgGraph project (Apache-2.0). traverse() supports BFS and DFS, with Walk, Trail, and Path uniqueness rules and hop-bounded budgets, defined in limits.rs (BuildLimits, TraversalLimits, Cancellation). shortest.rs (339 LOC) adds Dijkstra-style shortest-path and weighted-shortest-path search. The runtime builds one traversal structure per query, from a TraversalSnapshot."
+    },
+    {
+      "id": "graph-expand-vtab",
+      "label": "__turso_graph_expand internal vtab",
+      "type": "component",
+      "layer": "Graph/Cypher Frontend",
+      "path": "graph/frontend/src/graph_expand.rs",
+      "description": "This module is 913 LOC. register_graph_catalog and install_graph_catalog register an InternalVirtualTable named __turso_graph_expand on the core Schema and Connection. It backs the GraphExpand IR operator with a resumable, yield-safe cursor over graph-runtime's traversal. This is how variable-length traversal, written as * or *min..max, reaches the VDBE: as a virtual table, driven by ordinary best_index and VNext opcodes, not by a native bytecode operator. core/translate/planner.rs still rejects WITH RECURSIVE; GraphExpand is a separate, purpose-built path, so it does not need core recursive CTEs."
+    },
+    {
+      "id": "graph-temporal",
+      "label": "turso_graph_temporal extension",
+      "type": "module",
+      "layer": "Graph/Cypher Frontend",
+      "path": "graph/temporal/src/lib.rs",
+      "description": "turso_graph_temporal is a single 1,757-line file. It is a statically registered scalar-function extension, through turso_ext::ExtensionApi and install_temporal_extension. It gives Cypher and GQL temporal value semantics: functions such as duration_make, duration_parse, duration_get, duration_add, duration_neg, and duration_between; temporal_make, temporal_truncate, temporal_parse, temporal_get, and temporal_now; datetime_add_duration and datetime_sub_duration; JSONB helpers; and Cypher-operator scalars such as cypher_equals, cypher_add, cypher_div, and cypher_raise. It builds on the jiff crate for civil dates and zoned datetimes. This module does not add bitemporal or point-in-time graph queries; it only supports value semantics."
+    },
+    {
+      "id": "graph-testkit",
+      "label": "turso_graph_testkit",
+      "type": "component",
+      "layer": "Graph/Cypher Frontend",
+      "path": "graph/testkit/src/{tck.rs,cypherbench.rs,runner.rs,main.rs}",
+      "description": "turso_graph_testkit is a binary crate; main.rs (834 LOC) defines clap subcommands, including Run{Suite}, Performance, Tck, TckStats, and Grafeo. tck.rs (1,686 LOC) parses the openCypher TCK, a set of Cucumber .feature files read through the gherkin crate at a pinned TCK_REVISION, and runs each scenario through runner.rs's ScenarioRunner (733 LOC). age.rs, grafeo.rs, and rust_donor.rs run extra donor corpora, from Apache AGE, Grafeo, and cqlite/sparrowdb. cypherbench.rs (681 LOC) is the CypherBench benchmark harness; it loads Wikidata-derived SimpleKg graphs and gold Cypher queries from megagonlabs/cypherbench, then diffs the results against pre-verified JSON answers. The latest recorded corpus run, in graph/test-results/REPORT.md, covers 10,242 identities and passes 8,800 of them."
+    },
+    {
+      "id": "core-dialect-trait",
+      "label": "Dialect trait",
+      "type": "component",
+      "layer": "Core Engine — Dialect & Frontend Seam",
+      "path": "core/dialect/mod.rs",
+      "description": "Dialect is defined as pub trait Dialect: Send + Sync + 'static, at core/dialect/mod.rs line 24. It marks the boundary between the engine and each frontend. name() returns a stable ID, used as the open-registry key. parse(sql) turns frontend text into an engine Cmd plus a byte count; both initial prepare and reprepare use it. parse_table_sql and parse_table_sql_ast decode sqlite_schema rows into table definitions. format_table_sql and format_rewritten_table_sql encode DDL into stored schema text, often with a frontend marker (lines 84 and 97). table_sql_for_replay supports VACUUM and replay (line 74). register_catalog installs dialect catalog vtabs on every schema build (line 117). resolve_function and exec_scalar_function resolve and run functions (lines 133 and 142), and requires_custom_types has a default value (line 157). Commit 9b10c496d, \"core: add Dialect trait and route schema loading through it\" (2026-07-15), added this trait to route schema loading through one seam instead of hardcoding SQLite parsing. Only SqliteDialect and PostgresDialect implement it in production, along with test fixtures such as TestDialect, StrictTestDialect, and NoFunctionsDialect in core/dialect/mod.rs's own #[cfg(test)] module. The graph frontend does not implement Dialect; it uses FrontendCompiler instead, and it builds its Database on the existing SqliteDialect, so Cypher schema storage rides on SQLite's catalog and DDL representation.",
+      "note": "Every Database carries exactly one Arc<dyn Dialect> for its lifetime, fixed at open time because schema is parsed during open; ATTACH propagates the parent's dialect; a process-wide registry rejects opening the same file under a different dialect name. Internal engine helpers always resolve functions with SqliteDialect semantics regardless of the database's dialect (StatementOrigin::InternalHelper)."
+    },
+    {
+      "id": "core-frontend-compiler",
+      "label": "FrontendCompiler trait & registry",
+      "type": "component",
+      "layer": "Core Engine — Dialect & Frontend Seam",
+      "path": "core/connection.rs",
+      "description": "FrontendCompiler is a second, lighter seam alongside Dialect. Connection::register_frontend_compiler(FrontendId, Arc<dyn FrontendCompiler>), at core/connection.rs line 569, and prepare_frontend, at line 1115, let a frontend supply compilation without owning schema DDL encoding, unlike a Dialect. PreparedSource::Frontend{ frontend, source } keeps the frontend's identity through Statement::reprepare, which re-dispatches through the registered FrontendCompiler, so frontend identity survives reprepare without any host-dialect source marker. The graph frontend uses this mechanism instead of implementing Dialect. The multi-frontend guide also points to it for composing Postgres and Cypher on one connection without crate coupling: Connection::register_frontend_compiler lets an application install both a PgConnection and a GraphConnection on the same Arc<turso_core::Connection>."
+    },
+    {
+      "id": "core-connection",
+      "label": "Connection",
+      "type": "component",
+      "layer": "Core Engine — Dialect & Frontend Seam",
+      "path": "core/connection.rs",
+      "description": "Connection is 5,607 LOC. It is the per-session handle that exposes the public API: prepare, prepare_sqlite, prepare_internal, prepare_frontend, and prepare_translated_stmt all return a Statement, and query, query_runner, execute, and prepare_execute_batch wrap prepare and step for convenience. A frontend attaches in one of two ways: it implements Dialect, so Connection can prepare raw text directly, or it translates to the engine AST itself and calls prepare_translated_stmt or prepare_frontend. Internally, Connection drives a Pager (btree.rs, wal.rs) for each transaction, and when MVCC is on, it also drives the mvcc module, instead of or alongside the pager."
+    },
+    {
+      "id": "core-database",
+      "label": "Database",
+      "type": "component",
+      "layer": "Core Engine — Dialect & Frontend Seam",
+      "path": "core/lib.rs",
+      "description": "Database<A> is a struct at core/lib.rs line 697, in a 3,435-line file. It holds shared state for one file: db_file (Arc<dyn DatabaseStorage>), io (Arc<dyn IO>), buffer_pool, shared_wal (Arc<RwLock<WalFileShared>>), schema (Arc<Mutex<Arc<Schema>>>), and dialect (Arc<dyn Dialect>). In MVCC mode it also holds mv_store, an ArcSwapOption<mvcc::MvStore<...>>. Each Database keeps exactly one open dialect for its whole lifetime."
+    },
+    {
+      "id": "core-schema",
+      "label": "Schema",
+      "type": "component",
+      "layer": "Core Engine — Dialect & Frontend Seam",
+      "path": "core/schema.rs",
+      "description": "Schema is 7,250 LOC. It holds an in-memory copy of sqlite_schema: tables, indexes, views, triggers, and virtual tables. When Schema loads from disk, it resolves each object through the database's Dialect, using BTreeTable::from_sql or a dialect-specific decode. core/translate reads Schema for name resolution, and the storage layer reads it for root-page lookups."
+    },
+    {
+      "id": "core-translate",
+      "label": "core/translate (planner + codegen)",
+      "type": "module",
+      "layer": "Core Engine — Translate & Execution",
+      "path": "core/translate/{mod.rs,plan.rs,planner.rs,select.rs,insert.rs,update.rs,delete.rs,emitter/,main_loop/,expr/}",
+      "description": "core/translate spans 76 files and about 89k LOC. The pipeline starts from an AST Cmd or Stmt. plan.rs and planner.rs build a logical Plan, such as a SelectPlan, and optimizer::optimize_plan rewrites it. Then emitter/ (select.rs, update.rs, delete.rs, gencol.rs) and main_loop/ (init, open, body, close, seek, in_seek, hash, conditions, multi_index — the shared row-iteration loop for SELECT, UPDATE, and DELETE) walk the optimized plan and emit VDBE Insn values through a ProgramBuilder. expr/ handles expression codegen, covering translation, binding, affinity, arrays, vectors, functions, tree-walking, and conditions. Separate per-statement compilers handle pragma, attach, alter, analyze, vacuum, trigger, view, transaction, upsert, window, subquery, compound_select, group_by, order_by, index, expression_index, fkeys, integrity_check, collate, and sequence statements. All three frontends converge on this module as their single compilation target."
+    },
+    {
+      "id": "core-optimizer",
+      "label": "core/translate/optimizer",
+      "type": "module",
+      "layer": "Core Engine — Translate & Execution",
+      "path": "core/translate/optimizer/{mod.rs,join.rs,access_method.rs,cost.rs,constraints.rs,order.rs,unnest.rs,multi_index.rs,lift_common_subexpressions.rs}",
+      "description": "optimize_select_plan, at optimizer/mod.rs line 737, runs four passes in order. First, a MATCH-to-fts_match() rewrite recognizes FTS queries. Second, optimize_subqueries runs. Third, optimize_table_access orders joins with best_join_order in join.rs, picks indexes and access methods in access_method.rs, and applies OR-optimization across multiple indexes in multi_index.rs. Fourth, reoptimize_correlated_subqueries runs. Supporting passes include cost.rs and cost_params.rs for the cost model, constraints.rs for predicate pushdown, order.rs for ORDER BY and index-order checks, unnest.rs for subquery unnesting, and lift_common_subexpressions.rs for common-subexpression elimination. The entry point, optimize_plan at mod.rs line 539, dispatches by Plan::Select, Delete, Update, or CompoundSelect."
+    },
+    {
+      "id": "core-vdbe",
+      "label": "core/vdbe (VDBE interpreter)",
+      "type": "module",
+      "layer": "Core Engine — Translate & Execution",
+      "path": "core/vdbe/{mod.rs,execute.rs,insn.rs,builder.rs}",
+      "description": "core/vdbe is a register-based bytecode machine, using a SQLite-family instruction set. builder.rs builds a Program from a ProgramBuilder. insn.rs defines the Insn enum: control opcodes such as Init, Goto, Halt, ResultRow, Transaction, and Jump; cursor and B-tree opcodes such as OpenRead, OpenWrite, Rewind, Next, SeekGE, Insert, and NewRowid; index and sorter opcodes such as IdxInsert and SorterInsert; and virtual-table opcodes such as VUpdate and VNext. execute.rs is the interpreter, at 18,212 LOC measured, organized as roughly one pub fn op_*() function per opcode, rather than one large match statement. Dispatch itself lives in mod.rs's Vdbe::step() at line 1564, which branches by QueryMode to normal_step, explain_step, or explain_query_plan_step. normal_step, at line 1736, runs an outer 'io_check loop that handles re-entrant I/O completions, wrapped around an inner fetch-dispatch loop that calls insn.to_function(), a function-pointer table keyed by the instruction enum variant. Statement::step, in core/statement.rs, returns a StepResult value: Row, Done, IO, Yield, Busy, or Interrupt."
+    },
+    {
+      "id": "core-storage-btree",
+      "label": "storage/btree.rs (B-tree)",
+      "type": "module",
+      "layer": "Core Engine — Storage & Durability",
+      "path": "core/storage/btree.rs",
+      "description": "storage/btree.rs is 13,966 LOC. It implements a SQLite-compatible on-disk B-tree page format and a cursor type, BTreeCursor, covering table B-trees, index B-trees, overflow pages, cell layout (IndexInteriorCell, IndexLeafCell, OverflowCell), and page balancing. Every frontend's rows and indexes live in this durable structure. VDBE opcodes such as OpenRead, SeekGE, Insert, and Next drive it directly."
+    },
+    {
+      "id": "core-storage-wal",
+      "label": "storage/wal.rs (WAL)",
+      "type": "module",
+      "layer": "Core Engine — Storage & Durability",
+      "path": "core/storage/wal.rs",
+      "description": "storage/wal.rs is 10,256 LOC. It implements the write-ahead log and checkpointing. A reader sees a page-level snapshot fixed at its read-mark time, and a writer appends full changed pages to the WAL without blocking readers. CheckpointLockSource and PreparedFrames coordinate the checkpoint, which transfers WAL frames back into the main database file. The WAL is the default durability mode; PRAGMA journal_mode='mvcc' switches the database to row-level MVCC instead."
+    },
+    {
+      "id": "core-storage-pager",
+      "label": "storage/pager.rs (Pager)",
+      "type": "module",
+      "layer": "Core Engine — Storage & Durability",
+      "path": "core/storage/pager.rs",
+      "description": "storage/pager.rs is 6,666 LOC. Pager owns the page cache and page allocation, and it sits between B-tree cursors, the WAL, and async I/O. It checks the WAL for the current page version first, then falls back to the main database file. It submits page reads and writes through the IOResult abstraction, and it works together with buffer_pool.rs, page_cache.rs, subjournal.rs, and slot_bitmap.rs."
+    },
+    {
+      "id": "core-io",
+      "label": "core/io (async I/O)",
+      "type": "module",
+      "layer": "Core Engine — Storage & Durability",
+      "path": "core/io/{mod.rs,unix.rs,windows.rs,io_uring.rs,win_iocp.rs,generic.rs,memory.rs}",
+      "description": "core/io builds its async I/O abstraction around IOResult and explicit state machines, not futures or async/await. This design lets the VDBE step loop suspend and resume mid-instruction while it waits for I/O; see docs/agent-guides/async-io-model.md (210 lines) for detail. Platform backends include unix.rs; windows.rs and windows_lock.rs; io_uring.rs for Linux io_uring; win_iocp.rs for Windows IOCP; and generic.rs. memory.rs and memory_yield.rs provide in-memory, simulated I/O for the deterministic simulator."
+    },
+    {
+      "id": "core-index-method",
+      "label": "core/index_method (FTS & vector index)",
+      "type": "module",
+      "layer": "Core Engine — Storage & Durability",
+      "path": "core/index_method/{fts.rs,toy_vector_sparse_ivf.rs,backing_btree.rs}",
+      "description": "core/index_method holds pluggable index implementations, layered on the same B-tree substrate as ordinary tables. fts.rs implements full-text search, backing SQLite-FTS-compatible virtual tables; sqlite-conformance's fts/ suite exercises it. toy_vector_sparse_ivf.rs implements a sparse-IVF vector index. backing_btree.rs is the shared adapter: it lets both index methods store their structures as ordinary B-tree tables, not a bespoke file format. The graph frontend's label and type junction tables, and __turso_graph_expand, rely on this same pattern."
+    },
+    {
+      "id": "core-incremental",
+      "label": "core/incremental (materialized views)",
+      "type": "module",
+      "layer": "Core Engine — Storage & Durability",
+      "path": "core/incremental/{compiler.rs,view.rs,dbsp.rs,aggregate_operator.rs,join_operator.rs}",
+      "description": "core/incremental implements DBSP-style incremental view maintenance. compiler.rs compiles a view definition into a dataflow of operators, such as those in aggregate_operator.rs and join_operator.rs. These operators update materialized results as base tables change, instead of recomputing the view from scratch. core/translate/view.rs calls this module for CREATE MATERIALIZED VIEW-style DDL."
+    },
+    {
+      "id": "core-mvcc",
+      "label": "core/mvcc (experimental MVCC)",
+      "type": "module",
+      "layer": "Core Engine — Storage & Durability",
+      "path": "core/mvcc/{mod.rs,cursor.rs,clock.rs,portable_logical.rs,yield_hooks.rs,yield_points.rs}",
+      "description": "core/mvcc is work in progress and is not production-ready; see docs/agent-guides/mvcc.md. A database turns it on at runtime, through PRAGMA journal_mode='mvcc', not through a compile-time flag. WAL gives page-level snapshot isolation, with a full-page write on each commit. MVCC instead gives row-level snapshot isolation: each row version tracks begin and end visibility timestamps and a btree_resident flag. MVCC persists these versions to a logical log (.db-log), not to .db-wal, and writes only the affected rows, not full pages. MvStore lives on Database behind an ArcSwapOption, so it coexists with the normal Pager and WAL path when a database turns MVCC off."
+    },
+    {
+      "id": "cli-tursodb",
+      "label": "tursodb CLI",
+      "type": "entrypoint",
+      "layer": "Entry Points, Bindings & Ecosystem",
+      "path": "cli/{app.rs,main.rs,mcp_server.rs,sync_server.rs,mvcc_repl.rs}",
+      "description": "tursodb is the primary interactive REPL. It always opens with Arc::new(SqliteDialect), for example at cli/app.rs line 260, and it drives the engine only through conn.query(sql) and conn.execute(sql). It also hosts an MCP server (mcp_server.rs) for agent tool access, a sync server (sync_server.rs) for Turso Cloud sync, and a dedicated multi-connection MVCC testing REPL (mvcc_repl.rs). Turso has no SQLite wire-protocol server that matches postgres/server; the SQLite \"frontend\" is mainly a language and prepare API, not a network protocol."
+    },
+    {
+      "id": "bindings",
+      "label": "Language bindings",
+      "type": "component",
+      "layer": "Entry Points, Bindings & Ecosystem",
+      "path": "bindings/{python,javascript,java,dotnet,go,rust,c,react-native,tcl}/",
+      "description": "Turso ships nine binding crates. Each one wraps Database, Connection, and Statement, with the SQLite dialect by default, through its own FFI layer: python uses PyO3, javascript uses NAPI-RS, java uses JNI, dotnet and go (through cgo) have their own layers, rust offers a thin native wrapper (the turso crate), c exposes the underlying C ABI that other bindings and embedders can target directly, and react-native and tcl (turso_tcl.c) round out the set. The Postgres and Graph frontends do not use this binding surface today; they instead expose their own separate embedding APIs, PgConnection and GraphConnection."
+    },
+    {
+      "id": "extensions",
+      "label": "extensions/",
+      "type": "component",
+      "layer": "Entry Points, Bindings & Ecosystem",
+      "path": "extensions/{core,crypto,csv,ipaddr,regexp,fuzzy,completion}/",
+      "description": "extensions/core defines ExtensionApi and the scalar, aggregate, and virtual-table traits that extensions implement. crypto, csv, ipaddr, regexp, fuzzy, and completion are concrete extensions built on this API, and each one can load statically or dynamically. graph/temporal uses this same mechanism to register its Cypher-value-semantics scalar functions."
+    },
+    {
+      "id": "sdk-kit",
+      "label": "sdk-kit / sdk-kit-macros",
+      "type": "component",
+      "layer": "Entry Points, Bindings & Ecosystem",
+      "path": "sdk-kit/, sdk-kit-macros/",
+      "description": "sdk-kit offers a low-level C ABI for building Turso language bindings; the project's own docs tell Rust applications to use the turso crate instead. It gives new-language bindings a shared foundation, so they do not need to reimplement FFI plumbing against Database, Connection, and Statement from scratch. sync/sdk-kit is the sync-specific counterpart."
+    },
+    {
+      "id": "sync",
+      "label": "sync/engine & sync/sdk-kit",
+      "type": "component",
+      "layer": "Entry Points, Bindings & Ecosystem",
+      "path": "sync/{engine,sdk-kit}/",
+      "description": "sync/engine is the Turso Cloud sync engine. sync/sdk-kit is its low-level C ABI counterpart, for embedding sync into language bindings. Sync reads committed WAL or logical-log state to replicate data; it does not care which query frontend produced the writes."
+    },
+    {
+      "id": "testing-simulator",
+      "label": "testing/simulator & concurrent-simulator",
+      "type": "component",
+      "layer": "Testing & Conformance",
+      "path": "testing/{simulator,concurrent-simulator}/",
+      "description": "testing/simulator and concurrent-simulator test concurrency and fault injection at the IOResult and async state-machine boundary. They run reproducible schedules, inject I/O failures, and compare outcomes differentially. The storage, WAL, pager, and MVCC correctness work relies heavily on these tools."
+    },
+    {
+      "id": "testing-differential",
+      "label": "testing/differential-oracle & stress",
+      "type": "component",
+      "layer": "Testing & Conformance",
+      "path": "testing/{differential-oracle,stress}/",
+      "description": "differential-oracle/ holds the sql_gen, sql_gen_prop, and fuzzer crates. These crates generate random SQL and compare Turso's output against a reference implementation. stress/ runs long-running workloads for deeper validation. The team uses both for investigation and specialized checks, not as first-line regression coverage."
+    },
+    {
+      "id": "tools-dbhash",
+      "label": "tools/dbhash",
+      "type": "component",
+      "layer": "Testing & Conformance",
+      "path": "tools/dbhash/",
+      "description": "dbhash computes a stable content hash of a database by walking its B-tree pages. Engineers use it to check that two database files hold the same logical content, for example before and after a WAL checkpoint, or when they compare Turso output against sqlite3."
+    }
+  ],
+  "edges": [
+    {
+      "source": "sqlite-dialect",
+      "target": "sqlite-parser",
+      "type": "calls",
+      "description": "SqliteDialect::parse sends text directly to turso_parser::parser::Parser."
+    },
+    {
+      "source": "sqlite-dialect",
+      "target": "core-dialect-trait",
+      "type": "depends",
+      "description": "SqliteDialect is the default production implementation of the Dialect trait."
+    },
+    {
+      "source": "sqlite-dialect",
+      "target": "core-connection",
+      "type": "calls",
+      "description": "Database::open binds Arc<SqliteDialect> as the database-wide dialect, and Connection::prepare routes text through it."
+    },
+    {
+      "source": "sqlite-conformance",
+      "target": "sqlite-parser",
+      "type": "calls",
+      "description": "Each .sqltest run sends generated or handwritten SQL through the parser."
+    },
+    {
+      "source": "sqlite-conformance",
+      "target": "core-translate",
+      "type": "calls",
+      "description": "Each test case drives a full prepare and execute through core/translate, then diffs the output against real sqlite3."
+    },
+    {
+      "source": "pg-parser",
+      "target": "pg-dialect",
+      "type": "calls",
+      "description": "PostgresDialect::parse calls turso_pg_parser::parse and PostgreSQLTranslator to produce the engine AST."
+    },
+    {
+      "source": "pg-dialect",
+      "target": "core-dialect-trait",
+      "type": "depends",
+      "description": "PostgresDialect implements the Dialect trait (postgres/frontend/catalog.rs:21)."
+    },
+    {
+      "source": "pg-dialect",
+      "target": "sqlite-parser",
+      "type": "calls",
+      "description": "pg_query rejects some engine-generated helper statements and PRAGMAs, which are canonical SQLite text, so PostgresDialect falls back to core::dialect::sqlite::parse."
+    },
+    {
+      "source": "pg-session",
+      "target": "pg-parser",
+      "type": "calls",
+      "description": "prepare_statement calls turso_pg_parser::parse then PostgreSQLTranslator::translate_with_prereqs."
+    },
+    {
+      "source": "pg-session",
+      "target": "pg-dialect",
+      "type": "depends",
+      "description": "PgConnection opens the underlying Database with Arc::new(PostgresDialect)."
+    },
+    {
+      "source": "pg-session",
+      "target": "core-connection",
+      "type": "calls",
+      "description": "prepare_translated_stmt hands the translated ast::Stmt to core, and it keeps the original PG text for reprepare and schema storage."
+    },
+    {
+      "source": "pg-server",
+      "target": "pg-session",
+      "type": "calls",
+      "description": "The pgwire simple- and extended-query handlers run through a shared Arc<Mutex<PgConnection>>."
+    },
+    {
+      "source": "pg-cli",
+      "target": "pg-server",
+      "type": "calls",
+      "description": "tursopg can launch TursoPgServer to host the wire protocol."
+    },
+    {
+      "source": "pg-cli",
+      "target": "pg-session",
+      "type": "calls",
+      "description": "tursopg can also drive PgConnection directly as a local REPL without networking."
+    },
+    {
+      "source": "pg-client",
+      "target": "pg-server",
+      "type": "calls",
+      "description": "Conformance and regress tooling use this minimal wire-protocol client to talk to a running tursopg server."
+    },
+    {
+      "source": "pg-conformance",
+      "target": "pg-server",
+      "type": "calls",
+      "description": "sqltest's pg backend spawns a tursopg server per test file and drives it over the wire protocol."
+    },
+    {
+      "source": "pg-conformance",
+      "target": "pg-client",
+      "type": "depends",
+      "description": "pgregress and the sqltest pg backend both speak the wire protocol through turso_pg_client-style tooling."
+    },
+    {
+      "source": "graph-cypher-parser",
+      "target": "graph-binder",
+      "type": "calls",
+      "description": "Binder consumes turso_graph_cypher::parse's Query AST as its input."
+    },
+    {
+      "source": "graph-binder",
+      "target": "graph-ir",
+      "type": "depends",
+      "description": "Binder produces BoundQuery and BoundMutation values, expressed over graph-ir's PlanKind and typed-expression types."
+    },
+    {
+      "source": "graph-binder",
+      "target": "graph-catalog",
+      "type": "reads",
+      "description": "Binder resolves labels, relationship types, and properties against the registered graph's catalog snapshot."
+    },
+    {
+      "source": "graph-lowering",
+      "target": "graph-ir",
+      "type": "depends",
+      "description": "lower_relational walks the bound PlanKind plan produced by the binder."
+    },
+    {
+      "source": "graph-lowering",
+      "target": "core-translate",
+      "type": "emits",
+      "description": "graph-lowering emits an ordinary turso_parser::ast::Stmt, with joins over the registered node and relationship tables plus the label and type junction tables, for the standard SQL translate pipeline."
+    },
+    {
+      "source": "graph-compiler",
+      "target": "graph-binder",
+      "type": "calls",
+      "description": "GraphCompiler::compile binds the parsed Cypher source before lowering it."
+    },
+    {
+      "source": "graph-compiler",
+      "target": "graph-lowering",
+      "type": "calls",
+      "description": "GraphCompiler::compile lowers the bound plan to ast::Stmt for FrontendCompilation."
+    },
+    {
+      "source": "graph-compiler",
+      "target": "core-frontend-compiler",
+      "type": "depends",
+      "description": "GraphCompiler implements FrontendCompiler, the lighter seam, because Cypher does not own schema DDL encoding the way a Dialect must."
+    },
+    {
+      "source": "graph-session",
+      "target": "graph-compiler",
+      "type": "calls",
+      "description": "GraphConnection::open installs GraphCompiler on the connection through register_frontend_compiler."
+    },
+    {
+      "source": "graph-session",
+      "target": "graph-catalog",
+      "type": "calls",
+      "description": "GraphConnection loads the registration and builds a SchemaCatalog when it opens or installs."
+    },
+    {
+      "source": "graph-session",
+      "target": "core-connection",
+      "type": "depends",
+      "description": "GraphConnection wraps an Arc<turso_core::Connection>, the same session object the SQL frontends use."
+    },
+    {
+      "source": "graph-session",
+      "target": "sqlite-dialect",
+      "type": "depends",
+      "description": "GraphConnection opens the underlying Database with SqliteDialect. Cypher does not depend on a dialect itself; it layers on top through FrontendCompiler instead of competing for the Dialect slot."
+    },
+    {
+      "source": "graph-catalog",
+      "target": "core-storage-btree",
+      "type": "writes",
+      "description": "register_graph creates and writes __turso_internal_graph_* registration tables and per-graph label/relationship-type junction tables as ordinary B-tree tables."
+    },
+    {
+      "source": "graph-snapshot",
+      "target": "core-storage-btree",
+      "type": "reads",
+      "description": "graph-snapshot builds an in-memory CSR adjacency snapshot from the current node and relationship table rows, inside a nested savepoint."
+    },
+    {
+      "source": "graph-runtime",
+      "target": "graph-snapshot",
+      "type": "depends",
+      "description": "BFS, DFS, and shortest-path traversal run over the connection-local TraversalSnapshot's CSR arrays."
+    },
+    {
+      "source": "graph-expand-vtab",
+      "target": "graph-runtime",
+      "type": "calls",
+      "description": "The __turso_graph_expand cursor drives graph-runtime's traversal to back the GraphExpand IR operator."
+    },
+    {
+      "source": "graph-expand-vtab",
+      "target": "core-vdbe",
+      "type": "depends",
+      "description": "The engine registers __turso_graph_expand as an InternalVirtualTable, and VDBE drives it through ordinary best_index and VNext virtual-table opcodes."
+    },
+    {
+      "source": "graph-temporal",
+      "target": "extensions",
+      "type": "depends",
+      "description": "graph-temporal registers through turso_ext::ExtensionApi, the same static scalar-function extension mechanism that crypto, regexp, and csv use."
+    },
+    {
+      "source": "graph-testkit",
+      "target": "graph-session",
+      "type": "calls",
+      "description": "The openCypher TCK and CypherBench harnesses drive GraphConnection::query/execute end to end."
+    },
+    {
+      "source": "core-database",
+      "target": "core-dialect-trait",
+      "type": "depends",
+      "description": "Database owns exactly one Arc<dyn Dialect> for its lifetime, fixed at open time."
+    },
+    {
+      "source": "core-database",
+      "target": "core-schema",
+      "type": "depends",
+      "description": "Database owns Arc<Mutex<Arc<Schema>>>, and it parses the schema through the dialect at open time."
+    },
+    {
+      "source": "core-connection",
+      "target": "core-database",
+      "type": "depends",
+      "description": "Connection is the per-session handle over a shared Database."
+    },
+    {
+      "source": "core-connection",
+      "target": "core-frontend-compiler",
+      "type": "depends",
+      "description": "register_frontend_compiler and prepare_frontend let a non-Dialect frontend, such as Cypher, plug in without owning schema DDL encoding."
+    },
+    {
+      "source": "core-connection",
+      "target": "core-translate",
+      "type": "calls",
+      "description": "compile_cmd dispatches a parsed Cmd/Stmt into translate::translate."
+    },
+    {
+      "source": "core-translate",
+      "target": "core-optimizer",
+      "type": "depends",
+      "description": "The planner runs optimize_plan before emission, to order joins, pick access methods, and prune the plan by cost."
+    },
+    {
+      "source": "core-translate",
+      "target": "core-schema",
+      "type": "reads",
+      "description": "Name resolution and DDL compilation read the current Schema."
+    },
+    {
+      "source": "core-translate",
+      "target": "core-vdbe",
+      "type": "emits",
+      "description": "emitter/ and main_loop/ walk the optimized plan and emit Insn values into a ProgramBuilder, which produces a Program."
+    },
+    {
+      "source": "core-schema",
+      "target": "core-storage-btree",
+      "type": "reads",
+      "description": "Schema objects, such as tables and indexes, map to root pages that the B-tree layer manages."
+    },
+    {
+      "source": "core-vdbe",
+      "target": "core-storage-btree",
+      "type": "calls",
+      "description": "Opcodes such as OpenRead, OpenWrite, SeekGE, Insert, and Next drive BTreeCursor operations."
+    },
+    {
+      "source": "core-vdbe",
+      "target": "core-storage-wal",
+      "type": "calls",
+      "description": "Transaction and commit-path opcodes read and append WAL frames."
+    },
+    {
+      "source": "core-vdbe",
+      "target": "core-storage-pager",
+      "type": "calls",
+      "description": "Cursors request pages through the pager's page cache and allocator."
+    },
+    {
+      "source": "core-vdbe",
+      "target": "core-mvcc",
+      "type": "depends",
+      "description": "When a database sets PRAGMA journal_mode='mvcc', cursor operations route through mvcc row-versioning, instead of or alongside the pager."
+    },
+    {
+      "source": "core-storage-pager",
+      "target": "core-storage-wal",
+      "type": "depends",
+      "description": "Pager consults the WAL for the current page version before it falls back to the main database file."
+    },
+    {
+      "source": "core-storage-pager",
+      "target": "core-io",
+      "type": "depends",
+      "description": "Pager submits page reads and writes through the IOResult async abstraction."
+    },
+    {
+      "source": "core-mvcc",
+      "target": "core-io",
+      "type": "calls",
+      "description": "Logical-log I/O for row versions goes through the same async I/O abstraction."
+    },
+    {
+      "source": "core-index-method",
+      "target": "core-storage-btree",
+      "type": "depends",
+      "description": "core/index_method stores FTS and vector index structures as ordinary B-tree tables through backing_btree.rs, the same pattern the graph frontend's junction tables use."
+    },
+    {
+      "source": "core-vdbe",
+      "target": "core-index-method",
+      "type": "calls",
+      "description": "Virtual-table opcodes, such as VNext and best_index, drive FTS and vector index scans."
+    },
+    {
+      "source": "core-incremental",
+      "target": "core-vdbe",
+      "type": "depends",
+      "description": "Materialized-view maintenance emits its own operator dataflow, which runs alongside ordinary DML opcodes on write."
+    },
+    {
+      "source": "core-translate",
+      "target": "core-incremental",
+      "type": "calls",
+      "description": "core/translate/view.rs compiles materialized view DDL through core/incremental's compiler."
+    },
+    {
+      "source": "cli-tursodb",
+      "target": "sqlite-dialect",
+      "type": "depends",
+      "description": "tursodb opens every database with Arc::new(SqliteDialect)."
+    },
+    {
+      "source": "cli-tursodb",
+      "target": "core-connection",
+      "type": "calls",
+      "description": "tursodb drives the engine only through conn.query and conn.execute."
+    },
+    {
+      "source": "bindings",
+      "target": "sqlite-dialect",
+      "type": "depends",
+      "description": "Each binding opens databases with the SQLite dialect by default."
+    },
+    {
+      "source": "bindings",
+      "target": "core-connection",
+      "type": "calls",
+      "description": "Each binding's FFI layer ultimately calls prepare/step on Connection/Statement."
+    },
+    {
+      "source": "bindings",
+      "target": "sdk-kit",
+      "type": "depends",
+      "description": "Several bindings build on the shared C ABI rather than reimplementing FFI plumbing per language."
+    },
+    {
+      "source": "extensions",
+      "target": "core-connection",
+      "type": "depends",
+      "description": "ExtensionApi's scalar, aggregate, and virtual-table traits register against a Connection and Database."
+    },
+    {
+      "source": "sdk-kit",
+      "target": "core-connection",
+      "type": "depends",
+      "description": "sdk-kit's low-level C ABI wraps Database, Connection, and Statement, for building new language bindings."
+    },
+    {
+      "source": "sync",
+      "target": "core-storage-wal",
+      "type": "reads",
+      "description": "The sync engine reads committed WAL and logical-log state to replicate data to and from Turso Cloud."
+    },
+    {
+      "source": "testing-simulator",
+      "target": "core-io",
+      "type": "calls",
+      "description": "Deterministic fault injection operates at the IOResult/async state-machine boundary."
+    },
+    {
+      "source": "testing-simulator",
+      "target": "core-storage-wal",
+      "type": "calls",
+      "description": "testing/simulator exercises WAL and checkpoint interleavings under injected failures and reproducible schedules."
+    },
+    {
+      "source": "testing-differential",
+      "target": "core-connection",
+      "type": "calls",
+      "description": "Differential and property-based fuzzing drives prepare and execute over randomly generated SQL."
+    },
+    {
+      "source": "tools-dbhash",
+      "target": "core-storage-btree",
+      "type": "reads",
+      "description": "dbhash computes a stable content hash by walking B-tree pages directly."
+    }
+  ],
+  "diagrams": {
+    "layer": {
+      "description": "This is a high-level layered view. Each of the three query frontends implements the Dialect trait or registers through FrontendCompiler. All three converge on Connection and Schema, then flow through translate and the optimizer, VDBE execution, and storage and durability, with an optional MVCC path. The entry-point, binding, and ecosystem layer surrounds this core.",
+      "mermaid_syntax": "graph TB\n  subgraph FE[\"Three Query Frontends\"]\n    SQLF[\"SQLite/SQL Frontend<br/>sqlite/parser + core/dialect/sqlite.rs\"]\n    PGF[\"PostgreSQL Frontend<br/>postgres/parser, frontend, server, cli\"]\n    GRF[\"Graph/Cypher Frontend<br/>graph/cypher, ir, frontend, runtime, temporal\"]\n  end\n  subgraph SEAM[\"Engine <-> Frontend Seam\"]\n    DIA[\"Dialect trait<br/>core/dialect/mod.rs\"]\n    FCM[\"FrontendCompiler trait<br/>core/connection.rs\"]\n  end\n  subgraph CONN[\"Connection & Schema\"]\n    DB[\"Database\"]\n    CN[\"Connection\"]\n    SC[\"Schema\"]\n  end\n  subgraph XLYR[\"Translate & Optimizer\"]\n    XL[\"core/translate\"]\n    OPT[\"core/translate/optimizer\"]\n  end\n  subgraph VDBE[\"VDBE Execution\"]\n    VD[\"core/vdbe execute.rs\"]\n  end\n  subgraph STORE[\"Storage & Durability\"]\n    BT[\"storage/btree.rs\"]\n    WL[\"storage/wal.rs\"]\n    PG[\"storage/pager.rs\"]\n    IOA[\"core/io\"]\n  end\n  subgraph MVCCL[\"MVCC (Experimental)\"]\n    MV[\"core/mvcc\"]\n  end\n  subgraph ECO[\"Entry Points, Bindings, Ecosystem\"]\n    CLI[\"cli/ tursodb\"]\n    BIND[\"bindings/*\"]\n    EXT[\"extensions/*\"]\n    SYN[\"sync/*\"]\n  end\n  SQLF -- implements --> DIA\n  PGF -- implements --> DIA\n  GRF -- registers via --> FCM\n  DIA --> CN\n  FCM --> CN\n  CN --> DB\n  DB --> SC\n  CN --> XL\n  XL --> OPT\n  XL --> VD\n  VD --> BT\n  VD --> WL\n  VD --> PG\n  VD --> MV\n  PG --> WL\n  PG --> IOA\n  MV --> IOA\n  CLI --> SQLF\n  BIND --> SQLF\n"
+    },
+    "component": {
+      "description": "This diagram shows the major components in each of the three frontends and in the core engine. It shows how each component calls or implements another.",
+      "mermaid_syntax": "graph LR\n  subgraph S1[\"SQLite Frontend\"]\n    sp[\"turso_parser<br/>sqlite/parser\"]\n    sd[\"SqliteDialect<br/>core/dialect/sqlite.rs\"]\n  end\n  subgraph S2[\"PostgreSQL Frontend\"]\n    pp[\"turso_pg_parser<br/>pg_query + translator\"]\n    pd[\"PostgresDialect<br/>postgres/frontend/catalog.rs\"]\n    ps[\"PgConnection<br/>postgres/frontend/session.rs\"]\n    pw[\"TursoPgServer<br/>postgres/server (pgwire)\"]\n    pc[\"tursopg CLI<br/>postgres/cli\"]\n  end\n  subgraph S3[\"Graph/Cypher Frontend\"]\n    gc[\"turso_graph_cypher<br/>Pest grammar\"]\n    gb[\"Binder<br/>graph/frontend/binder.rs\"]\n    gl[\"Lowering<br/>graph/frontend/lowering.rs\"]\n    gcmp[\"GraphCompiler<br/>FrontendCompiler impl\"]\n    gs[\"GraphConnection<br/>graph/frontend/session.rs\"]\n    gr[\"Traversal Runtime<br/>graph/runtime CSR\"]\n    ge[\"__turso_graph_expand<br/>internal vtab\"]\n  end\n  subgraph S4[\"Core Engine\"]\n    conn[\"Connection / Database\"]\n    xlate[\"core/translate\"]\n    vdbe[\"core/vdbe\"]\n    store[\"core/storage\"]\n  end\n  sp --> sd --> conn\n  pp --> pd\n  pd --> ps --> conn\n  pw --> ps\n  pc --> pw\n  pc --> ps\n  gc --> gb --> gl --> gcmp --> conn\n  gr --> ge --> vdbe\n  gs --> gcmp\n  gs --> gr\n  conn --> xlate --> vdbe --> store\n"
+    },
+    "data_flow": {
+      "description": "This diagram traces one query from a client of any frontend. The frontend parses or binds the query, then lowers it to the shared engine AST. The engine then runs it through translate, VDBE, and storage, and returns rows to the client.",
+      "mermaid_syntax": "flowchart LR\n  ClientSQL[\"SQL client<br/>cli / bindings\"] --> ParseSQL[\"SqliteDialect.parse\"]\n  ClientPG[\"Wire-protocol client<br/>psql-style\"] --> ParsePG[\"PostgresDialect.parse<br/>pg_query + translator\"]\n  ClientCypher[\"Cypher caller<br/>GraphConnection\"] --> ParseCypher[\"Cypher parse + bind<br/>graph/cypher + binder\"]\n  ParseSQL --> AST[\"turso_parser::ast::Cmd / Stmt<br/>(shared engine AST)\"]\n  ParsePG --> AST\n  ParseCypher --> Lower[\"lower_relational<br/>PlanKind -> ast::Stmt\"]\n  Lower --> AST\n  AST --> Translate[\"core/translate<br/>planner + optimizer\"]\n  Translate --> Program[\"VDBE Program<br/>Vec of Insn\"]\n  Program --> Execute[\"core/vdbe execute.rs<br/>step interpreter\"]\n  Execute --> BTree[\"storage/btree.rs<br/>cursors\"]\n  Execute --> WAL[\"storage/wal.rs\"]\n  Execute --> MVCC[\"core/mvcc<br/>optional\"]\n  BTree --> Pager[\"storage/pager.rs\"]\n  WAL --> Pager\n  Pager --> IOL[\"core/io<br/>async IOResult\"]\n  Execute --> Rows[\"Row / StepResult\"]\n  Rows --> ClientSQL\n  Rows --> ClientPG\n  Rows --> ClientCypher\n"
+    }
+  },
+  "stats": {
+    "node_count": 45,
+    "edge_count": 68,
+    "layer_count": 8,
+    "files_analyzed": 240,
+    "cards": [
+      {
+        "label": "Workspace Crates",
+        "value": 52
+      },
+      {
+        "label": "Rust LOC",
+        "value": 557762
+      },
+      {
+        "label": "Query Frontends",
+        "value": 3
+      },
+      {
+        "label": "Modeled Components",
+        "value": 45
+      }
+    ],
+    "architectural_patterns": [
+      "Multiple frontends converge on one engine. SQLite/SQL, PostgreSQL, and Graph/Cypher all compile down to the same turso_parser::ast::Cmd/Stmt, and they share one core/translate -> core/vdbe -> core/storage pipeline. No frontend module holds its own bytecode emitter or B-tree code.",
+      "The engine offers two seams to frontends. SqliteDialect and PostgresDialect use the heavier Dialect trait (core/dialect/mod.rs), which owns schema DDL parsing and formatting. The Graph frontend uses the lighter FrontendCompiler trait and registry (core/connection.rs:569) instead, because Cypher does not own schema DDL encoding.",
+      "The team keeps frontends decoupled at the crate level on purpose. Commit a7a22ff16 added a graph.cypher() adapter that coupled postgres/frontend to turso_graph_frontend, and commit 178437223 reverted it. Frontends compose only through Connection::register_frontend_compiler on a shared core Connection, never through a direct crate dependency.",
+      "\"Everything is a B-tree.\" FTS and vector indexes (core/index_method/backing_btree.rs), graph label and relationship-type junction tables (graph/frontend/catalog.rs), and materialized-view bookkeeping all persist as ordinary B-tree tables, not as bespoke on-disk formats.",
+      "A register-machine bytecode VM, the SQLite-style VDBE in core/vdbe/execute.rs (18,212 LOC), serves as the single execution target. All three frontends and the internal __turso_graph_expand virtual table run on it.",
+      "Durability is pluggable. A database uses page-level WAL by default, but PRAGMA journal_mode='mvcc' switches it to row-level MVCC at runtime, not at compile time. Both paths coexist behind Database's ArcSwapOption<MvStore>.",
+      "core/io uses explicit state machines (IOResult) for async I/O, instead of async/await. This design lets the VDBE step loop suspend and resume mid-instruction, across io_uring, IOCP, unix, and simulated in-memory backends."
+    ],
+    "limitations": [
+      "This analysis is static. It reads files, counts lines with tokei and wc -l, reads Cargo.toml dependency declarations, and greps for module references; it does not build a compiler-derived call graph. Edge types such as calls, depends, reads, writes, and emits reflect how the code reads and how commit messages describe it, not a symbol-level cross-reference tool.",
+      "This analysis covers the feature/graph-frontend branch, confirmed by git rev-parse --abbrev-ref HEAD. The Graph/Cypher frontend, its 6 crates, and its 9 nodes in this model are unmerged and library-only. No CLI subcommand and no language binding wires GraphConnection in yet, so this model does not show what ships on main today.",
+      "This model covers a curated set of about 45 nodes, out of the workspace's 52 crates and about 939 Rust source files (per tokei). It stays at architectural altitude, within the 30-to-80-node target. Many individual optimizer passes, per-language binding internals, and single-purpose extension crates fold into one parent node instead of appearing on their own.",
+      "This revision checked every LOC figure named in a node description against tokei and wc -l, file by file, and all of them matched exactly. The 557,762-line Rust LOC stat card is a whole-workspace tokei total. The analysis has not broken this total down per crate, and has not removed generated or vendored code that the pg_query bindings pull in.",
+      "This model collapses the dependency and call edges for all nine binding crates (bindings/{python,javascript,java,dotnet,go,rust,c,react-native,tcl}) into one bindings node. It does not model the FFI differences between languages."
+    ]
+  },
+  "revision": 3,
+  "revision_history": [
+    {
+      "revision": 3,
+      "date": "2026-07-22",
+      "summary": "Revision 3 (2026-07-22) — all prose rewritten in ASD-STE100 Simplified Technical English; no model changes (45 nodes / 68 edges)."
+    },
+    {
+      "revision": 2,
+      "date": "2026-07-22",
+      "summary": "Re-rendered onto the standard architecture-docs template (previous HTML was hand-authored/ad-hoc and has been fully replaced). Re-verified every LOC figure and file path cited in the model against the current feature/graph-frontend worktree via tokei and direct wc -l (all matched, except one path bug fixed: pg-parser's crate root has no src/ subdirectory — turso_pg_parser's Cargo.toml overrides `path = \"lib.rs\"`). Consolidated 12 layers to 8 by merging Translate & Optimizer with VDBE Execution into a single \"Translate & Execution\" layer, and folding the MVCC (Experimental) layer and the Extensions & SDK / Sync layers into Storage & Durability and Entry Points/Bindings/Ecosystem respectively, per the 5–9 layer guidance. Added stats.cards, architectural_patterns, and limitations. Node/edge content is otherwise unchanged from revision 1 — it was already accurate."
+    },
+    {
+      "revision": 1,
+      "date": "2026-07-22",
+      "summary": "Initial architecture analysis: 45 nodes / 68 edges across 12 layers covering the three query frontends (SQLite/SQL, PostgreSQL, Graph/Cypher), the two engine/frontend seams (Dialect trait, FrontendCompiler trait), the translate/optimizer/VDBE/storage/MVCC core, and the entry-point/binding/extension/sync/testing ecosystem. Rendered with an ad-hoc, hand-authored HTML page (not the shared template)."
+    }
+  ]
+}
