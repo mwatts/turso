@@ -25,7 +25,7 @@ use turso_graph_frontend::{
     DatabaseOpts, OpenFlags,
 };
 
-// 1. Open a database (SQLite dialect) — same shape as turso_pg::open_database.
+// 1. Open a database (graph-cypher dialect, GraphDialect) — same shape as turso_pg::open_database.
 let (_io, db) = open_database("app.db", None, OpenFlags::default(), DatabaseOpts::default())?;
 let conn = db.connect()?;
 

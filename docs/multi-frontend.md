@@ -443,7 +443,23 @@ query language compiled onto the shared backend — the crates
   the original plan is unchanged. The graph frontend does not need core
   recursive CTEs; `GraphExpand` is a separate, purpose-built traversal path.
 
-### 6.2 Separation decision: no built-in Postgres graph adapter
+### 6.2 Dialect alignment: two seams, mirroring Postgres
+
+Both non-SQLite frontends now use the same two seams:
+
+| Seam | Scope | PostgreSQL | Graph/Cypher |
+|---|---|---|---|
+| `Dialect` (per-database) | identity, schema rows, catalog vtabs, function surface | `PostgresDialect` (`postgres/frontend/catalog.rs`) | `GraphDialect` (`graph/frontend/src/dialect.rs`) |
+| `FrontendCompiler` (per-connection) | statement compilation, prerequisites, reprepare | `PostgresCompiler` via `prepare_frontend("postgres")` | `GraphCompiler` via `prepare_frontend("graph-cypher")` |
+
+Differences that remain by design: graph schema rows are unmarked SQLite
+DDL (graph catalog state lives in `__turso_internal_graph_*` tables, not
+in marked `sqlite_schema` text), and Cypher never enters `Dialect::parse`
+— a Cypher statement on a raw connection gets an error pointing at
+`GraphConnection`. The graph layer additionally supports attach mode on a
+SQLite-dialect database, which pg does not.
+
+### 6.3 Separation decision: no built-in Postgres graph adapter
 
 A Postgres-facing `graph.cypher()` table function and
 `PgConnection::install_graph` were built (commit `a7a22ff16`) and then
@@ -458,7 +474,7 @@ them itself, on one core connection, via
 frontend. There is no shipped `graph.*` SQL surface inside the Postgres
 frontend, and none is planned as a default.
 
-### 6.3 Where to look
+### 6.4 Where to look
 
 | Topic | Reference |
 |-------|-----------|

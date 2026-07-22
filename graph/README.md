@@ -51,6 +51,27 @@ let summary = graph.execute("CREATE (:Person {name: 'Ada'})", &Default::default(
 `turso_core` as `core` plus the commonly needed core types (`Database`,
 `DatabaseOpts`, `OpenFlags`, `Value`, ...) at the crate root.
 
+## Opening a graph database
+
+Preferred — dialect-pinned database (mirrors `turso_pg::open_database`):
+
+    let (_io, db) = turso_graph_frontend::open_database(path, None, flags, opts)?;
+    let conn = db.connect()?;
+    turso_graph_frontend::register_graph(&conn, &registration)?;   // first time only
+    let graph = turso_graph_frontend::GraphConnection::open(conn, "social")?;
+
+The dialect gives you: `"graph-cypher"` database identity (mismatched
+reopens rejected), the temporal/cypher function surface on every
+connection, custom types always on, and the `turso_graphs` catalog
+virtual table.
+
+Attach mode — graph layer on an existing SQLite-dialect database:
+
+    let session = GraphConnection::open(existing_conn, "social")?;
+
+`GraphConnection::install` registers the per-connection compiler and the
+temporal extension; nothing about the database file changes.
+
 - Frontend separation: this crate never depends on, and is never depended on
   by, the Postgres frontend. An app that wants Cypher and Postgres SQL on one
   connection installs both compilers itself via core's
