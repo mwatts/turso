@@ -953,7 +953,14 @@ mod tests {
                 "CREATE TABLE relationships(id INTEGER PRIMARY KEY, src INTEGER, dst INTEGER)",
             )
             .unwrap();
-            crate::register_graph(&conn, &social_registration()).unwrap();
+            let registered = crate::register_graph(&conn, &social_registration()).unwrap();
+            conn.execute("INSERT INTO people(id, name) VALUES (1, 'Alice')")
+                .unwrap();
+            conn.execute(format!(
+                "INSERT INTO \"{}\"(node_id, label) VALUES (1, 'Person')",
+                crate::labels_table_name(registered.id)
+            ))
+            .unwrap();
             conn.close().unwrap();
         }
         let (_io, db) = crate::open_database(
@@ -968,6 +975,7 @@ mod tests {
         let rows = session
             .query("MATCH (n:Person) RETURN n.name", &crate::Parameters::new())
             .unwrap();
-        assert!(rows.is_empty());
+        assert_eq!(rows.len(), 1);
+        assert_eq!(rows[0][0].to_string(), "Alice");
     }
 }
