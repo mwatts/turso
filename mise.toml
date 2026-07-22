@@ -1,0 +1,14 @@
+# Benchmark timings are only comparable against graph/test-results history
+# when produced by a release build, so these tasks pin --release.
+
+[tasks.cypherbench-full]
+description = "CypherBench full-scale graphs, every gold query (release build)"
+run = "cargo run --release -p turso_graph_testkit -- cypherbench --profile full"
+
+[tasks.cypherbench-sample]
+description = "CypherBench sampled graphs, 25 queries per domain (release build)"
+run = "cargo run --release -p turso_graph_testkit -- cypherbench --profile sample"
+
+[tasks.clean]
+description = "Remove cargo build artifacts"
+run = "cargo clean"
