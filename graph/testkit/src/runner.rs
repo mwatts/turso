@@ -5,9 +5,7 @@ use std::{
 };
 
 use thiserror::Error;
-use turso_core::{
-    Connection, Database, DatabaseOpts, MemoryIO, Numeric, OpenFlags, SqliteDialect, Value,
-};
+use turso_core::{Connection, DatabaseOpts, MemoryIO, Numeric, OpenFlags, Value};
 use turso_graph_frontend::{
     register_graph, GraphCompilationCatalog, GraphConnection, GraphRegistration,
     NodeSourceRegistration, ParameterTypes, Parameters, RelationshipSourceRegistration,
@@ -176,13 +174,11 @@ fn build_fixture_with_io(
     path: &str,
 ) -> Result<GraphFixture, RunnerError> {
     let _ = name;
-    let database = Database::open_file_with_flags(
+    let database = turso_graph_frontend::open_database_with_io(
         io,
         path,
         OpenFlags::default(),
         DatabaseOpts::new().with_custom_types(true),
-        None,
-        Arc::new(SqliteDialect),
     )
     .map_err(|error| RunnerError::Fixture(error.to_string()))?;
     let connection = database
