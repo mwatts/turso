@@ -679,6 +679,32 @@ mod tests {
     }
 
     #[test]
+    fn aggregates_in_loop_inputs_compute_before_iteration() {
+        // Quantifier and comprehension loop variables create nested scopes,
+        // but their input lists are evaluated by the outer projection. An
+        // aggregate there must run before the loop starts.
+        let fixture = fixture(":memory:graph-session-loop-input-aggregates");
+
+        let rows = fixture
+            .reader_session
+            .query(
+                "MATCH (a:Person) RETURN ALL(x IN collect(a.id) WHERE x > 0) AS valid",
+                &Parameters::new(),
+            )
+            .expect("aggregate quantifier input");
+        assert_eq!(rows, vec![vec![Value::from_i64(1)]]);
+
+        let rows = fixture
+            .reader_session
+            .query(
+                "MATCH (a:Person) RETURN size([x IN collect(a.id) WHERE x > 0]) AS count",
+                &Parameters::new(),
+            )
+            .expect("aggregate comprehension input");
+        assert_eq!(rows, vec![vec![Value::from_i64(2)]]);
+    }
+
+    #[test]
     fn unbounded_expansion_past_the_hop_cap_fails_loudly() {
         // `[*]` has no semantic upper bound; the implicit 64-hop cap is a
         // resource limit. A graph with a longer real path must error rather

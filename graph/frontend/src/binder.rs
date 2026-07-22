@@ -2956,16 +2956,41 @@ impl<'a> Binder<'a> {
                     })
                     .collect::<Result<_, BindError>>()?,
             ),
-            // Loop bodies, folds, and pattern subqueries have their own
-            // variable scopes; aggregates are not hoisted out of them.
+            // Loop bodies and pattern subqueries have their own variable
+            // scopes. Their input expressions still execute in the outer
+            // projection scope, where aggregates must be hoisted.
+            E::Quantifier {
+                kind,
+                variable,
+                list,
+                predicate,
+            } => E::Quantifier {
+                kind: *kind,
+                variable: variable.clone(),
+                list: self
+                    .extract_aggregate_calls(list, aggregations, hidden)
+                    .map(Box::new)?,
+                predicate: predicate.clone(),
+            },
+            E::ListComprehension {
+                variable,
+                list,
+                predicate,
+                map,
+            } => E::ListComprehension {
+                variable: variable.clone(),
+                list: self
+                    .extract_aggregate_calls(list, aggregations, hidden)
+                    .map(Box::new)?,
+                predicate: predicate.clone(),
+                map: map.clone(),
+            },
             E::Literal(_)
             | E::Variable(_)
             | E::Parameter(_)
-            | E::Quantifier { .. }
             | E::Reduce { .. }
             | E::PatternSubquery { .. }
-            | E::PatternPredicate { .. }
-            | E::ListComprehension { .. } => expression.value.clone(),
+            | E::PatternPredicate { .. } => expression.value.clone(),
         };
         Ok(cypher::Spanned {
             value,
@@ -5778,14 +5803,13 @@ fn contains_aggregate_call(expression: &cypher::Expression) -> bool {
         E::Cast { operand, .. } => spanned(operand),
         E::List(items) => items.iter().any(spanned),
         E::Map(entries) => entries.iter().any(|(_, value)| spanned(value)),
+        E::Quantifier { list, .. } | E::ListComprehension { list, .. } => spanned(list),
         E::Literal(_)
         | E::Variable(_)
         | E::Parameter(_)
-        | E::Quantifier { .. }
         | E::Reduce { .. }
         | E::PatternSubquery { .. }
-        | E::PatternPredicate { .. }
-        | E::ListComprehension { .. } => false,
+        | E::PatternPredicate { .. } => false,
     }
 }
 
