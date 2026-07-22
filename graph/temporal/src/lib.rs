@@ -158,20 +158,38 @@ impl Dur {
         }
         if normalized.seconds != 0 || normalized.nanos != 0 || out.len() == 1 {
             out.push('T');
-            let hours = normalized.seconds / 3600;
-            let minutes = (normalized.seconds % 3600) / 60;
-            let seconds = normalized.seconds % 60;
+            let total_nanos =
+                i128::from(normalized.seconds) * 1_000_000_000 + i128::from(normalized.nanos);
+            let negative = total_nanos < 0;
+            let magnitude = total_nanos.abs();
+            let total_seconds = magnitude / 1_000_000_000;
+            let nanos = magnitude % 1_000_000_000;
+            let hours = total_seconds / 3600;
+            let minutes = (total_seconds % 3600) / 60;
+            let seconds = total_seconds % 60;
+            let signed = |value: i128| {
+                if negative {
+                    format!("-{value}")
+                } else {
+                    value.to_string()
+                }
+            };
             if hours != 0 {
-                out.push_str(&format!("{hours}H"));
+                out.push_str(&format!("{}H", signed(hours)));
             }
             if minutes != 0 {
-                out.push_str(&format!("{minutes}M"));
+                out.push_str(&format!("{}M", signed(minutes)));
             }
-            if seconds != 0 || normalized.nanos != 0 || (hours == 0 && minutes == 0) {
-                if normalized.nanos == 0 {
-                    out.push_str(&format!("{seconds}S"));
+            if seconds != 0 || nanos != 0 || (hours == 0 && minutes == 0) {
+                if nanos == 0 {
+                    out.push_str(&format!("{}S", signed(seconds)));
                 } else {
-                    out.push_str(&format!("{seconds}.{:09}S", normalized.nanos));
+                    let fraction = format!("{nanos:09}");
+                    out.push_str(&format!(
+                        "{}.{}S",
+                        signed(seconds),
+                        fraction.trim_end_matches('0')
+                    ));
                 }
             }
         }
@@ -245,7 +263,14 @@ fn parse_fractional_seconds(text: &str) -> Option<(i64, i64)> {
                 digits.push('0');
             }
             let nanos: i64 = digits.parse().ok()?;
-            Some((seconds, if seconds < 0 { -nanos } else { nanos }))
+            Some((
+                seconds,
+                if whole.starts_with('-') {
+                    -nanos
+                } else {
+                    nanos
+                },
+            ))
         }
     }
 }
@@ -1805,6 +1830,44 @@ mod tests {
         assert_eq!(parsed.render(), "P1Y2M3DT4H5M6.000000007S");
         assert_eq!(Dur::parse("P2W").expect("weeks").days, 14);
         assert_eq!(Dur::default().render(), "PT0S");
+    }
+
+    #[test]
+    fn renders_fractional_duration_components_canonically() {
+        assert_eq!(
+            Dur::parse("PT0.400000000S").expect("parses").render(),
+            "PT0.4S"
+        );
+        assert_eq!(Dur::parse("PT-0.4S").expect("parses").render(), "PT-0.4S");
+        assert_eq!(
+            Dur {
+                seconds: -86_400,
+                nanos: 100_000_000,
+                ..Dur::default()
+            }
+            .render(),
+            "PT-23H-59M-59.9S"
+        );
+    }
+
+    #[test]
+    fn duration_between_preserves_negative_fractional_components() {
+        let between = |start: &str, end: &str| {
+            duration_between_impl(&[
+                ExtValue::from_text(start.to_owned()),
+                ExtValue::from_text(end.to_owned()),
+                ExtValue::from_text("seconds".to_owned()),
+            ])
+        };
+
+        assert_eq!(
+            between("12:34:54.7", "12:34:54.3").to_text(),
+            Some("PT-0.4S")
+        );
+        assert_eq!(
+            between("12:34:54.3", "12:34:54.7").to_text(),
+            Some("PT0.4S")
+        );
     }
 
     #[test]
