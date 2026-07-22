@@ -7,7 +7,7 @@ use std::{
 use thiserror::Error;
 use turso_core::{Connection, DatabaseOpts, MemoryIO, Numeric, OpenFlags, Value};
 use turso_graph_frontend::{
-    register_graph, GraphCompilationCatalog, GraphConnection, GraphRegistration,
+    register_graph, CatalogEntity, GraphCompilationCatalog, GraphConnection, GraphRegistration,
     NodeSourceRegistration, ParameterTypes, Parameters, RelationshipSourceRegistration,
     SnapshotStore,
 };
@@ -142,6 +142,10 @@ fn fixture(
         parameter_types,
     )
     .and_then(|fixture| {
+        // setup_sql runs after fixture construction, so raw INSERTs into
+        // people/relationships here would bypass the id/src/dst shadow-column
+        // backfill in build_fixture_with_io and read as NULL under Cypher
+        // property filters. Seed rows through seed_sql instead.
         for sql in &scenario.setup_sql {
             fixture
                 .connection
@@ -188,11 +192,8 @@ fn build_fixture_with_io(
     connection
         .execute("CREATE TYPE duration BASE TEXT; CREATE TABLE people(id INTEGER PRIMARY KEY, name TEXT, age INTEGER); CREATE TABLE relationships(id INTEGER PRIMARY KEY, src INTEGER, dst INTEGER);")
         .map_err(|error| RunnerError::Fixture(error.to_string()))?;
-    if !seed_sql.is_empty() {
-        connection
-            .execute(seed_sql)
-            .map_err(|error| RunnerError::Fixture(error.to_string()))?;
-    }
+    // Registration only validates table schema (PRAGMA table_info), not
+    // data, so it can run before seeding.
     let registered = register_graph(
         &connection,
         &GraphRegistration {
@@ -214,6 +215,36 @@ fn build_fixture_with_io(
         },
     )
     .map_err(|error| RunnerError::Fixture(error.to_string()))?;
+    let catalog: Arc<dyn GraphCompilationCatalog> =
+        Arc::new(crate::dynamic_catalog::DynamicCatalog::new(
+            connection.clone(),
+            registered.clone(),
+            "people".to_owned(),
+            "relationships".to_owned(),
+        ));
+    if !seed_sql.is_empty() {
+        connection
+            .execute(seed_sql)
+            .map_err(|error| RunnerError::Fixture(error.to_string()))?;
+        // `DynamicCatalog` routes the Cypher-visible `id`/`src`/`dst`
+        // properties to shadow `cyprop_*` columns so donor writes of
+        // non-integer `id` values never collide with the structural
+        // identity/endpoint columns (dynamic_catalog.rs, commit
+        // c70301053). This fixture seeds those structural columns
+        // directly via raw SQL, bypassing that routing, so mirror the
+        // seeded values into the shadow columns here — otherwise a
+        // Cypher `{id: N}`/`src`/`dst` property reference against seeded
+        // rows resolves the still-NULL shadow column instead.
+        mirror_structural_columns_into_property_shadows(
+            catalog.as_ref(),
+            registered.id,
+            &connection,
+            "people",
+            registered.node_sources[0].id,
+            "relationships",
+            registered.relationship_sources[0].id,
+        )?;
+    }
     connection
         .execute(format!(
             "INSERT INTO \"{}\"(node_id, label) SELECT id, 'Person' FROM people",
@@ -226,13 +257,6 @@ fn build_fixture_with_io(
             turso_graph_frontend::relationship_types_table_name(registered.id)
         ))
         .map_err(|error| RunnerError::Fixture(error.to_string()))?;
-    let catalog: Arc<dyn GraphCompilationCatalog> =
-        Arc::new(crate::dynamic_catalog::DynamicCatalog::new(
-            connection.clone(),
-            registered.clone(),
-            "people".to_owned(),
-            "relationships".to_owned(),
-        ));
     let session = GraphConnection::install(
         connection.clone(),
         &registered,
@@ -248,6 +272,50 @@ fn build_fixture_with_io(
         labels_table: turso_graph_frontend::labels_table_name(registered.id),
         types_table: turso_graph_frontend::relationship_types_table_name(registered.id),
     })
+}
+
+/// Copies the raw-SQL-seeded structural `id` (nodes) and `id`/`src`/`dst`
+/// (relationships) column values into the `cyprop_*` shadow columns
+/// `DynamicCatalog` resolves those Cypher property names onto (see
+/// dynamic_catalog.rs). Provisions each shadow column on first touch via
+/// the catalog's own `property` resolution — the same path a Cypher query
+/// would take — so the column and its `ResolvedProperty`/`property_column`
+/// mapping stay consistent with subsequent query compilation.
+fn mirror_structural_columns_into_property_shadows(
+    catalog: &dyn GraphCompilationCatalog,
+    graph: ir::GraphId,
+    connection: &Arc<Connection>,
+    node_table: &str,
+    node_source: ir::SourceTableId,
+    relationship_table: &str,
+    relationship_source: ir::SourceTableId,
+) -> Result<(), RunnerError> {
+    let shadow_column = |entity: CatalogEntity, name: &str, source: ir::SourceTableId| {
+        let property = catalog.property(graph, entity, name).ok_or_else(|| {
+            RunnerError::Fixture(format!("failed to provision `{name}` shadow column"))
+        })?;
+        catalog.property_column(source, property.id).ok_or_else(|| {
+            RunnerError::Fixture(format!("no physical column for `{name}` shadow property"))
+        })
+    };
+
+    let node_id = shadow_column(CatalogEntity::Node, "id", node_source)?;
+    connection
+        .execute(format!(
+            "UPDATE \"{node_table}\" SET \"{node_id}\" = \"id\""
+        ))
+        .map_err(|error| RunnerError::Fixture(error.to_string()))?;
+
+    let relationship_id = shadow_column(CatalogEntity::Relationship, "id", relationship_source)?;
+    let relationship_src = shadow_column(CatalogEntity::Relationship, "src", relationship_source)?;
+    let relationship_dst = shadow_column(CatalogEntity::Relationship, "dst", relationship_source)?;
+    connection
+        .execute(format!(
+            "UPDATE \"{relationship_table}\" SET \"{relationship_id}\" = \"id\", \
+             \"{relationship_src}\" = \"src\", \"{relationship_dst}\" = \"dst\""
+        ))
+        .map_err(|error| RunnerError::Fixture(error.to_string()))?;
+    Ok(())
 }
 
 fn parameter_types(parameters: &Parameters) -> ParameterTypes {
@@ -725,5 +793,39 @@ mod tests {
             .query("MATCH (n) RETURN count(n.tag)", &parameters)
             .expect("count query");
         assert_eq!(rows[0][0].to_string(), "2");
+    }
+
+    /// Regression for the interaction between `DynamicCatalog`'s
+    /// `id`/`src`/`dst` shadow-column routing (dynamic_catalog.rs, commit
+    /// c70301053) and raw-SQL fixture seeding: the shadow columns start
+    /// out NULL, so a Cypher `{id: N}`/`src`/`dst` property reference
+    /// against rows seeded directly into the real structural columns must
+    /// still see those values, not the empty shadow.
+    #[test]
+    fn raw_seeded_structural_columns_are_visible_as_cypher_properties() {
+        let fixture = build_fixture(
+            "raw-seeded-id-property",
+            "INSERT INTO people VALUES (1, 'Ada', 40), (2, 'Grace', 35); \
+             INSERT INTO relationships VALUES (10, 1, 2);",
+            ParameterTypes::new(),
+        )
+        .expect("fixture should initialize");
+        let parameters = Parameters::new();
+
+        let rows = fixture
+            .session
+            .query("MATCH (n:Person {id: 1}) RETURN n.name", &parameters)
+            .expect("id property filter should execute");
+        assert_eq!(rows[0][0].to_string(), "Ada");
+
+        let rows = fixture
+            .session
+            .query(
+                "MATCH ()-[r:KNOWS {id: 10}]->() RETURN r.src, r.dst",
+                &parameters,
+            )
+            .expect("relationship id/src/dst property reads should execute");
+        assert_eq!(rows[0][0].to_string(), "1");
+        assert_eq!(rows[0][1].to_string(), "2");
     }
 }
