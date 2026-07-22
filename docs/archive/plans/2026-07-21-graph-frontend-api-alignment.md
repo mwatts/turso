@@ -1,11 +1,54 @@
 # Graph Frontend API Alignment Implementation Plan
 
-> **Status: fully executed on 2026-07-21.** All six tasks landed on
-> `feature/graph-frontend` (commits `88cc63ce7`..`44dca7653`, follow-up
-> `440a4195f`), each task-reviewed plus a final whole-branch review. The
-> checkboxes below were tracked externally and are retained unticked as
-> written; do not re-execute this plan. `graph/README.md` documents the
-> delivered API.
+> **Status: fully executed on 2026-07-21.** Do not re-execute this plan.
+> The checkboxes below were tracked externally and are retained unticked
+> as written. See "Final state" directly below for what landed.
+
+## Final state (recorded 2026-07-21, post-execution)
+
+**Delivered API** (documented in `graph/README.md` and `docs/graph.md`):
+`GraphConnection` (root alias `Connection`) with `prepare`/
+`prepare_cancellable` returning the `Statement` wrapper
+(`result_types()`, `into_inner()`, `Deref` to `turso_core::Statement`),
+`query`/`query_cancellable`, `execute` → `MutationSummary`, `install`,
+and the new one-call setup `open_database`/`open_database_with_io` +
+`GraphConnection::open`/`open_with_parameters`; types `Error`,
+`Result<T>`, `Parameters`; `pub use turso_core as core` plus root
+re-exports. All old names (`GraphSession`, `GraphSessionError`,
+`MutationParameters`, `prepare_query`, `query_result_types`, `mutate`)
+are gone — hard renames, no compat aliases, since nothing outside
+`graph/` consumes the crate after the decoupling below.
+
+**Commit trail** on `feature/graph-frontend`:
+
+| Commit | What |
+|---|---|
+| `178437223` | revert(postgres): removed the `graph.cypher` adapter coupling — precondition that made alias-free renames possible |
+| `5a1014c79` | checkpoint of pre-existing branch WIP (kept task commits surgical) |
+| `0c5a4ceb6` | this plan document |
+| `88cc63ce7` | Task 1 — `Error`/`Result` + core re-exports (see caveat below) |
+| `4c147e5c3` | Task 2 — `GraphConnection`/`Connection`/`Parameters` |
+| `f966111bd` | Task 3 — `Statement` wrapper, `prepare` rename, `query_result_types` removed |
+| `26d26664c` | Task 4 — `mutate` → `execute` |
+| `b16750389` | Task 5 — `open_database` + `GraphConnection::open` |
+| `ca3947ca4` | repair of pre-existing clippy breakage in `tests/integration/` (gate prerequisite, user-approved scope exception) |
+| `44dca7653` | Task 6 — README quickstart + separation/roadmap notes |
+| `440a4195f` | final-review follow-up: double-failure snapshot-clear logging + README snippet fix |
+
+**Review outcome:** each task passed an independent spec+quality review;
+the final whole-branch review returned "with fixes / explicit sign-off"
+and both items were resolved (follow-up commit above; history caveat
+accepted). **Known caveat:** `88cc63ce7` is labeled a pure rename but
+also carries the pre-existing `session.rs` WIP (temporal-extension
+install, four tests, `strip_explain_prefix` rewrite, mutate clear-failure
+handling) that the checkpoint split failed to separate for that one
+file — accepted as-is by the author; relevant to anyone bisecting.
+
+**Verification at completion:** `cargo clippy --workspace --all-features
+--all-targets -- --deny=warnings` exit 0; full workspace `cargo test`
+green; `make test` (all 13 targets, incl. 1,843 sqltest conformance
+cases) green; `turso_graph_frontend` 117 tests including the new
+`api_surface` suite.
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 

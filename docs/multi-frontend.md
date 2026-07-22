@@ -462,6 +462,7 @@ frontend, and none is planned as a default.
 
 | Topic | Reference |
 |-------|-----------|
+| Consumer usage guide (sessions, parameters, transactions, snapshots) | [`docs/graph.md`](graph.md) |
 | Crate layout, quickstart, API shape | [`graph/README.md`](../graph/README.md) |
 | Design rationale, Postgres-adapter removal | [`graph/DESIGN_DECISIONS.md`](../graph/DESIGN_DECISIONS.md) |
 | Conformance contract and live numbers | [`graph/CONFORMANCE.md`](../graph/CONFORMANCE.md), `graph/test-results/REPORT.md` |

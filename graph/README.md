@@ -25,6 +25,9 @@ cypher   runtime
 
 ## Quickstart
 
+Full consumer guide — registration, sessions, parameters, transactions,
+traversal snapshots — lives in [`docs/graph.md`](../docs/graph.md).
+
 ```rust
 let (io, db) = turso_graph_frontend::open_database(
     "app.db",
