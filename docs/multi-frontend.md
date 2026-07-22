@@ -10,14 +10,13 @@
 > authoritative.
 >
 > **Update (2026-07-21, later):** the public session API was subsequently
-> renamed (`GraphSession`->`GraphConnection`, `prepare_query`->`prepare`,
-> `mutate`->`execute`, `query_result_types`->`Statement::result_types()`,
-> `MutationParameters`->`Parameters`), and the Postgres
-> `graph.cypher()`/`install_graph` adapter described here was deliberately
-> **removed** -- the Postgres and graph frontends are separate crates; apps
-> compose them on one core connection via
+> simplified and renamed to today's `GraphConnection` type with
+> `prepare`/`query`/`execute`/`Statement::result_types()`/`Parameters`, and
+> the Postgres `graph.cypher()`/`install_graph` adapter described here was
+> deliberately **removed** -- the Postgres and graph frontends are separate
+> crates; apps compose them on one core connection via
 > `Connection::register_frontend_compiler`. See `graph/README.md` for the
-> current API.
+> current API and the exact old-name -> new-name mapping.
 
 How Turso exposes database work as VDBE bytecode, how the SQLite and Postgres
 frontends share one backend, and what it would take to add further frontends
@@ -46,11 +45,11 @@ per-session dialect state are already generic extension points.
 | Proposal | Feasibility | What the code proves / what is missing |
 |----------|-------------|-----------------------------------------|
 | Add another SQL-like frontend on its own database | **High** | PostgreSQL provides a working parser, translator, `Dialect`, session, catalog, and wire-server pattern. |
-| Add a relational Cypher subset over graph tables | **Medium–high** | Fixed-length patterns lower to joins and DML. Recursive CTEs are explicitly rejected today, so variable-length paths need a new traversal plan. |
+| Add a relational Cypher subset over graph tables | **Delivered** | Fixed-length patterns lower to joins and DML; variable-length traversal now has a plan: the `__turso_graph_expand` internal vtab / `GraphExpand` IR operator (shipped, see §6). Recursive CTEs remain explicitly rejected in core `WITH RECURSIVE`; the graph frontend does not need them. |
 | Add a Turso-backed topic API | **Medium** | Append/fetch/offset tables fit the VDBE and transactions. Durable offset allocation, wakeups/long polling, retention, and group coordination are product code. |
 | Implement a Kafka-compatible broker | **Low without major work** | The Kafka protocol, record batches, group coordinator, replication/ISR, fetch sessions, and Kafka performance model do not exist in-tree. |
 | Concurrent SQLite + PG + Cypher + Kafka sessions on one file | **Medium–high after prerequisites; unsupported today** | One `Database` owns one `Dialect`; parsing on reprepare, function resolution, schema formatting, and catalogs all use it. A host dialect alone does not provide safe per-session semantics. |
-| Cypher with derived traversal acceleration | **Medium with the §6 plan** | Uni, AGE, and Grafeo reduce frontend/semantic risk; a pgGraph-derived CSR runtime reduces traversal risk. Turso still needs graph IR, `GraphExpand`, freshness, transaction-overlay, and resource-limit work. |
+| Cypher with derived traversal acceleration | **Delivered** | Graph IR, `GraphExpand`, snapshot freshness, transaction-overlay, and resource-limit work landed on `feature/graph-frontend`; see §6 and `graph/README.md` / `graph/CONFORMANCE.md`. |
 | Full Neo4j execution and compatibility characteristics | **Low without major work** | The selected path does not provide Neo4j's store, complete language/protocol surface, clustering, or operational behavior. |
 
 The practical conclusion is:
@@ -74,12 +73,12 @@ The practical conclusion is:
 | Blocker | Evidence in this tree | Lowest-risk removal path |
 |---------|-----------------------|--------------------------|
 | One database-wide dialect | `Database::dialect`, `Connection::dialect`, `check_registry_dialect` | Keep one host dialect, but introduce an explicit `FrontendId`/compile context on prepare rather than inferring the frontend from SQL text. |
-| AST-only statements lose their frontend on reprepare | `Statement::reprepare` reparses `program.sql` through `conn.parse_sql`; `core/dialect/mod.rs` tests this | Store a reprepare recipe (frontend id + source text, or canonical AST) in `PreparedProgram`; short term, prefix source text with an unambiguous frontend marker and make the host parser dispatch it. |
+| ~~AST-only statements lose their frontend on reprepare~~ **RESOLVED** | `PreparedSource::Frontend { frontend, source }` plus `Connection::register_frontend_compiler` / `prepare_frontend` (`core/connection.rs`); `Statement::reprepare` re-dispatches through `compile_prepared_source` to the registered `FrontendCompiler`, so frontend identity survives reprepare | Shipped; no further work needed for this blocker. |
 | Function semantics are database-wide | `Resolver::resolve_function` and `Insn::Function` execution call the database dialect | Canonicalize frontend functions to collision-free internal names, or pass a frontend-specific resolver/executor in the prepare context. Do not union ambiguous names silently. |
 | No real same-file namespaces | Main has one `sqlite_schema`; PG `CREATE SCHEMA` uses `ATTACH` and extra files | Start with reserved physical-name prefixes plus an ownership table. Rewrite and validate names before core translation; later add a resolver-level namespace policy so every nested reference is covered. |
 | Session-only checks are bypassable | Raw `Arc<Connection>` can prepare arbitrary SQL/AST | Keep the raw connection private to frontend sessions and the coordinator. For a security boundary, add authorization hooks in name resolution and DDL/DML compilation. |
 | Schema ownership is incomplete | Only table DDL has dialect formatting hooks; views/triggers are stored and reloaded as canonical SQLite AST | Require each lowerer to produce canonical engine AST for non-table schema objects. Extend the dialect schema codec only if a frontend must preserve native text for those objects. |
-| Recursive graph traversal is absent | `core/translate/planner.rs` rejects `with.recursive` | Implement the §6 `GraphExpand` contract over the extracted pgGraph CSR runtime; keep planning and resumable execution in Turso core rather than frontend orchestration. |
+| Recursive graph traversal via `WITH RECURSIVE` is absent (core SQL only) | `core/translate/planner.rs` rejects `with.recursive` | Not needed: the graph frontend's variable-length traversal ships as the `__turso_graph_expand` internal vtab / `GraphExpand` IR operator (§6), independent of core recursive CTEs. |
 | Durable log offsets are not a rowid synonym | Rowid/AUTOINCREMENT behavior is SQL-oriented and gives no partition/offset semantics | Maintain `next_offset` per partition and allocate a batch range transactionally with the append. Test crash, rollback, concurrency, retention, and MVCC modes. |
 | No on-disk dialect/host identity | The registry protects only live in-process opens | Use a canonical SQLite metadata table (and optionally `application_id`) validated before user-schema decoding. Do not change the SQLite file header layout. |
 
@@ -319,8 +318,9 @@ this path; translation targets Turso’s AST, then the normal bytecode pipeline.
 - Functions: PG-specific names → `Func::Dialect` + `exec_scalar_function`; else
   compose `resolve_builtin_function`
 
-Open path: `open_database` / `open_database_with_io` pass
-`Arc::new(PostgresDialect)` into `Database::open_with_flags_with_allocator`.
+Open path: `open_database` / `open_database_with_io` (`postgres/frontend/session.rs`)
+pass `Arc::new(PostgresDialect)` into
+`turso_core::Database::open(io, path, OpenOptions::new(dialect).storage(db_file).flags(flags).db_opts(opts))`.
 
 ### 4.4 Wire protocol
 
@@ -377,10 +377,12 @@ Use Postgres as the template. Minimum vertical slice:
    - Wrap `Arc<Connection>`
    - Prefer `prepare_translated_stmt(engine_stmt, original_input)` after
      translation (preserves original text for schema + diagnostics)
-   - Ensure `original_input` is parseable by the database dialect during
-     statement reprepare. A future prepare context should retain frontend id +
-     reprepare recipe; until then a host dialect needs explicit source markers
-     and deterministic dispatch.
+   - For frontends that are not translated to engine AST up front, prefer
+     `Connection::register_frontend_compiler` / `prepare_frontend` with a
+     `PreparedSource::Frontend { frontend, source }`: the prepare context
+     retains frontend id and source today, and `Statement::reprepare`
+     re-dispatches through the registered `FrontendCompiler`, so identity
+     survives reprepare without host-dialect source markers.
    - Keep the raw connection private if namespace ownership is meant to be an
      invariant rather than a convention.
    - Multi-statement split in the frontend (see `split_statements`)
@@ -401,502 +403,86 @@ Use Postgres as the template. Minimum vertical slice:
 
 ## 6. Cypher / graph frontend (Neo4j-style)
 
-### 6.1 Goal
-
-Expose a **graph query language** (Cypher as the concrete example) while
-storing and executing against Turso’s single backend. Clients might speak
-Bolt (Neo4j) or a simpler HTTP/JSON API; the language + model matter more than
-the first wire protocol.
-
-### 6.2 Chosen implementation path
-
-The graph frontend should proceed as a mixed-source implementation with one
-Turso-owned boundary:
-
-```text
-Uni Cypher parser
-    +
-Grafeo-informed shared graph IR
-    +
-AGE relational lowering rules
-    +
-pgGraph-derived CSR/traversal runtime
-    +
-Turso catalog, planner, VDBE, storage, and transactions
-```
-
-This makes the project materially more feasible, but **not** because the
-existing Postgres frontend can load or host pgGraph unchanged. pgGraph is a
-PostgreSQL `pgrx` extension and depends on PostgreSQL ABI and lifecycle
-facilities that Turso's Postgres-compatible parser, catalog, and wire server do
-not implement. The useful asset is its portable Rust graph runtime: CSR
-construction, forward/reverse adjacency, traversal algorithms, filtering,
-bounded-path safety, and the `CatalogSnapshot`-style adapter seam.
-
-The architecture therefore extracts and adapts pgGraph algorithms behind
-Turso-owned interfaces. It does not emulate SPI, background workers, GUCs,
-PostgreSQL transaction callbacks, OIDs, `regclass`, ACL/RLS, or the `pgrx`
-extension ABI.
-
-### 6.3 Scope and success criteria
-
-The first deliverable is a graph frontend over ordinary Turso tables with:
-
-- Cypher parsing, binding, diagnostics, parameters, and prepared-statement
-  reprepare that retain frontend identity.
-- Fixed-length reads lowered into the existing relational planner and VDBE.
-- Bounded variable-length and shortest-path reads backed by a derived CSR
-  runtime without bypassing Turso transactions or storage ownership.
-- A graph catalog with stable Turso identifiers and explicit graph-to-table
-  mappings.
-- One source of truth: node and relationship rows committed through Turso.
-  CSR data is derived, rebuildable state.
-- A thin Postgres-facing `graph.*` compatibility surface that calls the same
-  graph services as Cypher and future HTTP/Bolt adapters.
-
-The initial plan does **not** promise the pgGraph extension ABI, Neo4j's disk
-format, the complete openCypher language, arbitrary graph algorithms, Bolt,
-background index maintenance, or PostgreSQL ACL/RLS behavior.
-
-### 6.4 Ownership boundary
-
-```text
-Cypher text                  Postgres graph.* SQL
-    |                               |
-    v                               v
-Uni-derived source AST       thin Postgres adapter
-    |                               |
-    +---------------+---------------+
-                    v
-             Turso graph binder
-                    |
-                    v
-          Turso-owned bound graph IR
-              |                 |
-      fixed/relational      path expansion
-              |                 |
-              v                 v
-       AGE-informed SQL      GraphExpand
-          lowering          logical operator
-              |                 |
-              v                 v
-       Turso planner/VDBE  pgGraph-derived runtime
-              |                 |
-              +--------+--------+
-                       v
-       Turso catalog, rows, storage, WAL/MVCC,
-             transactions, and async I/O
-```
-
-The following rules keep the seam stable:
-
-- Donor AST, value, catalog, physical-plan, record-id, and storage types do not
-  cross into core.
-- The binder and bound graph IR are Turso code. Resolved identifiers use
-  stable newtypes such as `GraphId`, `GraphTableId`, `NodeId`, and
-  `RelationshipTypeId`, not PostgreSQL OIDs.
-- Fixed patterns, filtering, projection, aggregation, `WITH`, and optional
-  joins use the existing relational planner wherever their semantics can be
-  represented correctly.
-- `GraphExpand` is a small logical/core contract for topology operations. The
-  frontend and pgGraph-derived runtime never assemble VDBE instructions.
-- The traversal runtime returns graph identities/path state; row hydration and
-  expressions remain Turso planner/VDBE work unless a proven, typed pushdown is
-  added.
-- All database I/O remains resumable and yield-safe. CSR code may be
-  synchronous over an immutable in-memory snapshot, but building, loading, or
-  refreshing that snapshot must use Turso's async I/O state-machine model.
-- The Postgres adapter translates SQL functions/table functions into graph IR
-  or graph service requests. It is not a second graph engine.
-
-### 6.5 Proposed module layout and contracts
-
-Use repository-level graph crates/modules parallel to `postgres/`, rather than
-placing reusable graph code under `postgres/frontend`:
-
-```text
-graph/
-  cypher/       Uni-adapted lexer, parser, source AST, diagnostics
-  ir/           binder, bound IR, catalog traits, semantic errors
-  runtime/      pgGraph-derived CSR, traversal, overlays, resource limits
-  frontend/     session, lowering orchestration, prepared input
-postgres/
-  frontend/     thin graph.* compatibility adapter
-core/
-  translate/    GraphExpand planning/lowering integration only
-  vdbe/         resumable execution support only where required
-```
-
-Final crate names should follow the workspace's existing naming convention,
-but the dependency direction is mandatory:
-
-```text
-cypher -> ir <- postgres adapter
-             |
-             +-> relational lowerer -> existing planner
-             +-> runtime port/trait  -> pgGraph-derived runtime
-
-core depends only on Turso-owned graph contracts, never parser or pgrx types.
-```
-
-Required contracts:
-
-| Contract | Responsibility |
-|----------|----------------|
-| `FrontendId` + `ReprepareRecipe` | Preserve source language, original text, parameters, and compiler across schema-triggered reprepare |
-| `GraphCatalogSnapshot` | Resolve graph names, mapped tables/columns, labels, relationship types, properties, and stable Turso ids without SPI |
-| `BoundGraphPlan` | Express scans, expands, filters, projections, joins/applies, aggregates, ordering, limits, and later mutations |
-| Relational lowerer | Convert relationally expressible graph IR into Turso AST while preserving Cypher null/scope semantics |
-| `TraversalSnapshot` | Immutable, versioned CSR view with forward/reverse adjacency and optional typed filter indexes |
-| `TraversalRequest` / result cursor | Direction, type set, hop bounds, uniqueness mode, limits, cancellation, and deterministic output |
-| Transaction overlay | Make in-transaction graph changes visible to the same transaction without publishing them before commit |
-| Graph maintenance service | Build, mark stale, refresh, publish, invalidate, and account for derived snapshots |
-
-### 6.6 Data and derived-state model
-
-Canonical graph data remains relational. A graph registration maps logical
-node and relationship types to ordinary Turso tables and indexed endpoint
-columns. Catalog metadata is stored in reserved internal tables in the same
-database file.
-
-The CSR is a **derived index**, not a second authoritative database:
-
-1. Read a consistent Turso snapshot through normal statements.
-2. Build forward and reverse adjacency plus any selected filter indexes.
-3. Tag the snapshot with graph/catalog and data-version information.
-4. Publish it atomically only after a complete build.
-5. Reject, rebuild, or fall back when its freshness contract is not met.
-
-The MVP should use an explicit build/refresh command and an immutable in-memory
-snapshot. This removes PostgreSQL background-worker and `$PGDATA` assumptions
-while the semantics are proven. Persistence is a later decision gate:
-
-- **Preferred one-file path:** internal tables or opaque chunks managed by
-  Turso and rebuilt transactionally.
-- **Simplest correctness fallback:** rebuild on open or on demand.
-- **Optional product choice:** a derived sidecar, only if the one-file promise
-  is explicitly relaxed. A `.pggraph` sidecar must not appear accidentally.
-
-Writes require a base snapshot plus a transaction-local overlay. Commit may
-publish or schedule a new derived version only after the Turso transaction
-commits; rollback drops the overlay. Savepoint behavior must be specified
-before graph mutations are enabled.
-
-### 6.7 Detailed implementation plan
-
-Each milestone has an exit gate. Later milestones may prototype in parallel,
-but no public surface should depend on a milestone whose gate has not passed.
-
-#### M0 — freeze semantics, provenance, and baselines
-
-- Pin the exact Uni, Grafeo, AGE, and pgGraph revisions used for adaptation.
-- Record every adapted or translated file's source path, license, revision,
-  and whether it is copied, structurally adapted, or behaviorally rewritten.
-- Select the first openCypher feature slice and convert a small set of AGE,
-  pgGraph, Grafeo, and Ladybug cases into frontend-neutral scenarios.
-- Decide graph identity, path uniqueness modes, deterministic ordering rules,
-  maximum hop/path/memory limits, and error categories.
-
-**Exit:** architecture decision record, provenance manifest, compatibility
-matrix, and tests that fail because the frontend is not implemented—not
-because fixtures were silently skipped.
-
-#### M1 — frontend-aware prepare and reprepare
-
-- Add `FrontendId` and a reprepare recipe to prepared input/program state.
-- Ensure initial prepare and schema-triggered reprepare invoke the same
-  frontend compiler.
-- Define collision-free internal function names or a prepare-scoped resolver.
-- Add focused tests for schema changes, parameters, errors, and abandoned
-  statements.
-
-**Exit:** a synthetic non-SQL frontend statement can be prepared, invalidated,
-and correctly reprepared without entering the SQLite parser.
-
-#### M2 — parser, binder, catalog, and shared graph IR
-
-- Extract only Uni's Cypher grammar, source AST, spans, and diagnostics needed
-  for the selected language slice.
-- Implement a Turso binder over `GraphCatalogSnapshot`; do not reuse Uni's
-  Arrow values, catalog, physical plans, or executor.
-- Define the minimal graph IR using Grafeo's operator taxonomy as a design
-  reference. Start with scan, fixed expand, filter, project, aggregate, sort,
-  skip/limit, distinct, optional/left apply, union, and unwind.
-- Create reserved catalog tables and stable identifier allocation.
-
-**Exit:** parser and binder suites produce stable bound plans and typed errors
-without touching donor execution or storage code.
-
-#### M3 — fixed-length relational reads
-
-- Lower node scans and fixed one/multi-hop patterns to Turso AST.
-- Implement property/label/type predicates, parameters, projection,
-  aggregation, `WITH`, `OPTIONAL MATCH`, `UNWIND`, sort, skip, and limit.
-- Follow AGE's proven clause-placement rules—for example, optional-match
-  predicates belong in join conditions rather than post-join filters.
-- Add endpoint, label, and relationship-type indexes through ordinary Turso
-  schema operations.
-
-**Exit:** the selected read-only TCK slice and AGE/Grafeo fixed-pattern
-regressions pass through the normal Turso planner and VDBE.
-
-#### M4 — extract the pgGraph traversal runtime
-
-- Create a pgrx-free runtime crate from pgGraph's CSR, forward/reverse
-  adjacency, BFS/DFS, bounded traversal, shortest/weighted path, filter, and
-  resource-limit code.
-- Replace SPI/catalog/OID access with `GraphCatalogSnapshot` and Turso row-scan
-  inputs. Replace PostgreSQL errors and memory contexts with typed Rust errors
-  and explicit resource accounting.
-- Preserve applicable pgrx-free unit tests and add equivalence fixtures against
-  the pinned pgGraph behavior.
-- Build immutable snapshots explicitly from a consistent Turso read.
-
-**Exit:** the runtime builds and queries a CSR from Turso-provided rows with no
-`pgrx`, PostgreSQL server, `$PGDATA`, background worker, GUC, SPI, or OID
-dependency.
-
-#### M5 — integrate `GraphExpand`
-
-- Define the core logical operator with direction, allowed relationship types,
-  lower/upper hop bounds, uniqueness mode, predicates, and output shape.
-- Let the optimizer combine relational scans/filters with expansion while
-  retaining a clear cost and cardinality boundary.
-- Execute expansion through a resumable cursor. Hydrate node/edge properties
-  through Turso; push filters into CSR only when semantics and invalidation are
-  proven equivalent.
-- Add cancellation, deterministic memory/path caps, and yield/failure tests.
-
-**Exit:** bounded variable-length and shortest-path scenarios pass under
-normal, injected-yield, cancellation, and resource-exhaustion execution.
-
-##### Graph cursor decision record (2026-07-17)
-
-The synchronous virtual-table spike failed the fairness gate: a single
-`VFilter` or `VNext` call could consume the complete traversal work budget
-before producing a row. The selected implementation retains the virtual-table
-planning boundary but makes only the internal graph cursor resumable. Turso's
-internal-vtable adapter now accepts `Row`, `Done`, or `Yield`; existing internal
-tables keep their synchronous default, while `GraphExpand` advances at most 256
-state/adjacency operations and returns an explicit cooperative yield when more
-work remains. No graph opcode and no general asynchronous virtual-table API are
-needed.
-
-The reproducible debug-build gate in
-`graph/runtime/examples/cursor_gate.rs` uses a 100,000-edge star whose requested
-two-hop result set is empty, an adversarial case for work before first output.
-Three local runs produced 1,172 cursor calls and 1,171 yields, took
-49.2–49.7 ms total, and had a maximum individual call of 0.547–0.625 ms. Wall
-times are machine-specific; the enforced contract is the deterministic
-256-operation quantum. Tests additionally prove that:
-
-- a 300-edge high-fanout `VFilter` yields before completing, resumes to the
-  exact three rows of the only two-hop path, and may be abandoned at the yield;
-- connection interruption is observed on the next quantum;
-- node, edge, path, hop, work, and retained-memory limits fail explicitly; and
-- adjacency filtering itself advances one raw CSR edge at a time, so a single
-  high-degree node cannot bypass the quantum.
-
-**Decision:** retain `GraphExpand` as an internal table-valued scan with its
-specialized resumable cursor. Revisit a dedicated opcode only if later
-predicate pushdown or weighted-shortest-path measurements cannot satisfy the
-same bounded-call contract.
-
-#### M6 — transaction visibility and mutations
-
-- Add `CREATE`, `SET`, `REMOVE`, `DELETE`/`DETACH DELETE`, then `MERGE` to IR
-  and relational lowering.
-- Implement transaction-local adjacency overlays or a correctness-preserving
-  relational fallback so a transaction reads its own writes.
-- Define commit publication, rollback, savepoint, schema-change, and stale
-  snapshot behavior.
-- Never update derived graph state ahead of the authoritative row commit.
-
-**Exit:** mutation TCK cases and multi-connection rollback/visibility tests
-pass in supported transaction modes, including injected failures.
-
-**D1 implementation checkpoint (2026-07-17):** the Cypher source AST, Turso-owned
-mutation IR, binder, and relational executor now cover `CREATE`, property
-`SET`/`REMOVE`, `DELETE`, `DETACH DELETE`, and property/end-point based `MERGE`.
-The read frontend remains a single-statement `FrontendCompiler`; mutations use
-a separate validated request boundary because a multi-entity mutation cannot
-be represented atomically by that interface. The executor materializes the
-matched binding identities, applies ordinary Turso DML once per match row, and
-wraps the complete Cypher statement in a savepoint. This preserves an outer
-transaction while rolling back all earlier row changes on a later constraint,
-detach, or statement error. Focused tests cover per-match creation, parameters,
-missing matches, uniqueness failure, detach behavior, merge idempotence, and
-outer rollback.
-
-This checkpoint deliberately does not publish or patch the shared CSR snapshot.
-Transaction-local read-your-writes and snapshot invalidation remain the next M6
-task. Mutation queries currently require `MATCH` clauses to precede writes and
-reject `WITH`, `UNWIND`, `RETURN`, named paths, variable-length creation, and
-whole-map updates rather than approximating their semantics.
-
-**D2 implementation checkpoint (2026-07-17):** `GraphSession` now owns the
-connection-local query/mutation lifecycle. Immediately before each
-variable-length query it rebuilds a private CSR from rows visible to that
-connection inside a nested savepoint. The completed candidate replaces only
-that session's overlay; it is never published to the shared snapshot store.
-Rebuilding on every variable traversal is the correctness fallback from the
-delivery plan: commit, rollback, savepoint rollback, mutation failure, and
-statement cancellation cannot leave a transaction-generation cache stale.
-Fixed-pattern reads continue through ordinary relational lowering without an
-unnecessary CSR rebuild.
-
-Internal virtual tables are database-schema scoped rather than connection
-scoped. Session overlays therefore live in the shared snapshot registry as
-weak `(Connection, SessionSnapshotStore)` registrations, and the graph cursor
-selects its overlay using the `Arc<Connection>` supplied by `open`. This is
-required for MVCC, where schema refresh can replace a connection's prior table
-object. WAL and MVCC tests prove same-transaction visibility, cross-connection
-isolation, explicit commit and rollback, nested savepoint rollback, autocommit,
-failed mutation cleanup, and cancelled rebuild behavior. The existing
-resumable-cursor abandonment tests cover dropping execution after a local
-snapshot has been selected. A transaction/generation delta cache remains a
-measurement-gated optimization, not part of the correctness contract.
-
-#### M7 — Postgres graph compatibility adapter
-
-- Expose a deliberately scoped `graph.*` SQL API through
-  `postgres/frontend`; translate calls to the shared graph services.
-- Rewrite schema-qualified range/table functions to collision-free internal
-  functions where the existing translator cannot preserve qualification.
-- Replace pgGraph `regclass`/OID arguments with stable name/id resolution.
-- Document unsupported named arguments, arrays/compound results, ACL/RLS,
-  triggers, and background maintenance rather than approximating them.
-- Optionally accept `CREATE EXTENSION graph` only as activation syntax for the
-  built-in adapter; it must not claim general pgrx extension loading.
-
-**Exit:** Postgres clients can create/register a graph, build it, and execute
-the supported graph query/functions through the shared runtime, with an exact
-compatibility matrix.
-
-#### M8 — derived-state maintenance and persistence
-
-- Choose rebuild-on-demand versus one-file persisted chunks using measured
-  build time, memory, startup, and write-amplification data.
-- Add stale/version detection and an atomic publish protocol.
-- Integrate post-commit refresh scheduling without PostgreSQL background-worker
-  assumptions; a host service may schedule work through normal Turso
-  connections.
-- Test crashes during build/publish, abandoned refreshes, schema changes, and
-  recovery. Derived corruption must be recoverable by discard/rebuild and must
-  not corrupt canonical rows.
-
-**Exit:** freshness is observable and enforced, recovery is deterministic, and
-the chosen persistence mode satisfies the one-file product contract.
-
-**D4 implementation checkpoint (2026-07-17):** the selected MVP mode is
-explicit in-memory rebuild on demand. `SnapshotStore` exposes the mode and a
-`Missing`/`Current`/`Stale` status with catalog version, source generation,
-build duration, graph size, retained-memory estimate, and conservative
-peak-build estimate. Snapshot consumers validate freshness against the rows
-visible to their connection; sessions reuse a current generation and lazily
-rebuild after the next committed or transaction-local generation change.
-
-The checked-in `snapshot_profile` example measures startup, build, refresh,
-memory, and durable write amplification. On the recorded development run, a
-100,000-node/99,999-edge sparse chain rebuilt in about 0.54 seconds, retained
-about 18.3 MiB, conservatively peaked at 27.5 MiB, and wrote zero derived bytes.
-This meets the recorded experimental envelope, so same-file chunks would add a
-publish/recovery format without evidence that the MVP needs it. Restart,
-discard, stale publish, cancellation, resource failure, schema damage, and
-rebuild tests prove the derived state can disappear without changing canonical
-rows. D5 benchmark shapes remain the gate that can reopen same-file persistence;
-a sidecar remains outside the one-file product contract.
-
-#### M9 — conformance, optimization, and protocol surfaces
-
-- Expand TCK coverage and keep unsupported scenarios visible.
-- Profile before importing Samyama/Grafeo optimizer ideas; add only rules with
-  measured benefit and equivalent semantics.
-- Add HTTP/JSON first. Add Bolt only if client demand justifies its protocol,
-  transaction, and type-system surface.
-- Publish compatibility, resource-limit, operational, and migration docs.
-
-**Exit:** the compatibility target, performance envelope, and operational
-failure modes are reproducible in CI and documented for users.
-
-**D5 implementation checkpoint (2026-07-17):** an executable, provenance-complete
-18-scenario corpus now covers the TCK-via-Uni, AGE, Grafeo, pgGraph, Ladybug,
-SparrowDB, CQLite, and Samyama. The checked report has 12 supported, zero failed,
-and six unsupported scenarios; CI separates all three outcomes, rejects zero
-discovery, preserves ordered results, and treats unordered results as multisets.
-The corpus also confirmed that AGE-style omitted traversal bounds are supported
-under Turso's finite runtime caps, replacing the earlier deferred classification.
-
-Divan CSR-build benchmarks cover manifest-defined sparse, dense, skewed, cyclic,
-and high-degree graphs, while tests force node, relationship, and memory-limit
-failures on every shape. The recorded medians range from about 1.0 to 4.6 ms for
-the selected inputs. No optimizer transplant is justified by this baseline;
-Samyama and Grafeo remain evidence-triggered donors rather than dependencies.
-
-Optional HTTP/JSON and Bolt surfaces are explicitly deferred. They were not
-approved as part of this implementation goal; `GraphSession` remains the shared
-service seam and the Postgres `graph.cypher` adapter is the delivered external
-surface. Any future protocol must remain a thin adapter with a separately
-approved authentication, namespace, cancellation, timeout, and transaction
-lifecycle contract.
-
-### 6.8 Verification strategy
-
-| Layer | Primary verification |
-|-------|----------------------|
-| Parser | Uni/openCypher golden cases, source-span/error tests, parser fuzzing |
-| Binder/IR | Scope/type/error tests and bound-plan snapshots |
-| Relational lowering | `.sqltest` coverage where SQL-visible semantics fit; AGE-derived clause regressions |
-| Runtime extraction | Ported pgrx-free pgGraph unit tests plus differential fixtures |
-| Session/API | Rust integration tests for prepare/reprepare, parameters, multi-connection visibility, and rollback |
-| Core traversal | Deterministic simulator and yield/failure injection for cursor state, cancellation, and abandonment |
-| Conformance | Upstream openCypher TCK with explicit feature tags and a hard failure on zero discovered scenarios |
-| Persistence | Crash/reopen, stale-version, interrupted-build, corruption-discard, and rebuild tests |
-
-Tests should encode graph semantics, not donor storage behavior. Storage, WAL,
-and general transaction cases remain Turso tests; donor suites contribute only
-frontend-observable behavior not already covered.
-
-### 6.9 Blocking decisions and removal paths
-
-| Decision/blocker | Default or removal path |
-|------------------|-------------------------|
-| Frontend identity is lost on reprepare | Complete M1 before exposing Cypher prepared statements |
-| pgGraph assumes PostgreSQL server services | Extract algorithms behind Turso traits; do not emulate pgrx/SPI/bg workers |
-| CSR freshness after writes | Explicit versioning plus transaction overlay; start with explicit rebuild |
-| Same-file requirement conflicts with `.pggraph` | Default to memory/rebuild, then internal Turso persistence; sidecar requires an explicit product change |
-| Path uniqueness/termination | Make mode, bounds, visited state, and limits explicit in IR and tests |
-| Recursive CTEs are unavailable | Use `GraphExpand`; recursive CTE support is not a prerequisite |
-| Postgres OIDs/`regclass` are unstable or absent | Resolve stable Turso catalog ids/names at the adapter boundary |
-| Postgres API shapes exceed current translator/types | Publish a narrow compatibility API; add named args/compound values only as independent frontend features |
-| CSR memory or build cost is unbounded | Resource accounting, cancellation, graph size limits, and benchmark gates before persistence |
-| Read-your-writes across derived state | Transaction-local overlay or relational fallback; never serve a known-stale snapshot silently |
-| Namespace isolation is only cooperative | Keep raw connections private for MVP; complete §8 ownership/authorization hooks before claiming a security boundary |
-
-### 6.10 Recommended delivery slices
-
-1. **Feasibility spike:** M0–M2 plus a pgrx-free CSR build and one bounded BFS
-   over Turso rows. This validates both critical seams before broad language
-   work.
-2. **Read-only MVP:** M3–M5 with explicit graph build, fixed patterns,
-   bounded variable paths, and shortest path through the Cypher session.
-3. **Postgres-accessible MVP:** the narrow M7 adapter over the same catalog,
-   IR, and runtime—not a separate pgGraph port.
-4. **Transactional graph:** M6 with overlays/read-your-writes and defined
-   rollback/savepoint behavior.
-5. **Operational graph:** M8–M9 persistence, maintenance, broader conformance,
-   optimization, and optional protocols.
-
-The first go/no-go gate is the feasibility spike. It succeeds only if the Uni
-AST can bind into Turso-owned IR and the extracted pgGraph runtime can build
-and traverse from Turso row snapshots without PostgreSQL facilities. Passing
-only one of those proofs is insufficient.
+> This section used to be a ~500-line implementation plan (M0–M9 milestones,
+> D1–D5 checkpoints). That plan has been executed: the graph frontend shipped
+> on `feature/graph-frontend`. The full historical plan, with its milestones
+> annotated against what actually happened, now lives in
+> [`docs/archive/multi-frontend-graph-plan.md`](archive/multi-frontend-graph-plan.md).
+> This section is the current-state summary; Appendix A below (prior research)
+> is unchanged supporting material.
+
+### 6.1 What shipped
+
+A Cypher graph frontend over ordinary Turso tables, as a Neo4j-style graph
+query language compiled onto the shared backend — the crates
+`turso_graph_cypher`, `turso_graph_ir`, `turso_graph_runtime`,
+`turso_graph_frontend`, and `turso_graph_temporal` (see
+[`graph/README.md`](../graph/README.md) for the crate dependency graph).
+
+- **Session/prepare API:** `turso_graph_frontend::GraphConnection` (the crate
+  root also re-exports it as `Connection`), with `prepare`/
+  `prepare_cancellable` (returns a `Statement` wrapper exposing
+  `result_types()`), `query`/`query_cancellable`, `execute` (returns a
+  `MutationSummary`), `install`, and `open`/`open_with_parameters`. Free
+  functions `open_database`/`open_database_with_io` open the underlying
+  `turso_core::Database`. This API was renamed once after the archived plan
+  below was written; see the status banner at the top of this document and
+  `graph/README.md` for the mapping from the older names.
+- **Fixed-length reads/writes** lower to the ordinary relational planner and
+  VDBE, same as any other frontend.
+- **Variable-length traversal** is a real operator, not a future item: the
+  `__turso_graph_expand` internal table-valued scan
+  (`graph/frontend/src/graph_expand.rs`) backs the `GraphExpand` IR operator
+  (`graph/ir/src/plan.rs`) with a resumable, yield-safe cursor.
+- **Conformance:** the latest recorded corpus run covers 10,242 identities
+  with 8,800 passing (`graph/test-results/REPORT.md`); see
+  [`graph/CONFORMANCE.md`](../graph/CONFORMANCE.md) for the contract and
+  [`graph/DESIGN_DECISIONS.md`](../graph/DESIGN_DECISIONS.md) for design
+  rationale.
+- `core/translate/planner.rs` still rejects `WITH RECURSIVE` — that fact from
+  the original plan is unchanged. The graph frontend does not need core
+  recursive CTEs; `GraphExpand` is a separate, purpose-built traversal path.
+
+### 6.2 Separation decision: no built-in Postgres graph adapter
+
+A Postgres-facing `graph.cypher()` table function and
+`PgConnection::install_graph` were built (commit `a7a22ff16`) and then
+**deliberately removed** (commit `178437223`). `postgres/` has zero graph
+dependency today, and the two frontends are separate crates in both
+directions.
+
+An application that wants Cypher and Postgres SQL on one connection composes
+them itself, on one core connection, via
+`Connection::register_frontend_compiler` / `Connection::prepare_frontend`
+(`core/connection.rs`) — the same mechanism §0 and §5 describe for any new
+frontend. There is no shipped `graph.*` SQL surface inside the Postgres
+frontend, and none is planned as a default.
+
+### 6.3 Where to look
+
+| Topic | Reference |
+|-------|-----------|
+| Crate layout, quickstart, API shape | [`graph/README.md`](../graph/README.md) |
+| Design rationale, Postgres-adapter removal | [`graph/DESIGN_DECISIONS.md`](../graph/DESIGN_DECISIONS.md) |
+| Conformance contract and live numbers | [`graph/CONFORMANCE.md`](../graph/CONFORMANCE.md), `graph/test-results/REPORT.md` |
+| Full original M0–M9 plan, annotated | [`docs/archive/multi-frontend-graph-plan.md`](archive/multi-frontend-graph-plan.md) |
+| Superseded planning docs (delivery, type system, roadmap, etc.) | [`docs/archive/plans/`](archive/plans/) |
+
+---
 
 ## Appendix A. Prior graph analysis and source inventory
 
+> **Historical design appendix.** This appendix records the research that led
+> to the original §6 implementation plan, now archived at
+> [`docs/archive/multi-frontend-graph-plan.md`](archive/multi-frontend-graph-plan.md).
+> It predates the delivered graph frontend and is kept as supporting research
+> material, not a current design; where it conflicts with the shipped code,
+> the code and `graph/README.md` win.
+
 The remainder of this graph discussion records the research that led to the
 plan above. It is supporting material, not an alternative implementation plan;
-where it conflicts with §§6.2–6.10, the selected plan above wins.
+where it conflicts with the archived §6.2–6.10 plan, the archived plan wins
+for historical purposes — neither should be read as a current design.
 
 ### A.1 Graph data model on this backend
 
@@ -1043,7 +629,7 @@ language frontend.
 | Traversal lowering | Bound expand/path operations → core logical operator | New only for semantics the SQL AST cannot represent |
 | Dialect | `CypherDialect` or hybrid SQL+Cypher open | `Dialect` trait pattern from Postgres |
 | Catalog | Virtual tables or system tables for labels, rel types, constraints | `register_catalog`, `InternalVirtualTable` |
-| Session | `GraphConnection::run(cypher)` → prepare/step | Mirror `PgConnection` |
+| Session | Delivered as `GraphConnection::{prepare, query, execute}` (not the `run(cypher)` sketch originally proposed here) | Mirrors `PgConnection` |
 | Protocol (optional) | Bolt or HTTP | Like `postgres/server/` — thin over session |
 | CLI (optional) | Cypher REPL | Like `tursopg` |
 
@@ -1816,23 +1402,39 @@ frontend-aware prepare/reprepare, resolution, and ownership work in §0 and §8.
 ### 9.5 Open gaps (engine / product)
 
 - No first-class multi-language / multi-namespace host dialect in core today
-- No frontend identity/reprepare recipe on `PreparedProgram`; AST-only source is
-  reparsed by the one database dialect
-- No per-frontend function resolver/executor; collisions are database-wide
+- ~~No frontend identity/reprepare recipe on `PreparedProgram`; AST-only
+  source is reparsed by the one database dialect~~ **RESOLVED**:
+  `PreparedSource::Frontend { frontend, source }` +
+  `Connection::register_frontend_compiler` / `prepare_frontend`
+  (`core/connection.rs`) preserve frontend identity across
+  `Statement::reprepare`. This is what the graph frontend uses in production.
+- No per-frontend function resolver/executor **for SQL/`Dialect`-based
+  frontends**; `Dialect::resolve_function` collisions are still database-wide.
+  Frontends registered as a `FrontendCompiler` (e.g. the graph frontend) sit
+  outside core SQL parsing entirely and resolve their own functions in their
+  own binder, so this gap only applies to frontends that lower through the
+  shared `Dialect`/AST path (SQLite, Postgres).
 - No built-in dialect-namespace ACL (private sessions can enforce only a
   cooperative boundary)
 - No durable host-dialect metadata validation; wrong sequential or
   multiprocess reopen is a footgun
 - No cross-dialect coordinator (product layer)
 - PG `CREATE SCHEMA` uses **separate files** via ATTACH — not one-file namespaces
-- Recursive CTEs are explicitly unsupported; no graph-expand operator exists
+- Recursive CTEs (`WITH RECURSIVE`) are explicitly unsupported in core SQL.
+  This is no longer a graph-traversal gap: the `__turso_graph_expand`
+  internal vtab / `GraphExpand` IR operator (§6) ships variable-length
+  traversal without needing recursive CTEs.
 - No transactional topic offset allocator or post-commit fetch wakeup layer
-- No graph-expand or log-segment opcodes (and raw opcode emission should not be
-  the initial frontend API)
+- No log-segment opcode for the Kafka-style frontend (§7, still hypothetical).
+  Graph traversal does not need one: `GraphExpand` runs as a resumable
+  internal table-valued scan rather than a dedicated VDBE opcode, by
+  deliberate design (see the graph cursor decision record in
+  `docs/archive/multi-frontend-graph-plan.md`).
 - No Kafka or Bolt servers in-tree
 - Concurrent multi-`Dialect::name` same file is **explicitly rejected** in-process
-- Performance of multi-hop graph and high-throughput log append on B-trees is
-  an engineering problem, not solved by frontend wiring alone
+- Performance of high-throughput log append on B-trees is an engineering
+  problem, not solved by frontend wiring alone (graph traversal performance is
+  now measured; see `graph/CONFORMANCE.md` and `graph/test-results/`)
 ---
 
 ## 10. Quick reference: extension points
@@ -1877,10 +1479,15 @@ frontend-aware prepare/reprepare, resolution, and ownership work in §0 and §8.
 - **Do not reuse PG `CREATE SCHEMA` (ATTACH extra files) for one-file
   namespaces** — encode ownership with prefixes/registry + SQL markers inside
   main.
-- **Cypher** is feasible through the mixed-source §6 plan: fixed patterns use
-  relational lowering, while a pgGraph-derived CSR runtime backs the new
-  bounded `GraphExpand` contract. This is extraction and integration work, not
-  installation of pgGraph into the Postgres layer.
+- **Cypher is delivered**, not just feasible: the `turso_graph_{cypher,ir,
+  runtime,frontend,temporal}` crates ship a `GraphConnection` frontend where
+  fixed patterns use relational lowering and a bounded `GraphExpand` contract
+  (the `__turso_graph_expand` internal vtab) backs variable-length traversal.
+  See §6, `graph/README.md`, and `graph/CONFORMANCE.md` (10,242 corpus
+  identities, 8,800 passing on the latest run). Consistent with the plan, this
+  was never installed into the Postgres layer: a `graph.*` Postgres adapter
+  was built and then deliberately removed, and the graph frontend stays a
+  separate crate composed app-side via `Connection::register_frontend_compiler`.
 - **A Turso-backed topic API** is feasible, but a Kafka-compatible broker is a
   separate protocol, coordination, replication, and performance project; WAL
   is durability for the file, not the public log API.
