@@ -2,7 +2,7 @@
   "repo": "turso",
   "analysis_date": "2026-07-22",
   "previous_analysis_date": "2026-07-22",
-  "summary": "Turso is a from-scratch Rust rewrite of SQLite. It offers three separate query frontends that share one relational engine. The native SQLite/SQL frontend uses a hand-written parser in sqlite/parser and feeds core/translate's planner, optimizer, and VDBE emitter. The PostgreSQL frontend wraps libpg_query in postgres/parser; postgres/frontend supplies PostgresDialect and PgConnection, postgres/server implements the wire protocol with pgwire, and the tursopg CLI hosts it. An experimental Graph/Cypher frontend compiles openCypher into ordinary SQL tables plus label and relationship-type junction tables, using a Pest grammar in graph/cypher, a plan IR in graph/ir, binder/lowering/catalog/session/snapshot code in graph/frontend, a CSR traversal engine in graph/runtime, and a value-semantics extension in graph/temporal. All three frontends converge on one pipeline: core/translate feeds core/vdbe (execute.rs, an 18k-line register-machine interpreter), which drives core/storage (btree.rs, wal.rs, pager.rs), with an optional core/mvcc row-versioning path. Two seams mediate the boundary between the engine and each frontend: the Dialect trait (core/dialect/mod.rs, added in commit 9b10c496d) routes schema loading through one interface for SqliteDialect and PostgresDialect, and the lighter FrontendCompiler trait and registry (core/connection.rs) serve the graph frontend instead, because Cypher does not own schema DDL encoding. The Postgres and Graph frontends stay decoupled from each other at the crate level: an earlier graph.cypher() adapter coupled them (commit a7a22ff16), but a later commit (178437223) reverted this coupling, and the two frontends now compose only through Connection::register_frontend_compiler on a shared core Connection, never through a direct crate dependency.",
+  "summary": "Turso is a from-scratch Rust rewrite of SQLite. It offers three separate query frontends that share one relational engine. The native SQLite/SQL frontend uses a hand-written parser in sqlite/parser and feeds core/translate's planner, optimizer, and VDBE emitter. The PostgreSQL frontend wraps libpg_query in postgres/parser; postgres/frontend supplies PostgresDialect and PgConnection, postgres/server implements the wire protocol with pgwire, and the tursopg CLI hosts it. An experimental Graph/Cypher frontend compiles openCypher into ordinary SQL tables plus label and relationship-type junction tables, using a Pest grammar in graph/cypher, a plan IR in graph/ir, binder/lowering/catalog/session/snapshot code in graph/frontend, a CSR traversal engine in graph/runtime, and a value-semantics extension in graph/temporal. All three frontends converge on one pipeline: core/translate feeds core/vdbe (execute.rs, an 18k-line register-machine interpreter), which drives core/storage (btree.rs, wal.rs, pager.rs), with an optional core/mvcc row-versioning path. Two seams mediate the boundary between the engine and each frontend, and the Postgres and Graph frontends now converge on using both. The Dialect trait (core/dialect/mod.rs, added in commit 9b10c496d) covers the per-database seam — identity, schema-row parsing, catalog registration, and function surface — for SqliteDialect, PostgresDialect, and now GraphDialect (graph/frontend/src/dialect.rs). The lighter FrontendCompiler trait and registry (core/connection.rs) cover the per-connection seam — statement compilation, prerequisites, and reprepare — for PostgresCompiler and GraphCompiler; SqliteDialect needs no separate compiler, because plain SQL statement compilation has no per-connection state to add. The Postgres and Graph frontends stay decoupled from each other at the crate level: an earlier graph.cypher() adapter coupled them (commit a7a22ff16), but a later commit (178437223) reverted this coupling, and the two frontends now compose only through Connection::register_frontend_compiler on a shared core Connection, never through a direct crate dependency.",
   "layers": [
     "SQLite/SQL Frontend",
     "PostgreSQL Frontend",
@@ -141,7 +141,15 @@
       "type": "component",
       "layer": "Graph/Cypher Frontend",
       "path": "graph/frontend/src/compiler.rs",
-      "description": "GraphCompiler is 67 LOC. It implements core's FrontendCompiler trait, not the Dialect trait. compile() parses the Cypher text, binds it, lowers it to an ast::Stmt, and returns FrontendCompilation{ cmd: Some(Cmd::Stmt(stmt)), .. }. graph_frontend_id() returns a static FrontendId::new(\"graph-cypher\")."
+      "description": "GraphCompiler is 67 LOC. It implements core's FrontendCompiler trait, the per-connection seam alongside GraphDialect's per-database seam, mirroring how PostgresCompiler pairs with PostgresDialect. compile() parses the Cypher text, binds it, lowers it to an ast::Stmt, and returns FrontendCompilation{ cmd: Some(Cmd::Stmt(stmt)), .. }. graph_frontend_id() returns a static FrontendId::new(\"graph-cypher\")."
+    },
+    {
+      "id": "graph-dialect",
+      "label": "GraphDialect",
+      "type": "component",
+      "layer": "Graph/Cypher Frontend",
+      "path": "graph/frontend/src/dialect.rs",
+      "description": "GraphDialect is 437 LOC. It implements core's Dialect trait, name() returns \"graph-cypher\" (GRAPH_DIALECT_NAME), and it is the graph frontend's per-database seam, alongside GraphCompiler's per-connection seam — the same split PostgresDialect/PostgresCompiler use. parse() tries turso_core::dialect::sqlite::parse first; if SQL parsing fails and the text parses as Cypher instead, it returns a targeted error pointing the caller at GraphConnection, rather than a generic SQLite syntax error. parse_table_sql, parse_table_sql_ast, and table_sql_for_replay delegate straight to core::dialect::sqlite; format_table_sql stores the input unchanged, with no marker prefix, because graph catalog state persists as ordinary __turso_internal_graph_* tables, not as marked DDL text. register_catalog calls sqlite::register_builtin_catalog, then installs a turso_graphs InternalVirtualTable, the graph analogue of a pg_catalog table, listing every registered graph's node and relationship sources by joining the __turso_internal_graph_* tables. resolve_function checks name against the 24 entries in turso_graph_temporal::FUNCTION_NAMES and returns Func::Dialect for a match, falling back to sqlite::resolve_builtin_function otherwise; exec_scalar_function then runs a matched call through turso_graph_temporal::dispatch. requires_custom_types() returns true, because graph fixtures declare CREATE TYPE duration."
     },
     {
       "id": "graph-session",
@@ -149,7 +157,7 @@
       "type": "entrypoint",
       "layer": "Graph/Cypher Frontend",
       "path": "graph/frontend/src/session.rs",
-      "description": "GraphConnection is 887 LOC. The struct holds connection: Arc<Connection>, graph: GraphId, catalog, parameters, snapshots: Arc<SessionSnapshotStore>, and limits, and it wraps a turso_core::Connection, the same session object SQL uses. Its public API offers open, open_with_parameters, and install; prepare and prepare_cancellable, which return a Statement wrapper with result_types(); query and query_cancellable; and execute, which returns a MutationSummary. GraphConnection is the frontend's only public entry point today. No CLI subcommand and no language binding calls it yet; it is a library-only, source-only API on the feature/graph-frontend branch (docs/graph.md)."
+      "description": "GraphConnection is 981 LOC. The struct holds connection: Arc<Connection>, graph: GraphId, catalog, parameters, snapshots: Arc<SessionSnapshotStore>, and limits, and it wraps a turso_core::Connection, the same session object SQL uses. Its public API offers open, open_with_parameters, and install; prepare and prepare_cancellable, which return a Statement wrapper with result_types(); query and query_cancellable; and execute, which returns a MutationSummary. The module-level open_database and open_database_with_io functions pin GraphDialect, byte-for-byte mirroring turso_pg::open_database; this is the default, primary way to open a graph database. GraphConnection::install (and the open/open_with_parameters wrappers around it) also still support a secondary attach mode: it layers a GraphConnection over an already-open database on any Dialect, including one opened with SqliteDialect, so a caller can attach Cypher onto an existing SQLite-dialect connection. The PostgreSQL frontend has no equivalent attach mode. GraphConnection is the frontend's only public entry point today. No CLI subcommand and no language binding calls it yet; it is a library-only, source-only API on the feature/graph-frontend branch (docs/graph.md)."
     },
     {
       "id": "graph-snapshot",
@@ -181,7 +189,7 @@
       "type": "module",
       "layer": "Graph/Cypher Frontend",
       "path": "graph/temporal/src/lib.rs",
-      "description": "turso_graph_temporal is a single 1,757-line file. It is a statically registered scalar-function extension, through turso_ext::ExtensionApi and install_temporal_extension. It gives Cypher and GQL temporal value semantics: functions such as duration_make, duration_parse, duration_get, duration_add, duration_neg, and duration_between; temporal_make, temporal_truncate, temporal_parse, temporal_get, and temporal_now; datetime_add_duration and datetime_sub_duration; JSONB helpers; and Cypher-operator scalars such as cypher_equals, cypher_add, cypher_div, and cypher_raise. It builds on the jiff crate for civil dates and zoned datetimes. This module does not add bitemporal or point-in-time graph queries; it only supports value semantics."
+      "description": "turso_graph_temporal is a single 1,924-line file. Its FUNCTION_NAMES constant lists 24 scalar names, and pub fn dispatch(name, args) -> Option<ExtValue> executes any of them by name. One implementation backs two call paths: turso_ext::ExtensionApi and install_temporal_extension register the same 24 names as a statically loaded scalar-function extension, for per-connection installs onto a SqliteDialect-backed database; and GraphDialect::resolve_function/exec_scalar_function (graph/frontend/src/dialect.rs) route the same 24 names to this dispatch function directly, as part of the Dialect's owned function surface, with no extension install needed. The functions include duration_make, duration_parse, duration_get, duration_add, duration_neg, and duration_between; temporal_make, temporal_truncate, temporal_parse, temporal_get, and temporal_now; datetime_add_duration and datetime_sub_duration; JSONB helpers; and Cypher-operator scalars such as cypher_equals, cypher_add, cypher_div, and cypher_raise. It builds on the jiff crate for civil dates and zoned datetimes. This module does not add bitemporal or point-in-time graph queries; it only supports value semantics."
     },
     {
       "id": "graph-testkit",
@@ -189,7 +197,7 @@
       "type": "component",
       "layer": "Graph/Cypher Frontend",
       "path": "graph/testkit/src/{tck.rs,cypherbench.rs,runner.rs,main.rs}",
-      "description": "turso_graph_testkit is a binary crate; main.rs (834 LOC) defines clap subcommands, including Run{Suite}, Performance, Tck, TckStats, and Grafeo. tck.rs (1,686 LOC) parses the openCypher TCK, a set of Cucumber .feature files read through the gherkin crate at a pinned TCK_REVISION, and runs each scenario through runner.rs's ScenarioRunner (733 LOC). age.rs, grafeo.rs, and rust_donor.rs run extra donor corpora, from Apache AGE, Grafeo, and cqlite/sparrowdb. cypherbench.rs (681 LOC) is the CypherBench benchmark harness; it loads Wikidata-derived SimpleKg graphs and gold Cypher queries from megagonlabs/cypherbench, then diffs the results against pre-verified JSON answers. The latest recorded corpus run, in graph/test-results/REPORT.md, covers 10,242 identities and passes 8,800 of them."
+      "description": "turso_graph_testkit is a binary crate; main.rs (834 LOC) defines clap subcommands, including Run{Suite}, Performance, Tck, TckStats, and Grafeo. tck.rs (1,686 LOC) parses the openCypher TCK, a set of Cucumber .feature files read through the gherkin crate at a pinned TCK_REVISION, and runs each scenario through runner.rs's ScenarioRunner (733 LOC). age.rs, grafeo.rs, and rust_donor.rs run extra donor corpora, from Apache AGE, Grafeo, and cqlite/sparrowdb. cypherbench.rs (681 LOC) is the CypherBench benchmark harness; it loads Wikidata-derived SimpleKg graphs and gold Cypher queries from megagonlabs/cypherbench, then diffs the results against pre-verified JSON answers. The latest recorded corpus run, in graph/test-results/REPORT.md, covers 10,242 identities and passes 8,800 of them. runner.rs's fixture builder opens each test database through turso_graph_frontend::open_database_with_io, so every scenario runs under GraphDialect rather than an attached SqliteDialect database."
     },
     {
       "id": "core-dialect-trait",
@@ -197,7 +205,7 @@
       "type": "component",
       "layer": "Core Engine — Dialect & Frontend Seam",
       "path": "core/dialect/mod.rs",
-      "description": "Dialect is defined as pub trait Dialect: Send + Sync + 'static, at core/dialect/mod.rs line 24. It marks the boundary between the engine and each frontend. name() returns a stable ID, used as the open-registry key. parse(sql) turns frontend text into an engine Cmd plus a byte count; both initial prepare and reprepare use it. parse_table_sql and parse_table_sql_ast decode sqlite_schema rows into table definitions. format_table_sql and format_rewritten_table_sql encode DDL into stored schema text, often with a frontend marker (lines 84 and 97). table_sql_for_replay supports VACUUM and replay (line 74). register_catalog installs dialect catalog vtabs on every schema build (line 117). resolve_function and exec_scalar_function resolve and run functions (lines 133 and 142), and requires_custom_types has a default value (line 157). Commit 9b10c496d, \"core: add Dialect trait and route schema loading through it\" (2026-07-15), added this trait to route schema loading through one seam instead of hardcoding SQLite parsing. Only SqliteDialect and PostgresDialect implement it in production, along with test fixtures such as TestDialect, StrictTestDialect, and NoFunctionsDialect in core/dialect/mod.rs's own #[cfg(test)] module. The graph frontend does not implement Dialect; it uses FrontendCompiler instead, and it builds its Database on the existing SqliteDialect, so Cypher schema storage rides on SQLite's catalog and DDL representation.",
+      "description": "Dialect is defined as pub trait Dialect: Send + Sync + 'static, at core/dialect/mod.rs line 24. It marks the boundary between the engine and each frontend. name() returns a stable ID, used as the open-registry key. parse(sql) turns frontend text into an engine Cmd plus a byte count; both initial prepare and reprepare use it. parse_table_sql and parse_table_sql_ast decode sqlite_schema rows into table definitions. format_table_sql and format_rewritten_table_sql encode DDL into stored schema text, often with a frontend marker (lines 84 and 97). table_sql_for_replay supports VACUUM and replay (line 74). register_catalog installs dialect catalog vtabs on every schema build (line 117). resolve_function and exec_scalar_function resolve and run functions (lines 133 and 142), and requires_custom_types has a default value (line 157). Commit 9b10c496d, \"core: add Dialect trait and route schema loading through it\" (2026-07-15), added this trait to route schema loading through one seam instead of hardcoding SQLite parsing. SqliteDialect, PostgresDialect, and now GraphDialect (graph/frontend/src/dialect.rs) implement it in production, along with test fixtures such as TestDialect, StrictTestDialect, and NoFunctionsDialect in core/dialect/mod.rs's own #[cfg(test)] module. The graph frontend implements Dialect for its per-database seam — parse() (SQLite-first, with a targeted redirect error when Cypher text reaches it directly), SQLite-delegating schema-row methods, turso_graphs catalog registration, and the 24-name temporal/cypher function surface — and it pairs Dialect with FrontendCompiler for per-connection statement compilation, exactly as PostgresDialect pairs with PostgresCompiler. Cypher schema storage still rides on SQLite's catalog and DDL representation: GraphDialect's schema-row methods delegate straight to core::dialect::sqlite, and it stores no marker prefix the way PostgresDialect does.",
       "note": "Every Database carries exactly one Arc<dyn Dialect> for its lifetime, fixed at open time because schema is parsed during open; ATTACH propagates the parent's dialect; a process-wide registry rejects opening the same file under a different dialect name. Internal engine helpers always resolve functions with SqliteDialect semantics regardless of the database's dialect (StatementOrigin::InternalHelper)."
     },
     {
@@ -206,7 +214,7 @@
       "type": "component",
       "layer": "Core Engine — Dialect & Frontend Seam",
       "path": "core/connection.rs",
-      "description": "FrontendCompiler is a second, lighter seam alongside Dialect. Connection::register_frontend_compiler(FrontendId, Arc<dyn FrontendCompiler>), at core/connection.rs line 569, and prepare_frontend, at line 1115, let a frontend supply compilation without owning schema DDL encoding, unlike a Dialect. PreparedSource::Frontend{ frontend, source } keeps the frontend's identity through Statement::reprepare, which re-dispatches through the registered FrontendCompiler, so frontend identity survives reprepare without any host-dialect source marker. The graph frontend uses this mechanism instead of implementing Dialect. The multi-frontend guide also points to it for composing Postgres and Cypher on one connection without crate coupling: Connection::register_frontend_compiler lets an application install both a PgConnection and a GraphConnection on the same Arc<turso_core::Connection>."
+      "description": "FrontendCompiler is a second, lighter seam alongside Dialect, scoped per-connection rather than per-database. Connection::register_frontend_compiler(FrontendId, Arc<dyn FrontendCompiler>), at core/connection.rs line 569, and prepare_frontend, at line 1115, let a frontend supply statement compilation, prerequisites, and reprepare support separately from schema DDL encoding. PreparedSource::Frontend{ frontend, source } keeps the frontend's identity through Statement::reprepare, which re-dispatches through the registered FrontendCompiler, so frontend identity survives reprepare without any host-dialect source marker. Both PostgresCompiler and GraphCompiler use this mechanism, alongside their own PostgresDialect/GraphDialect. The multi-frontend guide also points to it for composing Postgres and Cypher on one connection without crate coupling: Connection::register_frontend_compiler lets an application install both a PgConnection and a GraphConnection on the same Arc<turso_core::Connection>, though the underlying Database still carries only one Dialect at a time."
     },
     {
       "id": "core-connection",
@@ -526,7 +534,7 @@
       "source": "graph-compiler",
       "target": "core-frontend-compiler",
       "type": "depends",
-      "description": "GraphCompiler implements FrontendCompiler, the lighter seam, because Cypher does not own schema DDL encoding the way a Dialect must."
+      "description": "GraphCompiler implements FrontendCompiler, the per-connection seam that handles statement compilation, prerequisites, and reprepare, alongside GraphDialect's per-database seam — the same two-seam split PostgresCompiler and PostgresDialect use."
     },
     {
       "source": "graph-session",
@@ -548,9 +556,39 @@
     },
     {
       "source": "graph-session",
+      "target": "graph-dialect",
+      "type": "depends",
+      "description": "open_database and open_database_with_io pin GraphDialect as the underlying Database's dialect, byte-for-byte mirroring turso_pg::open_database; this is the primary, default way to open a graph database."
+    },
+    {
+      "source": "graph-session",
       "target": "sqlite-dialect",
       "type": "depends",
-      "description": "GraphConnection opens the underlying Database with SqliteDialect. Cypher does not depend on a dialect itself; it layers on top through FrontendCompiler instead of competing for the Dialect slot."
+      "description": "GraphConnection::install (and the open/open_with_parameters wrappers around it) also supports a secondary attach mode: it layers a GraphConnection over an already-open database on any Dialect, commonly SqliteDialect, without requiring GraphDialect. PostgresDialect has no equivalent attach mode."
+    },
+    {
+      "source": "graph-dialect",
+      "target": "core-dialect-trait",
+      "type": "depends",
+      "description": "GraphDialect implements the Dialect trait (graph/frontend/src/dialect.rs:147), so a graph database opened via open_database/open_database_with_io carries GraphDialect for its whole lifetime."
+    },
+    {
+      "source": "graph-dialect",
+      "target": "sqlite-dialect",
+      "type": "calls",
+      "description": "GraphDialect.parse tries turso_core::dialect::sqlite::parse first, and parse_table_sql, parse_table_sql_ast, table_sql_for_replay, and register_catalog's builtin-catalog step all delegate straight to the sqlite module, so graph schema rows stay plain, unmarked SQLite DDL."
+    },
+    {
+      "source": "graph-dialect",
+      "target": "graph-temporal",
+      "type": "calls",
+      "description": "resolve_function matches against turso_graph_temporal::FUNCTION_NAMES and returns Func::Dialect; exec_scalar_function then runs the call through turso_graph_temporal::dispatch, the same dispatch function the per-connection extension path uses."
+    },
+    {
+      "source": "graph-dialect",
+      "target": "graph-catalog",
+      "type": "reads",
+      "description": "The turso_graphs InternalVirtualTable that register_catalog installs queries the same __turso_internal_graph_* tables that graph-catalog's register_graph writes, to list every registered graph's sources."
     },
     {
       "source": "graph-catalog",
@@ -789,12 +827,12 @@
   ],
   "diagrams": {
     "layer": {
-      "description": "This is a high-level layered view. Each of the three query frontends implements the Dialect trait or registers through FrontendCompiler. All three converge on Connection and Schema, then flow through translate and the optimizer, VDBE execution, and storage and durability, with an optional MVCC path. The entry-point, binding, and ecosystem layer surrounds this core.",
-      "mermaid_syntax": "graph TB\n  subgraph FE[\"Three Query Frontends\"]\n    SQLF[\"SQLite/SQL Frontend<br/>sqlite/parser + core/dialect/sqlite.rs\"]\n    PGF[\"PostgreSQL Frontend<br/>postgres/parser, frontend, server, cli\"]\n    GRF[\"Graph/Cypher Frontend<br/>graph/cypher, ir, frontend, runtime, temporal\"]\n  end\n  subgraph SEAM[\"Engine <-> Frontend Seam\"]\n    DIA[\"Dialect trait<br/>core/dialect/mod.rs\"]\n    FCM[\"FrontendCompiler trait<br/>core/connection.rs\"]\n  end\n  subgraph CONN[\"Connection & Schema\"]\n    DB[\"Database\"]\n    CN[\"Connection\"]\n    SC[\"Schema\"]\n  end\n  subgraph XLYR[\"Translate & Optimizer\"]\n    XL[\"core/translate\"]\n    OPT[\"core/translate/optimizer\"]\n  end\n  subgraph VDBE[\"VDBE Execution\"]\n    VD[\"core/vdbe execute.rs\"]\n  end\n  subgraph STORE[\"Storage & Durability\"]\n    BT[\"storage/btree.rs\"]\n    WL[\"storage/wal.rs\"]\n    PG[\"storage/pager.rs\"]\n    IOA[\"core/io\"]\n  end\n  subgraph MVCCL[\"MVCC (Experimental)\"]\n    MV[\"core/mvcc\"]\n  end\n  subgraph ECO[\"Entry Points, Bindings, Ecosystem\"]\n    CLI[\"cli/ tursodb\"]\n    BIND[\"bindings/*\"]\n    EXT[\"extensions/*\"]\n    SYN[\"sync/*\"]\n  end\n  SQLF -- implements --> DIA\n  PGF -- implements --> DIA\n  GRF -- registers via --> FCM\n  DIA --> CN\n  FCM --> CN\n  CN --> DB\n  DB --> SC\n  CN --> XL\n  XL --> OPT\n  XL --> VD\n  VD --> BT\n  VD --> WL\n  VD --> PG\n  VD --> MV\n  PG --> WL\n  PG --> IOA\n  MV --> IOA\n  CLI --> SQLF\n  BIND --> SQLF\n"
+      "description": "This is a high-level layered view. SqliteDialect implements the Dialect trait only. PostgreSQL and Graph/Cypher each implement both seams: Dialect for per-database identity, schema rows, catalog, and functions, and FrontendCompiler for per-connection statement compilation. All three converge on Connection and Schema, then flow through translate and the optimizer, VDBE execution, and storage and durability, with an optional MVCC path. The entry-point, binding, and ecosystem layer surrounds this core.",
+      "mermaid_syntax": "graph TB\n  subgraph FE[\"Three Query Frontends\"]\n    SQLF[\"SQLite/SQL Frontend<br/>sqlite/parser + core/dialect/sqlite.rs\"]\n    PGF[\"PostgreSQL Frontend<br/>postgres/parser, frontend, server, cli\"]\n    GRF[\"Graph/Cypher Frontend<br/>graph/cypher, ir, frontend, runtime, temporal\"]\n  end\n  subgraph SEAM[\"Engine <-> Frontend Seam\"]\n    DIA[\"Dialect trait<br/>core/dialect/mod.rs\"]\n    FCM[\"FrontendCompiler trait<br/>core/connection.rs\"]\n  end\n  subgraph CONN[\"Connection & Schema\"]\n    DB[\"Database\"]\n    CN[\"Connection\"]\n    SC[\"Schema\"]\n  end\n  subgraph XLYR[\"Translate & Optimizer\"]\n    XL[\"core/translate\"]\n    OPT[\"core/translate/optimizer\"]\n  end\n  subgraph VDBE[\"VDBE Execution\"]\n    VD[\"core/vdbe execute.rs\"]\n  end\n  subgraph STORE[\"Storage & Durability\"]\n    BT[\"storage/btree.rs\"]\n    WL[\"storage/wal.rs\"]\n    PG[\"storage/pager.rs\"]\n    IOA[\"core/io\"]\n  end\n  subgraph MVCCL[\"MVCC (Experimental)\"]\n    MV[\"core/mvcc\"]\n  end\n  subgraph ECO[\"Entry Points, Bindings, Ecosystem\"]\n    CLI[\"cli/ tursodb\"]\n    BIND[\"bindings/*\"]\n    EXT[\"extensions/*\"]\n    SYN[\"sync/*\"]\n  end\n  SQLF -- implements --> DIA\n  PGF -- implements --> DIA\n  PGF -- registers via --> FCM\n  GRF -- implements --> DIA\n  GRF -- registers via --> FCM\n  DIA --> CN\n  FCM --> CN\n  CN --> DB\n  DB --> SC\n  CN --> XL\n  XL --> OPT\n  XL --> VD\n  VD --> BT\n  VD --> WL\n  VD --> PG\n  VD --> MV\n  PG --> WL\n  PG --> IOA\n  MV --> IOA\n  CLI --> SQLF\n  BIND --> SQLF\n"
     },
     "component": {
       "description": "This diagram shows the major components in each of the three frontends and in the core engine. It shows how each component calls or implements another.",
-      "mermaid_syntax": "graph LR\n  subgraph S1[\"SQLite Frontend\"]\n    sp[\"turso_parser<br/>sqlite/parser\"]\n    sd[\"SqliteDialect<br/>core/dialect/sqlite.rs\"]\n  end\n  subgraph S2[\"PostgreSQL Frontend\"]\n    pp[\"turso_pg_parser<br/>pg_query + translator\"]\n    pd[\"PostgresDialect<br/>postgres/frontend/catalog.rs\"]\n    ps[\"PgConnection<br/>postgres/frontend/session.rs\"]\n    pw[\"TursoPgServer<br/>postgres/server (pgwire)\"]\n    pc[\"tursopg CLI<br/>postgres/cli\"]\n  end\n  subgraph S3[\"Graph/Cypher Frontend\"]\n    gc[\"turso_graph_cypher<br/>Pest grammar\"]\n    gb[\"Binder<br/>graph/frontend/binder.rs\"]\n    gl[\"Lowering<br/>graph/frontend/lowering.rs\"]\n    gcmp[\"GraphCompiler<br/>FrontendCompiler impl\"]\n    gs[\"GraphConnection<br/>graph/frontend/session.rs\"]\n    gr[\"Traversal Runtime<br/>graph/runtime CSR\"]\n    ge[\"__turso_graph_expand<br/>internal vtab\"]\n  end\n  subgraph S4[\"Core Engine\"]\n    conn[\"Connection / Database\"]\n    xlate[\"core/translate\"]\n    vdbe[\"core/vdbe\"]\n    store[\"core/storage\"]\n  end\n  sp --> sd --> conn\n  pp --> pd\n  pd --> ps --> conn\n  pw --> ps\n  pc --> pw\n  pc --> ps\n  gc --> gb --> gl --> gcmp --> conn\n  gr --> ge --> vdbe\n  gs --> gcmp\n  gs --> gr\n  conn --> xlate --> vdbe --> store\n"
+      "mermaid_syntax": "graph LR\n  subgraph S1[\"SQLite Frontend\"]\n    sp[\"turso_parser<br/>sqlite/parser\"]\n    sd[\"SqliteDialect<br/>core/dialect/sqlite.rs\"]\n  end\n  subgraph S2[\"PostgreSQL Frontend\"]\n    pp[\"turso_pg_parser<br/>pg_query + translator\"]\n    pd[\"PostgresDialect<br/>postgres/frontend/catalog.rs\"]\n    ps[\"PgConnection<br/>postgres/frontend/session.rs\"]\n    pw[\"TursoPgServer<br/>postgres/server (pgwire)\"]\n    pc[\"tursopg CLI<br/>postgres/cli\"]\n  end\n  subgraph S3[\"Graph/Cypher Frontend\"]\n    gc[\"turso_graph_cypher<br/>Pest grammar\"]\n    gb[\"Binder<br/>graph/frontend/binder.rs\"]\n    gl[\"Lowering<br/>graph/frontend/lowering.rs\"]\n    gcmp[\"GraphCompiler<br/>FrontendCompiler impl\"]\n    gd[\"GraphDialect<br/>Dialect impl\"]\n    gs[\"GraphConnection<br/>graph/frontend/session.rs\"]\n    gr[\"Traversal Runtime<br/>graph/runtime CSR\"]\n    ge[\"__turso_graph_expand<br/>internal vtab\"]\n  end\n  subgraph S4[\"Core Engine\"]\n    conn[\"Connection / Database\"]\n    xlate[\"core/translate\"]\n    vdbe[\"core/vdbe\"]\n    store[\"core/storage\"]\n  end\n  sp --> sd --> conn\n  pp --> pd\n  pd --> ps --> conn\n  pw --> ps\n  pc --> pw\n  pc --> ps\n  gc --> gb --> gl --> gcmp --> conn\n  gr --> ge --> vdbe\n  gs --> gcmp\n  gs --> gd --> conn\n  gd --> sd\n  gs --> gr\n  conn --> xlate --> vdbe --> store\n"
     },
     "data_flow": {
       "description": "This diagram traces one query from a client of any frontend. The frontend parses or binds the query, then lowers it to the shared engine AST. The engine then runs it through translate, VDBE, and storage, and returns rows to the client.",
@@ -802,8 +840,8 @@
     }
   },
   "stats": {
-    "node_count": 45,
-    "edge_count": 68,
+    "node_count": 46,
+    "edge_count": 73,
     "layer_count": 8,
     "files_analyzed": 240,
     "cards": [
@@ -821,12 +859,12 @@
       },
       {
         "label": "Modeled Components",
-        "value": 45
+        "value": 46
       }
     ],
     "architectural_patterns": [
       "Multiple frontends converge on one engine. SQLite/SQL, PostgreSQL, and Graph/Cypher all compile down to the same turso_parser::ast::Cmd/Stmt, and they share one core/translate -> core/vdbe -> core/storage pipeline. No frontend module holds its own bytecode emitter or B-tree code.",
-      "The engine offers two seams to frontends. SqliteDialect and PostgresDialect use the heavier Dialect trait (core/dialect/mod.rs), which owns schema DDL parsing and formatting. The Graph frontend uses the lighter FrontendCompiler trait and registry (core/connection.rs:569) instead, because Cypher does not own schema DDL encoding.",
+      "The engine offers two seams to frontends, and Postgres and Graph now converge on using both together. Dialect (core/dialect/mod.rs) is the per-database seam: identity, schema-row parsing, catalog registration, and function surface. PostgresDialect and GraphDialect (graph/frontend/src/dialect.rs) both implement it, alongside FrontendCompiler (core/connection.rs:569), the per-connection seam for statement compilation, prerequisites, and reprepare, which PostgresCompiler and GraphCompiler both implement. SqliteDialect implements only Dialect, because plain SQL compilation needs no separate per-connection state.",
       "The team keeps frontends decoupled at the crate level on purpose. Commit a7a22ff16 added a graph.cypher() adapter that coupled postgres/frontend to turso_graph_frontend, and commit 178437223 reverted it. Frontends compose only through Connection::register_frontend_compiler on a shared core Connection, never through a direct crate dependency.",
       "\"Everything is a B-tree.\" FTS and vector indexes (core/index_method/backing_btree.rs), graph label and relationship-type junction tables (graph/frontend/catalog.rs), and materialized-view bookkeeping all persist as ordinary B-tree tables, not as bespoke on-disk formats.",
       "A register-machine bytecode VM, the SQLite-style VDBE in core/vdbe/execute.rs (18,212 LOC), serves as the single execution target. All three frontends and the internal __turso_graph_expand virtual table run on it.",
@@ -835,14 +873,19 @@
     ],
     "limitations": [
       "This analysis is static. It reads files, counts lines with tokei and wc -l, reads Cargo.toml dependency declarations, and greps for module references; it does not build a compiler-derived call graph. Edge types such as calls, depends, reads, writes, and emits reflect how the code reads and how commit messages describe it, not a symbol-level cross-reference tool.",
-      "This analysis covers the feature/graph-frontend branch, confirmed by git rev-parse --abbrev-ref HEAD. The Graph/Cypher frontend, its 6 crates, and its 9 nodes in this model are unmerged and library-only. No CLI subcommand and no language binding wires GraphConnection in yet, so this model does not show what ships on main today.",
-      "This model covers a curated set of about 45 nodes, out of the workspace's 52 crates and about 939 Rust source files (per tokei). It stays at architectural altitude, within the 30-to-80-node target. Many individual optimizer passes, per-language binding internals, and single-purpose extension crates fold into one parent node instead of appearing on their own.",
+      "This analysis covers the feature/graph-frontend branch, confirmed by git rev-parse --abbrev-ref HEAD. The Graph/Cypher frontend, its 6 crates, and its 10 nodes in this model are unmerged and library-only. No CLI subcommand and no language binding wires GraphConnection in yet, so this model does not show what ships on main today.",
+      "This model covers a curated set of about 46 nodes, out of the workspace's 52 crates and about 939 Rust source files (per tokei). It stays at architectural altitude, within the 30-to-80-node target. Many individual optimizer passes, per-language binding internals, and single-purpose extension crates fold into one parent node instead of appearing on their own.",
       "This revision checked every LOC figure named in a node description against tokei and wc -l, file by file, and all of them matched exactly. The 557,762-line Rust LOC stat card is a whole-workspace tokei total. The analysis has not broken this total down per crate, and has not removed generated or vendored code that the pg_query bindings pull in.",
       "This model collapses the dependency and call edges for all nine binding crates (bindings/{python,javascript,java,dotnet,go,rust,c,react-native,tcl}) into one bindings node. It does not model the FFI differences between languages."
     ]
   },
-  "revision": 3,
+  "revision": 4,
   "revision_history": [
+    {
+      "revision": 4,
+      "date": "2026-07-22",
+      "summary": "Revision 4 (2026-07-22) — the graph/Cypher frontend now uses both core seams, exactly like the PostgreSQL frontend. Added the graph-dialect node for GraphDialect (graph/frontend/src/dialect.rs, 437 LOC), which implements Dialect with name \"graph-cypher\": SQLite-delegating schema-row methods, a targeted redirect error when Cypher text hits Dialect::parse, a turso_graphs catalog vtab (the graph analogue of pg_catalog tables), and resolve_function/exec_scalar_function routing the 24 names in turso_graph_temporal::FUNCTION_NAMES to turso_graph_temporal::dispatch. Corrected the core-dialect-trait, core-frontend-compiler, graph-compiler, graph-session, and graph-temporal node descriptions, which previously stated (now falsely) that the graph frontend used only FrontendCompiler and built on the existing SqliteDialect; GraphConnection::open_database/open_database_with_io now pin GraphDialect by default, byte-for-byte mirroring turso_pg::open_database, while GraphConnection::install keeps a secondary attach mode onto a SqliteDialect-backed database that Postgres has no equivalent of. Updated graph-testkit to note its fixtures now open through GraphDialect. Reframed the 'two different seams' pattern and limitations text as a 'two-seam convergence': Postgres and Graph both pair Dialect (per-database) with FrontendCompiler (per-connection), the same way; SqliteDialect alone implements only Dialect. Added 5 edges (graph-dialect to core-dialect-trait, sqlite-dialect, graph-temporal, graph-catalog; graph-session to graph-dialect) and updated the graph-session-to-sqlite-dialect edge to describe the now-secondary attach path. Node count 45 to 46, edge count 68 to 73. No other layer, node, or edge changed."
+    },
     {
       "revision": 3,
       "date": "2026-07-22",
