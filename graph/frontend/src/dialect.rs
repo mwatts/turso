@@ -6,11 +6,140 @@
 //! `turso_pg` splits `PostgresDialect` (schema dialect) from
 //! `PostgresCompiler` (statement compilation).
 
+use parking_lot::RwLock;
+use std::sync::Arc;
 use turso_core::{schema::BTreeTable, Dialect, Result};
 
 /// Shared with [`crate::graph_frontend_id`] so the dialect name and the
 /// frontend-compiler id stay one identity, like `"postgres"` does for pg.
 pub const GRAPH_DIALECT_NAME: &str = "graph-cypher";
+
+/// `turso_graphs`: the graph analogue of a `pg_catalog` table, listing every
+/// source (node or relationship) of every graph registered on this
+/// database via [`crate::register_graph`]. Installed by
+/// [`GraphDialect::register_catalog`] on every schema build/rebuild, the
+/// same lifecycle catalog tables get, so registration state is inspectable
+/// from any connection without going through the frontend API.
+const TURSO_GRAPHS_VTAB_SQL: &str = "CREATE TABLE turso_graphs (\
+    graph_id INTEGER, graph_name TEXT, generation INTEGER, kind TEXT, \
+    source_name TEXT, table_name TEXT, identity_column TEXT, \
+    start_column TEXT, end_column TEXT)";
+
+#[derive(Debug)]
+struct TursoGraphsTable;
+
+impl turso_core::InternalVirtualTable for TursoGraphsTable {
+    fn name(&self) -> String {
+        "turso_graphs".to_string()
+    }
+
+    fn sql(&self) -> String {
+        TURSO_GRAPHS_VTAB_SQL.to_string()
+    }
+
+    fn open(
+        &self,
+        conn: Arc<turso_core::Connection>,
+    ) -> Result<Arc<RwLock<dyn turso_core::InternalVirtualTableCursor>>> {
+        Ok(Arc::new(RwLock::new(TursoGraphsCursor {
+            conn,
+            rows: Vec::new(),
+            row: 0,
+        })))
+    }
+
+    fn best_index(
+        &self,
+        constraints: &[turso_ext::ConstraintInfo],
+        _order_by: &[turso_ext::OrderByInfo],
+    ) -> std::result::Result<turso_ext::IndexInfo, turso_ext::ResultCode> {
+        Ok(turso_ext::IndexInfo {
+            idx_num: 0,
+            idx_str: None,
+            order_by_consumed: false,
+            estimated_cost: 1.0,
+            estimated_rows: 32,
+            constraint_usages: constraints
+                .iter()
+                .map(|_| turso_ext::ConstraintUsage {
+                    argv_index: None,
+                    omit: false,
+                })
+                .collect(),
+        })
+    }
+}
+
+struct TursoGraphsCursor {
+    conn: Arc<turso_core::Connection>,
+    rows: Vec<Vec<turso_core::Value>>,
+    row: usize,
+}
+
+impl TursoGraphsCursor {
+    fn load(&mut self) -> Result<()> {
+        // The catalog tables only exist once register_graph has run.
+        let mut probe = self.conn.prepare_internal(format!(
+            "SELECT 1 FROM sqlite_schema WHERE type = 'table' AND name = '{}'",
+            crate::catalog::GRAPHS_TABLE
+        ))?;
+        if probe.run_collect_rows()?.is_empty() {
+            self.rows = Vec::new();
+            return Ok(());
+        }
+        let sql = format!(
+            "SELECT g.id, g.name, COALESCE(gen.generation, 0), s.kind, s.name, \
+                    COALESCE(ns.table_name, rs.table_name), \
+                    COALESCE(ns.identity_column, rs.identity_column), \
+                    rs.start_column, rs.end_column \
+             FROM {graphs} g \
+             LEFT JOIN {generations} gen ON gen.graph_id = g.id \
+             JOIN {sources} s ON s.graph_id = g.id \
+             LEFT JOIN {node_sources} ns ON ns.source_id = s.id \
+             LEFT JOIN {relationship_sources} rs ON rs.source_id = s.id \
+             ORDER BY g.id, s.id",
+            graphs = crate::catalog::GRAPHS_TABLE,
+            generations = crate::catalog::GENERATIONS_TABLE,
+            sources = crate::catalog::SOURCES_TABLE,
+            node_sources = crate::catalog::NODE_SOURCES_TABLE,
+            relationship_sources = crate::catalog::RELATIONSHIP_SOURCES_TABLE,
+        );
+        let mut stmt = self.conn.prepare_internal(&sql)?;
+        self.rows = stmt.run_collect_rows()?;
+        Ok(())
+    }
+}
+
+impl turso_core::InternalVirtualTableCursor for TursoGraphsCursor {
+    fn filter(
+        &mut self,
+        _args: &[turso_core::Value],
+        _idx_str: Option<String>,
+        _idx_num: i32,
+    ) -> Result<bool> {
+        self.load()?;
+        self.row = 0;
+        Ok(!self.rows.is_empty())
+    }
+
+    fn next(&mut self) -> Result<bool> {
+        self.row += 1;
+        Ok(self.row < self.rows.len())
+    }
+
+    fn rowid(&self) -> i64 {
+        self.row as i64
+    }
+
+    fn column(&self, column: usize) -> Result<turso_core::Value> {
+        Ok(self
+            .rows
+            .get(self.row)
+            .and_then(|row| row.get(column))
+            .cloned()
+            .unwrap_or(turso_core::Value::Null))
+    }
+}
 
 #[derive(Debug)]
 pub struct GraphDialect;
@@ -69,7 +198,14 @@ impl Dialect for GraphDialect {
         schema: &mut turso_core::schema::Schema,
         enable_custom_types: bool,
     ) -> Result<()> {
-        turso_core::dialect::sqlite::register_builtin_catalog(schema, enable_custom_types)
+        turso_core::dialect::sqlite::register_builtin_catalog(schema, enable_custom_types)?;
+        let vtab = turso_core::VirtualTable::new_internal(
+            "turso_graphs".to_string(),
+            TURSO_GRAPHS_VTAB_SQL.to_string(),
+            turso_ext::VTabKind::VirtualTable,
+            Arc::new(RwLock::new(TursoGraphsTable)),
+        )?;
+        schema.add_virtual_table(Arc::new(vtab))
     }
 
     fn resolve_function(&self, name: &str, arg_count: usize) -> Result<Option<turso_core::Func>> {
@@ -240,5 +376,62 @@ mod tests {
         )
         .unwrap_err();
         assert!(err.to_string().contains("already open with dialect"));
+    }
+
+    #[test]
+    fn turso_graphs_vtab_lists_registered_sources() {
+        let io: Arc<dyn IO> = Arc::new(MemoryIO::new());
+        let db = open_graph_db(&io, ":memory:gd-vtab");
+        let conn = db.connect().unwrap();
+
+        // Empty before any registration.
+        let rows = conn
+            .prepare("SELECT count(*) FROM turso_graphs")
+            .unwrap()
+            .run_collect_rows()
+            .unwrap();
+        assert_eq!(rows[0][0], turso_core::Value::from_i64(0));
+
+        conn.execute("CREATE TABLE people(id INTEGER PRIMARY KEY, name TEXT)")
+            .unwrap();
+        conn.execute(
+            "CREATE TABLE relationships(id INTEGER PRIMARY KEY, src INTEGER, dst INTEGER)",
+        )
+        .unwrap();
+        crate::register_graph(
+            &conn,
+            &crate::GraphRegistration {
+                name: "social".to_owned(),
+                node_sources: vec![crate::NodeSourceRegistration {
+                    name: "Person".to_owned(),
+                    table: "people".to_owned(),
+                    identity_column: "id".to_owned(),
+                }],
+                relationship_sources: vec![crate::RelationshipSourceRegistration {
+                    name: "KNOWS".to_owned(),
+                    table: "relationships".to_owned(),
+                    identity_column: "id".to_owned(),
+                    start_column: "src".to_owned(),
+                    end_column: "dst".to_owned(),
+                    start_node_source: "Person".to_owned(),
+                    end_node_source: "Person".to_owned(),
+                }],
+            },
+        )
+        .unwrap();
+
+        let rows = conn
+            .prepare(
+                "SELECT graph_name, kind, source_name, table_name \
+                 FROM turso_graphs ORDER BY kind, source_name",
+            )
+            .unwrap()
+            .run_collect_rows()
+            .unwrap();
+        assert_eq!(rows.len(), 2);
+        assert_eq!(rows[0][1].to_string(), "node");
+        assert_eq!(rows[0][2].to_string(), "Person");
+        assert_eq!(rows[1][1].to_string(), "relationship");
+        assert_eq!(rows[1][3].to_string(), "relationships");
     }
 }

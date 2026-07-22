@@ -14,11 +14,11 @@ use turso_core::{
 use turso_graph_ir::{GraphId, SourceTableId};
 
 const RESERVED_PREFIX: &str = "__turso_";
-const GRAPHS_TABLE: &str = "__turso_internal_graph_graphs";
-const GENERATIONS_TABLE: &str = TURSO_GRAPH_GENERATIONS_TABLE_NAME;
-const SOURCES_TABLE: &str = "__turso_internal_graph_sources";
-const NODE_SOURCES_TABLE: &str = "__turso_internal_graph_node_sources";
-const RELATIONSHIP_SOURCES_TABLE: &str = "__turso_internal_graph_relationship_sources";
+pub(crate) const GRAPHS_TABLE: &str = "__turso_internal_graph_graphs";
+pub(crate) const GENERATIONS_TABLE: &str = TURSO_GRAPH_GENERATIONS_TABLE_NAME;
+pub(crate) const SOURCES_TABLE: &str = "__turso_internal_graph_sources";
+pub(crate) const NODE_SOURCES_TABLE: &str = "__turso_internal_graph_node_sources";
+pub(crate) const RELATIONSHIP_SOURCES_TABLE: &str = "__turso_internal_graph_relationship_sources";
 
 pub const GRAPH_CATALOG_VERSION: u64 = 1;
 
