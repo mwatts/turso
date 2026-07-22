@@ -33,7 +33,7 @@ The answer is yes. This document specifies how.
 | Graph frontend | The Turso crates under `graph/`, mainly `turso_graph_frontend`. It compiles Cypher against user-owned Turso tables. |
 | Semantic schema catalog | The opt-in catalog that the semantic-schema spec defines. It stores conceptual types, properties, ownership, and endpoint rules. |
 | Semantic registration | The data structure that `register_semantic_schema` accepts. The semantic-schema spec Milestone 1 defines this API. |
-| tessera-turso | A planned adapter crate. It will live in the tessera repository. It converts a Tessera schema into a semantic registration for Turso. |
+| tessera-turso | A planned adapter crate. It will live in the tessera repository. It depends on `turso_graph_frontend` and converts a Tessera schema into direct semantic registration calls against the Turso graph API. |
 
 ## 3. Top-level requirements
 
@@ -56,8 +56,10 @@ spec. They are not negotiable.
 
 ## 4. Architecture overview
 
-The design has two sides. The Turso side knows nothing about Tessera. The
-Tessera side knows about Turso only through a data format.
+The design is a one-directional layering. The dependency arrow points from
+the tessera repository to the Turso repository, and never the other way.
+The Turso side knows nothing about Tessera. The tessera-turso adapter is
+an ordinary downstream consumer of the Turso graph crates.
 
 ```
 Tessera repository                          Turso repository
@@ -72,11 +74,13 @@ tessera::build_ir  --> PERA IR
         |
         v
 tessera-turso adapter
+  depends on turso_graph_frontend (git dependency)
   - checks the supported subset
   - resolves physical table mappings
-  - emits a semantic registration
+  - builds SemanticSchemaRegistration values
+  - opens a GraphConnection and calls
+    register_semantic_schema directly
         |
-        |   JSON document (the interchange format)
         +----------------------------------->  register_semantic_schema
                                                        |
                                                        v
@@ -86,16 +90,16 @@ tessera-turso adapter
                                                binder and runtime validation
 ```
 
-The interchange format is the connection between the two sides. It is a
-JSON document. Its structure is the serde serialization of the
-`SemanticSchemaRegistration` type. The semantic-schema implementation plan
-(Task 1) makes that type serialize and deserialize with serde. Because the
-connection is a data format and not a Rust API, neither repository needs a
-code dependency on the other to exchange schemas.
+The connection between the two sides is the public Rust API of
+`turso_graph_frontend`. The adapter constructs the registration structs in
+Rust, opens the database through the same entry points every other
+consumer uses (`open_database`, `GraphConnection`, `GraphDialect`), and
+calls `register_semantic_schema`. Turso still validates everything at
+registration time. The trust boundary does not move.
 
-The adapter may also link `turso_graph_frontend` directly as a git
-dependency inside the tessera workspace. That choice belongs to the
-tessera repository. It does not affect Turso.
+The adapter may additionally serialize a registration to JSON, because the
+registration structs derive serde. That is a convenience for tooling,
+caching, and non-Rust clients. It is not the integration mechanism.
 
 ## 5. Why the fit is good
 
@@ -227,7 +231,7 @@ breaks these into twelve tasks with tests.
 |---|---|
 | Persisted conceptual IDs for labels, relationship types, and properties | Today the IDs come from source-list positions and column ordinals (`schema_catalog.rs:256-308`). Positional IDs break when someone reorders a registration or alters a table. Persisted IDs make prepared plans and snapshots stable. |
 | `register_semantic_schema` with atomic, idempotent registration | Any user who wants conceptual names that differ from table names gets that ability. Two conceptual types can share one table. This is useful with or without any external DSL. |
-| Serde-serializable registration structs | Any external tool, script, or CI pipeline can author a schema as JSON. This creates a general integration surface. Tessera is one client of it. It will not be the last. |
+| Serde-serializable registration structs | Any external tool, script, or CI pipeline can author, cache, or inspect a schema as JSON. This is a general data surface for non-Rust clients and tooling. Rust consumers such as tessera-turso use the API directly and do not need it. |
 | Owner-aware property resolution in the binder | The binder gains precise errors: `PropertyNotOwned`, `AmbiguousProperty`, with source spans. Typo detection on property names becomes possible for schema-registered graphs. |
 | Strict type selection for CREATE and MERGE | Prevents silently untyped writes on graphs that declare a schema. |
 | Endpoint validation for relationships | Prevents structurally wrong edges, in both query directions. |
@@ -236,29 +240,37 @@ breaks these into twelve tasks with tests.
 
 ## 10. Groundwork contract for tessera-turso
 
-The Turso side lays groundwork through exactly one contract: the
-interchange format.
+The Turso side lays groundwork through its public Rust API. The adapter is
+a normal downstream crate, so the contract is API stability and
+documentation, not a wire format.
 
-1. The `SemanticSchemaRegistration` type and its nested types derive
-   `serde::Serialize` and `serde::Deserialize`.
-2. The JSON field names are the Rust field names. The implementation plan
-   pins this with a round-trip test.
-3. The types are additive. New optional fields may appear in later
-   versions. Existing fields do not change meaning or disappear.
+1. The registration surface is public and documented:
+   `SemanticSchemaRegistration` and its nested types,
+   `register_semantic_schema`, and the `SemanticCatalogError` variants.
+2. The session surface the adapter needs is already public:
+   `open_database`, `GraphConnection::open`, `GraphDialect`, and
+   `load_registered_graph`.
+3. The registration types are additive across versions. New optional
+   fields may appear. Existing fields do not change meaning or disappear.
 4. Registration semantics are documented in `docs/graph.md`: validation
    order, idempotency, atomicity, and the error catalog.
+5. As a secondary convenience, the registration types derive
+   `serde::Serialize` and `serde::Deserialize`, and the implementation
+   plan pins the JSON round trip with a test. This lets tools cache,
+   inspect, or transport a registration as data. It also serves any
+   future non-Rust client. It is not required for the adapter itself.
 
-With this contract, the tessera repository can build the adapter with no
-coordination beyond reading the documentation. The adapter emits the JSON
-document. A small loader (in the application, in a CLI, or in the adapter
-itself) calls `register_semantic_schema` with the deserialized value.
+With this contract, the tessera repository builds the adapter against
+`turso_graph_frontend` as a git dependency, pins a revision, and calls the
+API directly. Integration tests in the adapter run against a real Turso
+database in memory.
 
 ## 11. Work sequence
 
 | Phase | Work | Repository | Gate to start |
 |---|---|---|---|
 | A | Implement semantic-schema spec Milestones 1 and 2, following the implementation plan. Include the serde round-trip test. | turso | None. This phase is first. |
-| B | Build the tessera-turso adapter: subset checks from section 8, physical mapping from section 7, emission of the interchange JSON, and integration tests against a real Turso database. | tessera | Phase A merged. |
+| B | Build the tessera-turso adapter: add `turso_graph_frontend` as a git dependency, implement the subset checks from section 8 and the physical mapping from section 7, call `register_semantic_schema` directly, and run integration tests against a real Turso database. | tessera | Phase A merged. |
 | C | Add payload persistence: store the serialized PERA IR as an opaque, versioned blob next to the catalog rows. On re-registration, load the stored payload, run `tessera::diff` in the adapter, and refuse breaking changes. | tessera, plus one small additive blob table in turso | Phase B complete. |
 | D | Extend the Tessera DSL with `extends` for inheritance, and map constraint directives, when the semantic-schema spec Milestones 3 and 4 exist in Turso. | both | Turso Milestones 3 and 4 merged. |
 
@@ -275,7 +287,7 @@ aware of semantic property names.
 | The adapter degrades a feature silently, and users assume enforcement that does not exist. | Section 8 classifies every construct as mapped, rejected, or warned. The adapter returns the warning list from its main entry point. Documentation lists every unenforced semantic. |
 | The stored PERA payload and the catalog rows disagree. | The catalog rows are the authority inside Turso. The payload is provenance and evolution input only. The adapter verifies agreement when it loads both. |
 | The Tessera IR format changes and old payloads become unreadable. | The payload uses msgpack with named fields for forward compatibility. The adapter refuses payloads newer than itself, with a clear error. |
-| A future contributor adds Tessera as a Turso dependency for convenience. | Requirement 3.1 in this document forbids it. The interchange format removes the temptation, because JSON crosses the boundary already. |
+| A future contributor adds Tessera as a Turso dependency for convenience. | Requirement 3.1 in this document forbids it. The layering is one-directional: tessera-turso depends on Turso, never the inverse. Anything Turso needs from a schema arrives as a `SemanticSchemaRegistration` value through the public API. |
 | Role names on binary relations mislead data modelers. | The adapter documents the rule: first role becomes start, second role becomes end. Role names survive as metadata for documentation only. |
 
 ## 13. Non-goals
