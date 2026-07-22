@@ -6766,6 +6766,7 @@ fn ordered_set_percentile_disc(values: &[Value], fraction: f64, collation: Colla
 fn op_window_step(
     state: &mut ProgramState,
     acc_reg: usize,
+    arg_reg: usize,
     func: &WindowFunc,
 ) -> Result<InsnFunctionStepResult> {
     match func {
@@ -6823,6 +6824,98 @@ fn op_window_step(
                 *rank = rows_seen;
             }
         }
+        // dense_rank() — mirrors SQLite's CallCount-based dense_rankStepFunc.
+        //
+        // State (payload):
+        //   [0] = current dense_rank value (never cleared; persists across
+        //         peer groups in a partition and resets at partition boundary
+        //         via the Null on acc_reg).
+        //   [1] = "pending bump" flag.
+        //
+        // Step sets the flag every source row (no-op past the first row of a
+        // peer group since the flag is already 1). AggValue, called once per
+        // peer-group flush, sees the flag set, bumps payload[0] by one, then
+        // clears the flag. Subsequent source rows within the same peer group
+        // re-set the flag, but no AggValue runs between them, so the bump
+        // happens exactly once per peer group — yielding no gaps.
+        WindowFunc::DenseRank => {
+            if let Register::Value(Value::Null) = state.registers[acc_reg] {
+                state.registers[acc_reg] =
+                    Register::Aggregate(AggContext::Builtin(crate::alloc::try_vec![
+                        Value::from_i64(0),
+                        Value::from_i64(0),
+                    ]?));
+            }
+            let Register::Aggregate(AggContext::Builtin(payload)) = &mut state.registers[acc_reg]
+            else {
+                unreachable!("dense_rank accumulator must be a Builtin payload");
+            };
+            let Value::Numeric(Numeric::Integer(pending)) = &mut payload[1] else {
+                unreachable!("dense_rank pending flag must be Integer");
+            };
+            *pending = 1;
+        }
+        // first_value(expr) — captures the argument value of the first row
+        // of the partition once, then never updates. Under our default
+        // RANGE UNBOUNDED PRECEDING TO CURRENT ROW frame this corresponds
+        // to "value at frame start = partition start" (matches SQLite's
+        // first_valueStepFunc behavior on the same frame).
+        //
+        // State: payload[0] = captured value, payload[1] = captured flag
+        // (Integer 0 = not yet captured, 1 = captured). The flag lets us
+        // distinguish "no captures yet" from "captured a NULL".
+        WindowFunc::FirstValue => {
+            if let Register::Value(Value::Null) = state.registers[acc_reg] {
+                state.registers[acc_reg] =
+                    Register::Aggregate(AggContext::Builtin(crate::alloc::try_vec![
+                        Value::Null,
+                        Value::from_i64(0),
+                    ]?));
+            }
+            // Most steps past the first per partition are no-ops; check the
+            // capture flag with an immutable borrow first so we don't clone
+            // the arg (potentially a Text/Blob allocation) on every row.
+            let already_captured = {
+                let Register::Aggregate(AggContext::Builtin(payload)) = &state.registers[acc_reg]
+                else {
+                    unreachable!("first_value accumulator must be a Builtin payload");
+                };
+                let Value::Numeric(Numeric::Integer(captured)) = &payload[1] else {
+                    unreachable!("first_value capture flag must be Integer");
+                };
+                *captured != 0
+            };
+            if !already_captured {
+                let arg_value = state.registers[arg_reg].get_value().clone();
+                let Register::Aggregate(AggContext::Builtin(payload)) =
+                    &mut state.registers[acc_reg]
+                else {
+                    unreachable!("first_value accumulator must be a Builtin payload");
+                };
+                payload[0] = arg_value;
+                let Value::Numeric(Numeric::Integer(captured)) = &mut payload[1] else {
+                    unreachable!("first_value capture flag must be Integer");
+                };
+                *captured = 1;
+            }
+        }
+        // last_value(expr) — captures the argument value of every source row,
+        // so payload[0] always holds the value of the most recently stepped
+        // row. With our default RANGE frame, AggValue is called once per
+        // peer-group flush, so the captured value at that moment is the value
+        // of the last row of the just-finished peer group.
+        WindowFunc::LastValue => {
+            if let Register::Value(Value::Null) = state.registers[acc_reg] {
+                state.registers[acc_reg] =
+                    Register::Aggregate(AggContext::Builtin(crate::alloc::try_vec![Value::Null]?));
+            }
+            let arg_value = state.registers[arg_reg].get_value().clone();
+            let Register::Aggregate(AggContext::Builtin(payload)) = &mut state.registers[acc_reg]
+            else {
+                unreachable!("last_value accumulator must be a Builtin payload");
+            };
+            payload[0] = arg_value;
+        }
         other => {
             return Err(LimboError::InternalError(format!(
                 "window function {other} reached runtime dispatch but has no handler"
@@ -6861,6 +6954,58 @@ fn op_window_value(
             };
             std::mem::replace(&mut payload[0], Value::from_i64(0))
         }
+        WindowFunc::DenseRank => {
+            // If the pending-bump flag is set, increment the dense_rank value
+            // and clear the flag, then return the (possibly bumped) value.
+            // Mirrors SQLite's dense_rankValueFunc.
+            let Register::Aggregate(AggContext::Builtin(payload)) = &mut state.registers[acc_reg]
+            else {
+                return Err(LimboError::InternalError(format!(
+                    "dense_rank accumulator in unexpected register state: {:?}",
+                    state.registers[acc_reg]
+                )));
+            };
+            let Value::Numeric(Numeric::Integer(pending)) = &mut payload[1] else {
+                unreachable!("dense_rank pending flag must be Integer");
+            };
+            let should_bump = *pending != 0;
+            if should_bump {
+                *pending = 0;
+            }
+            let Value::Numeric(Numeric::Integer(value_slot)) = &mut payload[0] else {
+                unreachable!("dense_rank current value must be Integer");
+            };
+            if should_bump {
+                *value_slot += 1;
+            }
+            Value::from_i64(*value_slot)
+        }
+        WindowFunc::FirstValue => {
+            // first_value captures payload[0] once per partition; every
+            // peer-group flush in the partition reads the same slot, so
+            // we have to clone instead of taking ownership.
+            let Register::Aggregate(AggContext::Builtin(payload)) = &mut state.registers[acc_reg]
+            else {
+                return Err(LimboError::InternalError(format!(
+                    "first_value accumulator in unexpected register state: {:?}",
+                    state.registers[acc_reg]
+                )));
+            };
+            payload[0].clone()
+        }
+        WindowFunc::LastValue => {
+            // last_value's slot is overwritten by the next AggStep anyway,
+            // so we can take ownership here and save a clone per peer-group
+            // flush (notable for Text / Blob args).
+            let Register::Aggregate(AggContext::Builtin(payload)) = &mut state.registers[acc_reg]
+            else {
+                return Err(LimboError::InternalError(format!(
+                    "last_value accumulator in unexpected register state: {:?}",
+                    state.registers[acc_reg]
+                )));
+            };
+            std::mem::replace(&mut payload[0], Value::Null)
+        }
         other => {
             return Err(LimboError::InternalError(format!(
                 "window function {other} reached runtime dispatch but has no handler"
@@ -6890,7 +7035,7 @@ pub fn op_agg_step(
     );
 
     if let AccumulatorFunc::Window(win_func) = func {
-        return op_window_step(state, *acc_reg, win_func);
+        return op_window_step(state, *acc_reg, *col, win_func);
     }
     let func = func.expect_agg();
 

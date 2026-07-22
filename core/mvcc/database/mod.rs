@@ -1,6 +1,6 @@
 use crate::alloc::{
-    ConcurrentAllocator, TryReserveError, TursoAllocator, TursoTryWithCapacityExt, TursoVecInExt,
-    ALLOC_ERR_MSG,
+    ConcurrentAllocator, DynAllocator, DynVec, TryReserveError, TursoAllocator,
+    TursoTryWithCapacityExt, TursoVecInExt, ALLOC_ERR_MSG,
 };
 use crate::mvcc::clock::LogicalClock;
 use crate::mvcc::cursor::{static_iterator_hack, MvccIterator};
@@ -485,7 +485,7 @@ pub type TxID = u64;
 /// pre-serialized into a frame buffer that the logical-log flush path
 /// finalizes (backfills the TX header, appends the CRC trailer, optionally
 /// chunk-encrypts the payload) and writes to disk.
-#[derive(Clone, Debug)]
+#[derive(Debug)]
 pub struct LogRecord {
     pub(crate) tx_timestamp: TxID,
     /// Frame buffer that grows in place into the on-disk representation.
@@ -493,7 +493,7 @@ pub struct LogRecord {
     /// (zeros) so that op-entry appends land at the correct on-disk
     /// offset; the flush path backfills the framing prefix and appends
     /// the trailer.
-    pub buf: Vec<u8>,
+    pub buf: DynVec<u8>,
     /// Number of op entries appended to `buf`. Includes any header op.
     pub op_count: u32,
     /// True once a `DatabaseHeader` op has been appended. At most one
@@ -504,7 +504,7 @@ pub struct LogRecord {
     /// Recovery ignores this field. Raw-log consumers use it to resolve the
     /// recovery ops' MVCC table ids and read transaction-level metadata.
     #[cfg(feature = "conn_raw_api")]
-    pub portable_changes: Vec<u8>,
+    pub portable_changes: crate::alloc::Vec<u8>,
     /// True when the committing connection requested portable logical-change
     /// frames, even if this transaction has no client-visible metadata.
     #[cfg(feature = "conn_raw_api")]
@@ -516,20 +516,44 @@ pub struct LogRecord {
 }
 
 impl LogRecord {
-    pub(crate) fn new(tx_timestamp: TxID) -> Self {
-        Self {
+    #[cfg_attr(
+        feature = "aristo-instr",
+        aristo::instrument::expose_pub(as = "new_for_test")
+    )]
+    pub(crate) fn new(tx_timestamp: TxID, alloc: DynAllocator) -> Result<Self> {
+        let buf: DynVec<u8> = crate::alloc::try_vec![
+            0;
+            crate::mvcc::persistent_storage::logical_log::LOG_RECORD_PREFIX_SIZE;
+            alloc
+        ]?;
+        Ok(Self {
             tx_timestamp,
             // Pre-reserve the framing prefix at the front of buf:
             //   [LOG_HDR slot (56B) | TX_HEADER slot (24B) | <ops here>]
             // The log-header slot is only filled on the very first write to
-            // a log file; otherwise it stays zero and the flush path wraps
-            // the buf with `Buffer::new_with_start(..., LOG_HDR_SIZE)` so
-            // those 56 bytes never reach disk.
-            buf: vec![0u8; crate::mvcc::persistent_storage::logical_log::LOG_RECORD_PREFIX_SIZE],
+            // a log file; otherwise it stays zero and the flush path exposes
+            // a shared view starting at `LOG_HDR_SIZE`, so those 56 bytes never
+            // reach disk.
+            buf,
             op_count: 0,
             has_header: false,
             #[cfg(feature = "conn_raw_api")]
-            portable_changes: Vec::new(),
+            portable_changes: crate::alloc::vec![],
+            #[cfg(feature = "conn_raw_api")]
+            portable_changes_enabled: false,
+            #[cfg(feature = "conn_raw_api")]
+            portable_changes_required: false,
+        })
+    }
+
+    fn empty(tx_timestamp: TxID, alloc: DynAllocator) -> Self {
+        Self {
+            tx_timestamp,
+            buf: <DynVec<u8> as TursoVecInExt<u8, DynAllocator>>::new_in(alloc),
+            op_count: 0,
+            has_header: false,
+            #[cfg(feature = "conn_raw_api")]
+            portable_changes: crate::alloc::vec![],
             #[cfg(feature = "conn_raw_api")]
             portable_changes_enabled: false,
             #[cfg(feature = "conn_raw_api")]
@@ -559,7 +583,8 @@ impl LogRecord {
         row_versions: &[RowVersion],
         header: Option<DatabaseHeader>,
     ) -> Self {
-        let mut record = Self::new(tx_timestamp);
+        let mut record = Self::new(tx_timestamp, DynAllocator::default())
+            .expect("failed to allocate logical log record in test");
         for rv in row_versions {
             record.push_row_version_for_test(rv);
         }
@@ -2379,7 +2404,10 @@ impl<Clock: LogicalClock, A: ConcurrentAllocator> CommitStateMachine<Clock, A> {
         // Move the assembled log record out and transition to
         // BeginCommitLogicalLog (or directly to CommitEnd if there is nothing
         // to log).
-        let mut log_record = std::mem::replace(&mut ctx.log_record, LogRecord::new(end_ts));
+        let mut log_record = std::mem::replace(
+            &mut ctx.log_record,
+            LogRecord::empty(end_ts, mvcc_store.logical_log_allocator()),
+        );
         self.populate_portable_changes(mvcc_store, &mut log_record)?;
         tracing::trace!("prepared_log_record(tx_id={})", self.tx_id);
 
@@ -2426,8 +2454,8 @@ impl<Clock: LogicalClock, A: ConcurrentAllocator> CommitStateMachine<Clock, A> {
                 .into_iter()
                 .collect();
             metadata.sort_by(|a, b| a.0.cmp(&b.0));
-            for (key, value) in metadata {
-                builder.add_metadata(&key, &value);
+            for (key, value) in &metadata {
+                builder.add_metadata(key, value)?;
             }
 
             // The recovery payload is the single durable operation stream.
@@ -2594,7 +2622,7 @@ impl<Clock: LogicalClock, A: ConcurrentAllocator> CommitStateMachine<Clock, A> {
                 let added = builder.add_object_map(PortableObjectMapEntry {
                     mv_table_id: i64::from(*table_id),
                     name: &table_ref.name,
-                });
+                })?;
                 turso_assert!(
                     added,
                     "portable object map unexpectedly rejected a user object"
@@ -2612,7 +2640,7 @@ impl<Clock: LogicalClock, A: ConcurrentAllocator> CommitStateMachine<Clock, A> {
                 }
             }
 
-            log_record.portable_changes = builder.finish();
+            log_record.portable_changes = builder.finish()?;
             log_record.portable_changes_required = has_portable_schema_changes;
             Ok(())
         }
@@ -3011,7 +3039,7 @@ impl<Clock: LogicalClock, A: ConcurrentAllocator> StateTransition for CommitStat
                 };
                 self.state = CommitState::BuildLogRecord(BuildLogRecordCtx {
                     end_ts,
-                    log_record: LogRecord::new(end_ts),
+                    log_record: LogRecord::new(end_ts, mvcc_store.logical_log_allocator())?,
                     cursor: 0,
                     schema_process: true,
                     pending_header,
@@ -3045,7 +3073,7 @@ impl<Clock: LogicalClock, A: ConcurrentAllocator> StateTransition for CommitStat
                     &mut self.state,
                     CommitState::UpgradeLogicalLogHeader {
                         end_ts,
-                        log_record: LogRecord::new(end_ts),
+                        log_record: LogRecord::empty(end_ts, mvcc_store.logical_log_allocator()),
                     },
                 ) {
                     CommitState::BeginCommitLogicalLog { log_record, .. } => log_record,
@@ -3065,7 +3093,7 @@ impl<Clock: LogicalClock, A: ConcurrentAllocator> StateTransition for CommitStat
                     &mut self.state,
                     CommitState::WriteLogicalLog {
                         end_ts,
-                        log_record: LogRecord::new(end_ts),
+                        log_record: LogRecord::empty(end_ts, mvcc_store.logical_log_allocator()),
                     },
                 ) {
                     CommitState::UpgradeLogicalLogHeader { log_record, .. } => log_record,
@@ -3936,6 +3964,9 @@ pub struct MvStore<Clock: LogicalClock, A: ConcurrentAllocator = TursoAllocator>
     /// Allocator backing every skiplist in this store, including lazily
     /// created per-index maps in `index_rows`.
     alloc: A,
+    /// Type-erased clone of `alloc` used by logical-log buffers that cross the
+    /// durable-storage trait-object and I/O ownership boundaries.
+    logical_log_alloc: DynAllocator,
     tx_ids: AtomicU64,
     version_id_counter: AtomicU64,
     next_rowid: AtomicU64,
@@ -4085,6 +4116,10 @@ impl<Clock: LogicalClock, A: ConcurrentAllocator> MvStore<Clock, A> {
         self.alloc.clone()
     }
 
+    fn logical_log_allocator(&self) -> DynAllocator {
+        self.logical_log_alloc.clone()
+    }
+
     fn uses_durable_mvcc_metadata(&self, connection: &Arc<Connection>) -> bool {
         !connection.db.is_in_memory_db()
     }
@@ -4139,6 +4174,7 @@ impl<Clock: LogicalClock, A: ConcurrentAllocator> MvStore<Clock, A> {
         alloc: A,
         experimental_mvcc_passive_checkpoint: bool,
     ) -> Result<Self> {
+        let logical_log_alloc = DynAllocator::new(alloc.clone());
         let table_id_to_rootpage = SkipMap::new_in(alloc.clone());
         // table id 1 / root page 1 is always sqlite_schema.
         table_id_to_rootpage.try_insert(SQLITE_SCHEMA_MVCC_TABLE_ID, RootEntry::live(Some(1)))?;
@@ -4150,6 +4186,7 @@ impl<Clock: LogicalClock, A: ConcurrentAllocator> MvStore<Clock, A> {
             txs: SkipMap::new_in(alloc.clone()),
             finalized_tx_states: SkipMap::new_in(alloc.clone()),
             alloc,
+            logical_log_alloc,
             tx_ids: AtomicU64::new(1), // let's reserve transaction 0 for special purposes
             version_id_counter: AtomicU64::new(1), // Reserve 0 for special purposes
             next_rowid: AtomicU64::new(0), // TODO: determine this from B-Tree
@@ -8569,6 +8606,14 @@ impl<Clock: LogicalClock, A: ConcurrentAllocator> MvStore<Clock, A> {
     /// Replay a single committed logical-log transaction frame into the MVCC
     /// store. Fully synchronous (the only recovery IO is reading the next frame,
     /// driven by the caller); operates on accumulators borrowed from `ctx`.
+    ///
+    /// A same-transaction create-then-drop leaves a delete of a sqlite_schema rowid absent from
+    /// the merged state; replay treats that as a legal no-op, not corruption.
+    #[aristo::intent(
+        "Replaying a committed logical-log transaction never aborts with a corruption error",
+        id = "mvcc_recovery_total_on_committed_log",
+        verify = "full"
+    )]
     fn recover_process_frame(
         &self,
         connection: &Arc<Connection>,
