@@ -60,6 +60,68 @@ pub fn install_temporal_extension(connection: &Connection) {
     });
 }
 
+/// Every scalar name `install_temporal_extension` registers, in the same
+/// order. `GraphDialect::resolve_function` treats this list as the
+/// dialect-owned function surface.
+pub const FUNCTION_NAMES: &[&str] = &[
+    "duration_make",
+    "duration_parse",
+    "duration_get",
+    "duration_add",
+    "duration_neg",
+    "duration_between",
+    "temporal_make",
+    "temporal_truncate",
+    "temporal_parse",
+    "temporal_get",
+    "temporal_now",
+    "datetime_add_duration",
+    "datetime_sub_duration",
+    "jsonb_get",
+    "jsonb_get_text",
+    "jsonb_get_path",
+    "jsonb_exists",
+    "jsonb_exists_any",
+    "jsonb_exists_all",
+    "jsonb_contains",
+    "cypher_raise",
+    "cypher_equals",
+    "cypher_add",
+    "cypher_div",
+];
+
+/// Execute a temporal/cypher scalar by name outside the extension ABI.
+/// Returns `None` for names this crate does not own.
+pub fn dispatch(name: &str, args: &[ExtValue]) -> Option<ExtValue> {
+    Some(match name {
+        "duration_make" => duration_make_impl(args),
+        "duration_parse" => duration_parse_impl(args),
+        "duration_get" => duration_get_impl(args),
+        "duration_add" => duration_add_impl(args),
+        "duration_neg" => duration_neg_impl(args),
+        "duration_between" => duration_between_impl(args),
+        "temporal_make" => temporal_make_impl(args),
+        "temporal_truncate" => temporal_truncate_impl(args),
+        "temporal_parse" => temporal_parse_impl(args),
+        "temporal_get" => temporal_get_impl(args),
+        "temporal_now" => temporal_now_impl(args),
+        "datetime_add_duration" => shift_datetime(args, 1),
+        "datetime_sub_duration" => shift_datetime(args, -1),
+        "jsonb_get" => jsonb_get_impl(args),
+        "jsonb_get_text" => jsonb_get_text_impl(args),
+        "jsonb_get_path" => jsonb_get_path_impl(args),
+        "jsonb_exists" => jsonb_exists_impl(args),
+        "jsonb_exists_any" => exists_over(args, false),
+        "jsonb_exists_all" => exists_over(args, true),
+        "jsonb_contains" => jsonb_contains_impl(args),
+        "cypher_raise" => cypher_raise_impl(args),
+        "cypher_equals" => cypher_equals_impl(args),
+        "cypher_add" => cypher_add_impl(args),
+        "cypher_div" => cypher_div_impl(args),
+        _ => return None,
+    })
+}
+
 // ---------------------------------------------------------------------------
 // Durations: four-component vectors encoded as canonical ISO-8601 text.
 // ---------------------------------------------------------------------------
@@ -406,6 +468,10 @@ fn temporal_argument(value: &ExtValue) -> Option<Temporal> {
 
 #[scalar(name = "duration_make")]
 fn duration_make(args: &[ExtValue]) -> ExtValue {
+    duration_make_impl(args)
+}
+
+fn duration_make_impl(args: &[ExtValue]) -> ExtValue {
     let (Some(months), Some(days), Some(seconds), Some(nanos)) = (
         args.first().and_then(integer),
         args.get(1).and_then(integer),
@@ -427,6 +493,10 @@ fn duration_make(args: &[ExtValue]) -> ExtValue {
 
 #[scalar(name = "duration_parse")]
 fn duration_parse(args: &[ExtValue]) -> ExtValue {
+    duration_parse_impl(args)
+}
+
+fn duration_parse_impl(args: &[ExtValue]) -> ExtValue {
     match args.first().and_then(duration_value) {
         Some(value) => ExtValue::from_text(value.render()),
         None => ExtValue::null(),
@@ -435,6 +505,10 @@ fn duration_parse(args: &[ExtValue]) -> ExtValue {
 
 #[scalar(name = "duration_get")]
 fn duration_get(args: &[ExtValue]) -> ExtValue {
+    duration_get_impl(args)
+}
+
+fn duration_get_impl(args: &[ExtValue]) -> ExtValue {
     let (Some(value), Some(unit)) = (
         args.first().and_then(duration_value),
         args.get(1).and_then(text),
@@ -466,6 +540,10 @@ fn duration_get(args: &[ExtValue]) -> ExtValue {
 
 #[scalar(name = "duration_add")]
 fn duration_add(args: &[ExtValue]) -> ExtValue {
+    duration_add_impl(args)
+}
+
+fn duration_add_impl(args: &[ExtValue]) -> ExtValue {
     let (Some(left), Some(right)) = (
         args.first().and_then(duration_value),
         args.get(1).and_then(duration_value),
@@ -485,6 +563,10 @@ fn duration_add(args: &[ExtValue]) -> ExtValue {
 
 #[scalar(name = "duration_neg")]
 fn duration_neg(args: &[ExtValue]) -> ExtValue {
+    duration_neg_impl(args)
+}
+
+fn duration_neg_impl(args: &[ExtValue]) -> ExtValue {
     match args.first().and_then(duration_value) {
         Some(value) => ExtValue::from_text(
             Dur {
@@ -505,6 +587,10 @@ fn duration_neg(args: &[ExtValue]) -> ExtValue {
 /// whole units of their kind.
 #[scalar(name = "duration_between")]
 fn duration_between(args: &[ExtValue]) -> ExtValue {
+    duration_between_impl(args)
+}
+
+fn duration_between_impl(args: &[ExtValue]) -> ExtValue {
     let (Some(start), Some(end)) = (
         args.first().and_then(temporal_argument),
         args.get(1).and_then(temporal_argument),
@@ -570,6 +656,10 @@ fn duration_between(args: &[ExtValue]) -> ExtValue {
 /// seconds/milliseconds.
 #[scalar(name = "temporal_make")]
 fn temporal_make(args: &[ExtValue]) -> ExtValue {
+    temporal_make_impl(args)
+}
+
+fn temporal_make_impl(args: &[ExtValue]) -> ExtValue {
     let (Some(kind), Some(json)) = (args.first().and_then(text), args.get(1).and_then(text)) else {
         return ExtValue::null();
     };
@@ -589,6 +679,10 @@ fn temporal_make(args: &[ExtValue]) -> ExtValue {
 /// Cypher functions.
 #[scalar(name = "temporal_truncate")]
 fn temporal_truncate(args: &[ExtValue]) -> ExtValue {
+    temporal_truncate_impl(args)
+}
+
+fn temporal_truncate_impl(args: &[ExtValue]) -> ExtValue {
     let (Some(kind), Some(unit), Some(value)) = (
         args.first().and_then(text),
         args.get(1).and_then(text),
@@ -1095,6 +1189,10 @@ fn parse_temporal_with_kind(kind: &str, text: &str) -> Option<Temporal> {
 
 #[scalar(name = "temporal_parse")]
 fn temporal_parse(args: &[ExtValue]) -> ExtValue {
+    temporal_parse_impl(args)
+}
+
+fn temporal_parse_impl(args: &[ExtValue]) -> ExtValue {
     let (Some(kind), Some(raw)) = (args.first().and_then(text), args.get(1).and_then(text)) else {
         return ExtValue::null();
     };
@@ -1137,6 +1235,10 @@ fn temporal_parse(args: &[ExtValue]) -> ExtValue {
 
 #[scalar(name = "temporal_get")]
 fn temporal_get(args: &[ExtValue]) -> ExtValue {
+    temporal_get_impl(args)
+}
+
+fn temporal_get_impl(args: &[ExtValue]) -> ExtValue {
     let (Some(value), Some(unit)) = (
         args.first().and_then(temporal_argument),
         args.get(1).and_then(text),
@@ -1215,6 +1317,10 @@ fn temporal_get(args: &[ExtValue]) -> ExtValue {
 
 #[scalar(name = "temporal_now")]
 fn temporal_now(args: &[ExtValue]) -> ExtValue {
+    temporal_now_impl(args)
+}
+
+fn temporal_now_impl(args: &[ExtValue]) -> ExtValue {
     let Some(kind) = args.first().and_then(text) else {
         return ExtValue::null();
     };
@@ -1303,6 +1409,10 @@ fn datetime_sub_duration(args: &[ExtValue]) -> ExtValue {
 /// SQL expressions cannot produce.
 #[scalar(name = "cypher_raise")]
 fn cypher_raise(args: &[ExtValue]) -> ExtValue {
+    cypher_raise_impl(args)
+}
+
+fn cypher_raise_impl(args: &[ExtValue]) -> ExtValue {
     let kind = args
         .first()
         .and_then(text)
@@ -1320,6 +1430,10 @@ fn json_argument(value: &ExtValue) -> Option<serde_json::Value> {
 /// SQL NULL for Cypher's `null`-propagating `=`.
 #[scalar(name = "cypher_equals")]
 fn cypher_equals(args: &[ExtValue]) -> ExtValue {
+    cypher_equals_impl(args)
+}
+
+fn cypher_equals_impl(args: &[ExtValue]) -> ExtValue {
     let (Some(left), Some(right)) = (args.first(), args.get(1)) else {
         return ExtValue::null();
     };
@@ -1335,6 +1449,10 @@ fn cypher_equals(args: &[ExtValue]) -> ExtValue {
 /// string), lists concatenate or append, null propagates.
 #[scalar(name = "cypher_add")]
 fn cypher_add(args: &[ExtValue]) -> ExtValue {
+    cypher_add_impl(args)
+}
+
+fn cypher_add_impl(args: &[ExtValue]) -> ExtValue {
     use turso_ext::ValueType;
     let (Some(left), Some(right)) = (args.first(), args.get(1)) else {
         return ExtValue::null();
@@ -1378,6 +1496,10 @@ fn cypher_add(args: &[ExtValue]) -> ExtValue {
 /// null propagates.
 #[scalar(name = "cypher_div")]
 fn cypher_div(args: &[ExtValue]) -> ExtValue {
+    cypher_div_impl(args)
+}
+
+fn cypher_div_impl(args: &[ExtValue]) -> ExtValue {
     use turso_ext::ValueType;
     let (Some(left), Some(right)) = (args.first(), args.get(1)) else {
         return ExtValue::null();
@@ -1509,6 +1631,10 @@ fn json_index<'a>(
 /// `a -> b`: object field or (possibly negative) array index, as JSON.
 #[scalar(name = "jsonb_get")]
 fn jsonb_get(args: &[ExtValue]) -> ExtValue {
+    jsonb_get_impl(args)
+}
+
+fn jsonb_get_impl(args: &[ExtValue]) -> ExtValue {
     let (Some(container), Some(key)) = (args.first().and_then(json_argument), args.get(1)) else {
         return ExtValue::null();
     };
@@ -1518,6 +1644,10 @@ fn jsonb_get(args: &[ExtValue]) -> ExtValue {
 /// `a ->> b`: like `->` but scalar results render as bare text.
 #[scalar(name = "jsonb_get_text")]
 fn jsonb_get_text(args: &[ExtValue]) -> ExtValue {
+    jsonb_get_text_impl(args)
+}
+
+fn jsonb_get_text_impl(args: &[ExtValue]) -> ExtValue {
     let (Some(container), Some(key)) = (args.first().and_then(json_argument), args.get(1)) else {
         return ExtValue::null();
     };
@@ -1531,6 +1661,10 @@ fn jsonb_get_text(args: &[ExtValue]) -> ExtValue {
 /// `a #> path`: extract along a JSON array of keys/indices.
 #[scalar(name = "jsonb_get_path")]
 fn jsonb_get_path(args: &[ExtValue]) -> ExtValue {
+    jsonb_get_path_impl(args)
+}
+
+fn jsonb_get_path_impl(args: &[ExtValue]) -> ExtValue {
     let (Some(container), Some(serde_json::Value::Array(path))) = (
         args.first().and_then(json_argument),
         args.get(1).and_then(json_argument),
@@ -1577,6 +1711,10 @@ fn object_or_array_keys(value: &serde_json::Value) -> Vec<String> {
 /// `a ? key`: object key or string array element existence.
 #[scalar(name = "jsonb_exists")]
 fn jsonb_exists(args: &[ExtValue]) -> ExtValue {
+    jsonb_exists_impl(args)
+}
+
+fn jsonb_exists_impl(args: &[ExtValue]) -> ExtValue {
     let (Some(container), Some(key)) = (
         args.first().and_then(json_argument),
         args.get(1).and_then(text),
@@ -1640,6 +1778,10 @@ fn contains_value(container: &serde_json::Value, contained: &serde_json::Value) 
 /// `a @> b` (postgres jsonb containment; `<@` swaps the arguments).
 #[scalar(name = "jsonb_contains")]
 fn jsonb_contains(args: &[ExtValue]) -> ExtValue {
+    jsonb_contains_impl(args)
+}
+
+fn jsonb_contains_impl(args: &[ExtValue]) -> ExtValue {
     let (Some(container), Some(contained)) = (
         args.first().and_then(json_argument),
         args.get(1).and_then(json_argument),
@@ -1753,5 +1895,30 @@ mod tests {
             render("datetime", r#"{"date": "1984-03-07", "time": "12:31:14"}"#),
             "1984-03-07T12:31:14Z"
         );
+    }
+}
+
+#[cfg(test)]
+mod dispatch_tests {
+    use super::*;
+
+    #[test]
+    fn dispatch_covers_every_registered_name() {
+        for name in FUNCTION_NAMES {
+            assert!(
+                dispatch(name, &[]).is_some(),
+                "{name} must dispatch (even if the empty-args result is an error value)"
+            );
+        }
+        assert!(dispatch("no_such_function", &[]).is_none());
+    }
+
+    #[test]
+    fn dispatch_matches_scalar_behavior() {
+        let args = vec![ExtValue::from_text("P1DT25H".to_string())];
+        let out = dispatch("duration_parse", &args).expect("known name");
+        // duration_parse normalizes but must not carry fields across:
+        // P1DT25H keeps 25 hours (module doc, lib.rs:8).
+        assert_eq!(out.to_text(), Some("P1DT25H"));
     }
 }
