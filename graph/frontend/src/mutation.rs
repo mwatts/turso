@@ -554,6 +554,13 @@ fn project_stage(
     rows: Vec<HashMap<ir::BindingId, Value>>,
     entity_layouts: &HashMap<ir::BindingId, (ir::SourceTableId, MutationEntityKind)>,
 ) -> Result<Vec<HashMap<ir::BindingId, Value>>, MutationError> {
+    if projections.is_empty() {
+        assert!(
+            predicate.is_none() && !distinct,
+            "an empty mutation projection cannot carry filtering or DISTINCT"
+        );
+        return Ok(rows);
+    }
     let has_aggregates = projections
         .iter()
         .any(|projection| matches!(projection, StageProjection::Aggregate { .. }));

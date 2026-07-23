@@ -556,6 +556,109 @@ fn typed_reads_and_writes_work_in_semantic_mode() {
 }
 
 #[test]
+fn every_typed_property_mutation_route_executes_in_semantic_mode() {
+    let session = semantic_session();
+    session
+        .execute(
+            "CREATE (:Customer {displayName: 'Ada', born: 1815})",
+            &Default::default(),
+        )
+        .expect("create customer");
+    session
+        .execute(
+            "MATCH (n:Customer {displayName: 'Ada'}) SET n.born = 1816",
+            &Default::default(),
+        )
+        .expect("set one property");
+    session
+        .execute(
+            "MATCH (n:Customer {displayName: 'Ada'}) \
+             SET n += {displayName: 'Ada Lovelace'}",
+            &Default::default(),
+        )
+        .expect("merge literal properties");
+    session
+        .execute(
+            "MATCH (n:Customer {displayName: 'Ada Lovelace'}) REMOVE n.born",
+            &Default::default(),
+        )
+        .expect("remove one property");
+    session
+        .execute(
+            "MATCH (n:Customer {displayName: 'Ada Lovelace'}) \
+             SET n = {displayName: 'Ada'}",
+            &Default::default(),
+        )
+        .expect("replace literal properties");
+    session
+        .execute(
+            "MERGE (n:Customer {displayName: 'Ada'}) \
+             ON MATCH SET n.born = 1815",
+            &Default::default(),
+        )
+        .expect("merge on match");
+    session
+        .execute(
+            "MERGE (n:Customer {displayName: 'Grace'}) \
+             ON CREATE SET n.born = 1906",
+            &Default::default(),
+        )
+        .expect("merge on create");
+
+    session
+        .execute(
+            "CREATE (:Customer {displayName: 'Buyer'})\
+             -[:TRADES_WITH {since: 1840}]->\
+             (:Supplier {displayName: 'Seller'})",
+            &Default::default(),
+        )
+        .expect("create typed relationship");
+    session
+        .execute(
+            "MATCH (:Customer)-[r:TRADES_WITH]->(:Supplier) SET r.since = 1841",
+            &Default::default(),
+        )
+        .expect("set relationship property");
+    session
+        .execute(
+            "MATCH (:Customer)-[r:TRADES_WITH]->(:Supplier) REMOVE r.since",
+            &Default::default(),
+        )
+        .expect("remove relationship property");
+
+    let customers = session
+        .query(
+            "MATCH (n:Customer) RETURN n.displayName, n.born",
+            &Default::default(),
+        )
+        .expect("read customers");
+    assert_eq!(
+        customers,
+        vec![
+            vec![
+                turso_graph_frontend::Value::Text("Ada".into()),
+                turso_graph_frontend::Value::Numeric(turso_graph_frontend::Numeric::Integer(1815),),
+            ],
+            vec![
+                turso_graph_frontend::Value::Text("Grace".into()),
+                turso_graph_frontend::Value::Numeric(turso_graph_frontend::Numeric::Integer(1906),),
+            ],
+            vec![
+                turso_graph_frontend::Value::Text("Buyer".into()),
+                turso_graph_frontend::Value::Null,
+            ],
+        ]
+    );
+    let relationships = session
+        .query(
+            "MATCH (:Customer)-[r:TRADES_WITH]->(:Supplier) RETURN r.since",
+            &Default::default(),
+        )
+        .expect("read relationship");
+    assert_eq!(relationships, vec![vec![turso_graph_frontend::Value::Null]]);
+}
+
+#[test]
 fn endpoint_validation_covers_both_directions() {
     let session = semantic_session();
     session
@@ -705,7 +808,8 @@ fn staged_runtime_failure_aborts_every_row() {
 
     let error = session
         .execute(
-            "UNWIND [1, 2] AS i \
+            "WITH [1, 2] AS rows \
+             UNWIND rows AS i \
              CREATE (n:Customer {\
                  displayName: 'row', \
                  born: CASE i WHEN 1 THEN 1815 ELSE $bad END\
@@ -721,4 +825,81 @@ fn staged_runtime_failure_aborts_every_row() {
         .query("MATCH (n:Customer) RETURN n", &Default::default())
         .expect("read after staged rollback");
     assert!(rows.is_empty(), "staged mutation leaked rows: {rows:?}");
+}
+
+#[test]
+fn foreach_runtime_failure_aborts_every_iteration() {
+    let session = semantic_session();
+    let parameters = turso_graph_frontend::Parameters::from([(
+        "bad".to_owned(),
+        turso_graph_frontend::Value::Text("x".into()),
+    )]);
+
+    let error = session
+        .execute(
+            "FOREACH (i IN [1, 2] | \
+                 CREATE (:Customer {\
+                     displayName: 'row', \
+                     born: CASE i WHEN 1 THEN 1815 ELSE $bad END\
+                 })\
+             )",
+            &parameters,
+        )
+        .expect_err("second iteration must fail");
+    assert!(
+        error.to_string().contains("runtime value"),
+        "expected deferred runtime validation: {error}"
+    );
+    let rows = session
+        .query("MATCH (n:Customer) RETURN n", &Default::default())
+        .expect("read after FOREACH rollback");
+    assert!(rows.is_empty(), "FOREACH mutation leaked rows: {rows:?}");
+}
+
+#[test]
+fn one_invalid_matched_row_rolls_back_prior_row_updates() {
+    let session = semantic_session();
+    session
+        .execute(
+            "CREATE (:Customer {displayName: 'first'}), \
+             (:Customer {displayName: 'second'})",
+            &Default::default(),
+        )
+        .expect("seed matched rows");
+    let parameters = turso_graph_frontend::Parameters::from([(
+        "bad".to_owned(),
+        turso_graph_frontend::Value::Text("x".into()),
+    )]);
+
+    let error = session
+        .execute(
+            "MATCH (n:Customer) \
+             SET n.born = CASE n.displayName \
+                 WHEN 'first' THEN 1815 ELSE $bad END",
+            &parameters,
+        )
+        .expect_err("one invalid matched row must fail the mutation");
+    assert!(
+        error.to_string().contains("runtime value"),
+        "expected deferred runtime validation: {error}"
+    );
+    let rows = session
+        .query(
+            "MATCH (n:Customer) RETURN n.displayName, n.born",
+            &Default::default(),
+        )
+        .expect("read after matched-row rollback");
+    assert_eq!(
+        rows,
+        vec![
+            vec![
+                turso_graph_frontend::Value::Text("first".into()),
+                turso_graph_frontend::Value::Null,
+            ],
+            vec![
+                turso_graph_frontend::Value::Text("second".into()),
+                turso_graph_frontend::Value::Null,
+            ],
+        ]
+    );
 }

@@ -187,6 +187,9 @@ pub(crate) fn mutation_rows_sql(
     input: &LoweredMutationInput,
     bindings: &[ir::BindingId],
 ) -> String {
+    if bindings.is_empty() {
+        return format!("SELECT 1 FROM ({}) AS q", input.sql);
+    }
     let columns = bindings
         .iter()
         .map(|binding| format!("q.{}", binding_column(*binding)))
@@ -2356,6 +2359,14 @@ mod tests {
         assert_eq!(
             sql,
             "(SELECT p.\"address\".\"city\" FROM \"people\" AS p WHERE p.\"id\" = n.b1)"
+        );
+    }
+
+    #[test]
+    fn mutation_rows_preserve_one_unit_row_without_bindings() {
+        assert_eq!(
+            mutation_rows_sql(&unit_mutation_input(), &[]),
+            "SELECT 1 FROM (SELECT 1 AS __unit) AS q"
         );
     }
 
