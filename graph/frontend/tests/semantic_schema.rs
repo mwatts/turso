@@ -462,6 +462,41 @@ fn create_with_multiple_labels_is_rejected_before_fragment_polymorphism() {
 }
 
 #[test]
+fn relationship_mutations_require_one_known_semantic_type() {
+    let session = semantic_session();
+
+    let missing = session
+        .execute("CREATE (:Customer)-[]->(:Supplier)", &Default::default())
+        .expect_err("reject missing relationship type");
+    assert!(
+        missing.to_string().contains("exactly one type"),
+        "{missing}"
+    );
+
+    let unknown = session
+        .execute(
+            "CREATE (:Customer)-[:UNKNOWN]->(:Supplier)",
+            &Default::default(),
+        )
+        .expect_err("reject unknown relationship type");
+    assert!(
+        unknown.to_string().contains("unknown relationship type"),
+        "{unknown}"
+    );
+
+    let multiple = session
+        .execute(
+            "CREATE (:Customer)-[:TRADES_WITH|TRADES_WITH]->(:Supplier)",
+            &Default::default(),
+        )
+        .expect_err("reject multiple relationship types");
+    assert!(
+        multiple.to_string().contains("exactly one type"),
+        "{multiple}"
+    );
+}
+
+#[test]
 fn create_uses_one_semantic_type_and_rejects_a_source_name_as_a_label() {
     let session = semantic_session();
     session
