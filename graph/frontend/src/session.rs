@@ -1,14 +1,16 @@
 use std::{collections::HashMap, num::NonZero, sync::Arc};
 
+use parking_lot::{Mutex, RwLock};
 use thiserror::Error;
 use turso_core::{Connection, Value};
 use turso_graph_ir::GraphId;
 use turso_graph_runtime::{BuildLimits, Cancellation, NeverCancelled};
 
 use crate::{
-    execute_cypher_mutation, graph_frontend_id, install_graph_catalog, GraphCompilationCatalog,
-    GraphCompiler, MutationError, MutationSummary, ParameterTypes, Parameters, RegisteredGraph,
-    SessionSnapshotStore, SnapshotError, SnapshotStore,
+    compiler::SharedGraphCatalog, execute_cypher_mutation, graph_frontend_id,
+    install_graph_catalog, GraphCompilationCatalog, GraphCompiler, MutationError, MutationSummary,
+    ParameterTypes, Parameters, RegisteredGraph, SessionSnapshotStore, SnapshotError,
+    SnapshotStore,
 };
 
 #[derive(Debug, Error)]
@@ -82,7 +84,8 @@ pub struct GraphConnection {
     connection: Arc<Connection>,
     graph: GraphId,
     graph_name: String,
-    catalog: Arc<dyn GraphCompilationCatalog>,
+    catalog: SharedGraphCatalog,
+    catalog_generation: Option<Mutex<u64>>,
     parameters: ParameterTypes,
     snapshots: Arc<SessionSnapshotStore>,
     limits: BuildLimits,
@@ -104,6 +107,7 @@ impl GraphConnection {
         shared_snapshots: Arc<SnapshotStore>,
         limits: BuildLimits,
     ) -> Result<Self, Error> {
+        let catalog = Arc::new(RwLock::new(catalog));
         let snapshots = Arc::new(SessionSnapshotStore::new(shared_snapshots.clone()));
         shared_snapshots.register_session(&connection, &snapshots)?;
         install_graph_catalog(connection.as_ref(), shared_snapshots)?;
@@ -112,7 +116,7 @@ impl GraphConnection {
         turso_graph_temporal::install_temporal_extension(connection.as_ref());
         connection.register_frontend_compiler(
             graph_frontend_id(),
-            Arc::new(GraphCompiler::new(
+            Arc::new(GraphCompiler::with_shared(
                 graph.id,
                 catalog.clone(),
                 parameters.clone(),
@@ -123,6 +127,7 @@ impl GraphConnection {
             graph: graph.id,
             graph_name: graph.name.clone(),
             catalog,
+            catalog_generation: None,
             parameters,
             snapshots,
             limits,
@@ -153,14 +158,16 @@ impl GraphConnection {
             graph.clone(),
             semantic,
         ));
-        Self::install(
+        let mut session = Self::install(
             connection,
             &graph,
             catalog,
             parameters,
             Arc::new(SnapshotStore::default()),
             BuildLimits::default(),
-        )
+        )?;
+        session.catalog_generation = Some(Mutex::new(graph.generation));
+        Ok(session)
     }
 
     pub fn graph_id(&self) -> GraphId {
@@ -200,7 +207,8 @@ impl GraphConnection {
         &self,
         syntax: &turso_graph_cypher::Query,
     ) -> Result<Vec<turso_graph_ir::ValueType>, Error> {
-        let bound = crate::bind(syntax, self.graph, self.catalog.as_ref(), &self.parameters)?;
+        let catalog = self.catalog.read().clone();
+        let bound = crate::bind(syntax, self.graph, catalog.as_ref(), &self.parameters)?;
         let scope = bound.plan.scope();
         Ok(bound
             .plan
@@ -221,6 +229,7 @@ impl GraphConnection {
         parameters: &Parameters,
         cancellation: &dyn Cancellation,
     ) -> Result<crate::Statement, Error> {
+        self.refresh_catalog_if_stale()?;
         // EXPLAIN-prefixed queries (including postgres option lists like
         // EXPLAIN (VERBOSE, COSTS OFF)) compile the inner query and return
         // core's own plan via EXPLAIN QUERY PLAN over the lowered SQL.
@@ -234,9 +243,10 @@ impl GraphConnection {
                     cancellation,
                 )?;
             }
-            let bound = crate::bind(&syntax, self.graph, self.catalog.as_ref(), &self.parameters)?;
+            let catalog = self.catalog.read().clone();
+            let bound = crate::bind(&syntax, self.graph, catalog.as_ref(), &self.parameters)?;
             let statement =
-                crate::lower_relational(&bound.plan, self.catalog.as_ref()).map_err(|error| {
+                crate::lower_relational(&bound.plan, catalog.as_ref()).map_err(|error| {
                     Error::Database(turso_core::LimboError::ParseError(error.to_string()))
                 })?;
             let mut statement = self
@@ -263,13 +273,10 @@ impl GraphConnection {
     }
 
     pub fn execute(&self, source: &str, parameters: &Parameters) -> Result<MutationSummary, Error> {
-        let result = execute_cypher_mutation(
-            &self.connection,
-            self.graph,
-            self.catalog.clone(),
-            source,
-            parameters,
-        );
+        self.refresh_catalog_if_stale()?;
+        let catalog = self.catalog.read().clone();
+        let result =
+            execute_cypher_mutation(&self.connection, self.graph, catalog, source, parameters);
         let cleared = self.snapshots.clear();
         if let Err(error) = &cleared {
             // The mutation outcome must not be masked by cache state: on
@@ -279,6 +286,28 @@ impl GraphConnection {
             tracing::warn!("clearing session snapshots after mutation failed: {error}");
         }
         Ok(result?)
+    }
+
+    fn refresh_catalog_if_stale(&self) -> Result<(), Error> {
+        let Some(generation) = &self.catalog_generation else {
+            return Ok(());
+        };
+        let mut known_generation = generation.lock();
+        let graph =
+            crate::load_registered_graph(&self.connection, &self.graph_name).map_err(|error| {
+                Error::Database(turso_core::LimboError::ParseError(error.to_string()))
+            })?;
+        if graph.generation == *known_generation {
+            return Ok(());
+        }
+        let semantic = crate::load_semantic_snapshot(&self.connection, &graph)?.map(Arc::new);
+        *self.catalog.write() = Arc::new(crate::SchemaCatalog::with_semantic(
+            self.connection.clone(),
+            graph.clone(),
+            semantic,
+        ));
+        *known_generation = graph.generation;
+        Ok(())
     }
 }
 

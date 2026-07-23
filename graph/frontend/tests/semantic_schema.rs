@@ -2781,6 +2781,37 @@ fn constrained_session(
     turso_graph_frontend::Connection::open(connection, "social").expect("open constrained graph")
 }
 
+fn assert_catalog_constraint_violation(error: SemanticCatalogError) {
+    let SemanticCatalogError::ConstraintViolation { constraint, detail } = error else {
+        panic!("expected a typed catalog constraint violation, got {error:?}");
+    };
+    assert!(
+        !constraint.is_empty(),
+        "constraint identity must be preserved"
+    );
+    assert!(!detail.is_empty(), "constraint detail must be preserved");
+}
+
+fn assert_mutation_constraint_violation(error: FrontendError) {
+    let FrontendError::Mutation(MutationError::SemanticConstraintViolation(detail)) = error else {
+        panic!("expected a typed runtime constraint violation, got {error:?}");
+    };
+    assert!(!detail.is_empty(), "runtime detail must be preserved");
+}
+
+fn assert_bind_constraint_violation(error: FrontendError) {
+    let FrontendError::Mutation(MutationError::Bind(BindError::SemanticConstraintViolation {
+        detail,
+        span_start,
+        span_end,
+    })) = error
+    else {
+        panic!("expected a typed bind-time constraint violation, got {error:?}");
+    };
+    assert!(!detail.is_empty(), "bind detail must be preserved");
+    assert!(span_start < span_end, "bind source span must be non-empty");
+}
+
 #[test]
 fn required_constraint_is_persisted_idempotently_and_rejects_invalid_existing_data() {
     let connection = connection();
@@ -2859,6 +2890,373 @@ fn required_constraint_is_persisted_idempotently_and_rejects_invalid_existing_da
         activated,
         "idempotent replay must not publish a new catalog generation"
     );
+}
+
+#[test]
+fn every_constraint_kind_rejects_invalid_existing_data_atomically() {
+    let cases = [
+        (
+            "CREATE (:Customer {displayName: 'Ada', born: 1815}), \
+             (:Customer {displayName: 'Ada', born: 1816}), \
+             (:Supplier {displayName: 'Iron'})",
+            SemanticConstraintRegistration {
+                required: vec![SemanticRequiredProperty {
+                    owner: "Supplier".to_owned(),
+                    property: "displayName".to_owned(),
+                }],
+                unique: vec![SemanticUniqueProperty {
+                    owner: "Customer".to_owned(),
+                    property: "displayName".to_owned(),
+                }],
+                ..SemanticConstraintRegistration::default()
+            },
+        ),
+        (
+            "CREATE (:Customer {displayName: 'Ada', born: 1815}), \
+             (:Customer {displayName: 'Ada', born: 1815})",
+            SemanticConstraintRegistration {
+                keys: vec![SemanticKeyConstraint {
+                    owner: "Customer".to_owned(),
+                    properties: vec!["displayName".to_owned(), "born".to_owned()],
+                }],
+                ..SemanticConstraintRegistration::default()
+            },
+        ),
+        (
+            "CREATE (:Customer {displayName: 'Ada', born: 1700})",
+            SemanticConstraintRegistration {
+                values: vec![SemanticPropertyValueConstraint {
+                    owner: "Customer".to_owned(),
+                    property: "born".to_owned(),
+                    predicate: SemanticValuePredicate::Range {
+                        minimum: Some(SemanticRangeBound {
+                            value: SemanticScalar::Integer(1800),
+                            inclusive: true,
+                        }),
+                        maximum: None,
+                    },
+                }],
+                ..SemanticConstraintRegistration::default()
+            },
+        ),
+        (
+            "CREATE (:Customer {displayName: 'Ada', active: 0})",
+            SemanticConstraintRegistration {
+                values: vec![SemanticPropertyValueConstraint {
+                    owner: "Customer".to_owned(),
+                    property: "active".to_owned(),
+                    predicate: SemanticValuePredicate::Allowed {
+                        values: vec![SemanticScalar::Boolean(true)],
+                    },
+                }],
+                ..SemanticConstraintRegistration::default()
+            },
+        ),
+        (
+            "CREATE (:Customer {displayName: 'ada'})",
+            SemanticConstraintRegistration {
+                values: vec![SemanticPropertyValueConstraint {
+                    owner: "Customer".to_owned(),
+                    property: "displayName".to_owned(),
+                    predicate: SemanticValuePredicate::Regex {
+                        pattern: "^[A-Z]".to_owned(),
+                    },
+                }],
+                ..SemanticConstraintRegistration::default()
+            },
+        ),
+        (
+            "CREATE (:Customer {displayName: 'Ada'})",
+            SemanticConstraintRegistration {
+                cardinalities: vec![SemanticRelationshipCardinality {
+                    relationship_type: "TRADES_WITH".to_owned(),
+                    endpoint: SemanticEndpoint::Start,
+                    minimum: 1,
+                    maximum: None,
+                }],
+                ..SemanticConstraintRegistration::default()
+            },
+        ),
+        (
+            "CREATE (c:Customer {displayName: 'Ada'})\
+             -[:TRADES_WITH {since: 1840}]->(:Supplier {displayName: 'Iron'}), \
+             (c)-[:TRADES_WITH {since: 1850}]->(:Supplier {displayName: 'Steel'})",
+            SemanticConstraintRegistration {
+                cardinalities: vec![SemanticRelationshipCardinality {
+                    relationship_type: "TRADES_WITH".to_owned(),
+                    endpoint: SemanticEndpoint::Start,
+                    minimum: 0,
+                    maximum: Some(1),
+                }],
+                ..SemanticConstraintRegistration::default()
+            },
+        ),
+    ];
+
+    for (seed, constraints) in cases {
+        let connection = connection();
+        registered_graph(&connection);
+        register_semantic_schema(&connection, "social", &semantic_registration())
+            .expect("register semantic schema");
+        let session = turso_graph_frontend::Connection::open(connection.clone(), "social")
+            .expect("open graph before activation");
+        session
+            .execute(seed, &Default::default())
+            .expect("seed invalid future state");
+        let before = graph_generation(&connection, "social").expect("generation before rejection");
+
+        let error = register_semantic_constraints(&connection, "social", &constraints)
+            .expect_err("invalid existing state must reject activation");
+        assert_catalog_constraint_violation(error);
+        assert_eq!(
+            graph_generation(&connection, "social").expect("generation after rejection"),
+            before,
+            "failed activation must not publish a generation"
+        );
+        for table in [
+            "__turso_internal_graph_semantic_property_constraints",
+            "__turso_internal_graph_semantic_key_constraints",
+            "__turso_internal_graph_semantic_cardinality_constraints",
+        ] {
+            let rows = connection
+                .prepare(format!(
+                    "SELECT COUNT(*) FROM sqlite_schema \
+                     WHERE type = 'table' AND name = '{table}'"
+                ))
+                .and_then(|mut statement| statement.run_collect_rows())
+                .expect("inspect rolled-back constraint catalog");
+            assert!(matches!(
+                rows[0][0],
+                turso_graph_frontend::Value::Numeric(turso_graph_frontend::Numeric::Integer(0))
+            ));
+        }
+    }
+
+    let connection = connection();
+    registered_graph(&connection);
+    register_semantic_schema(&connection, "social", &semantic_registration())
+        .expect("register semantic schema");
+    let supplier_required = SemanticConstraintRegistration {
+        required: vec![SemanticRequiredProperty {
+            owner: "Supplier".to_owned(),
+            property: "displayName".to_owned(),
+        }],
+        ..SemanticConstraintRegistration::default()
+    };
+    register_semantic_constraints(&connection, "social", &supplier_required)
+        .expect("activate an existing constraint");
+    let session = turso_graph_frontend::Connection::open(connection.clone(), "social")
+        .expect("open graph with the existing constraint");
+    session
+        .execute(
+            "CREATE (:Customer {displayName: 'Ada', born: 1815}), \
+             (:Customer {displayName: 'Ada', born: 1816})",
+            &Default::default(),
+        )
+        .expect("seed data invalid only for the proposed constraint");
+    let before =
+        graph_generation(&connection, "social").expect("generation before failed addition");
+    let customer_unique = SemanticConstraintRegistration {
+        unique: vec![SemanticUniqueProperty {
+            owner: "Customer".to_owned(),
+            property: "displayName".to_owned(),
+        }],
+        ..SemanticConstraintRegistration::default()
+    };
+    assert_catalog_constraint_violation(
+        register_semantic_constraints(&connection, "social", &customer_unique)
+            .expect_err("invalid additive constraint must roll back"),
+    );
+    assert_eq!(
+        graph_generation(&connection, "social").expect("generation after failed addition"),
+        before
+    );
+    let existing = session
+        .execute("CREATE (:Supplier)", &Default::default())
+        .expect_err("the prior required constraint must remain active");
+    assert_mutation_constraint_violation(existing);
+}
+
+#[test]
+fn required_unique_key_and_cardinality_constraints_enforce_after_reopen() {
+    let cases = [
+        (
+            required_display_name(),
+            "CREATE (:Customer {displayName: 'Ada', born: 1815})",
+            "CREATE (:Customer {born: 1816})",
+        ),
+        (
+            SemanticConstraintRegistration {
+                unique: vec![SemanticUniqueProperty {
+                    owner: "Customer".to_owned(),
+                    property: "displayName".to_owned(),
+                }],
+                ..SemanticConstraintRegistration::default()
+            },
+            "CREATE (:Customer {displayName: 'Ada', born: 1815})",
+            "CREATE (:Customer {displayName: 'Ada', born: 1816})",
+        ),
+        (
+            SemanticConstraintRegistration {
+                keys: vec![SemanticKeyConstraint {
+                    owner: "Customer".to_owned(),
+                    properties: vec!["displayName".to_owned(), "born".to_owned()],
+                }],
+                ..SemanticConstraintRegistration::default()
+            },
+            "CREATE (:Customer {displayName: 'Ada', born: 1815})",
+            "CREATE (:Customer {displayName: 'Ada', born: 1815})",
+        ),
+        (
+            SemanticConstraintRegistration {
+                cardinalities: vec![SemanticRelationshipCardinality {
+                    relationship_type: "TRADES_WITH".to_owned(),
+                    endpoint: SemanticEndpoint::Start,
+                    minimum: 0,
+                    maximum: Some(1),
+                }],
+                ..SemanticConstraintRegistration::default()
+            },
+            "CREATE (c:Customer {displayName: 'Ada'})\
+             -[:TRADES_WITH {since: 1840}]->(:Supplier {displayName: 'Iron'})",
+            "MATCH (c:Customer {displayName: 'Ada'}) \
+             CREATE (c)-[:TRADES_WITH {since: 1850}]->(:Supplier {displayName: 'Steel'})",
+        ),
+    ];
+
+    for (constraints, seed, violation) in cases {
+        let connection = connection();
+        registered_graph(&connection);
+        register_semantic_schema(&connection, "social", &semantic_registration())
+            .expect("register semantic schema");
+        register_semantic_constraints(&connection, "social", &constraints)
+            .expect("register constraint");
+        let session = turso_graph_frontend::Connection::open(connection.clone(), "social")
+            .expect("open constrained graph");
+        session
+            .execute(seed, &Default::default())
+            .expect("seed valid constrained state");
+        drop(session);
+
+        let reopened = turso_graph_frontend::Connection::open(connection, "social")
+            .expect("reopen constrained graph");
+        let error = reopened
+            .execute(violation, &Default::default())
+            .expect_err("reopened constraint must remain active");
+        assert_mutation_constraint_violation(error);
+    }
+}
+
+#[test]
+fn an_open_session_observes_newly_activated_constraints() {
+    let connection = connection();
+    registered_graph(&connection);
+    register_semantic_schema(&connection, "social", &semantic_registration())
+        .expect("register semantic schema");
+    let session = turso_graph_frontend::Connection::open(connection.clone(), "social")
+        .expect("open session before constraint activation");
+
+    register_semantic_constraints(&connection, "social", &required_display_name())
+        .expect("activate required property");
+    let error = session
+        .execute("CREATE (:Customer {born: 1815})", &Default::default())
+        .expect_err("the already-open session must refresh its semantic snapshot");
+    assert_mutation_constraint_violation(error);
+}
+
+#[test]
+fn an_open_legacy_session_refreshes_a_new_semantic_schema() {
+    let connection = connection();
+    registered_graph(&connection);
+    let session = turso_graph_frontend::Connection::open(connection.clone(), "social")
+        .expect("open legacy session before semantic registration");
+
+    register_semantic_schema(&connection, "social", &semantic_registration())
+        .expect("register semantic schema");
+    session
+        .execute(
+            "CREATE (:Customer {displayName: 'Ada', born: 1815})",
+            &Default::default(),
+        )
+        .expect("the existing session must compile mutations with the new schema");
+    assert_eq!(
+        session
+            .query(
+                "MATCH (c:Customer) RETURN c.displayName",
+                &Default::default(),
+            )
+            .expect("the registered compiler must use the refreshed schema"),
+        vec![vec![turso_graph_frontend::Value::Text("Ada".into())]]
+    );
+}
+
+#[test]
+fn relationship_required_unique_and_key_constraints_are_enforced() {
+    let required = constrained_session(&SemanticConstraintRegistration {
+        required: vec![SemanticRequiredProperty {
+            owner: "TRADES_WITH".to_owned(),
+            property: "since".to_owned(),
+        }],
+        ..SemanticConstraintRegistration::default()
+    });
+    let error = required
+        .execute(
+            "CREATE (:Customer {displayName: 'Ada'})\
+             -[:TRADES_WITH]->(:Supplier {displayName: 'Iron'})",
+            &Default::default(),
+        )
+        .expect_err("relationship required property must be enforced");
+    assert_mutation_constraint_violation(error);
+
+    for constraints in [
+        SemanticConstraintRegistration {
+            unique: vec![SemanticUniqueProperty {
+                owner: "TRADES_WITH".to_owned(),
+                property: "since".to_owned(),
+            }],
+            ..SemanticConstraintRegistration::default()
+        },
+        SemanticConstraintRegistration {
+            keys: vec![SemanticKeyConstraint {
+                owner: "TRADES_WITH".to_owned(),
+                properties: vec!["since".to_owned()],
+            }],
+            ..SemanticConstraintRegistration::default()
+        },
+    ] {
+        let session = constrained_session(&constraints);
+        session
+            .execute(
+                "CREATE (:Customer {displayName: 'Ada'})\
+                 -[:TRADES_WITH {since: 1840}]->(:Supplier {displayName: 'Iron'})",
+                &Default::default(),
+            )
+            .expect("first relationship value");
+        let duplicate = session
+            .execute(
+                "CREATE (:Customer {displayName: 'Grace'})\
+                 -[:TRADES_WITH {since: 1840}]->(:Supplier {displayName: 'Steel'})",
+                &Default::default(),
+            )
+            .expect_err("duplicate relationship property must fail");
+        assert_mutation_constraint_violation(duplicate);
+    }
+
+    let key = constrained_session(&SemanticConstraintRegistration {
+        keys: vec![SemanticKeyConstraint {
+            owner: "TRADES_WITH".to_owned(),
+            properties: vec!["since".to_owned()],
+        }],
+        ..SemanticConstraintRegistration::default()
+    });
+    let missing = key
+        .execute(
+            "CREATE (:Customer {displayName: 'Ada'})\
+             -[:TRADES_WITH]->(:Supplier {displayName: 'Iron'})",
+            &Default::default(),
+        )
+        .expect_err("relationship key member must be non-NULL");
+    assert_mutation_constraint_violation(missing);
 }
 
 #[test]
@@ -2951,6 +3349,100 @@ fn required_constraint_covers_create_remove_and_dynamic_replacement_atomically()
             turso_graph_frontend::Value::Text("Ada".into()),
             turso_graph_frontend::Value::Numeric(turso_graph_frontend::Numeric::Integer(1815)),
         ]]
+    );
+}
+
+#[test]
+fn required_constraint_covers_nulls_merge_replacements_and_staged_routes() {
+    let session = constrained_session(&required_display_name());
+    session
+        .execute(
+            "CREATE (:Customer {displayName: 'Ada', born: 1815}), \
+             (:Customer {displayName: 'Grace', born: 1906})",
+            &Default::default(),
+        )
+        .expect("seed valid customers");
+
+    let literal_null = session
+        .execute(
+            "MATCH (c:Customer {displayName: 'Ada'}) SET c.displayName = null",
+            &Default::default(),
+        )
+        .expect_err("literal NULL must be rejected during binding");
+    assert_bind_constraint_violation(literal_null);
+
+    let null_parameter = turso_graph_frontend::Parameters::from([(
+        "name".to_owned(),
+        turso_graph_frontend::Value::Null,
+    )]);
+    let runtime_null = session
+        .execute(
+            "MATCH (c:Customer {displayName: 'Ada'}) SET c.displayName = $name",
+            &null_parameter,
+        )
+        .expect_err("parameterized NULL must be rejected at runtime");
+    assert_mutation_constraint_violation(runtime_null);
+
+    let static_replacement = session
+        .execute(
+            "MATCH (c:Customer {displayName: 'Ada'}) SET c = {born: 1816}",
+            &Default::default(),
+        )
+        .expect_err("static whole-entity replacement must preserve required properties");
+    assert_mutation_constraint_violation(static_replacement);
+
+    let on_create = session
+        .execute(
+            "MERGE (c:Customer {born: 1912}) ON CREATE SET c.active = 1",
+            &Default::default(),
+        )
+        .expect_err("ON CREATE must satisfy every required property");
+    assert_mutation_constraint_violation(on_create);
+
+    let on_match = session
+        .execute(
+            "MERGE (c:Customer {displayName: 'Grace', born: 1906}) \
+             ON MATCH SET c.displayName = null",
+            &Default::default(),
+        )
+        .expect_err("ON MATCH cannot clear a required property");
+    assert_bind_constraint_violation(on_match);
+
+    let unwind = session
+        .execute(
+            "WITH [1, 0] AS keeps \
+             UNWIND keeps AS keep \
+             CREATE (:Customer {\
+                 displayName: CASE WHEN keep = 1 THEN 'Row' ELSE null END\
+             })",
+            &Default::default(),
+        )
+        .expect_err("one invalid UNWIND row must roll back all rows");
+    assert_mutation_constraint_violation(unwind);
+
+    let foreach = session
+        .execute(
+            "FOREACH (keep IN [1, 0] | \
+                 CREATE (:Customer {\
+                     displayName: CASE WHEN keep = 1 THEN 'Loop' ELSE null END\
+                 })\
+             )",
+            &Default::default(),
+        )
+        .expect_err("one invalid FOREACH iteration must roll back all iterations");
+    assert_mutation_constraint_violation(foreach);
+
+    assert_eq!(
+        session
+            .query(
+                "MATCH (c:Customer) RETURN c.displayName ORDER BY c.displayName",
+                &Default::default(),
+            )
+            .expect("read after rejected required-property mutations"),
+        vec![
+            vec![turso_graph_frontend::Value::Text("Ada".into())],
+            vec![turso_graph_frontend::Value::Text("Grace".into())],
+        ]
     );
 }
 
@@ -3068,6 +3560,111 @@ fn keys_and_unique_values_are_scoped_to_one_semantic_type() {
 }
 
 #[test]
+fn unique_and_composite_keys_cover_null_update_merge_and_dynamic_routes() {
+    let unique = constrained_session(&SemanticConstraintRegistration {
+        unique: vec![SemanticUniqueProperty {
+            owner: "Customer".to_owned(),
+            property: "displayName".to_owned(),
+        }],
+        ..SemanticConstraintRegistration::default()
+    });
+    unique
+        .execute(
+            "CREATE (:Customer {born: 1800}), (:Customer {born: 1801}), \
+             (:Customer {displayName: 'Ada', born: 1815}), \
+             (:Customer {displayName: 'Grace', born: 1906})",
+            &Default::default(),
+        )
+        .expect("unique permits multiple NULL values");
+    let update = unique
+        .execute(
+            "MATCH (c:Customer {displayName: 'Grace'}) SET c.displayName = 'Ada'",
+            &Default::default(),
+        )
+        .expect_err("SET cannot introduce a duplicate unique value");
+    assert_mutation_constraint_violation(update);
+    let replacement = turso_graph_frontend::Parameters::from([(
+        "replacement".to_owned(),
+        turso_graph_frontend::Value::Text(r#"{"displayName":"Ada","born":1906}"#.into()),
+    )]);
+    let dynamic = unique
+        .execute(
+            "MATCH (c:Customer {displayName: 'Grace'}) SET c = $replacement",
+            &replacement,
+        )
+        .expect_err("dynamic replacement cannot introduce a duplicate unique value");
+    assert_mutation_constraint_violation(dynamic);
+
+    let key = constrained_session(&SemanticConstraintRegistration {
+        keys: vec![SemanticKeyConstraint {
+            owner: "Customer".to_owned(),
+            properties: vec!["displayName".to_owned(), "born".to_owned()],
+        }],
+        ..SemanticConstraintRegistration::default()
+    });
+    key.execute(
+        "CREATE (:Customer {displayName: 'Ada', born: 1815}), \
+         (:Customer {displayName: 'Grace', born: 1906}), \
+         (:Supplier {displayName: 'Ada'})",
+        &Default::default(),
+    )
+    .expect("another semantic type sharing the table does not contaminate a key");
+
+    let update = key
+        .execute(
+            "MATCH (c:Customer {displayName: 'Grace'}) \
+             SET c.displayName = 'Ada', c.born = 1815",
+            &Default::default(),
+        )
+        .expect_err("SET cannot introduce a duplicate composite key");
+    assert_mutation_constraint_violation(update);
+    let removal = key
+        .execute(
+            "MATCH (c:Customer {displayName: 'Grace'}) REMOVE c.born",
+            &Default::default(),
+        )
+        .expect_err("REMOVE cannot clear a key member");
+    assert_mutation_constraint_violation(removal);
+    let replacement = turso_graph_frontend::Parameters::from([(
+        "replacement".to_owned(),
+        turso_graph_frontend::Value::Text(r#"{"displayName":"Grace"}"#.into()),
+    )]);
+    let dynamic = key
+        .execute(
+            "MATCH (c:Customer {displayName: 'Grace'}) SET c = $replacement",
+            &replacement,
+        )
+        .expect_err("dynamic replacement cannot omit a key member");
+    assert_mutation_constraint_violation(dynamic);
+    let on_match = key
+        .execute(
+            "MERGE (c:Customer {displayName: 'Grace', born: 1906}) \
+             ON MATCH SET c.displayName = 'Ada', c.born = 1815",
+            &Default::default(),
+        )
+        .expect_err("MERGE ON MATCH cannot introduce a duplicate key");
+    assert_mutation_constraint_violation(on_match);
+
+    assert_eq!(
+        key.query(
+            "MATCH (c:Customer) RETURN c.displayName, c.born ORDER BY c.born",
+            &Default::default(),
+        )
+        .expect("read after rejected key mutations"),
+        vec![
+            vec![
+                turso_graph_frontend::Value::Text("Ada".into()),
+                turso_graph_frontend::Value::Numeric(turso_graph_frontend::Numeric::Integer(1815)),
+            ],
+            vec![
+                turso_graph_frontend::Value::Text("Grace".into()),
+                turso_graph_frontend::Value::Numeric(turso_graph_frontend::Numeric::Integer(1906)),
+            ],
+        ]
+    );
+}
+
+#[test]
 fn range_allowed_and_regex_constraints_validate_literals_parameters_and_reopen() {
     let connection = connection();
     registered_graph(&connection);
@@ -3149,16 +3746,20 @@ fn range_allowed_and_regex_constraints_validate_literals_parameters_and_reopen()
     let session = turso_graph_frontend::Connection::open(connection.clone(), "social")
         .expect("open constrained graph");
 
+    let literal_source = "CREATE (:Customer {displayName: 'ada', born: 1815})";
     let literal = session
-        .execute(
-            "CREATE (:Customer {displayName: 'ada', born: 1815})",
-            &Default::default(),
-        )
+        .execute(literal_source, &Default::default())
         .expect_err("literal regex failure binds early");
-    assert!(
-        literal.to_string().contains("regular expression") && literal.to_string().contains("byte"),
-        "{literal}"
-    );
+    let FrontendError::Mutation(MutationError::Bind(BindError::SemanticConstraintViolation {
+        detail,
+        span_start,
+        span_end,
+    })) = literal
+    else {
+        panic!("expected a typed regex bind failure, got {literal:?}");
+    };
+    assert!(detail.contains("regular expression"), "{detail}");
+    assert_eq!(&literal_source[span_start..span_end], "'ada'");
     let parameters = turso_graph_frontend::Parameters::from([
         (
             "name".to_owned(),
@@ -3275,6 +3876,89 @@ fn range_allowed_and_regex_constraints_validate_literals_parameters_and_reopen()
 }
 
 #[test]
+fn value_predicates_cover_all_boundaries_nulls_and_numeric_coercions() {
+    let session = constrained_session(&SemanticConstraintRegistration {
+        values: vec![
+            SemanticPropertyValueConstraint {
+                owner: "Customer".to_owned(),
+                property: "born".to_owned(),
+                predicate: SemanticValuePredicate::Range {
+                    minimum: Some(SemanticRangeBound {
+                        value: SemanticScalar::Integer(1800),
+                        inclusive: false,
+                    }),
+                    maximum: Some(SemanticRangeBound {
+                        value: SemanticScalar::Integer(1900),
+                        inclusive: true,
+                    }),
+                },
+            },
+            SemanticPropertyValueConstraint {
+                owner: "Customer".to_owned(),
+                property: "score".to_owned(),
+                predicate: SemanticValuePredicate::Range {
+                    minimum: Some(SemanticRangeBound {
+                        value: SemanticScalar::Integer(1),
+                        inclusive: true,
+                    }),
+                    maximum: Some(SemanticRangeBound {
+                        value: SemanticScalar::Real(2.5),
+                        inclusive: true,
+                    }),
+                },
+            },
+            SemanticPropertyValueConstraint {
+                owner: "Customer".to_owned(),
+                property: "active".to_owned(),
+                predicate: SemanticValuePredicate::Allowed {
+                    values: vec![SemanticScalar::Boolean(true)],
+                },
+            },
+            SemanticPropertyValueConstraint {
+                owner: "Supplier".to_owned(),
+                property: "displayName".to_owned(),
+                predicate: SemanticValuePredicate::Range {
+                    minimum: Some(SemanticRangeBound {
+                        value: SemanticScalar::Text("M".to_owned()),
+                        inclusive: true,
+                    }),
+                    maximum: None,
+                },
+            },
+        ],
+        ..SemanticConstraintRegistration::default()
+    });
+
+    session
+        .execute(
+            "CREATE (:Customer {displayName: 'Nulls'}), (:Supplier)",
+            &Default::default(),
+        )
+        .expect("value predicates ignore NULL values");
+    for query in [
+        "CREATE (:Customer {displayName: 'Lower', born: 1800})",
+        "CREATE (:Customer {displayName: 'Above', born: 1901})",
+        "CREATE (:Customer {displayName: 'Real', score: 2.6})",
+        "CREATE (:Supplier {displayName: 'A'})",
+    ] {
+        let error = session
+            .execute(query, &Default::default())
+            .expect_err("out-of-range boundary must fail");
+        assert_bind_constraint_violation(error);
+    }
+    session
+        .execute(
+            "CREATE (:Customer {displayName: 'Inside', born: 1801}), \
+             (:Customer {displayName: 'Upper', born: 1900}), \
+             (:Customer {displayName: 'IntegerReal', score: 1}), \
+             (:Customer {displayName: 'RealUpper', score: 2.5}), \
+             (:Supplier {displayName: 'M'})",
+            &Default::default(),
+        )
+        .expect("valid exact and cross-numeric boundaries");
+}
+
+#[test]
 fn constraint_evolution_and_invalid_predicates_fail_without_changes() {
     let connection = connection();
     registered_graph(&connection);
@@ -3344,6 +4028,29 @@ fn constraint_evolution_and_invalid_predicates_fail_without_changes() {
     assert_eq!(
         graph_generation(&connection, "social").expect("generation after reordered replay"),
         before_reordered
+    );
+
+    let cardinality = |maximum| SemanticConstraintRegistration {
+        cardinalities: vec![SemanticRelationshipCardinality {
+            relationship_type: "TRADES_WITH".to_owned(),
+            endpoint: SemanticEndpoint::Start,
+            minimum: 0,
+            maximum: Some(maximum),
+        }],
+        ..SemanticConstraintRegistration::default()
+    };
+    register_semantic_constraints(&connection, "social", &cardinality(2))
+        .expect("register cardinality");
+    let before_cardinality =
+        graph_generation(&connection, "social").expect("generation before cardinality conflict");
+    assert!(matches!(
+        register_semantic_constraints(&connection, "social", &cardinality(3)),
+        Err(SemanticCatalogError::ConstraintEvolutionUnsupported { .. })
+    ));
+    assert_eq!(
+        graph_generation(&connection, "social")
+            .expect("generation after cardinality evolution rejection"),
+        before_cardinality
     );
 }
 
@@ -3415,6 +4122,204 @@ fn constraint_registration_rejects_unknown_duplicate_and_incompatible_definition
 }
 
 #[test]
+fn constraint_registration_rejects_every_invalid_public_shape() {
+    let invalid_constraints = [
+        SemanticConstraintRegistration {
+            values: vec![SemanticPropertyValueConstraint {
+                owner: "Customer".to_owned(),
+                property: "born".to_owned(),
+                predicate: SemanticValuePredicate::Range {
+                    minimum: None,
+                    maximum: None,
+                },
+            }],
+            ..SemanticConstraintRegistration::default()
+        },
+        SemanticConstraintRegistration {
+            values: vec![SemanticPropertyValueConstraint {
+                owner: "Customer".to_owned(),
+                property: "born".to_owned(),
+                predicate: SemanticValuePredicate::Allowed { values: Vec::new() },
+            }],
+            ..SemanticConstraintRegistration::default()
+        },
+        SemanticConstraintRegistration {
+            values: vec![SemanticPropertyValueConstraint {
+                owner: "Customer".to_owned(),
+                property: "born".to_owned(),
+                predicate: SemanticValuePredicate::Range {
+                    minimum: Some(SemanticRangeBound {
+                        value: SemanticScalar::Boolean(false),
+                        inclusive: true,
+                    }),
+                    maximum: None,
+                },
+            }],
+            ..SemanticConstraintRegistration::default()
+        },
+        SemanticConstraintRegistration {
+            values: vec![SemanticPropertyValueConstraint {
+                owner: "Customer".to_owned(),
+                property: "born".to_owned(),
+                predicate: SemanticValuePredicate::Range {
+                    minimum: Some(SemanticRangeBound {
+                        value: SemanticScalar::Integer(1),
+                        inclusive: true,
+                    }),
+                    maximum: Some(SemanticRangeBound {
+                        value: SemanticScalar::Text("z".to_owned()),
+                        inclusive: true,
+                    }),
+                },
+            }],
+            ..SemanticConstraintRegistration::default()
+        },
+        SemanticConstraintRegistration {
+            values: vec![SemanticPropertyValueConstraint {
+                owner: "Customer".to_owned(),
+                property: "born".to_owned(),
+                predicate: SemanticValuePredicate::Range {
+                    minimum: Some(SemanticRangeBound {
+                        value: SemanticScalar::Integer(1),
+                        inclusive: false,
+                    }),
+                    maximum: Some(SemanticRangeBound {
+                        value: SemanticScalar::Integer(1),
+                        inclusive: true,
+                    }),
+                },
+            }],
+            ..SemanticConstraintRegistration::default()
+        },
+        SemanticConstraintRegistration {
+            values: vec![SemanticPropertyValueConstraint {
+                owner: "Customer".to_owned(),
+                property: "score".to_owned(),
+                predicate: SemanticValuePredicate::Range {
+                    minimum: Some(SemanticRangeBound {
+                        value: SemanticScalar::Real(f64::NAN),
+                        inclusive: true,
+                    }),
+                    maximum: None,
+                },
+            }],
+            ..SemanticConstraintRegistration::default()
+        },
+        SemanticConstraintRegistration {
+            values: vec![SemanticPropertyValueConstraint {
+                owner: "Customer".to_owned(),
+                property: "born".to_owned(),
+                predicate: SemanticValuePredicate::Allowed {
+                    values: vec![SemanticScalar::Text("wrong".to_owned())],
+                },
+            }],
+            ..SemanticConstraintRegistration::default()
+        },
+        SemanticConstraintRegistration {
+            keys: vec![SemanticKeyConstraint {
+                owner: "Customer".to_owned(),
+                properties: Vec::new(),
+            }],
+            ..SemanticConstraintRegistration::default()
+        },
+        SemanticConstraintRegistration {
+            keys: vec![SemanticKeyConstraint {
+                owner: "Customer".to_owned(),
+                properties: vec!["born".to_owned(), "BORN".to_owned()],
+            }],
+            ..SemanticConstraintRegistration::default()
+        },
+    ];
+
+    for invalid in invalid_constraints {
+        let connection = connection();
+        registered_graph(&connection);
+        register_semantic_schema(&connection, "social", &semantic_registration())
+            .expect("register semantic schema");
+        assert!(matches!(
+            register_semantic_constraints(&connection, "social", &invalid),
+            Err(SemanticCatalogError::InvalidConstraint { .. })
+        ));
+    }
+
+    let definition_connection = connection();
+    registered_graph(&definition_connection);
+    register_semantic_schema(&definition_connection, "social", &semantic_registration())
+        .expect("register semantic schema");
+    let duplicate_key = SemanticConstraintRegistration {
+        keys: vec![
+            SemanticKeyConstraint {
+                owner: "Customer".to_owned(),
+                properties: vec!["displayName".to_owned(), "born".to_owned()],
+            },
+            SemanticKeyConstraint {
+                owner: "customer".to_owned(),
+                properties: vec!["BORN".to_owned(), "DISPLAYNAME".to_owned()],
+            },
+        ],
+        ..SemanticConstraintRegistration::default()
+    };
+    assert!(matches!(
+        register_semantic_constraints(&definition_connection, "social", &duplicate_key),
+        Err(SemanticCatalogError::DuplicateConstraint { .. })
+    ));
+    let duplicate_cardinality = SemanticConstraintRegistration {
+        cardinalities: vec![
+            SemanticRelationshipCardinality {
+                relationship_type: "TRADES_WITH".to_owned(),
+                endpoint: SemanticEndpoint::End,
+                minimum: 0,
+                maximum: Some(1),
+            },
+            SemanticRelationshipCardinality {
+                relationship_type: "trades_with".to_owned(),
+                endpoint: SemanticEndpoint::End,
+                minimum: 0,
+                maximum: Some(2),
+            },
+        ],
+        ..SemanticConstraintRegistration::default()
+    };
+    assert!(matches!(
+        register_semantic_constraints(&definition_connection, "social", &duplicate_cardinality),
+        Err(SemanticCatalogError::DuplicateConstraint { .. })
+    ));
+    let unknown_cardinality = SemanticConstraintRegistration {
+        cardinalities: vec![SemanticRelationshipCardinality {
+            relationship_type: "MISSING".to_owned(),
+            endpoint: SemanticEndpoint::Start,
+            minimum: 0,
+            maximum: None,
+        }],
+        ..SemanticConstraintRegistration::default()
+    };
+    assert!(matches!(
+        register_semantic_constraints(&definition_connection, "social", &unknown_cardinality),
+        Err(SemanticCatalogError::UnknownConstraintOwner { .. })
+    ));
+
+    let endpoint_connection = connection();
+    registered_graph(&endpoint_connection);
+    let mut endpoint_free = semantic_registration();
+    endpoint_free.relationship_types[0].start.clear();
+    register_semantic_schema(&endpoint_connection, "social", &endpoint_free)
+        .expect("register relationship without a permitted start type");
+    let missing_endpoint = SemanticConstraintRegistration {
+        cardinalities: vec![SemanticRelationshipCardinality {
+            relationship_type: "TRADES_WITH".to_owned(),
+            endpoint: SemanticEndpoint::Start,
+            minimum: 0,
+            maximum: None,
+        }],
+        ..SemanticConstraintRegistration::default()
+    };
+    assert!(matches!(
+        register_semantic_constraints(&endpoint_connection, "social", &missing_endpoint),
+        Err(SemanticCatalogError::InvalidConstraint { .. })
+    ));
+}
+
+#[test]
 fn endpoint_cardinality_validates_final_transaction_state_and_rolls_back_overflow() {
     let session = constrained_session(&SemanticConstraintRegistration {
         cardinalities: vec![SemanticRelationshipCardinality {
@@ -3468,6 +4373,16 @@ fn endpoint_cardinality_validates_final_transaction_state_and_rolls_back_overflo
         rows,
         vec![vec![turso_graph_frontend::Value::Text("Iron Co".into())]]
     );
+    assert!(
+        session
+            .query(
+                "MATCH (s:Supplier {displayName: 'Steel Co'}) RETURN s",
+                &Default::default(),
+            )
+            .expect("read endpoint created by rejected overflow")
+            .is_empty(),
+        "the endpoint node created by the rejected relationship must roll back"
+    );
 }
 
 #[test]
@@ -3509,6 +4424,212 @@ fn end_cardinality_uses_stored_direction_for_incoming_cypher_syntax() {
         rows,
         vec![vec![turso_graph_frontend::Value::Text("Ada".into())]]
     );
+    assert!(
+        session
+            .query(
+                "MATCH (c:Customer {displayName: 'Grace'}) RETURN c",
+                &Default::default(),
+            )
+            .expect("read endpoint created by rejected incoming overflow")
+            .is_empty(),
+        "the rejected incoming relationship must not leave its start node behind"
+    );
+}
+
+#[test]
+fn cardinality_covers_end_minimum_zero_maximum_and_merge() {
+    let end_minimum = constrained_session(&SemanticConstraintRegistration {
+        cardinalities: vec![SemanticRelationshipCardinality {
+            relationship_type: "TRADES_WITH".to_owned(),
+            endpoint: SemanticEndpoint::End,
+            minimum: 1,
+            maximum: None,
+        }],
+        ..SemanticConstraintRegistration::default()
+    });
+    let isolated = end_minimum
+        .execute(
+            "CREATE (:Supplier {displayName: 'Iron'})",
+            &Default::default(),
+        )
+        .expect_err("end minimum rejects an isolated permitted endpoint");
+    assert_mutation_constraint_violation(isolated);
+    end_minimum
+        .execute(
+            "CREATE (:Customer {displayName: 'Ada'})\
+             -[:TRADES_WITH {since: 1840}]->(:Supplier {displayName: 'Iron'})",
+            &Default::default(),
+        )
+        .expect("one query may satisfy an end minimum");
+
+    let zero_maximum = constrained_session(&SemanticConstraintRegistration {
+        cardinalities: vec![SemanticRelationshipCardinality {
+            relationship_type: "TRADES_WITH".to_owned(),
+            endpoint: SemanticEndpoint::Start,
+            minimum: 0,
+            maximum: Some(0),
+        }],
+        ..SemanticConstraintRegistration::default()
+    });
+    zero_maximum
+        .execute(
+            "CREATE (:Customer {displayName: 'Ada'}), \
+             (:Supplier {displayName: 'Iron'})",
+            &Default::default(),
+        )
+        .expect("zero maximum permits isolated nodes");
+    let forbidden = zero_maximum
+        .execute(
+            "MATCH (c:Customer), (s:Supplier) \
+             CREATE (c)-[:TRADES_WITH {since: 1840}]->(s)",
+            &Default::default(),
+        )
+        .expect_err("zero maximum rejects any relationship");
+    assert_mutation_constraint_violation(forbidden);
+
+    let merge = constrained_session(&SemanticConstraintRegistration {
+        cardinalities: vec![SemanticRelationshipCardinality {
+            relationship_type: "TRADES_WITH".to_owned(),
+            endpoint: SemanticEndpoint::Start,
+            minimum: 0,
+            maximum: Some(1),
+        }],
+        ..SemanticConstraintRegistration::default()
+    });
+    merge
+        .execute(
+            "CREATE (c:Customer {displayName: 'Ada'})\
+             -[:TRADES_WITH {since: 1840}]->(s:Supplier {displayName: 'Iron'})",
+            &Default::default(),
+        )
+        .expect("seed one relationship");
+    merge
+        .execute(
+            "MATCH (c:Customer {displayName: 'Ada'}), \
+                   (s:Supplier {displayName: 'Iron'}) \
+             MERGE (c)-[:TRADES_WITH {since: 1840}]->(s)",
+            &Default::default(),
+        )
+        .expect("MERGE matching the existing relationship does not increase cardinality");
+    let overflow = merge
+        .execute(
+            "MATCH (c:Customer {displayName: 'Ada'}), \
+                   (s:Supplier {displayName: 'Iron'}) \
+             MERGE (c)-[:TRADES_WITH {since: 1850}]->(s)",
+            &Default::default(),
+        )
+        .expect_err("MERGE creating a second relationship must honor maximum cardinality");
+    assert_mutation_constraint_violation(overflow);
+}
+
+#[test]
+fn cardinality_expands_fragment_endpoints_and_handles_colliding_source_ids() {
+    let connection = connection();
+    register_fragment_graph(&connection);
+    let mut fragments = fragment_registration();
+    fragments.fragments.push(SemanticFragment {
+        name: "Worker".to_owned(),
+        properties: Vec::new(),
+        members: vec![
+            SemanticFragmentMember {
+                node_type: "Person".to_owned(),
+                properties: Vec::new(),
+            },
+            SemanticFragmentMember {
+                node_type: "Alias".to_owned(),
+                properties: Vec::new(),
+            },
+        ],
+    });
+    let mut schema = fragment_schema();
+    schema.relationship_types[0].start = vec!["Worker".to_owned()];
+    register_semantic_schema_with_fragments(&connection, "fragments", &schema, &fragments)
+        .expect("register fragment-expanded endpoint");
+    register_semantic_constraints(
+        &connection,
+        "fragments",
+        &SemanticConstraintRegistration {
+            cardinalities: vec![SemanticRelationshipCardinality {
+                relationship_type: "WORKS_AT".to_owned(),
+                endpoint: SemanticEndpoint::Start,
+                minimum: 1,
+                maximum: Some(1),
+            }],
+            ..SemanticConstraintRegistration::default()
+        },
+    )
+    .expect("register fragment-expanded cardinality");
+    let session = turso_graph_frontend::Connection::open(connection, "fragments")
+        .expect("open fragment-cardinality graph");
+    let isolated_alias = session
+        .execute("CREATE (:Alias:Worker)", &Default::default())
+        .expect_err("every concrete fragment member must satisfy the minimum");
+    assert_mutation_constraint_violation(isolated_alias);
+    session
+        .execute(
+            "CREATE (:Alias:Worker)\
+             -[:WORKS_AT]->(:Company:Nameable)",
+            &Default::default(),
+        )
+        .expect("a concrete fragment member may satisfy the expanded endpoint cardinality");
+
+    let connection = fragment_connection();
+    register_semantic_constraints(
+        &connection,
+        "fragments",
+        &SemanticConstraintRegistration {
+            cardinalities: vec![
+                SemanticRelationshipCardinality {
+                    relationship_type: "WORKS_AT".to_owned(),
+                    endpoint: SemanticEndpoint::Start,
+                    minimum: 1,
+                    maximum: Some(1),
+                },
+                SemanticRelationshipCardinality {
+                    relationship_type: "WORKS_AT".to_owned(),
+                    endpoint: SemanticEndpoint::End,
+                    minimum: 1,
+                    maximum: Some(1),
+                },
+            ],
+            ..SemanticConstraintRegistration::default()
+        },
+    )
+    .expect("register cardinality on both physical endpoint sources");
+    let session = turso_graph_frontend::Connection::open(connection.clone(), "fragments")
+        .expect("open multi-source cardinality graph");
+    session
+        .execute(
+            "CREATE (:Person:Nameable {displayName: 'Ada', age: 36})\
+             -[:WORKS_AT]->(:Company:Nameable {displayName: 'Turso'})",
+            &Default::default(),
+        )
+        .expect("colliding source-local identities satisfy their own endpoint constraints");
+    let ids = connection
+        .prepare("SELECT people.id, companies.id FROM people CROSS JOIN companies")
+        .and_then(|mut statement| statement.run_collect_rows())
+        .expect("read source-local identities");
+    assert!(matches!(
+        ids.as_slice(),
+        [row] if matches!(
+            row.as_slice(),
+            [
+                turso_graph_frontend::Value::Numeric(
+                    turso_graph_frontend::Numeric::Integer(1)
+                ),
+                turso_graph_frontend::Value::Numeric(
+                    turso_graph_frontend::Numeric::Integer(1)
+                )
+            ]
+        )
+    ));
+    let deletion = session
+        .execute(
+            "MATCH (:Person)-[r:WORKS_AT]->(:Company) DELETE r",
+            &Default::default(),
+        )
+        .expect_err("both source-qualified endpoint minimums remain active");
+    assert_mutation_constraint_violation(deletion);
 }
 
 #[test]

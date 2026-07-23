@@ -216,8 +216,8 @@ Implement in this order: required/minimum cardinality, key, unique, range/value/
 
 Validation recorded on 2026-07-23:
 
-- semantic integration: 62/62 passed;
-- `turso_graph_frontend`: 201 passed;
+- semantic integration: 73/73 passed;
+- `turso_graph_frontend`: 212 passed;
 - `turso_graph_ir`: 10 passed;
 - `turso_graph_testkit`: 41 passed;
 - smoke corpus: 11/11 clean;
@@ -225,6 +225,8 @@ Validation recorded on 2026-07-23:
   1,270 failed;
 - workspace Clippy completed with zero errors; formatting and patch hygiene
   checks passed.
+- existing sessions reload their immutable semantic catalog after a constraint
+  registration advances the graph generation.
 
 ### Decision gate A — first-class attribute instances
 

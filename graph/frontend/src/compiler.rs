@@ -1,5 +1,6 @@
 use std::sync::{Arc, OnceLock};
 
+use parking_lot::RwLock;
 use turso_core::{FrontendCompilation, FrontendCompiler, FrontendId, LimboError, Result};
 use turso_graph_ir as ir;
 use turso_parser::ast;
@@ -49,14 +50,24 @@ impl<T> GraphCompilationCatalog for T where
 /// Stateless connection-local compiler for the Cypher frontend.
 pub struct GraphCompiler {
     graph: ir::GraphId,
-    catalog: Arc<dyn GraphCompilationCatalog>,
+    catalog: SharedGraphCatalog,
     parameters: ParameterTypes,
 }
+
+pub(crate) type SharedGraphCatalog = Arc<RwLock<Arc<dyn GraphCompilationCatalog>>>;
 
 impl GraphCompiler {
     pub fn new(
         graph: ir::GraphId,
         catalog: Arc<dyn GraphCompilationCatalog>,
+        parameters: ParameterTypes,
+    ) -> Self {
+        Self::with_shared(graph, Arc::new(RwLock::new(catalog)), parameters)
+    }
+
+    pub(crate) fn with_shared(
+        graph: ir::GraphId,
+        catalog: SharedGraphCatalog,
         parameters: ParameterTypes,
     ) -> Self {
         Self {
@@ -69,11 +80,12 @@ impl GraphCompiler {
 
 impl FrontendCompiler for GraphCompiler {
     fn compile(&self, source: &str) -> Result<FrontendCompilation> {
+        let catalog = self.catalog.read().clone();
         let query = turso_graph_cypher::parse(source)
             .map_err(|error| LimboError::ParseError(error.to_string()))?;
-        let bound = bind(&query, self.graph, self.catalog.as_ref(), &self.parameters)
+        let bound = bind(&query, self.graph, catalog.as_ref(), &self.parameters)
             .map_err(|error| LimboError::ParseError(error.to_string()))?;
-        let statement = lower_relational(&bound.plan, self.catalog.as_ref())
+        let statement = lower_relational(&bound.plan, catalog.as_ref())
             .map_err(|error| LimboError::ParseError(error.to_string()))?;
         Ok(FrontendCompilation {
             prerequisites: Vec::new(),

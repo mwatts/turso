@@ -278,9 +278,11 @@ before catalog rows become active. Failure leaves the prior catalog,
 generation, and application data unchanged. Replaying an identical constraint
 set writes nothing. Changing or removing an active constraint, remapping a
 type/property, and removing a fragment membership require a future explicit
-evolution API and are rejected by additive registration. Register constraints
-before opening a `GraphConnection`, or reopen the graph afterward so its
-immutable preparation snapshot includes the new catalog generation.
+evolution API and are rejected by additive registration. A `GraphConnection`
+created through `open` or `open_with_parameters` compares its catalog
+generation before preparing reads or executing mutations and reloads the
+immutable semantic snapshot when registration publishes a newer generation.
+Sessions created through `install` retain their caller-supplied catalog.
 
 Literal value predicates can fail during binding. Deferred expressions and
 dynamic maps are checked at runtime. Required, key, unique, and endpoint
