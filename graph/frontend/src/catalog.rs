@@ -20,7 +20,7 @@ pub(crate) const SOURCES_TABLE: &str = "__turso_internal_graph_sources";
 pub(crate) const NODE_SOURCES_TABLE: &str = "__turso_internal_graph_node_sources";
 pub(crate) const RELATIONSHIP_SOURCES_TABLE: &str = "__turso_internal_graph_relationship_sources";
 
-pub const GRAPH_CATALOG_VERSION: u64 = 1;
+pub const GRAPH_CATALOG_VERSION: u64 = 2;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct NodeSourceRegistration {

@@ -8,7 +8,10 @@ use turso_core::{Connection, Numeric, Value};
 use turso_graph_ir::{GraphId, NodeId, RelationshipId, RelationshipTypeId, SourceTableId};
 use turso_graph_runtime::{BuildLimits, Cancellation, EdgeInput, Graph, RuntimeError};
 
-use crate::{load_registered_graph, CatalogError, GRAPH_CATALOG_VERSION};
+use crate::{
+    load_registered_graph, load_semantic_snapshot, CatalogError, SemanticCatalogError,
+    GRAPH_CATALOG_VERSION,
+};
 
 const VISIBLE_SNAPSHOT_SAVEPOINT: &str = "__turso_graph_visible_snapshot";
 
@@ -177,6 +180,8 @@ pub enum SnapshotError {
     Catalog(#[from] CatalogError),
     #[error(transparent)]
     Runtime(#[from] RuntimeError),
+    #[error(transparent)]
+    SemanticCatalog(#[from] SemanticCatalogError),
     #[error("{kind} identity in source {source_id} has unsupported or null SQL value")]
     InvalidSourceIdentity {
         kind: &'static str,
@@ -534,6 +539,7 @@ fn build_in_transaction(
     let started = Instant::now();
     check_cancelled(cancellation)?;
     let registered = load_registered_graph(connection, graph_name)?;
+    let semantic = load_semantic_snapshot(connection, &registered)?;
     let mut node_coordinates = Vec::new();
     let mut node_ids = HashMap::new();
 
@@ -578,7 +584,7 @@ fn build_in_transaction(
         let rows = query_rows_cancellable(
             connection,
             &format!(
-                "SELECT r.{}, r.{}, r.{}, reg.id FROM {} AS r \
+                "SELECT r.{}, r.{}, r.{}, reg.id, jt.type FROM {} AS r \
                  LEFT JOIN \"{}\" AS jt ON jt.relationship_id = r.{} \
                  LEFT JOIN \"{}\" AS reg ON reg.name = jt.type \
                  ORDER BY r.{}",
@@ -594,15 +600,22 @@ fn build_in_transaction(
             cancellation,
         )?;
         for row in rows {
-            let relationship_type = match row.get(3) {
-                Some(turso_core::Value::Numeric(turso_core::Numeric::Integer(id))) => {
-                    u32::try_from(*id)
-                        .ok()
-                        .and_then(|id| RelationshipTypeId::new(id).ok())
-                        .unwrap_or(default_relationship_type)
-                }
-                _ => default_relationship_type,
-            };
+            let semantic_relationship_type = row.get(4).and_then(|value| match value {
+                turso_core::Value::Text(name) => semantic
+                    .as_ref()
+                    .and_then(|snapshot| snapshot.relationship_type(name.as_str()))
+                    .and_then(|type_info| RelationshipTypeId::new(type_info.type_id).ok()),
+                _ => None,
+            });
+            let legacy_relationship_type = row.get(3).and_then(|value| match value {
+                turso_core::Value::Numeric(turso_core::Numeric::Integer(id)) => u32::try_from(*id)
+                    .ok()
+                    .and_then(|id| RelationshipTypeId::new(id).ok()),
+                _ => None,
+            });
+            let relationship_type = semantic_relationship_type
+                .or(legacy_relationship_type)
+                .unwrap_or(default_relationship_type);
             let identity = source_identity(row.first(), "relationship", source.id)?;
             let relationship = next_relationship_id(relationship_coordinates.len())?;
             if relationship_ids

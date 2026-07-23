@@ -3,10 +3,11 @@ use std::sync::Arc;
 use turso_graph_frontend::core::{Database, MemoryIO, SqliteDialect};
 use turso_graph_frontend::{
     load_registered_graph, load_semantic_snapshot, register_graph, register_semantic_schema,
-    CatalogEntity, GraphCatalogSnapshot, GraphRegistration, NodeSourceRegistration,
-    PropertyResolution, RelationalCatalogSnapshot, RelationshipSourceRegistration, SchemaCatalog,
-    SemanticCatalogError, SemanticNodeType, SemanticProperty, SemanticRelationshipType,
-    SemanticSchemaRegistration,
+    relationship_types_table_name, CatalogEntity, GraphCatalogSnapshot, GraphRegistration,
+    NodeSourceRegistration, PropertyResolution, RelationalCatalogSnapshot,
+    RelationshipSourceRegistration, SchemaCatalog, SemanticCatalogError, SemanticNodeType,
+    SemanticProperty, SemanticRelationshipType, SemanticSchemaRegistration, SnapshotStatus,
+    SnapshotStore,
 };
 
 fn connection() -> Arc<turso_graph_frontend::core::Connection> {
@@ -218,6 +219,75 @@ fn snapshot_reloads_identical_identities() {
     assert_eq!(
         second.node_type("Customer").expect("customer").type_id,
         customer_id
+    );
+}
+
+#[test]
+fn semantic_registration_invalidates_and_retypes_traversal_snapshots() {
+    let connection = connection();
+    registered_graph(&connection);
+    let graph = load_registered_graph(&connection, "social").expect("load graph");
+    connection
+        .execute(format!(
+            "INSERT INTO tbl_people(pk, full_name) VALUES (1, 'Ada'), (2, 'Iron Co'); \
+             INSERT INTO tbl_edges(pk, a, b, since) VALUES (10, 1, 2, 1840); \
+             INSERT INTO \"{}\"(relationship_id, type) VALUES (10, 'TRADES_WITH')",
+            relationship_types_table_name(graph.id)
+        ))
+        .expect("seed graph");
+
+    let store = SnapshotStore::default();
+    store
+        .refresh(
+            &connection,
+            "social",
+            turso_graph_runtime::BuildLimits::default(),
+            &turso_graph_runtime::NeverCancelled,
+        )
+        .expect("publish legacy snapshot");
+    let SnapshotStatus::Current(before) = store.status(&connection, "social").expect("status")
+    else {
+        panic!("legacy snapshot must initially be current");
+    };
+
+    let mut registration = semantic_registration();
+    let mut supplies = registration.relationship_types[0].clone();
+    supplies.name = "SUPPLIES_TO".to_owned();
+    registration.relationship_types.insert(0, supplies);
+    register_semantic_schema(&connection, "social", &registration).expect("register semantic");
+
+    assert!(matches!(
+        store.status(&connection, "social").expect("stale status"),
+        SnapshotStatus::Stale {
+            snapshot,
+            current_generation,
+            ..
+        } if snapshot.source_generation == before.source_generation
+            && current_generation == before.source_generation + 1
+    ));
+    assert!(store
+        .get_current(&connection, "social")
+        .expect("current lookup")
+        .is_none());
+
+    store
+        .refresh(
+            &connection,
+            "social",
+            turso_graph_runtime::BuildLimits::default(),
+            &turso_graph_runtime::NeverCancelled,
+        )
+        .expect("rebuild semantic snapshot");
+    let rebuilt = store
+        .get_current(&connection, "social")
+        .expect("current lookup")
+        .expect("rebuilt snapshot");
+    assert_eq!(
+        rebuilt
+            .relationship(turso_graph_ir::RelationshipId::new(1).expect("relationship id"))
+            .expect("relationship")
+            .relationship_type,
+        turso_graph_ir::RelationshipTypeId::new(2).expect("semantic type id")
     );
 }
 
