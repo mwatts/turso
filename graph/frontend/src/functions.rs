@@ -40,8 +40,8 @@ impl ArgumentType {
 pub struct FunctionSignature {
     pub arguments: Vec<ArgumentType>,
     /// When true, `arguments` describes only the required minimum-arity
-    /// prefix; a call may supply more arguments than `arguments.len()`,
-    /// and anything past the prefix is not type-checked.
+    /// prefix. Extra arguments use the final required argument's type when
+    /// one exists; an empty prefix accepts extras of any type.
     pub variadic: bool,
     pub return_type: fn(&[ir::TypedExpression]) -> ir::ValueType,
 }
@@ -67,6 +67,15 @@ pub fn validate_arguments(
     for (expected, actual) in signature.arguments.iter().zip(arguments.iter()) {
         if !expected.matches(&actual.value_type) {
             return Err("function call with a mismatched argument type");
+        }
+    }
+    if signature.variadic {
+        if let Some(expected) = signature.arguments.last() {
+            for actual in arguments.iter().skip(signature.arguments.len()) {
+                if !expected.matches(&actual.value_type) {
+                    return Err("function call with a mismatched argument type");
+                }
+            }
         }
     }
     Ok(())
@@ -370,6 +379,21 @@ mod tests {
             any_typed(ir::ValueType::Text),
         ];
         assert_eq!(validate_arguments(&signature, &arguments), Ok(()));
+    }
+
+    #[cfg(feature = "fts")]
+    #[test]
+    fn validate_arguments_checks_every_fts_variadic_argument() {
+        let signature = lookup("fts_match").expect("registered");
+        let arguments = vec![
+            any_typed(ir::ValueType::Text),
+            any_typed(ir::ValueType::Text),
+            any_typed(ir::ValueType::Integer),
+        ];
+        assert_eq!(
+            validate_arguments(&signature, &arguments),
+            Err("function call with a mismatched argument type")
+        );
     }
 
     #[test]

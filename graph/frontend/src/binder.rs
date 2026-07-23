@@ -4630,10 +4630,18 @@ impl<'a> Binder<'a> {
                     .iter()
                     .map(|argument| self.bind_expression(argument))
                     .collect::<Result<Vec<_>, _>>()?;
-                if let ("startnode" | "endnode", [argument]) = (
+                let endpoint_function = matches!(
                     name.value.to_ascii_lowercase().as_str(),
-                    arguments.as_slice(),
-                ) {
+                    "startnode" | "endnode"
+                );
+                if endpoint_function && arguments.len() != 1 {
+                    return Err(at_unsupported(
+                        expression.span,
+                        "startNode()/endNode() require exactly one relationship argument",
+                    ));
+                }
+                if endpoint_function {
+                    let argument = &arguments[0];
                     if !matches!(
                         argument.value_type,
                         ir::ValueType::Relationship | ir::ValueType::Any
@@ -7114,6 +7122,21 @@ mod tests {
                 ..
             })
         ));
+        for query in [
+            "RETURN startNode()",
+            "MATCH ()-[r:KNOWS]->() RETURN endNode(r, r)",
+        ] {
+            assert!(
+                matches!(
+                    bind_text(query, ParameterTypes::new()),
+                    Err(BindError::Unsupported {
+                        feature: "startNode()/endNode() require exactly one relationship argument",
+                        ..
+                    })
+                ),
+                "wrong-arity endpoint call must fail during binding: {query}"
+            );
+        }
     }
 
     #[test]
@@ -7138,28 +7161,44 @@ mod tests {
 
     #[test]
     fn procedure_binding_reports_unknown_names_arity_and_yields() {
+        let unknown_query = "CALL db.unknown()";
+        let error = bind_text(unknown_query, ParameterTypes::new()).unwrap_err();
         assert!(matches!(
-            bind_text("CALL db.unknown()", ParameterTypes::new()),
-            Err(BindError::UnknownProcedure { name, .. }) if name == "db.unknown"
+            &error,
+            BindError::UnknownProcedure {
+                name,
+                span_start,
+                span_end,
+            } if name == "db.unknown"
+                && &unknown_query[*span_start..*span_end] == "db.unknown"
         ));
+
+        let arity_query = "CALL db.labels(1)";
+        let error = bind_text(arity_query, ParameterTypes::new()).unwrap_err();
         assert!(matches!(
-            bind_text("CALL db.labels(1)", ParameterTypes::new()),
-            Err(BindError::InvalidProcedureArity {
+            &error,
+            BindError::InvalidProcedureArity {
                 name,
                 actual: 1,
+                span_start,
+                span_end,
                 ..
-            }) if name == "db.labels"
+            } if name == "db.labels"
+                && &arity_query[*span_start..*span_end] == arity_query
         ));
+
+        let unknown_yield_query = "CALL db.labels() YIELD missing RETURN missing";
+        let error = bind_text(unknown_yield_query, ParameterTypes::new()).unwrap_err();
         assert!(matches!(
-            bind_text(
-                "CALL db.labels() YIELD missing RETURN missing",
-                ParameterTypes::new()
-            ),
-            Err(BindError::UnknownProcedureYield {
+            &error,
+            BindError::UnknownProcedureYield {
                 procedure,
                 name,
-                ..
-            }) if procedure == "db.labels" && name == "missing"
+                span_start,
+                span_end,
+            } if procedure == "db.labels"
+                && name == "missing"
+                && &unknown_yield_query[*span_start..*span_end] == "missing"
         ));
         assert!(matches!(
             bind_text(

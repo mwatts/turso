@@ -1,14 +1,18 @@
 use std::sync::Arc;
 
 use turso_core::{Database, MemoryIO, SqliteDialect, Value};
+#[cfg(feature = "fts")]
+use turso_core::{DatabaseOpts, Numeric, OpenOptions};
 use turso_graph_frontend::{
-    register_graph, GraphConnection, GraphRegistration, NodeSourceRegistration, Parameters,
-    RelationshipSourceRegistration, SnapshotPersistenceMode, SnapshotStatus,
+    graph_generation, register_graph, GraphConnection, GraphRegistration, NodeSourceRegistration,
+    Parameters, RelationshipSourceRegistration, SnapshotPersistenceMode, SnapshotStatus,
+    GRAPH_CATALOG_VERSION,
 };
 #[cfg(feature = "fts")]
 use turso_graph_frontend::{
-    GraphFtsEntityKind, GraphFtsError, GraphFtsIndexSpec, GraphFtsPropertyWeight,
-    GraphFtsTokenizer, ParameterTypes, MAX_GRAPH_FTS_INDEX_NAME_BYTES, MAX_GRAPH_FTS_PROPERTIES,
+    register_semantic_schema, GraphFtsEntityKind, GraphFtsError, GraphFtsIndexSpec,
+    GraphFtsPropertyWeight, GraphFtsTokenizer, ParameterTypes, SemanticNodeType, SemanticProperty,
+    SemanticSchemaRegistration, MAX_GRAPH_FTS_INDEX_NAME_BYTES, MAX_GRAPH_FTS_PROPERTIES,
 };
 #[cfg(feature = "fts")]
 use turso_graph_ir::{Nullability, ValueType};
@@ -74,6 +78,26 @@ fn graph_fts_scalars_use_a_core_index() {
 
 #[cfg(feature = "fts")]
 #[test]
+fn graph_fts_administration_requires_index_method_capability() {
+    let (_database, session) = fixture::social_graph_connection();
+    assert!(matches!(
+        session.create_fts_index(&GraphFtsIndexSpec {
+            name: "people_search".to_owned(),
+            entity: GraphFtsEntityKind::Node,
+            source: "Person".to_owned(),
+            properties: vec!["name".to_owned()],
+            tokenizer: GraphFtsTokenizer::Default,
+            weights: Vec::new(),
+        }),
+        Err(turso_graph_frontend::Error::Fts(
+            GraphFtsError::IndexMethodsDisabled
+        ))
+    ));
+    assert!(session.list_fts_indexes().unwrap().is_empty());
+}
+
+#[cfg(feature = "fts")]
+#[test]
 fn graph_fts_administration_is_transactional_persistent_and_bounded() {
     let (database, _seed_session) = fixture::social_graph_connection_with_fts();
     let connection = fixture::second_connection(&database);
@@ -102,11 +126,19 @@ fn graph_fts_administration_is_transactional_persistent_and_bounded() {
             ..spec.clone()
         },
         GraphFtsIndexSpec {
+            name: "nul\0name".to_owned(),
+            ..spec.clone()
+        },
+        GraphFtsIndexSpec {
             properties: vec!["name".to_owned(), "NAME".to_owned()],
             ..spec.clone()
         },
         GraphFtsIndexSpec {
             properties: vec!["id".to_owned()],
+            ..spec.clone()
+        },
+        GraphFtsIndexSpec {
+            properties: vec!["name); DROP TABLE people; --".to_owned()],
             ..spec.clone()
         },
         GraphFtsIndexSpec {
@@ -214,6 +246,15 @@ fn graph_fts_administration_is_transactional_persistent_and_bounded() {
         GraphConnection::open(fixture::second_connection(&database), "social").expect("reopen");
     assert_eq!(reopened.list_fts_indexes().unwrap(), vec![created.clone()]);
     assert_eq!(reopened.list_fts_indexes().unwrap(), vec![created.clone()]);
+    assert_eq!(
+        reopened
+            .query(
+                "MATCH (n:Person) WHERE fts_match(n.name, 'Ada') RETURN n.name",
+                &Parameters::new(),
+            )
+            .expect("reopened session must query the persisted FTS index"),
+        vec![vec![Value::build_text("Ada")]]
+    );
 
     let query = Parameters::from([("query".to_owned(), Value::build_text("Ada"))]);
     assert_eq!(
@@ -224,6 +265,37 @@ fn graph_fts_administration_is_transactional_persistent_and_bounded() {
             )
             .expect("parameterized FTS query"),
         vec![vec![Value::build_text("Ada")]]
+    );
+    let operator_query =
+        Parameters::from([("query".to_owned(), Value::build_text("Ada OR Grace"))]);
+    assert_eq!(
+        session
+            .query(
+                "MATCH (n:Person) WHERE fts_match(n.name, $query) \
+                 RETURN n.name ORDER BY n.name",
+                &operator_query,
+            )
+            .expect("FTS operators remain bound query data"),
+        vec![
+            vec![Value::build_text("Ada")],
+            vec![Value::build_text("Grace")],
+        ]
+    );
+    session
+        .execute(
+            "CREATE (:Person {id: 3, name: 'Compiler researcher', age: 75})",
+            &Parameters::new(),
+        )
+        .expect("insert indexed node");
+    let inserted_query = Parameters::from([("query".to_owned(), Value::build_text("Compiler"))]);
+    assert_eq!(
+        session
+            .query(
+                "MATCH (n:Person) WHERE fts_match(n.name, $query) RETURN n.name",
+                &inserted_query,
+            )
+            .expect("query inserted indexed node"),
+        vec![vec![Value::build_text("Compiler researcher")]]
     );
     let update_program = connection
         .prepare("EXPLAIN UPDATE people SET name = 'Systems engineer' WHERE id = 2")
@@ -297,6 +369,22 @@ fn graph_fts_administration_is_transactional_persistent_and_bounded() {
         .expect("deleted FTS query")
         .is_empty());
 
+    connection.execute("BEGIN IMMEDIATE").unwrap();
+    assert!(session.drop_fts_index("people_search").unwrap());
+    assert!(session.list_fts_indexes().unwrap().is_empty());
+    connection.execute("ROLLBACK").unwrap();
+    assert_eq!(session.list_fts_indexes().unwrap(), vec![created]);
+    let restored_query = Parameters::from([("query".to_owned(), Value::build_text("Database"))]);
+    assert_eq!(
+        session
+            .query(
+                "MATCH (n:Person) WHERE fts_match(n.name, $query) RETURN n.name",
+                &restored_query,
+            )
+            .expect("rolled-back drop must restore the index"),
+        vec![vec![Value::build_text("Database pioneer")]]
+    );
+
     assert!(session.drop_fts_index("people_search").unwrap());
     assert!(!session.drop_fts_index("people_search").unwrap());
     assert!(session.list_fts_indexes().unwrap().is_empty());
@@ -307,6 +395,257 @@ fn graph_fts_administration_is_transactional_persistent_and_bounded() {
         )
         .expect("a missing FTS index has no matches")
         .is_empty());
+
+    let unusual_name = "safe'; DROP TABLE people; --/../__turso_graph_fts_";
+    let unusual = session
+        .create_fts_index(&GraphFtsIndexSpec {
+            name: unusual_name.to_owned(),
+            entity: GraphFtsEntityKind::Node,
+            source: "Person".to_owned(),
+            properties: vec!["name".to_owned()],
+            tokenizer: GraphFtsTokenizer::Default,
+            weights: Vec::new(),
+        })
+        .expect("logical names are data and cannot alter DDL");
+    assert_eq!(unusual.spec.name, unusual_name);
+    assert_eq!(
+        connection
+            .prepare("SELECT count(*) FROM people")
+            .unwrap()
+            .run_collect_rows()
+            .unwrap(),
+        vec![vec![Value::from_i64(2)]],
+        "the SQL-shaped logical name must not execute"
+    );
+    assert!(session.drop_fts_index(unusual_name).unwrap());
+}
+
+#[cfg(feature = "fts")]
+#[test]
+fn graph_fts_administration_resolves_semantic_properties_to_physical_columns() {
+    let database = Database::open(
+        Arc::new(MemoryIO::new()),
+        ":memory:graph-fts-semantic-properties",
+        OpenOptions::new(Arc::new(SqliteDialect))
+            .db_opts(DatabaseOpts::default().with_index_method(true)),
+    )
+    .expect("open FTS database");
+    let connection = database.connect().expect("connect");
+    connection
+        .execute(
+            "CREATE TABLE articles(\
+                 id INTEGER PRIMARY KEY, \
+                 title_text TEXT, \
+                 body_text TEXT, \
+                 views INTEGER\
+             )",
+        )
+        .expect("create article source");
+    register_graph(
+        &connection,
+        &GraphRegistration {
+            name: "knowledge".to_owned(),
+            node_sources: vec![NodeSourceRegistration {
+                name: "articles_src".to_owned(),
+                table: "articles".to_owned(),
+                identity_column: "id".to_owned(),
+            }],
+            relationship_sources: Vec::new(),
+        },
+    )
+    .expect("register graph");
+    register_semantic_schema(
+        &connection,
+        "knowledge",
+        &SemanticSchemaRegistration {
+            node_types: vec![SemanticNodeType {
+                name: "Article".to_owned(),
+                source: "articles_src".to_owned(),
+                properties: vec![
+                    SemanticProperty {
+                        name: "title".to_owned(),
+                        column: "title_text".to_owned(),
+                    },
+                    SemanticProperty {
+                        name: "body".to_owned(),
+                        column: "body_text".to_owned(),
+                    },
+                    SemanticProperty {
+                        name: "views".to_owned(),
+                        column: "views".to_owned(),
+                    },
+                ],
+            }],
+            relationship_types: Vec::new(),
+        },
+    )
+    .expect("register semantic schema");
+    let session = GraphConnection::open(connection, "knowledge").expect("open semantic graph");
+    session
+        .execute(
+            "CREATE (:Article {\
+                 title: 'Database internals', \
+                 body: 'Database database engine', \
+                 views: 10\
+             }), (:Article {\
+                 title: 'Storage notes', \
+                 body: 'Database overview', \
+                 views: 5\
+             })",
+            &Parameters::new(),
+        )
+        .expect("seed semantic article");
+
+    session
+        .create_fts_index(&GraphFtsIndexSpec {
+            name: "article_search".to_owned(),
+            entity: GraphFtsEntityKind::Node,
+            source: "articles_src".to_owned(),
+            properties: vec!["title".to_owned(), "body".to_owned()],
+            tokenizer: GraphFtsTokenizer::Default,
+            weights: vec![GraphFtsPropertyWeight {
+                property: "title".to_owned(),
+                weight: 3.0,
+            }],
+        })
+        .expect("semantic property must resolve to title_text");
+    let ranked = session
+        .query(
+            "MATCH (n:Article) \
+             WHERE fts_match(n.title, n.body, 'database') \
+             RETURN n.title, fts_score(n.title, n.body, 'database') AS score \
+             ORDER BY score DESC",
+            &Parameters::new(),
+        )
+        .expect("query and rank semantic FTS properties");
+    assert_eq!(ranked.len(), 2);
+    assert_eq!(ranked[0][0], Value::build_text("Database internals"));
+    assert_eq!(ranked[1][0], Value::build_text("Storage notes"));
+    assert!(
+        matches!(
+            (&ranked[0][1], &ranked[1][1]),
+            (
+                Value::Numeric(Numeric::Float(first)),
+                Value::Numeric(Numeric::Float(second))
+            ) if first > second
+        ),
+        "weighted multi-property score must determine ranking: {ranked:?}"
+    );
+    assert!(matches!(
+        session.create_fts_index(&GraphFtsIndexSpec {
+            name: "views_search".to_owned(),
+            entity: GraphFtsEntityKind::Node,
+            source: "articles_src".to_owned(),
+            properties: vec!["views".to_owned()],
+            tokenizer: GraphFtsTokenizer::Default,
+            weights: Vec::new(),
+        }),
+        Err(turso_graph_frontend::Error::Fts(
+            GraphFtsError::NonTextProperty { property, .. }
+        )) if property == "views"
+    ));
+}
+
+#[cfg(feature = "fts")]
+#[test]
+fn graph_fts_query_dispatches_across_node_sources_with_colliding_identities() {
+    let database = Database::open(
+        Arc::new(MemoryIO::new()),
+        ":memory:graph-fts-multi-source",
+        OpenOptions::new(Arc::new(SqliteDialect))
+            .db_opts(DatabaseOpts::default().with_index_method(true)),
+    )
+    .expect("open FTS database");
+    let connection = database.connect().expect("connect");
+    connection
+        .execute(
+            "CREATE TABLE articles(id INTEGER PRIMARY KEY, content TEXT); \
+             CREATE TABLE notes(id INTEGER PRIMARY KEY, content TEXT)",
+        )
+        .expect("create text sources");
+    register_graph(
+        &connection,
+        &GraphRegistration {
+            name: "library".to_owned(),
+            node_sources: vec![
+                NodeSourceRegistration {
+                    name: "articles_src".to_owned(),
+                    table: "articles".to_owned(),
+                    identity_column: "id".to_owned(),
+                },
+                NodeSourceRegistration {
+                    name: "notes_src".to_owned(),
+                    table: "notes".to_owned(),
+                    identity_column: "id".to_owned(),
+                },
+            ],
+            relationship_sources: Vec::new(),
+        },
+    )
+    .expect("register graph");
+    register_semantic_schema(
+        &connection,
+        "library",
+        &SemanticSchemaRegistration {
+            node_types: vec![
+                SemanticNodeType {
+                    name: "Article".to_owned(),
+                    source: "articles_src".to_owned(),
+                    properties: vec![SemanticProperty {
+                        name: "content".to_owned(),
+                        column: "content".to_owned(),
+                    }],
+                },
+                SemanticNodeType {
+                    name: "Note".to_owned(),
+                    source: "notes_src".to_owned(),
+                    properties: vec![SemanticProperty {
+                        name: "content".to_owned(),
+                        column: "content".to_owned(),
+                    }],
+                },
+            ],
+            relationship_types: Vec::new(),
+        },
+    )
+    .expect("register semantic schema");
+    let session = GraphConnection::open(connection, "library").expect("open graph");
+    session
+        .execute(
+            "CREATE (:Article {content: 'Database article'}), \
+                    (:Note {content: 'Database note'})",
+            &Parameters::new(),
+        )
+        .expect("seed colliding identities");
+    for (name, source) in [
+        ("article_search", "articles_src"),
+        ("note_search", "notes_src"),
+    ] {
+        session
+            .create_fts_index(&GraphFtsIndexSpec {
+                name: name.to_owned(),
+                entity: GraphFtsEntityKind::Node,
+                source: source.to_owned(),
+                properties: vec!["content".to_owned()],
+                tokenizer: GraphFtsTokenizer::Default,
+                weights: Vec::new(),
+            })
+            .expect("create source-specific FTS index");
+    }
+
+    assert_eq!(
+        session
+            .query(
+                "MATCH (n) WHERE fts_match(n.content, 'database') \
+                 RETURN n.content ORDER BY n.content",
+                &Parameters::new(),
+            )
+            .expect("dispatch FTS by source coordinate"),
+        vec![
+            vec![Value::build_text("Database article")],
+            vec![Value::build_text("Database note")],
+        ]
+    );
 }
 
 #[test]
@@ -335,6 +674,12 @@ fn diagnostics_report_missing_current_and_stale_without_refreshing() {
     let SnapshotStatus::Current(metadata) = current.status else {
         panic!("snapshot must be current")
     };
+    assert_eq!(metadata.graph_id, session.graph_id());
+    assert_eq!(metadata.catalog_version, GRAPH_CATALOG_VERSION);
+    assert_eq!(
+        metadata.source_generation,
+        graph_generation(&fixture::second_connection(&database), "social").unwrap()
+    );
     assert_eq!(metadata.node_count, 2);
     assert_eq!(metadata.relationship_count, 0);
     assert!(metadata.estimated_heap_bytes > 0);
@@ -346,12 +691,13 @@ fn diagnostics_report_missing_current_and_stale_without_refreshing() {
     let stale = session.diagnostics().expect("stale diagnostics");
     let SnapshotStatus::Stale {
         snapshot,
+        current_catalog_version,
         current_generation,
-        ..
     } = stale.status
     else {
         panic!("diagnostics must observe stale state without refreshing")
     };
+    assert_eq!(current_catalog_version, GRAPH_CATALOG_VERSION);
     assert_eq!(snapshot.node_count, 2);
     assert!(current_generation > snapshot.source_generation);
     assert_eq!(
@@ -395,6 +741,17 @@ fn endpoint_functions_resolve_relationship_layout_and_preserve_nulls() {
             .expect("null endpoints"),
         vec![vec![Value::Null, Value::Null]]
     );
+    assert_eq!(
+        session
+            .query(
+                "MATCH (n:Person {id: 2}) \
+                 OPTIONAL MATCH (n)-[r:KNOWS]->() \
+                 RETURN startNode(r), endNode(r)",
+                &Parameters::new(),
+            )
+            .expect("nullable relationship endpoints"),
+        vec![vec![Value::Null, Value::Null]]
+    );
     let error = session
         .query("RETURN startNode(1)", &Parameters::new())
         .expect_err("non-relationship argument must be rejected");
@@ -404,6 +761,21 @@ fn endpoint_functions_resolve_relationship_layout_and_preserve_nulls() {
             .contains("require a relationship argument"),
         "unexpected error: {error}"
     );
+    for query in [
+        "MATCH (n:Person) RETURN startNode(n)",
+        "MATCH ()-[r:KNOWS]->() RETURN endNode([r])",
+        "MATCH p = ()-[:KNOWS]->() RETURN startNode(p)",
+    ] {
+        let error = session
+            .query(query, &Parameters::new())
+            .expect_err("nodes and relationship lists are not scalar relationships");
+        assert!(
+            error
+                .to_string()
+                .contains("require a relationship argument"),
+            "unexpected error for {query}: {error}"
+        );
+    }
 }
 
 #[test]
@@ -423,6 +795,12 @@ fn existing_catalog_procedures_use_the_explicit_procedure_pipeline() {
                 &Parameters::new(),
             )
             .expect("labels procedure"),
+        vec![vec![Value::Text("Person".into())]]
+    );
+    assert_eq!(
+        session
+            .query("CALL DB.Labels()", &Parameters::new())
+            .expect("bare call uses the descriptor's default yield"),
         vec![vec![Value::Text("Person".into())]]
     );
     let reopened = GraphConnection::open(fixture::second_connection(&database), "social")
@@ -468,7 +846,8 @@ fn property_keys_enumerates_declared_logical_payloads_across_sources() {
                  id INTEGER PRIMARY KEY,\
                  name TEXT,\
                  empty_declared TEXT,\
-                 cyprop_id TEXT\
+                 cyprop_id TEXT,\
+                 \"owner's_note\" TEXT\
              );\
              CREATE TABLE places(\
                  id INTEGER PRIMARY KEY,\
@@ -524,9 +903,17 @@ fn property_keys_enumerates_declared_logical_payloads_across_sources() {
 
     assert_eq!(
         rows,
-        ["empty_declared", "id", "name", "score", "since", "src"]
-            .into_iter()
-            .map(|name| vec![Value::Text(name.into())])
-            .collect::<Vec<_>>()
+        [
+            "empty_declared",
+            "id",
+            "name",
+            "owner's_note",
+            "score",
+            "since",
+            "src",
+        ]
+        .into_iter()
+        .map(|name| vec![Value::Text(name.into())])
+        .collect::<Vec<_>>()
     );
 }

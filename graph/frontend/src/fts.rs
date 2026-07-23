@@ -69,6 +69,8 @@ pub enum GraphFtsError {
     IndexMethodsDisabled,
     #[error("graph FTS index name must not be empty")]
     EmptyName,
+    #[error("graph FTS index name must not contain NUL")]
+    InvalidName,
     #[error("graph FTS index name exceeds {MAX_GRAPH_FTS_INDEX_NAME_BYTES} bytes")]
     NameTooLong,
     #[error("graph FTS requires at least one property")]
@@ -242,26 +244,36 @@ fn resolve_index(
         .ok_or_else(|| GraphFtsError::UnknownSource(spec.source.clone()))?;
     let mut physical_properties = Vec::with_capacity(spec.properties.len());
     for property in &spec.properties {
-        let (_, physical) = payload
-            .iter()
-            .find(|(logical, _)| logical.eq_ignore_ascii_case(property))
-            .ok_or_else(|| GraphFtsError::UnknownProperty {
-                source_name: spec.source.clone(),
-                property: property.clone(),
-            })?;
+        let semantic_property =
+            GraphCompilationCatalog::semantic_property_for_key(catalog, source.id, &[], property);
+        let (physical, semantic_type) = match semantic_property {
+            Some(Some((_, value_type, column))) => (column, Some(value_type)),
+            Some(None) => {
+                return Err(GraphFtsError::UnknownProperty {
+                    source_name: spec.source.clone(),
+                    property: property.clone(),
+                });
+            }
+            None => {
+                let (_, physical) = payload
+                    .iter()
+                    .find(|(logical, _)| logical.eq_ignore_ascii_case(property))
+                    .ok_or_else(|| GraphFtsError::UnknownProperty {
+                        source_name: spec.source.clone(),
+                        property: property.clone(),
+                    })?;
+                (physical.clone(), None)
+            }
+        };
         let (_, column) =
             table
-                .get_column_by_name(physical)
+                .get_column_by_name(&physical)
                 .ok_or_else(|| GraphFtsError::UnknownProperty {
                     source_name: spec.source.clone(),
                     property: property.clone(),
                 })?;
-        let semantic_type =
-            GraphCompilationCatalog::semantic_property_for_key(catalog, source.id, &[], property)
-                .map(|property| property.map(|(_, value_type, _)| value_type));
         let is_text = match semantic_type {
-            Some(Some(value_type)) => value_type == ValueType::Text,
-            Some(None) => false,
+            Some(value_type) => value_type == ValueType::Text,
             None => declared_type_has_text_affinity(&column.ty_str),
         };
         if !is_text {
@@ -270,7 +282,7 @@ fn resolve_index(
                 property: property.clone(),
             });
         }
-        physical_properties.push(physical.clone());
+        physical_properties.push(physical);
     }
     let physical_weights = spec
         .weights
@@ -316,6 +328,9 @@ fn declared_type_has_text_affinity(declared_type: &str) -> bool {
 fn validate_spec(spec: &GraphFtsIndexSpec) -> Result<(), GraphFtsError> {
     if spec.name.is_empty() {
         return Err(GraphFtsError::EmptyName);
+    }
+    if spec.name.contains('\0') {
+        return Err(GraphFtsError::InvalidName);
     }
     if spec.name.len() > MAX_GRAPH_FTS_INDEX_NAME_BYTES {
         return Err(GraphFtsError::NameTooLong);

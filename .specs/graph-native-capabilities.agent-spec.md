@@ -339,9 +339,19 @@ failed; graph-target Clippy reported no graph diagnostics.
 
 ## Phase 4 - Graph FTS
 
-**Status: complete (2026-07-23).** Slices 4.0-4.8 are implemented and covered
-in both default and `fts` feature configurations. The benchmark baseline and
-procedure decision are recorded in `docs/graph.md`.
+**Status: complete and validated (2026-07-23).** Slices 4.0-4.8 are implemented
+and covered in both default and `fts` feature configurations. The benchmark
+baseline and procedure decision are recorded in `docs/graph.md`.
+
+The final Phase 1-4 test audit added functional coverage for procedure error
+spans and unusual schema names; endpoint arity, nullability, wrong-type, and
+multi-source behavior; diagnostics metadata and session generation; and FTS
+feature gating, semantic-to-physical property mapping, multi-property ranking,
+multi-source identity collisions, lifecycle rollback/reopen, hostile names,
+and variadic query typing. The new contracts exposed and fixed three defects:
+wrong-arity endpoint calls escaped graph binding, semantic FTS properties were
+resolved as physical payload names, and extra variadic FTS arguments were not
+type-checked.
 
 | Slice | Work | Verification |
 |-------|------|--------------|
@@ -479,16 +489,16 @@ rtk cargo bench -p turso_core --bench fts_benchmark --features fts
 
 ## Success Criteria
 
-- [ ] All four mandatory capability milestones are implemented with focused tests.
+- [x] All four mandatory capability milestones are implemented with focused tests.
 - [x] The procedure registry is descriptor-driven and represented explicitly in graph IR.
 - [x] `db.propertyKeys()` performs catalog enumeration only.
 - [x] `startNode()`/`endNode()` use physical relationship layouts and preserve graph value typing.
-- [ ] Graph FTS reuses core FTS, has a clear feature gate, and has transactional metadata/API lifecycle.
+- [x] Graph FTS reuses core FTS, has a clear feature gate, and has transactional metadata/API lifecycle.
 - [x] Snapshot diagnostics are calling-session correct, read-only, and data-minimizing.
-- [ ] Default and FTS-enabled graph tests pass.
+- [x] Default and FTS-enabled graph tests pass.
 - [x] Smoke/deep conformance shows no portable regression.
-- [ ] Benchmark results include enough workload metadata for a meaningful before/after comparison.
-- [ ] Feature commits and any generated baseline commit are separate and conventional.
+- [x] Benchmark results include enough workload metadata for a meaningful before/after comparison.
+- [x] Feature commits and any generated baseline commit are separate and conventional.
 
 ## Failure Conditions
 

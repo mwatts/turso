@@ -457,6 +457,25 @@ fn untyped_relationship_scan_unions_sources_and_honors_endpoint_layouts() {
             turso_graph_frontend::Value::Text("WORKS_AT".into()),
         ]
     );
+
+    let endpoints = session
+        .query(
+            "MATCH (a)-[r]->(b) \
+             RETURN type(r), a, b, startNode(r), endNode(r) ORDER BY type(r)",
+            &Default::default(),
+        )
+        .expect("resolve endpoints for every relationship source");
+    assert_eq!(endpoints.len(), 2);
+    for row in endpoints {
+        assert_eq!(
+            row[1], row[3],
+            "startNode must use the matched relationship source layout"
+        );
+        assert_eq!(
+            row[2], row[4],
+            "endNode must use the matched relationship source layout"
+        );
+    }
 }
 
 #[test]

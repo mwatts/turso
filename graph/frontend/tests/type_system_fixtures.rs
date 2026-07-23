@@ -439,23 +439,28 @@ fn fts_calls_report_the_disabled_graph_capability_during_binding() {
         .execute("CREATE TABLE embeddings(id INTEGER PRIMARY KEY, content TEXT);")
         .expect("create node source");
     let catalog = node_source_catalog(&connection, "embeddings");
-    let parsed = parse("MATCH () RETURN fts_match('content', 'needle')").expect("query parses");
+    for query in [
+        "MATCH () RETURN fts_match('content', 'needle')",
+        "MATCH () RETURN fts_score('content', 'needle')",
+        "MATCH () RETURN fts_highlight('content', '<b>', '</b>', 'needle')",
+    ] {
+        let parsed = parse(query).expect("query parses");
+        let error = bind(
+            &parsed,
+            GraphId::new(1).expect("graph id"),
+            &catalog,
+            &ParameterTypes::new(),
+        )
+        .expect_err("disabled FTS must fail before SQL lowering");
 
-    let error = bind(
-        &parsed,
-        GraphId::new(1).expect("graph id"),
-        &catalog,
-        &ParameterTypes::new(),
-    )
-    .expect_err("disabled FTS must fail before SQL lowering");
-
-    assert!(matches!(
-        error,
-        turso_graph_frontend::BindError::Unsupported {
-            feature: "graph full-text search (enable the `fts` feature)",
-            ..
-        }
-    ));
+        assert!(matches!(
+            error,
+            turso_graph_frontend::BindError::Unsupported {
+                feature: "graph full-text search (enable the `fts` feature)",
+                ..
+            }
+        ));
+    }
 }
 
 #[test]
@@ -557,4 +562,28 @@ fn fts_match_call_with_extra_arguments_still_binds() {
     );
 
     assert_eq!(value_type, ir::ValueType::Boolean);
+}
+
+#[cfg(feature = "fts")]
+#[test]
+fn fts_match_rejects_a_non_text_variadic_query_argument() {
+    let connection = connect(false);
+    connection
+        .execute("CREATE TABLE embeddings(id INTEGER PRIMARY KEY, vector BLOB);")
+        .expect("create node source");
+    let catalog = node_source_catalog(&connection, "embeddings");
+    let parsed =
+        parse("MATCH () RETURN fts_match('col1 text', 'col2 text', 42)").expect("query parses");
+
+    let error = bind(
+        &parsed,
+        GraphId::new(1).expect("graph id"),
+        &catalog,
+        &ParameterTypes::new(),
+    )
+    .expect_err("every FTS property and query argument must be text-shaped");
+    assert!(
+        matches!(error, turso_graph_frontend::BindError::Unsupported { .. }),
+        "expected bind-time type rejection, got {error:?}"
+    );
 }
