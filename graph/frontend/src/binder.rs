@@ -4630,6 +4630,33 @@ impl<'a> Binder<'a> {
                     .iter()
                     .map(|argument| self.bind_expression(argument))
                     .collect::<Result<Vec<_>, _>>()?;
+                if let ("startnode" | "endnode", [argument]) = (
+                    name.value.to_ascii_lowercase().as_str(),
+                    arguments.as_slice(),
+                ) {
+                    if !matches!(
+                        argument.value_type,
+                        ir::ValueType::Relationship | ir::ValueType::Any
+                    ) {
+                        return Err(at_unsupported(
+                            expression.span,
+                            "startNode()/endNode() require a relationship argument",
+                        ));
+                    }
+                    let function = if name.value.eq_ignore_ascii_case("startnode") {
+                        "__cypher_start_node"
+                    } else {
+                        "__cypher_end_node"
+                    };
+                    return Ok(ir::TypedExpression {
+                        expression: ir::Expression::Function {
+                            function: ir::FunctionName::new(function).expect("static name"),
+                            arguments: vec![argument.clone()],
+                        },
+                        value_type: ir::ValueType::Node,
+                        nullability: argument.nullability,
+                    });
+                }
                 // labels(n) / type(r) resolve statically from the labels and
                 // relationship types declared where the entity was bound.
                 if let ("labels" | "type" | "label" | "properties" | "keys", [argument]) = (
@@ -7049,6 +7076,34 @@ mod tests {
             panic!("expected projection")
         };
         assert!(matches!(project.input.kind(), ir::PlanKind::Unit(_)));
+    }
+
+    #[test]
+    fn endpoint_functions_bind_as_nodes_with_relationship_nullability() {
+        let bound = bind_text(
+            "OPTIONAL MATCH ()-[r:KNOWS]->() RETURN startNode(r) AS start, endNode(r) AS end",
+            ParameterTypes::new(),
+        )
+        .expect("endpoint functions should bind");
+        for name in ["start", "end"] {
+            let output = bound
+                .plan
+                .scope()
+                .resolve(name)
+                .expect("projected endpoint");
+            assert_eq!(output.value_type(), &ir::ValueType::Node);
+            assert_eq!(output.nullability(), ir::Nullability::Nullable);
+        }
+        assert!(matches!(
+            bind_text(
+                "RETURN endNode('not a relationship')",
+                ParameterTypes::new()
+            ),
+            Err(BindError::Unsupported {
+                feature: "startNode()/endNode() require a relationship argument",
+                ..
+            })
+        ));
     }
 
     #[test]

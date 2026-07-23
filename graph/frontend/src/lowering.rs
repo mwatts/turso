@@ -2191,6 +2191,71 @@ fn lower_expression_with_references(
             arguments,
         } => {
             validate_bare_name(function.as_str())?;
+            if matches!(
+                function.as_str(),
+                "__cypher_start_node" | "__cypher_end_node"
+            ) {
+                let [argument] = arguments.as_slice() else {
+                    return Err(LowerError::UnsupportedOperator(
+                        "startNode()/endNode() require one relationship argument",
+                    ));
+                };
+                if matches!(
+                    argument.expression,
+                    ir::Expression::Literal(ir::Literal::Null)
+                ) {
+                    return Ok("NULL".to_owned());
+                }
+                let ir::Expression::Binding(id) = &argument.expression else {
+                    return Err(LowerError::UnsupportedOperator(
+                        "startNode()/endNode() require a relationship binding",
+                    ));
+                };
+                let layout = bindings.get(id).ok_or(LowerError::MissingBinding(*id))?;
+                if !matches!(layout.kind, EntityKind::Relationship) {
+                    return Err(LowerError::UnsupportedOperator(
+                        "startNode()/endNode() require a relationship binding",
+                    ));
+                }
+                let identity_value = lower_expression_with_references(
+                    argument,
+                    bindings,
+                    catalog,
+                    input_alias,
+                    references,
+                )?;
+                let mut branches = Vec::new();
+                for source in &layout.sources {
+                    let relationship = catalog
+                        .relationship_layout(*source)
+                        .ok_or(LowerError::MissingSource(*source))?;
+                    let endpoint = if function.as_str() == "__cypher_start_node" {
+                        relationship.start_column
+                    } else {
+                        relationship.end_column
+                    };
+                    branches.push((
+                        *source,
+                        format!(
+                            "(SELECT ep.{} FROM {} AS ep WHERE ep.{} = ({}))",
+                            quote_identifier(&endpoint),
+                            quote_identifier(&relationship.table),
+                            quote_identifier(&relationship.identity_column),
+                            identity_value,
+                        ),
+                    ));
+                }
+                if let [(_, sql)] = branches.as_slice() {
+                    return Ok(sql.clone());
+                }
+                let source_value = format!("{input_alias}.{}", source_column_ref(*id));
+                let cases = branches
+                    .into_iter()
+                    .map(|(source, sql)| format!("WHEN {} THEN {sql}", source.get()))
+                    .collect::<Vec<_>>()
+                    .join(" ");
+                return Ok(format!("(CASE {source_value} {cases} ELSE NULL END)"));
+            }
             // properties(n) needs the argument's source table, so intercept
             // before argument lowering while the binding is still visible.
             if function.as_str() == "__cypher_properties" {
@@ -2680,6 +2745,34 @@ mod tests {
 
     struct Catalog;
 
+    struct EndpointCatalog;
+
+    impl RelationalCatalogSnapshot for EndpointCatalog {
+        fn node_layout(&self, _source: ir::SourceTableId) -> Option<NodeTableLayout> {
+            None
+        }
+
+        fn relationship_layout(
+            &self,
+            _source: ir::SourceTableId,
+        ) -> Option<RelationshipTableLayout> {
+            Some(RelationshipTableLayout {
+                table: "relationship table".to_owned(),
+                identity_column: "relationship id".to_owned(),
+                start_column: "start node".to_owned(),
+                end_column: "end node".to_owned(),
+            })
+        }
+
+        fn property_column(
+            &self,
+            _source: ir::SourceTableId,
+            _property: ir::PropertyId,
+        ) -> Option<String> {
+            None
+        }
+    }
+
     impl RelationalCatalogSnapshot for Catalog {
         fn node_layout(&self, _source: ir::SourceTableId) -> Option<NodeTableLayout> {
             Some(NodeTableLayout {
@@ -2702,6 +2795,48 @@ mod tests {
         ) -> Option<String> {
             Some("address".to_owned())
         }
+    }
+
+    #[test]
+    fn endpoint_functions_use_quoted_relationship_layout_columns() {
+        let source = ir::SourceTableId::new(7).unwrap();
+        let relationship = ir::BindingId::new(3).unwrap();
+        let bindings = HashMap::from([(
+            relationship,
+            BindingLayout {
+                source,
+                sources: [source].into_iter().collect(),
+                kind: EntityKind::Relationship,
+                properties: Default::default(),
+            },
+        )]);
+        let endpoint = |function: &str| ir::TypedExpression {
+            expression: ir::Expression::Function {
+                function: ir::FunctionName::new(function).unwrap(),
+                arguments: vec![ir::TypedExpression {
+                    expression: ir::Expression::Binding(relationship),
+                    value_type: ir::ValueType::Relationship,
+                    nullability: ir::Nullability::NonNull,
+                }],
+            },
+            value_type: ir::ValueType::Node,
+            nullability: ir::Nullability::NonNull,
+        };
+
+        assert_eq!(
+            lower_expression(
+                &endpoint("__cypher_start_node"),
+                &bindings,
+                &EndpointCatalog,
+                "q"
+            )
+            .unwrap(),
+            "(SELECT ep.\"start node\" FROM \"relationship table\" AS ep WHERE ep.\"relationship id\" = (q.b3))"
+        );
+        assert!(matches!(
+            lower_expression(&endpoint("__cypher_end_node"), &bindings, &Catalog, "q"),
+            Err(LowerError::MissingSource(missing)) if missing == source
+        ));
     }
 
     #[test]

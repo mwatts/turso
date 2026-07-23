@@ -467,7 +467,7 @@ rtk cargo bench -p turso_core --bench fts_benchmark --features fts
 - [ ] All four mandatory capability milestones are implemented with focused tests.
 - [x] The procedure registry is descriptor-driven and represented explicitly in graph IR.
 - [x] `db.propertyKeys()` performs catalog enumeration only.
-- [ ] `startNode()`/`endNode()` use physical relationship layouts and preserve graph value typing.
+- [x] `startNode()`/`endNode()` use physical relationship layouts and preserve graph value typing.
 - [ ] Graph FTS reuses core FTS, has a clear feature gate, and has transactional metadata/API lifecycle.
 - [ ] Snapshot diagnostics are calling-session correct, read-only, and data-minimizing.
 - [ ] Default and FTS-enabled graph tests pass.

@@ -9,6 +9,51 @@ use turso_graph_frontend::{
 mod fixture;
 
 #[test]
+fn endpoint_functions_resolve_relationship_layout_and_preserve_nulls() {
+    let (_database, session) = fixture::social_graph_connection();
+    session
+        .execute(
+            "MATCH (a:Person {id: 1}), (b:Person {id: 2}) CREATE (a)-[:KNOWS]->(b)",
+            &Parameters::new(),
+        )
+        .expect("seed relationship");
+
+    assert_eq!(
+        session
+            .query(
+                "MATCH ()-[r:KNOWS]->() RETURN startNode(r), endNode(r)",
+                &Parameters::new(),
+            )
+            .expect("direct endpoints"),
+        vec![vec![Value::from_i64(1), Value::from_i64(2)]]
+    );
+    assert_eq!(
+        session
+            .query(
+                "MATCH ()-[r:KNOWS]->() WITH r RETURN startNode(r), endNode(r)",
+                &Parameters::new(),
+            )
+            .expect("endpoints carried through WITH"),
+        vec![vec![Value::from_i64(1), Value::from_i64(2)]]
+    );
+    assert_eq!(
+        session
+            .query("RETURN startNode(null), endNode(null)", &Parameters::new(),)
+            .expect("null endpoints"),
+        vec![vec![Value::Null, Value::Null]]
+    );
+    let error = session
+        .query("RETURN startNode(1)", &Parameters::new())
+        .expect_err("non-relationship argument must be rejected");
+    assert!(
+        error
+            .to_string()
+            .contains("require a relationship argument"),
+        "unexpected error: {error}"
+    );
+}
+
+#[test]
 fn existing_catalog_procedures_use_the_explicit_procedure_pipeline() {
     let (database, session) = fixture::social_graph_connection();
     session
