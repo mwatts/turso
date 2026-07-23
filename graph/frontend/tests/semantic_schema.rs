@@ -284,3 +284,208 @@ fn semantic_catalog_resolves_conceptual_names_and_owned_properties() {
         Some("TRADES_WITH")
     );
 }
+
+fn semantic_session() -> turso_graph_frontend::Connection {
+    let connection = connection();
+    registered_graph(&connection);
+    register_semantic_schema(&connection, "social", &semantic_registration()).expect("register");
+    turso_graph_frontend::Connection::open(connection, "social").expect("open semantic graph")
+}
+
+#[test]
+fn create_without_a_label_is_rejected_in_semantic_mode() {
+    let session = semantic_session();
+    let error = session
+        .execute("CREATE (n {displayName: 'Ada'})", &Default::default())
+        .expect_err("reject untyped create");
+
+    assert!(
+        error.to_string().contains("exactly one semantic type"),
+        "{error}"
+    );
+}
+
+#[test]
+fn create_with_multiple_labels_is_rejected_before_fragment_polymorphism() {
+    let session = semantic_session();
+    let error = session
+        .execute("CREATE (n:Customer:Supplier)", &Default::default())
+        .expect_err("reject multiple semantic labels");
+
+    assert!(
+        error.to_string().contains("multiple semantic labels"),
+        "{error}"
+    );
+}
+
+#[test]
+fn create_uses_one_semantic_type_and_rejects_a_source_name_as_a_label() {
+    let session = semantic_session();
+    session
+        .execute(
+            "CREATE (n:Customer {displayName: 'Ada'})",
+            &Default::default(),
+        )
+        .expect("typed create");
+    let error = session
+        .execute(
+            "CREATE (n:people_src {displayName: 'Bob'})",
+            &Default::default(),
+        )
+        .expect_err("source name is not a semantic label");
+
+    assert!(error.to_string().contains("unknown label"), "{error}");
+}
+
+#[test]
+fn legacy_graph_still_creates_untyped_nodes() {
+    let connection = connection();
+    registered_graph(&connection);
+    let session =
+        turso_graph_frontend::Connection::open(connection, "social").expect("open legacy graph");
+
+    session
+        .execute("CREATE (n {full_name: 'Ada'})", &Default::default())
+        .expect("legacy untyped create");
+}
+
+#[test]
+fn reads_reject_unowned_and_ambiguous_properties() {
+    let session = semantic_session();
+    session
+        .execute(
+            "CREATE (n:Customer {displayName: 'Ada', born: 1815})",
+            &Default::default(),
+        )
+        .expect("seed customer");
+
+    let error = session
+        .query("MATCH (n:Supplier) RETURN n.born", &Default::default())
+        .expect_err("supplier does not own born");
+    assert!(error.to_string().contains("not owned"), "{error}");
+
+    let error = session
+        .query("MATCH (n) RETURN n.born", &Default::default())
+        .expect_err("unlabeled born access is ambiguous");
+    assert!(error.to_string().contains("owned by"), "{error}");
+
+    session
+        .query("MATCH (n) RETURN n.displayName", &Default::default())
+        .expect("displayName is owned by every node type");
+}
+
+#[test]
+fn writes_reject_unowned_properties_on_every_static_route() {
+    let session = semantic_session();
+    session
+        .execute(
+            "CREATE (n:Customer {displayName: 'Ada'})",
+            &Default::default(),
+        )
+        .expect("seed customer");
+
+    for query in [
+        "CREATE (n:Supplier {born: 1815})",
+        "MATCH (n:Supplier) SET n.born = 1815",
+        "MATCH (n:Supplier) REMOVE n.born",
+        "MATCH (n:Supplier) SET n = {born: 1815}",
+        "MERGE (n:Supplier {displayName: 'S'}) ON CREATE SET n.born = 1",
+        "MERGE (n:Supplier {displayName: 'S'}) ON MATCH SET n.born = 1",
+    ] {
+        let error = session
+            .execute(query, &Default::default())
+            .expect_err(query);
+        assert!(error.to_string().contains("not owned"), "{query}: {error}");
+    }
+}
+
+#[test]
+fn typed_reads_and_writes_work_in_semantic_mode() {
+    let session = semantic_session();
+    session
+        .execute(
+            "CREATE (c:Customer {displayName: 'Ada', born: 1815})\
+             -[:TRADES_WITH {since: 1840}]->\
+             (s:Supplier {displayName: 'Iron Co'})",
+            &Default::default(),
+        )
+        .expect("typed path");
+    let rows = session
+        .query(
+            "MATCH (c:Customer)-[t:TRADES_WITH]->(s:Supplier) \
+             RETURN c.displayName, t.since, s.displayName",
+            &Default::default(),
+        )
+        .expect("typed read");
+
+    assert_eq!(rows.len(), 1);
+}
+
+#[test]
+fn endpoint_validation_covers_both_directions() {
+    let session = semantic_session();
+    session
+        .execute(
+            "CREATE (:Customer {displayName: 'A'})\
+             -[:TRADES_WITH]->\
+             (:Supplier {displayName: 'B'})",
+            &Default::default(),
+        )
+        .expect("valid outgoing");
+    session
+        .execute(
+            "CREATE (:Supplier {displayName: 'C'})\
+             <-[:TRADES_WITH]-\
+             (:Customer {displayName: 'D'})",
+            &Default::default(),
+        )
+        .expect("valid incoming syntax");
+
+    let error = session
+        .execute(
+            "CREATE (:Supplier {displayName: 'E'})\
+             -[:TRADES_WITH]->\
+             (:Customer {displayName: 'F'})",
+            &Default::default(),
+        )
+        .expect_err("start endpoint must be Customer");
+    assert!(
+        error
+            .to_string()
+            .contains("not allowed as the start endpoint"),
+        "{error}"
+    );
+
+    let error = session
+        .execute(
+            "CREATE (:Customer {displayName: 'G'})\
+             <-[:TRADES_WITH]-\
+             (:Supplier {displayName: 'H'})",
+            &Default::default(),
+        )
+        .expect_err("incoming reversal must be checked");
+    assert!(error.to_string().contains("endpoint"), "{error}");
+}
+
+#[test]
+fn statically_wrong_property_value_types_fail_during_binding() {
+    let session = semantic_session();
+    let error = session
+        .execute(
+            "CREATE (n:Customer {displayName: 'Ada', born: 'yesterday'})",
+            &Default::default(),
+        )
+        .expect_err("Text cannot be assigned to Integer");
+    assert!(error.to_string().contains("not assignable"), "{error}");
+
+    session
+        .execute(
+            "CREATE (n:Customer {displayName: 'Ada', born: 1815})",
+            &Default::default(),
+        )
+        .expect("seed typed customer");
+    let error = session
+        .execute("MATCH (n:Customer) SET n.born = 'old'", &Default::default())
+        .expect_err("SET Text cannot be assigned to Integer");
+    assert!(error.to_string().contains("not assignable"), "{error}");
+}

@@ -217,6 +217,61 @@ pub enum BindError {
         span_start: usize,
         span_end: usize,
     },
+    #[error(
+        "CREATE/MERGE requires exactly one semantic type for {entity} in strict mode at byte {span_start}..{span_end}"
+    )]
+    MissingSemanticType {
+        entity: &'static str,
+        span_start: usize,
+        span_end: usize,
+    },
+    #[error(
+        "multiple semantic labels {names:?} are not supported before fragment-interface polymorphism (Milestone 3) at byte {span_start}..{span_end}"
+    )]
+    MultipleSemanticTypes {
+        names: Vec<String>,
+        span_start: usize,
+        span_end: usize,
+    },
+    #[error(
+        "property `{name}` is not owned by semantic type(s) {types:?} at byte {span_start}..{span_end}"
+    )]
+    PropertyNotOwned {
+        name: String,
+        types: Vec<String>,
+        span_start: usize,
+        span_end: usize,
+    },
+    #[error(
+        "property `{name}` is owned by {owners:?} but not by {non_owners:?} at byte {span_start}..{span_end}"
+    )]
+    AmbiguousProperty {
+        name: String,
+        owners: Vec<String>,
+        non_owners: Vec<String>,
+        span_start: usize,
+        span_end: usize,
+    },
+    #[error(
+        "semantic type(s) {node_types:?} are not allowed as the {endpoint} endpoint of `{relationship_type}` at byte {span_start}..{span_end}"
+    )]
+    InvalidEndpointType {
+        relationship_type: String,
+        endpoint: &'static str,
+        node_types: Vec<String>,
+        span_start: usize,
+        span_end: usize,
+    },
+    #[error(
+        "value of type {actual:?} is not assignable to property `{property}` of type {expected:?} at byte {span_start}..{span_end}"
+    )]
+    IncompatiblePropertyValue {
+        property: String,
+        expected: ir::ValueType,
+        actual: ir::ValueType,
+        span_start: usize,
+        span_end: usize,
+    },
     #[error("property access requires a node or relationship at byte {span_start}..{span_end}")]
     InvalidPropertyTarget { span_start: usize, span_end: usize },
     #[error(
@@ -1180,7 +1235,6 @@ impl<'a> Binder<'a> {
             }
             let to = self.bind_created_node(node, merge, operations)?;
             path_nodes.push(to);
-            let source = self.relationship_source(relationship.span)?;
             let binding = self.new_entity_binding(
                 relationship.variable.as_ref(),
                 "_relationship",
@@ -1208,8 +1262,27 @@ impl<'a> Binder<'a> {
                         })
                 })
                 .collect::<Result<Vec<_>, _>>()?;
-            let properties = self
-                .bind_mutation_properties(CatalogEntity::Relationship, &relationship.properties)?;
+            let source = if self.catalog.semantic_mode(self.graph) {
+                self.catalog
+                    .relationship_source_for_type(self.graph, relationship_types[0])
+                    .ok_or(BindError::MissingSource {
+                        entity: "relationship",
+                        span_start: relationship.span.start,
+                        span_end: relationship.span.end,
+                    })?
+            } else {
+                self.relationship_source(relationship.span)?
+            };
+            let relationship_names = relationship
+                .types
+                .iter()
+                .map(|name| name.value.clone())
+                .collect::<Vec<_>>();
+            let properties = self.bind_mutation_properties(
+                CatalogEntity::Relationship,
+                &relationship_names,
+                &relationship.properties,
+            )?;
             let next_from = to;
             let (relationship_from, relationship_to) =
                 if relationship.direction == cypher::Direction::Incoming {
@@ -1217,6 +1290,39 @@ impl<'a> Binder<'a> {
                 } else {
                     (from, to)
                 };
+            if let Some((start_allowed, end_allowed)) = self
+                .catalog
+                .relationship_endpoints(self.graph, relationship_types[0])
+            {
+                for (endpoint, binding_id, allowed) in [
+                    ("start", relationship_from, &start_allowed),
+                    ("end", relationship_to, &end_allowed),
+                ] {
+                    if allowed.is_empty() {
+                        continue;
+                    }
+                    let names = self
+                        .entities
+                        .get(&binding_id)
+                        .map(|entity| entity.names.clone())
+                        .unwrap_or_default();
+                    let all_allowed = !names.is_empty()
+                        && names.iter().all(|name| {
+                            self.catalog
+                                .label(self.graph, name)
+                                .is_some_and(|label| allowed.contains(&label))
+                        });
+                    if !all_allowed {
+                        return Err(BindError::InvalidEndpointType {
+                            relationship_type: relationship.types[0].value.clone(),
+                            endpoint,
+                            node_types: names,
+                            span_start: relationship.span.start,
+                            span_end: relationship.span.end,
+                        });
+                    }
+                }
+            }
             let create = ir::CreateRelationship {
                 binding,
                 source,
@@ -1313,7 +1419,38 @@ impl<'a> Binder<'a> {
                 return Ok(binding.id());
             }
         }
-        let source = self.node_source(node.span)?;
+        if self.catalog.semantic_mode(self.graph) {
+            if node.labels.is_empty() {
+                return Err(BindError::MissingSemanticType {
+                    entity: "node",
+                    span_start: node.span.start,
+                    span_end: node.span.end,
+                });
+            }
+            if node.labels.len() > 1 {
+                return Err(BindError::MultipleSemanticTypes {
+                    names: node
+                        .labels
+                        .iter()
+                        .map(|label| label.value.clone())
+                        .collect(),
+                    span_start: node.span.start,
+                    span_end: node.span.end,
+                });
+            }
+        }
+        let labels = self.resolve_labels(node)?;
+        let source = if self.catalog.semantic_mode(self.graph) {
+            self.catalog
+                .node_source_for_label(self.graph, labels[0])
+                .ok_or(BindError::MissingSource {
+                    entity: "node",
+                    span_start: node.span.start,
+                    span_end: node.span.end,
+                })?
+        } else {
+            self.node_source(node.span)?
+        };
         let binding = self.new_entity_binding(
             node.variable.as_ref(),
             "_node",
@@ -1329,8 +1466,16 @@ impl<'a> Binder<'a> {
         let create = ir::CreateNode {
             binding: binding.clone(),
             source,
-            labels: self.resolve_labels(node)?,
-            properties: self.bind_mutation_properties(CatalogEntity::Node, &node.properties)?,
+            labels,
+            properties: self.bind_mutation_properties(
+                CatalogEntity::Node,
+                &node
+                    .labels
+                    .iter()
+                    .map(|label| label.value.clone())
+                    .collect::<Vec<_>>(),
+                &node.properties,
+            )?,
         };
         operations.push(if merge {
             ir::Mutation::MergeNode(ir::MergeNode {
@@ -1365,8 +1510,8 @@ impl<'a> Binder<'a> {
                         "patterns in a SET value expression",
                     ));
                 }
-                let (binding, kind, source) = self.resolve_mutation_target(target)?;
-                let property = self.resolve_property(kind, &target.property)?;
+                let (binding, kind, source, type_names) = self.resolve_mutation_target(target)?;
+                let property = self.resolve_property(kind, &type_names, &target.property)?;
                 let bound = match &value.value {
                     // Map values bind against struct/union property targets;
                     // otherwise they store as JSON like any other map value.
@@ -1385,6 +1530,14 @@ impl<'a> Binder<'a> {
                     }
                     _ => self.bind_expression(value)?,
                 };
+                if self.catalog.semantic_mode(self.graph) {
+                    check_static_property_value(
+                        &target.property.value,
+                        &property.value_type,
+                        &bound,
+                        value.span,
+                    )?;
+                }
                 Ok(ir::Mutation::SetProperty(ir::SetProperty {
                     entity: binding,
                     source,
@@ -1419,8 +1572,9 @@ impl<'a> Binder<'a> {
                 let clear = matches!(item, cypher::SetItem::ReplaceEntity { .. });
                 let (binding, kind) = self.resolve_set_variable(variable)?;
                 let source = self.entity_source(kind, variable.span)?;
+                let type_names = self.entity_type_names(binding, variable.span)?;
                 if let cypher::Expression::Map(entries) = &value.value {
-                    let entries = self.bind_mutation_properties(kind, entries)?;
+                    let entries = self.bind_mutation_properties(kind, &type_names, entries)?;
                     return Ok(ir::Mutation::ReplaceProperties(ir::ReplaceProperties {
                         entity: binding,
                         source,
@@ -1471,8 +1625,8 @@ impl<'a> Binder<'a> {
         operations: &mut Vec<ir::Mutation>,
     ) -> Result<(), BindError> {
         for item in &clause.items {
-            let (binding, kind, source) = self.resolve_mutation_target(item)?;
-            let property = self.resolve_property(kind, &item.property)?;
+            let (binding, kind, source, type_names) = self.resolve_mutation_target(item)?;
+            let property = self.resolve_property(kind, &type_names, &item.property)?;
             operations.push(ir::Mutation::RemoveProperty(ir::RemoveProperty {
                 entity: binding,
                 source,
@@ -1510,12 +1664,13 @@ impl<'a> Binder<'a> {
     fn bind_mutation_properties(
         &mut self,
         entity: CatalogEntity,
+        type_names: &[String],
         properties: &[(cypher::Spanned<String>, cypher::Spanned<cypher::Expression>)],
     ) -> Result<Vec<ir::PropertyValue>, BindError> {
         properties
             .iter()
             .map(|(name, value)| {
-                let resolved = self.resolve_property(entity, name)?;
+                let resolved = self.resolve_property(entity, type_names, name)?;
                 let bound_value = match &value.value {
                     cypher::Expression::Map(entries)
                         if matches!(
@@ -1532,6 +1687,14 @@ impl<'a> Binder<'a> {
                     }
                     _ => self.bind_expression(value)?,
                 };
+                if self.catalog.semantic_mode(self.graph) {
+                    check_static_property_value(
+                        &name.value,
+                        &resolved.value_type,
+                        &bound_value,
+                        value.span,
+                    )?;
+                }
                 Ok(ir::PropertyValue {
                     property: resolved.id,
                     value: bound_value,
@@ -1543,21 +1706,36 @@ impl<'a> Binder<'a> {
     fn resolve_mutation_target(
         &self,
         target: &cypher::PropertyTarget,
-    ) -> Result<(ir::BindingId, CatalogEntity, ir::SourceTableId), BindError> {
+    ) -> Result<(ir::BindingId, CatalogEntity, ir::SourceTableId, Vec<String>), BindError> {
         let binding = self.resolve_binding(&target.variable.value, target.variable.span)?;
-        let kind = self
+        let entity = self
             .entities
             .get(&binding.id())
             .ok_or(BindError::InvalidPropertyTarget {
                 span_start: target.variable.span.start,
                 span_end: target.variable.span.end,
-            })?
-            .kind;
+            })?;
+        let kind = entity.kind;
         Ok((
             binding.id(),
             kind,
             self.entity_source(kind, target.variable.span)?,
+            entity.names.clone(),
         ))
+    }
+
+    fn entity_type_names(
+        &self,
+        binding: ir::BindingId,
+        span: cypher::Span,
+    ) -> Result<Vec<String>, BindError> {
+        self.entities
+            .get(&binding)
+            .map(|entity| entity.names.clone())
+            .ok_or(BindError::InvalidPropertyTarget {
+                span_start: span.start,
+                span_end: span.end,
+            })
     }
 
     fn entity_source(
@@ -2357,8 +2535,14 @@ impl<'a> Binder<'a> {
         entity: CatalogEntity,
         properties: &[(cypher::Spanned<String>, cypher::Spanned<cypher::Expression>)],
     ) -> Result<(), BindError> {
+        let type_names = self
+            .entities
+            .get(&binding.id())
+            .expect("entity binding must retain its semantic type names")
+            .names
+            .clone();
         for (name, value) in properties {
-            let property = self.resolve_property(entity, name)?;
+            let property = self.resolve_property(entity, &type_names, name)?;
             let right = self.bind_expression(value)?;
             let left = ir::TypedExpression {
                 expression: ir::Expression::Property {
@@ -3343,18 +3527,19 @@ impl<'a> Binder<'a> {
                         span_end: root.span.end,
                     });
                 };
-                let kind = self
-                    .entities
-                    .get(&binding.id())
-                    .ok_or(BindError::InvalidPropertyTarget {
-                        span_start: root.span.start,
-                        span_end: root.span.end,
-                    })?
-                    .kind;
+                let entity =
+                    self.entities
+                        .get(&binding.id())
+                        .ok_or(BindError::InvalidPropertyTarget {
+                            span_start: root.span.start,
+                            span_end: root.span.end,
+                        })?;
+                let kind = entity.kind;
+                let type_names = entity.names.clone();
                 let (property_name, nested_fields) = field_chain.split_first().expect(
                     "flatten_property_chain always yields at least the outer Property's name",
                 );
-                let property = self.resolve_property(kind, property_name)?;
+                let property = self.resolve_property(kind, &type_names, property_name)?;
                 if nested_fields.len() > 2 {
                     return Err(at_unsupported(
                         expression.span,
@@ -4299,15 +4484,35 @@ impl<'a> Binder<'a> {
     fn resolve_property(
         &self,
         entity: CatalogEntity,
+        type_names: &[String],
         name: &cypher::Spanned<String>,
     ) -> Result<ResolvedProperty, BindError> {
-        self.catalog
-            .property(self.graph, entity, &name.value)
-            .ok_or_else(|| BindError::UnknownProperty {
+        match self
+            .catalog
+            .resolve_owned_property(self.graph, entity, type_names, &name.value)
+        {
+            Some(PropertyResolution::Resolved(property)) => Ok(property),
+            Some(PropertyResolution::NotOwned { types }) => Err(BindError::PropertyNotOwned {
+                name: name.value.clone(),
+                types,
+                span_start: name.span.start,
+                span_end: name.span.end,
+            }),
+            Some(PropertyResolution::Ambiguous { owners, non_owners }) => {
+                Err(BindError::AmbiguousProperty {
+                    name: name.value.clone(),
+                    owners,
+                    non_owners,
+                    span_start: name.span.start,
+                    span_end: name.span.end,
+                })
+            }
+            None => Err(BindError::UnknownProperty {
                 name: name.value.clone(),
                 span_start: name.span.start,
                 span_end: name.span.end,
-            })
+            }),
+        }
     }
 
     fn resolve_field(
@@ -5827,6 +6032,29 @@ fn binary_type(
         }
         _ => ir::ValueType::Any,
     }
+}
+
+fn check_static_property_value(
+    property_name: &str,
+    expected: &ir::ValueType,
+    value: &ir::TypedExpression,
+    span: cypher::Span,
+) -> Result<(), BindError> {
+    let actual = &value.value_type;
+    let compatible = matches!(expected, ir::ValueType::Any)
+        || matches!(actual, ir::ValueType::Any)
+        || expected == actual
+        || (matches!(expected, ir::ValueType::Real) && matches!(actual, ir::ValueType::Integer));
+    if compatible {
+        return Ok(());
+    }
+    Err(BindError::IncompatiblePropertyValue {
+        property: property_name.to_owned(),
+        expected: expected.clone(),
+        actual: actual.clone(),
+        span_start: span.start,
+        span_end: span.end,
+    })
 }
 
 fn nullable(left: ir::Nullability, right: ir::Nullability) -> ir::Nullability {

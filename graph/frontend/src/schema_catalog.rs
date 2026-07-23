@@ -111,14 +111,16 @@ impl SchemaCatalog {
             };
             *property = type_info.and_then(|type_info| type_info.property(name));
         }
-        let owners = candidates
+        let mut owners = candidates
             .iter()
             .filter_map(|(type_name, property)| property.map(|_| type_name.clone()))
             .collect::<Vec<_>>();
-        let non_owners = candidates
+        let mut non_owners = candidates
             .iter()
             .filter_map(|(type_name, property)| property.is_none().then_some(type_name.clone()))
             .collect::<Vec<_>>();
+        owners.sort_by_key(|name| name.to_lowercase());
+        non_owners.sort_by_key(|name| name.to_lowercase());
         if owners.is_empty() {
             return Some(PropertyResolution::NotOwned { types: non_owners });
         }
