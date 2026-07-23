@@ -50,6 +50,7 @@ pub enum PlanKind {
     Limit(Limit),
     LeftApply(LeftApply),
     Unwind(Unwind),
+    ProcedureCall(ProcedureCall),
     Union(Union),
     Join(Join),
 }
@@ -225,6 +226,30 @@ pub struct Unwind {
     pub output: Binding,
 }
 
+/// Closed read-procedure implementations shared by graph frontends.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum ProcedureIdentity {
+    DbLabels,
+    DbRelationshipTypes,
+    DbPropertyKeys,
+}
+
+/// One selected procedure column and its bound output.
+#[derive(Clone, Debug, PartialEq)]
+pub struct ProcedureOutput {
+    pub column: usize,
+    pub output: Binding,
+}
+
+/// A typed read-only procedure composed with its relational input.
+#[derive(Clone, Debug, PartialEq)]
+pub struct ProcedureCall {
+    pub input: Box<Plan>,
+    pub procedure: ProcedureIdentity,
+    pub arguments: Vec<TypedExpression>,
+    pub outputs: Vec<ProcedureOutput>,
+}
+
 /// Shape-compatible UNION inputs.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Union {
@@ -329,5 +354,30 @@ mod tests {
             })
         );
         assert!(Union::new(vec![scan(1, 1), scan(2, 1)], true).is_ok());
+    }
+
+    #[test]
+    fn procedure_call_carries_closed_identity_arguments_and_selected_outputs() {
+        let input = scan(1, 1);
+        let output = Binding::new(
+            BindingId::new(2).unwrap(),
+            "propertyKey",
+            ValueType::Text,
+            Nullability::NonNull,
+        )
+        .unwrap();
+        let call = ProcedureCall {
+            input: Box::new(input.clone()),
+            procedure: ProcedureIdentity::DbPropertyKeys,
+            arguments: Vec::new(),
+            outputs: vec![ProcedureOutput {
+                column: 0,
+                output: output.clone(),
+            }],
+        };
+        assert_eq!(call.input.as_ref(), &input);
+        assert_eq!(call.procedure, ProcedureIdentity::DbPropertyKeys);
+        assert!(call.arguments.is_empty());
+        assert_eq!(call.outputs[0].output, output);
     }
 }

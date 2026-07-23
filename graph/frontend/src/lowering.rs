@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{BTreeSet, HashMap};
 
 use thiserror::Error;
 use turso_graph_ir as ir;
@@ -20,6 +20,12 @@ pub struct RelationshipTableLayout {
 
 /// Physical relational names resolved from stable graph catalog identities.
 pub trait RelationalCatalogSnapshot {
+    fn registered_node_sources(&self) -> Vec<ir::SourceTableId> {
+        Vec::new()
+    }
+    fn registered_relationship_sources(&self) -> Vec<ir::SourceTableId> {
+        Vec::new()
+    }
     fn node_layout(&self, source: ir::SourceTableId) -> Option<NodeTableLayout>;
     fn relationship_layout(&self, source: ir::SourceTableId) -> Option<RelationshipTableLayout>;
     /// Whether label/type junction rows include `source_id`.
@@ -57,11 +63,27 @@ pub trait RelationalCatalogSnapshot {
     fn relationship_type_name(&self, _relationship_type: ir::RelationshipTypeId) -> Option<String> {
         None
     }
+    /// Semantic catalog labels when strict schema mode is active. Legacy
+    /// catalogs return `None` and enumerate the data-backed junction.
+    fn procedure_labels(&self) -> Option<Vec<String>> {
+        None
+    }
+    /// Semantic catalog relationship types when strict schema mode is active.
+    fn procedure_relationship_types(&self) -> Option<Vec<String>> {
+        None
+    }
     /// Payload properties of a source as (cypher name, physical column)
     /// pairs — every column except identity/endpoint columns. Enables
     /// whole-entity property reads (`properties(n)`).
     fn payload_columns(&self, _source: ir::SourceTableId) -> Option<Vec<(String, String)>> {
         None
+    }
+    /// Logical property names declared for catalog introspection. This is a
+    /// union across semantic owners, unlike `semantic_properties`, whose
+    /// intersection semantics protect a specific polymorphic binding.
+    fn procedure_property_keys(&self, source: ir::SourceTableId) -> Option<Vec<String>> {
+        self.payload_columns(source)
+            .map(|columns| columns.into_iter().map(|(logical, _)| logical).collect())
     }
 
     fn semantic_property_for_key(
@@ -410,6 +432,10 @@ fn collect_wanted(plan: &ir::Plan, wanted: &mut WantedProperties) {
             expressions.push(&unwind.list);
             collect_wanted(&unwind.input, wanted);
         }
+        ir::PlanKind::ProcedureCall(call) => {
+            expressions.extend(call.arguments.iter());
+            collect_wanted(&call.input, wanted);
+        }
         ir::PlanKind::Join(join) => {
             collect_wanted(&join.left, wanted);
             collect_wanted(&join.right, wanted);
@@ -701,6 +727,7 @@ fn lower_plan(
                 bindings: input.bindings,
             })
         }
+        ir::PlanKind::ProcedureCall(call) => lower_procedure_call(call, catalog, optional, wanted),
         ir::PlanKind::Join(join) => {
             let left = lower_plan(&join.left, catalog, optional, wanted)?;
             let right = lower_plan(&join.right, catalog, optional, wanted)?;
@@ -746,6 +773,111 @@ fn lower_plan(
                 bindings: bindings.unwrap_or_default(),
             })
         }
+    }
+}
+
+fn lower_procedure_call(
+    call: &ir::ProcedureCall,
+    catalog: &dyn RelationalCatalogSnapshot,
+    optional: bool,
+    wanted: &WantedProperties,
+) -> Result<Lowered, LowerError> {
+    if !call.arguments.is_empty() {
+        return Err(LowerError::UnsupportedOperator(
+            "arguments for built-in catalog procedures",
+        ));
+    }
+    let input = lower_plan(&call.input, catalog, optional, wanted)?;
+    let rows = match call.procedure {
+        ir::ProcedureIdentity::DbLabels => {
+            if let Some(labels) = catalog.procedure_labels() {
+                text_procedure_rows(labels)
+            } else {
+                let table = catalog
+                    .labels_table()
+                    .ok_or(LowerError::UnsupportedOperator(
+                        "db.labels without a label table",
+                    ))?;
+                format!(
+                    "SELECT DISTINCT label AS c0 FROM {} ORDER BY label",
+                    quote_identifier(&table)
+                )
+            }
+        }
+        ir::ProcedureIdentity::DbRelationshipTypes => {
+            if let Some(types) = catalog.procedure_relationship_types() {
+                text_procedure_rows(types)
+            } else {
+                let table =
+                    catalog
+                        .relationship_types_table()
+                        .ok_or(LowerError::UnsupportedOperator(
+                            "db.relationshipTypes without a type table",
+                        ))?;
+                format!(
+                    "SELECT DISTINCT type AS c0 FROM {} ORDER BY type",
+                    quote_identifier(&table)
+                )
+            }
+        }
+        ir::ProcedureIdentity::DbPropertyKeys => {
+            let mut keys = BTreeSet::new();
+            for source in catalog
+                .registered_node_sources()
+                .into_iter()
+                .chain(catalog.registered_relationship_sources())
+            {
+                keys.extend(
+                    catalog
+                        .procedure_property_keys(source)
+                        .ok_or(LowerError::MissingSource(source))?,
+                );
+            }
+            text_procedure_rows(keys)
+        }
+    };
+    let projections = call
+        .outputs
+        .iter()
+        .map(|output| {
+            if output.column != 0 {
+                return Err(LowerError::UnsupportedOperator(
+                    "unknown built-in procedure output",
+                ));
+            }
+            Ok(format!(
+                "p.c{} AS {}",
+                output.column,
+                binding_column(output.output.id())
+            ))
+        })
+        .collect::<Result<Vec<_>, _>>()?;
+    if projections.is_empty() {
+        return Err(LowerError::UnsupportedOperator(
+            "procedure call without selected outputs",
+        ));
+    }
+    Ok(Lowered {
+        sql: format!(
+            "SELECT q.*, {} FROM ({}) AS q JOIN ({rows}) AS p",
+            projections.join(", "),
+            input.sql
+        ),
+        bindings: input.bindings,
+    })
+}
+
+fn text_procedure_rows(values: impl IntoIterator<Item = String>) -> String {
+    let rows = values
+        .into_iter()
+        .collect::<BTreeSet<_>>()
+        .into_iter()
+        .map(|value| format!("SELECT {} AS c0", crate::catalog::sql_string(&value)))
+        .collect::<Vec<_>>();
+    if rows.is_empty() {
+        "SELECT NULL AS c0 WHERE 0".to_owned()
+    } else {
+        rows.join(" UNION ALL ")
     }
 }
 
@@ -2217,18 +2349,6 @@ fn lower_expression_with_references(
                          THEN ({value}) || 'Z' ELSE ({value}) END)"
                     ));
                 }
-                ("__cypher_all_labels", []) => {
-                    let table = catalog
-                        .labels_table()
-                        .ok_or(LowerError::UnsupportedOperator(
-                            "db.labels without a label table",
-                        ))?;
-                    return Ok(format!(
-                        "(SELECT json_group_array(label) FROM \
-                         (SELECT DISTINCT label FROM {} ORDER BY label))",
-                        quote_identifier(&table)
-                    ));
-                }
                 ("__cypher_relationship_type", [value]) => {
                     // No junction table means the graph does not track
                     // relationship types; nothing to report.
@@ -2247,18 +2367,6 @@ fn lower_expression_with_references(
                         "(SELECT jt.type FROM {} AS jt \
                          WHERE {source_predicate}jt.relationship_id = ({value}) LIMIT 1)",
                         quote_identifier(&table),
-                    ));
-                }
-                ("__cypher_all_relationship_types", []) => {
-                    let table = catalog.relationship_types_table().ok_or(
-                        LowerError::UnsupportedOperator(
-                            "db.relationshipTypes without a type table",
-                        ),
-                    )?;
-                    return Ok(format!(
-                        "(SELECT json_group_array(type) FROM \
-                         (SELECT DISTINCT type FROM {} ORDER BY type))",
-                        quote_identifier(&table)
                     ));
                 }
                 ("__cypher_labels", [value]) => {

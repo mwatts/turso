@@ -328,6 +328,59 @@ pub enum BindError {
     },
     #[error("property access requires a node or relationship at byte {span_start}..{span_end}")]
     InvalidPropertyTarget { span_start: usize, span_end: usize },
+    #[error("unsupported graph procedure `{name}` at byte {span_start}..{span_end}")]
+    UnknownProcedure {
+        name: String,
+        span_start: usize,
+        span_end: usize,
+    },
+    #[error(
+        "procedure `{name}` expects {expected} argument(s), got {actual} at byte {span_start}..{span_end}"
+    )]
+    InvalidProcedureArity {
+        name: String,
+        expected: String,
+        actual: usize,
+        span_start: usize,
+        span_end: usize,
+    },
+    #[error(
+        "argument `{argument}` to procedure `{procedure}` expects {expected:?}, got {actual:?} at byte {span_start}..{span_end}"
+    )]
+    InvalidProcedureArgument {
+        procedure: &'static str,
+        argument: &'static str,
+        expected: ir::ValueType,
+        actual: ir::ValueType,
+        span_start: usize,
+        span_end: usize,
+    },
+    #[error(
+        "procedure `{procedure}` has no yield column `{name}` at byte {span_start}..{span_end}"
+    )]
+    UnknownProcedureYield {
+        procedure: String,
+        name: String,
+        span_start: usize,
+        span_end: usize,
+    },
+    #[error(
+        "procedure `{procedure}` yields `{name}` more than once at byte {span_start}..{span_end}"
+    )]
+    DuplicateProcedureYield {
+        procedure: String,
+        name: String,
+        span_start: usize,
+        span_end: usize,
+    },
+    #[error(
+        "mutating procedure `{name}` is not valid in a read query at byte {span_start}..{span_end}"
+    )]
+    MutatingProcedure {
+        name: String,
+        span_start: usize,
+        span_end: usize,
+    },
     #[error(
         "{feature} is not supported in the initial graph slice at byte {span_start}..{span_end}"
     )]
@@ -536,48 +589,106 @@ impl<'a> Binder<'a> {
         Ok(())
     }
 
-    /// Minimal built-in procedure registry: introspection procedures over
-    /// the label and relationship-type junctions.
     fn bind_call(
         &mut self,
         clause: &cypher::CallClause,
         span: cypher::Span,
     ) -> Result<(), BindError> {
-        let (sentinel, default_yield) = match clause.name.value.to_ascii_lowercase().as_str() {
-            "db.labels" => ("__cypher_all_labels", "label"),
-            "db.relationshiptypes" => ("__cypher_all_relationship_types", "relationshipType"),
-            _ => {
-                return Err(at_unsupported(
-                    clause.name.span,
-                    "procedures outside the built-in registry",
+        let descriptor = crate::procedures::lookup(&clause.name.value).ok_or_else(|| {
+            BindError::UnknownProcedure {
+                name: clause.name.value.clone(),
+                span_start: clause.name.span.start,
+                span_end: clause.name.span.end,
+            }
+        })?;
+        if descriptor.access == crate::procedures::ProcedureAccess::Mutating {
+            return Err(BindError::MutatingProcedure {
+                name: descriptor.name.to_owned(),
+                span_start: clause.name.span.start,
+                span_end: clause.name.span.end,
+            });
+        }
+        if !descriptor.accepts_arity(clause.arguments.len()) {
+            let required = descriptor
+                .arguments
+                .iter()
+                .filter(|argument| argument.required)
+                .count();
+            let expected = if required == descriptor.arguments.len() {
+                required.to_string()
+            } else {
+                format!("{required}..={}", descriptor.arguments.len())
+            };
+            return Err(BindError::InvalidProcedureArity {
+                name: descriptor.name.to_owned(),
+                expected,
+                actual: clause.arguments.len(),
+                span_start: span.start,
+                span_end: span.end,
+            });
+        }
+        let arguments = clause
+            .arguments
+            .iter()
+            .zip(descriptor.arguments)
+            .map(|(argument, expected)| {
+                let bound = self.bind_expression(argument)?;
+                if bound.value_type != expected.value_type
+                    && bound.value_type != ir::ValueType::Any
+                    && expected.value_type != ir::ValueType::Any
+                {
+                    return Err(BindError::InvalidProcedureArgument {
+                        procedure: descriptor.name,
+                        argument: expected.name,
+                        expected: expected.value_type.clone(),
+                        actual: bound.value_type,
+                        span_start: argument.span.start,
+                        span_end: argument.span.end,
+                    });
+                }
+                Ok(bound)
+            })
+            .collect::<Result<Vec<_>, _>>()?;
+
+        let selected = if clause.yields.is_empty() {
+            descriptor
+                .yields
+                .iter()
+                .enumerate()
+                .map(|(index, column)| (index, column, column.name.to_owned(), clause.name.span))
+                .collect::<Vec<_>>()
+        } else {
+            let mut seen = Vec::new();
+            let mut selected = Vec::with_capacity(clause.yields.len());
+            for yielded in &clause.yields {
+                let folded = yielded.value.to_ascii_lowercase();
+                if seen.contains(&folded) {
+                    return Err(BindError::DuplicateProcedureYield {
+                        procedure: descriptor.name.to_owned(),
+                        name: yielded.value.clone(),
+                        span_start: yielded.span.start,
+                        span_end: yielded.span.end,
+                    });
+                }
+                seen.push(folded);
+                let index = descriptor.yield_index(&yielded.value).ok_or_else(|| {
+                    BindError::UnknownProcedureYield {
+                        procedure: descriptor.name.to_owned(),
+                        name: yielded.value.clone(),
+                        span_start: yielded.span.start,
+                        span_end: yielded.span.end,
+                    }
+                })?;
+                selected.push((
+                    index,
+                    &descriptor.yields[index],
+                    yielded.value.clone(),
+                    yielded.span,
                 ));
             }
+            selected
         };
-        if !clause.arguments.is_empty() {
-            return Err(at_unsupported(span, "procedure arguments"));
-        }
-        if clause.yields.len() > 1 {
-            return Err(at_unsupported(span, "multi-column procedure YIELD"));
-        }
-        let name = clause
-            .yields
-            .first()
-            .map(|item| item.value.clone())
-            .unwrap_or_else(|| default_yield.to_owned());
-        let list = ir::TypedExpression {
-            expression: ir::Expression::Function {
-                function: ir::FunctionName::new(sentinel).expect("static name"),
-                arguments: Vec::new(),
-            },
-            value_type: ir::ValueType::List(Box::new(ir::ValueType::Text)),
-            nullability: ir::Nullability::NonNull,
-        };
-        let output = ir::Binding::new(
-            self.next_id()?,
-            name,
-            ir::ValueType::Text,
-            ir::Nullability::NonNull,
-        )?;
+
         let input = match self.plan.take() {
             Some(input) => input,
             None => ir::Plan::new(
@@ -586,19 +697,31 @@ impl<'a> Binder<'a> {
                 ir::ResultShape::default(),
             )?,
         };
-        self.scope.push(output.clone());
+        let mut outputs = Vec::with_capacity(selected.len());
+        for (column, descriptor, name, _) in selected {
+            let output = ir::Binding::new(
+                self.next_id()?,
+                name,
+                descriptor.value_type.clone(),
+                descriptor.nullability,
+            )?;
+            self.scope.push(output.clone());
+            outputs.push(ir::ProcedureOutput { column, output });
+        }
         let scope = ir::Scope::new(self.scope.clone())?;
-        // A bare CALL with no YIELD and no trailing clauses returns its
-        // single column directly.
         let shape = ir::ResultShape::new(
-            vec![ir::ResultColumn::new(output.id(), output.name())?],
+            outputs
+                .iter()
+                .map(|selected| ir::ResultColumn::new(selected.output.id(), selected.output.name()))
+                .collect::<Result<Vec<_>, _>>()?,
             &scope,
         )?;
         self.plan = Some(ir::Plan::new(
-            ir::PlanKind::Unwind(ir::Unwind {
+            ir::PlanKind::ProcedureCall(ir::ProcedureCall {
                 input: Box::new(input),
-                list,
-                output,
+                procedure: descriptor.identity,
+                arguments,
+                outputs,
             }),
             scope,
             shape,
@@ -6929,6 +7052,64 @@ mod tests {
     }
 
     #[test]
+    fn procedures_bind_through_descriptors_into_explicit_ir() {
+        let bound = bind_text("CALL Db.PropertyKeys()", ParameterTypes::new())
+            .expect("registered procedure should bind case-insensitively");
+        let ir::PlanKind::ProcedureCall(call) = bound.plan.kind() else {
+            panic!("expected explicit procedure call")
+        };
+        assert_eq!(call.procedure, ir::ProcedureIdentity::DbPropertyKeys);
+        assert!(call.arguments.is_empty());
+        assert_eq!(call.outputs.len(), 1);
+        assert_eq!(call.outputs[0].column, 0);
+        assert_eq!(call.outputs[0].output.name(), "propertyKey");
+        assert_eq!(call.outputs[0].output.value_type(), &ir::ValueType::Text);
+        assert_eq!(
+            call.outputs[0].output.nullability(),
+            ir::Nullability::NonNull
+        );
+        assert!(matches!(call.input.kind(), ir::PlanKind::Unit(_)));
+    }
+
+    #[test]
+    fn procedure_binding_reports_unknown_names_arity_and_yields() {
+        assert!(matches!(
+            bind_text("CALL db.unknown()", ParameterTypes::new()),
+            Err(BindError::UnknownProcedure { name, .. }) if name == "db.unknown"
+        ));
+        assert!(matches!(
+            bind_text("CALL db.labels(1)", ParameterTypes::new()),
+            Err(BindError::InvalidProcedureArity {
+                name,
+                actual: 1,
+                ..
+            }) if name == "db.labels"
+        ));
+        assert!(matches!(
+            bind_text(
+                "CALL db.labels() YIELD missing RETURN missing",
+                ParameterTypes::new()
+            ),
+            Err(BindError::UnknownProcedureYield {
+                procedure,
+                name,
+                ..
+            }) if procedure == "db.labels" && name == "missing"
+        ));
+        assert!(matches!(
+            bind_text(
+                "CALL db.labels() YIELD label, label RETURN label",
+                ParameterTypes::new()
+            ),
+            Err(BindError::DuplicateProcedureYield {
+                procedure,
+                name,
+                ..
+            }) if procedure == "db.labels" && name == "label"
+        ));
+    }
+
+    #[test]
     fn with_replaces_the_visible_scope() {
         let error = bind_text(
             "MATCH (p:Person) WITH p AS person RETURN p",
@@ -6965,6 +7146,7 @@ mod tests {
             ir::PlanKind::Skip(skip) => innermost_node_scan_binding(&skip.input),
             ir::PlanKind::Limit(limit) => innermost_node_scan_binding(&limit.input),
             ir::PlanKind::Unwind(unwind) => innermost_node_scan_binding(&unwind.input),
+            ir::PlanKind::ProcedureCall(call) => innermost_node_scan_binding(&call.input),
             other => panic!("no single-input descent to a NodeScan from {other:?}"),
         }
     }

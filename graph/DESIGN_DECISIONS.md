@@ -17,8 +17,8 @@ Status: all decisions are made and implemented on this branch
   `CREATE TYPE duration BASE TEXT` with experimental custom types enabled;
   the binder types values with a `cypher_duration` marker and rewrites
   constructors, accessors, `duration.between`, and datetime ± duration).
-- CALL: **minimal registry** (chosen, implemented — db.labels,
-  db.relationshipTypes).
+- CALL: **typed descriptor registry and explicit procedure IR** (chosen,
+  implemented — `db.labels`, `db.relationshipTypes`, `db.propertyKeys`).
 
 Original option analysis below — retained as a historical record; several
 recommendations were superseded by the implemented decisions listed above

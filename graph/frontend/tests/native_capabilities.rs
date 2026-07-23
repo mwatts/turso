@@ -1,0 +1,134 @@
+use std::sync::Arc;
+
+use turso_core::{Database, MemoryIO, SqliteDialect, Value};
+use turso_graph_frontend::{
+    register_graph, GraphConnection, GraphRegistration, NodeSourceRegistration, Parameters,
+    RelationshipSourceRegistration,
+};
+
+mod fixture;
+
+#[test]
+fn existing_catalog_procedures_use_the_explicit_procedure_pipeline() {
+    let (database, session) = fixture::social_graph_connection();
+    session
+        .execute(
+            "MATCH (a:Person {id: 1}), (b:Person {id: 2}) CREATE (a)-[:KNOWS]->(b)",
+            &Parameters::new(),
+        )
+        .expect("seed relationship type");
+
+    assert_eq!(
+        session
+            .query(
+                "CALL db.labels() YIELD label RETURN label ORDER BY label",
+                &Parameters::new(),
+            )
+            .expect("labels procedure"),
+        vec![vec![Value::Text("Person".into())]]
+    );
+    let reopened = GraphConnection::open(fixture::second_connection(&database), "social")
+        .expect("reopen graph");
+    assert_eq!(
+        reopened
+            .query(
+                "CALL db.relationshipTypes() YIELD relationshipType \
+                 RETURN relationshipType ORDER BY relationshipType",
+                &Parameters::new(),
+            )
+            .expect("relationship types procedure"),
+        vec![vec![Value::Text("KNOWS".into())]]
+    );
+    assert_eq!(
+        session
+            .query(
+                "MATCH (n:Person) CALL db.labels() YIELD label \
+                 RETURN n.name, label ORDER BY n.name",
+                &Parameters::new(),
+            )
+            .expect("procedure composed with graph input"),
+        vec![
+            vec![Value::Text("Ada".into()), Value::Text("Person".into())],
+            vec![Value::Text("Grace".into()), Value::Text("Person".into())],
+        ]
+    );
+}
+
+#[test]
+fn property_keys_enumerates_declared_logical_payloads_across_sources() {
+    let io = Arc::new(MemoryIO::new());
+    let database = Database::open_file(
+        io,
+        ":memory:native-capabilities-property-keys",
+        Arc::new(SqliteDialect),
+    )
+    .expect("open database");
+    let connection = database.connect().expect("connect");
+    connection
+        .execute(
+            "CREATE TABLE people(\
+                 id INTEGER PRIMARY KEY,\
+                 name TEXT,\
+                 empty_declared TEXT,\
+                 cyprop_id TEXT\
+             );\
+             CREATE TABLE places(\
+                 id INTEGER PRIMARY KEY,\
+                 name TEXT,\
+                 score REAL\
+             );\
+             CREATE TABLE relationships(\
+                 id INTEGER PRIMARY KEY,\
+                 src INTEGER,\
+                 dst INTEGER,\
+                 since INTEGER,\
+                 cyprop_src TEXT\
+             );",
+        )
+        .expect("create empty sources");
+    register_graph(
+        &connection,
+        &GraphRegistration {
+            name: "catalog".to_owned(),
+            node_sources: vec![
+                NodeSourceRegistration {
+                    name: "Person".to_owned(),
+                    table: "people".to_owned(),
+                    identity_column: "id".to_owned(),
+                },
+                NodeSourceRegistration {
+                    name: "Place".to_owned(),
+                    table: "places".to_owned(),
+                    identity_column: "id".to_owned(),
+                },
+            ],
+            relationship_sources: vec![RelationshipSourceRegistration {
+                name: "KNOWS".to_owned(),
+                table: "relationships".to_owned(),
+                identity_column: "id".to_owned(),
+                start_column: "src".to_owned(),
+                end_column: "dst".to_owned(),
+                start_node_source: "Person".to_owned(),
+                end_node_source: "Person".to_owned(),
+            }],
+        },
+    )
+    .expect("register graph");
+    let session = GraphConnection::open(connection, "catalog").expect("open graph session");
+
+    let rows = session
+        .query(
+            "CALL db.propertyKeys() YIELD propertyKey \
+             RETURN propertyKey ORDER BY propertyKey",
+            &Parameters::new(),
+        )
+        .expect("catalog procedure");
+
+    assert_eq!(
+        rows,
+        ["empty_declared", "id", "name", "score", "since", "src"]
+            .into_iter()
+            .map(|name| vec![Value::Text(name.into())])
+            .collect::<Vec<_>>()
+    );
+}

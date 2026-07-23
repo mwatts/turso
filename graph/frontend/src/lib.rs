@@ -14,6 +14,7 @@ mod functions;
 mod graph_expand;
 mod lowering;
 mod mutation;
+mod procedures;
 mod schema_catalog;
 mod semantic;
 mod semantic_constraints;

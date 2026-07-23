@@ -116,6 +116,60 @@ fn semantic_registration() -> SemanticSchemaRegistration {
     }
 }
 
+#[test]
+fn property_keys_enumerates_semantic_names_instead_of_physical_columns() {
+    let connection = connection();
+    registered_graph(&connection);
+    register_semantic_schema(&connection, "social", &semantic_registration())
+        .expect("register semantic schema");
+    let session =
+        turso_graph_frontend::Connection::open(connection, "social").expect("open semantic graph");
+
+    let rows = session
+        .query(
+            "CALL db.propertyKeys() YIELD propertyKey \
+             RETURN propertyKey ORDER BY propertyKey",
+            &Default::default(),
+        )
+        .expect("semantic property keys");
+    assert_eq!(
+        rows,
+        [
+            "active",
+            "born",
+            "category",
+            "displayName",
+            "score",
+            "since"
+        ]
+        .into_iter()
+        .map(|name| vec![turso_graph_frontend::Value::build_text(name)])
+        .collect::<Vec<_>>()
+    );
+    assert_eq!(
+        session
+            .query(
+                "CALL db.labels() YIELD label RETURN label ORDER BY label",
+                &Default::default(),
+            )
+            .expect("semantic labels"),
+        ["Customer", "Supplier"]
+            .into_iter()
+            .map(|name| vec![turso_graph_frontend::Value::build_text(name)])
+            .collect::<Vec<_>>()
+    );
+    assert_eq!(
+        session
+            .query(
+                "CALL db.relationshipTypes() YIELD relationshipType \
+                 RETURN relationshipType",
+                &Default::default(),
+            )
+            .expect("semantic relationship types"),
+        vec![vec![turso_graph_frontend::Value::build_text("TRADES_WITH")]]
+    );
+}
+
 fn multi_source_session() -> turso_graph_frontend::Connection {
     let connection = connection();
     connection
@@ -2069,6 +2123,36 @@ fn fragment_session() -> turso_graph_frontend::Connection {
     turso_graph_frontend::Connection::open(connection, "fragments").expect("open fragment graph")
 }
 
+#[test]
+fn catalog_procedures_include_fragment_labels_and_contributed_properties() {
+    let session = fragment_session();
+    assert_eq!(
+        session
+            .query(
+                "CALL db.labels() YIELD label RETURN label ORDER BY label",
+                &Default::default(),
+            )
+            .expect("fragment labels"),
+        ["Alias", "Company", "Nameable", "NaturalPerson", "Person"]
+            .into_iter()
+            .map(|name| vec![turso_graph_frontend::Value::build_text(name)])
+            .collect::<Vec<_>>()
+    );
+    assert_eq!(
+        session
+            .query(
+                "CALL db.propertyKeys() YIELD propertyKey \
+                 RETURN propertyKey ORDER BY propertyKey",
+                &Default::default(),
+            )
+            .expect("fragment properties"),
+        ["age", "displayName"]
+            .into_iter()
+            .map(|name| vec![turso_graph_frontend::Value::build_text(name)])
+            .collect::<Vec<_>>()
+    );
+}
+
 fn first_union_inputs(plan: &turso_graph_ir::Plan) -> Option<&[turso_graph_ir::Plan]> {
     use turso_graph_ir::PlanKind;
 
@@ -2087,6 +2171,7 @@ fn first_union_inputs(plan: &turso_graph_ir::Plan) -> Option<&[turso_graph_ir::P
             first_union_inputs(&apply.left).or_else(|| first_union_inputs(&apply.right))
         }
         PlanKind::Unwind(unwind) => first_union_inputs(&unwind.input),
+        PlanKind::ProcedureCall(call) => first_union_inputs(&call.input),
         PlanKind::Join(join) => {
             first_union_inputs(&join.left).or_else(|| first_union_inputs(&join.right))
         }

@@ -189,6 +189,10 @@ impl SemanticSnapshot {
         self.relationship_types.values()
     }
 
+    pub(crate) fn fragment_values(&self) -> impl Iterator<Item = &SemanticFragmentInfo> {
+        self.fragments.values()
+    }
+
     pub(crate) fn constraints(&self) -> &SemanticConstraintSnapshot {
         &self.constraints
     }

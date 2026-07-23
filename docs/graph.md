@@ -334,6 +334,29 @@ core types at its root (`Value`, `Row`, `OpenFlags`, `Database`, …) and
 the whole engine as `turso_graph_frontend::core`, so consumers usually
 don't need a direct `turso_core` dependency.
 
+### Catalog procedures
+
+Read queries expose three typed, read-only catalog procedures:
+
+```cypher
+CALL db.labels() YIELD label RETURN label ORDER BY label
+CALL db.relationshipTypes() YIELD relationshipType RETURN relationshipType
+CALL db.propertyKeys() YIELD propertyKey RETURN propertyKey ORDER BY propertyKey
+```
+
+`db.propertyKeys()` enumerates declared logical payload columns across every
+registered node and relationship source. It does not scan graph rows, so an
+empty nullable column is still reported; identity and relationship endpoint
+columns are excluded, shared names are returned once, and reserved physical
+columns such as `cyprop_id` are reported by their logical name (`id`).
+
+For a graph with a semantic schema, all three procedures use semantic catalog
+names. This includes concrete and fragment labels, relationship types, and the
+union of properties owned by semantic types. Legacy graphs retain their
+data-backed label/type enumeration and source-schema property enumeration.
+Procedure names resolve case-insensitively; unknown names, invalid arity, and
+unknown or duplicate `YIELD` columns fail during binding.
+
 ### Parameters
 
 Cypher `$name` parameters bind from a `Parameters` map

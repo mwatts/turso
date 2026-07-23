@@ -203,6 +203,14 @@ impl GraphCatalogSnapshot for DynamicCatalog {
 }
 
 impl RelationalCatalogSnapshot for DynamicCatalog {
+    fn registered_node_sources(&self) -> Vec<ir::SourceTableId> {
+        self.inner.registered_node_sources()
+    }
+
+    fn registered_relationship_sources(&self) -> Vec<ir::SourceTableId> {
+        self.inner.registered_relationship_sources()
+    }
+
     fn source_qualified_membership(&self) -> bool {
         self.inner.source_qualified_membership()
     }
@@ -226,6 +234,14 @@ impl RelationalCatalogSnapshot for DynamicCatalog {
             .iter()
             .find(|(_, id)| **id == relationship_type)
             .map(|(name, _)| name.clone())
+    }
+
+    fn procedure_labels(&self) -> Option<Vec<String>> {
+        self.inner.procedure_labels()
+    }
+
+    fn procedure_relationship_types(&self) -> Option<Vec<String>> {
+        self.inner.procedure_relationship_types()
     }
 
     fn label_name(&self, label: ir::LabelId) -> Option<String> {
@@ -275,5 +291,9 @@ impl RelationalCatalogSnapshot for DynamicCatalog {
 
     fn payload_columns(&self, source: ir::SourceTableId) -> Option<Vec<(String, String)>> {
         self.inner.payload_columns(source)
+    }
+
+    fn procedure_property_keys(&self, source: ir::SourceTableId) -> Option<Vec<String>> {
+        self.inner.procedure_property_keys(source)
     }
 }

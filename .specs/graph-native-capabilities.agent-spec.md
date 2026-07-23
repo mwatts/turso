@@ -14,7 +14,12 @@ timeout_minutes: 360
 
 # TASK
 
-Implement four Turso-native graph capabilities in dependency order: a typed procedure registry with `db.propertyKeys()`, graph full-text indexing over Turso FTS, portable `startNode()`/`endNode()`, and session-correct graph snapshot diagnostics.
+**Status: Phase 1 complete and validated (2026-07-23).**
+
+Implement four Turso-native graph capabilities in dependency order: a typed
+procedure registry with `db.propertyKeys()`, portable `startNode()`/`endNode()`,
+session-correct graph snapshot diagnostics, and graph full-text indexing over
+Turso FTS.
 
 # REQUIRED SKILLS
 
@@ -34,16 +39,28 @@ Implement four Turso-native graph capabilities in dependency order: a typed proc
 - **Language**: Rust 2024 workspace
 - **Build system**: Cargo
 - **Graph architecture**: `turso_graph_cypher` parses source, `turso_graph_frontend` binds and lowers through `turso_graph_ir`, and Turso core executes generated SQL. Canonical data remains in source tables.
-- **Current source limit**: registration accepts exactly one node source and at most one relationship source because binding and mutation resolve only the first. New work MUST preserve that explicit limitation instead of implying multi-source support.
+- **Current source model**: registration, binding, lowering, mutation, and
+  traversal support multiple node and relationship sources. Procedure catalog
+  enumeration MUST include every registered source without falling back to the
+  first source.
 - **Command convention**: prefix development commands with `rtk`; use `apply_patch` for edits; never run an explicit `--release` build.
 
 ## Existing Seams and Invariants
 
-1. `graph/frontend/src/binder.rs::bind_call` is a two-entry match for `db.labels` and `db.relationshipTypes`. It lowers procedures through private sentinel functions and `Unwind`; it rejects arguments and multiple `YIELD` columns.
+1. `graph/frontend/src/procedures.rs` owns closed, typed descriptors for
+   `db.labels`, `db.relationshipTypes`, and `db.propertyKeys`.
+   `binder.rs::bind_call` resolves those descriptors into an explicit
+   `ProcedureCall` plan node; no procedure is represented by a private scalar
+   sentinel.
 2. `graph/cypher/src/ast.rs::CallClause` carries a qualified name, expressions, and plain yielded identifiers. The grammar does not yet represent yield aliases or `YIELD *`.
 3. `graph/frontend/src/functions.rs` is a typed scalar-function registry. It is not a procedure registry and MUST NOT be stretched into one.
-4. `graph/ir/src/plan.rs::PlanKind` has no procedure operator. A proper procedure surface requires a frontend-neutral read-only plan node rather than more sentinel functions.
-5. `GraphCatalogSnapshot` resolves semantic graph identities. `RelationalCatalogSnapshot` maps those identities to source tables/columns and already exposes payload columns, label tables, relationship-type tables, and endpoint layouts.
+4. `graph/ir/src/plan.rs::PlanKind::ProcedureCall` carries the closed
+   implementation identity, typed arguments, selected output ordinals, and
+   bound outputs without depending on frontend or catalog types.
+5. `GraphCatalogSnapshot` resolves semantic graph identities and source sets.
+   `RelationalCatalogSnapshot` maps those identities to source tables/columns
+   and already exposes source-aware payload columns, label tables,
+   relationship-type tables, and endpoint layouts.
 6. `SchemaCatalog::payload_columns` enumerates logical property names while excluding identity and endpoint columns and translating `cyprop_` payload names. This is the authoritative seed for `db.propertyKeys()`.
 7. Relationships are represented in lowered SQL by their source identity value. `RelationshipTableLayout` supplies the relationship identity, start, and end columns. This is sufficient to implement `startNode()` and `endNode()` without a traversal snapshot.
 8. Turso core FTS exists behind `turso_core/fts`, uses `CREATE INDEX ... USING fts (...)`, and exposes `fts_match`, `fts_score`, and `fts_highlight`. Graph function typing already recognizes those names, but graph frontend has no matching feature/capability contract and no graph-level index administration.
@@ -64,7 +81,12 @@ The following Apache AGE or donor-specific internals are deliberately out of sco
 
 ## Coordination with the semantic-schema overlay stream
 
-The semantic-schema overlay (`.specs/graph-semantic-schema-overlay.agent-spec.md`, Milestones 1-2) and this spec edit the same files (`binder.rs`, `catalog.rs`, `schema_catalog.rs`, `session.rs`, `lib.rs`). Run the streams in sequence, never in parallel worktrees. The recommended combined ordering, with rationale, is `tessera/.specs/tessera-turso.design-spec.md` (tessera repository) section 11.2: overlay Milestones 1-2 first, then multi-source registration/binding (a deliberate, separately specified lift of the single-source limit — promoted with documented rationale in that section and in the semantic-schema spec's later-milestone criteria; the ban below on broadening it *incidentally* still stands), then this spec's phases in the order procedures → endpoints → diagnostics → FTS, each built semantic-aware from the start. This spec's "Current source limit" statement above describes the state its own work must preserve, not the permanent end state.
+The semantic-schema overlay (`.specs/graph-semantic-schema-overlay.agent-spec.md`,
+Milestones 1-4), multi-source registration/binding, and fragment-interface
+polymorphism are complete. This spec follows them and edits several of the same
+files (`binder.rs`, `catalog.rs`, `schema_catalog.rs`, `session.rs`, `lib.rs`).
+Implement its phases in the order procedures → endpoints → diagnostics → FTS,
+each semantic-aware and multi-source-aware from the start.
 
 Semantic-aware means, concretely:
 
@@ -248,13 +270,31 @@ Each slice below is scoped to at most 35 minutes of agent work. Finish its focus
 
 ## Phase 0 - Baseline and Contracts
 
+**Status: complete (2026-07-23).** The focused IR/frontend baseline was 222
+tests. The first catalog-only `db.propertyKeys()` integration contract failed
+at the old binder-local registry boundary before implementation.
+
 | Slice | Work | Verification |
 |-------|------|--------------|
-| 0.1 | Run focused frontend/IR tests and record current FTS feature behavior and representative procedure/endpoint failures. | Existing tests green; exact failures captured in notes, not committed artifacts. |
+| 0.1 | Run focused frontend/IR tests and record representative procedure failures. | Existing tests are green; exact procedure failures are captured in notes, not committed artifacts. |
 | 0.2 | Write unit tests for registry lookup/signatures and IR construction before implementation. | New tests fail for the intended missing types only. |
-| 0.3 | Add endpoint and diagnostics integration test skeletons using the shared production fixture. | Tests compile up to missing APIs and encode null/wrong-type/session cases. |
+| 0.3 | Add the first catalog-procedure integration contract through the shared production fixture. | The test fails at the missing registry capability before implementation and covers declared empty columns rather than row contents. |
 
 ## Phase 1 - Procedure Registry and `db.propertyKeys()`
+
+**Status: complete and validated (2026-07-23).**
+
+Validation:
+
+- `turso_graph_ir`, `turso_graph_frontend`, and `turso_graph_testkit`: 272
+  tests passed across 15 suites;
+- smoke conformance: 11/11 clean;
+- non-recorded deep corpus: 8,920 passed, 53 unsupported, 1,269 failed — one
+  new pass and no regressions against the 8,919/53/1,270 baseline;
+- graph IR/frontend/testkit Clippy: zero graph diagnostics; workspace-wide
+  `--deny=warnings` remains blocked by the pre-existing unused protobuf imports
+  in `core/mvcc/persistent_storage/logical_log.rs`;
+- formatting and patch-hygiene checks pass.
 
 | Slice | Work | Verification |
 |-------|------|--------------|
@@ -269,33 +309,36 @@ Each slice below is scoped to at most 35 minutes of agent work. Finish its focus
 
 | Slice | Work | Verification |
 |-------|------|--------------|
+| 2.0 | Add failing endpoint integration contracts through the shared production fixture. | Tests encode start/end, null, wrong-type, and carried-through-`WITH` behavior before implementation. |
 | 2.1 | Bind typed `startNode`/`endNode` calls and wrong-type/null semantics. | Focused binder tests prove type/nullability. |
 | 2.2 | Lower relationship endpoint lookups through `RelationshipTableLayout`. | Lowering tests assert quoted physical identifiers and missing-layout error. |
 | 2.3 | Add end-to-end fixed and carried-through-`WITH` relationship tests. | Values match source `src`/`dst`; null remains null. |
 | 2.4 | Run focused conformance identities and commit. | AGE portable endpoint scenarios improve; vendor `start_id`/`end_id` remain unsupported. |
 
-## Phase 3 - Graph FTS
+## Phase 3 - Diagnostics
 
 | Slice | Work | Verification |
 |-------|------|--------------|
-| 3.1 | Add the graph `fts` Cargo feature/capability errors and feature-gate function signatures consistently. | Builds/tests both with and without `fts`; no runtime `no such function` path. |
-| 3.2 | Add versioned graph FTS catalog metadata types/table creation and load/list tests. | Fresh install and reopen return identical metadata. |
-| 3.3 | Add validated node-index create API and transaction/savepoint rollback tests. | Invalid properties/options leave neither metadata nor physical indexes. |
-| 3.4 | Add explicit list/drop APIs and duplicate/conflicting-definition behavior. | Drop is transactional; same-name conflict is deterministic. |
-| 3.5 | Add Cypher `fts_match`/`fts_score` integration tests with parameter binding and planner evidence. | Correct matches/ranking and FTS plan selection. |
-| 3.6 | Add update/delete/reopen and missing-index tests. | Index remains consistent across row lifecycle and reopen. |
-| 3.7 | Add one representative graph FTS performance workload and compare against a non-indexed control or saved baseline. | Benchmark records corpus size, selectivity, warm/cold state, and latency. |
-| 3.8 | Resolve the read-only FTS procedure decision gate, document, run gates, and commit. | Decision and evidence are explicit; no vendor compatibility names. |
+| 3.0 | Add failing diagnostics API contracts through the shared production fixture. | Tests encode missing/current/stale and calling-session visibility before implementation. |
+| 3.1 | Factor connection-aware status lookup in snapshot stores without changing refresh behavior. | Unit tests distinguish session overlay from shared state. |
+| 3.2 | Add/export typed `GraphConnection` diagnostics. | Missing/current/stale fields match snapshot metadata; call causes no generation change. |
+| 3.3 | Cover refresh, source mutation, discard, reopen/process-loss simulation, and transaction-visible overlay lifecycle. | All lifecycle assertions pass. |
+| 3.4 | Resolve SQL diagnostics decision gate; if approved, add the read-only connection-local virtual table and parity tests. | API/table rows agree; attach and graph-dialect modes are explicit. |
+| 3.5 | Document the API, run gates, and commit. | Public docs match exported names and feature flags. |
 
-## Phase 4 - Diagnostics
+## Phase 4 - Graph FTS
 
 | Slice | Work | Verification |
 |-------|------|--------------|
-| 4.1 | Factor connection-aware status lookup in snapshot stores without changing refresh behavior. | Unit tests distinguish session overlay from shared state. |
-| 4.2 | Add/export typed `GraphConnection` diagnostics. | Missing/current/stale fields match snapshot metadata; call causes no generation change. |
-| 4.3 | Cover refresh, source mutation, discard, reopen/process-loss simulation, and transaction-visible overlay lifecycle. | All lifecycle assertions pass. |
-| 4.4 | Resolve SQL diagnostics decision gate; if approved, add the read-only connection-local virtual table and parity tests. | API/table rows agree; attach and graph-dialect modes are explicit. |
-| 4.5 | Document the API, run gates, and commit. | Public docs match exported names and feature flags. |
+| 4.0 | Record the current default/FTS feature behavior and add failing capability-boundary contracts. | Exact missing-feature behavior is captured immediately before FTS implementation. |
+| 4.1 | Add the graph `fts` Cargo feature/capability errors and feature-gate function signatures consistently. | Builds/tests both with and without `fts`; no runtime `no such function` path. |
+| 4.2 | Add versioned graph FTS catalog metadata types/table creation and load/list tests. | Fresh install and reopen return identical metadata. |
+| 4.3 | Add validated node-index create API and transaction/savepoint rollback tests. | Invalid properties/options leave neither metadata nor physical indexes. |
+| 4.4 | Add explicit list/drop APIs and duplicate/conflicting-definition behavior. | Drop is transactional; same-name conflict is deterministic. |
+| 4.5 | Add Cypher `fts_match`/`fts_score` integration tests with parameter binding and planner evidence. | Correct matches/ranking and FTS plan selection. |
+| 4.6 | Add update/delete/reopen and missing-index tests. | Index remains consistent across row lifecycle and reopen. |
+| 4.7 | Add one representative graph FTS performance workload and compare against a non-indexed control or saved baseline. | Benchmark records corpus size, selectivity, warm/cold state, and latency. |
+| 4.8 | Resolve the read-only FTS procedure decision gate, document, run gates, and commit. | Decision and evidence are explicit; no vendor compatibility names. |
 
 ## Phase 5 - System Validation
 
@@ -422,13 +465,13 @@ rtk cargo bench -p turso_core --bench fts_benchmark --features fts
 ## Success Criteria
 
 - [ ] All four mandatory capability milestones are implemented with focused tests.
-- [ ] The procedure registry is descriptor-driven and represented explicitly in graph IR.
-- [ ] `db.propertyKeys()` performs catalog enumeration only.
+- [x] The procedure registry is descriptor-driven and represented explicitly in graph IR.
+- [x] `db.propertyKeys()` performs catalog enumeration only.
 - [ ] `startNode()`/`endNode()` use physical relationship layouts and preserve graph value typing.
 - [ ] Graph FTS reuses core FTS, has a clear feature gate, and has transactional metadata/API lifecycle.
 - [ ] Snapshot diagnostics are calling-session correct, read-only, and data-minimizing.
 - [ ] Default and FTS-enabled graph tests pass.
-- [ ] Smoke/deep conformance shows no portable regression.
+- [x] Smoke/deep conformance shows no portable regression.
 - [ ] Benchmark results include enough workload metadata for a meaningful before/after comparison.
 - [ ] Feature commits and any generated baseline commit are separate and conventional.
 

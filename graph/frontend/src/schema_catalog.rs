@@ -1,4 +1,4 @@
-use std::sync::Arc;
+use std::{collections::BTreeMap, sync::Arc};
 
 use turso_core::{
     schema::{Column, Schema, Table},
@@ -650,6 +650,22 @@ impl GraphCatalogSnapshot for SchemaCatalog {
 }
 
 impl RelationalCatalogSnapshot for SchemaCatalog {
+    fn registered_node_sources(&self) -> Vec<ir::SourceTableId> {
+        self.graph
+            .node_sources
+            .iter()
+            .map(|source| source.id)
+            .collect()
+    }
+
+    fn registered_relationship_sources(&self) -> Vec<ir::SourceTableId> {
+        self.graph
+            .relationship_sources
+            .iter()
+            .map(|source| source.id)
+            .collect()
+    }
+
     fn source_qualified_membership(&self) -> bool {
         self.connection
             .current_schema()
@@ -708,6 +724,31 @@ impl RelationalCatalogSnapshot for SchemaCatalog {
             Some(turso_core::Value::Text(name)) => Some(name.to_string()),
             _ => None,
         }
+    }
+
+    fn procedure_labels(&self) -> Option<Vec<String>> {
+        let semantic = self.semantic.as_ref()?;
+        let mut labels = semantic
+            .node_type_values()
+            .map(|type_info| type_info.name.clone())
+            .chain(
+                semantic
+                    .fragment_values()
+                    .map(|fragment| fragment.name.clone()),
+            )
+            .collect::<Vec<_>>();
+        labels.sort_by_key(|name| name.to_ascii_lowercase());
+        Some(labels)
+    }
+
+    fn procedure_relationship_types(&self) -> Option<Vec<String>> {
+        let semantic = self.semantic.as_ref()?;
+        let mut relationship_types = semantic
+            .relationship_type_values()
+            .map(|type_info| type_info.name.clone())
+            .collect::<Vec<_>>();
+        relationship_types.sort_by_key(|name| name.to_ascii_lowercase());
+        Some(relationship_types)
     }
 
     fn node_layout(&self, source: ir::SourceTableId) -> Option<NodeTableLayout> {
@@ -819,6 +860,24 @@ impl RelationalCatalogSnapshot for SchemaCatalog {
             columns.push((logical, name));
         }
         Some(columns)
+    }
+
+    fn procedure_property_keys(&self, source: ir::SourceTableId) -> Option<Vec<String>> {
+        if let Some(semantic) = &self.semantic {
+            let mut keys = BTreeMap::new();
+            for property in semantic
+                .node_type_values()
+                .chain(semantic.relationship_type_values())
+                .filter(|type_info| type_info.source == source)
+                .flat_map(SemanticTypeInfo::property_values)
+            {
+                keys.entry(property.name.to_ascii_lowercase())
+                    .or_insert_with(|| property.name.clone());
+            }
+            return Some(keys.into_values().collect());
+        }
+        self.payload_columns(source)
+            .map(|columns| columns.into_iter().map(|(logical, _)| logical).collect())
     }
 
     fn semantic_property_for_key(
