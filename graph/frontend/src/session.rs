@@ -1031,8 +1031,9 @@ mod tests {
             conn.execute("INSERT INTO people(id, name) VALUES (1, 'Alice')")
                 .unwrap();
             conn.execute(format!(
-                "INSERT INTO \"{}\"(node_id, label) VALUES (1, 'Person')",
-                crate::labels_table_name(registered.id)
+                "INSERT INTO \"{}\"(source_id, node_id, label) VALUES ({}, 1, 'Person')",
+                crate::labels_table_name(registered.id),
+                registered.node_sources[0].id.get(),
             ))
             .unwrap();
             conn.close().unwrap();

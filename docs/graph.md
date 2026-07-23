@@ -67,9 +67,10 @@ Registration is persistent: on later runs, skip step 2 and call
 `GraphConnection::open(conn, "social")` directly. `load_registered_graph`
 and `graph_generation` are available for introspection.
 
-Identity columns must be `PRIMARY KEY` or `UNIQUE`. The current
-implementation supports exactly one node source and one relationship
-source per graph; `register_graph` errors otherwise.
+Identity columns must be `PRIMARY KEY` or `UNIQUE`. A graph may register
+multiple node and relationship sources. Relationship sources name the node
+source stored at each endpoint, so identities are table-local coordinates:
+equal numeric identities in two source tables remain distinct graph entities.
 
 ## Optional semantic schema
 
@@ -128,6 +129,9 @@ Once a graph has semantic rows, Cypher uses strict semantic mode:
 - node creation and merge require exactly one known semantic node type;
 - relationship creation and merge require exactly one semantic relationship
   type and validate its start/end node types;
+- each semantic type routes reads and writes to its declared physical source;
+- unlabeled node and untyped relationship patterns union all compatible source
+  branches without deduplicating table-local identities;
 - reads and writes resolve only properties owned by every possible target type;
 - statically known property values are checked while binding, while deferred
   expressions and dynamic maps are checked before physical mutation;

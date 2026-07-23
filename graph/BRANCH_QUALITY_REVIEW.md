@@ -61,7 +61,7 @@ Severity key: **bug** = correctness or safety contract break; **suggestion** = i
 - **File:** `graph/frontend/src/schema_catalog.rs:27–41`, `350–370`; `binder.rs` single-source APIs; `mutation.rs` detach-delete paths
 - **Description:** Registration models multiple node/relationship sources (`RegisteredGraph::{node,relationship}_sources`). `SchemaCatalog` layout/property resolution only uses `.first()` via `node_source_entry` / `relationship_source_entry`. Binder CREATE/MATCH targets the single `node_source` / `relationship_source`. Default `relationship_sources` is a one-element vector, so `DETACH DELETE` only clears the first relationship table. Multi-source graphs silently misroute or drop data.
 - **Suggestion:** Resolve layouts by `SourceTableId` (and label/type → source maps) over the full vectors; override `relationship_sources` to return all ids; make property lookup source-aware — or reject multi-source registration until supported.
-- **Status:** fixed (fail-closed) — registration now rejects >1 node or relationship source (`CatalogError::MultipleSourcesUnsupported`) until multi-source resolution exists end to end. Regression: `register_graph_rejects_multiple_sources_per_kind`.
+- **Status:** fixed — registration persists and reloads every source; semantic types route to their mapped source; unlabeled scans and expansions compose source-qualified `UNION ALL` branches; runtime provenance dispatches reads and mutations without first-source fallback. Regressions cover registration/reopen, owner-aware properties, endpoint orientation, colliding local identities, and source-routed mutations.
 
 #### Issue 3 — Severity: bug
 - **File:** `graph/frontend/src/binder.rs:2354–2362`, `2680–2703`

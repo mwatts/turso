@@ -20,7 +20,7 @@ pub(crate) const SOURCES_TABLE: &str = "__turso_internal_graph_sources";
 pub(crate) const NODE_SOURCES_TABLE: &str = "__turso_internal_graph_node_sources";
 pub(crate) const RELATIONSHIP_SOURCES_TABLE: &str = "__turso_internal_graph_relationship_sources";
 
-pub const GRAPH_CATALOG_VERSION: u64 = 2;
+pub const GRAPH_CATALOG_VERSION: u64 = 3;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct NodeSourceRegistration {
@@ -84,8 +84,6 @@ pub enum CatalogError {
     EmptyName { kind: &'static str },
     #[error("graph registration requires at least one node source")]
     NoNodeSources,
-    #[error("graph registration supports exactly one {kind} source; binding, mutation, and detach-delete resolve only the first registered source")]
-    MultipleSourcesUnsupported { kind: &'static str },
     #[error("graph registration inside an open transaction requires a write transaction (BEGIN IMMEDIATE or a prior write)")]
     RequiresWriteTransaction,
     #[error("{kind} name `{name}` is duplicated")]
@@ -437,14 +435,14 @@ fn register_graph_in_transaction(
     execute_internal(
         connection,
         format!(
-            "CREATE TABLE IF NOT EXISTS \"{}\"(node_id INTEGER NOT NULL, label TEXT NOT NULL)",
+            "CREATE TABLE IF NOT EXISTS \"{}\"(source_id INTEGER NOT NULL, node_id INTEGER NOT NULL, label TEXT NOT NULL)",
             labels_table_name(graph_id)
         ),
     )?;
     execute_internal(
         connection,
         format!(
-            "CREATE TABLE IF NOT EXISTS \"{}\"(relationship_id INTEGER NOT NULL, type TEXT NOT NULL)",
+            "CREATE TABLE IF NOT EXISTS \"{}\"(source_id INTEGER NOT NULL, relationship_id INTEGER NOT NULL, type TEXT NOT NULL)",
             relationship_types_table_name(graph_id)
         ),
     )?;
@@ -459,10 +457,10 @@ fn register_graph_in_transaction(
     // node_id); per-entity lookups (labels(n), type(r), snapshot builds)
     // probe by identity.
     for (table, columns) in [
-        (labels_table_name(graph_id), ["node_id, label"]),
+        (labels_table_name(graph_id), ["source_id, node_id, label"]),
         (
             relationship_types_table_name(graph_id),
-            ["relationship_id, type"],
+            ["source_id, relationship_id, type"],
         ),
     ] {
         for (index, column_list) in columns.iter().enumerate() {
@@ -579,18 +577,6 @@ fn validate_registration_names(registration: &GraphRegistration) -> Result<(), C
                 name: source.name.clone(),
             });
         }
-    }
-    // The rest of the stack (SchemaCatalog layout/property resolution, binder
-    // CREATE/MATCH targets, DETACH DELETE) resolves only the first source of
-    // each kind. Accepting more would silently misroute reads and writes, so
-    // fail closed until multi-source resolution is implemented end to end.
-    if registration.node_sources.len() > 1 {
-        return Err(CatalogError::MultipleSourcesUnsupported { kind: "node" });
-    }
-    if registration.relationship_sources.len() > 1 {
-        return Err(CatalogError::MultipleSourcesUnsupported {
-            kind: "relationship",
-        });
     }
     Ok(())
 }
@@ -1011,10 +997,7 @@ mod tests {
     }
 
     #[test]
-    fn register_graph_rejects_multiple_sources_per_kind() {
-        // Layout, binder, and detach-delete resolution only honor the first
-        // registered source of each kind; accepting more would silently
-        // misroute reads and writes, so registration must fail closed.
+    fn register_graph_preserves_multiple_sources_per_kind() {
         let connection = connection();
         create_sources(&connection);
 
@@ -1024,21 +1007,98 @@ mod tests {
             table: "people".to_owned(),
             identity_column: "id".to_owned(),
         });
-        assert!(matches!(
-            register_graph(&connection, &multi_node),
-            Err(CatalogError::MultipleSourcesUnsupported { kind: "node" })
-        ));
+        let registered = register_graph(&connection, &multi_node).expect("multi-node graph");
+        assert_eq!(registered.node_sources.len(), 2);
+        assert_eq!(registered.node_sources[1].name, "Company");
 
         let mut multi_relationship = registration("multi_relationship");
         let mut second = multi_relationship.relationship_sources[0].clone();
         second.name = "LIKES".to_owned();
         multi_relationship.relationship_sources.push(second);
-        assert!(matches!(
-            register_graph(&connection, &multi_relationship),
-            Err(CatalogError::MultipleSourcesUnsupported {
-                kind: "relationship"
-            })
-        ));
+        let registered =
+            register_graph(&connection, &multi_relationship).expect("multi-relationship graph");
+        assert_eq!(registered.relationship_sources.len(), 2);
+        assert_eq!(registered.relationship_sources[1].name, "LIKES");
+        let reloaded =
+            load_registered_graph(&connection, "multi_relationship").expect("reload graph");
+        assert_eq!(reloaded.node_sources, registered.node_sources);
+        assert_eq!(
+            reloaded.relationship_sources,
+            registered.relationship_sources
+        );
+    }
+
+    #[test]
+    fn registered_multi_source_graph_reopens_with_stable_source_ids() {
+        let directory = tempfile::tempdir().expect("create temporary directory");
+        let path = directory.path().join("multi-source.db");
+        let path = path.to_str().expect("database path is UTF-8");
+        let registered = {
+            let (_io, database) =
+                crate::open_database(path, None, OpenFlags::default(), DatabaseOpts::new())
+                    .expect("open database");
+            let connection = database.connect().expect("connect");
+            connection
+                .execute(
+                    "CREATE TABLE people(id INTEGER PRIMARY KEY); \
+                     CREATE TABLE companies(id INTEGER PRIMARY KEY); \
+                     CREATE TABLE employment(\
+                         id INTEGER PRIMARY KEY, person_id INTEGER, company_id INTEGER\
+                     ); \
+                     CREATE TABLE ownership(\
+                         id INTEGER PRIMARY KEY, company_id INTEGER, person_id INTEGER\
+                     );",
+                )
+                .expect("create multi-source tables");
+            let registered = register_graph(
+                &connection,
+                &GraphRegistration {
+                    name: "multi".to_owned(),
+                    node_sources: vec![
+                        NodeSourceRegistration {
+                            name: "people".to_owned(),
+                            table: "people".to_owned(),
+                            identity_column: "id".to_owned(),
+                        },
+                        NodeSourceRegistration {
+                            name: "companies".to_owned(),
+                            table: "companies".to_owned(),
+                            identity_column: "id".to_owned(),
+                        },
+                    ],
+                    relationship_sources: vec![
+                        RelationshipSourceRegistration {
+                            name: "employment".to_owned(),
+                            table: "employment".to_owned(),
+                            identity_column: "id".to_owned(),
+                            start_column: "person_id".to_owned(),
+                            end_column: "company_id".to_owned(),
+                            start_node_source: "people".to_owned(),
+                            end_node_source: "companies".to_owned(),
+                        },
+                        RelationshipSourceRegistration {
+                            name: "ownership".to_owned(),
+                            table: "ownership".to_owned(),
+                            identity_column: "id".to_owned(),
+                            start_column: "company_id".to_owned(),
+                            end_column: "person_id".to_owned(),
+                            start_node_source: "companies".to_owned(),
+                            end_node_source: "people".to_owned(),
+                        },
+                    ],
+                },
+            )
+            .expect("register multi-source graph");
+            connection.close().expect("close connection");
+            registered
+        };
+
+        let (_io, database) =
+            crate::open_database(path, None, OpenFlags::default(), DatabaseOpts::new())
+                .expect("reopen database");
+        let connection = database.connect().expect("reconnect");
+        let reopened = load_registered_graph(&connection, "multi").expect("reload graph");
+        assert_eq!(reopened, registered);
     }
 
     #[test]

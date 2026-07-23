@@ -207,6 +207,25 @@ pub enum SemanticCatalogError {
         /// Unknown semantic node type.
         node_type: String,
     },
+    /// A semantic endpoint type maps to a different physical node source than
+    /// the relationship source stores at that endpoint.
+    #[error(
+        "relationship type `{relationship_type}` {endpoint} endpoint type `{node_type}` maps to source `{actual_source}`, but relationship source `{relationship_source}` requires `{required_source}`"
+    )]
+    EndpointSourceMismatch {
+        /// Semantic relationship type.
+        relationship_type: Box<str>,
+        /// Stored endpoint kind.
+        endpoint: &'static str,
+        /// Semantic node type used by the constraint.
+        node_type: Box<str>,
+        /// Node source mapped by that semantic type.
+        actual_source: Box<str>,
+        /// Relationship source carrying the endpoints.
+        relationship_source: Box<str>,
+        /// Node source required by the physical relationship layout.
+        required_source: Box<str>,
+    },
     /// A semantic type references a source of the wrong kind or an unknown
     /// source.
     #[error(
@@ -434,6 +453,11 @@ fn validate_against_graph(
     registration: &SemanticSchemaRegistration,
 ) -> Result<(), SemanticCatalogError> {
     let mut property_types = HashMap::<String, (String, ir::ValueType)>::new();
+    let node_sources = registration
+        .node_types
+        .iter()
+        .map(|node_type| (fold(&node_type.name), node_type.source.as_str()))
+        .collect::<HashMap<_, _>>();
 
     for node_type in &registration.node_types {
         let source = graph
@@ -477,6 +501,36 @@ fn validate_against_graph(
             ],
             &mut property_types,
         )?;
+        for (endpoint, allowed, required_source) in [
+            ("start", &relationship.start, source.start_node_source),
+            ("end", &relationship.end, source.end_node_source),
+        ] {
+            let required = graph
+                .node_sources
+                .iter()
+                .find(|node_source| node_source.id == required_source)
+                .expect("registered relationship endpoint source exists");
+            for node_type in allowed {
+                let actual_name = node_sources
+                    .get(&fold(node_type))
+                    .expect("registration shape validated endpoint type");
+                let actual = graph
+                    .node_sources
+                    .iter()
+                    .find(|node_source| node_source.name.eq_ignore_ascii_case(actual_name))
+                    .expect("semantic node source validated above");
+                if actual.id != required.id {
+                    return Err(SemanticCatalogError::EndpointSourceMismatch {
+                        relationship_type: relationship.name.clone().into_boxed_str(),
+                        endpoint,
+                        node_type: node_type.clone().into_boxed_str(),
+                        actual_source: actual.name.clone().into_boxed_str(),
+                        relationship_source: source.name.clone().into_boxed_str(),
+                        required_source: required.name.clone().into_boxed_str(),
+                    });
+                }
+            }
+        }
     }
     Ok(())
 }

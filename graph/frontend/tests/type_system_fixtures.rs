@@ -293,7 +293,7 @@ fn matches_two_level_nested_struct_field_read_executes() {
         .expect("insert nested struct-valued row");
     connection
         .execute(format!(
-            "INSERT INTO \"{}\"(node_id, label) VALUES (1, 'Zone')",
+            "INSERT INTO \"{}\"(source_id, node_id, label) VALUES (1, 1, 'Zone')",
             turso_graph_frontend::labels_table_name(session.graph_id())
         ))
         .expect("record seeded node label");
@@ -326,7 +326,7 @@ fn nested_struct_field_read_lowers_and_executes() {
         .expect("insert nested struct-valued row");
     connection
         .execute(format!(
-            "INSERT INTO \"{}\"(node_id, label) VALUES (1, 'Person')",
+            "INSERT INTO \"{}\"(source_id, node_id, label) VALUES (1, 1, 'Person')",
             turso_graph_frontend::labels_table_name(session.graph_id())
         ))
         .expect("record seeded node label");

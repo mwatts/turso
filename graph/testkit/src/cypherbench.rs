@@ -307,7 +307,11 @@ pub fn load_graph(kg: &SimpleKg) -> Result<GraphFixture> {
             .entry(names.join(", "))
             .or_default()
             .push(format!("({})", values.join(", ")));
-        labels.push(format!("({id}, '{}')", sql_quote(&entity.label)));
+        labels.push(format!(
+            "({}, {id}, '{}')",
+            fixture.node_source.get(),
+            sql_quote(&entity.label)
+        ));
     }
     for (names, mut rows) in groups.drain() {
         flush(connection, "people", &names, &mut rows)?;
@@ -315,7 +319,7 @@ pub fn load_graph(kg: &SimpleKg) -> Result<GraphFixture> {
     flush(
         connection,
         &format!("\"{}\"", fixture.labels_table.replace('"', "\"\"")),
-        "node_id, label",
+        "source_id, node_id, label",
         &mut labels,
     )?;
     let mut types = Vec::new();
@@ -347,7 +351,11 @@ pub fn load_graph(kg: &SimpleKg) -> Result<GraphFixture> {
             .entry(names.join(", "))
             .or_default()
             .push(format!("({})", values.join(", ")));
-        types.push(format!("({id}, '{}')", sql_quote(&relation.label)));
+        types.push(format!(
+            "({}, {id}, '{}')",
+            fixture.relationship_source.get(),
+            sql_quote(&relation.label)
+        ));
     }
     for (names, mut rows) in groups.drain() {
         flush(connection, "relationships", &names, &mut rows)?;
@@ -355,7 +363,7 @@ pub fn load_graph(kg: &SimpleKg) -> Result<GraphFixture> {
     flush(
         connection,
         &format!("\"{}\"", fixture.types_table.replace('"', "\"\"")),
-        "relationship_id, type",
+        "source_id, relationship_id, type",
         &mut types,
     )?;
     connection.execute("COMMIT")?;

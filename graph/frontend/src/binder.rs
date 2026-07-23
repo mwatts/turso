@@ -34,9 +34,20 @@ pub enum PropertyResolution {
 /// Immutable name-resolution view captured for one graph prepare operation.
 pub trait GraphCatalogSnapshot {
     fn node_source(&self, graph: ir::GraphId) -> Option<ir::SourceTableId>;
+    fn node_sources(&self, graph: ir::GraphId) -> Vec<ir::SourceTableId> {
+        self.node_source(graph).into_iter().collect()
+    }
     fn relationship_source(&self, graph: ir::GraphId) -> Option<ir::SourceTableId>;
     fn relationship_sources(&self, graph: ir::GraphId) -> Vec<ir::SourceTableId> {
         self.relationship_source(graph).into_iter().collect()
+    }
+    fn relationship_endpoint_sources(
+        &self,
+        graph: ir::GraphId,
+        _relationship_source: ir::SourceTableId,
+    ) -> Option<(ir::SourceTableId, ir::SourceTableId)> {
+        let source = self.node_source(graph)?;
+        Some((source, source))
     }
     fn label(&self, graph: ir::GraphId, name: &str) -> Option<ir::LabelId>;
     fn relationship_type(&self, graph: ir::GraphId, name: &str) -> Option<ir::RelationshipTypeId>;
@@ -328,6 +339,8 @@ struct EntityBinding {
     kind: CatalogEntity,
     /// Label or relationship-type names declared where the entity was bound.
     names: Vec<String>,
+    /// Physical sources that can produce this binding.
+    sources: Vec<ir::SourceTableId>,
 }
 
 /// How a named path's value can be produced.
@@ -1262,17 +1275,14 @@ impl<'a> Binder<'a> {
                         })
                 })
                 .collect::<Result<Vec<_>, _>>()?;
-            let source = if self.catalog.semantic_mode(self.graph) {
-                self.catalog
-                    .relationship_source_for_type(self.graph, relationship_types[0])
-                    .ok_or(BindError::MissingSource {
-                        entity: "relationship",
-                        span_start: relationship.span.start,
-                        span_end: relationship.span.end,
-                    })?
-            } else {
-                self.relationship_source(relationship.span)?
-            };
+            let source = self
+                .catalog
+                .relationship_source_for_type(self.graph, relationship_types[0])
+                .ok_or(BindError::MissingSource {
+                    entity: "relationship",
+                    span_start: relationship.span.start,
+                    span_end: relationship.span.end,
+                })?;
             let relationship_names = relationship
                 .types
                 .iter()
@@ -1440,16 +1450,41 @@ impl<'a> Binder<'a> {
             }
         }
         let labels = self.resolve_labels(node)?;
-        let source = if self.catalog.semantic_mode(self.graph) {
-            self.catalog
-                .node_source_for_label(self.graph, labels[0])
+        let source = match labels.as_slice() {
+            [label] => self
+                .catalog
+                .node_source_for_label(self.graph, *label)
                 .ok_or(BindError::MissingSource {
                     entity: "node",
                     span_start: node.span.start,
                     span_end: node.span.end,
-                })?
-        } else {
-            self.node_source(node.span)?
+                })?,
+            [] => match self.catalog.node_sources(self.graph).as_slice() {
+                [source] => *source,
+                _ => {
+                    return Err(at_unsupported(
+                        node.span,
+                        "untyped node creation with multiple physical sources",
+                    ))
+                }
+            },
+            _ => {
+                let mut sources = labels
+                    .iter()
+                    .filter_map(|label| self.catalog.node_source_for_label(self.graph, *label))
+                    .collect::<Vec<_>>();
+                sources.sort_by_key(|source| source.get());
+                sources.dedup();
+                match sources.as_slice() {
+                    [source] => *source,
+                    _ => {
+                        return Err(at_unsupported(
+                            node.span,
+                            "node creation with labels from multiple physical sources",
+                        ))
+                    }
+                }
+            }
         };
         let binding = self.new_entity_binding(
             node.variable.as_ref(),
@@ -1565,6 +1600,7 @@ impl<'a> Binder<'a> {
                     .collect::<Result<Vec<_>, _>>()?;
                 Ok(ir::Mutation::SetLabels(ir::SetLabels {
                     entity: binding,
+                    source: self.entity_source(binding, variable.span)?,
                     labels,
                 }))
             }
@@ -1572,7 +1608,7 @@ impl<'a> Binder<'a> {
             | cypher::SetItem::MergeEntity { variable, value } => {
                 let clear = matches!(item, cypher::SetItem::ReplaceEntity { .. });
                 let (binding, kind) = self.resolve_set_variable(variable)?;
-                let source = self.entity_source(kind, variable.span)?;
+                let source = self.entity_source(binding, variable.span)?;
                 let type_names = self.entity_type_names(binding, variable.span)?;
                 if let cypher::Expression::Map(entries) = &value.value {
                     let entries = self.bind_mutation_properties(kind, &type_names, entries)?;
@@ -1647,15 +1683,7 @@ impl<'a> Binder<'a> {
     ) -> Result<(), BindError> {
         for variable in &clause.variables {
             let binding = self.resolve_binding(&variable.value, variable.span)?;
-            let kind = self
-                .entities
-                .get(&binding.id())
-                .ok_or(BindError::InvalidPropertyTarget {
-                    span_start: variable.span.start,
-                    span_end: variable.span.end,
-                })?
-                .kind;
-            let source = self.entity_source(kind, variable.span)?;
+            let source = self.entity_source(binding.id(), variable.span)?;
             operations.push(ir::Mutation::Delete(ir::DeleteEntity {
                 entity: binding.id(),
                 source,
@@ -1711,7 +1739,15 @@ impl<'a> Binder<'a> {
     fn resolve_mutation_target(
         &self,
         target: &cypher::PropertyTarget,
-    ) -> Result<(ir::BindingId, CatalogEntity, ir::SourceTableId, Vec<String>), BindError> {
+    ) -> Result<
+        (
+            ir::BindingId,
+            CatalogEntity,
+            ir::MutationSource,
+            Vec<String>,
+        ),
+        BindError,
+    > {
         let binding = self.resolve_binding(&target.variable.value, target.variable.span)?;
         let entity = self
             .entities
@@ -1724,7 +1760,7 @@ impl<'a> Binder<'a> {
         Ok((
             binding.id(),
             kind,
-            self.entity_source(kind, target.variable.span)?,
+            self.entity_source(binding.id(), target.variable.span)?,
             entity.names.clone(),
         ))
     }
@@ -1745,33 +1781,28 @@ impl<'a> Binder<'a> {
 
     fn entity_source(
         &self,
-        kind: CatalogEntity,
+        binding: ir::BindingId,
         span: cypher::Span,
-    ) -> Result<ir::SourceTableId, BindError> {
-        match kind {
-            CatalogEntity::Node => self.node_source(span),
-            CatalogEntity::Relationship => self.relationship_source(span),
+    ) -> Result<ir::MutationSource, BindError> {
+        let entity = self
+            .entities
+            .get(&binding)
+            .ok_or(BindError::InvalidPropertyTarget {
+                span_start: span.start,
+                span_end: span.end,
+            })?;
+        match entity.sources.as_slice() {
+            [source] => Ok(ir::MutationSource::Static(*source)),
+            [] => Err(BindError::MissingSource {
+                entity: match entity.kind {
+                    CatalogEntity::Node => "node",
+                    CatalogEntity::Relationship => "relationship",
+                },
+                span_start: span.start,
+                span_end: span.end,
+            }),
+            _ => Ok(ir::MutationSource::Binding(binding)),
         }
-    }
-
-    fn node_source(&self, span: cypher::Span) -> Result<ir::SourceTableId, BindError> {
-        self.catalog
-            .node_source(self.graph)
-            .ok_or(BindError::MissingSource {
-                entity: "node",
-                span_start: span.start,
-                span_end: span.end,
-            })
-    }
-
-    fn relationship_source(&self, span: cypher::Span) -> Result<ir::SourceTableId, BindError> {
-        self.catalog
-            .relationship_source(self.graph)
-            .ok_or(BindError::MissingSource {
-                entity: "relationship",
-                span_start: span.start,
-                span_end: span.end,
-            })
     }
 
     fn bind_unwind(&mut self, clause: &cypher::UnwindClause) -> Result<(), BindError> {
@@ -2221,27 +2252,75 @@ impl<'a> Binder<'a> {
                         })
                 })
                 .collect::<Result<Vec<_>, _>>()?;
-            let source =
-                self.catalog
-                    .relationship_source(self.graph)
-                    .ok_or(BindError::MissingSource {
-                        entity: "relationship",
-                        span_start: relationship.span.start,
-                        span_end: relationship.span.end,
-                    })?;
-            let target_node_source =
-                self.catalog
-                    .node_source(self.graph)
-                    .ok_or(BindError::MissingSource {
-                        entity: "node",
-                        span_start: node.span.start,
-                        span_end: node.span.end,
-                    })?;
-            let direction = match relationship.direction {
-                cypher::Direction::Outgoing => ir::Direction::Outgoing,
-                cypher::Direction::Incoming => ir::Direction::Incoming,
-                cypher::Direction::Both => ir::Direction::Both,
-            };
+            let relationship_sources = self
+                .entities
+                .get(&relationship_binding.id())
+                .map(|entity| entity.sources.clone())
+                .unwrap_or_default();
+            let from_sources = self
+                .entities
+                .get(&from)
+                .map(|entity| entity.sources.clone())
+                .unwrap_or_default();
+            let target_sources = reused
+                .as_ref()
+                .and_then(|binding| self.entities.get(&binding.id()))
+                .or_else(|| self.entities.get(&to.id()))
+                .map(|entity| entity.sources.clone())
+                .unwrap_or_default();
+            let mut expansion_sources = Vec::new();
+            for relationship_source in relationship_sources {
+                let Some((start, end)) = self
+                    .catalog
+                    .relationship_endpoint_sources(self.graph, relationship_source)
+                else {
+                    continue;
+                };
+                let outgoing = from_sources.contains(&start) && target_sources.contains(&end);
+                let incoming = from_sources.contains(&end) && target_sources.contains(&start);
+                match relationship.direction {
+                    cypher::Direction::Outgoing if outgoing => expansion_sources.push((
+                        relationship_source,
+                        start,
+                        end,
+                        ir::Direction::Outgoing,
+                    )),
+                    cypher::Direction::Incoming if incoming => expansion_sources.push((
+                        relationship_source,
+                        end,
+                        start,
+                        ir::Direction::Incoming,
+                    )),
+                    cypher::Direction::Both if start == end && outgoing => expansion_sources
+                        .push((relationship_source, start, end, ir::Direction::Both)),
+                    cypher::Direction::Both => {
+                        if outgoing {
+                            expansion_sources.push((
+                                relationship_source,
+                                start,
+                                end,
+                                ir::Direction::Outgoing,
+                            ));
+                        }
+                        if incoming {
+                            expansion_sources.push((
+                                relationship_source,
+                                end,
+                                start,
+                                ir::Direction::Incoming,
+                            ));
+                        }
+                    }
+                    _ => {}
+                }
+            }
+            if expansion_sources.is_empty() {
+                return Err(BindError::MissingSource {
+                    entity: "compatible relationship",
+                    span_start: relationship.span.start,
+                    span_end: relationship.span.end,
+                });
+            }
             let input = self.plan.take().ok_or(BindError::EmptyQuery)?;
             let scope = ir::Scope::new(self.scope.clone())?;
             // Cycle-closing without target properties folds the identity
@@ -2252,7 +2331,7 @@ impl<'a> Binder<'a> {
                 (Some(existing), None) if node.properties.is_empty() => Some(existing.id()),
                 _ => None,
             };
-            let kind = if let Some(range) = &relationship.range {
+            let range = if let Some(range) = &relationship.range {
                 let min_hops = range.value.min.unwrap_or(1);
                 let unbounded = range.value.max.is_none();
                 let max_hops = range
@@ -2267,37 +2346,60 @@ impl<'a> Binder<'a> {
                         span_end: range.span.end,
                     });
                 }
-                ir::PlanKind::GraphExpand(ir::GraphExpand {
-                    input: Box::new(input),
-                    graph: self.graph,
-                    relationship_source: source,
-                    target_node_source,
-                    from,
-                    relationship: relationship_binding.clone(),
-                    to: to.clone(),
-                    direction,
-                    relationship_types,
-                    min_hops,
-                    max_hops,
-                    unbounded,
-                    uniqueness: ir::PathUniqueness::Trail,
-                    path_output: expand_path.cloned(),
-                    relationship_list_output: relationship_list,
-                })
+                Some((min_hops, max_hops, unbounded))
             } else {
-                ir::PlanKind::FixedExpand(ir::FixedExpand {
-                    input: Box::new(input),
-                    relationship_source: source,
-                    target_node_source,
-                    from,
-                    relationship: relationship_binding.clone(),
-                    to: to.clone(),
-                    direction,
-                    relationship_types,
-                    bound_target,
-                })
+                None
             };
-            self.plan = Some(ir::Plan::new(kind, scope, ir::ResultShape::default())?);
+            let mut branches = expansion_sources
+                .into_iter()
+                .map(
+                    |(relationship_source, from_node_source, target_node_source, direction)| {
+                        let kind = if let Some((min_hops, max_hops, unbounded)) = range {
+                            ir::PlanKind::GraphExpand(ir::GraphExpand {
+                                input: Box::new(input.clone()),
+                                graph: self.graph,
+                                from_node_source,
+                                relationship_source,
+                                target_node_source,
+                                from,
+                                relationship: relationship_binding.clone(),
+                                to: to.clone(),
+                                direction,
+                                relationship_types: relationship_types.clone(),
+                                min_hops,
+                                max_hops,
+                                unbounded,
+                                uniqueness: ir::PathUniqueness::Trail,
+                                path_output: expand_path.cloned(),
+                                relationship_list_output: relationship_list.clone(),
+                            })
+                        } else {
+                            ir::PlanKind::FixedExpand(ir::FixedExpand {
+                                input: Box::new(input.clone()),
+                                from_node_source,
+                                relationship_source,
+                                target_node_source,
+                                from,
+                                relationship: relationship_binding.clone(),
+                                to: to.clone(),
+                                direction,
+                                relationship_types: relationship_types.clone(),
+                                bound_target,
+                            })
+                        };
+                        ir::Plan::new(kind, scope.clone(), ir::ResultShape::default())
+                    },
+                )
+                .collect::<Result<Vec<_>, _>>()?;
+            self.plan = Some(if branches.len() == 1 {
+                branches.pop().expect("one expansion branch")
+            } else {
+                ir::Plan::new(
+                    ir::PlanKind::Union(ir::Union::new(branches, true)?),
+                    scope,
+                    ir::ResultShape::default(),
+                )?
+            });
             self.bind_properties(
                 &relationship_binding,
                 CatalogEntity::Relationship,
@@ -2439,25 +2541,43 @@ impl<'a> Binder<'a> {
             node.span,
         )?;
         let labels = self.resolve_labels(node)?;
-        let source = self
-            .catalog
-            .node_source(self.graph)
-            .ok_or(BindError::MissingSource {
+        let sources = self
+            .entities
+            .get(&binding.id())
+            .map(|entity| entity.sources.clone())
+            .unwrap_or_default();
+        if sources.is_empty() {
+            return Err(BindError::MissingSource {
                 entity: "node",
                 span_start: node.span.start,
                 span_end: node.span.end,
-            })?;
+            });
+        }
         let scope = ir::Scope::new(self.scope.clone())?;
-        let scan = ir::Plan::new(
-            ir::PlanKind::NodeScan(ir::NodeScan {
-                graph: self.graph,
-                source,
-                binding: binding.id(),
-                labels,
-            }),
-            scope.clone(),
-            ir::ResultShape::default(),
-        )?;
+        let mut scans = sources
+            .into_iter()
+            .map(|source| {
+                ir::Plan::new(
+                    ir::PlanKind::NodeScan(ir::NodeScan {
+                        graph: self.graph,
+                        source,
+                        binding: binding.id(),
+                        labels: labels.clone(),
+                    }),
+                    scope.clone(),
+                    ir::ResultShape::default(),
+                )
+            })
+            .collect::<Result<Vec<_>, _>>()?;
+        let scan = if scans.len() == 1 {
+            scans.pop().expect("one scan")
+        } else {
+            ir::Plan::new(
+                ir::PlanKind::Union(ir::Union::new(scans, true)?),
+                scope.clone(),
+                ir::ResultShape::default(),
+            )?
+        };
         // A fresh scan while a plan already exists starts a disconnected
         // pattern: combine as a cartesian product instead of replacing it.
         self.plan = Some(match self.plan.take() {
@@ -3615,6 +3735,57 @@ impl<'a> Binder<'a> {
                         "label predicates on non-variable expressions",
                     ));
                 };
+                if self.catalog.node_sources(self.graph).len() > 1 {
+                    let binding = self.resolve_binding(name, operand.span)?;
+                    let predicates = labels
+                        .iter()
+                        .map(|label| {
+                            self.catalog
+                                .label(self.graph, &label.value)
+                                .ok_or_else(|| BindError::UnknownLabel {
+                                    name: label.value.clone(),
+                                    span_start: label.span.start,
+                                    span_end: label.span.end,
+                                })?;
+                            Ok(ir::TypedExpression {
+                                expression: ir::Expression::Function {
+                                    function: ir::FunctionName::new("__cypher_has_label")
+                                        .expect("static name"),
+                                    arguments: vec![
+                                        ir::TypedExpression {
+                                            expression: ir::Expression::Binding(binding.id()),
+                                            value_type: ir::ValueType::Node,
+                                            nullability: binding.nullability(),
+                                        },
+                                        ir::TypedExpression {
+                                            expression: ir::Expression::Literal(ir::Literal::Text(
+                                                label.value.clone(),
+                                            )),
+                                            value_type: ir::ValueType::Text,
+                                            nullability: ir::Nullability::NonNull,
+                                        },
+                                    ],
+                                },
+                                value_type: ir::ValueType::Boolean,
+                                nullability: binding.nullability(),
+                            })
+                        })
+                        .collect::<Result<Vec<_>, BindError>>()?;
+                    let mut predicates = predicates.into_iter();
+                    let first = predicates.next().ok_or_else(|| {
+                        at_unsupported(expression.span, "label predicate without labels")
+                    })?;
+                    let predicate = predicates.fold(first, |left, right| ir::TypedExpression {
+                        expression: ir::Expression::Binary {
+                            left: Box::new(left),
+                            op: ir::BinaryOp::And,
+                            right: Box::new(right),
+                        },
+                        value_type: ir::ValueType::Boolean,
+                        nullability: binding.nullability(),
+                    });
+                    return Ok(predicate);
+                }
                 if !self.scope.iter().any(|binding| binding.name() == *name) {
                     return Err(BindError::UnknownVariable {
                         name: name.clone(),
@@ -4582,7 +4753,40 @@ impl<'a> Binder<'a> {
         let binding =
             ir::Binding::new(id, name, value_type, nullability).map_err(BindError::InvalidPlan)?;
         self.scope.push(binding.clone());
-        self.entities.insert(id, EntityBinding { kind, names });
+        let sources = if names.is_empty() {
+            match kind {
+                CatalogEntity::Node => self.catalog.node_sources(self.graph),
+                CatalogEntity::Relationship => self.catalog.relationship_sources(self.graph),
+            }
+        } else {
+            let mut sources = names
+                .iter()
+                .filter_map(|name| match kind {
+                    CatalogEntity::Node => self
+                        .catalog
+                        .label(self.graph, name)
+                        .and_then(|label| self.catalog.node_source_for_label(self.graph, label)),
+                    CatalogEntity::Relationship => self
+                        .catalog
+                        .relationship_type(self.graph, name)
+                        .and_then(|relationship_type| {
+                            self.catalog
+                                .relationship_source_for_type(self.graph, relationship_type)
+                        }),
+                })
+                .collect::<Vec<_>>();
+            sources.sort_by_key(|source| source.get());
+            sources.dedup();
+            sources
+        };
+        self.entities.insert(
+            id,
+            EntityBinding {
+                kind,
+                names,
+                sources,
+            },
+        );
         let _ = span;
         Ok(binding)
     }

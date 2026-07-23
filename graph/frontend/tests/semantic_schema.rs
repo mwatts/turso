@@ -97,6 +97,679 @@ fn semantic_registration() -> SemanticSchemaRegistration {
     }
 }
 
+fn multi_source_session() -> turso_graph_frontend::Connection {
+    let connection = connection();
+    connection
+        .execute(
+            "CREATE TABLE people(\
+                 id INTEGER PRIMARY KEY, \
+                 display_name TEXT, \
+                 age INTEGER\
+             ); \
+             CREATE TABLE companies(\
+                 id INTEGER PRIMARY KEY, \
+                 legal_name TEXT\
+             ); \
+             CREATE TABLE employment(\
+                 id INTEGER PRIMARY KEY, \
+                 person_id INTEGER, \
+                 company_id INTEGER, \
+                 since INTEGER\
+             ); \
+             CREATE TABLE ownership(\
+                 id INTEGER PRIMARY KEY, \
+                 company_id INTEGER, \
+                 person_id INTEGER, \
+                 share INTEGER\
+             );",
+        )
+        .expect("create multi-source tables");
+    register_graph(
+        &connection,
+        &GraphRegistration {
+            name: "multi".to_owned(),
+            node_sources: vec![
+                NodeSourceRegistration {
+                    name: "people_src".to_owned(),
+                    table: "people".to_owned(),
+                    identity_column: "id".to_owned(),
+                },
+                NodeSourceRegistration {
+                    name: "companies_src".to_owned(),
+                    table: "companies".to_owned(),
+                    identity_column: "id".to_owned(),
+                },
+            ],
+            relationship_sources: vec![
+                RelationshipSourceRegistration {
+                    name: "employment_src".to_owned(),
+                    table: "employment".to_owned(),
+                    identity_column: "id".to_owned(),
+                    start_column: "person_id".to_owned(),
+                    end_column: "company_id".to_owned(),
+                    start_node_source: "people_src".to_owned(),
+                    end_node_source: "companies_src".to_owned(),
+                },
+                RelationshipSourceRegistration {
+                    name: "ownership_src".to_owned(),
+                    table: "ownership".to_owned(),
+                    identity_column: "id".to_owned(),
+                    start_column: "company_id".to_owned(),
+                    end_column: "person_id".to_owned(),
+                    start_node_source: "companies_src".to_owned(),
+                    end_node_source: "people_src".to_owned(),
+                },
+            ],
+        },
+    )
+    .expect("register multi-source graph");
+    register_semantic_schema(
+        &connection,
+        "multi",
+        &SemanticSchemaRegistration {
+            node_types: vec![
+                SemanticNodeType {
+                    name: "Person".to_owned(),
+                    source: "people_src".to_owned(),
+                    properties: vec![
+                        SemanticProperty {
+                            name: "displayName".to_owned(),
+                            column: "display_name".to_owned(),
+                        },
+                        SemanticProperty {
+                            name: "age".to_owned(),
+                            column: "age".to_owned(),
+                        },
+                    ],
+                },
+                SemanticNodeType {
+                    name: "Company".to_owned(),
+                    source: "companies_src".to_owned(),
+                    properties: vec![SemanticProperty {
+                        name: "displayName".to_owned(),
+                        column: "legal_name".to_owned(),
+                    }],
+                },
+            ],
+            relationship_types: vec![
+                SemanticRelationshipType {
+                    name: "WORKS_AT".to_owned(),
+                    source: "employment_src".to_owned(),
+                    start: vec!["Person".to_owned()],
+                    end: vec!["Company".to_owned()],
+                    properties: vec![SemanticProperty {
+                        name: "weight".to_owned(),
+                        column: "since".to_owned(),
+                    }],
+                },
+                SemanticRelationshipType {
+                    name: "OWNS".to_owned(),
+                    source: "ownership_src".to_owned(),
+                    start: vec!["Company".to_owned()],
+                    end: vec!["Person".to_owned()],
+                    properties: vec![SemanticProperty {
+                        name: "weight".to_owned(),
+                        column: "share".to_owned(),
+                    }],
+                },
+            ],
+        },
+    )
+    .expect("register multi-source semantic schema");
+    turso_graph_frontend::Connection::open(connection, "multi").expect("open multi-source graph")
+}
+
+#[test]
+fn multi_source_semantic_types_route_reads_and_writes_to_their_sources() {
+    let session = multi_source_session();
+    session
+        .execute(
+            "CREATE (p:Person {displayName: 'Ada'})\
+             -[:WORKS_AT {weight: 1843}]->\
+             (c:Company {displayName: 'Analytical Engines'})",
+            &Default::default(),
+        )
+        .expect("create routed path");
+    session
+        .execute(
+            "MATCH (c:Company) SET c.displayName = 'Difference Engines'",
+            &Default::default(),
+        )
+        .expect("update company source");
+
+    let rows = session
+        .query(
+            "MATCH (p:Person)-[r:WORKS_AT]->(c:Company) \
+             RETURN p.displayName, r.weight, c.displayName",
+            &Default::default(),
+        )
+        .expect("read routed path");
+    assert_eq!(rows.len(), 1);
+    assert_eq!(
+        rows[0][2],
+        turso_graph_frontend::Value::Text("Difference Engines".into())
+    );
+}
+
+#[test]
+fn unlabeled_node_scan_unions_sources_with_owner_specific_columns() {
+    let session = multi_source_session();
+    session
+        .execute(
+            "CREATE (:Person {displayName: 'Ada'}) \
+             CREATE (:Company {displayName: 'Analytical Engines'})",
+            &Default::default(),
+        )
+        .expect("create colliding local identities");
+
+    let rows = session
+        .query(
+            "MATCH (n) RETURN n.displayName ORDER BY n.displayName",
+            &Default::default(),
+        )
+        .expect("union unlabeled sources");
+    assert_eq!(
+        rows,
+        vec![
+            vec![turso_graph_frontend::Value::Text("Ada".into())],
+            vec![turso_graph_frontend::Value::Text(
+                "Analytical Engines".into()
+            )],
+        ]
+    );
+
+    let rows = session
+        .query(
+            "MATCH (n) RETURN n.displayName, properties(n) ORDER BY n.displayName",
+            &Default::default(),
+        )
+        .expect("dispatch whole properties by source");
+    assert_eq!(
+        rows,
+        vec![
+            vec![
+                turso_graph_frontend::Value::Text("Ada".into()),
+                turso_graph_frontend::Value::Text("{\"displayName\":\"Ada\"}".into()),
+            ],
+            vec![
+                turso_graph_frontend::Value::Text("Analytical Engines".into()),
+                turso_graph_frontend::Value::Text(
+                    "{\"displayName\":\"Analytical Engines\"}".into()
+                ),
+            ],
+        ]
+    );
+}
+
+#[test]
+fn unlabeled_properties_must_be_owned_by_every_possible_source_type() {
+    let session = multi_source_session();
+    session
+        .execute(
+            "CREATE (:Person {displayName: 'Ada', age: 36}) \
+             CREATE (:Company {displayName: 'Engines'})",
+            &Default::default(),
+        )
+        .expect("create owners with different property sets");
+
+    let read_error = session
+        .query("MATCH (n) RETURN n.age", &Default::default())
+        .expect_err("unlabeled read must reject a partially owned property");
+    assert!(
+        read_error
+            .to_string()
+            .contains("owned by [\"Person\"] but not by [\"Company\"]"),
+        "{read_error}"
+    );
+
+    let write_error = session
+        .execute("MATCH (n) SET n.age = 37", &Default::default())
+        .expect_err("unlabeled write must reject a partially owned property");
+    assert!(
+        write_error
+            .to_string()
+            .contains("owned by [\"Person\"] but not by [\"Company\"]"),
+        "{write_error}"
+    );
+
+    let rows = session
+        .query("MATCH (p:Person) RETURN p.age", &Default::default())
+        .expect("failed mutation rolled back atomically");
+    assert_eq!(
+        rows,
+        vec![vec![turso_graph_frontend::Value::Numeric(
+            turso_graph_frontend::Numeric::Integer(36)
+        )]]
+    );
+}
+
+#[test]
+fn untyped_relationship_scan_unions_sources_and_honors_endpoint_layouts() {
+    let session = multi_source_session();
+    session
+        .execute(
+            "CREATE (:Person {displayName: 'Ada'})\
+             -[:WORKS_AT {weight: 1843}]->\
+             (:Company {displayName: 'Engines'}) \
+             CREATE (:Company {displayName: 'Foundry'})\
+             -[:OWNS {weight: 75}]->\
+             (:Person {displayName: 'Charles'})",
+            &Default::default(),
+        )
+        .expect("create both relationship sources");
+
+    let rows = session
+        .query(
+            "MATCH (a)-[r]->(b) \
+             RETURN a.displayName, r.weight, b.displayName, type(r) ORDER BY r.weight",
+            &Default::default(),
+        )
+        .expect("union relationship sources");
+    assert_eq!(rows.len(), 2);
+    assert_eq!(
+        rows[0],
+        vec![
+            turso_graph_frontend::Value::Text("Foundry".into()),
+            turso_graph_frontend::Value::Numeric(turso_graph_frontend::Numeric::Integer(75)),
+            turso_graph_frontend::Value::Text("Charles".into()),
+            turso_graph_frontend::Value::Text("OWNS".into()),
+        ]
+    );
+    assert_eq!(
+        rows[1],
+        vec![
+            turso_graph_frontend::Value::Text("Ada".into()),
+            turso_graph_frontend::Value::Numeric(turso_graph_frontend::Numeric::Integer(1843)),
+            turso_graph_frontend::Value::Text("Engines".into()),
+            turso_graph_frontend::Value::Text("WORKS_AT".into()),
+        ]
+    );
+}
+
+#[test]
+fn multi_source_traversal_honors_incoming_and_undirected_endpoint_orientation() {
+    let session = multi_source_session();
+    session
+        .execute(
+            "CREATE (:Person {displayName: 'Ada'})\
+             -[:WORKS_AT {weight: 1843}]->\
+             (:Company {displayName: 'Engines'}) \
+             CREATE (:Company {displayName: 'Foundry'})\
+             -[:OWNS {weight: 75}]->\
+             (:Person {displayName: 'Charles'})",
+            &Default::default(),
+        )
+        .expect("seed both relationship orientations");
+
+    let incoming = session
+        .query(
+            "MATCH (p:Person)<-[r:OWNS]-(c:Company) \
+             RETURN p.displayName, type(r), c.displayName",
+            &Default::default(),
+        )
+        .expect("traverse an incoming cross-source relationship");
+    assert_eq!(
+        incoming,
+        vec![vec![
+            turso_graph_frontend::Value::Text("Charles".into()),
+            turso_graph_frontend::Value::Text("OWNS".into()),
+            turso_graph_frontend::Value::Text("Foundry".into()),
+        ]]
+    );
+
+    let undirected = session
+        .query(
+            "MATCH (p:Person)-[r]-(c:Company) \
+             RETURN p.displayName, type(r), c.displayName ORDER BY type(r)",
+            &Default::default(),
+        )
+        .expect("traverse both physical orientations without duplication");
+    assert_eq!(
+        undirected,
+        vec![
+            vec![
+                turso_graph_frontend::Value::Text("Charles".into()),
+                turso_graph_frontend::Value::Text("OWNS".into()),
+                turso_graph_frontend::Value::Text("Foundry".into()),
+            ],
+            vec![
+                turso_graph_frontend::Value::Text("Ada".into()),
+                turso_graph_frontend::Value::Text("WORKS_AT".into()),
+                turso_graph_frontend::Value::Text("Engines".into()),
+            ],
+        ]
+    );
+
+    let filtered = session
+        .query(
+            "MATCH (n) OPTIONAL MATCH (n)-[r]->(m) WHERE r.weight > 100 \
+             RETURN n.displayName, type(r), m.displayName ORDER BY n.displayName",
+            &Default::default(),
+        )
+        .expect("fold optional predicates into every source branch");
+    assert_eq!(
+        filtered,
+        vec![
+            vec![
+                turso_graph_frontend::Value::Text("Ada".into()),
+                turso_graph_frontend::Value::Text("WORKS_AT".into()),
+                turso_graph_frontend::Value::Text("Engines".into()),
+            ],
+            vec![
+                turso_graph_frontend::Value::Text("Charles".into()),
+                turso_graph_frontend::Value::Null,
+                turso_graph_frontend::Value::Null,
+            ],
+            vec![
+                turso_graph_frontend::Value::Text("Engines".into()),
+                turso_graph_frontend::Value::Null,
+                turso_graph_frontend::Value::Null,
+            ],
+            vec![
+                turso_graph_frontend::Value::Text("Foundry".into()),
+                turso_graph_frontend::Value::Null,
+                turso_graph_frontend::Value::Null,
+            ],
+        ]
+    );
+}
+
+#[test]
+fn colliding_local_node_ids_keep_source_qualified_labels() {
+    let session = multi_source_session();
+    session
+        .execute(
+            "CREATE (:Person {displayName: 'Ada'}) \
+             CREATE (:Company {displayName: 'Engines'})",
+            &Default::default(),
+        )
+        .expect("create colliding identities");
+
+    let rows = session
+        .query(
+            "MATCH (n) WHERE n:Person RETURN n.displayName",
+            &Default::default(),
+        )
+        .expect("filter source-qualified labels");
+    assert_eq!(
+        rows,
+        vec![vec![turso_graph_frontend::Value::Text("Ada".into())]]
+    );
+}
+
+#[test]
+fn semantic_endpoints_must_match_relationship_source_layouts() {
+    let connection = connection();
+    connection
+        .execute(
+            "CREATE TABLE people(id INTEGER PRIMARY KEY); \
+             CREATE TABLE companies(id INTEGER PRIMARY KEY); \
+             CREATE TABLE employment(\
+                 id INTEGER PRIMARY KEY, person_id INTEGER, company_id INTEGER\
+             );",
+        )
+        .expect("create endpoint sources");
+    register_graph(
+        &connection,
+        &GraphRegistration {
+            name: "endpoints".to_owned(),
+            node_sources: vec![
+                NodeSourceRegistration {
+                    name: "people".to_owned(),
+                    table: "people".to_owned(),
+                    identity_column: "id".to_owned(),
+                },
+                NodeSourceRegistration {
+                    name: "companies".to_owned(),
+                    table: "companies".to_owned(),
+                    identity_column: "id".to_owned(),
+                },
+            ],
+            relationship_sources: vec![RelationshipSourceRegistration {
+                name: "employment".to_owned(),
+                table: "employment".to_owned(),
+                identity_column: "id".to_owned(),
+                start_column: "person_id".to_owned(),
+                end_column: "company_id".to_owned(),
+                start_node_source: "people".to_owned(),
+                end_node_source: "companies".to_owned(),
+            }],
+        },
+    )
+    .expect("register endpoint graph");
+
+    let error = register_semantic_schema(
+        &connection,
+        "endpoints",
+        &SemanticSchemaRegistration {
+            node_types: vec![
+                SemanticNodeType {
+                    name: "Person".to_owned(),
+                    source: "people".to_owned(),
+                    properties: Vec::new(),
+                },
+                SemanticNodeType {
+                    name: "Company".to_owned(),
+                    source: "companies".to_owned(),
+                    properties: Vec::new(),
+                },
+            ],
+            relationship_types: vec![SemanticRelationshipType {
+                name: "WORKS_AT".to_owned(),
+                source: "employment".to_owned(),
+                start: vec!["Company".to_owned()],
+                end: vec!["Person".to_owned()],
+                properties: Vec::new(),
+            }],
+        },
+    )
+    .expect_err("semantic endpoints conflict with physical source layout");
+    assert!(matches!(
+        error,
+        SemanticCatalogError::EndpointSourceMismatch { .. }
+    ));
+}
+
+#[test]
+fn detach_delete_uses_endpoint_sources_when_local_ids_collide() {
+    let session = multi_source_session();
+    session
+        .execute(
+            "CREATE (p:Person {displayName: 'Person One'})\
+             -[:WORKS_AT]->\
+             (c:Company {displayName: 'Company One'}) \
+             CREATE (:Company {displayName: 'Company Two'})\
+             -[:OWNS]->\
+             (p)",
+            &Default::default(),
+        )
+        .expect("seed colliding endpoint identities");
+    session
+        .execute(
+            "MATCH (c:Company {displayName: 'Company One'}) DETACH DELETE c",
+            &Default::default(),
+        )
+        .expect("detach exact company source");
+
+    let rows = session
+        .query(
+            "MATCH (:Company)-[r:OWNS]->(:Person) RETURN count(r)",
+            &Default::default(),
+        )
+        .expect("unrelated relationship survives");
+    assert_eq!(
+        rows,
+        vec![vec![turso_graph_frontend::Value::Numeric(
+            turso_graph_frontend::Numeric::Integer(1)
+        )]]
+    );
+}
+
+#[test]
+fn unlabeled_mutations_dispatch_to_each_row_source() {
+    let session = multi_source_session();
+    session
+        .execute(
+            "CREATE (:Person {displayName: 'Ada'}) \
+             CREATE (:Company {displayName: 'Engines'})",
+            &Default::default(),
+        )
+        .expect("seed colliding node identities");
+
+    session
+        .execute(
+            "MATCH (n) SET n = {displayName: n.displayName + '!'}",
+            &Default::default(),
+        )
+        .expect("replace properties through runtime source provenance");
+    let rows = session
+        .query(
+            "MATCH (n) RETURN n.displayName ORDER BY n.displayName",
+            &Default::default(),
+        )
+        .expect("read both updated sources");
+    assert_eq!(
+        rows,
+        vec![
+            vec![turso_graph_frontend::Value::Text("Ada!".into())],
+            vec![turso_graph_frontend::Value::Text("Engines!".into())],
+        ]
+    );
+    session
+        .execute("MATCH (n) SET n = properties(n)", &Default::default())
+        .expect("replace dynamic maps through runtime source provenance");
+
+    session
+        .execute(
+            "MATCH (n) WHERE n.displayName = 'Ada!' DELETE n",
+            &Default::default(),
+        )
+        .expect("delete only the runtime-selected source row");
+    let rows = session
+        .query("MATCH (n) RETURN n.displayName", &Default::default())
+        .expect("colliding identity in the other source survives");
+    assert_eq!(
+        rows,
+        vec![vec![turso_graph_frontend::Value::Text("Engines!".into())]]
+    );
+    session
+        .execute("MATCH (n) REMOVE n.displayName", &Default::default())
+        .expect("remove a property through runtime source provenance");
+    let rows = session
+        .query("MATCH (n) RETURN n.displayName", &Default::default())
+        .expect("removed property reads as null");
+    assert_eq!(rows, vec![vec![turso_graph_frontend::Value::Null]]);
+}
+
+#[test]
+fn untyped_relationship_mutations_dispatch_to_each_row_source() {
+    let session = multi_source_session();
+    session
+        .execute(
+            "CREATE (:Person {displayName: 'Ada'})\
+             -[:WORKS_AT {weight: 1843}]->\
+             (:Company {displayName: 'Engines'}) \
+             CREATE (:Company {displayName: 'Foundry'})\
+             -[:OWNS {weight: 75}]->\
+             (:Person {displayName: 'Charles'})",
+            &Default::default(),
+        )
+        .expect("seed colliding relationship identities");
+
+    session
+        .execute(
+            "MATCH ()-[r]->() SET r.weight = r.weight + 1",
+            &Default::default(),
+        )
+        .expect("update both relationship sources");
+    let rows = session
+        .query(
+            "MATCH ()-[r]->() RETURN r.weight ORDER BY r.weight",
+            &Default::default(),
+        )
+        .expect("read updated relationship sources");
+    assert_eq!(
+        rows,
+        vec![
+            vec![turso_graph_frontend::Value::Numeric(
+                turso_graph_frontend::Numeric::Integer(76)
+            )],
+            vec![turso_graph_frontend::Value::Numeric(
+                turso_graph_frontend::Numeric::Integer(1844)
+            )],
+        ]
+    );
+
+    session
+        .execute(
+            "MATCH ()-[r]->() WHERE r.weight = 76 DELETE r",
+            &Default::default(),
+        )
+        .expect("delete only the selected relationship source");
+    let rows = session
+        .query(
+            "MATCH ()-[r]->() RETURN type(r), r.weight",
+            &Default::default(),
+        )
+        .expect("colliding relationship identity in other source survives");
+    assert_eq!(
+        rows,
+        vec![vec![
+            turso_graph_frontend::Value::Text("WORKS_AT".into()),
+            turso_graph_frontend::Value::Numeric(turso_graph_frontend::Numeric::Integer(1844)),
+        ]]
+    );
+}
+
+#[test]
+fn optional_expand_partitions_multi_source_inputs_before_unioning_branches() {
+    let session = multi_source_session();
+    session
+        .execute(
+            "CREATE (:Person {displayName: 'Ada'})\
+             -[:WORKS_AT]->\
+             (:Company {displayName: 'Engines'}) \
+             CREATE (:Company {displayName: 'Foundry'})\
+             -[:OWNS]->\
+             (:Person {displayName: 'Charles'})",
+            &Default::default(),
+        )
+        .expect("seed both source orientations");
+
+    let rows = session
+        .query(
+            "MATCH (n) OPTIONAL MATCH (n)-[r]->(m) \
+             RETURN n.displayName, type(r), m.displayName ORDER BY n.displayName",
+            &Default::default(),
+        )
+        .expect("optional expansion over source-partitioned branches");
+    assert_eq!(
+        rows,
+        vec![
+            vec![
+                turso_graph_frontend::Value::Text("Ada".into()),
+                turso_graph_frontend::Value::Text("WORKS_AT".into()),
+                turso_graph_frontend::Value::Text("Engines".into()),
+            ],
+            vec![
+                turso_graph_frontend::Value::Text("Charles".into()),
+                turso_graph_frontend::Value::Null,
+                turso_graph_frontend::Value::Null,
+            ],
+            vec![
+                turso_graph_frontend::Value::Text("Engines".into()),
+                turso_graph_frontend::Value::Null,
+                turso_graph_frontend::Value::Null,
+            ],
+            vec![
+                turso_graph_frontend::Value::Text("Foundry".into()),
+                turso_graph_frontend::Value::Text("OWNS".into()),
+                turso_graph_frontend::Value::Text("Charles".into()),
+            ],
+        ]
+    );
+}
+
 #[test]
 fn registration_is_idempotent_for_identical_input() {
     let connection = connection();
@@ -240,8 +913,10 @@ fn semantic_registration_invalidates_and_retypes_traversal_snapshots() {
         .execute(format!(
             "INSERT INTO tbl_people(pk, full_name) VALUES (1, 'Ada'), (2, 'Iron Co'); \
              INSERT INTO tbl_edges(pk, a, b, since) VALUES (10, 1, 2, 1840); \
-             INSERT INTO \"{}\"(relationship_id, type) VALUES (10, 'TRADES_WITH')",
-            relationship_types_table_name(graph.id)
+             INSERT INTO \"{}\"(source_id, relationship_id, type) \
+             VALUES ({}, 10, 'TRADES_WITH')",
+            relationship_types_table_name(graph.id),
+            graph.relationship_sources[0].id.get(),
         ))
         .expect("seed graph");
 

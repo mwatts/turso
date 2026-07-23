@@ -24,8 +24,8 @@ pub use identity::{
 };
 pub use mutation::{
     CreateNode, CreateRelationship, DeleteEntity, MergeNode, MergeRelationship, Mutation,
-    MutationRequest, PropertyValue, RemoveProperty, ReplaceProperties, ReplacePropertiesDynamic,
-    SetLabels, SetProperty,
+    MutationRequest, MutationSource, PropertyValue, RemoveProperty, ReplaceProperties,
+    ReplacePropertiesDynamic, SetLabels, SetProperty,
 };
 pub use plan::{
     Aggregate, AggregateFunction, Aggregation, Distinct, Filter, FixedExpand, GraphExpand,

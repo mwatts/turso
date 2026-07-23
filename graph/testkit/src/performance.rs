@@ -364,16 +364,22 @@ fn record(
 
 fn seed_labels(fixture: &crate::runner::GraphFixture) -> Result<(), turso_core::LimboError> {
     fixture.connection.execute(format!(
-        "INSERT INTO \"{}\"(node_id, label) SELECT id, 'Person' FROM people \
-         WHERE id NOT IN (SELECT node_id FROM \"{}\")",
+        "INSERT INTO \"{}\"(source_id, node_id, label) \
+         SELECT {}, id, 'Person' FROM people \
+         WHERE id NOT IN (SELECT node_id FROM \"{}\" WHERE source_id = {})",
         turso_graph_frontend::labels_table_name(fixture.session.graph_id()),
+        fixture.node_source.get(),
         turso_graph_frontend::labels_table_name(fixture.session.graph_id()),
+        fixture.node_source.get(),
     ))?;
     fixture.connection.execute(format!(
-        "INSERT INTO \"{}\"(relationship_id, type) SELECT id, 'KNOWS' FROM relationships \
-         WHERE id NOT IN (SELECT relationship_id FROM \"{}\")",
+        "INSERT INTO \"{}\"(source_id, relationship_id, type) \
+         SELECT {}, id, 'KNOWS' FROM relationships \
+         WHERE id NOT IN (SELECT relationship_id FROM \"{}\" WHERE source_id = {})",
         turso_graph_frontend::relationship_types_table_name(fixture.session.graph_id()),
+        fixture.relationship_source.get(),
         turso_graph_frontend::relationship_types_table_name(fixture.session.graph_id()),
+        fixture.relationship_source.get(),
     ))
 }
 

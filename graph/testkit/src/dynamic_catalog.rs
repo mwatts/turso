@@ -70,8 +70,25 @@ impl GraphCatalogSnapshot for DynamicCatalog {
         self.inner.node_source(graph)
     }
 
+    fn node_sources(&self, graph: ir::GraphId) -> Vec<ir::SourceTableId> {
+        self.inner.node_sources(graph)
+    }
+
     fn relationship_source(&self, graph: ir::GraphId) -> Option<ir::SourceTableId> {
         self.inner.relationship_source(graph)
+    }
+
+    fn relationship_sources(&self, graph: ir::GraphId) -> Vec<ir::SourceTableId> {
+        self.inner.relationship_sources(graph)
+    }
+
+    fn relationship_endpoint_sources(
+        &self,
+        graph: ir::GraphId,
+        relationship_source: ir::SourceTableId,
+    ) -> Option<(ir::SourceTableId, ir::SourceTableId)> {
+        self.inner
+            .relationship_endpoint_sources(graph, relationship_source)
     }
 
     fn label(&self, graph: ir::GraphId, name: &str) -> Option<ir::LabelId> {
@@ -186,6 +203,10 @@ impl GraphCatalogSnapshot for DynamicCatalog {
 }
 
 impl RelationalCatalogSnapshot for DynamicCatalog {
+    fn source_qualified_membership(&self) -> bool {
+        self.inner.source_qualified_membership()
+    }
+
     fn labels_table(&self) -> Option<String> {
         self.inner.labels_table()
     }

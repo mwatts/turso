@@ -87,6 +87,8 @@ impl ScenarioRunner {
 pub struct GraphFixture {
     pub connection: Arc<Connection>,
     pub session: GraphConnection,
+    pub node_source: turso_graph_ir::SourceTableId,
+    pub relationship_source: turso_graph_ir::SourceTableId,
     pub labels_table: String,
     pub types_table: String,
 }
@@ -247,14 +249,18 @@ fn build_fixture_with_io(
     }
     connection
         .execute(format!(
-            "INSERT INTO \"{}\"(node_id, label) SELECT id, 'Person' FROM people",
-            turso_graph_frontend::labels_table_name(registered.id)
+            "INSERT INTO \"{}\"(source_id, node_id, label) \
+             SELECT {}, id, 'Person' FROM people",
+            turso_graph_frontend::labels_table_name(registered.id),
+            registered.node_sources[0].id.get(),
         ))
         .map_err(|error| RunnerError::Fixture(error.to_string()))?;
     connection
         .execute(format!(
-            "INSERT INTO \"{}\"(relationship_id, type) SELECT id, 'KNOWS' FROM relationships",
-            turso_graph_frontend::relationship_types_table_name(registered.id)
+            "INSERT INTO \"{}\"(source_id, relationship_id, type) \
+             SELECT {}, id, 'KNOWS' FROM relationships",
+            turso_graph_frontend::relationship_types_table_name(registered.id),
+            registered.relationship_sources[0].id.get(),
         ))
         .map_err(|error| RunnerError::Fixture(error.to_string()))?;
     let session = GraphConnection::install(
@@ -269,6 +275,8 @@ fn build_fixture_with_io(
     Ok(GraphFixture {
         connection,
         session,
+        node_source: registered.node_sources[0].id,
+        relationship_source: registered.relationship_sources[0].id,
         labels_table: turso_graph_frontend::labels_table_name(registered.id),
         types_table: turso_graph_frontend::relationship_types_table_name(registered.id),
     })

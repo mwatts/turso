@@ -575,24 +575,34 @@ fn build_in_transaction(
     let mut relationship_coordinates = Vec::new();
     let mut relationship_ids = HashMap::new();
     let mut edges = Vec::new();
+    let relationship_types_table = crate::catalog::relationship_types_table_name(registered.id);
+    let source_qualified_types = connection
+        .current_schema()
+        .get_table(&relationship_types_table)
+        .is_some_and(|table| table.get_column_by_name("source_id").is_some());
     for (type_index, source) in registered.relationship_sources.iter().enumerate() {
         check_cancelled(cancellation)?;
         let default_relationship_type = next_relationship_type(type_index)?;
         // Resolve each relationship's Cypher type through the junction and
         // registry so traversal filters see the identities the binder uses;
         // rows without a recorded type keep the source-index identity.
+        let source_predicate = if source_qualified_types {
+            format!("jt.source_id = {} AND ", source.id.get())
+        } else {
+            String::new()
+        };
         let rows = query_rows_cancellable(
             connection,
             &format!(
                 "SELECT r.{}, r.{}, r.{}, reg.id, jt.type FROM {} AS r \
-                 LEFT JOIN \"{}\" AS jt ON jt.relationship_id = r.{} \
+                 LEFT JOIN \"{}\" AS jt ON {source_predicate}jt.relationship_id = r.{} \
                  LEFT JOIN \"{}\" AS reg ON reg.name = jt.type \
                  ORDER BY r.{}",
                 quote_identifier(&source.identity_column),
                 quote_identifier(&source.start_column),
                 quote_identifier(&source.end_column),
                 quote_identifier(&source.table),
-                crate::catalog::relationship_types_table_name(registered.id),
+                relationship_types_table,
                 quote_identifier(&source.identity_column),
                 crate::catalog::relationship_type_registry_table_name(registered.id),
                 quote_identifier(&source.identity_column)

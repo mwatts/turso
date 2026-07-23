@@ -42,18 +42,37 @@ impl SchemaCatalog {
         }
     }
 
-    fn node_source_entry(&self) -> Option<&RegisteredNodeSource> {
-        self.graph.node_sources.first()
+    fn node_source_entry(&self, source: ir::SourceTableId) -> Option<&RegisteredNodeSource> {
+        self.graph
+            .node_sources
+            .iter()
+            .find(|entry| entry.id == source)
     }
 
-    fn relationship_source_entry(&self) -> Option<&RegisteredRelationshipSource> {
-        self.graph.relationship_sources.first()
+    fn relationship_source_entry(
+        &self,
+        source: ir::SourceTableId,
+    ) -> Option<&RegisteredRelationshipSource> {
+        self.graph
+            .relationship_sources
+            .iter()
+            .find(|entry| entry.id == source)
     }
 
     fn table_for(&self, entity: CatalogEntity) -> Option<Arc<Table>> {
         let table_name = match entity {
-            CatalogEntity::Node => &self.node_source_entry()?.table,
-            CatalogEntity::Relationship => &self.relationship_source_entry()?.table,
+            CatalogEntity::Node => {
+                let [source] = self.graph.node_sources.as_slice() else {
+                    return None;
+                };
+                &source.table
+            }
+            CatalogEntity::Relationship => {
+                let [source] = self.graph.relationship_sources.as_slice() else {
+                    return None;
+                };
+                &source.table
+            }
         };
         self.connection.current_schema().get_table(table_name)
     }
@@ -393,17 +412,51 @@ pub(crate) fn column_nullability(column: &Column) -> ir::Nullability {
 
 impl GraphCatalogSnapshot for SchemaCatalog {
     fn node_source(&self, graph: ir::GraphId) -> Option<ir::SourceTableId> {
-        (graph == self.graph.id)
-            .then(|| self.node_source_entry())
-            .flatten()
+        let [source] = self.graph.node_sources.as_slice() else {
+            return None;
+        };
+        (graph == self.graph.id).then_some(source.id)
+    }
+
+    fn node_sources(&self, graph: ir::GraphId) -> Vec<ir::SourceTableId> {
+        if graph != self.graph.id {
+            return Vec::new();
+        }
+        self.graph
+            .node_sources
+            .iter()
             .map(|source| source.id)
+            .collect()
     }
 
     fn relationship_source(&self, graph: ir::GraphId) -> Option<ir::SourceTableId> {
-        (graph == self.graph.id)
-            .then(|| self.relationship_source_entry())
-            .flatten()
+        let [source] = self.graph.relationship_sources.as_slice() else {
+            return None;
+        };
+        (graph == self.graph.id).then_some(source.id)
+    }
+
+    fn relationship_sources(&self, graph: ir::GraphId) -> Vec<ir::SourceTableId> {
+        if graph != self.graph.id {
+            return Vec::new();
+        }
+        self.graph
+            .relationship_sources
+            .iter()
             .map(|source| source.id)
+            .collect()
+    }
+
+    fn relationship_endpoint_sources(
+        &self,
+        graph: ir::GraphId,
+        relationship_source: ir::SourceTableId,
+    ) -> Option<(ir::SourceTableId, ir::SourceTableId)> {
+        if graph != self.graph.id {
+            return None;
+        }
+        let source = self.relationship_source_entry(relationship_source)?;
+        Some((source.start_node_source, source.end_node_source))
     }
 
     fn label(&self, graph: ir::GraphId, name: &str) -> Option<ir::LabelId> {
@@ -488,7 +541,12 @@ impl GraphCatalogSnapshot for SchemaCatalog {
             .as_ref()
             .and_then(|semantic| semantic.node_type_by_id(label))
             .map(|type_info| type_info.source)
-            .or_else(|| self.node_source(graph))
+            .or_else(|| {
+                self.graph
+                    .node_sources
+                    .get((label.get() as usize).checked_sub(1)?)
+                    .map(|source| source.id)
+            })
     }
 
     fn relationship_source_for_type(
@@ -503,7 +561,12 @@ impl GraphCatalogSnapshot for SchemaCatalog {
             .as_ref()
             .and_then(|semantic| semantic.relationship_type_by_id(relationship_type))
             .map(|type_info| type_info.source)
-            .or_else(|| self.relationship_source(graph))
+            .or_else(|| {
+                self.graph
+                    .relationship_sources
+                    .get((relationship_type.get() as usize).checked_sub(1)?)
+                    .map(|source| source.id)
+            })
     }
 
     fn resolve_owned_property(
@@ -547,6 +610,13 @@ impl GraphCatalogSnapshot for SchemaCatalog {
 }
 
 impl RelationalCatalogSnapshot for SchemaCatalog {
+    fn source_qualified_membership(&self) -> bool {
+        self.connection
+            .current_schema()
+            .get_table(&crate::catalog::labels_table_name(self.graph.id))
+            .is_some_and(|table| table.get_column_by_name("source_id").is_some())
+    }
+
     fn labels_table(&self) -> Option<String> {
         Some(crate::catalog::labels_table_name(self.graph.id))
     }
@@ -596,9 +666,7 @@ impl RelationalCatalogSnapshot for SchemaCatalog {
     }
 
     fn node_layout(&self, source: ir::SourceTableId) -> Option<NodeTableLayout> {
-        let entry = self
-            .node_source_entry()
-            .filter(|entry| entry.id == source)?;
+        let entry = self.node_source_entry(source)?;
         Some(NodeTableLayout {
             table: entry.table.clone(),
             identity_column: entry.identity_column.clone(),
@@ -606,9 +674,7 @@ impl RelationalCatalogSnapshot for SchemaCatalog {
     }
 
     fn relationship_layout(&self, source: ir::SourceTableId) -> Option<RelationshipTableLayout> {
-        let entry = self
-            .relationship_source_entry()
-            .filter(|entry| entry.id == source)?;
+        let entry = self.relationship_source_entry(source)?;
         Some(RelationshipTableLayout {
             table: entry.table.clone(),
             identity_column: entry.identity_column.clone(),
@@ -635,16 +701,10 @@ impl RelationalCatalogSnapshot for SchemaCatalog {
             }
             return None;
         }
-        let table_name = if self
-            .node_source_entry()
-            .is_some_and(|entry| entry.id == source)
-        {
-            &self.node_source_entry()?.table
-        } else if self
-            .relationship_source_entry()
-            .is_some_and(|entry| entry.id == source)
-        {
-            &self.relationship_source_entry()?.table
+        let table_name = if let Some(entry) = self.node_source_entry(source) {
+            &entry.table
+        } else if let Some(entry) = self.relationship_source_entry(source) {
+            &entry.table
         } else {
             return None;
         };
@@ -658,19 +718,11 @@ impl RelationalCatalogSnapshot for SchemaCatalog {
         source: ir::SourceTableId,
         property: ir::PropertyId,
     ) -> bool {
-        let table_name = if self
-            .node_source_entry()
-            .is_some_and(|entry| entry.id == source)
-        {
-            self.node_source_entry().map(|entry| entry.table.clone())
-        } else if self
-            .relationship_source_entry()
-            .is_some_and(|entry| entry.id == source)
-        {
-            self.relationship_source_entry()
-                .map(|entry| entry.table.clone())
+        let table_name = if let Some(entry) = self.node_source_entry(source) {
+            Some(entry.table.clone())
         } else {
-            None
+            self.relationship_source_entry(source)
+                .map(|entry| entry.table.clone())
         };
         let Some(table_name) = table_name else {
             return false;
@@ -688,24 +740,20 @@ impl RelationalCatalogSnapshot for SchemaCatalog {
     }
 
     fn payload_columns(&self, source: ir::SourceTableId) -> Option<Vec<(String, String)>> {
-        let (table_name, structural) =
-            if let Some(entry) = self.node_source_entry().filter(|entry| entry.id == source) {
-                (entry.table.clone(), vec![entry.identity_column.clone()])
-            } else if let Some(entry) = self
-                .relationship_source_entry()
-                .filter(|entry| entry.id == source)
-            {
-                (
-                    entry.table.clone(),
-                    vec![
-                        entry.identity_column.clone(),
-                        entry.start_column.clone(),
-                        entry.end_column.clone(),
-                    ],
-                )
-            } else {
-                return None;
-            };
+        let (table_name, structural) = if let Some(entry) = self.node_source_entry(source) {
+            (entry.table.clone(), vec![entry.identity_column.clone()])
+        } else if let Some(entry) = self.relationship_source_entry(source) {
+            (
+                entry.table.clone(),
+                vec![
+                    entry.identity_column.clone(),
+                    entry.start_column.clone(),
+                    entry.end_column.clone(),
+                ],
+            )
+        } else {
+            return None;
+        };
         let table = self.connection.current_schema().get_table(&table_name)?;
         let mut columns = Vec::new();
         for index in 0.. {

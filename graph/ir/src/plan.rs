@@ -78,6 +78,7 @@ pub struct NodeScan {
 #[derive(Clone, Debug, PartialEq)]
 pub struct FixedExpand {
     pub input: Box<Plan>,
+    pub from_node_source: SourceTableId,
     pub relationship_source: SourceTableId,
     pub target_node_source: SourceTableId,
     pub from: BindingId,
@@ -97,6 +98,7 @@ pub struct FixedExpand {
 pub struct GraphExpand {
     pub input: Box<Plan>,
     pub graph: GraphId,
+    pub from_node_source: SourceTableId,
     pub relationship_source: SourceTableId,
     pub target_node_source: SourceTableId,
     pub from: BindingId,

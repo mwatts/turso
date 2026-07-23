@@ -22,6 +22,10 @@ pub struct RelationshipTableLayout {
 pub trait RelationalCatalogSnapshot {
     fn node_layout(&self, source: ir::SourceTableId) -> Option<NodeTableLayout>;
     fn relationship_layout(&self, source: ir::SourceTableId) -> Option<RelationshipTableLayout>;
+    /// Whether label/type junction rows include `source_id`.
+    fn source_qualified_membership(&self) -> bool {
+        false
+    }
     fn property_column(
         &self,
         source: ir::SourceTableId,
@@ -117,6 +121,7 @@ enum EntityKind {
 #[derive(Clone)]
 struct BindingLayout {
     source: ir::SourceTableId,
+    sources: std::collections::BTreeSet<ir::SourceTableId>,
     kind: EntityKind,
     /// Property ids whose values ride along as materialized columns
     /// (named by `property_column_ref`) in this plan node's output.
@@ -133,10 +138,16 @@ pub(crate) struct LoweredMutationInput {
     bindings: HashMap<ir::BindingId, BindingLayout>,
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub(crate) enum MutationEntityKind {
     Node,
     Relationship,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub(crate) enum MutationRowColumn {
+    Value(ir::BindingId),
+    Source(ir::BindingId, MutationEntityKind),
 }
 
 pub(crate) fn lower_mutation_input(
@@ -172,6 +183,7 @@ pub(crate) fn lower_mutation_expression(
             *binding,
             BindingLayout {
                 source: *source,
+                sources: [*source].into_iter().collect(),
                 kind: match kind {
                     MutationEntityKind::Node => EntityKind::Node,
                     MutationEntityKind::Relationship => EntityKind::Relationship,
@@ -183,19 +195,39 @@ pub(crate) fn lower_mutation_expression(
     lower_expression_with_references(expression, &bindings, catalog, "q", references)
 }
 
-pub(crate) fn mutation_rows_sql(
+pub(crate) fn mutation_rows_with_sources_sql(
     input: &LoweredMutationInput,
     bindings: &[ir::BindingId],
-) -> String {
+) -> (String, Vec<MutationRowColumn>) {
     if bindings.is_empty() {
-        return format!("SELECT 1 FROM ({}) AS q", input.sql);
+        return (format!("SELECT 1 FROM ({}) AS q", input.sql), Vec::new());
     }
-    let columns = bindings
-        .iter()
-        .map(|binding| format!("q.{}", binding_column(*binding)))
-        .collect::<Vec<_>>()
-        .join(", ");
-    format!("SELECT {columns} FROM ({}) AS q", input.sql)
+    let mut columns = Vec::new();
+    let mut row_columns = Vec::new();
+    for binding in bindings {
+        columns.push(format!("q.{}", binding_column(*binding)));
+        row_columns.push(MutationRowColumn::Value(*binding));
+        let Some(layout) = input.bindings.get(binding) else {
+            continue;
+        };
+        let source = if layout.sources.len() == 1 {
+            layout.source.get().to_string()
+        } else {
+            format!("q.{}", source_column_ref(*binding))
+        };
+        columns.push(source);
+        row_columns.push(MutationRowColumn::Source(
+            *binding,
+            match layout.kind {
+                EntityKind::Node => MutationEntityKind::Node,
+                EntityKind::Relationship => MutationEntityKind::Relationship,
+            },
+        ));
+    }
+    (
+        format!("SELECT {} FROM ({}) AS q", columns.join(", "), input.sql),
+        row_columns,
+    )
 }
 
 pub(crate) fn quoted_identifier(identifier: &str) -> String {
@@ -251,6 +283,10 @@ fn property_column_ref(binding: ir::BindingId, property: ir::PropertyId) -> Stri
     format!("{}_p{}", binding_column(binding), property.get())
 }
 
+fn source_column_ref(binding: ir::BindingId) -> String {
+    format!("{}_source", binding_column(binding))
+}
+
 fn resolved_property_column(
     catalog: &dyn RelationalCatalogSnapshot,
     source: ir::SourceTableId,
@@ -274,6 +310,7 @@ fn materialize_properties(
     alias: &str,
     catalog: &dyn RelationalCatalogSnapshot,
     layout: &mut BindingLayout,
+    null_probe: Option<&str>,
 ) -> String {
     let Some(properties) = wanted.get(&binding) else {
         return String::new();
@@ -289,9 +326,17 @@ fn materialize_properties(
         let Some(column) = resolved_property_column(catalog, source, semantic_types, id) else {
             continue;
         };
+        let value = format!("{alias}.{}", quote_identifier(&column));
+        let value = if catalog.property_column_is_jsonb(source, id) {
+            format!("json({value})")
+        } else {
+            value
+        };
+        let value = null_probe.map_or(value.clone(), |null_probe| {
+            format!("CASE WHEN {null_probe} IS NULL THEN NULL ELSE {value} END")
+        });
         columns.push_str(&format!(
-            ", {alias}.{} AS {}",
-            quote_identifier(&column),
+            ", {value} AS {}",
             property_column_ref(binding, id)
         ));
         layout.properties.insert(*property);
@@ -510,7 +555,15 @@ fn lower_plan(
                     if let Some(layout) = input.bindings.get(source_binding) {
                         let mut layout = layout.clone();
                         layout.properties.clear();
+                        let multiple_sources = layout.sources.len() > 1;
                         bindings.insert(grouping.output.id(), layout);
+                        if multiple_sources {
+                            let source_sql = format!("q.{}", source_column_ref(*source_binding));
+                            let source_column = source_column_ref(grouping.output.id());
+                            selects.push(format!("{source_sql} AS {source_column}"));
+                            columns.push(source_column);
+                            groups.push(source_sql);
+                        }
                     }
                 }
             }
@@ -645,15 +698,23 @@ fn lower_plan(
         }
         ir::PlanKind::Union(union) => {
             let mut parts = Vec::new();
-            let mut bindings = None;
-            let no_pushdown = WantedProperties::new();
+            let mut bindings: Option<HashMap<ir::BindingId, BindingLayout>> = None;
             for input in union.inputs() {
-                let lowered = lower_plan(input, catalog, optional, &no_pushdown)?;
+                let lowered = lower_plan(input, catalog, optional, wanted)?;
                 // Branch column names differ (per-branch binding ids); SQL
                 // set operators combine positionally and the first branch's
                 // names win, matching this Union node's scope.
                 parts.push(format!("SELECT q.* FROM ({}) AS q", lowered.sql));
-                if bindings.is_none() {
+                if let Some(combined) = &mut bindings {
+                    for (binding, layout) in lowered.bindings {
+                        if let Some(existing) = combined.get_mut(&binding) {
+                            existing.sources.extend(layout.sources);
+                            existing
+                                .properties
+                                .retain(|property| layout.properties.contains(property));
+                        }
+                    }
+                } else {
                     bindings = Some(lowered.bindings);
                 }
             }
@@ -676,11 +737,21 @@ fn lower_graph_expand(
     wanted: &WantedProperties,
 ) -> Result<Lowered, LowerError> {
     let input = lower_plan(&expand.input, catalog, false, wanted)?;
-    let from = input
+    if !input.bindings.contains_key(&expand.from) {
+        return Err(LowerError::MissingBinding(expand.from));
+    }
+    let source_join = input
         .bindings
         .get(&expand.from)
-        .cloned()
-        .ok_or(LowerError::MissingBinding(expand.from))?;
+        .filter(|layout| layout.sources.len() > 1)
+        .map(|_| {
+            format!(
+                " ON q.{} = {}",
+                source_column_ref(expand.from),
+                expand.from_node_source.get()
+            )
+        })
+        .unwrap_or_default();
     let relationship = catalog
         .relationship_layout(expand.relationship_source)
         .ok_or(LowerError::MissingSource(expand.relationship_source))?;
@@ -709,6 +780,7 @@ fn lower_graph_expand(
         expand.relationship.id(),
         BindingLayout {
             source: expand.relationship_source,
+            sources: [expand.relationship_source].into_iter().collect(),
             kind: EntityKind::Relationship,
             properties: Default::default(),
         },
@@ -717,6 +789,7 @@ fn lower_graph_expand(
         expand.to.id(),
         BindingLayout {
             source: expand.target_node_source,
+            sources: [expand.target_node_source].into_iter().collect(),
             kind: EntityKind::Node,
             properties: Default::default(),
         },
@@ -778,23 +851,27 @@ fn lower_graph_expand(
         let aggregates = aggregates.join(", ");
         return Ok(Lowered {
             sql: format!(
-                "SELECT g.*, r.{} AS {}, n.{} AS {} \
+                "SELECT g.*, r.{} AS {}, {} AS {}, n.{} AS {}, {} AS {} \
                  FROM (SELECT {}{aggregates}, \
                  max(CASE WHEN gx.is_terminal = 1 THEN gx.node_identity END) AS __gx_node, \
                  max(CASE WHEN gx.is_terminal = 1 THEN gx.relationship_identity END) AS __gx_rel \
                  FROM ({}) AS q \
-                 JOIN __turso_graph_expand({}, {}, q.{}, '{}', '{}', {}, {}, {}, '{}', {}, {}, {}, {}, {}) AS gx \
+                 JOIN __turso_graph_expand({}, {}, q.{}, '{}', '{}', {}, {}, {}, '{}', {}, {}, {}, {}, {}) AS gx{source_join} \
                  GROUP BY {}gx.path_id) AS g \
                  JOIN {} AS n ON n.{} = g.__gx_node \
                  LEFT JOIN {} AS r ON r.{} = g.__gx_rel",
                 quote_identifier(&relationship.identity_column),
                 binding_column(expand.relationship.id()),
+                expand.relationship_source.get(),
+                source_column_ref(expand.relationship.id()),
                 quote_identifier(&target.identity_column),
                 binding_column(expand.to.id()),
+                expand.target_node_source.get(),
+                source_column_ref(expand.to.id()),
                 inner_select,
                 input.sql,
                 expand.graph.get(),
-                from.source.get(),
+                expand.from_node_source.get(),
                 binding_column(expand.from),
                 direction,
                 relationship_types,
@@ -818,18 +895,22 @@ fn lower_graph_expand(
     }
     Ok(Lowered {
         sql: format!(
-            "SELECT q.*, r.{} AS {}, n.{} AS {} \
+            "SELECT q.*, r.{} AS {}, {} AS {}, n.{} AS {}, {} AS {} \
              FROM ({}) AS q \
-             JOIN __turso_graph_expand({}, {}, q.{}, '{}', '{}', {}, {}, {}, '{}', {}, {}, {}, {}, {}) AS gx \
+             JOIN __turso_graph_expand({}, {}, q.{}, '{}', '{}', {}, {}, {}, '{}', {}, {}, {}, {}, {}) AS gx{source_join} \
              JOIN {} AS n ON gx.is_terminal = 1 AND gx.node_source_id = {} AND n.{} = gx.node_identity \
              LEFT JOIN {} AS r ON gx.relationship_source_id = {} AND r.{} = gx.relationship_identity",
             quote_identifier(&relationship.identity_column),
             binding_column(expand.relationship.id()),
+            expand.relationship_source.get(),
+            source_column_ref(expand.relationship.id()),
             quote_identifier(&target.identity_column),
             binding_column(expand.to.id()),
+            expand.target_node_source.get(),
+            source_column_ref(expand.to.id()),
             input.sql,
             expand.graph.get(),
-            from.source.get(),
+            expand.from_node_source.get(),
             binding_column(expand.from),
             direction,
             relationship_types,
@@ -887,6 +968,39 @@ fn lower_optional_chain(
         ir::PlanKind::FixedExpand(expand) => {
             lower_fixed_expand(expand, catalog, true, &predicates, wanted, boundary)
         }
+        ir::PlanKind::Union(union) => {
+            let mut parts = Vec::new();
+            let mut bindings: Option<HashMap<ir::BindingId, BindingLayout>> = None;
+            for branch in union.inputs() {
+                let lowered = match branch.kind() {
+                    ir::PlanKind::FixedExpand(expand) => {
+                        lower_fixed_expand(expand, catalog, true, &predicates, wanted, boundary)?
+                    }
+                    _ => lower_optional_chain(branch, boundary, catalog, wanted)?,
+                };
+                parts.push(format!("SELECT q.* FROM ({}) AS q", lowered.sql));
+                if let Some(combined) = &mut bindings {
+                    for (binding, layout) in lowered.bindings {
+                        if let Some(existing) = combined.get_mut(&binding) {
+                            existing.sources.extend(layout.sources);
+                            existing
+                                .properties
+                                .retain(|property| layout.properties.contains(property));
+                        }
+                    }
+                } else {
+                    bindings = Some(lowered.bindings);
+                }
+            }
+            Ok(Lowered {
+                sql: parts.join(if union.is_all() {
+                    " UNION ALL "
+                } else {
+                    " UNION "
+                }),
+                bindings: bindings.unwrap_or_default(),
+            })
+        }
         _ => lower_plan(original, catalog, false, wanted),
     }
 }
@@ -909,18 +1023,28 @@ fn lower_project(
         .projections
         .iter()
         .map(|projection| {
+            let mut source_projection = None;
             if let ir::Expression::Binding(input_binding) = projection.expression.expression {
                 if let Some(layout) = input.bindings.get(&input_binding) {
                     let mut layout = layout.clone();
                     layout.properties.clear();
+                    let multiple_sources = layout.sources.len() > 1;
                     bindings.insert(projection.output.id(), layout);
+                    if multiple_sources {
+                        source_projection = Some(format!(
+                            ", q.{} AS {}",
+                            source_column_ref(input_binding),
+                            source_column_ref(projection.output.id())
+                        ));
+                    }
                 }
             }
             let expression =
                 lower_expression(&projection.expression, &input.bindings, catalog, "q")?;
             Ok(format!(
-                "{expression} AS {}",
-                binding_column(projection.output.id())
+                "{expression} AS {}{}",
+                binding_column(projection.output.id()),
+                source_projection.unwrap_or_default(),
             ))
         })
         .collect::<Result<Vec<_>, LowerError>>()?
@@ -969,6 +1093,7 @@ fn lower_node_scan(
     let mut bindings = HashMap::new();
     let mut binding_layout = BindingLayout {
         source: scan.source,
+        sources: [scan.source].into_iter().collect(),
         kind: EntityKind::Node,
         properties: Default::default(),
     };
@@ -979,12 +1104,15 @@ fn lower_node_scan(
         "n",
         catalog,
         &mut binding_layout,
+        None,
     );
     bindings.insert(scan.binding, binding_layout);
     let mut sql = format!(
-        "SELECT n.{} AS {}{extra} FROM {} AS n",
+        "SELECT n.{} AS {}, {} AS {}{extra} FROM {} AS n",
         quote_identifier(&layout.identity_column),
         binding_column(scan.binding),
+        scan.source.get(),
+        source_column_ref(scan.binding),
         quote_identifier(&layout.table)
     );
     // Filter labeled scans through the node-label junction when available.
@@ -993,8 +1121,14 @@ fn lower_node_scan(
     if let Some(labels_table) = catalog.labels_table() {
         for (index, label) in scan.labels.iter().enumerate() {
             if let Some(name) = catalog.label_name(*label) {
+                let source_predicate = if catalog.source_qualified_membership() {
+                    format!("lbl{index}.source_id = {} AND ", scan.source.get())
+                } else {
+                    String::new()
+                };
                 sql.push_str(&format!(
-                    " JOIN {} AS lbl{index} ON lbl{index}.node_id = n.{} AND lbl{index}.label = '{}'",
+                    " JOIN {} AS lbl{index} ON {source_predicate}\
+                     lbl{index}.node_id = n.{} AND lbl{index}.label = '{}'",
                     quote_identifier(&labels_table),
                     quote_identifier(&layout.identity_column),
                     name.replace('\'', "''")
@@ -1017,6 +1151,20 @@ fn lower_fixed_expand(
         lower_optional_chain(&expand.input, boundary, catalog, wanted)?
     } else {
         lower_plan(&expand.input, catalog, false, wanted)?
+    };
+    let needs_source_filter = input
+        .bindings
+        .get(&expand.from)
+        .is_some_and(|layout| layout.sources.len() > 1);
+    let input_sql = if needs_source_filter {
+        format!(
+            "SELECT source_q.* FROM ({}) AS source_q WHERE source_q.{} = {}",
+            input.sql,
+            source_column_ref(expand.from),
+            expand.from_node_source.get()
+        )
+    } else {
+        input.sql.clone()
     };
     let relationship = catalog
         .relationship_layout(expand.relationship_source)
@@ -1113,9 +1261,14 @@ fn lower_fixed_expand(
         if names.is_empty() {
             relationship_on
         } else {
+            let source_predicate = if catalog.source_qualified_membership() {
+                format!("jt.source_id = {} AND ", expand.relationship_source.get())
+            } else {
+                String::new()
+            };
             format!(
                 "({relationship_on}) AND EXISTS (SELECT 1 FROM {} AS jt \
-                 WHERE jt.relationship_id = {relationship_alias}.{} \
+                 WHERE {source_predicate}jt.relationship_id = {relationship_alias}.{} \
                  AND jt.type IN ({}))",
                 quote_identifier(&types_table),
                 quote_identifier(&relationship.identity_column),
@@ -1130,6 +1283,7 @@ fn lower_fixed_expand(
         expand.relationship.id(),
         BindingLayout {
             source: expand.relationship_source,
+            sources: [expand.relationship_source].into_iter().collect(),
             kind: EntityKind::Relationship,
             properties: Default::default(),
         },
@@ -1138,45 +1292,11 @@ fn lower_fixed_expand(
         expand.to.id(),
         BindingLayout {
             source: expand.target_node_source,
+            sources: [expand.target_node_source].into_iter().collect(),
             kind: EntityKind::Node,
             properties: Default::default(),
         },
     );
-    // Optional expands keep the subquery fallback: LEFT JOIN column
-    // nullability for the relationship depends on the target match.
-    let mut extra = String::new();
-    if !optional {
-        let mut relationship_layout = bindings
-            .get(&expand.relationship.id())
-            .cloned()
-            .expect("inserted above");
-        extra.push_str(&materialize_properties(
-            wanted,
-            expand.relationship.id(),
-            expand.relationship_source,
-            relationship_alias,
-            catalog,
-            &mut relationship_layout,
-        ));
-        // A cycle-closing target has no node alias to materialize from;
-        // downstream references go through the pre-bound variable instead.
-        if bound_reference.is_none() {
-            let mut to_layout = bindings
-                .get(&expand.to.id())
-                .cloned()
-                .expect("inserted above");
-            extra.push_str(&materialize_properties(
-                wanted,
-                expand.to.id(),
-                expand.target_node_source,
-                target_alias,
-                catalog,
-                &mut to_layout,
-            ));
-            bindings.insert(expand.to.id(), to_layout);
-        }
-        bindings.insert(expand.relationship.id(), relationship_layout);
-    }
     if !join_predicates.is_empty() {
         let references = HashMap::from([
             (
@@ -1220,6 +1340,39 @@ fn lower_fixed_expand(
             quote_identifier(&target.identity_column)
         ),
     };
+    let optional_probe = optional.then_some(null_probe.as_str());
+    let mut relationship_layout = bindings
+        .get(&expand.relationship.id())
+        .cloned()
+        .expect("inserted above");
+    let mut extra = materialize_properties(
+        wanted,
+        expand.relationship.id(),
+        expand.relationship_source,
+        relationship_alias,
+        catalog,
+        &mut relationship_layout,
+        optional_probe,
+    );
+    // A cycle-closing target has no node alias to materialize from;
+    // downstream references go through the pre-bound variable instead.
+    if bound_reference.is_none() {
+        let mut to_layout = bindings
+            .get(&expand.to.id())
+            .cloned()
+            .expect("inserted above");
+        extra.push_str(&materialize_properties(
+            wanted,
+            expand.to.id(),
+            expand.target_node_source,
+            target_alias,
+            catalog,
+            &mut to_layout,
+            optional_probe,
+        ));
+        bindings.insert(expand.to.id(), to_layout);
+    }
+    bindings.insert(expand.relationship.id(), relationship_layout);
     let relationship_identity = if optional {
         format!(
             "CASE WHEN {null_probe} IS NULL THEN NULL ELSE {relationship_alias}.{} END",
@@ -1250,11 +1403,16 @@ fn lower_fixed_expand(
     };
     Ok(Lowered {
         sql: format!(
-            "SELECT q.*, {relationship_identity} AS {}, {target_value} AS {}{extra} \
+            "SELECT q.*, {relationship_identity} AS {}, {} AS {}, \
+             {target_value} AS {}, {} AS {}{extra} \
              FROM ({}) AS q {join} {} AS {relationship_alias} ON {relationship_on}{node_join}",
             binding_column(expand.relationship.id()),
+            expand.relationship_source.get(),
+            source_column_ref(expand.relationship.id()),
             binding_column(expand.to.id()),
-            input.sql,
+            expand.target_node_source.get(),
+            source_column_ref(expand.to.id()),
+            input_sql,
             quote_identifier(&relationship.table),
         ),
         bindings,
@@ -1300,18 +1458,16 @@ fn lower_expression_with_references(
             // direct reference replaces the correlated subquery. Reference
             // overrides (mutation rows, join predicates) bypass this: their
             // contexts never carry materialized property columns.
-            let jsonb = catalog.property_column_is_jsonb(binding.source, *property);
             if fields.is_empty()
                 && binding.properties.contains(&property.get())
                 && !references.contains_key(entity)
             {
-                let column = format!("{input_alias}.{}", property_column_ref(*entity, *property));
-                return Ok(if jsonb {
-                    format!("json({column})")
-                } else {
-                    column
-                });
+                return Ok(format!(
+                    "{input_alias}.{}",
+                    property_column_ref(*entity, *property)
+                ));
             }
+            let jsonb = catalog.property_column_is_jsonb(binding.source, *property);
             let column =
                 resolved_property_column(catalog, binding.source, semantic_types, *property)
                     .ok_or(LowerError::MissingProperty {
@@ -1884,23 +2040,6 @@ fn lower_expression_with_references(
                     ));
                 };
                 let layout = bindings.get(id).ok_or(LowerError::MissingBinding(*id))?;
-                let columns = catalog.payload_columns(layout.source).ok_or(
-                    LowerError::UnsupportedOperator("properties() without payload columns"),
-                )?;
-                let (table, identity) = match layout.kind {
-                    EntityKind::Node => {
-                        let layout = catalog
-                            .node_layout(layout.source)
-                            .ok_or(LowerError::MissingSource(layout.source))?;
-                        (layout.table, layout.identity_column)
-                    }
-                    EntityKind::Relationship => {
-                        let layout = catalog
-                            .relationship_layout(layout.source)
-                            .ok_or(LowerError::MissingSource(layout.source))?;
-                        (layout.table, layout.identity_column)
-                    }
-                };
                 let identity_value = lower_expression_with_references(
                     argument,
                     bindings,
@@ -1908,34 +2047,94 @@ fn lower_expression_with_references(
                     input_alias,
                     references,
                 )?;
-                let pairs = columns
-                    .iter()
-                    .map(|(logical, physical)| {
-                        format!(
-                            "'{}', prp.{}",
-                            logical.replace('\'', "''"),
-                            quote_identifier(physical)
-                        )
-                    })
+                let mut branches = Vec::new();
+                for source in &layout.sources {
+                    let columns =
+                        if let Some(properties) = catalog.semantic_properties(*source, &[]) {
+                            properties
+                                .into_iter()
+                                .map(|(_, name, _, column)| (name, column))
+                                .collect()
+                        } else {
+                            catalog.payload_columns(*source).ok_or(
+                                LowerError::UnsupportedOperator(
+                                    "properties() without payload columns",
+                                ),
+                            )?
+                        };
+                    let (table, identity) = match layout.kind {
+                        EntityKind::Node => {
+                            let source_layout = catalog
+                                .node_layout(*source)
+                                .ok_or(LowerError::MissingSource(*source))?;
+                            (source_layout.table, source_layout.identity_column)
+                        }
+                        EntityKind::Relationship => {
+                            let source_layout = catalog
+                                .relationship_layout(*source)
+                                .ok_or(LowerError::MissingSource(*source))?;
+                            (source_layout.table, source_layout.identity_column)
+                        }
+                    };
+                    let pairs = columns
+                        .iter()
+                        .map(|(logical, physical)| {
+                            format!(
+                                "'{}', prp.{}",
+                                logical.replace('\'', "''"),
+                                quote_identifier(physical)
+                            )
+                        })
+                        .collect::<Vec<_>>()
+                        .join(", ");
+                    let object = if pairs.is_empty() {
+                        "json_object()".to_owned()
+                    } else {
+                        format!("json_object({pairs})")
+                    };
+                    // json_group_object over json_each strips null-valued
+                    // keys, matching Cypher's properties() (absent, not null).
+                    let sql = format!(
+                        "(SELECT coalesce(json_group_object(je.key, je.value), json_object()) \
+                         FROM json_each((SELECT {object} FROM {} AS prp \
+                         WHERE prp.{} = ({identity_value}))) AS je \
+                         WHERE je.value IS NOT NULL)",
+                        quote_identifier(&table),
+                        quote_identifier(&identity),
+                    );
+                    branches.push((*source, sql));
+                }
+                if let [(_, sql)] = branches.as_slice() {
+                    return Ok(sql.clone());
+                }
+                let source_value = format!("{input_alias}.{}", source_column_ref(*id));
+                let cases = branches
+                    .into_iter()
+                    .map(|(source, sql)| format!("WHEN {} THEN {sql}", source.get()))
                     .collect::<Vec<_>>()
-                    .join(", ");
-                let object = if pairs.is_empty() {
-                    "json_object()".to_owned()
-                } else {
-                    format!("json_object({pairs})")
-                };
-                // json_group_object over json_each strips null-valued keys,
-                // matching Cypher's properties() (absent, not null); the
-                // COALESCE keeps a propertyless entity at {} instead of null.
+                    .join(" ");
                 return Ok(format!(
-                    "(SELECT coalesce(json_group_object(je.key, je.value), json_object()) \
-                     FROM json_each((SELECT {object} FROM {} AS prp \
-                     WHERE prp.{} = ({identity_value}))) AS je \
-                     WHERE je.value IS NOT NULL)",
-                    quote_identifier(&table),
-                    quote_identifier(&identity),
+                    "(CASE {source_value} {cases} ELSE json_object() END)"
                 ));
             }
+            let source_reference = arguments.first().and_then(|argument| {
+                let ir::Expression::Binding(binding) = &argument.expression else {
+                    return None;
+                };
+                let layout = bindings.get(binding)?;
+                if layout.sources.len() == 1 {
+                    Some(
+                        layout
+                            .sources
+                            .first()
+                            .expect("one source")
+                            .get()
+                            .to_string(),
+                    )
+                } else {
+                    Some(format!("{input_alias}.{}", source_column_ref(*binding)))
+                }
+            });
             let arguments = arguments
                 .iter()
                 .map(|argument| {
@@ -2003,10 +2202,18 @@ fn lower_expression_with_references(
                     let Some(table) = catalog.relationship_types_table() else {
                         return Ok("NULL".to_owned());
                     };
+                    let source_predicate = if catalog.source_qualified_membership() {
+                        format!(
+                            "jt.source_id = {} AND ",
+                            source_reference.as_deref().unwrap_or("-1")
+                        )
+                    } else {
+                        String::new()
+                    };
                     return Ok(format!(
                         "(SELECT jt.type FROM {} AS jt \
-                         WHERE jt.relationship_id = ({value}) LIMIT 1)",
-                        quote_identifier(&table)
+                         WHERE {source_predicate}jt.relationship_id = ({value}) LIMIT 1)",
+                        quote_identifier(&table),
                     ));
                 }
                 ("__cypher_all_relationship_types", []) => {
@@ -2027,10 +2234,18 @@ fn lower_expression_with_references(
                         .ok_or(LowerError::UnsupportedOperator(
                             "labels() without a label table",
                         ))?;
+                    let source_predicate = if catalog.source_qualified_membership() {
+                        format!(
+                            "lbl.source_id = {} AND ",
+                            source_reference.as_deref().unwrap_or("-1")
+                        )
+                    } else {
+                        String::new()
+                    };
                     return Ok(format!(
                         "(SELECT json_group_array(label) FROM (SELECT lbl.label FROM {} AS lbl \
-                         WHERE lbl.node_id = ({value}) ORDER BY lbl.rowid))",
-                        quote_identifier(&table)
+                         WHERE {source_predicate}lbl.node_id = ({value}) ORDER BY lbl.rowid))",
+                        quote_identifier(&table),
                     ));
                 }
                 ("__cypher_label", [value]) => {
@@ -2039,10 +2254,19 @@ fn lower_expression_with_references(
                         .ok_or(LowerError::UnsupportedOperator(
                             "label() without a label table",
                         ))?;
+                    let source_predicate = if catalog.source_qualified_membership() {
+                        format!(
+                            "lbl.source_id = {} AND ",
+                            source_reference.as_deref().unwrap_or("-1")
+                        )
+                    } else {
+                        String::new()
+                    };
                     return Ok(format!(
-                        "(SELECT lbl.label FROM {} AS lbl WHERE lbl.node_id = ({value}) \
+                        "(SELECT lbl.label FROM {} AS lbl WHERE \
+                         {source_predicate}lbl.node_id = ({value}) \
                          ORDER BY lbl.rowid LIMIT 1)",
-                        quote_identifier(&table)
+                        quote_identifier(&table),
                     ));
                 }
                 ("__cypher_has_label", [value, name]) => {
@@ -2051,10 +2275,19 @@ fn lower_expression_with_references(
                     let Some(table) = catalog.labels_table() else {
                         return Ok("TRUE".to_owned());
                     };
+                    let source_predicate = if catalog.source_qualified_membership() {
+                        format!(
+                            "lbl.source_id = {} AND ",
+                            source_reference.as_deref().unwrap_or("-1")
+                        )
+                    } else {
+                        String::new()
+                    };
                     return Ok(format!(
-                        "EXISTS (SELECT 1 FROM {} AS lbl WHERE lbl.node_id = ({value}) \
+                        "EXISTS (SELECT 1 FROM {} AS lbl WHERE \
+                         {source_predicate}lbl.node_id = ({value}) \
                          AND lbl.label = ({name}))",
-                        quote_identifier(&table)
+                        quote_identifier(&table),
                     ));
                 }
                 ("__cypher_keys", [value]) => {
@@ -2340,6 +2573,7 @@ mod tests {
             entity,
             BindingLayout {
                 source,
+                sources: [source].into_iter().collect(),
                 kind: EntityKind::Node,
                 properties: Default::default(),
             },
@@ -2364,10 +2598,9 @@ mod tests {
 
     #[test]
     fn mutation_rows_preserve_one_unit_row_without_bindings() {
-        assert_eq!(
-            mutation_rows_sql(&unit_mutation_input(), &[]),
-            "SELECT 1 FROM (SELECT 1 AS __unit) AS q"
-        );
+        let (sql, columns) = mutation_rows_with_sources_sql(&unit_mutation_input(), &[]);
+        assert_eq!(sql, "SELECT 1 FROM (SELECT 1 AS __unit) AS q");
+        assert!(columns.is_empty());
     }
 
     #[test]
@@ -2529,6 +2762,7 @@ mod tests {
             entity,
             BindingLayout {
                 source,
+                sources: [source].into_iter().collect(),
                 kind: EntityKind::Node,
                 properties: Default::default(),
             },

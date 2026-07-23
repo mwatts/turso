@@ -155,7 +155,7 @@
   .article th { color: var(--text-primary); background: var(--page); font-weight: 650; }
   .article code { font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; font-size: 12px; background: var(--page); border: 1px solid var(--grid); border-radius: 4px; padding: 0 4px; }
   .article b, .article strong { color: var(--text-primary); }
-  .changed { border-left: 3px solid var(--c-1); padding-left: 12px; }
+  .changed { background: var(--page); border-radius: 8px; padding: 12px; }
   /* raw json */
   #json-pre {
     max-width: 1100px; margin: 0 auto; background: var(--surface-1);
@@ -477,7 +477,7 @@
       "type": "component",
       "layer": "Graph/Cypher Frontend",
       "path": "graph/frontend/src/catalog.rs",
-      "description": "The catalog module is 1,342 LOC. register_graph() writes into internal SQLite tables — __turso_internal_graph_graphs, __turso_internal_graph_sources, __turso_internal_graph_node_sources, and __turso_internal_graph_relationship_sources — inside a BEGIN IMMEDIATE/SAVEPOINT block, for transactional registration. The module also owns labels_table_name, relationship_types_table_name, and relationship_type_registry_table_name, which name per-graph label and relationship-type junction tables (__turso_graph_node_labels_{id}, __turso_graph_relationship_types_{id}); a MATCH (n:Label) pattern joins against these tables. Today the catalog supports only one node source and one relationship source per graph; CatalogError::MultipleSourcesUnsupported signals the limit."
+      "description": "The catalog module persists graph definitions in internal SQLite tables — __turso_internal_graph_graphs, __turso_internal_graph_sources, __turso_internal_graph_node_sources, and __turso_internal_graph_relationship_sources — inside a BEGIN IMMEDIATE/SAVEPOINT block. It supports multiple node and relationship sources with stable source IDs and physical endpoint mappings. The module also owns labels_table_name, relationship_types_table_name, and relationship_type_registry_table_name, which name source-qualified per-graph membership tables."
     },
     {
       "id": "graph-lowering",

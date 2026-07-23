@@ -8,8 +8,9 @@ use crate::{
     bind_mutation,
     binder::{BoundMutation, StageItem, StageProjection},
     lowering::{
-        lower_mutation_expression, lower_mutation_input, mutation_rows_sql, quoted_identifier,
-        unit_mutation_input, LoweredMutationInput, MutationEntityKind,
+        lower_mutation_expression, lower_mutation_input, mutation_rows_with_sources_sql,
+        quoted_identifier, unit_mutation_input, LoweredMutationInput, MutationEntityKind,
+        MutationRowColumn,
     },
     BindError, GraphCompilationCatalog, LowerError, ParameterTypes,
 };
@@ -45,6 +46,11 @@ pub enum MutationError {
     MissingCreatedIdentity { entity: &'static str },
     #[error("mutation references binding {0} before it has a value")]
     MissingBinding(ir::BindingId),
+    #[error("mutation binding {binding} has invalid source provenance {value:?}")]
+    InvalidSourceProvenance {
+        binding: ir::BindingId,
+        value: Value,
+    },
     #[error("cannot delete node while relationships still reference it; use DETACH DELETE")]
     NodeHasRelationships,
     #[error("runtime value for property `{property}` is not assignable to {expected:?}")]
@@ -61,6 +67,69 @@ pub enum MutationError {
         cause: Box<MutationError>,
         rollback: turso_core::LimboError,
     },
+}
+
+#[derive(Clone)]
+struct MutationRow {
+    values: HashMap<ir::BindingId, Value>,
+    entity_layouts: HashMap<ir::BindingId, (ir::SourceTableId, MutationEntityKind)>,
+}
+
+fn decode_mutation_rows(
+    rows: Vec<Vec<Value>>,
+    columns: &[MutationRowColumn],
+) -> Result<Vec<MutationRow>, MutationError> {
+    rows.into_iter()
+        .map(|row| {
+            assert_eq!(
+                row.len(),
+                columns.len(),
+                "mutation row shape must match its lowering metadata"
+            );
+            let mut values = HashMap::new();
+            let mut entity_layouts = HashMap::new();
+            for (column, value) in columns.iter().zip(row) {
+                match column {
+                    MutationRowColumn::Value(binding) => {
+                        values.insert(*binding, value);
+                    }
+                    MutationRowColumn::Source(binding, kind) => {
+                        let Value::Numeric(Numeric::Integer(source)) = value else {
+                            return Err(MutationError::InvalidSourceProvenance {
+                                binding: *binding,
+                                value,
+                            });
+                        };
+                        let source = u64::try_from(source)
+                            .ok()
+                            .and_then(|source| ir::SourceTableId::new(source).ok())
+                            .ok_or(MutationError::InvalidSourceProvenance {
+                                binding: *binding,
+                                value: Value::Numeric(Numeric::Integer(source)),
+                            })?;
+                        entity_layouts.insert(*binding, (source, *kind));
+                    }
+                }
+            }
+            Ok(MutationRow {
+                values,
+                entity_layouts,
+            })
+        })
+        .collect()
+}
+
+fn mutation_source(
+    source: ir::MutationSource,
+    entity_layouts: &HashMap<ir::BindingId, (ir::SourceTableId, MutationEntityKind)>,
+) -> Result<ir::SourceTableId, MutationError> {
+    match source {
+        ir::MutationSource::Static(source) => Ok(source),
+        ir::MutationSource::Binding(binding) => entity_layouts
+            .get(&binding)
+            .map(|(source, _)| *source)
+            .ok_or(MutationError::MissingBinding(binding)),
+    }
 }
 
 fn check_runtime_value(
@@ -253,37 +322,21 @@ fn execute_bound(
                 .collect::<Vec<_>>()
         })
         .unwrap_or_default();
-    let initial = if request.input.is_some() {
-        let sql = mutation_rows_sql(input, &input_bindings);
-        run_rows(connection, &sql, parameters, &HashMap::new())?
+    let mut rows = if request.input.is_some() {
+        let (sql, columns) = mutation_rows_with_sources_sql(input, &input_bindings);
+        decode_mutation_rows(
+            run_rows(connection, &sql, parameters, &HashMap::new())?,
+            &columns,
+        )?
     } else {
-        vec![Vec::new()]
+        vec![MutationRow {
+            values: HashMap::new(),
+            entity_layouts: HashMap::new(),
+        }]
     };
-    let matched_rows = initial.len() as u64;
+    let matched_rows = rows.len() as u64;
     let mut operations_executed = 0_u64;
-    // Every binding kind is known at bind time, so relational layouts for
-    // projected entities can be resolved up front.
-    let mut entity_layouts: HashMap<ir::BindingId, (ir::SourceTableId, MutationEntityKind)> =
-        HashMap::new();
-    for (id, kind) in &bound.entity_kinds {
-        let (source, kind) = match kind {
-            crate::CatalogEntity::Node => {
-                (catalog.node_source(request.graph), MutationEntityKind::Node)
-            }
-            crate::CatalogEntity::Relationship => (
-                catalog.relationship_source(request.graph),
-                MutationEntityKind::Relationship,
-            ),
-        };
-        if let Some(source) = source {
-            entity_layouts.insert(*id, (source, kind));
-        }
-    }
-    let mut rows: Vec<HashMap<ir::BindingId, Value>> = initial
-        .into_iter()
-        .map(|row| input_bindings.iter().copied().zip(row).collect())
-        .collect();
-    for values in &mut rows {
+    for row in &mut rows {
         for operation in &request.operations {
             execute_operation(
                 connection,
@@ -292,8 +345,8 @@ fn execute_bound(
                 input,
                 operation,
                 parameters,
-                values,
-                &mut entity_layouts,
+                &mut row.values,
+                &mut row.entity_layouts,
             )?;
             operations_executed += 1;
         }
@@ -308,17 +361,8 @@ fn execute_bound(
             stage.predicate.as_ref(),
             stage.distinct,
             rows,
-            &entity_layouts,
         )?;
-        rows = sort_stage_rows(
-            connection,
-            catalog,
-            input,
-            parameters,
-            &stage.order,
-            rows,
-            &entity_layouts,
-        )?;
+        rows = sort_stage_rows(connection, catalog, input, parameters, &stage.order, rows)?;
         if let Some(skip) = stage.skip {
             rows.drain(..skip.min(rows.len()));
         }
@@ -328,7 +372,7 @@ fn execute_bound(
         for item in &stage.items {
             match item {
                 StageItem::Operation(operation) => {
-                    for values in &mut rows {
+                    for row in &mut rows {
                         execute_operation(
                             connection,
                             catalog,
@@ -336,14 +380,14 @@ fn execute_bound(
                             input,
                             operation,
                             parameters,
-                            values,
-                            &mut entity_layouts,
+                            &mut row.values,
+                            &mut row.entity_layouts,
                         )?;
                         operations_executed += 1;
                     }
                 }
                 StageItem::Foreach { .. } => {
-                    for values in &mut rows {
+                    for row in &mut rows {
                         run_stage_items_once(
                             connection,
                             catalog,
@@ -351,22 +395,22 @@ fn execute_bound(
                             input,
                             std::slice::from_ref(item),
                             parameters,
-                            values,
-                            &mut entity_layouts,
+                            &mut row.values,
+                            &mut row.entity_layouts,
                             &mut operations_executed,
                         )?;
                     }
                 }
                 StageItem::Unwind { output, list } => {
                     let mut expanded = Vec::new();
-                    for values in &rows {
-                        let references = reference_parameters(values);
+                    for row in &rows {
+                        let references = reference_parameters(&row.values);
                         let sql = lower_mutation_expression(
                             list,
                             input,
                             catalog,
                             &references.sql,
-                            &entity_layouts,
+                            &row.entity_layouts,
                         )?;
                         let elements = run_rows(
                             connection,
@@ -378,8 +422,8 @@ fn execute_bound(
                             let Some(element) = element.pop() else {
                                 continue;
                             };
-                            let mut next = values.clone();
-                            next.insert(*output, element);
+                            let mut next = row.clone();
+                            next.values.insert(*output, element);
                             expanded.push(next);
                         }
                     }
@@ -391,26 +435,29 @@ fn execute_bound(
                     optional,
                 } => {
                     let lowered = lower_mutation_input(plan, catalog)?;
-                    let sql = mutation_rows_sql(&lowered, outputs);
+                    let (sql, columns) = mutation_rows_with_sources_sql(&lowered, outputs);
                     let mut expanded = Vec::new();
-                    for values in &rows {
+                    for row in &rows {
                         // Correlated plans reference the row's bindings
                         // through internal reference parameters.
-                        let references = reference_parameters(values);
-                        let matched = run_rows(connection, &sql, parameters, &references.values)?;
+                        let references = reference_parameters(&row.values);
+                        let matched = decode_mutation_rows(
+                            run_rows(connection, &sql, parameters, &references.values)?,
+                            &columns,
+                        )?;
                         if matched.is_empty() && *optional {
-                            let mut next = values.clone();
+                            let mut next = row.clone();
                             for binding in outputs {
-                                next.insert(*binding, Value::Null);
+                                next.values.insert(*binding, Value::Null);
+                                next.entity_layouts.remove(binding);
                             }
                             expanded.push(next);
                             continue;
                         }
-                        for matched_row in &matched {
-                            let mut next = values.clone();
-                            for (binding, value) in outputs.iter().zip(matched_row) {
-                                next.insert(*binding, value.clone());
-                            }
+                        for matched_row in matched {
+                            let mut next = row.clone();
+                            next.values.extend(matched_row.values);
+                            next.entity_layouts.extend(matched_row.entity_layouts);
                             expanded.push(next);
                         }
                     }
@@ -431,7 +478,6 @@ fn execute_bound(
             None,
             false,
             rows,
-            &entity_layouts,
         )?;
         let order: Vec<ir::BindingId> = bound
             .returns
@@ -443,10 +489,10 @@ fn execute_bound(
             .collect();
         projected
             .into_iter()
-            .map(|values| {
+            .map(|row| {
                 order
                     .iter()
-                    .map(|output| values.get(output).cloned().unwrap_or(Value::Null))
+                    .map(|output| row.values.get(output).cloned().unwrap_or(Value::Null))
                     .collect()
             })
             .collect()
@@ -539,6 +585,27 @@ fn run_stage_items_once(
     Ok(())
 }
 
+fn projected_entity_layouts(
+    projections: &[StageProjection],
+    input: &HashMap<ir::BindingId, (ir::SourceTableId, MutationEntityKind)>,
+) -> HashMap<ir::BindingId, (ir::SourceTableId, MutationEntityKind)> {
+    projections
+        .iter()
+        .filter_map(|projection| {
+            let StageProjection::Expression { output, expression } = projection else {
+                return None;
+            };
+            let ir::Expression::Binding(input_binding) = expression.expression else {
+                return None;
+            };
+            input
+                .get(&input_binding)
+                .copied()
+                .map(|layout| (*output, layout))
+        })
+        .collect()
+}
+
 /// Evaluates a stage's projections over the row set: plain expressions map
 /// row-by-row, aggregates fold with implicit Cypher grouping over the plain
 /// items, then the optional predicate and DISTINCT apply to the output rows.
@@ -551,9 +618,8 @@ fn project_stage(
     projections: &[StageProjection],
     predicate: Option<&ir::TypedExpression>,
     distinct: bool,
-    rows: Vec<HashMap<ir::BindingId, Value>>,
-    entity_layouts: &HashMap<ir::BindingId, (ir::SourceTableId, MutationEntityKind)>,
-) -> Result<Vec<HashMap<ir::BindingId, Value>>, MutationError> {
+    rows: Vec<MutationRow>,
+) -> Result<Vec<MutationRow>, MutationError> {
     if projections.is_empty() {
         assert!(
             predicate.is_none() && !distinct,
@@ -565,9 +631,9 @@ fn project_stage(
         .iter()
         .any(|projection| matches!(projection, StageProjection::Aggregate { .. }));
     // Evaluate every projection input per row in a single SELECT.
-    let mut evaluated: Vec<Vec<Value>> = Vec::with_capacity(rows.len());
-    for values in &rows {
-        let references = reference_parameters(values);
+    let mut evaluated = Vec::with_capacity(rows.len());
+    for row in &rows {
+        let references = reference_parameters(&row.values);
         let columns = projections
             .iter()
             .map(|projection| {
@@ -581,7 +647,7 @@ fn project_stage(
                         input,
                         catalog,
                         &references.sql,
-                        entity_layouts,
+                        &row.entity_layouts,
                     )
                     .map(|sql| format!("({sql})")),
                     // count(*) has no argument; any placeholder counts.
@@ -596,34 +662,46 @@ fn project_stage(
             parameters,
             &references.values,
         )?;
-        evaluated.push(produced.pop().unwrap_or_default());
+        evaluated.push((
+            produced.pop().unwrap_or_default(),
+            projected_entity_layouts(projections, &row.entity_layouts),
+        ));
     }
-    let mut output_rows: Vec<HashMap<ir::BindingId, Value>> = if has_aggregates {
+    let mut output_rows = if has_aggregates {
         let key_positions: Vec<usize> = projections
             .iter()
             .enumerate()
             .filter(|(_, projection)| matches!(projection, StageProjection::Expression { .. }))
             .map(|(position, _)| position)
             .collect();
-        let mut groups: Vec<(String, Vec<Vec<Value>>)> = Vec::new();
-        for row in evaluated {
+        let mut groups = Vec::<(String, Vec<(Vec<Value>, HashMap<_, _>)>)>::new();
+        for (row, layouts) in evaluated {
             let key = key_positions
                 .iter()
-                .map(|position| format!("{:?}", row[*position]))
+                .map(|position| {
+                    let source = match &projections[*position] {
+                        StageProjection::Expression { output, .. } => {
+                            layouts.get(output).map(|(source, _)| source.get())
+                        }
+                        StageProjection::Aggregate { .. } => None,
+                    };
+                    format!("{:?}@{source:?}", row[*position])
+                })
                 .collect::<Vec<_>>()
                 .join("\u{1}");
             match groups.iter_mut().find(|(existing, _)| *existing == key) {
-                Some((_, members)) => members.push(row),
-                None => groups.push((key, vec![row])),
+                Some((_, members)) => members.push((row, layouts)),
+                None => groups.push((key, vec![(row, layouts)])),
             }
         }
         let mut output = Vec::new();
         for (_, members) in groups {
             let mut values = HashMap::new();
+            let entity_layouts = members[0].1.clone();
             for (position, projection) in projections.iter().enumerate() {
                 match projection {
                     StageProjection::Expression { output: id, .. } => {
-                        values.insert(*id, members[0][position].clone());
+                        values.insert(*id, members[0].0[position].clone());
                     }
                     StageProjection::Aggregate {
                         output: id,
@@ -633,7 +711,7 @@ fn project_stage(
                     } => {
                         let collected: Vec<Value> = members
                             .iter()
-                            .map(|member| member[position].clone())
+                            .map(|member| member.0[position].clone())
                             .collect();
                         values.insert(
                             *id,
@@ -649,34 +727,38 @@ fn project_stage(
                     }
                 }
             }
-            output.push(values);
+            output.push(MutationRow {
+                values,
+                entity_layouts,
+            });
         }
         output
     } else {
         evaluated
             .into_iter()
-            .map(|row| {
-                projections
+            .map(|(values, entity_layouts)| MutationRow {
+                values: projections
                     .iter()
-                    .zip(row)
+                    .zip(values)
                     .map(|(projection, value)| match projection {
                         StageProjection::Expression { output, .. }
                         | StageProjection::Aggregate { output, .. } => (*output, value),
                     })
-                    .collect()
+                    .collect(),
+                entity_layouts,
             })
             .collect()
     };
     if let Some(predicate) = predicate {
         let mut kept = Vec::new();
-        for values in output_rows {
-            let references = reference_parameters(&values);
+        for row in output_rows {
+            let references = reference_parameters(&row.values);
             let sql = lower_mutation_expression(
                 predicate,
                 input,
                 catalog,
                 &references.sql,
-                entity_layouts,
+                &row.entity_layouts,
             )?;
             let result = run_rows(
                 connection,
@@ -689,17 +771,19 @@ fn project_stage(
                 Some(Value::Numeric(Numeric::Integer(value))) if *value != 0
             );
             if truthy {
-                kept.push(values);
+                kept.push(row);
             }
         }
         output_rows = kept;
     }
     if distinct {
         let mut seen = Vec::new();
-        output_rows.retain(|values| {
-            let mut entries: Vec<_> = values.iter().collect();
+        output_rows.retain(|row| {
+            let mut entries: Vec<_> = row.values.iter().collect();
             entries.sort_by_key(|(id, _)| id.get());
-            let key = format!("{entries:?}");
+            let mut layouts: Vec<_> = row.entity_layouts.iter().collect();
+            layouts.sort_by_key(|(id, _)| id.get());
+            let key = format!("{entries:?}@{layouts:?}");
             if seen.contains(&key) {
                 false
             } else {
@@ -721,16 +805,14 @@ fn sort_stage_rows(
     input: &LoweredMutationInput,
     parameters: &Parameters,
     order: &[(ir::TypedExpression, bool)],
-    rows: Vec<HashMap<ir::BindingId, Value>>,
-    entity_layouts: &HashMap<ir::BindingId, (ir::SourceTableId, MutationEntityKind)>,
-) -> Result<Vec<HashMap<ir::BindingId, Value>>, MutationError> {
+    rows: Vec<MutationRow>,
+) -> Result<Vec<MutationRow>, MutationError> {
     if order.is_empty() {
         return Ok(rows);
     }
-    let mut keyed: Vec<(Vec<Value>, HashMap<ir::BindingId, Value>)> =
-        Vec::with_capacity(rows.len());
-    for values in rows {
-        let references = reference_parameters(&values);
+    let mut keyed = Vec::with_capacity(rows.len());
+    for row in rows {
+        let references = reference_parameters(&row.values);
         let mut keys = Vec::with_capacity(order.len());
         for (expression, _) in order {
             let sql = lower_mutation_expression(
@@ -738,7 +820,7 @@ fn sort_stage_rows(
                 input,
                 catalog,
                 &references.sql,
-                entity_layouts,
+                &row.entity_layouts,
             )?;
             let mut produced = run_rows(
                 connection,
@@ -753,7 +835,7 @@ fn sort_stage_rows(
                     .unwrap_or(Value::Null),
             );
         }
-        keyed.push((keys, values));
+        keyed.push((keys, row));
     }
     keyed.sort_by(|(left, _), (right, _)| {
         for (index, (_, descending)) in order.iter().enumerate() {
@@ -769,7 +851,7 @@ fn sort_stage_rows(
         }
         std::cmp::Ordering::Equal
     });
-    Ok(keyed.into_iter().map(|(_, values)| values).collect())
+    Ok(keyed.into_iter().map(|(_, row)| row).collect())
 }
 
 fn fold_aggregate(
@@ -926,7 +1008,14 @@ fn execute_operation(
                 entity_layouts,
                 false,
             )?;
-            record_node_labels(connection, catalog, &create.labels, &identity, parameters)?;
+            record_node_labels(
+                connection,
+                catalog,
+                create.source,
+                &create.labels,
+                &identity,
+                parameters,
+            )?;
             values.insert(create.binding.id(), identity);
             entity_layouts.insert(
                 create.binding.id(),
@@ -947,6 +1036,7 @@ fn execute_operation(
             record_node_labels(
                 connection,
                 catalog,
+                merge.create.source,
                 &merge.create.labels,
                 &identity,
                 parameters,
@@ -988,6 +1078,7 @@ fn execute_operation(
             record_relationship_type(
                 connection,
                 catalog,
+                create.source,
                 &create.relationship_types,
                 &identity,
                 parameters,
@@ -1016,6 +1107,7 @@ fn execute_operation(
                 record_relationship_type(
                     connection,
                     catalog,
+                    merge.create.source,
                     &merge.create.relationship_types,
                     &identity,
                     parameters,
@@ -1045,8 +1137,9 @@ fn execute_operation(
             }
         }
         ir::Mutation::SetProperty(set) => {
-            let layout = entity_table(catalog, set.source)?;
-            let column = property_column(catalog, set.source, &set.semantic_types, set.property)?;
+            let source = mutation_source(set.source, entity_layouts)?;
+            let layout = entity_table(catalog, source)?;
+            let column = property_column(catalog, source, &set.semantic_types, set.property)?;
             let references = reference_parameters(values);
             let expression = lower_mutation_expression(
                 &set.value,
@@ -1064,7 +1157,7 @@ fn execute_operation(
                 let evaluated = evaluate_scalar(connection, &expression, parameters, &internal)?;
                 check_runtime_value(
                     catalog,
-                    set.source,
+                    source,
                     &set.semantic_types,
                     set.property,
                     &evaluated,
@@ -1092,14 +1185,23 @@ fn execute_operation(
             )?;
         }
         ir::Mutation::SetLabels(set) => {
+            let source = mutation_source(set.source, entity_layouts)?;
             let identity = values
                 .get(&set.entity)
                 .ok_or(MutationError::MissingBinding(set.entity))?
                 .clone();
-            record_node_labels(connection, catalog, &set.labels, &identity, parameters)?;
+            record_node_labels(
+                connection,
+                catalog,
+                source,
+                &set.labels,
+                &identity,
+                parameters,
+            )?;
         }
         ir::Mutation::ReplaceProperties(replace) => {
-            let layout = entity_table(catalog, replace.source)?;
+            let source = mutation_source(replace.source, entity_layouts)?;
+            let layout = entity_table(catalog, source)?;
             let references = reference_parameters(values);
             let identity = values
                 .get(&replace.entity)
@@ -1109,12 +1211,8 @@ fn execute_operation(
             let mut assignments = Vec::new();
             let mut assigned_columns = Vec::new();
             for entry in &replace.entries {
-                let column = property_column(
-                    catalog,
-                    replace.source,
-                    &entry.semantic_types,
-                    entry.property,
-                )?;
+                let column =
+                    property_column(catalog, source, &entry.semantic_types, entry.property)?;
                 let expression = lower_mutation_expression(
                     &entry.value,
                     input,
@@ -1127,7 +1225,7 @@ fn execute_operation(
                         evaluate_scalar(connection, &expression, parameters, &internal)?;
                     check_runtime_value(
                         catalog,
-                        replace.source,
+                        source,
                         &entry.semantic_types,
                         entry.property,
                         &evaluated,
@@ -1149,7 +1247,7 @@ fn execute_operation(
                 // `SET n = map` wipes every payload column the map omits.
                 if let Some(properties) = GraphCompilationCatalog::semantic_properties(
                     catalog,
-                    replace.source,
+                    source,
                     &replace.semantic_types,
                 ) {
                     for (_, _, _, column) in properties {
@@ -1159,7 +1257,7 @@ fn execute_operation(
                     }
                 } else {
                     let mut structural = vec![layout.identity.clone()];
-                    if let Some(relationship) = catalog.relationship_layout(replace.source) {
+                    if let Some(relationship) = catalog.relationship_layout(source) {
                         structural.push(relationship.start_column);
                         structural.push(relationship.end_column);
                     }
@@ -1198,7 +1296,8 @@ fn execute_operation(
             }
         }
         ir::Mutation::ReplacePropertiesDynamic(replace) => {
-            let layout = entity_table(catalog, replace.source)?;
+            let source = mutation_source(replace.source, entity_layouts)?;
+            let layout = entity_table(catalog, source)?;
             let references = reference_parameters(values);
             let identity = values
                 .get(&replace.entity)
@@ -1220,7 +1319,7 @@ fn execute_operation(
             internal.insert(map_parameter.clone(), evaluated);
             if let Some(owned_properties) = GraphCompilationCatalog::semantic_properties(
                 catalog,
-                replace.source,
+                source,
                 &replace.semantic_types,
             ) {
                 let map_rows = run_rows(
@@ -1240,7 +1339,7 @@ fn execute_operation(
                     let Some((property_name, expected, column)) =
                         GraphCompilationCatalog::semantic_property_for_key(
                             catalog,
-                            replace.source,
+                            source,
                             &replace.semantic_types,
                             &key,
                         )
@@ -1287,7 +1386,7 @@ fn execute_operation(
             }
             let columns =
                 catalog
-                    .payload_columns(replace.source)
+                    .payload_columns(source)
                     .ok_or(LowerError::UnsupportedOperator(
                         "whole-entity SET without payload columns",
                     ))?;
@@ -1324,13 +1423,9 @@ fn execute_operation(
             }
         }
         ir::Mutation::RemoveProperty(remove) => {
-            let layout = entity_table(catalog, remove.source)?;
-            let column = property_column(
-                catalog,
-                remove.source,
-                &remove.semantic_types,
-                remove.property,
-            )?;
+            let source = mutation_source(remove.source, entity_layouts)?;
+            let layout = entity_table(catalog, source)?;
+            let column = property_column(catalog, source, &remove.semantic_types, remove.property)?;
             let identity = values
                 .get(&remove.entity)
                 .ok_or(MutationError::MissingBinding(remove.entity))?;
@@ -1349,7 +1444,10 @@ fn execute_operation(
             )?;
         }
         ir::Mutation::Delete(delete) => {
-            delete_entity(connection, catalog, graph, delete, parameters, values)?;
+            let source = mutation_source(delete.source, entity_layouts)?;
+            delete_entity(
+                connection, catalog, graph, delete, source, parameters, values,
+            )?;
         }
     }
     Ok(())
@@ -1360,6 +1458,7 @@ fn execute_operation(
 fn record_node_labels(
     connection: &Arc<Connection>,
     catalog: &dyn GraphCompilationCatalog,
+    source: ir::SourceTableId,
     labels: &[ir::LabelId],
     identity: &Value,
     parameters: &Parameters,
@@ -1375,16 +1474,23 @@ fn record_node_labels(
         let name = name.replace('\'', "''");
         let parameter = format!("{INTERNAL_PARAMETER_PREFIX}label_node");
         let internal = HashMap::from([(parameter.clone(), identity.clone())]);
-        run_ignore(
-            connection,
-            &format!(
+        let sql = if catalog.source_qualified_membership() {
+            format!(
+                "INSERT INTO \"{table}\"(source_id, node_id, label) \
+                 SELECT {}, ${parameter}, '{name}' \
+                 WHERE NOT EXISTS (SELECT 1 FROM \"{table}\" \
+                 WHERE source_id = {} AND node_id = ${parameter} AND label = '{name}')",
+                source.get(),
+                source.get(),
+            )
+        } else {
+            format!(
                 "INSERT INTO \"{table}\"(node_id, label) SELECT ${parameter}, '{name}' \
                  WHERE NOT EXISTS (SELECT 1 FROM \"{table}\" \
                  WHERE node_id = ${parameter} AND label = '{name}')"
-            ),
-            parameters,
-            &internal,
-        )?;
+            )
+        };
+        run_ignore(connection, &sql, parameters, &internal)?;
     }
     Ok(())
 }
@@ -1394,6 +1500,7 @@ fn record_node_labels(
 fn record_relationship_type(
     connection: &Arc<Connection>,
     catalog: &dyn GraphCompilationCatalog,
+    source: ir::SourceTableId,
     relationship_types: &[ir::RelationshipTypeId],
     identity: &Value,
     parameters: &Parameters,
@@ -1409,16 +1516,24 @@ fn record_relationship_type(
         let name = name.replace('\'', "''");
         let parameter = format!("{INTERNAL_PARAMETER_PREFIX}type_relationship");
         let internal = HashMap::from([(parameter.clone(), identity.clone())]);
-        run_ignore(
-            connection,
-            &format!(
-                "INSERT INTO \"{table}\"(relationship_id, type) SELECT ${parameter}, '{name}' \
+        let sql = if catalog.source_qualified_membership() {
+            format!(
+                "INSERT INTO \"{table}\"(source_id, relationship_id, type) \
+                 SELECT {}, ${parameter}, '{name}' \
+                 WHERE NOT EXISTS (SELECT 1 FROM \"{table}\" \
+                 WHERE source_id = {} AND relationship_id = ${parameter} AND type = '{name}')",
+                source.get(),
+                source.get(),
+            )
+        } else {
+            format!(
+                "INSERT INTO \"{table}\"(relationship_id, type) \
+                 SELECT ${parameter}, '{name}' \
                  WHERE NOT EXISTS (SELECT 1 FROM \"{table}\" \
                  WHERE relationship_id = ${parameter} AND type = '{name}')"
-            ),
-            parameters,
-            &internal,
-        )?;
+            )
+        };
+        run_ignore(connection, &sql, parameters, &internal)?;
     }
     Ok(())
 }
@@ -1440,6 +1555,7 @@ fn insert_node(
     let merge_predicates = if merge {
         node_label_predicates(
             catalog,
+            create.source,
             &layout.table,
             &layout.identity_column,
             &create.labels,
@@ -1471,6 +1587,7 @@ fn insert_node(
 /// between the same endpoints and attach the requested type to it.
 fn relationship_type_predicates(
     catalog: &dyn GraphCompilationCatalog,
+    source: ir::SourceTableId,
     table: &str,
     identity: &str,
     relationship_types: &[ir::RelationshipTypeId],
@@ -1482,8 +1599,14 @@ fn relationship_type_predicates(
         .iter()
         .filter_map(|relationship_type| catalog.relationship_type_name(*relationship_type))
         .map(|name| {
+            let source_predicate = if catalog.source_qualified_membership() {
+                format!("source_id = {} AND ", source.get())
+            } else {
+                String::new()
+            };
             format!(
-                "EXISTS (SELECT 1 FROM {} WHERE relationship_id = {}.{} AND type = '{}')",
+                "EXISTS (SELECT 1 FROM {} WHERE {source_predicate}\
+                 relationship_id = {}.{} AND type = '{}')",
                 quoted_identifier(&junction),
                 quoted_identifier(table),
                 quoted_identifier(identity),
@@ -1497,6 +1620,7 @@ fn relationship_type_predicates(
 /// junction table; empty when the graph records no labels.
 fn node_label_predicates(
     catalog: &dyn GraphCompilationCatalog,
+    source: ir::SourceTableId,
     table: &str,
     identity: &str,
     labels: &[ir::LabelId],
@@ -1508,8 +1632,14 @@ fn node_label_predicates(
         .iter()
         .filter_map(|label| catalog.label_name(*label))
         .map(|name| {
+            let source_predicate = if catalog.source_qualified_membership() {
+                format!("source_id = {} AND ", source.get())
+            } else {
+                String::new()
+            };
             format!(
-                "EXISTS (SELECT 1 FROM {} WHERE node_id = {}.{} AND label = '{}')",
+                "EXISTS (SELECT 1 FROM {} WHERE {source_predicate}\
+                 node_id = {}.{} AND label = '{}')",
                 quoted_identifier(&junction),
                 quoted_identifier(table),
                 quoted_identifier(identity),
@@ -1542,6 +1672,7 @@ fn insert_relationship(
     let merge_predicates = if merge {
         relationship_type_predicates(
             catalog,
+            create.source,
             &layout.table,
             &layout.identity_column,
             &create.relationship_types,
@@ -1692,6 +1823,7 @@ fn delete_entity(
     catalog: &dyn GraphCompilationCatalog,
     graph: ir::GraphId,
     delete: &ir::DeleteEntity,
+    source: ir::SourceTableId,
     parameters: &Parameters,
     values: &HashMap<ir::BindingId, Value>,
 ) -> Result<(), MutationError> {
@@ -1699,17 +1831,34 @@ fn delete_entity(
         .get(&delete.entity)
         .ok_or(MutationError::MissingBinding(delete.entity))?;
     let internal = HashMap::from([(identity_parameter(delete.entity), identity.clone())]);
-    if let Some(layout) = catalog.node_layout(delete.source) {
+    if let Some(layout) = catalog.node_layout(source) {
         for relationship_source in catalog.relationship_sources(graph) {
             let relationship = catalog
                 .relationship_layout(relationship_source)
                 .ok_or(LowerError::MissingSource(relationship_source))?;
+            let Some((start_source, end_source)) =
+                catalog.relationship_endpoint_sources(graph, relationship_source)
+            else {
+                continue;
+            };
             let parameter = identity_parameter(delete.entity);
-            let predicate = format!(
-                "{} = ${parameter} OR {} = ${parameter}",
-                quoted_identifier(&relationship.start_column),
-                quoted_identifier(&relationship.end_column),
-            );
+            let mut predicates = Vec::new();
+            if start_source == source {
+                predicates.push(format!(
+                    "{} = ${parameter}",
+                    quoted_identifier(&relationship.start_column)
+                ));
+            }
+            if end_source == source {
+                predicates.push(format!(
+                    "{} = ${parameter}",
+                    quoted_identifier(&relationship.end_column)
+                ));
+            }
+            if predicates.is_empty() {
+                continue;
+            }
+            let predicate = predicates.join(" OR ");
             if delete.detach {
                 run_ignore(
                     connection,
@@ -1735,10 +1884,15 @@ fn delete_entity(
             }
         }
         if let Some(labels_table) = catalog.labels_table() {
+            let source_predicate = if catalog.source_qualified_membership() {
+                format!("source_id = {} AND ", source.get())
+            } else {
+                String::new()
+            };
             run_ignore(
                 connection,
                 &format!(
-                    "DELETE FROM \"{}\" WHERE node_id = ${}",
+                    "DELETE FROM \"{}\" WHERE {source_predicate}node_id = ${}",
                     labels_table.replace('"', "\"\""),
                     identity_parameter(delete.entity),
                 ),
@@ -1759,13 +1913,18 @@ fn delete_entity(
         )?)
     } else {
         let layout = catalog
-            .relationship_layout(delete.source)
-            .ok_or(LowerError::MissingSource(delete.source))?;
+            .relationship_layout(source)
+            .ok_or(LowerError::MissingSource(source))?;
         if let Some(types_table) = catalog.relationship_types_table() {
+            let source_predicate = if catalog.source_qualified_membership() {
+                format!("source_id = {} AND ", source.get())
+            } else {
+                String::new()
+            };
             run_ignore(
                 connection,
                 &format!(
-                    "DELETE FROM \"{}\" WHERE relationship_id = ${}",
+                    "DELETE FROM \"{}\" WHERE {source_predicate}relationship_id = ${}",
                     types_table.replace('"', "\"\""),
                     identity_parameter(delete.entity),
                 ),

@@ -52,10 +52,19 @@ pub struct CreateRelationship {
     pub properties: Vec<PropertyValue>,
 }
 
+/// Resolves the physical source for a mutation target.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum MutationSource {
+    /// The binding can only originate from one physical source.
+    Static(SourceTableId),
+    /// The binding's hidden source provenance selects the physical source.
+    Binding(BindingId),
+}
+
 #[derive(Clone, Debug, PartialEq)]
 pub struct SetProperty {
     pub entity: BindingId,
-    pub source: SourceTableId,
+    pub source: MutationSource,
     pub property: PropertyId,
     /// Conceptual owners used to resolve owner-specific physical mappings.
     pub semantic_types: Vec<String>,
@@ -66,6 +75,7 @@ pub struct SetProperty {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct SetLabels {
     pub entity: BindingId,
+    pub source: MutationSource,
     pub labels: Vec<LabelId>,
 }
 
@@ -74,7 +84,7 @@ pub struct SetLabels {
 #[derive(Clone, Debug, PartialEq)]
 pub struct ReplaceProperties {
     pub entity: BindingId,
-    pub source: SourceTableId,
+    pub source: MutationSource,
     /// Conceptual owners whose properties may be replaced or cleared.
     pub semantic_types: Vec<String>,
     pub entries: Vec<PropertyValue>,
@@ -88,7 +98,7 @@ pub struct ReplaceProperties {
 #[derive(Clone, Debug, PartialEq)]
 pub struct ReplacePropertiesDynamic {
     pub entity: BindingId,
-    pub source: SourceTableId,
+    pub source: MutationSource,
     /// Conceptual owner types needed to validate dynamic keys before lowering
     /// them to physical columns. Empty retains schemaless behavior.
     pub semantic_types: Vec<String>,
@@ -99,7 +109,7 @@ pub struct ReplacePropertiesDynamic {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct RemoveProperty {
     pub entity: BindingId,
-    pub source: SourceTableId,
+    pub source: MutationSource,
     pub property: PropertyId,
     /// Conceptual owners used to resolve owner-specific physical mappings.
     pub semantic_types: Vec<String>,
@@ -108,7 +118,7 @@ pub struct RemoveProperty {
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct DeleteEntity {
     pub entity: BindingId,
-    pub source: SourceTableId,
+    pub source: MutationSource,
     pub detach: bool,
 }
 
