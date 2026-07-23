@@ -823,11 +823,14 @@ fn install_generation_triggers(
     Ok(())
 }
 
-fn query_rows(connection: &Arc<Connection>, sql: &str) -> Result<Vec<Vec<Value>>, CatalogError> {
+pub(crate) fn query_rows(
+    connection: &Arc<Connection>,
+    sql: &str,
+) -> Result<Vec<Vec<Value>>, CatalogError> {
     Ok(connection.prepare(sql)?.run_collect_rows()?)
 }
 
-fn execute_internal(
+pub(crate) fn execute_internal(
     connection: &Arc<Connection>,
     sql: impl AsRef<str>,
 ) -> Result<(), CatalogError> {
@@ -835,7 +838,7 @@ fn execute_internal(
     Ok(())
 }
 
-fn scalar_integer(
+pub(crate) fn scalar_integer(
     connection: &Arc<Connection>,
     sql: &str,
     kind: &'static str,
@@ -847,7 +850,11 @@ fn scalar_integer(
     integer(row, 0, kind)
 }
 
-fn integer(row: &[Value], index: usize, kind: &'static str) -> Result<i64, CatalogError> {
+pub(crate) fn integer(
+    row: &[Value],
+    index: usize,
+    kind: &'static str,
+) -> Result<i64, CatalogError> {
     row.get(index)
         .ok_or(CatalogError::InvalidCatalogValue(kind))
         .and_then(|value| value_integer(value, kind))
@@ -860,7 +867,11 @@ fn value_integer(value: &Value, kind: &'static str) -> Result<i64, CatalogError>
     }
 }
 
-fn text<'a>(row: &'a [Value], index: usize, kind: &'static str) -> Result<&'a str, CatalogError> {
+pub(crate) fn text<'a>(
+    row: &'a [Value],
+    index: usize,
+    kind: &'static str,
+) -> Result<&'a str, CatalogError> {
     match row.get(index) {
         Some(Value::Text(value)) => Ok(value.as_str()),
         _ => Err(CatalogError::InvalidCatalogValue(kind)),
@@ -891,7 +902,7 @@ fn nonnegative_u64(value: i64, kind: &'static str) -> Result<u64, CatalogError> 
     u64::try_from(value).map_err(|_| CatalogError::InvalidCatalogValue(kind))
 }
 
-fn sql_string(value: &str) -> String {
+pub(crate) fn sql_string(value: &str) -> String {
     format!("'{}'", value.replace('\'', "''"))
 }
 

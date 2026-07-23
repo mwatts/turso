@@ -17,6 +17,20 @@ pub struct ResolvedProperty {
     pub nullability: ir::Nullability,
 }
 
+/// Owner-aware property resolution for semantic graph bindings.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub enum PropertyResolution {
+    /// Every possible concrete type owns the property compatibly.
+    Resolved(ResolvedProperty),
+    /// No possible concrete type owns the property.
+    NotOwned { types: Vec<String> },
+    /// Only a subset of the possible concrete types owns the property.
+    Ambiguous {
+        owners: Vec<String>,
+        non_owners: Vec<String>,
+    },
+}
+
 /// Immutable name-resolution view captured for one graph prepare operation.
 pub trait GraphCatalogSnapshot {
     fn node_source(&self, graph: ir::GraphId) -> Option<ir::SourceTableId>;
@@ -32,6 +46,46 @@ pub trait GraphCatalogSnapshot {
         entity: CatalogEntity,
         name: &str,
     ) -> Option<ResolvedProperty>;
+
+    fn semantic_mode(&self, _graph: ir::GraphId) -> bool {
+        false
+    }
+
+    fn node_source_for_label(
+        &self,
+        graph: ir::GraphId,
+        _label: ir::LabelId,
+    ) -> Option<ir::SourceTableId> {
+        self.node_source(graph)
+    }
+
+    fn relationship_source_for_type(
+        &self,
+        graph: ir::GraphId,
+        _relationship_type: ir::RelationshipTypeId,
+    ) -> Option<ir::SourceTableId> {
+        self.relationship_source(graph)
+    }
+
+    fn resolve_owned_property(
+        &self,
+        graph: ir::GraphId,
+        entity: CatalogEntity,
+        type_names: &[String],
+        name: &str,
+    ) -> Option<PropertyResolution> {
+        let _ = type_names;
+        self.property(graph, entity, name)
+            .map(PropertyResolution::Resolved)
+    }
+
+    fn relationship_endpoints(
+        &self,
+        _graph: ir::GraphId,
+        _relationship_type: ir::RelationshipTypeId,
+    ) -> Option<(Vec<ir::LabelId>, Vec<ir::LabelId>)> {
+        None
+    }
 }
 
 pub type ParameterTypes = HashMap<String, (ir::ValueType, ir::Nullability)>;

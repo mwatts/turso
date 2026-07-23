@@ -7458,6 +7458,7 @@ version = "0.8.0-pre.1"
 dependencies = [
  "parking_lot",
  "serde",
+ "serde_json",
  "tempfile",
  "thiserror 2.0.16",
  "toml",

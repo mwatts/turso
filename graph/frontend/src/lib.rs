@@ -15,13 +15,14 @@ mod graph_expand;
 mod lowering;
 mod mutation;
 mod schema_catalog;
+mod semantic;
 mod session;
 mod snapshot;
 mod statement;
 
 pub use binder::{
     bind, bind_mutation, BindError, BoundMutation, BoundQuery, CatalogEntity, GraphCatalogSnapshot,
-    ParameterTypes, ResolvedProperty,
+    ParameterTypes, PropertyResolution, ResolvedProperty,
 };
 pub use catalog::{
     graph_generation, labels_table_name, load_registered_graph, register_graph,
@@ -38,6 +39,11 @@ pub use lowering::{
 };
 pub use mutation::{execute_cypher_mutation, MutationError, MutationSummary, Parameters};
 pub use schema_catalog::SchemaCatalog;
+pub use semantic::{
+    load_semantic_snapshot, register_semantic_schema, EndpointConstraint, OwnedProperty,
+    SemanticCatalogError, SemanticNodeType, SemanticProperty, SemanticRelationshipType,
+    SemanticSchemaRegistration, SemanticSnapshot, SemanticTypeInfo,
+};
 pub use session::{
     open_database, open_database_with_io, strip_explain_prefix, Error, GraphConnection,
     GraphConnection as Connection,

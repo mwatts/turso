@@ -22,6 +22,8 @@ pub enum Error {
     #[error(transparent)]
     Mutation(#[from] MutationError),
     #[error(transparent)]
+    Semantic(#[from] crate::SemanticCatalogError),
+    #[error(transparent)]
     Database(#[from] turso_core::LimboError),
     #[error("query parameter `${0}` was not declared for this graph session")]
     UndeclaredParameter(String),
@@ -145,7 +147,12 @@ impl GraphConnection {
         let graph = crate::load_registered_graph(&connection, graph_name).map_err(|error| {
             Error::Database(turso_core::LimboError::ParseError(error.to_string()))
         })?;
-        let catalog = Arc::new(crate::SchemaCatalog::new(connection.clone(), graph.clone()));
+        let semantic = crate::load_semantic_snapshot(&connection, &graph)?.map(Arc::new);
+        let catalog = Arc::new(crate::SchemaCatalog::with_semantic(
+            connection.clone(),
+            graph.clone(),
+            semantic,
+        ));
         Self::install(
             connection,
             &graph,

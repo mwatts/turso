@@ -6,9 +6,10 @@ use turso_core::{
 };
 use turso_graph_ir as ir;
 
-use crate::binder::{CatalogEntity, GraphCatalogSnapshot, ResolvedProperty};
+use crate::binder::{CatalogEntity, GraphCatalogSnapshot, PropertyResolution, ResolvedProperty};
 use crate::catalog::{RegisteredGraph, RegisteredNodeSource, RegisteredRelationshipSource};
 use crate::lowering::{NodeTableLayout, RelationalCatalogSnapshot, RelationshipTableLayout};
+use crate::semantic::{OwnedProperty, SemanticSnapshot, SemanticTypeInfo};
 
 /// Production catalog snapshot backed directly by `core::Schema` — no PRAGMA
 /// string-parsing, no parallel type model. Column classification reuses
@@ -17,11 +18,28 @@ use crate::lowering::{NodeTableLayout, RelationalCatalogSnapshot, RelationshipTa
 pub struct SchemaCatalog {
     connection: Arc<Connection>,
     graph: RegisteredGraph,
+    semantic: Option<Arc<SemanticSnapshot>>,
 }
 
 impl SchemaCatalog {
     pub fn new(connection: Arc<Connection>, graph: RegisteredGraph) -> Self {
-        Self { connection, graph }
+        Self {
+            connection,
+            graph,
+            semantic: None,
+        }
+    }
+
+    pub fn with_semantic(
+        connection: Arc<Connection>,
+        graph: RegisteredGraph,
+        semantic: Option<Arc<SemanticSnapshot>>,
+    ) -> Self {
+        Self {
+            connection,
+            graph,
+            semantic,
+        }
     }
 
     fn node_source_entry(&self) -> Option<&RegisteredNodeSource> {
@@ -38,6 +56,96 @@ impl SchemaCatalog {
             CatalogEntity::Relationship => &self.relationship_source_entry()?.table,
         };
         self.connection.current_schema().get_table(table_name)
+    }
+
+    fn semantic_types_for<'a>(
+        &'a self,
+        entity: CatalogEntity,
+        type_names: &[String],
+    ) -> Option<Vec<(String, Option<&'a OwnedProperty>)>> {
+        let semantic = self.semantic.as_ref()?;
+        let type_by_name = |name: &str| -> Option<&SemanticTypeInfo> {
+            match entity {
+                CatalogEntity::Node => semantic.node_type(name),
+                CatalogEntity::Relationship => semantic.relationship_type(name),
+            }
+        };
+        if type_names.is_empty() {
+            let types: Box<dyn Iterator<Item = &SemanticTypeInfo>> = match entity {
+                CatalogEntity::Node => Box::new(semantic.node_type_values()),
+                CatalogEntity::Relationship => Box::new(semantic.relationship_type_values()),
+            };
+            return Some(
+                types
+                    .map(|type_info| (type_info.name.clone(), None))
+                    .collect(),
+            );
+        }
+        Some(
+            type_names
+                .iter()
+                .map(|name| {
+                    (
+                        type_by_name(name)
+                            .map(|type_info| type_info.name.clone())
+                            .unwrap_or_else(|| name.clone()),
+                        None,
+                    )
+                })
+                .collect(),
+        )
+    }
+
+    fn semantic_property_resolution(
+        &self,
+        entity: CatalogEntity,
+        type_names: &[String],
+        name: &str,
+    ) -> Option<PropertyResolution> {
+        let semantic = self.semantic.as_ref()?;
+        let mut candidates = self.semantic_types_for(entity, type_names)?;
+        for (type_name, property) in &mut candidates {
+            let type_info = match entity {
+                CatalogEntity::Node => semantic.node_type(type_name),
+                CatalogEntity::Relationship => semantic.relationship_type(type_name),
+            };
+            *property = type_info.and_then(|type_info| type_info.property(name));
+        }
+        let owners = candidates
+            .iter()
+            .filter_map(|(type_name, property)| property.map(|_| type_name.clone()))
+            .collect::<Vec<_>>();
+        let non_owners = candidates
+            .iter()
+            .filter_map(|(type_name, property)| property.is_none().then_some(type_name.clone()))
+            .collect::<Vec<_>>();
+        if owners.is_empty() {
+            return Some(PropertyResolution::NotOwned { types: non_owners });
+        }
+        if !non_owners.is_empty() {
+            return Some(PropertyResolution::Ambiguous { owners, non_owners });
+        }
+        let mut properties = candidates
+            .iter()
+            .filter_map(|(_, property)| property.as_ref().copied());
+        let first = properties.next()?;
+        let mut resolved = ResolvedProperty {
+            id: first.id,
+            value_type: first.value_type.clone(),
+            nullability: first.nullability,
+        };
+        for property in properties {
+            if property.id != resolved.id {
+                return None;
+            }
+            if property.value_type != resolved.value_type {
+                resolved.value_type = ir::ValueType::Any;
+            }
+            if property.nullability == ir::Nullability::Nullable {
+                resolved.nullability = ir::Nullability::Nullable;
+            }
+        }
+        Some(PropertyResolution::Resolved(resolved))
     }
 }
 
@@ -169,72 +277,88 @@ impl SchemaCatalog {
         column: &Column,
         is_strict: bool,
     ) -> ir::ValueType {
-        use turso_core::ColumnTypeKind;
+        column_value_type(schema, column, is_strict)
+    }
+}
 
-        let info = schema.classify_column(column, is_strict);
-        let is_array = column.array_dimensions() > 0;
-        let scalar = match info.kind {
-            // `column.affinity()` is a physical-storage signal that's only
-            // wrong for **array** columns: core's
-            // `BTreeTable::resolve_custom_type_affinities` (core/schema.rs)
-            // unconditionally forces them to `Blob` affinity for
-            // record-format packing, regardless of their declared element
-            // type. For those, read the logical type from `classify_column`
-            // instead: `base_type` already carries the resolved primitive
-            // for a `Domain` column's underlying type (`declared_name` there
-            // is the domain's own name, e.g. "posint", not a primitive
-            // keyword); for `Builtin`, `base_type` is `None` and
-            // `declared_name` *is* the primitive keyword directly — but only
-            // when written as one of the four canonical keywords
-            // (`primitive_value_type` exact-matches those and falls back to
-            // `Any` otherwise). For non-array columns, `column.affinity()`
-            // is accurate regardless of declared spelling (`INT`,
-            // `VARCHAR(50)`, `DOUBLE`, ...), so use it there instead.
-            //
-            // A `Builtin` column with an *empty* declared type (e.g. `ALTER
-            // TABLE t ADD COLUMN prop` with no type name, as dynamic
-            // property loaders emit) is SQLite's "no affinity" case: unlike
-            // an explicitly declared `BLOB` column, it applies no storage
-            // coercion at all, so each row keeps whatever type was inserted.
-            // Typing it `Bytes` (via `Blob` affinity) would reject
-            // arithmetic and IN-membership on columns that are, in practice,
-            // numeric or list-valued in every row. `Any` reflects that the
-            // declared schema simply makes no promise here. A genuinely
-            // declared `BLOB` column keeps its non-empty `declared_name` and
-            // still resolves to `Bytes` below.
-            ColumnTypeKind::Builtin | ColumnTypeKind::Domain => {
-                if is_array {
-                    primitive_value_type(info.base_type.as_deref().unwrap_or(&info.declared_name))
-                } else if info.declared_name.is_empty() {
-                    ir::ValueType::Any
-                } else {
-                    sqlite_type_value_type(column.affinity().to_type())
-                }
+pub(crate) fn column_value_type(
+    schema: &Schema,
+    column: &Column,
+    is_strict: bool,
+) -> ir::ValueType {
+    use turso_core::ColumnTypeKind;
+
+    let info = schema.classify_column(column, is_strict);
+    let is_array = column.array_dimensions() > 0;
+    let scalar = match info.kind {
+        // `column.affinity()` is a physical-storage signal that's only
+        // wrong for **array** columns: core's
+        // `BTreeTable::resolve_custom_type_affinities` (core/schema.rs)
+        // unconditionally forces them to `Blob` affinity for
+        // record-format packing, regardless of their declared element
+        // type. For those, read the logical type from `classify_column`
+        // instead: `base_type` already carries the resolved primitive
+        // for a `Domain` column's underlying type (`declared_name` there
+        // is the domain's own name, e.g. "posint", not a primitive
+        // keyword); for `Builtin`, `base_type` is `None` and
+        // `declared_name` *is* the primitive keyword directly — but only
+        // when written as one of the four canonical keywords
+        // (`primitive_value_type` exact-matches those and falls back to
+        // `Any` otherwise). For non-array columns, `column.affinity()`
+        // is accurate regardless of declared spelling (`INT`,
+        // `VARCHAR(50)`, `DOUBLE`, ...), so use it there instead.
+        //
+        // A `Builtin` column with an *empty* declared type (e.g. `ALTER
+        // TABLE t ADD COLUMN prop` with no type name, as dynamic
+        // property loaders emit) is SQLite's "no affinity" case: unlike
+        // an explicitly declared `BLOB` column, it applies no storage
+        // coercion at all, so each row keeps whatever type was inserted.
+        // Typing it `Bytes` (via `Blob` affinity) would reject
+        // arithmetic and IN-membership on columns that are, in practice,
+        // numeric or list-valued in every row. `Any` reflects that the
+        // declared schema simply makes no promise here. A genuinely
+        // declared `BLOB` column keeps its non-empty `declared_name` and
+        // still resolves to `Bytes` below.
+        ColumnTypeKind::Builtin | ColumnTypeKind::Domain => {
+            if is_array {
+                primitive_value_type(info.base_type.as_deref().unwrap_or(&info.declared_name))
+            } else if info.declared_name.is_empty() {
+                ir::ValueType::Any
+            } else {
+                sqlite_type_value_type(column.affinity().to_type())
             }
-            ColumnTypeKind::Custom => {
-                // Same physical-vs-logical distinction as above: `base_type`
-                // is the custom type's resolved underlying primitive,
-                // unaffected by the array-affinity override, so it's only
-                // needed for array columns; non-array `Custom` columns get
-                // an accurate resolved base affinity from core already.
-                let base = Box::new(if is_array {
-                    primitive_value_type(info.base_type.as_deref().unwrap_or(&info.declared_name))
-                } else {
-                    sqlite_type_value_type(column.affinity().to_type())
-                });
-                ir::ValueType::Custom {
-                    name: info.declared_name,
-                    base,
-                }
+        }
+        ColumnTypeKind::Custom => {
+            // Same physical-vs-logical distinction as above: `base_type`
+            // is the custom type's resolved underlying primitive,
+            // unaffected by the array-affinity override, so it's only
+            // needed for array columns; non-array `Custom` columns get
+            // an accurate resolved base affinity from core already.
+            let base = Box::new(if is_array {
+                primitive_value_type(info.base_type.as_deref().unwrap_or(&info.declared_name))
+            } else {
+                sqlite_type_value_type(column.affinity().to_type())
+            });
+            ir::ValueType::Custom {
+                name: info.declared_name,
+                base,
             }
-            ColumnTypeKind::Struct | ColumnTypeKind::Union => {
-                resolve_named_type(schema, &info.declared_name, None, is_strict)
-            }
-            // `ColumnTypeKind` is `#[non_exhaustive]`; fall back to `Any` for any
-            // future variant rather than failing to compile on a core upgrade.
-            _ => ir::ValueType::Any,
-        };
-        wrap_array(scalar, column.array_dimensions())
+        }
+        ColumnTypeKind::Struct | ColumnTypeKind::Union => {
+            resolve_named_type(schema, &info.declared_name, None, is_strict)
+        }
+        // `ColumnTypeKind` is `#[non_exhaustive]`; fall back to `Any` for any
+        // future variant rather than failing to compile on a core upgrade.
+        _ => ir::ValueType::Any,
+    };
+    wrap_array(scalar, column.array_dimensions())
+}
+
+pub(crate) fn column_nullability(column: &Column) -> ir::Nullability {
+    if column.explicit_notnull() || column.is_rowid_alias() {
+        ir::Nullability::NonNull
+    } else {
+        ir::Nullability::Nullable
     }
 }
 
@@ -257,6 +381,11 @@ impl GraphCatalogSnapshot for SchemaCatalog {
         if graph != self.graph.id {
             return None;
         }
+        if let Some(semantic) = &self.semantic {
+            return semantic
+                .node_type(name)
+                .and_then(|type_info| ir::LabelId::new(type_info.type_id).ok());
+        }
         let index = self
             .graph
             .node_sources
@@ -268,6 +397,11 @@ impl GraphCatalogSnapshot for SchemaCatalog {
     fn relationship_type(&self, graph: ir::GraphId, name: &str) -> Option<ir::RelationshipTypeId> {
         if graph != self.graph.id {
             return None;
+        }
+        if let Some(semantic) = &self.semantic {
+            return semantic
+                .relationship_type(name)
+                .and_then(|type_info| ir::RelationshipTypeId::new(type_info.type_id).ok());
         }
         let index = self
             .graph
@@ -286,6 +420,12 @@ impl GraphCatalogSnapshot for SchemaCatalog {
         if graph != self.graph.id {
             return None;
         }
+        if self.semantic.is_some() {
+            return match self.semantic_property_resolution(entity, &[], name)? {
+                PropertyResolution::Resolved(property) => Some(property),
+                PropertyResolution::NotOwned { .. } | PropertyResolution::Ambiguous { .. } => None,
+            };
+        }
         let table = self.table_for(entity)?;
         let (index, column) = table.get_column_by_name(name)?;
         let schema = self.connection.current_schema();
@@ -295,16 +435,85 @@ impl GraphCatalogSnapshot for SchemaCatalog {
         // replaced by a fresh rowid), even though no NOT NULL constraint was
         // written. `is_rowid_alias()` is exactly `Column::new`'s check for
         // that case (single-column, ascending, INTEGER-typed primary key).
-        let nullability = if column.explicit_notnull() || column.is_rowid_alias() {
-            ir::Nullability::NonNull
-        } else {
-            ir::Nullability::Nullable
-        };
+        let nullability = column_nullability(column);
         Some(ResolvedProperty {
             id: ir::PropertyId::new((index as u32) + 1).ok()?,
             value_type,
             nullability,
         })
+    }
+
+    fn semantic_mode(&self, graph: ir::GraphId) -> bool {
+        graph == self.graph.id && self.semantic.is_some()
+    }
+
+    fn node_source_for_label(
+        &self,
+        graph: ir::GraphId,
+        label: ir::LabelId,
+    ) -> Option<ir::SourceTableId> {
+        if graph != self.graph.id {
+            return None;
+        }
+        self.semantic
+            .as_ref()
+            .and_then(|semantic| semantic.node_type_by_id(label))
+            .map(|type_info| type_info.source)
+            .or_else(|| self.node_source(graph))
+    }
+
+    fn relationship_source_for_type(
+        &self,
+        graph: ir::GraphId,
+        relationship_type: ir::RelationshipTypeId,
+    ) -> Option<ir::SourceTableId> {
+        if graph != self.graph.id {
+            return None;
+        }
+        self.semantic
+            .as_ref()
+            .and_then(|semantic| semantic.relationship_type_by_id(relationship_type))
+            .map(|type_info| type_info.source)
+            .or_else(|| self.relationship_source(graph))
+    }
+
+    fn resolve_owned_property(
+        &self,
+        graph: ir::GraphId,
+        entity: CatalogEntity,
+        type_names: &[String],
+        name: &str,
+    ) -> Option<PropertyResolution> {
+        if graph != self.graph.id {
+            return None;
+        }
+        self.semantic_property_resolution(entity, type_names, name)
+            .or_else(|| {
+                self.property(graph, entity, name)
+                    .map(PropertyResolution::Resolved)
+            })
+    }
+
+    fn relationship_endpoints(
+        &self,
+        graph: ir::GraphId,
+        relationship_type: ir::RelationshipTypeId,
+    ) -> Option<(Vec<ir::LabelId>, Vec<ir::LabelId>)> {
+        if graph != self.graph.id {
+            return None;
+        }
+        let constraints = self.semantic.as_ref()?.endpoints(relationship_type)?;
+        let start = constraints
+            .start
+            .iter()
+            .map(|id| ir::LabelId::new(*id).ok())
+            .collect::<Option<Vec<_>>>()?;
+        let end = constraints
+            .end
+            .iter()
+            .map(|id| ir::LabelId::new(*id).ok())
+            .collect::<Option<Vec<_>>>()?;
+        Some((start, end))
     }
 }
 
@@ -314,6 +523,11 @@ impl RelationalCatalogSnapshot for SchemaCatalog {
     }
 
     fn label_name(&self, label: ir::LabelId) -> Option<String> {
+        if let Some(semantic) = &self.semantic {
+            return semantic
+                .node_type_by_id(label)
+                .map(|type_info| type_info.name.clone());
+        }
         self.graph
             .node_sources
             .get((label.get() as usize).checked_sub(1)?)
@@ -325,6 +539,11 @@ impl RelationalCatalogSnapshot for SchemaCatalog {
     }
 
     fn relationship_type_name(&self, relationship_type: ir::RelationshipTypeId) -> Option<String> {
+        if let Some(semantic) = &self.semantic {
+            return semantic
+                .relationship_type_by_id(relationship_type)
+                .map(|type_info| type_info.name.clone());
+        }
         if let Some(source) = self
             .graph
             .relationship_sources
@@ -374,6 +593,19 @@ impl RelationalCatalogSnapshot for SchemaCatalog {
         source: ir::SourceTableId,
         property: ir::PropertyId,
     ) -> Option<String> {
+        if let Some(semantic) = &self.semantic {
+            let mut columns = semantic
+                .node_type_values()
+                .chain(semantic.relationship_type_values())
+                .filter(|type_info| type_info.source == source)
+                .filter_map(|type_info| type_info.property_by_id(property))
+                .map(|property| property.column.as_str());
+            let first = columns.next()?.to_owned();
+            if columns.all(|column| column.eq_ignore_ascii_case(&first)) {
+                return Some(first);
+            }
+            return None;
+        }
         let table_name = if self
             .node_source_entry()
             .is_some_and(|entry| entry.id == source)
