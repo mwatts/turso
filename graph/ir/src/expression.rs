@@ -119,6 +119,8 @@ pub enum Expression {
     Property {
         entity: BindingId,
         property: PropertyId,
+        /// Conceptual owner types used to resolve owner-specific storage.
+        semantic_types: Vec<String>,
         fields: Vec<String>,
     },
     Parameter(String),
@@ -279,6 +281,7 @@ mod value_type_tests {
         let property = Expression::Property {
             entity: BindingId::new(1).unwrap(),
             property: PropertyId::new(1).unwrap(),
+            semantic_types: Vec::new(),
             fields: vec!["address".to_owned(), "city".to_owned()],
         };
         match property {

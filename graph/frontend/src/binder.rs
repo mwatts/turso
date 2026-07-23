@@ -1542,6 +1542,7 @@ impl<'a> Binder<'a> {
                     entity: binding,
                     source,
                     property: property.id,
+                    semantic_types: type_names,
                     value: bound,
                 }))
             }
@@ -1578,6 +1579,7 @@ impl<'a> Binder<'a> {
                     return Ok(ir::Mutation::ReplaceProperties(ir::ReplaceProperties {
                         entity: binding,
                         source,
+                        semantic_types: type_names,
                         entries,
                         clear,
                     }));
@@ -1595,6 +1597,7 @@ impl<'a> Binder<'a> {
                     ir::ReplacePropertiesDynamic {
                         entity: binding,
                         source,
+                        semantic_types: type_names,
                         value: bound,
                         clear,
                     },
@@ -1631,6 +1634,7 @@ impl<'a> Binder<'a> {
                 entity: binding,
                 source,
                 property: property.id,
+                semantic_types: type_names,
             }));
         }
         Ok(())
@@ -1697,6 +1701,7 @@ impl<'a> Binder<'a> {
                 }
                 Ok(ir::PropertyValue {
                     property: resolved.id,
+                    semantic_types: type_names.to_vec(),
                     value: bound_value,
                 })
             })
@@ -2548,6 +2553,7 @@ impl<'a> Binder<'a> {
                 expression: ir::Expression::Property {
                     entity: binding.id(),
                     property: property.id,
+                    semantic_types: type_names.clone(),
                     fields: Vec::new(),
                 },
                 value_type: property.value_type,
@@ -3554,6 +3560,7 @@ impl<'a> Binder<'a> {
                     ir::Expression::Property {
                         entity: binding.id(),
                         property: property.id,
+                        semantic_types: type_names,
                         fields: nested_fields
                             .iter()
                             .map(|field| field.value.clone())

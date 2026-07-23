@@ -14,6 +14,31 @@ const GRAPH_FRONTEND_NAME: &str = "graph-cypher";
 pub trait GraphCompilationCatalog:
     GraphCatalogSnapshot + RelationalCatalogSnapshot + Send + Sync + 'static
 {
+    fn semantic_property_for_key(
+        &self,
+        source: ir::SourceTableId,
+        type_names: &[String],
+        key: &str,
+    ) -> Option<Option<(String, ir::ValueType, String)>> {
+        RelationalCatalogSnapshot::semantic_property_for_key(self, source, type_names, key)
+    }
+
+    fn semantic_property_for_id(
+        &self,
+        source: ir::SourceTableId,
+        type_names: &[String],
+        property: ir::PropertyId,
+    ) -> Option<Option<(String, ir::ValueType, String)>> {
+        RelationalCatalogSnapshot::semantic_property_for_id(self, source, type_names, property)
+    }
+
+    fn semantic_properties(
+        &self,
+        source: ir::SourceTableId,
+        type_names: &[String],
+    ) -> Option<Vec<(ir::PropertyId, String, ir::ValueType, String)>> {
+        RelationalCatalogSnapshot::semantic_properties(self, source, type_names)
+    }
 }
 
 impl<T> GraphCompilationCatalog for T where

@@ -59,6 +59,32 @@ pub trait RelationalCatalogSnapshot {
     fn payload_columns(&self, _source: ir::SourceTableId) -> Option<Vec<(String, String)>> {
         None
     }
+
+    fn semantic_property_for_key(
+        &self,
+        _source: ir::SourceTableId,
+        _type_names: &[String],
+        _key: &str,
+    ) -> Option<Option<(String, ir::ValueType, String)>> {
+        None
+    }
+
+    fn semantic_property_for_id(
+        &self,
+        _source: ir::SourceTableId,
+        _type_names: &[String],
+        _property: ir::PropertyId,
+    ) -> Option<Option<(String, ir::ValueType, String)>> {
+        None
+    }
+
+    fn semantic_properties(
+        &self,
+        _source: ir::SourceTableId,
+        _type_names: &[String],
+    ) -> Option<Vec<(ir::PropertyId, String, ir::ValueType, String)>> {
+        None
+    }
 }
 
 #[derive(Debug, Error)]
@@ -215,10 +241,24 @@ pub fn lower_relational(
 /// expression in the plan. Scans and expands materialize these as extra
 /// columns so property access lowers to a column reference instead of a
 /// correlated subquery per occurrence.
-type WantedProperties = HashMap<ir::BindingId, std::collections::BTreeSet<u32>>;
+type WantedProperties =
+    HashMap<ir::BindingId, std::collections::BTreeMap<u32, Option<Vec<String>>>>;
 
 fn property_column_ref(binding: ir::BindingId, property: ir::PropertyId) -> String {
     format!("{}_p{}", binding_column(binding), property.get())
+}
+
+fn resolved_property_column(
+    catalog: &dyn RelationalCatalogSnapshot,
+    source: ir::SourceTableId,
+    semantic_types: &[String],
+    property: ir::PropertyId,
+) -> Option<String> {
+    match catalog.semantic_property_for_id(source, semantic_types, property) {
+        Some(Some((_, _, column))) => Some(column),
+        Some(None) => None,
+        None => catalog.property_column(source, property),
+    }
 }
 
 /// Extra SELECT columns materializing a binding's wanted properties from
@@ -236,11 +276,14 @@ fn materialize_properties(
         return String::new();
     };
     let mut columns = String::new();
-    for property in properties {
+    for (property, semantic_types) in properties {
+        let Some(semantic_types) = semantic_types else {
+            continue;
+        };
         let Some(id) = ir::PropertyId::new(*property).ok() else {
             continue;
         };
-        let Some(column) = catalog.property_column(source, id) else {
+        let Some(column) = resolved_property_column(catalog, source, semantic_types, id) else {
             continue;
         };
         columns.push_str(&format!(
@@ -323,9 +366,21 @@ fn collect_expression_wanted(expression: &ir::TypedExpression, wanted: &mut Want
             ir::Expression::Property {
                 entity,
                 property,
+                semantic_types,
                 fields,
             } if fields.is_empty() => {
-                wanted.entry(*entity).or_default().insert(property.get());
+                let properties = wanted.entry(*entity).or_default();
+                match properties.entry(property.get()) {
+                    std::collections::btree_map::Entry::Vacant(entry) => {
+                        entry.insert(Some(semantic_types.clone()));
+                    }
+                    std::collections::btree_map::Entry::Occupied(mut entry)
+                        if entry.get().as_ref() != Some(semantic_types) =>
+                    {
+                        entry.insert(None);
+                    }
+                    std::collections::btree_map::Entry::Occupied(_) => {}
+                }
             }
             _ => {}
         }
@@ -1227,6 +1282,7 @@ fn lower_expression_with_references(
         ir::Expression::Property {
             entity,
             property,
+            semantic_types,
             fields,
         } => {
             if fields.len() > 2 {
@@ -1253,12 +1309,12 @@ fn lower_expression_with_references(
                     column
                 });
             }
-            let column = catalog.property_column(binding.source, *property).ok_or(
-                LowerError::MissingProperty {
-                    source_id: binding.source,
-                    property: *property,
-                },
-            )?;
+            let column =
+                resolved_property_column(catalog, binding.source, semantic_types, *property)
+                    .ok_or(LowerError::MissingProperty {
+                        source_id: binding.source,
+                        property: *property,
+                    })?;
             let (table, identity) = match binding.kind {
                 EntityKind::Node => {
                     let layout = catalog
@@ -2289,6 +2345,7 @@ mod tests {
             expression: ir::Expression::Property {
                 entity,
                 property: ir::PropertyId::new(1).unwrap(),
+                semantic_types: Vec::new(),
                 fields: vec!["city".to_owned()],
             },
             value_type: ir::ValueType::Text,
@@ -2330,6 +2387,7 @@ mod tests {
             expression: ir::Expression::Property {
                 entity: binding_id,
                 property: ir::PropertyId::new(1).unwrap(),
+                semantic_types: Vec::new(),
                 fields: vec![],
             },
             value_type: ir::ValueType::Text,
@@ -2468,6 +2526,7 @@ mod tests {
             expression: ir::Expression::Property {
                 entity,
                 property: ir::PropertyId::new(1).unwrap(),
+                semantic_types: Vec::new(),
                 fields: vec!["address".to_owned(), "city".to_owned()],
             },
             value_type: ir::ValueType::Text,

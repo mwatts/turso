@@ -28,6 +28,8 @@ pub enum Mutation {
 #[derive(Clone, Debug, PartialEq)]
 pub struct PropertyValue {
     pub property: PropertyId,
+    /// Conceptual owners used to resolve owner-specific physical mappings.
+    pub semantic_types: Vec<String>,
     pub value: TypedExpression,
 }
 
@@ -55,6 +57,8 @@ pub struct SetProperty {
     pub entity: BindingId,
     pub source: SourceTableId,
     pub property: PropertyId,
+    /// Conceptual owners used to resolve owner-specific physical mappings.
+    pub semantic_types: Vec<String>,
     pub value: TypedExpression,
 }
 
@@ -71,6 +75,8 @@ pub struct SetLabels {
 pub struct ReplaceProperties {
     pub entity: BindingId,
     pub source: SourceTableId,
+    /// Conceptual owners whose properties may be replaced or cleared.
+    pub semantic_types: Vec<String>,
     pub entries: Vec<PropertyValue>,
     pub clear: bool,
 }
@@ -83,15 +89,20 @@ pub struct ReplaceProperties {
 pub struct ReplacePropertiesDynamic {
     pub entity: BindingId,
     pub source: SourceTableId,
+    /// Conceptual owner types needed to validate dynamic keys before lowering
+    /// them to physical columns. Empty retains schemaless behavior.
+    pub semantic_types: Vec<String>,
     pub value: TypedExpression,
     pub clear: bool,
 }
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct RemoveProperty {
     pub entity: BindingId,
     pub source: SourceTableId,
     pub property: PropertyId,
+    /// Conceptual owners used to resolve owner-specific physical mappings.
+    pub semantic_types: Vec<String>,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]

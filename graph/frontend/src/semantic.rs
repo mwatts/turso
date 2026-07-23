@@ -57,12 +57,18 @@ impl SemanticTypeInfo {
     pub(crate) fn property_by_id(&self, id: ir::PropertyId) -> Option<&OwnedProperty> {
         self.properties.values().find(|property| property.id == id)
     }
+
+    pub(crate) fn property_values(&self) -> impl Iterator<Item = &OwnedProperty> {
+        self.properties.values()
+    }
 }
 
 /// Resolved semantic property identity, type, nullability, and physical
 /// lowering mapping.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct OwnedProperty {
+    /// Preserved conceptual property spelling.
+    pub name: String,
     /// Persisted conceptual property identity.
     pub id: ir::PropertyId,
     /// Value type derived from the physical schema.
@@ -1042,6 +1048,7 @@ pub fn load_semantic_snapshot(
         let property_id = ir::PropertyId::new(property_id)
             .map_err(|_| SemanticCatalogError::InvalidCatalogValue("semantic property id"))?;
         let owned = OwnedProperty {
+            name: property_name.clone(),
             id: property_id,
             value_type: crate::schema_catalog::column_value_type(
                 &schema,

@@ -47,11 +47,83 @@ pub enum MutationError {
     MissingBinding(ir::BindingId),
     #[error("cannot delete node while relationships still reference it; use DETACH DELETE")]
     NodeHasRelationships,
+    #[error("runtime value for property `{property}` is not assignable to {expected:?}")]
+    IncompatibleRuntimeValue {
+        property: String,
+        expected: ir::ValueType,
+    },
+    #[error("dynamic map key `{key}` is not an owned semantic property")]
+    UnknownDynamicKey { key: String },
+    #[error("mutation expression did not produce exactly one scalar value")]
+    MissingEvaluatedValue,
     #[error("mutation failed and savepoint rollback also failed: {cause}; rollback: {rollback}")]
     RollbackFailed {
         cause: Box<MutationError>,
         rollback: turso_core::LimboError,
     },
+}
+
+fn check_runtime_value(
+    catalog: &dyn GraphCompilationCatalog,
+    source: ir::SourceTableId,
+    semantic_types: &[String],
+    property: ir::PropertyId,
+    value: &Value,
+) -> Result<(), MutationError> {
+    let Some(resolution) = GraphCompilationCatalog::semantic_property_for_id(
+        catalog,
+        source,
+        semantic_types,
+        property,
+    ) else {
+        return Ok(());
+    };
+    let Some((name, expected, _)) = resolution else {
+        return Err(LowerError::MissingProperty {
+            source_id: source,
+            property,
+        }
+        .into());
+    };
+    check_runtime_value_against(&name, &expected, value)
+}
+
+fn check_runtime_value_against(
+    name: &str,
+    expected: &ir::ValueType,
+    value: &Value,
+) -> Result<(), MutationError> {
+    if runtime_value_compatible(expected, value) {
+        Ok(())
+    } else {
+        Err(MutationError::IncompatibleRuntimeValue {
+            property: name.to_owned(),
+            expected: expected.clone(),
+        })
+    }
+}
+
+fn runtime_value_compatible(expected: &ir::ValueType, value: &Value) -> bool {
+    match (expected, value) {
+        (_, Value::Null) | (ir::ValueType::Any, _) => true,
+        (ir::ValueType::Boolean | ir::ValueType::Integer, Value::Numeric(Numeric::Integer(_))) => {
+            true
+        }
+        (ir::ValueType::Real, Value::Numeric(_)) => true,
+        (ir::ValueType::Text, Value::Text(_)) => true,
+        (ir::ValueType::Bytes, Value::Blob(_)) => true,
+        (ir::ValueType::Custom { base, .. }, value) => runtime_value_compatible(base, value),
+        (
+            ir::ValueType::Struct(_)
+            | ir::ValueType::Union(_)
+            | ir::ValueType::List(_)
+            | ir::ValueType::Vector(_, _),
+            Value::Blob(_),
+        ) => true,
+        (ir::ValueType::Map, Value::Text(_)) => true,
+        (ir::ValueType::Node | ir::ValueType::Relationship | ir::ValueType::Path, _) => false,
+        _ => false,
+    }
 }
 
 pub fn execute_cypher_mutation(
@@ -967,7 +1039,7 @@ fn execute_operation(
         }
         ir::Mutation::SetProperty(set) => {
             let layout = entity_table(catalog, set.source)?;
-            let column = property_column(catalog, set.source, set.property)?;
+            let column = property_column(catalog, set.source, &set.semantic_types, set.property)?;
             let references = reference_parameters(values);
             let expression = lower_mutation_expression(
                 &set.value,
@@ -981,10 +1053,28 @@ fn execute_operation(
                 .ok_or(MutationError::MissingBinding(set.entity))?;
             let mut internal = references.values;
             internal.insert(identity_parameter(set.entity), identity.clone());
+            let assignment = if set.value.value_type == ir::ValueType::Any {
+                let evaluated = evaluate_scalar(connection, &expression, parameters, &internal)?;
+                check_runtime_value(
+                    catalog,
+                    set.source,
+                    &set.semantic_types,
+                    set.property,
+                    &evaluated,
+                )?;
+                let value_parameter = format!(
+                    "{INTERNAL_PARAMETER_PREFIX}set_property_{}",
+                    set.entity.get()
+                );
+                internal.insert(value_parameter.clone(), evaluated);
+                format!("${value_parameter}")
+            } else {
+                expression
+            };
             run_ignore(
                 connection,
                 &format!(
-                    "UPDATE {} SET {} = {expression} WHERE {} = ${}",
+                    "UPDATE {} SET {} = {assignment} WHERE {} = ${}",
                     quoted_identifier(&layout.table),
                     quoted_identifier(&column),
                     quoted_identifier(&layout.identity),
@@ -1012,7 +1102,12 @@ fn execute_operation(
             let mut assignments = Vec::new();
             let mut assigned_columns = Vec::new();
             for entry in &replace.entries {
-                let column = property_column(catalog, replace.source, entry.property)?;
+                let column = property_column(
+                    catalog,
+                    replace.source,
+                    &entry.semantic_types,
+                    entry.property,
+                )?;
                 let expression = lower_mutation_expression(
                     &entry.value,
                     input,
@@ -1020,32 +1115,64 @@ fn execute_operation(
                     &references.sql,
                     entity_layouts,
                 )?;
-                assignments.push(format!("{} = {expression}", quoted_identifier(&column)));
+                let assignment = if entry.value.value_type == ir::ValueType::Any {
+                    let evaluated =
+                        evaluate_scalar(connection, &expression, parameters, &internal)?;
+                    check_runtime_value(
+                        catalog,
+                        replace.source,
+                        &entry.semantic_types,
+                        entry.property,
+                        &evaluated,
+                    )?;
+                    let value_parameter = format!(
+                        "{INTERNAL_PARAMETER_PREFIX}replace_{}_{}",
+                        replace.entity.get(),
+                        entry.property.get()
+                    );
+                    internal.insert(value_parameter.clone(), evaluated);
+                    format!("${value_parameter}")
+                } else {
+                    expression
+                };
+                assignments.push(format!("{} = {assignment}", quoted_identifier(&column)));
                 assigned_columns.push(column);
             }
             if replace.clear {
                 // `SET n = map` wipes every payload column the map omits.
-                let mut structural = vec![layout.identity.clone()];
-                if let Some(relationship) = catalog.relationship_layout(replace.source) {
-                    structural.push(relationship.start_column);
-                    structural.push(relationship.end_column);
-                }
-                let escaped = layout.table.replace('\'', "''");
-                let columns = run_rows(
-                    connection,
-                    &format!("SELECT name FROM pragma_table_info('{escaped}')"),
-                    parameters,
-                    &HashMap::new(),
-                )?;
-                for row in columns {
-                    let Some(Value::Text(name)) = row.first() else {
-                        continue;
-                    };
-                    let name = name.to_string();
-                    if structural.contains(&name) || assigned_columns.contains(&name) {
-                        continue;
+                if let Some(properties) = GraphCompilationCatalog::semantic_properties(
+                    catalog,
+                    replace.source,
+                    &replace.semantic_types,
+                ) {
+                    for (_, _, _, column) in properties {
+                        if !assigned_columns.contains(&column) {
+                            assignments.push(format!("{} = NULL", quoted_identifier(&column)));
+                        }
                     }
-                    assignments.push(format!("{} = NULL", quoted_identifier(&name)));
+                } else {
+                    let mut structural = vec![layout.identity.clone()];
+                    if let Some(relationship) = catalog.relationship_layout(replace.source) {
+                        structural.push(relationship.start_column);
+                        structural.push(relationship.end_column);
+                    }
+                    let escaped = layout.table.replace('\'', "''");
+                    let columns = run_rows(
+                        connection,
+                        &format!("SELECT name FROM pragma_table_info('{escaped}')"),
+                        parameters,
+                        &HashMap::new(),
+                    )?;
+                    for row in columns {
+                        let Some(Value::Text(name)) = row.first() else {
+                            continue;
+                        };
+                        let name = name.to_string();
+                        if structural.contains(&name) || assigned_columns.contains(&name) {
+                            continue;
+                        }
+                        assignments.push(format!("{} = NULL", quoted_identifier(&name)));
+                    }
                 }
             }
             if !assignments.is_empty() {
@@ -1065,12 +1192,6 @@ fn execute_operation(
         }
         ir::Mutation::ReplacePropertiesDynamic(replace) => {
             let layout = entity_table(catalog, replace.source)?;
-            let columns =
-                catalog
-                    .payload_columns(replace.source)
-                    .ok_or(LowerError::UnsupportedOperator(
-                        "whole-entity SET without payload columns",
-                    ))?;
             let references = reference_parameters(values);
             let identity = values
                 .get(&replace.entity)
@@ -1084,12 +1205,91 @@ fn execute_operation(
                 &references.sql,
                 entity_layouts,
             )?;
+            let evaluated = evaluate_scalar(connection, &value, parameters, &internal)?;
+            let map_parameter = format!(
+                "{INTERNAL_PARAMETER_PREFIX}replace_map_{}",
+                replace.entity.get()
+            );
+            internal.insert(map_parameter.clone(), evaluated);
+            if let Some(owned_properties) = GraphCompilationCatalog::semantic_properties(
+                catalog,
+                replace.source,
+                &replace.semantic_types,
+            ) {
+                let map_rows = run_rows(
+                    connection,
+                    &format!("SELECT key, value FROM json_each(${map_parameter})"),
+                    parameters,
+                    &internal,
+                )?;
+                let mut updates = HashMap::<String, Value>::new();
+                for row in map_rows {
+                    let (Some(Value::Text(key)), Some(value)) = (row.first(), row.get(1)) else {
+                        return Err(MutationError::UnknownDynamicKey {
+                            key: "<non-text>".to_owned(),
+                        });
+                    };
+                    let key = key.to_string();
+                    let Some((property_name, expected, column)) =
+                        GraphCompilationCatalog::semantic_property_for_key(
+                            catalog,
+                            replace.source,
+                            &replace.semantic_types,
+                            &key,
+                        )
+                        .flatten()
+                    else {
+                        return Err(MutationError::UnknownDynamicKey { key });
+                    };
+                    check_runtime_value_against(&property_name, &expected, value)?;
+                    updates.insert(column, value.clone());
+                }
+                let mut assignments = Vec::new();
+                for (property, _, _, column) in owned_properties {
+                    let value = match updates.remove(&column) {
+                        Some(value) => value,
+                        None if replace.clear => Value::Null,
+                        None => continue,
+                    };
+                    let value_parameter = format!(
+                        "{INTERNAL_PARAMETER_PREFIX}dynamic_{}_{}",
+                        replace.entity.get(),
+                        property.get()
+                    );
+                    internal.insert(value_parameter.clone(), value);
+                    assignments.push(format!(
+                        "{} = ${value_parameter}",
+                        quoted_identifier(&column)
+                    ));
+                }
+                if !assignments.is_empty() {
+                    run_ignore(
+                        connection,
+                        &format!(
+                            "UPDATE {} SET {} WHERE {} = ${}",
+                            quoted_identifier(&layout.table),
+                            assignments.join(", "),
+                            quoted_identifier(&layout.identity),
+                            identity_parameter(replace.entity),
+                        ),
+                        parameters,
+                        &internal,
+                    )?;
+                }
+                return Ok(());
+            }
+            let columns =
+                catalog
+                    .payload_columns(replace.source)
+                    .ok_or(LowerError::UnsupportedOperator(
+                        "whole-entity SET without payload columns",
+                    ))?;
             let assignments = columns
                 .iter()
                 .map(|(logical, physical)| {
                     let path =
                         format!("$.\"{}\"", logical.replace('"', "\\\"").replace('\'', "''"));
-                    let extract = format!("json_extract(({value}), '{path}')");
+                    let extract = format!("json_extract(${map_parameter}, '{path}')");
                     if replace.clear {
                         format!("{} = {extract}", quoted_identifier(physical))
                     } else {
@@ -1118,7 +1318,12 @@ fn execute_operation(
         }
         ir::Mutation::RemoveProperty(remove) => {
             let layout = entity_table(catalog, remove.source)?;
-            let column = property_column(catalog, remove.source, remove.property)?;
+            let column = property_column(
+                catalog,
+                remove.source,
+                &remove.semantic_types,
+                remove.property,
+            )?;
             let identity = values
                 .get(&remove.entity)
                 .ok_or(MutationError::MissingBinding(remove.entity))?;
@@ -1386,14 +1591,38 @@ fn insert_entity(
         internal.insert(name, value.clone());
     }
     for property in properties {
-        columns.push(property_column(catalog, source, property.property)?);
-        expressions.push(lower_mutation_expression(
+        columns.push(property_column(
+            catalog,
+            source,
+            &property.semantic_types,
+            property.property,
+        )?);
+        let expression = lower_mutation_expression(
             &property.value,
             input,
             catalog,
             &references.sql,
             entity_layouts,
-        )?);
+        )?;
+        if property.value.value_type == ir::ValueType::Any {
+            let evaluated = evaluate_scalar(connection, &expression, parameters, &internal)?;
+            check_runtime_value(
+                catalog,
+                source,
+                &property.semantic_types,
+                property.property,
+                &evaluated,
+            )?;
+            let name = format!(
+                "{INTERNAL_PARAMETER_PREFIX}property_{}_{}",
+                property.property.get(),
+                expressions.len()
+            );
+            internal.insert(name.clone(), evaluated);
+            expressions.push(format!("${name}"));
+        } else {
+            expressions.push(expression);
+        }
     }
     if merge {
         // A propertyless MERGE matches any candidate row (Cypher semantics);
@@ -1578,14 +1807,27 @@ fn entity_table(
 fn property_column(
     catalog: &dyn GraphCompilationCatalog,
     source: ir::SourceTableId,
+    semantic_types: &[String],
     property: ir::PropertyId,
 ) -> Result<String, LowerError> {
-    catalog
-        .property_column(source, property)
-        .ok_or(LowerError::MissingProperty {
+    match GraphCompilationCatalog::semantic_property_for_id(
+        catalog,
+        source,
+        semantic_types,
+        property,
+    ) {
+        Some(Some((_, _, column))) => Ok(column),
+        Some(None) => Err(LowerError::MissingProperty {
             source_id: source,
             property,
-        })
+        }),
+        None => catalog
+            .property_column(source, property)
+            .ok_or(LowerError::MissingProperty {
+                source_id: source,
+                property,
+            }),
+    }
 }
 
 struct References {
@@ -1633,6 +1875,26 @@ fn run_rows(
     statement.run_collect_rows()
 }
 
+fn evaluate_scalar(
+    connection: &Arc<Connection>,
+    expression: &str,
+    parameters: &Parameters,
+    internal: &HashMap<String, Value>,
+) -> Result<Value, MutationError> {
+    let mut rows = run_rows(
+        connection,
+        &format!("SELECT {expression}"),
+        parameters,
+        internal,
+    )?;
+    if rows.len() != 1 || rows[0].len() != 1 {
+        return Err(MutationError::MissingEvaluatedValue);
+    }
+    rows.pop()
+        .and_then(|mut row| row.pop())
+        .ok_or(MutationError::MissingEvaluatedValue)
+}
+
 fn bind_parameters(
     statement: &mut turso_core::Statement,
     parameters: &Parameters,
@@ -1657,6 +1919,9 @@ fn parameter_types(parameters: &Parameters) -> ParameterTypes {
                 }
                 Value::Numeric(Numeric::Float(_)) => {
                     (ir::ValueType::Real, ir::Nullability::NonNull)
+                }
+                Value::Text(value) if value.value.trim_start().starts_with('{') => {
+                    (ir::ValueType::Map, ir::Nullability::NonNull)
                 }
                 Value::Text(_) => (ir::ValueType::Text, ir::Nullability::NonNull),
                 Value::Blob(_) => (ir::ValueType::Bytes, ir::Nullability::NonNull),
@@ -1857,6 +2122,30 @@ mod tests {
 
     fn rows(connection: &Arc<Connection>, sql: &str) -> Vec<Vec<Value>> {
         connection.prepare(sql).unwrap().run_collect_rows().unwrap()
+    }
+
+    #[test]
+    fn deferred_runtime_validation_uses_physical_value_shapes() {
+        let blob = Value::from_slice(&[1, 2, 3]).expect("small blob");
+        let text = Value::build_text("not encoded");
+        let custom_integer = ir::ValueType::Custom {
+            name: "cents".to_owned(),
+            base: Box::new(ir::ValueType::Integer),
+        };
+
+        assert!(runtime_value_compatible(
+            &custom_integer,
+            &Value::from_i64(42)
+        ));
+        assert!(!runtime_value_compatible(&custom_integer, &text));
+        assert!(runtime_value_compatible(
+            &ir::ValueType::List(Box::new(ir::ValueType::Integer)),
+            &blob
+        ));
+        assert!(!runtime_value_compatible(
+            &ir::ValueType::Struct(vec![("x".to_owned(), ir::ValueType::Integer)]),
+            &text
+        ));
     }
 
     #[test]

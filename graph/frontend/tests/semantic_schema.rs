@@ -23,6 +23,7 @@ fn registered_graph(connection: &Arc<turso_graph_frontend::core::Connection>) {
             "CREATE TABLE tbl_people(\
                  pk INTEGER PRIMARY KEY, \
                  full_name TEXT, \
+                 supplier_name TEXT, \
                  birth_year INTEGER\
              ); \
              CREATE TABLE tbl_edges(\
@@ -217,6 +218,69 @@ fn snapshot_reloads_identical_identities() {
     assert_eq!(
         second.node_type("Customer").expect("customer").type_id,
         customer_id
+    );
+}
+
+#[test]
+fn owner_specific_columns_preserve_one_stable_property_identity() {
+    let connection = connection();
+    registered_graph(&connection);
+    let mut registration = semantic_registration();
+    registration.node_types[1].properties[0].column = "supplier_name".to_owned();
+    register_semantic_schema(&connection, "social", &registration).expect("register");
+
+    let graph = load_registered_graph(&connection, "social").expect("load graph");
+    let snapshot = load_semantic_snapshot(&connection, &graph)
+        .expect("load snapshot")
+        .expect("semantic mode");
+    let customer_property = snapshot
+        .node_type("Customer")
+        .and_then(|type_info| type_info.property("displayName"))
+        .expect("customer property");
+    let supplier_property = snapshot
+        .node_type("Supplier")
+        .and_then(|type_info| type_info.property("displayName"))
+        .expect("supplier property");
+    assert_eq!(customer_property.id, supplier_property.id);
+    assert_eq!(customer_property.column, "full_name");
+    assert_eq!(supplier_property.column, "supplier_name");
+
+    let session = turso_graph_frontend::Connection::open(connection.clone(), "social")
+        .expect("open semantic graph");
+    session
+        .execute(
+            "CREATE (:Customer {displayName: 'Ada'}) \
+             CREATE (:Supplier {displayName: 'Iron Co'})",
+            &Default::default(),
+        )
+        .expect("create both owners");
+    session
+        .execute(
+            "MATCH (s:Supplier) SET s.displayName = 'Steel Co'",
+            &Default::default(),
+        )
+        .expect("update supplier mapping");
+
+    let rows = connection
+        .prepare(
+            "SELECT full_name, supplier_name FROM tbl_people \
+             ORDER BY pk",
+        )
+        .expect("prepare physical verification")
+        .run_collect_rows()
+        .expect("read physical columns");
+    assert_eq!(
+        rows,
+        vec![
+            vec![
+                turso_graph_frontend::Value::Text("Ada".into()),
+                turso_graph_frontend::Value::Null,
+            ],
+            vec![
+                turso_graph_frontend::Value::Null,
+                turso_graph_frontend::Value::Text("Steel Co".into()),
+            ],
+        ]
     );
 }
 
@@ -488,4 +552,103 @@ fn statically_wrong_property_value_types_fail_during_binding() {
         .execute("MATCH (n:Customer) SET n.born = 'old'", &Default::default())
         .expect_err("SET Text cannot be assigned to Integer");
     assert!(error.to_string().contains("not assignable"), "{error}");
+}
+
+#[test]
+fn wrong_parameter_values_leave_zero_partial_writes() {
+    let session = semantic_session();
+    let parameters = turso_graph_frontend::Parameters::from([(
+        "b".to_owned(),
+        turso_graph_frontend::Value::Text("old".into()),
+    )]);
+    let error = session
+        .execute(
+            "CREATE (a:Customer {displayName: 'First'}) \
+             CREATE (b:Customer {displayName: 'Second', born: $b})",
+            &parameters,
+        )
+        .expect_err("Text parameter cannot be assigned to Integer");
+    assert!(error.to_string().contains("not assignable"), "{error}");
+
+    let rows = session
+        .query(
+            "MATCH (n:Customer) RETURN n.displayName",
+            &Default::default(),
+        )
+        .expect("read after failed mutation");
+    assert!(rows.is_empty(), "partial write leaked: {rows:?}");
+}
+
+#[test]
+fn dynamic_map_replacement_rejects_unknown_keys_atomically() {
+    let session = semantic_session();
+    session
+        .execute(
+            "CREATE (n:Customer {displayName: 'Ada', born: 1815})",
+            &Default::default(),
+        )
+        .expect("seed customer");
+    let parameters = turso_graph_frontend::Parameters::from([(
+        "m".to_owned(),
+        turso_graph_frontend::Value::Text(r#"{"displayName":"Eve","ghost":1}"#.into()),
+    )]);
+
+    let error = session
+        .execute("MATCH (n:Customer) SET n = $m", &parameters)
+        .expect_err("unknown dynamic property");
+    assert!(error.to_string().contains("ghost"), "{error}");
+
+    let bad_value = turso_graph_frontend::Parameters::from([(
+        "m".to_owned(),
+        turso_graph_frontend::Value::Text(r#"{"displayName":"Eve","born":"old"}"#.into()),
+    )]);
+    let error = session
+        .execute("MATCH (n:Customer) SET n += $m", &bad_value)
+        .expect_err("dynamic value must match the owned property type");
+    assert!(
+        error.to_string().contains("runtime value"),
+        "expected runtime type validation: {error}"
+    );
+
+    let rows = session
+        .query(
+            "MATCH (n:Customer) RETURN n.displayName, n.born",
+            &Default::default(),
+        )
+        .expect("read unchanged customer");
+    assert_eq!(
+        rows,
+        vec![vec![
+            turso_graph_frontend::Value::Text("Ada".into()),
+            turso_graph_frontend::Value::Numeric(turso_graph_frontend::Numeric::Integer(1815),),
+        ]]
+    );
+}
+
+#[test]
+fn staged_runtime_failure_aborts_every_row() {
+    let session = semantic_session();
+    let parameters = turso_graph_frontend::Parameters::from([(
+        "bad".to_owned(),
+        turso_graph_frontend::Value::Text("x".into()),
+    )]);
+
+    let error = session
+        .execute(
+            "UNWIND [1, 2] AS i \
+             CREATE (n:Customer {\
+                 displayName: 'row', \
+                 born: CASE i WHEN 1 THEN 1815 ELSE $bad END\
+             })",
+            &parameters,
+        )
+        .expect_err("second row must fail");
+    assert!(
+        error.to_string().contains("runtime value"),
+        "expected deferred runtime validation: {error}"
+    );
+    let rows = session
+        .query("MATCH (n:Customer) RETURN n", &Default::default())
+        .expect("read after staged rollback");
+    assert!(rows.is_empty(), "staged mutation leaked rows: {rows:?}");
 }

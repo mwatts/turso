@@ -149,6 +149,33 @@ impl SchemaCatalog {
         }
         Some(PropertyResolution::Resolved(resolved))
     }
+
+    fn semantic_types_for_source(
+        &self,
+        source: ir::SourceTableId,
+        type_names: &[String],
+    ) -> Option<Vec<&SemanticTypeInfo>> {
+        let semantic = self.semantic.as_ref()?;
+        let mut types = if type_names.is_empty() {
+            semantic
+                .node_type_values()
+                .chain(semantic.relationship_type_values())
+                .filter(|type_info| type_info.source == source)
+                .collect::<Vec<_>>()
+        } else {
+            type_names
+                .iter()
+                .filter_map(|name| {
+                    semantic
+                        .node_type(name)
+                        .or_else(|| semantic.relationship_type(name))
+                })
+                .filter(|type_info| type_info.source == source)
+                .collect::<Vec<_>>()
+        };
+        types.sort_by_key(|type_info| type_info.name.to_lowercase());
+        Some(types)
+    }
 }
 
 /// Maps a column's declared (or resolved custom-type base) primitive type
@@ -651,11 +678,12 @@ impl RelationalCatalogSnapshot for SchemaCatalog {
         let Some(table) = self.connection.current_schema().get_table(&table_name) else {
             return false;
         };
-        let Some(index) = (property.get() as usize).checked_sub(1) else {
+        let Some(column_name) = self.property_column(source, property) else {
             return false;
         };
         table
-            .get_column_at(index)
+            .get_column_by_name(&column_name)
+            .map(|(_, column)| column)
             .is_some_and(|column| column.ty_str.eq_ignore_ascii_case("JSONB"))
     }
 
@@ -698,6 +726,91 @@ impl RelationalCatalogSnapshot for SchemaCatalog {
             columns.push((logical, name));
         }
         Some(columns)
+    }
+
+    fn semantic_property_for_key(
+        &self,
+        source: ir::SourceTableId,
+        type_names: &[String],
+        key: &str,
+    ) -> Option<Option<(String, ir::ValueType, String)>> {
+        let types = self.semantic_types_for_source(source, type_names)?;
+        if types.is_empty() {
+            return Some(None);
+        }
+        let mut owned = types.iter().map(|type_info| type_info.property(key));
+        let Some(Some(first)) = owned.next() else {
+            return Some(None);
+        };
+        let mut expected = first.value_type.clone();
+        for property in owned {
+            let Some(property) = property else {
+                return Some(None);
+            };
+            if property.id != first.id || !property.column.eq_ignore_ascii_case(&first.column) {
+                return Some(None);
+            }
+            if expected == ir::ValueType::Any {
+                expected = property.value_type.clone();
+            } else if property.value_type != ir::ValueType::Any && property.value_type != expected {
+                return Some(None);
+            }
+        }
+        Some(Some((first.name.clone(), expected, first.column.clone())))
+    }
+
+    fn semantic_property_for_id(
+        &self,
+        source: ir::SourceTableId,
+        type_names: &[String],
+        property: ir::PropertyId,
+    ) -> Option<Option<(String, ir::ValueType, String)>> {
+        let types = self.semantic_types_for_source(source, type_names)?;
+        if types.is_empty() {
+            return Some(None);
+        }
+        let mut owned = types
+            .iter()
+            .map(|type_info| type_info.property_by_id(property));
+        let Some(Some(first)) = owned.next() else {
+            return Some(None);
+        };
+        let mut expected = first.value_type.clone();
+        for property in owned {
+            let Some(property) = property else {
+                return Some(None);
+            };
+            if !property.column.eq_ignore_ascii_case(&first.column)
+                || !property.name.eq_ignore_ascii_case(&first.name)
+            {
+                return Some(None);
+            }
+            if expected == ir::ValueType::Any {
+                expected = property.value_type.clone();
+            } else if property.value_type != ir::ValueType::Any && property.value_type != expected {
+                return Some(None);
+            }
+        }
+        Some(Some((first.name.clone(), expected, first.column.clone())))
+    }
+
+    fn semantic_properties(
+        &self,
+        source: ir::SourceTableId,
+        type_names: &[String],
+    ) -> Option<Vec<(ir::PropertyId, String, ir::ValueType, String)>> {
+        let types = self.semantic_types_for_source(source, type_names)?;
+        let first = types.first()?;
+        let mut properties = first
+            .property_values()
+            .filter_map(|property| {
+                self.semantic_property_for_key(source, type_names, &property.name)
+                    .flatten()
+                    .map(|(name, value_type, column)| (property.id, name, value_type, column))
+            })
+            .collect::<Vec<_>>();
+        properties.sort_by_key(|(_, name, _, _)| name.to_lowercase());
+        Some(properties)
     }
 }
 
