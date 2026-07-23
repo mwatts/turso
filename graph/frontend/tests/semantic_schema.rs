@@ -193,7 +193,13 @@ fn failed_registration_writes_no_catalog_rows() {
 
 #[test]
 fn snapshot_reloads_identical_identities() {
-    let connection = connection();
+    let database = Database::open_file(
+        Arc::new(MemoryIO::new()),
+        ":memory:semantic-schema-reopen",
+        Arc::new(SqliteDialect),
+    )
+    .expect("open database");
+    let connection = database.connect().expect("first connection");
     registered_graph(&connection);
     register_semantic_schema(&connection, "social", &semantic_registration()).expect("register");
     let graph = load_registered_graph(&connection, "social").expect("load graph");
@@ -213,7 +219,10 @@ fn snapshot_reloads_identical_identities() {
     assert_eq!(customer.property("displayName").expect("owned").id.get(), 1);
 
     let customer_id = customer.type_id;
-    let second = load_semantic_snapshot(&connection, &graph)
+    drop(connection);
+    let reopened = database.connect().expect("reopen connection");
+    let reopened_graph = load_registered_graph(&reopened, "social").expect("reload graph");
+    let second = load_semantic_snapshot(&reopened, &reopened_graph)
         .expect("reload")
         .expect("semantic mode");
     assert_eq!(
