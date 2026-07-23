@@ -7456,6 +7456,7 @@ dependencies = [
 name = "turso_graph_frontend"
 version = "0.8.0-pre.1"
 dependencies = [
+ "codspeed-divan-compat",
  "parking_lot",
  "serde",
  "serde_json",
@@ -7469,6 +7470,7 @@ dependencies = [
  "turso_graph_ir",
  "turso_graph_runtime",
  "turso_graph_temporal",
+ "turso_macros",
  "turso_parser",
 ]
 

@@ -26,7 +26,8 @@ cypher   runtime
 ## Quickstart
 
 Full consumer guide — registration, sessions, parameters, transactions,
-traversal snapshots — lives in [`docs/graph.md`](../docs/graph.md).
+semantic schemas and their direct-SQL integrity boundary, traversal snapshots
+— lives in [`docs/graph.md`](../docs/graph.md).
 
 ```rust
 let (io, db) = turso_graph_frontend::open_database(
@@ -106,6 +107,7 @@ cargo run -q -p turso_graph_testkit -- performance smoke --no-record
 cargo test -p turso_graph_testkit
 cargo test -p turso_graph_runtime --test benchmark_shapes
 cargo bench -p turso_graph_runtime --bench graph_shapes
+cargo bench -p turso_graph_frontend --bench semantic_prepare
 ```
 
 Omit `--no-record` on an intentional baseline run to append one result per

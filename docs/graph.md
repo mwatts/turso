@@ -71,6 +71,88 @@ Identity columns must be `PRIMARY KEY` or `UNIQUE`. The current
 implementation supports exactly one node source and one relationship
 source per graph; `register_graph` errors otherwise.
 
+## Optional semantic schema
+
+`register_graph` keeps the source-derived, schemaless behavior shown above.
+Applications that need stable conceptual identities and typed property
+ownership can add a semantic schema to an already registered graph:
+
+```rust
+use turso_graph_frontend::{
+    register_semantic_schema, SemanticNodeType, SemanticProperty,
+    SemanticRelationshipType, SemanticSchemaRegistration,
+};
+
+register_semantic_schema(
+    &conn,
+    "social",
+    &SemanticSchemaRegistration {
+        node_types: vec![
+            SemanticNodeType {
+                name: "Person".to_owned(),
+                source: "Person".to_owned(),
+                properties: vec![
+                    SemanticProperty {
+                        name: "displayName".to_owned(),
+                        column: "name".to_owned(),
+                    },
+                    SemanticProperty {
+                        name: "age".to_owned(),
+                        column: "age".to_owned(),
+                    },
+                ],
+            },
+        ],
+        relationship_types: vec![
+            SemanticRelationshipType {
+                name: "KNOWS".to_owned(),
+                source: "KNOWS".to_owned(),
+                start: vec!["Person".to_owned()],
+                end: vec!["Person".to_owned()],
+                properties: Vec::new(),
+            },
+        ],
+    },
+)?;
+```
+
+Registration validates the complete definition before writing, commits it
+atomically, and accepts an identical replay. A conflicting replay is rejected.
+Semantic type and property IDs are persisted independently from source IDs and
+column positions. The immutable semantic snapshot loaded by
+`GraphConnection::open` maps those conceptual IDs to physical sources only at
+lowering time.
+
+Once a graph has semantic rows, Cypher uses strict semantic mode:
+
+- node creation and merge require exactly one known semantic node type;
+- relationship creation and merge require exactly one semantic relationship
+  type and validate its start/end node types;
+- reads and writes resolve only properties owned by every possible target type;
+- statically known property values are checked while binding, while deferred
+  expressions and dynamic maps are checked before physical mutation;
+- any invalid value, dynamic key, endpoint, or later staged row aborts the
+  complete Cypher mutation savepoint.
+
+Graphs without semantic rows are not promoted and retain the legacy behavior.
+Semantic registration does not change canonical storage: property values remain
+in the application-owned source columns.
+
+### Direct-SQL integrity boundary
+
+Semantic ownership, value-type, and endpoint checks are graph-frontend
+guarantees. SQL issued directly against a registered source table bypasses
+them. Physical `NOT NULL`, `UNIQUE`, `CHECK`, foreign-key, and application
+triggers still apply, but Milestones 1–2 do not install equivalent semantic
+constraints for direct SQL writers.
+
+If all writers must preserve semantic integrity, route writes through Cypher or
+enforce the same rules with physical schema constraints under application
+control. Direct-SQL enforcement, required/cardinality/key constraints,
+inheritance/polymorphism, schema evolution, and native n-ary relationships are
+deliberately deferred. This overlay does not claim TypeDB, TypeQL, or PERA
+compatibility.
+
 ## The session API
 
 `GraphConnection` (root alias `Connection`) decorates a

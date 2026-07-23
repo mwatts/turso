@@ -820,6 +820,10 @@ mod tests {
     use crate::catalog::{
         GraphRegistration, NodeSourceRegistration, RelationshipSourceRegistration,
     };
+    use crate::semantic::{
+        SemanticNodeType, SemanticProperty, SemanticSchemaRegistration, SEMANTIC_ENDPOINTS_TABLE,
+        SEMANTIC_OWNERSHIP_TABLE, SEMANTIC_PROPERTIES_TABLE, SEMANTIC_TYPES_TABLE,
+    };
     use std::sync::Arc;
     use turso_core::{Database, DatabaseOpts, MemoryIO, OpenFlags, SqliteDialect};
 
@@ -888,6 +892,58 @@ mod tests {
         assert_eq!(name.id, ir::PropertyId::new(2).unwrap());
         assert_eq!(name.value_type, ir::ValueType::Text);
         assert_eq!(name.nullability, ir::Nullability::Nullable);
+    }
+
+    #[test]
+    fn preparation_uses_the_loaded_semantic_snapshot_without_catalog_queries() {
+        let connection = connect(false);
+        let graph = registered_social_graph(&connection);
+        crate::register_semantic_schema(
+            &connection,
+            "social",
+            &SemanticSchemaRegistration {
+                node_types: vec![SemanticNodeType {
+                    name: "Contact".to_owned(),
+                    source: "Person".to_owned(),
+                    properties: vec![SemanticProperty {
+                        name: "displayName".to_owned(),
+                        column: "name".to_owned(),
+                    }],
+                }],
+                relationship_types: Vec::new(),
+            },
+        )
+        .expect("register semantic schema");
+        let semantic = crate::load_semantic_snapshot(&connection, &graph)
+            .expect("load semantic snapshot")
+            .map(Arc::new);
+        let graph_id = graph.id;
+        let catalog = SchemaCatalog::with_semantic(connection.clone(), graph, semantic);
+
+        connection
+            .execute("BEGIN IMMEDIATE")
+            .expect("begin internal catalog teardown");
+        for table in [
+            SEMANTIC_ENDPOINTS_TABLE,
+            SEMANTIC_OWNERSHIP_TABLE,
+            SEMANTIC_PROPERTIES_TABLE,
+            SEMANTIC_TYPES_TABLE,
+        ] {
+            crate::catalog::execute_internal(&connection, format!("DROP TABLE {table}"))
+                .expect("remove persisted catalog after snapshot load");
+        }
+        connection
+            .execute("COMMIT")
+            .expect("commit internal catalog teardown");
+
+        let query = turso_graph_cypher::parse(
+            "MATCH (n:Contact) WHERE n.displayName = 'Ada' RETURN n.displayName",
+        )
+        .expect("parse query");
+        let bound = crate::bind(&query, graph_id, &catalog, &Default::default())
+            .expect("bind only against the immutable snapshot");
+        crate::lower_relational(&bound.plan, &catalog)
+            .expect("lower only against the immutable snapshot");
     }
 
     /// Regression test for a bug introduced alongside the array-element-type
