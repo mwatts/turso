@@ -14,7 +14,7 @@ timeout_minutes: 360
 
 # TASK
 
-**Status: Phase 1 complete and validated (2026-07-23).**
+**Status: Phases 1-5 complete and validated (2026-07-23).**
 
 Implement four Turso-native graph capabilities in dependency order: a typed
 procedure registry with `db.propertyKeys()`, portable `startNode()`/`endNode()`,
@@ -97,7 +97,19 @@ Semantic-aware means, concretely:
 
 If this spec's stream lands first instead, the overlay stream owns retrofitting the three items above; record that handoff explicitly in whichever lands second.
 
-Adjacent future capability, out of scope here: a graph vector-index administration API for embedding similarity search. Core already ships the vector scalar layer (`vector32`/`vector64`/`vector8`/`vector1bit`/`vector32_sparse`, `vector_distance_cos`/`_l2`/`_dot`/`_jaccard`), the graph frontend already types those functions for Cypher, and the `CREATE INDEX ... USING <method>` seam this spec uses for FTS is the same seam a future ANN method would use. When a production ANN index method exists in core, the graph FTS administration API defined here is the template to mirror (feature gate, structured typed input, transactional versioned metadata, reopen stability). See `tessera/.specs/tessera-turso.design-spec.md` (tessera repository) section 8.6.
+Adjacent future capability, out of scope here: a graph vector-index
+administration API for embedding similarity search. Core already ships the
+vector scalar layer (`vector32`/`vector64`/`vector8`/`vector1bit`/
+`vector32_sparse`, `vector_distance_cos`/`_l2`/`_dot`/`_jaccard`), the graph
+frontend already types those functions for Cypher, and the
+`CREATE INDEX ... USING <method>` seam this spec uses for FTS is the same seam
+a future ANN method would use. When a production ANN index method exists in
+core, the graph FTS administration API defined here is the template to mirror
+(feature gate, structured typed input, transactional versioned metadata,
+reopen stability). The downstream ontology-store mapping is now owned by
+Foedus; see
+`foedus/docs/superpowers/specs/2026-07-23-turso-ontology-store-design.md` in
+the sibling Foedus repository.
 
 ## Relevant Files
 
@@ -367,6 +379,32 @@ type-checked.
 
 ## Phase 5 - System Validation
 
+**Status: complete and validated (2026-07-23).** The consistency review
+reconciled this tracker, graph and multi-frontend consumer docs, conformance
+evidence, the installed `tursodb` skill, and downstream integration ownership.
+The Foedus repository now owns the `tessera-turso` ontology-store design;
+Tessera and Turso retain dependency-direction pointers.
+
+Validation:
+
+- default graph packages: 289 tests passed across 17 suites;
+- FTS-enabled graph frontend: 233 tests passed across 9 suites;
+- core FTS integration subset: 30 tests passed;
+- multi-frontend integration contracts: 4 tests passed, including
+  PostgreSQL/Cypher visibility and shared rollback on one connection;
+- smoke conformance: 11/11 clean;
+- deep conformance: 34/34 clean, with three exact vendor-only shortest-path
+  function errors classified as expected errors rather than portable passes;
+- performance smoke and deep profiles: 10/10 clean each;
+- FTS benchmark, 10,000 rows at 1% selectivity and `LIMIT 20`: 7.783 ms
+  indexed warm, 7.913 ms new-session, and 1.145 ms `CONTAINS` scan means;
+- formatting and patch-hygiene checks passed; and
+- targeted Clippy reached no changed-graph diagnostics but remains blocked by
+  pre-existing unused protobuf imports in
+  `core/mvcc/persistent_storage/logical_log.rs:262-263`.
+
+No recorded conformance or benchmark baseline was regenerated.
+
 | Slice | Work | Verification |
 |-------|------|--------------|
 | 5.1 | Run all graph crate tests with default features. | All pass. |
@@ -374,6 +412,9 @@ type-checked.
 | 5.3 | Run smoke/deep conformance without recording; classify remaining vendor internals as unsupported. | No portable regression and no vendor stub. |
 | 5.4 | Run performance smoke and the new FTS workload; compare to Phase 0/current benchmark records. | No unexplained regression; results summarized. |
 | 5.5 | Only with explicit baseline-recording intent, run the recorded corpus/benchmark commands and commit generated history/report separately. | Append-only history verifies and generated changes are isolated. |
+| 5.6 | Run a consistency review across the spec, consumer docs, current APIs, tests, and recorded evidence. | Completed work is marked complete; stale counts, limits, ownership, and future-tense claims are corrected without rewriting historical evidence. |
+| 5.7 | Update the installed `tursodb` skill for the delivered graph APIs and frontend composition model. | The skill documents registration, semantic schema/fragments/constraints, procedures, endpoints, diagnostics, FTS, each frontend entry point, and a tested same-connection multi-frontend recipe. |
+| 5.8 | Reconcile downstream Tessera integration ownership. | Foedus owns the authoritative adapter design and migration sequence; Tessera and Turso retain accurate dependency-direction pointers only. |
 
 # CONSTRAINTS
 
@@ -453,7 +494,7 @@ rtk cargo test -p turso_graph_cypher
 rtk cargo test -p turso_graph_frontend
 rtk cargo test -p turso_graph_frontend --features fts
 rtk cargo test -p turso_graph_testkit
-rtk cargo test -p turso_core --features fts index_method::
+rtk cargo test -p core_tester --test integration_tests index_method:: --no-default-features --features fts,test_helper
 rtk cargo clippy -p turso_graph_ir -p turso_graph_cypher -p turso_graph_frontend -p turso_graph_testkit --all-targets --all-features -- --deny=warnings
 rtk cargo run -q -p turso_graph_testkit -- run smoke --no-record
 rtk cargo run -q -p turso_graph_testkit -- run deep --no-record

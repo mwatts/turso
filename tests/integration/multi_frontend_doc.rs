@@ -10,6 +10,10 @@ use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 use turso_core::{Database, DatabaseOpts, MemoryIO, OpenFlags, SqliteDialect, IO};
+use turso_graph_frontend::{
+    register_graph, GraphConnection, GraphRegistration, NodeSourceRegistration,
+    RelationshipSourceRegistration,
+};
 use turso_parser::ast;
 use turso_parser::parser::Parser;
 
@@ -187,4 +191,83 @@ fn prepare_translated_stmt_frontend_boundary_executes() {
         .unwrap();
     assert_eq!(via_prepare.len(), 1);
     conn.close().unwrap();
+}
+
+/// PostgreSQL and Cypher remain separate frontend crates, but their session
+/// wrappers can register both compilers on one core connection. Keeping one
+/// connection is what makes transaction ownership unambiguous.
+#[test]
+fn postgres_and_graph_frontends_share_one_connection_transaction() {
+    let io: Arc<dyn IO> = Arc::new(MemoryIO::new());
+    let file = io
+        .open_file("multi-frontend-transaction.db", OpenFlags::Create, true)
+        .unwrap();
+    let db_file = Arc::new(turso_core::storage::database::DatabaseFile::new(file));
+    let db = Database::open(
+        io,
+        "multi-frontend-transaction.db",
+        turso_core::OpenOptions::new(Arc::new(SqliteDialect))
+            .storage(db_file)
+            .flags(OpenFlags::default())
+            .db_opts(DatabaseOpts::new()),
+    )
+    .unwrap();
+    let conn = db.connect().unwrap();
+    conn.execute(
+        "CREATE TABLE people(id INTEGER PRIMARY KEY, name TEXT NOT NULL); \
+         CREATE TABLE knows(id INTEGER PRIMARY KEY, src INTEGER NOT NULL, dst INTEGER NOT NULL);",
+    )
+    .unwrap();
+    register_graph(
+        &conn,
+        &GraphRegistration {
+            name: "social".to_owned(),
+            node_sources: vec![NodeSourceRegistration {
+                name: "Person".to_owned(),
+                table: "people".to_owned(),
+                identity_column: "id".to_owned(),
+            }],
+            relationship_sources: vec![RelationshipSourceRegistration {
+                name: "KNOWS".to_owned(),
+                table: "knows".to_owned(),
+                identity_column: "id".to_owned(),
+                start_column: "src".to_owned(),
+                end_column: "dst".to_owned(),
+                start_node_source: "Person".to_owned(),
+                end_node_source: "Person".to_owned(),
+            }],
+        },
+    )
+    .unwrap();
+
+    let postgres = turso_pg::PgConnection::new(conn.clone());
+    let graph = GraphConnection::open(conn.clone(), "social").unwrap();
+
+    conn.execute("BEGIN IMMEDIATE").unwrap();
+    graph
+        .execute("CREATE (:Person {name: 'Ada'})", &Default::default())
+        .unwrap();
+    let mut postgres_rows = postgres.prepare("SELECT name FROM people").unwrap();
+    let postgres_rows = postgres_rows.run_collect_rows().unwrap();
+    assert_eq!(
+        postgres_rows,
+        vec![vec![turso_core::Value::build_text("Ada")]]
+    );
+
+    postgres
+        .execute("UPDATE people SET name = 'Grace'")
+        .unwrap();
+    let graph_rows = graph
+        .query("MATCH (n:Person) RETURN n.name", &Default::default())
+        .unwrap();
+    assert_eq!(
+        graph_rows,
+        vec![vec![turso_core::Value::build_text("Grace")]]
+    );
+
+    conn.execute("ROLLBACK").unwrap();
+    let rows_after_rollback = graph
+        .query("MATCH (n:Person) RETURN n.name", &Default::default())
+        .unwrap();
+    assert!(rows_after_rollback.is_empty());
 }

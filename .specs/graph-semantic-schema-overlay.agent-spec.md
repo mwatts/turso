@@ -165,8 +165,9 @@ Milestone 2 does **not** introduce required/cardinality/key/unique/value constra
 > spec or its test matrix. Dropping it removes acyclicity validation,
 > ancestor closures, the most-specific-type rule, the label ancestor-chain
 > special case, and reparenting as a future evolution hazard. Full
-> comparison table: `tessera/.specs/tessera-turso.design-spec.md` (tessera repository)
-> section 8.4.
+> The downstream mapping and rationale are now maintained in the Foedus-owned
+> ontology-store design:
+> `foedus/docs/superpowers/specs/2026-07-23-turso-ontology-store-design.md`.
 
 **Entry condition: satisfied.** Milestones 1–2 were merged and measured before
 this milestone was implemented.
@@ -270,8 +271,9 @@ Approval requires a workload that benefits from querying attributes as graph obj
 > express. Cypher has no n-ary edge syntax, so native storage would not
 > change what users can write; it would only collapse player-to-player
 > traversal from two indexed hops to one. Full explanation, worked
-> example, and adapter rules:
-> `tessera/.specs/tessera-turso.design-spec.md` (tessera repository) section 8.5.
+> example, and adapter rules are now maintained in the Foedus-owned
+> ontology-store design:
+> `foedus/docs/superpowers/specs/2026-07-23-turso-ontology-store-design.md`.
 
 Defer native storage. Current IR and storage are binary:
 `CreateRelationship`, `FixedExpand`, relationship layouts, and source
@@ -544,7 +546,12 @@ Validation recorded on 2026-07-23:
 
 ## Later milestone entry criteria
 
-- **Multi-source registration and binding is the first post-Milestone-2 work item** (added 2026-07-22). Rationale: (1) any downstream schema toolchain that derives one table per conceptual type — the natural, constrainable layout — is blocked by the one-source-per-kind limit, which forces every node type into one shared sparse table; (2) the foedus single-database end state needs frames, cursors, and entities as differently-tabled types in one graph for provenance edges; (3) Milestone 3's polymorphic fragment scans union per-source scans and land on ready ground if multi-source exists first. The cost is lowest immediately after Milestones 1-2: the semantic catalog already routes CREATE/mutation paths through per-type source resolution (`node_source_for_label`/`relationship_source_for_type`), so multi-source is the completion of that seam — lift the `MultipleSourcesUnsupported` rejection, union unlabeled scans, and audit the remaining singular `node_source`/`relationship_source` call sites — not a fresh subsystem. It requires its own focused spec; the ban on broadening multi-source *incidentally* stands.
+- **Historical entry decision (completed): multi-source registration and
+  binding was the first post-Milestone-2 work item.** It landed before
+  Milestone 3 and removed the one-source-per-kind restriction through its own
+  focused spec. The original rationale remains: per-type physical tables,
+  fragment scans, and provenance edges require source-aware routing rather
+  than a shared sparse table.
 - [x] Milestone 3 entry: Milestones 1-2 have a reviewed public API and prepare-time measurements, and multi-source support landed first.
 - [x] Milestone 4 entry: fragment-interface polymorphism semantics and the direct-SQL enforcement policy are explicit.
 - First-class attributes, n-ary relations, and inference each require their named ADR decision gate.

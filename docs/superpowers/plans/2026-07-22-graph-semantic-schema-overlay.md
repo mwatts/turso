@@ -10,7 +10,7 @@
 > `superpowers:executing-plans`. Its checked steps are retained as delivery
 > history, not as instructions for new work.
 
-**Goal:** Add an opt-in semantic-schema catalog to the Turso graph frontend that decouples conceptual node/relationship/property types from physical source tables and validates typed ownership on reads and writes (spec Milestones 1-2 of `.specs/graph-semantic-schema-overlay.agent-spec.md`). The public registration API is the integration surface for downstream consumers such as the tessera-turso adapter (planned separately, in the tessera repository), which will depend on `turso_graph_frontend` directly and call `register_semantic_schema`. The registration structs also derive serde as a secondary convenience so tooling can cache, inspect, or transport a registration as JSON.
+**Goal:** Add an opt-in semantic-schema catalog to the Turso graph frontend that decouples conceptual node/relationship/property types from physical source tables and validates typed ownership on reads and writes (spec Milestones 1-2 of `.specs/graph-semantic-schema-overlay.agent-spec.md`). The public registration API is the integration surface for downstream consumers such as the Foedus-owned `tessera-turso` adapter, which will depend on `turso_graph_frontend` directly and call the semantic registration APIs. The registration structs also derive serde as a secondary convenience so tooling can cache, inspect, or transport a registration as JSON.
 
 **Architecture:** A new focused module `graph/frontend/src/semantic.rs` owns the additive catalog tables, the `register_semantic_schema` API, and an immutable `SemanticSnapshot` loaded once per `GraphConnection::open`. `SchemaCatalog` holds `Option<Arc<SemanticSnapshot>>`; when present, the `GraphCatalogSnapshot` resolution methods switch to persisted conceptual IDs and owner-aware property resolution. The binder already tracks per-binding label/type names in `EntityBinding.names` (`binder.rs:218-222`) — semantic type tracking extends that. Physical names stay exclusively behind `RelationalCatalogSnapshot`. Legacy graphs (no semantic rows) behave byte-for-byte as today.
 
@@ -40,11 +40,21 @@
 - Do NOT record a new conformance baseline as part of this plan (spec line 417).
 - Never build/run with `--release`.
 
-**Scope note:** The tessera-turso adapter (lowering Tessera PERA IR onto this API) is a SEPARATE plan in the tessera repository — see `tessera/.specs/tessera-turso.design-spec.md` (tessera repository). The adapter will depend on `turso_graph_frontend` as a git dependency and call `register_semantic_schema` directly; this plan's obligation to it is only a stable, documented, additive public registration API. The serde derives on the registration structs are a secondary tooling convenience, not the integration mechanism.
+**Scope note:** The `tessera-turso` adapter (lowering Tessera IR onto this API)
+is a separate Foedus-owned plan. See
+`foedus/docs/superpowers/specs/2026-07-23-turso-ontology-store-design.md` in
+the sibling Foedus repository. The adapter depends on Tessera, `foedus-core`,
+and `turso_graph_frontend`; neither Turso nor Tessera depends on the adapter.
+This plan's obligation is only a stable, documented, additive public
+registration API. The serde derives are a secondary tooling convenience, not
+the integration mechanism.
 
 **Related work — `.specs/graph-native-capabilities.agent-spec.md` (procedure registry, `db.propertyKeys()`, FTS, `startNode()`/`endNode()`, snapshot diagnostics):**
 - **File overlap:** that stream also edits `binder.rs`, `catalog.rs`, `schema_catalog.rs`, `session.rs`, `lib.rs`. Do not run the two streams in parallel worktrees against the same files; sequence them. This plan touches `bind_call` (`binder.rs:365-395`) not at all, so the procedure-registry work composes, but rebases will be nontrivial in `binder.rs` and `schema_catalog.rs`.
-- **Single-source limit is honored by BOTH streams:** that spec forbids broadening multi-source registration "as an incidental part"; this plan also keeps it — Milestones 1-2 need only one node source and one relationship source because multiple semantic types may share a source. Multi-source (different types → different tables) is future work gated on its own binder design.
+- **Historical scope boundary:** Milestones 1-2 deliberately retained the
+  then-current single-source boundary. Multi-source registration, binding, and
+  lowering subsequently landed as an independent capability and is now part of
+  the public graph API.
 - **`db.propertyKeys()` coordination:** that spec derives keys from `RelationalCatalogSnapshot::payload_columns` (physical logical names). When a graph has a semantic schema, property keys SHOULD be the semantic property names instead. Whichever stream lands second must add: semantic mode ⇒ `db.propertyKeys()` enumerates `SemanticSnapshot` property names (still catalog-only, no row scans). Same for the FTS admin API's "logical property names validated against `SchemaCatalog`" — in semantic mode those are semantic property names resolved through ownership.
 - **Snapshot diagnostics:** semantic registration bumps the graph generation (Task 2), which that spec's diagnostics will correctly report as `Stale` — no coordination needed beyond the shared generation mechanism.
 

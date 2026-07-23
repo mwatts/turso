@@ -17,6 +17,13 @@
 > crates; apps compose them on one core connection via
 > `Connection::register_frontend_compiler`. See `graph/README.md` for the
 > current API and the exact old-name -> new-name mapping.
+>
+> **Update (2026-07-23):** controlled embedded composition is now covered by
+> an integration test: `PgConnection` and `GraphConnection` can register on
+> one core connection, observe one another's changes, and share rollback.
+> This does not deliver arbitrary independent SQLite/PG/Cypher protocol
+> sessions, per-frontend namespaces, or a security boundary. Those stronger
+> product claims still require the prerequisites below.
 
 How Turso exposes database work as VDBE bytecode, how the SQLite and Postgres
 frontends share one backend, and what it would take to add further frontends
@@ -48,7 +55,8 @@ per-session dialect state are already generic extension points.
 | Add a relational Cypher subset over graph tables | **Delivered** | Fixed-length patterns lower to joins and DML; variable-length traversal now has a plan: the `__turso_graph_expand` internal vtab / `GraphExpand` IR operator (shipped, see §6). Recursive CTEs remain explicitly rejected in core `WITH RECURSIVE`; the graph frontend does not need them. |
 | Add a Turso-backed topic API | **Medium** | Append/fetch/offset tables fit the VDBE and transactions. Durable offset allocation, wakeups/long polling, retention, and group coordination are product code. |
 | Implement a Kafka-compatible broker | **Low without major work** | The Kafka protocol, record batches, group coordinator, replication/ISR, fetch sessions, and Kafka performance model do not exist in-tree. |
-| Concurrent SQLite + PG + Cypher + Kafka sessions on one file | **Medium–high after prerequisites; unsupported today** | One `Database` owns one `Dialect`; parsing on reprepare, function resolution, schema formatting, and catalogs all use it. A host dialect alone does not provide safe per-session semantics. |
+| Controlled embedded PG + Cypher composition on one core connection | **Delivered** | Both wrappers register a `FrontendCompiler`; one explicit core transaction covers both. The host database still has one `Dialect`. |
+| Arbitrary independent SQLite + PG + Cypher + Kafka sessions on one file | **Medium–high after prerequisites; unsupported today** | One `Database` owns one `Dialect`; parsing, function resolution, schema formatting, catalogs, namespace isolation, and authorization are not generic per-session boundaries. |
 | Cypher with derived traversal acceleration | **Delivered** | Graph IR, `GraphExpand`, snapshot freshness, transaction-overlay, and resource-limit work landed on `feature/graph-frontend`; see §6 and `graph/README.md` / `graph/CONFORMANCE.md`. |
 | Full Neo4j execution and compatibility characteristics | **Low without major work** | The selected path does not provide Neo4j's store, complete language/protocol surface, clustering, or operational behavior. |
 
@@ -58,9 +66,11 @@ The practical conclusion is:
    shared engine AST and accepts Turso storage semantics.
 2. **Prototype Cypher and topic APIs as session layers first**, using canonical
    SQL/engine AST and separate databases or a single SQLite-owned schema.
-3. **Do not promise same-file polyglot isolation yet.** Make the frontend
-   identity and reprepare path explicit, then add namespace enforcement and
-   function/catalog dispatch before exposing concurrent protocols.
+3. **Distinguish embedded composition from polyglot isolation.** PG and Cypher
+   wrappers can share one core connection and transaction today. Do not
+   promise independent same-file protocol sessions until namespace
+   enforcement, authorization, and frontend-specific function/catalog
+   dispatch exist.
 4. **Do not make direct VDBE emission the public frontend contract.** Although
    `ProgramBuilder` and `Insn` are public Rust types, constructing a correct
    program requires transaction, schema-cookie, cursor, async-I/O, trigger,
@@ -435,7 +445,8 @@ query language compiled onto the shared backend — the crates
   (`graph/frontend/src/graph_expand.rs`) backs the `GraphExpand` IR operator
   (`graph/ir/src/plan.rs`) with a resumable, yield-safe cursor.
 - **Conformance:** the latest recorded corpus run covers 10,242 identities
-  with 8,800 passing (`graph/test-results/REPORT.md`); see
+  with 8,919 passing, 53 unsupported, and 1,270 failing
+  (`graph/test-results/REPORT.md`); see
   [`graph/CONFORMANCE.md`](../graph/CONFORMANCE.md) for the contract and
   [`graph/DESIGN_DECISIONS.md`](../graph/DESIGN_DECISIONS.md) for design
   rationale.
@@ -1501,7 +1512,7 @@ frontend-aware prepare/reprepare, resolution, and ownership work in §0 and §8.
   fixed patterns use relational lowering and a bounded `GraphExpand` contract
   (the `__turso_graph_expand` internal vtab) backs variable-length traversal.
   See §6, `graph/README.md`, and `graph/CONFORMANCE.md` (10,242 corpus
-  identities, 8,800 passing on the latest run). Consistent with the plan, this
+  identities, 8,919 passing on the latest recorded run). Consistent with the plan, this
   was never installed into the Postgres layer: a `graph.*` Postgres adapter
   was built and then deliberately removed, and the graph frontend stays a
   separate crate composed app-side via `Connection::register_frontend_compiler`.

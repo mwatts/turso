@@ -449,6 +449,11 @@ expected for this small, early-exit workload because the current plan pays FTS
 setup while retaining the outer scan; it is the saved comparison point for the
 outer-source optimization above.
 
+The Phase 5 validation rerun measured 7.783 ms indexed-warm, 7.913 ms
+indexed-new-session, and 1.145 ms for the scan control under the same workload.
+This is consistent with the Phase 4 baseline and does not change the
+optimization conclusion above.
+
 ### Errors
 
 Everything surfaces as `turso_graph_frontend::Error`
@@ -505,12 +510,46 @@ diagnostics are persistent catalog state.
 The graph frontend neither depends on nor is depended on by the Postgres
 frontend. All frontends plug into core's per-connection compiler registry
 (`Connection::register_frontend_compiler`), so an application that wants
-Cypher and Postgres SQL on one connection installs both itself — a
-`GraphConnection` and a `turso_pg::PgConnection` can decorate the same
-`Arc<turso_core::Connection>`, and one `BEGIN`…`COMMIT` then covers
-statements from every frontend on that connection. Separate databases
-per frontend work too, with fully independent transactions; there is no
-cross-connection or cross-file atomic commit.
+Cypher and Postgres SQL on one connection installs both wrappers itself:
+
+```rust
+use turso_graph_frontend::GraphConnection;
+use turso_pg::PgConnection;
+
+let conn = db.connect()?;
+// Create source tables and call register_graph(&conn, ...) before opening.
+let postgres = PgConnection::new(conn.clone());
+let graph = GraphConnection::open(conn.clone(), "social")?;
+
+conn.execute("BEGIN IMMEDIATE")?;
+graph.execute("CREATE (:Person {name: 'Ada'})", &Default::default())?;
+postgres.execute("UPDATE people SET name = 'Grace'")?;
+let rows = graph.query(
+    "MATCH (n:Person) RETURN n.name",
+    &Default::default(),
+)?;
+conn.execute("COMMIT")?;
+```
+
+The database has one host `Dialect`; the wrappers add statement compilers to
+that connection. In attach mode, open the database with `SqliteDialect`, create
+and register the graph through core SQL, and then construct both wrappers.
+Opening with `GraphDialect` or `PostgresDialect` instead selects that dialect's
+schema parsing and function surface for the whole database; it does not create
+per-statement host dialects.
+
+Use graph/Cypher for entity creation and relationship mutation. A direct SQL
+insert into a graph source table does not create the semantic type-membership
+rows required by strict semantic mode. SQL or PostgreSQL can read graph-created
+rows and update their ordinary columns; those updates are visible to Cypher on
+the same connection. The integration test
+`postgres_and_graph_frontends_share_one_connection_transaction` proves
+cross-frontend visibility and rollback.
+
+Separate databases or connections have fully independent transactions; there
+is no cross-connection or cross-file atomic commit. The raw core connection
+also bypasses any frontend-level namespace policy, so keep it private when
+frontend isolation is a security requirement.
 
 ## Reference
 

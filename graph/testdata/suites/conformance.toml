@@ -209,11 +209,11 @@ tiers = ["deep"]
 kind = "conformance"
 area = "subquery"
 fixture = "social"
-expectation = "unsupported"
+expectation = "rows"
 action = "query"
 ordering = "unordered"
 query = "CALL { MATCH (n:Person) RETURN n } RETURN n.name"
-expected_error_contains = "expected clause"
+expected_rows = [["Ada"], ["Edsger"], ["Grace"], ["Linus"]]
 [scenario.source]
 name = "openCypher TCK via Uni"
 repository = "https://github.com/rustic-ai/uni-db"
@@ -229,11 +229,11 @@ tiers = ["deep"]
 kind = "conformance"
 area = "shortest-path"
 fixture = "social"
-expectation = "unsupported"
+expectation = "error"
 action = "query"
 ordering = "unordered"
 query = "MATCH (a:Person {id: 1}), (b:Person {id: 3}) RETURN allShortestPaths((a)-[:KNOWS*]->(b))"
-expected_error_contains = "expected primary_expression"
+expected_error_contains = "no such function: allShortestPaths"
 [scenario.source]
 name = "Grafeo"
 repository = "https://github.com/GrafeoDB/grafeo"
@@ -249,11 +249,11 @@ tiers = ["deep"]
 kind = "conformance"
 area = "shortest-path"
 fixture = "social"
-expectation = "unsupported"
+expectation = "error"
 action = "query"
 ordering = "unordered"
 query = "MATCH (a:Person {id: 1}), (b:Person {id: 3}) RETURN weightedShortestPath((a)-[:KNOWS*]->(b), 'cost')"
-expected_error_contains = "expected primary_expression"
+expected_error_contains = "no such function: weightedShortestPath"
 [scenario.source]
 name = "pgGraph"
 repository = "https://github.com/Evokoa/pgGraph"
@@ -269,11 +269,11 @@ tiers = ["deep"]
 kind = "conformance"
 area = "shortest-path"
 fixture = "social"
-expectation = "unsupported"
+expectation = "error"
 action = "query"
 ordering = "unordered"
 query = "MATCH (a:Person {id: 1}), (b:Person {id: 3}) RETURN shortestPath((a)-[:KNOWS*]->(b))"
-expected_error_contains = "expected primary_expression"
+expected_error_contains = "no such function: shortestPath"
 [scenario.source]
 name = "SparrowDB"
 repository = "https://github.com/ryaker/SparrowDB"
@@ -289,11 +289,28 @@ tiers = ["deep"]
 kind = "conformance"
 area = "planning"
 fixture = "social"
-expectation = "unsupported"
+expectation = "rows"
 action = "query"
 ordering = "unordered"
 query = "MATCH (a:Person), (b:Person) RETURN a.name, b.name"
-expected_error_contains = "multiple path patterns is not supported"
+expected_rows = [
+    ["Ada", "Ada"],
+    ["Ada", "Edsger"],
+    ["Ada", "Grace"],
+    ["Ada", "Linus"],
+    ["Edsger", "Ada"],
+    ["Edsger", "Edsger"],
+    ["Edsger", "Grace"],
+    ["Edsger", "Linus"],
+    ["Grace", "Ada"],
+    ["Grace", "Edsger"],
+    ["Grace", "Grace"],
+    ["Grace", "Linus"],
+    ["Linus", "Ada"],
+    ["Linus", "Edsger"],
+    ["Linus", "Grace"],
+    ["Linus", "Linus"],
+]
 [scenario.source]
 name = "Samyama"
 repository = "https://github.com/samyama-ai/samyama-graph"

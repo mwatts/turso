@@ -1,15 +1,17 @@
-# Moved: Tessera Semantic Overlay Specification
+# Moved: Foedus Turso Ontology-Store Specification
 
-This document moved to the tessera repository on 2026-07-22, because
-the adapter it specifies (tessera-turso) is built there.
+The integration design moved to the Foedus repository on 2026-07-23. The
+adapter implements Foedus storage ports and participates in Foedus runtime
+composition, so Foedus owns it. Tessera remains storage-neutral.
 
-New location: `tessera/.specs/tessera-turso.design-spec.md`
-(sibling checkout: `~/code/github/mwatts/tessera/.specs/tessera-turso.design-spec.md`).
+Authoritative location:
+`foedus/docs/superpowers/specs/2026-07-23-turso-ontology-store-design.md`
+(sibling checkout:
+`~/code/github/mwatts/foedus/docs/superpowers/specs/2026-07-23-turso-ontology-store-design.md`).
 
-The move follows the layering rule the specification itself defines:
-tessera-turso depends on Turso, never the inverse, so the adapter's
-design lives with the adapter. Turso-side requirements remain in this
-repository:
+The dependency direction is Foedus adapter → Tessera + Turso graph frontend.
+Neither Tessera nor Turso depends on the adapter. Turso-side requirements
+remain in this repository:
 
 - `.specs/graph-semantic-schema-overlay.agent-spec.md` — the
   semantic-schema catalog requirements (Milestones 1-4, amended).
@@ -18,8 +20,5 @@ repository:
 - `docs/superpowers/plans/2026-07-22-graph-semantic-schema-overlay.md`
   — the implementation plan for Milestones 1-2.
 
-Frequently referenced sections at the new location: 7 (physical
-mapping and identity policy), 8.4 (fragment-interface polymorphism),
-8.5 (reification), 8.6 (search and embeddings), 11.2 (combined
-cross-stream ordering), 14 (tessera-turso work breakdown), 15 (foedus
-integration).
+The Tessera repository retains
+`.specs/tessera-turso.design-spec.md` only as a relocation pointer.

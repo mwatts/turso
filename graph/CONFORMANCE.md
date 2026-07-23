@@ -38,32 +38,34 @@ would still allow vendor semantics to leak into Turso's conformance contract.
 ## Current result
 
 Latest recorded corpus run
-(`20260721T115532.802656Z-b4d65fb5b95b-corpus-deep`), strict binary outcome
+(`20260722T204051.387397Z-0de15cc74e02-corpus-deep`), classified outcome
 over all 10,242 identities:
 
-- **8,800 passed**;
-- **1,442 failed** with a non-empty reason; and
-- 0 were skipped, unsupported, or satisfied through a canonical-result alias.
+- **8,919 passed**;
+- **53 unsupported** vendor-specific behaviors; and
+- **1,270 failed** with a non-empty reason.
 
 The dominant failure families from that run (full histogram in
 [`test-results/REPORT.md`](test-results/REPORT.md)):
 
 | Failure family | Identities |
 | --- | ---: |
-| `execution`: other | 552 |
-| `execution`: runtime scalar function missing | 269 |
-| `execution`: mutation projection unsupported | 261 |
+| `execution`: other | 492 |
+| `execution`: mutation projection unsupported | 248 |
+| `execution`: runtime scalar function missing | 187 |
 | `parser`: other grammar | 112 |
-| `parser`: expression/operator continuation grammar | 58 |
-| remaining families | 190 |
-| **Total** | **1,442** |
+| `parser`: expression/operator continuation grammar | 43 |
+| remaining failure families | 188 |
+| **Failed total** | **1,270** |
 
 This is broad regression and parser-compatibility coverage, not a claim of
 full openCypher conformance. The runner attempts parsed read and mutation
 statements, TCK setup queries, scalar parameters, pinned named-graph fixtures,
 Grafeo named datasets, and multi-statement cases. Missing grammar or semantics
 therefore appear as failed tests with their parser, setup, execution, or
-comparison reason rather than as an accepted coverage category.
+comparison reason. The unsupported category is reserved for explicitly
+classified vendor-only behavior and remains distinct from a failed portable
+contract.
 
 See [`CYPHER_CORPUS_GAPS.md`](archive/CYPHER_CORPUS_GAPS.md) and
 [`LONG_TAIL.md`](archive/LONG_TAIL.md) for dated gap-analysis snapshots and

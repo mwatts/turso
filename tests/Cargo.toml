@@ -40,6 +40,8 @@ turso_parser = { workspace = true }
 tracing-subscriber = { workspace = true, features = ["env-filter"] }
 tracing = { workspace = true }
 turso-dbhash.workspace = true
+turso_pg.workspace = true
+turso_graph_frontend.workspace = true
 
 [dev-dependencies]
 similar-asserts.workspace = true
