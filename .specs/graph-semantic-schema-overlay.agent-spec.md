@@ -507,7 +507,8 @@ Do not record a new conformance baseline merely to implement this feature. After
 
 ## Later milestone entry criteria
 
-- Milestone 3 starts only after Milestones 1-2 have a reviewed public API and prepare-time measurements.
+- **Multi-source registration and binding is the first post-Milestone-2 work item** (added 2026-07-22). Rationale: (1) any downstream schema toolchain that derives one table per conceptual type — the natural, constrainable layout — is blocked by the one-source-per-kind limit, which forces every node type into one shared sparse table; (2) the foedus single-database end state needs frames, cursors, and entities as differently-tabled types in one graph for provenance edges; (3) Milestone 3's polymorphic fragment scans union per-source scans and land on ready ground if multi-source exists first. The cost is lowest immediately after Milestones 1-2: the semantic catalog already routes CREATE/mutation paths through per-type source resolution (`node_source_for_label`/`relationship_source_for_type`), so multi-source is the completion of that seam — lift the `MultipleSourcesUnsupported` rejection, union unlabeled scans, and audit the remaining singular `node_source`/`relationship_source` call sites — not a fresh subsystem. It requires its own focused spec; the ban on broadening multi-source *incidentally* stands.
+- Milestone 3 starts only after Milestones 1-2 have a reviewed public API and prepare-time measurements; multi-source SHOULD land before it.
 - Milestone 4 starts only after fragment-interface polymorphism semantics and direct-SQL enforcement policy are explicit.
 - First-class attributes, n-ary relations, and inference each require their named ADR decision gate.
 

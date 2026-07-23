@@ -64,7 +64,7 @@ The following Apache AGE or donor-specific internals are deliberately out of sco
 
 ## Coordination with the semantic-schema overlay stream
 
-The semantic-schema overlay (`.specs/graph-semantic-schema-overlay.agent-spec.md`, Milestones 1-2) and this spec edit the same files (`binder.rs`, `catalog.rs`, `schema_catalog.rs`, `session.rs`, `lib.rs`). Run the streams in sequence, never in parallel worktrees. The recommended combined ordering, with rationale, is `tessera/.specs/tessera-turso.design-spec.md` (tessera repository) section 11.2: overlay Milestones 1-2 first, then this spec's phases in the order procedures → endpoints → diagnostics → FTS, each built semantic-aware from the start.
+The semantic-schema overlay (`.specs/graph-semantic-schema-overlay.agent-spec.md`, Milestones 1-2) and this spec edit the same files (`binder.rs`, `catalog.rs`, `schema_catalog.rs`, `session.rs`, `lib.rs`). Run the streams in sequence, never in parallel worktrees. The recommended combined ordering, with rationale, is `tessera/.specs/tessera-turso.design-spec.md` (tessera repository) section 11.2: overlay Milestones 1-2 first, then multi-source registration/binding (a deliberate, separately specified lift of the single-source limit — promoted with documented rationale in that section and in the semantic-schema spec's later-milestone criteria; the ban below on broadening it *incidentally* still stands), then this spec's phases in the order procedures → endpoints → diagnostics → FTS, each built semantic-aware from the start. This spec's "Current source limit" statement above describes the state its own work must preserve, not the permanent end state.
 
 Semantic-aware means, concretely:
 
