@@ -134,6 +134,7 @@ fn return_bytes(_: &[ir::TypedExpression]) -> ir::ValueType {
     ir::ValueType::Bytes
 }
 
+#[cfg(feature = "fts")]
 fn return_boolean(_: &[ir::TypedExpression]) -> ir::ValueType {
     ir::ValueType::Boolean
 }
@@ -209,6 +210,7 @@ pub fn lookup(name: &str) -> Option<FunctionSignature> {
             return_bytes,
         ),
         "union_tag" => (vec![ArgumentType::Any], false, return_text),
+        #[cfg(feature = "fts")]
         // Variadic, min 2: fts_match(col1, ..., query).
         "fts_match" => (
             vec![
@@ -218,8 +220,17 @@ pub fn lookup(name: &str) -> Option<FunctionSignature> {
             true,
             return_boolean,
         ),
-        // Variadic, no enforced minimum.
-        "fts_score" => (vec![], true, return_real),
+        #[cfg(feature = "fts")]
+        // Variadic, min 2: fts_score(col1, ..., query).
+        "fts_score" => (
+            vec![
+                ArgumentType::Exact(ir::ValueType::Text),
+                ArgumentType::Exact(ir::ValueType::Text),
+            ],
+            true,
+            return_real,
+        ),
+        #[cfg(feature = "fts")]
         // Variadic, min 4: fts_highlight(col1, ..., before_tag, after_tag, query).
         "fts_highlight" => (
             vec![
@@ -301,6 +312,7 @@ mod tests {
         assert!(signature.variadic);
     }
 
+    #[cfg(feature = "fts")]
     #[test]
     fn fts_match_returns_boolean() {
         let signature = lookup("fts_match").expect("registered");
@@ -327,6 +339,7 @@ mod tests {
         );
     }
 
+    #[cfg(feature = "fts")]
     #[test]
     fn validate_arguments_rejects_too_few_variadic_arguments() {
         let signature = lookup("fts_match").expect("registered");
@@ -337,6 +350,17 @@ mod tests {
         );
     }
 
+    #[cfg(feature = "fts")]
+    #[test]
+    fn fts_score_requires_a_property_and_query() {
+        let signature = lookup("fts_score").expect("registered");
+        assert_eq!(
+            validate_arguments(&signature, &[any_typed(ir::ValueType::Text)]),
+            Err("function call with too few arguments")
+        );
+    }
+
+    #[cfg(feature = "fts")]
     #[test]
     fn validate_arguments_accepts_extra_variadic_arguments() {
         let signature = lookup("fts_match").expect("registered");

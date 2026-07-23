@@ -4915,6 +4915,16 @@ impl<'a> Binder<'a> {
                 {
                     return Ok(rewritten);
                 }
+                #[cfg(not(feature = "fts"))]
+                if matches!(
+                    name.value.to_ascii_lowercase().as_str(),
+                    "fts_match" | "fts_score" | "fts_highlight"
+                ) {
+                    return Err(at_unsupported(
+                        expression.span,
+                        "graph full-text search (enable the `fts` feature)",
+                    ));
+                }
                 let function = ir::FunctionName::new(name.value.clone())
                     .ok_or_else(|| at_unsupported(name.span, "empty function names"))?;
                 let (value_type, nullability) = match crate::functions::lookup(function.as_str()) {

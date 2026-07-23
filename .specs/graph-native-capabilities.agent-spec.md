@@ -339,6 +339,10 @@ failed; graph-target Clippy reported no graph diagnostics.
 
 ## Phase 4 - Graph FTS
 
+**Status: complete (2026-07-23).** Slices 4.0-4.8 are implemented and covered
+in both default and `fts` feature configurations. The benchmark baseline and
+procedure decision are recorded in `docs/graph.md`.
+
 | Slice | Work | Verification |
 |-------|------|--------------|
 | 4.0 | Record the current default/FTS feature behavior and add failing capability-boundary contracts. | Exact missing-feature behavior is captured immediately before FTS implementation. |

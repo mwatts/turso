@@ -6,10 +6,15 @@
 
 #![forbid(unsafe_code)]
 
+#[cfg(all(feature = "fts", target_family = "wasm"))]
+compile_error!("the graph `fts` feature is not supported on wasm targets");
+
 mod binder;
 mod catalog;
 mod compiler;
 mod dialect;
+#[cfg(feature = "fts")]
+mod fts;
 mod functions;
 mod graph_expand;
 mod lowering;
@@ -34,6 +39,11 @@ pub use catalog::{
 };
 pub use compiler::{graph_frontend_id, GraphCompilationCatalog, GraphCompiler};
 pub use dialect::{GraphDialect, GRAPH_DIALECT_NAME};
+#[cfg(feature = "fts")]
+pub use fts::{
+    GraphFtsEntityKind, GraphFtsError, GraphFtsIndex, GraphFtsIndexSpec, GraphFtsPropertyWeight,
+    GraphFtsTokenizer, MAX_GRAPH_FTS_INDEX_NAME_BYTES, MAX_GRAPH_FTS_PROPERTIES,
+};
 pub use graph_expand::{install_graph_catalog, register_graph_catalog, GRAPH_EXPAND_TABLE_NAME};
 pub use lowering::{
     lower_relational, LowerError, NodeTableLayout, RelationalCatalogSnapshot,

@@ -2191,6 +2191,108 @@ fn lower_expression_with_references(
             arguments,
         } => {
             validate_bare_name(function.as_str())?;
+            #[cfg(feature = "fts")]
+            if matches!(function.as_str(), "fts_match" | "fts_score") {
+                let Some((query, properties)) = arguments.split_last() else {
+                    return Err(LowerError::UnsupportedOperator(
+                        "FTS calls require properties and a query",
+                    ));
+                };
+                let mut entity = None;
+                let mut property_arguments = Vec::with_capacity(properties.len());
+                for property in properties {
+                    let ir::Expression::Property {
+                        entity: property_entity,
+                        property,
+                        semantic_types,
+                        fields,
+                    } = &property.expression
+                    else {
+                        property_arguments.clear();
+                        break;
+                    };
+                    if !fields.is_empty() || entity.is_some_and(|entity| entity != *property_entity)
+                    {
+                        property_arguments.clear();
+                        break;
+                    }
+                    entity = Some(*property_entity);
+                    property_arguments.push((*property, semantic_types.as_slice()));
+                }
+                if let Some(entity) = entity.filter(|_| !property_arguments.is_empty()) {
+                    let binding = bindings
+                        .get(&entity)
+                        .ok_or(LowerError::MissingBinding(entity))?;
+                    if matches!(binding.kind, EntityKind::Node) {
+                        let query = lower_expression_with_references(
+                            query,
+                            bindings,
+                            catalog,
+                            input_alias,
+                            references,
+                        )?;
+                        let identity = binding_reference(entity, input_alias, references);
+                        let mut branches = Vec::new();
+                        for source in &binding.sources {
+                            let layout = catalog
+                                .node_layout(*source)
+                                .ok_or(LowerError::MissingSource(*source))?;
+                            let columns = property_arguments
+                                .iter()
+                                .map(|(property, semantic_types)| {
+                                    resolved_property_column(
+                                        catalog,
+                                        *source,
+                                        semantic_types,
+                                        *property,
+                                    )
+                                    .map(|column| format!("fts.{}", quote_identifier(&column)))
+                                    .ok_or(
+                                        LowerError::MissingProperty {
+                                            source_id: *source,
+                                            property: *property,
+                                        },
+                                    )
+                                })
+                                .collect::<Result<Vec<_>, _>>()?;
+                            let arguments = columns
+                                .iter()
+                                .cloned()
+                                .chain(std::iter::once(query.clone()))
+                                .collect::<Vec<_>>()
+                                .join(", ");
+                            let match_call = format!("fts_match({arguments})");
+                            let sql = if function.as_str() == "fts_match" {
+                                format!(
+                                    "({identity}) IN (SELECT fts.{} FROM {} AS fts \
+                                     WHERE {match_call})",
+                                    quote_identifier(&layout.identity_column),
+                                    quote_identifier(&layout.table),
+                                )
+                            } else {
+                                format!(
+                                    "(SELECT fts_score({arguments}) FROM {} AS fts \
+                                     WHERE {match_call} AND fts.{} = ({identity}) LIMIT 1)",
+                                    quote_identifier(&layout.table),
+                                    quote_identifier(&layout.identity_column),
+                                )
+                            };
+                            branches.push((*source, sql));
+                        }
+                        if let [(_, sql)] = branches.as_slice() {
+                            return Ok(sql.clone());
+                        }
+                        let source_value = format!("{input_alias}.{}", source_column_ref(entity));
+                        let cases = branches
+                            .into_iter()
+                            .map(|(source, sql)| format!("WHEN {} THEN {sql}", source.get()))
+                            .collect::<Vec<_>>()
+                            .join(" ");
+                        let sql = format!("(CASE {source_value} {cases} ELSE NULL END)");
+                        return Ok(sql);
+                    }
+                }
+            }
             if matches!(
                 function.as_str(),
                 "__cypher_start_node" | "__cypher_end_node"

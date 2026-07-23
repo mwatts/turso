@@ -367,11 +367,93 @@ every supplied name must be declared (`Error::UndeclaredParameter`).
 Sessions created with `open()` declare no parameters; use
 `open_with_parameters` (or `install`) to declare them.
 
+### Full-text search
+
+Graph full-text search is opt-in and native-only. Enable the
+`turso_graph_frontend/fts` Cargo feature, which forwards to
+`turso_core/fts`, and open the database with index methods enabled:
+
+```rust
+let options = DatabaseOpts::default().with_index_method(true);
+```
+
+The feature does not compile for wasm targets. Without it, `fts_match`,
+`fts_score`, and `fts_highlight` fail during Cypher binding with an explicit
+unsupported-capability error; they never fall through to a core
+`no such function` error.
+
+Index administration is a typed Rust API:
+
+```rust
+use turso_graph_frontend::{
+    GraphFtsEntityKind, GraphFtsIndexSpec, GraphFtsTokenizer,
+};
+
+graph.create_fts_index(&GraphFtsIndexSpec {
+    name: "article_search".to_owned(),
+    entity: GraphFtsEntityKind::Node,
+    source: "Article".to_owned(),
+    properties: vec!["title".to_owned(), "body".to_owned()],
+    tokenizer: GraphFtsTokenizer::Default,
+    weights: Vec::new(),
+})?;
+
+let indexes = graph.list_fts_indexes()?;
+graph.drop_fts_index("article_search")?;
+```
+
+Logical names and properties are validated against the registered graph
+catalog. Identity/end-point columns and statically non-text properties are
+rejected. Configuration is bounded to 128 bytes per logical index name and 16
+properties. Tokenizers and weights are typed values rather than SQL fragments.
+The physical index uses a stable reserved `__turso_graph_fts_*` name, while a
+versioned internal metadata row preserves the logical definition for listing,
+duplicate detection, reopen, and drop. Physical DDL and metadata share one
+transaction/savepoint; a conflicting same-name definition is an error rather
+than an implicit replacement.
+
+Queries use the portable scalar surface and keep user text bound:
+
+```cypher
+MATCH (n:Article)
+WHERE fts_match(n.title, n.body, $query)
+RETURN n, fts_score(n.title, n.body, $query) AS score
+ORDER BY score DESC
+LIMIT 20
+```
+
+Lowering emits a core FTS rowid-set subquery tied to the matched node identity,
+so the custom index is visible in `EXPLAIN QUERY PLAN`. The current layered
+graph plan still scans its outer node relation; the FTS lookup does not yet
+replace that outer scan. Core owns insert, update, delete, transaction, and
+reopen durability. After an index is dropped, the scalar predicate has no
+indexed matches and returns an empty result. Tokenizer semantics are preserved;
+for example, `Simple` searches are case-sensitive.
+
+No read-only `db.index.fulltext.queryNodes` procedure is added in this
+milestone. Although a procedure could bypass the current outer scan, it would
+duplicate the scalar query surface and create a second optimization path;
+teaching normal `MATCH` lowering to drive its outer source from the FTS rowid
+set is the preferred follow-up. Ranking, bound query text, `ORDER BY`, and
+`LIMIT` remain expressible with the scalar form. Vendor names such as
+`spa.fulltext.queryNodes` and `full_text_search` are intentionally unsupported.
+The Rust administration API uses the caller's database authority; any future
+network binding must add its own authorization before exposing these methods
+remotely.
+
+The `fts_search` benchmark records a 10,000-row corpus, 1% selectivity,
+`LIMIT 20`, warm and new-session indexed queries, and a `CONTAINS` table-scan
+control. On the Phase 4 development run, mean times were 8.56 ms indexed-warm,
+8.34 ms indexed-new-session, and 1.18 ms for the scan control. The result is
+expected for this small, early-exit workload because the current plan pays FTS
+setup while retaining the outer scan; it is the saved comparison point for the
+outer-source optimization above.
+
 ### Errors
 
 Everything surfaces as `turso_graph_frontend::Error`
 (`Result<T>` alias at the crate root): `Parse`, `Bind` (span-annotated),
-`Snapshot`, `Mutation`, `Database(LimboError)`, and the two parameter
+`Snapshot`, `Mutation`, feature-gated `Fts`, `Database(LimboError)`, and the two parameter
 variants above.
 
 ## Transactions

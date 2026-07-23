@@ -13,6 +13,10 @@ workspace = true
 [lib]
 path = "src/lib.rs"
 
+[features]
+default = []
+fts = ["turso_core/fts"]
+
 [dependencies]
 parking_lot = { workspace = true }
 regex.workspace = true
@@ -37,3 +41,8 @@ turso_macros.workspace = true
 [[bench]]
 name = "semantic_prepare"
 harness = false
+
+[[bench]]
+name = "fts_search"
+harness = false
+required-features = ["fts"]

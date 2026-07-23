@@ -5,8 +5,309 @@ use turso_graph_frontend::{
     register_graph, GraphConnection, GraphRegistration, NodeSourceRegistration, Parameters,
     RelationshipSourceRegistration, SnapshotPersistenceMode, SnapshotStatus,
 };
+#[cfg(feature = "fts")]
+use turso_graph_frontend::{
+    GraphFtsEntityKind, GraphFtsError, GraphFtsIndexSpec, GraphFtsPropertyWeight,
+    GraphFtsTokenizer, ParameterTypes, MAX_GRAPH_FTS_INDEX_NAME_BYTES, MAX_GRAPH_FTS_PROPERTIES,
+};
+#[cfg(feature = "fts")]
+use turso_graph_ir::{Nullability, ValueType};
 
 mod fixture;
+
+#[cfg(feature = "fts")]
+#[test]
+fn graph_fts_scalars_use_a_core_index() {
+    let (_database, session) = fixture::social_graph_connection_with_fts();
+    session
+        .create_fts_index(&GraphFtsIndexSpec {
+            name: "people_search".to_owned(),
+            entity: GraphFtsEntityKind::Node,
+            source: "Person".to_owned(),
+            properties: vec!["name".to_owned()],
+            tokenizer: GraphFtsTokenizer::Default,
+            weights: Vec::new(),
+        })
+        .expect("create graph FTS index");
+
+    assert_eq!(
+        session
+            .query(
+                "MATCH (n:Person) WHERE fts_match(n.name, 'Ada') \
+                 RETURN n.name, fts_score(n.name, 'Ada') AS score",
+                &Parameters::new(),
+            )
+            .expect("query through core FTS"),
+        vec![vec![
+            Value::build_text("Ada"),
+            Value::from_f64(0.6931471824645996),
+        ]]
+    );
+    let plan = session
+        .query(
+            "EXPLAIN MATCH (n:Person) WHERE fts_match(n.name, 'Ada') RETURN n.name",
+            &Parameters::new(),
+        )
+        .expect("explain graph FTS");
+    assert!(
+        plan.iter().flatten().any(|value| {
+            matches!(value, Value::Text(detail) if detail.as_str().contains("INDEX METHOD") || detail.as_str().contains("__turso_graph_fts_"))
+        }),
+        "expected core FTS planner evidence, got {plan:?}"
+    );
+    session
+        .execute(
+            "MATCH (n:Person {id: 2}) SET n.name = 'Systems engineer'",
+            &Parameters::new(),
+        )
+        .expect("update indexed property");
+    assert_eq!(
+        session
+            .query(
+                "MATCH (n:Person) WHERE fts_match(n.name, 'systems') RETURN n.name",
+                &Parameters::new(),
+            )
+            .expect("query updated index"),
+        vec![vec![Value::build_text("Systems engineer")]]
+    );
+}
+
+#[cfg(feature = "fts")]
+#[test]
+fn graph_fts_administration_is_transactional_persistent_and_bounded() {
+    let (database, _seed_session) = fixture::social_graph_connection_with_fts();
+    let connection = fixture::second_connection(&database);
+    let session = GraphConnection::open_with_parameters(
+        connection.clone(),
+        "social",
+        ParameterTypes::from([("query".to_owned(), (ValueType::Text, Nullability::NonNull))]),
+    )
+    .expect("open FTS graph session");
+    let spec = GraphFtsIndexSpec {
+        name: "people_search".to_owned(),
+        entity: GraphFtsEntityKind::Node,
+        source: "Person".to_owned(),
+        properties: vec!["name".to_owned()],
+        tokenizer: GraphFtsTokenizer::Simple,
+        weights: vec![GraphFtsPropertyWeight {
+            property: "name".to_owned(),
+            weight: 2.0,
+        }],
+    };
+
+    assert!(session.list_fts_indexes().unwrap().is_empty());
+    for invalid in [
+        GraphFtsIndexSpec {
+            properties: Vec::new(),
+            ..spec.clone()
+        },
+        GraphFtsIndexSpec {
+            properties: vec!["name".to_owned(), "NAME".to_owned()],
+            ..spec.clone()
+        },
+        GraphFtsIndexSpec {
+            properties: vec!["id".to_owned()],
+            ..spec.clone()
+        },
+        GraphFtsIndexSpec {
+            properties: vec!["age".to_owned()],
+            ..spec.clone()
+        },
+        GraphFtsIndexSpec {
+            source: "Missing".to_owned(),
+            ..spec.clone()
+        },
+        GraphFtsIndexSpec {
+            name: "x".repeat(MAX_GRAPH_FTS_INDEX_NAME_BYTES + 1),
+            ..spec.clone()
+        },
+        GraphFtsIndexSpec {
+            properties: (0..=MAX_GRAPH_FTS_PROPERTIES)
+                .map(|index| format!("property_{index}"))
+                .collect(),
+            ..spec.clone()
+        },
+        GraphFtsIndexSpec {
+            weights: vec![GraphFtsPropertyWeight {
+                property: "missing".to_owned(),
+                weight: 1.0,
+            }],
+            ..spec.clone()
+        },
+        GraphFtsIndexSpec {
+            weights: vec![GraphFtsPropertyWeight {
+                property: "name".to_owned(),
+                weight: f64::NAN,
+            }],
+            ..spec.clone()
+        },
+    ] {
+        assert!(
+            session.create_fts_index(&invalid).is_err(),
+            "invalid definition must fail: {invalid:?}"
+        );
+        assert!(session.list_fts_indexes().unwrap().is_empty());
+    }
+    assert!(connection
+        .prepare(
+            "SELECT name FROM sqlite_schema \
+             WHERE name GLOB '__turso_graph_fts_*'",
+        )
+        .unwrap()
+        .run_collect_rows()
+        .unwrap()
+        .is_empty());
+
+    connection.execute("BEGIN").unwrap();
+    connection
+        .prepare("SELECT name FROM people LIMIT 1")
+        .unwrap()
+        .run_collect_rows()
+        .unwrap();
+    assert!(matches!(
+        session.create_fts_index(&spec),
+        Err(turso_graph_frontend::Error::Fts(
+            GraphFtsError::RequiresWriteTransaction
+        ))
+    ));
+    connection.execute("ROLLBACK").unwrap();
+
+    connection.execute("BEGIN IMMEDIATE").unwrap();
+    let rolled_back_spec = GraphFtsIndexSpec {
+        name: "rolled_back".to_owned(),
+        ..spec.clone()
+    };
+    let rolled_back = session
+        .create_fts_index(&rolled_back_spec)
+        .expect("create in transaction");
+    assert_eq!(session.list_fts_indexes().unwrap(), vec![rolled_back]);
+    connection.execute("ROLLBACK").unwrap();
+    assert!(session.list_fts_indexes().unwrap().is_empty());
+    assert!(connection
+        .prepare(
+            "SELECT name FROM sqlite_schema \
+             WHERE name GLOB '__turso_graph_fts_*'",
+        )
+        .unwrap()
+        .run_collect_rows()
+        .unwrap()
+        .is_empty());
+
+    let created = session.create_fts_index(&spec).expect("create index");
+    assert!(created.physical_name.starts_with("__turso_graph_fts_"));
+    assert_eq!(
+        session.create_fts_index(&spec).expect("idempotent create"),
+        created
+    );
+    let conflict = GraphFtsIndexSpec {
+        tokenizer: GraphFtsTokenizer::Raw,
+        ..spec
+    };
+    assert!(matches!(
+        session.create_fts_index(&conflict),
+        Err(turso_graph_frontend::Error::Fts(
+            GraphFtsError::ConflictingDefinition(name)
+        )) if name == "people_search"
+    ));
+
+    let reopened =
+        GraphConnection::open(fixture::second_connection(&database), "social").expect("reopen");
+    assert_eq!(reopened.list_fts_indexes().unwrap(), vec![created.clone()]);
+    assert_eq!(reopened.list_fts_indexes().unwrap(), vec![created.clone()]);
+
+    let query = Parameters::from([("query".to_owned(), Value::build_text("Ada"))]);
+    assert_eq!(
+        session
+            .query(
+                "MATCH (n:Person) WHERE fts_match(n.name, $query) RETURN n.name",
+                &query,
+            )
+            .expect("parameterized FTS query"),
+        vec![vec![Value::build_text("Ada")]]
+    );
+    let update_program = connection
+        .prepare("EXPLAIN UPDATE people SET name = 'Systems engineer' WHERE id = 2")
+        .unwrap()
+        .run_collect_rows()
+        .unwrap();
+    assert!(
+        format!("{update_program:?}").contains(&created.physical_name),
+        "indexed-column update must maintain the custom index: {update_program:?}"
+    );
+    connection
+        .execute("UPDATE people SET name = 'Systems engineer' WHERE id = 2")
+        .expect("raw SQL update indexed value");
+    let old_matches = connection
+        .prepare("SELECT name FROM people WHERE fts_match(name, 'grace')")
+        .unwrap()
+        .run_collect_rows()
+        .unwrap();
+    assert_eq!(
+        connection
+            .prepare("SELECT name FROM people WHERE fts_match(name, 'Systems')")
+            .unwrap()
+            .run_collect_rows()
+            .unwrap(),
+        vec![vec![Value::build_text("Systems engineer")]],
+        "core must maintain FTS for ordinary updates; old matches: {old_matches:?}"
+    );
+    session
+        .execute(
+            "MATCH (n:Person {id: 1}) SET n.name = 'Database pioneer'",
+            &Parameters::new(),
+        )
+        .expect("update indexed value");
+    assert_eq!(
+        connection
+            .prepare("SELECT name FROM people WHERE id = 1")
+            .unwrap()
+            .run_collect_rows()
+            .unwrap(),
+        vec![vec![Value::build_text("Database pioneer")]],
+        "the graph mutation must update the canonical row"
+    );
+    assert_eq!(
+        connection
+            .prepare("SELECT name FROM people WHERE fts_match(name, 'Database')")
+            .unwrap()
+            .run_collect_rows()
+            .unwrap(),
+        vec![vec![Value::build_text("Database pioneer")]],
+        "core must maintain the FTS index for the graph mutation"
+    );
+    let query = Parameters::from([("query".to_owned(), Value::build_text("Database"))]);
+    assert_eq!(
+        session
+            .query(
+                "MATCH (n:Person) WHERE fts_match(n.name, $query) RETURN n.name",
+                &query,
+            )
+            .expect("updated FTS query"),
+        vec![vec![Value::build_text("Database pioneer")]]
+    );
+    session
+        .execute("MATCH (n:Person {id: 2}) DELETE n", &Parameters::new())
+        .expect("delete indexed row");
+    let query = Parameters::from([("query".to_owned(), Value::build_text("Grace"))]);
+    assert!(session
+        .query(
+            "MATCH (n:Person) WHERE fts_match(n.name, $query) RETURN n.name",
+            &query,
+        )
+        .expect("deleted FTS query")
+        .is_empty());
+
+    assert!(session.drop_fts_index("people_search").unwrap());
+    assert!(!session.drop_fts_index("people_search").unwrap());
+    assert!(session.list_fts_indexes().unwrap().is_empty());
+    assert!(session
+        .query(
+            "MATCH (n:Person) WHERE fts_match(n.name, $query) RETURN n.name",
+            &query,
+        )
+        .expect("a missing FTS index has no matches")
+        .is_empty());
+}
 
 #[test]
 fn diagnostics_report_missing_current_and_stale_without_refreshing() {

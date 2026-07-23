@@ -414,6 +414,7 @@ fn vector_distance_cos_call_binds_to_real() {
     assert_eq!(value_type, ir::ValueType::Real);
 }
 
+#[cfg(feature = "fts")]
 #[test]
 fn fts_match_call_binds_to_boolean() {
     let connection = connect(false);
@@ -428,6 +429,33 @@ fn fts_match_call_binds_to_boolean() {
     );
 
     assert_eq!(value_type, ir::ValueType::Boolean);
+}
+
+#[cfg(not(feature = "fts"))]
+#[test]
+fn fts_calls_report_the_disabled_graph_capability_during_binding() {
+    let connection = connect(false);
+    connection
+        .execute("CREATE TABLE embeddings(id INTEGER PRIMARY KEY, content TEXT);")
+        .expect("create node source");
+    let catalog = node_source_catalog(&connection, "embeddings");
+    let parsed = parse("MATCH () RETURN fts_match('content', 'needle')").expect("query parses");
+
+    let error = bind(
+        &parsed,
+        GraphId::new(1).expect("graph id"),
+        &catalog,
+        &ParameterTypes::new(),
+    )
+    .expect_err("disabled FTS must fail before SQL lowering");
+
+    assert!(matches!(
+        error,
+        turso_graph_frontend::BindError::Unsupported {
+            feature: "graph full-text search (enable the `fts` feature)",
+            ..
+        }
+    ));
 }
 
 #[test]
@@ -491,6 +519,7 @@ fn vector_distance_cos_call_with_mismatched_argument_type_is_a_bind_error() {
     );
 }
 
+#[cfg(feature = "fts")]
 #[test]
 fn fts_match_call_with_too_few_arguments_is_a_bind_error() {
     let connection = connect(false);
@@ -513,6 +542,7 @@ fn fts_match_call_with_too_few_arguments_is_a_bind_error() {
     );
 }
 
+#[cfg(feature = "fts")]
 #[test]
 fn fts_match_call_with_extra_arguments_still_binds() {
     let connection = connect(false);

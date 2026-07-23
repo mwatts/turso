@@ -27,6 +27,9 @@ pub enum Error {
     Semantic(#[from] crate::SemanticCatalogError),
     #[error(transparent)]
     Database(#[from] turso_core::LimboError),
+    #[cfg(feature = "fts")]
+    #[error(transparent)]
+    Fts(#[from] crate::GraphFtsError),
     #[error("query parameter `${0}` was not declared for this graph session")]
     UndeclaredParameter(String),
     #[error("query parameter `${0}` has no bound value")]
@@ -189,6 +192,30 @@ impl GraphConnection {
             persistence_mode: self.snapshots.persistence_mode(),
             status: self.snapshots.status(&self.connection, &self.graph_name)?,
         })
+    }
+
+    #[cfg(feature = "fts")]
+    pub fn create_fts_index(
+        &self,
+        spec: &crate::GraphFtsIndexSpec,
+    ) -> Result<crate::GraphFtsIndex, Error> {
+        let catalog = self.catalog.read().clone();
+        Ok(crate::fts::create(
+            &self.connection,
+            &self.graph_name,
+            catalog.as_ref(),
+            spec,
+        )?)
+    }
+
+    #[cfg(feature = "fts")]
+    pub fn list_fts_indexes(&self) -> Result<Vec<crate::GraphFtsIndex>, Error> {
+        Ok(crate::fts::list(&self.connection, &self.graph_name)?)
+    }
+
+    #[cfg(feature = "fts")]
+    pub fn drop_fts_index(&self, name: &str) -> Result<bool, Error> {
+        Ok(crate::fts::drop(&self.connection, &self.graph_name, name)?)
     }
 
     pub fn query(&self, source: &str, parameters: &Parameters) -> Result<Vec<Vec<Value>>, Error> {

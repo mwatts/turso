@@ -7,7 +7,7 @@
 
 use std::sync::Arc;
 
-use turso_core::{Connection, Database, MemoryIO, SqliteDialect};
+use turso_core::{Connection, Database, DatabaseOpts, MemoryIO, OpenOptions, SqliteDialect};
 use turso_graph_frontend::{
     register_graph, GraphCompilationCatalog, GraphConnection, GraphRegistration,
     NodeSourceRegistration, ParameterTypes, Parameters, RelationshipSourceRegistration,
@@ -21,9 +21,23 @@ use turso_graph_runtime::{BuildLimits, NeverCancelled};
 /// `Arc<Database>` alongside the session so callers can open further
 /// connections onto the same graph (see [`second_connection`]).
 pub fn social_graph_connection() -> (Arc<Database>, GraphConnection) {
+    social_graph_connection_with_options(DatabaseOpts::default())
+}
+
+#[cfg(feature = "fts")]
+#[allow(dead_code)] // This file is also compiled as its own integration-test crate.
+pub fn social_graph_connection_with_fts() -> (Arc<Database>, GraphConnection) {
+    social_graph_connection_with_options(DatabaseOpts::default().with_index_method(true))
+}
+
+fn social_graph_connection_with_options(opts: DatabaseOpts) -> (Arc<Database>, GraphConnection) {
     let io = Arc::new(MemoryIO::new());
-    let database = Database::open_file(io, ":memory:fixture-social", Arc::new(SqliteDialect))
-        .expect("open database");
+    let database = Database::open(
+        io,
+        ":memory:fixture-social",
+        OpenOptions::new(Arc::new(SqliteDialect)).db_opts(opts),
+    )
+    .expect("open database");
     let connection = database.connect().expect("connect");
     connection
         .execute(

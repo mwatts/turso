@@ -892,11 +892,11 @@ pub(crate) fn sql_string(value: &str) -> String {
     format!("'{}'", value.replace('\'', "''"))
 }
 
-fn quote_identifier(value: &str) -> String {
+pub(crate) fn quote_identifier(value: &str) -> String {
     format!("\"{}\"", value.replace('"', "\"\""))
 }
 
-fn stable_hash(value: &str) -> u64 {
+pub(crate) fn stable_hash(value: &str) -> u64 {
     value
         .as_bytes()
         .iter()
