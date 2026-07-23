@@ -3,10 +3,62 @@ use std::sync::Arc;
 use turso_core::{Database, MemoryIO, SqliteDialect, Value};
 use turso_graph_frontend::{
     register_graph, GraphConnection, GraphRegistration, NodeSourceRegistration, Parameters,
-    RelationshipSourceRegistration,
+    RelationshipSourceRegistration, SnapshotPersistenceMode, SnapshotStatus,
 };
 
 mod fixture;
+
+#[test]
+fn diagnostics_report_missing_current_and_stale_without_refreshing() {
+    let (database, session) = fixture::social_graph_connection();
+    let reopened = GraphConnection::open(fixture::second_connection(&database), "social")
+        .expect("open independent graph session");
+    assert_eq!(
+        reopened.diagnostics().unwrap().status,
+        SnapshotStatus::Missing
+    );
+
+    session
+        .query(
+            "MATCH (:Person)-[:KNOWS*1..1]->(n) RETURN n.name",
+            &Parameters::new(),
+        )
+        .expect("build the calling session snapshot");
+    let current = session.diagnostics().expect("current diagnostics");
+    assert_eq!(current.graph_id, session.graph_id());
+    assert_eq!(current.graph_name, "social");
+    assert_eq!(
+        current.persistence_mode,
+        SnapshotPersistenceMode::InMemoryRebuildOnDemand
+    );
+    let SnapshotStatus::Current(metadata) = current.status else {
+        panic!("snapshot must be current")
+    };
+    assert_eq!(metadata.node_count, 2);
+    assert_eq!(metadata.relationship_count, 0);
+    assert!(metadata.estimated_heap_bytes > 0);
+    assert!(metadata.estimated_peak_build_bytes >= metadata.estimated_heap_bytes);
+
+    fixture::second_connection(&database)
+        .execute("INSERT INTO people VALUES (3, 'Katherine', 101)")
+        .expect("mutate a registered source");
+    let stale = session.diagnostics().expect("stale diagnostics");
+    let SnapshotStatus::Stale {
+        snapshot,
+        current_generation,
+        ..
+    } = stale.status
+    else {
+        panic!("diagnostics must observe stale state without refreshing")
+    };
+    assert_eq!(snapshot.node_count, 2);
+    assert!(current_generation > snapshot.source_generation);
+    assert_eq!(
+        session.diagnostics().expect("repeat diagnostics"),
+        stale,
+        "diagnostics must not refresh or publish state"
+    );
+}
 
 #[test]
 fn endpoint_functions_resolve_relationship_layout_and_preserve_nulls() {

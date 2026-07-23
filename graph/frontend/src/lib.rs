@@ -58,8 +58,8 @@ pub use session::{
     GraphConnection as Connection,
 };
 pub use snapshot::{
-    build_traversal_snapshot, build_visible_traversal_snapshot, NodeCoordinate, PublishOutcome,
-    RelationshipCoordinate, SessionSnapshotStore, SnapshotError, SnapshotMetadata,
+    build_traversal_snapshot, build_visible_traversal_snapshot, GraphDiagnostics, NodeCoordinate,
+    PublishOutcome, RelationshipCoordinate, SessionSnapshotStore, SnapshotError, SnapshotMetadata,
     SnapshotPersistenceMode, SnapshotStatus, SnapshotStore, SourceIdentity, TraversalSnapshot,
 };
 pub use statement::Statement;

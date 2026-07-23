@@ -8,9 +8,9 @@ use turso_graph_runtime::{BuildLimits, Cancellation, NeverCancelled};
 
 use crate::{
     compiler::SharedGraphCatalog, execute_cypher_mutation, graph_frontend_id,
-    install_graph_catalog, GraphCompilationCatalog, GraphCompiler, MutationError, MutationSummary,
-    ParameterTypes, Parameters, RegisteredGraph, SessionSnapshotStore, SnapshotError,
-    SnapshotStore,
+    install_graph_catalog, GraphCompilationCatalog, GraphCompiler, GraphDiagnostics, MutationError,
+    MutationSummary, ParameterTypes, Parameters, RegisteredGraph, SessionSnapshotStore,
+    SnapshotError, SnapshotStore,
 };
 
 #[derive(Debug, Error)]
@@ -176,6 +176,19 @@ impl GraphConnection {
 
     pub fn graph_name(&self) -> &str {
         &self.graph_name
+    }
+
+    /// Returns metadata for the snapshot visible to this graph session.
+    ///
+    /// Diagnostics are observational: this method does not refresh, publish,
+    /// or otherwise mutate snapshot or catalog state.
+    pub fn diagnostics(&self) -> Result<GraphDiagnostics, Error> {
+        Ok(GraphDiagnostics {
+            graph_id: self.graph,
+            graph_name: self.graph_name.clone(),
+            persistence_mode: self.snapshots.persistence_mode(),
+            status: self.snapshots.status(&self.connection, &self.graph_name)?,
+        })
     }
 
     pub fn query(&self, source: &str, parameters: &Parameters) -> Result<Vec<Vec<Value>>, Error> {
@@ -383,7 +396,7 @@ mod tests {
     use crate::{
         register_graph, CatalogEntity, GraphCatalogSnapshot, GraphRegistration,
         NodeSourceRegistration, NodeTableLayout, RelationalCatalogSnapshot,
-        RelationshipSourceRegistration, RelationshipTableLayout, ResolvedProperty,
+        RelationshipSourceRegistration, RelationshipTableLayout, ResolvedProperty, SnapshotStatus,
     };
     use turso_core::{Database, MemoryIO, SqliteDialect};
     use turso_graph_ir as ir;
@@ -946,6 +959,46 @@ mod tests {
             .unwrap();
         assert!(!rebuilt);
         assert!(Arc::ptr_eq(&refreshed, &reused));
+    }
+
+    #[test]
+    fn diagnostics_prefer_transaction_visible_overlay_and_observe_rollback() {
+        let fixture = fixture(":memory:graph-session-diagnostics-overlay");
+        fixture.writer.execute("BEGIN").unwrap();
+        fixture
+            .writer_session
+            .execute(
+                "MATCH (a:Person {id: 1}) CREATE (a)-[:KNOWS]->(:Person {id: 3, name: 'C'})",
+                &Parameters::new(),
+            )
+            .unwrap();
+        assert_eq!(outgoing(&fixture.writer_session).len(), 1);
+
+        let SnapshotStatus::Current(writer) = fixture.writer_session.diagnostics().unwrap().status
+        else {
+            panic!("writer overlay must be current")
+        };
+        let SnapshotStatus::Current(reader) = fixture.reader_session.diagnostics().unwrap().status
+        else {
+            panic!("reader shared snapshot must remain current")
+        };
+        assert_eq!((writer.node_count, writer.relationship_count), (3, 1));
+        assert_eq!((reader.node_count, reader.relationship_count), (2, 0));
+
+        fixture.writer.execute("ROLLBACK").unwrap();
+        assert!(matches!(
+            fixture.writer_session.diagnostics().unwrap().status,
+            SnapshotStatus::Stale { snapshot, current_generation, .. }
+                if snapshot.node_count == 3
+                    && snapshot.relationship_count == 1
+                    && current_generation < snapshot.source_generation
+        ));
+        assert!(outgoing(&fixture.writer_session).is_empty());
+        let SnapshotStatus::Current(rebuilt) = fixture.writer_session.diagnostics().unwrap().status
+        else {
+            panic!("next traversal must replace rolled-back overlay")
+        };
+        assert_eq!((rebuilt.node_count, rebuilt.relationship_count), (2, 0));
     }
 
     #[test]

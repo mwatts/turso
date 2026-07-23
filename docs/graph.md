@@ -328,6 +328,7 @@ the `turso`/`turso_pg` API shapes:
 | `query(source, &params) -> Vec<Vec<Value>>` | Prepare + run to completion, collecting rows |
 | `execute(source, &params) -> MutationSummary` | Run a Cypher mutation (`CREATE`/`MERGE`/`SET`/`REMOVE`/`DELETE`). `MutationSummary` carries `matched_rows`, `operations_executed`, and `rows` (populated by a trailing `RETURN`) |
 | `prepare_cancellable` / `query_cancellable` | Same as above with a cooperative `Cancellation` hook, checked during snapshot builds and long traversals |
+| `diagnostics() -> GraphDiagnostics` | Inspect the calling session's traversal snapshot status and aggregate resource metadata without refreshing or publishing it |
 
 Values are plain `turso_core::Value` — the crate re-exports the common
 core types at its root (`Value`, `Row`, `OpenFlags`, `Database`, …) and
@@ -401,6 +402,21 @@ run against an in-memory adjacency snapshot:
   Share one store across connections via `install` to amortize rebuilds.
 - Snapshots are derived, process-local state — never persisted, always
   rebuildable from the tables.
+
+`GraphConnection::diagnostics()` reports the graph identity/name, persistence
+mode, and `SnapshotStatus` (`Missing`, `Current`, or `Stale`). Current and stale
+metadata includes catalog/source generations, node and relationship counts,
+build duration, retained-byte estimate, and peak-build-byte estimate. A stale
+status also includes the currently visible generation. The calling session's
+transaction-local overlay takes precedence over shared committed state, so
+diagnostics match the snapshot a traversal would use.
+
+The call is strictly observational: it performs no refresh, catalog write, or
+snapshot publication, and its types contain no source row values, relationship
+coordinates, or query text. SQL diagnostics are intentionally not installed:
+the state is process- and session-local, and there is no SQL consumer requiring
+a virtual-table projection beyond this typed API. This avoids implying that
+diagnostics are persistent catalog state.
 
 ## Composing frontends
 

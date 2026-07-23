@@ -162,6 +162,15 @@ pub enum SnapshotPersistenceMode {
     InMemoryRebuildOnDemand,
 }
 
+/// Read-only diagnostics for the snapshot visible to one graph session.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct GraphDiagnostics {
+    pub graph_id: GraphId,
+    pub graph_name: String,
+    pub persistence_mode: SnapshotPersistenceMode,
+    pub status: SnapshotStatus,
+}
+
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum PublishOutcome {
     Published {
@@ -396,6 +405,26 @@ impl SessionSnapshotStore {
             return Ok(Some(snapshot));
         }
         self.shared.get(graph)
+    }
+
+    pub fn persistence_mode(&self) -> SnapshotPersistenceMode {
+        self.shared.persistence_mode()
+    }
+
+    /// Reports local transaction-visible state before shared committed state.
+    ///
+    /// Unlike traversal preparation, this never refreshes or publishes a
+    /// snapshot; stale state remains observable to diagnostics.
+    pub fn status(
+        &self,
+        connection: &Arc<Connection>,
+        graph_name: &str,
+    ) -> Result<SnapshotStatus, SnapshotError> {
+        let registered = load_registered_graph(connection, graph_name)?;
+        let Some(snapshot) = self.get(registered.id)? else {
+            return Ok(SnapshotStatus::Missing);
+        };
+        Ok(classify_snapshot(&snapshot, registered.generation))
     }
 
     pub fn refresh_visible(

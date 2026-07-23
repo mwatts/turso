@@ -307,6 +307,11 @@ Validation:
 
 ## Phase 2 - Endpoint Functions
 
+**Status: complete and validated (2026-07-23).** Typed endpoint binding,
+physical-layout lowering, nullable and carried-through-`WITH` behavior are
+covered. The frontend suite passed 223 tests and the non-recorded deep corpus
+improved to 8,926 passed, 53 unsupported, and 1,263 failed.
+
 | Slice | Work | Verification |
 |-------|------|--------------|
 | 2.0 | Add failing endpoint integration contracts through the shared production fixture. | Tests encode start/end, null, wrong-type, and carried-through-`WITH` behavior before implementation. |
@@ -316,6 +321,12 @@ Validation:
 | 2.4 | Run focused conformance identities and commit. | AGE portable endpoint scenarios improve; vendor `start_id`/`end_id` remain unsupported. |
 
 ## Phase 3 - Diagnostics
+
+**Status: complete and validated (2026-07-23).** The typed API reports
+calling-session state without refreshing or publishing it. IR, frontend, and
+testkit suites passed 277 tests across 15 suites; smoke conformance passed
+11/11; deep conformance remained at 8,926 passed, 53 unsupported, and 1,263
+failed; graph-target Clippy reported no graph diagnostics.
 
 | Slice | Work | Verification |
 |-------|------|--------------|
@@ -469,7 +480,7 @@ rtk cargo bench -p turso_core --bench fts_benchmark --features fts
 - [x] `db.propertyKeys()` performs catalog enumeration only.
 - [x] `startNode()`/`endNode()` use physical relationship layouts and preserve graph value typing.
 - [ ] Graph FTS reuses core FTS, has a clear feature gate, and has transactional metadata/API lifecycle.
-- [ ] Snapshot diagnostics are calling-session correct, read-only, and data-minimizing.
+- [x] Snapshot diagnostics are calling-session correct, read-only, and data-minimizing.
 - [ ] Default and FTS-enabled graph tests pass.
 - [x] Smoke/deep conformance shows no portable regression.
 - [ ] Benchmark results include enough workload metadata for a meaningful before/after comparison.
