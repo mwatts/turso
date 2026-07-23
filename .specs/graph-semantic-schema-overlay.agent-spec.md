@@ -37,7 +37,8 @@ This stream adopts useful **data semantics** associated with TypeDB, not its lan
 - conceptual entity, relation, and attribute/property types;
 - schema-defined ownership and binary endpoint participation;
 - semantic validation of reads and writes;
-- later, single inheritance, abstract types, polymorphic scans, and constraints.
+- later, fragment-interface polymorphism (polymorphic scans over composed
+  fragment interfaces — see the amended Milestone 3) and constraints.
 
 The frontend remains Cypher-facing and relationally lowered. Turso core continues to own canonical tables, transactions, constraints, and bytecode. “TypeDB-inspired” MUST NOT be presented as TypeDB, TypeQL, PERA, or hypergraph compatibility.
 
@@ -77,7 +78,7 @@ A **semantic type** is a graph-scoped catalog identity. It is not a table name.
 - Relationship semantic types are addressed through Cypher relationship types.
 - One physical source may back multiple semantic types.
 - In Milestones 1-2, each semantic type maps to exactly one physical source. The mapping is represented independently so Milestone 3 can support one polymorphic type scan over multiple sources.
-- In strict semantic mode, every resolved node label denotes a semantic node type and a mutation MUST identify exactly one semantic node type. Ordinary untyped labels remain available only in legacy/schemaless mode for Milestones 1-2. Multiple semantic labels are rejected until inheritance exists; Milestone 3 may allow labels along one ancestor chain and treat the most-specific type as the instance type.
+- In strict semantic mode, every resolved node label denotes a semantic node type and a mutation MUST identify exactly one semantic node type. Ordinary untyped labels remain available only in legacy/schemaless mode for Milestones 1-2. Multiple semantic labels are rejected until fragment-interface polymorphism exists; the amended Milestone 3 allows at most one concrete type label plus fragment labels the concrete type carries, and the concrete type is always the instance type.
 - Relationship mutations MUST identify exactly one concrete semantic relationship type.
 
 ### Properties and ownership
@@ -97,7 +98,7 @@ Milestone 2 validates the useful subset of role semantics that fits current stor
 - a semantic relationship type declares allowed semantic node types for its start and end endpoint;
 - the constraints lower onto the existing `start`/`end` columns and `from`/`to` IR;
 - no public claim is made that `start` and `end` are general named role interfaces;
-- arbitrary role names, repeated role players, relation-to-relation participation, and n-ary relations remain deferred.
+- arbitrary role names, repeated role players, relation-to-relation participation, and n-ary relations need no native support: they compose from Milestones 1-2 primitives by catalog-level reification (a relation node type plus one endpoint-constrained binary edge type per role — see the amended Decision Gate B). Only native single-hop n-ary storage remains deferred.
 
 ### Compatibility modes
 
@@ -116,7 +117,7 @@ Deliver an additive semantic catalog and snapshot representation:
 
 1. Persist stable graph-scoped identities for semantic node types, relationship types, and properties. Reuse the existing strong `LabelId`, `RelationshipTypeId`, and `PropertyId` identities if their invariants fit; do not create redundant ID families and never reuse `SourceTableId` as a conceptual identity.
 2. Add additive internal catalog tables for:
-   - semantic types: graph, stable ID, kind, case-insensitive name, and concrete/abstract state reserved for Milestone 3;
+   - semantic types: graph, stable ID, kind, and case-insensitive name (no abstract/supertype state — the amended Milestone 3 uses fragment membership, added as its own additive table when that milestone starts);
    - semantic type-to-source mapping;
    - semantic properties: graph, stable ID, and case-insensitive name;
    - property ownership: owner type, property, source, and physical column;
@@ -134,7 +135,7 @@ Deliver strict validation only for graphs with a registered semantic schema:
 
 1. Track the possible semantic types of every node/relationship binding through the binder. Label/type predicates narrow that set.
 2. On read property access or pattern property predicates, resolve the property only when every possible concrete type owns it with compatible semantics. Return `PropertyNotOwned` when none owns it and a targeted ambiguity error when only a subset owns it; never compile a query with partial semantics.
-3. On `CREATE`/`MERGE`, require exactly one known semantic type. All Milestones 1-2 types are concrete; the registration API MUST NOT expose the reserved abstract state until Milestone 3.
+3. On `CREATE`/`MERGE`, require exactly one known semantic type. All semantic types are concrete in every milestone; fragments (Milestone 3) are interfaces and are never instantiable, so no abstract-type state exists in the registration API at any point.
 4. On `SET`, map replacement, property removal, `ON CREATE`, `ON MATCH`, and nested mutation stages, validate ownership against the target binding's possible semantic types.
 5. Check statically known expression types in the binder. Parameters, `Any`, and dynamically produced map values MUST also be checked against the resolved property type at execution before physical SQL mutation.
 6. Validate binary relationship endpoints against start/end allowed node types. Direction reversal MUST swap endpoint checks correctly.
@@ -143,17 +144,53 @@ Deliver strict validation only for graphs with a registered semantic schema:
 
 Milestone 2 does **not** introduce required/cardinality/key/unique/value constraints. Existing physical `NOT NULL`, `UNIQUE`, and `CHECK` constraints continue to work, but are not yet semantic constraints.
 
-### Milestone 3 — single inheritance, abstract types, polymorphic scans
+### Milestone 3 — fragment-interface polymorphism and polymorphic scans
+
+> **Amendment (2026-07-22).** This milestone originally specified single
+> inheritance with abstract types. It now specifies fragment-interface
+> polymorphism (composition) instead. Decision record: composition covers
+> every required semantic — property reuse (better: many fragments per
+> type, no diamond), polymorphic scans (fragment-membership sets drive the
+> same `Union` composition ancestor closures would have), supertype-style
+> endpoint constraints (endpoint lists already express unions; a fragment
+> reference is sugar for one), and abstract types (a fragment is
+> inherently uninstantiable). What inheritance uniquely adds — nominal
+> is-a identity and subtype override — is required by nothing in this
+> spec or its test matrix. Dropping it removes acyclicity validation,
+> ancestor closures, the most-specific-type rule, the label ancestor-chain
+> special case, and reparenting as a future evolution hazard. Full
+> comparison table: `tessera/.specs/tessera-turso.design-spec.md` (tessera repository)
+> section 8.4.
 
 Do not implement until Milestones 1-2 are merged and measured.
 
-1. Activate optional `supertype_id` and `is_abstract` catalog fields.
-2. Enforce same-kind, graph-local, acyclic, single inheritance at registration.
-3. Precompute or deterministically resolve ancestor/descendant closures in the immutable snapshot; do not add recursive catalog queries to hot binder paths.
-4. Inherit property ownership and endpoint permissions. Reject conflicting inherited physical mappings or incompatible value types.
-5. Make a scan for a semantic supertype include all concrete descendant types. Prefer composing existing per-source scans with `Union` when possible; introduce a new IR operator only if an executable plan proves `Union` cannot preserve identity/scope semantics.
-6. Reject instantiation of abstract types while allowing them in reads.
-7. Preserve Cypher label behavior: multiple semantic labels are valid only when they form one ancestor chain, and the most-specific label determines the concrete instance type.
+1. Add an additive fragment catalog: fragment identities (graph-scoped,
+   stable ID, case-insensitive name) and a type-to-fragment membership
+   table. A fragment name MUST NOT equal a concrete semantic type name in
+   the same graph; registration enforces this collision rule.
+2. A fragment declares owned properties exactly as a concrete type does.
+   Attaching a fragment to a concrete type contributes those ownership
+   declarations to the type, each still mapped to a physical column on the
+   type's source. Reject conflicting contributed physical mappings or
+   incompatible value types (the existing shared-property compatibility
+   rule extends to fragment-contributed properties).
+3. Precompute fragment-membership sets (fragment → concrete types carrying
+   it) in the immutable snapshot; do not add recursive or repeated catalog
+   queries to hot binder paths.
+4. Make a Cypher label that names a fragment resolve to the set of
+   concrete types carrying that fragment. A scan over a fragment label
+   includes all member types. Prefer composing existing per-source scans
+   with `Union`; introduce a new IR operator only if an executable plan
+   proves `Union` cannot preserve identity/scope semantics.
+5. Endpoint constraints may reference a fragment; this expands at
+   registration (or snapshot) time to the fragment's member-type set.
+6. Fragments are never instantiable. `CREATE`/`MERGE` still requires
+   exactly one concrete semantic type; a fragment label alone is a typed
+   error.
+7. Preserve Cypher label behavior: multiple labels are valid only as one
+   concrete type label plus fragment labels that the concrete type
+   carries; the concrete type label is always the instance type. Label
+   conjunction is set intersection — no chain or specificity rules.
 
 ### Milestone 4 — constraints and safe additive evolution
 
@@ -163,7 +200,7 @@ Implement in this order: required/minimum cardinality, key, unique, range/value/
 2. Split validation by what can be proven at bind time, per-row runtime, and transaction/database-state time.
 3. Prefer native Turso constraints or indexes for durable enforcement when semantics map exactly. Binder-only checks are insufficient because SQL can modify backing tables directly.
 4. A schema change MUST validate all existing visible data before becoming active. Failed validation leaves the old schema and data unchanged.
-5. Additive schema writes are idempotent. Constraint tightening, reparenting, type remapping, property removal, and value-type changes require an explicit later evolution design; do not smuggle them into an “additive” API.
+5. Additive schema writes are idempotent. Constraint tightening, fragment-membership removal, type remapping, property removal, and value-type changes require an explicit later evolution design; do not smuggle them into an “additive” API.
 6. Define direct-SQL bypass policy before claiming database-wide semantic integrity. Until core can protect owned backing tables, document integrity as guaranteed only for graph-frontend writes plus physical SQL constraints.
 
 ### Decision gate A — first-class attribute instances
@@ -179,11 +216,49 @@ Do not implement as part of Milestones 1-4. Produce an ADR before proceeding tha
 
 Approval requires a workload that benefits from querying attributes as graph objects. A catalog-only imitation without instance semantics is not sufficient.
 
-### Decision gate B — native named/n-ary relations
+### Decision gate B — native n-ary storage (narrowed)
 
-Defer. Current IR and storage are binary: `CreateRelationship`, `FixedExpand`, relationship layouts, and source registrations all have start/end endpoints.
+> **Amendment (2026-07-22).** This gate originally deferred all named
+> and n-ary relation semantics. It now covers only native single-hop
+> n-ary *storage and IR*.
+>
+> **What reification means (for readers new to the term).** To reify a
+> relationship is to represent it as a node instead of an edge. An edge
+> connects exactly two nodes and nothing can point at it; a node has
+> neither limit. So a relationship that needs more than two
+> participants, optional participants, or participation in another
+> relationship becomes a node carrying the relationship's identity and
+> payload, and each participant connects to that node through one
+> binary edge named for its role. Example: a marriage fits an edge
+> (`(a)-[:MARRIED_TO]->(b)`), but a wedding — two spouses, an
+> officiant, an optional venue — becomes a `Wedding` node with one
+> role-named edge per participant. The graph engine does not change;
+> the modeling does, and plain Cypher expresses all of it.
+>
+> Decision record: named roles, three or more participants, optional
+> roles, repeated role players, and relation-to-relation participation
+> all compose from Milestones 1-2 primitives this way — register the
+> relation as a node type owning the relation payload, plus one
+> endpoint-constrained binary edge type per role. This requires zero
+> new frontend code, and it is stronger than the binary surface on
+> relation-to-relation participation, which a plain edge can never
+> express. Cypher has no n-ary edge syntax, so native storage would not
+> change what users can write; it would only collapse player-to-player
+> traversal from two indexed hops to one. Full explanation, worked
+> example, and adapter rules:
+> `tessera/.specs/tessera-turso.design-spec.md` (tessera repository) section 8.5.
 
-Before implementation, an ADR MUST define role identity, repeated roles, relation-to-relation participation, n-ary storage, mutation syntax, traversal semantics, and lowering/runtime impact. Reifying an n-ary relation into a node plus binary edges is an application modeling option, not native n-ary support.
+Defer native storage. Current IR and storage are binary:
+`CreateRelationship`, `FixedExpand`, relationship layouts, and source
+registrations all have start/end endpoints.
+
+Before native storage is implemented, an ADR MUST measure a real
+workload where the reified two-hop traversal cost is unacceptable, and
+MUST define role identity, repeated roles, relation-to-relation
+participation, n-ary storage, mutation syntax, traversal semantics, and
+lowering/runtime impact. Role cardinality on reified relations is
+enforceable physically today (unique index on a role table's start
+column) and becomes semantic with Milestone 4.
 
 ### Decision gate C — inference and rules
 
@@ -271,7 +346,7 @@ At minimum add tests for:
 - Reuse existing conceptual ID newtypes where their invariants fit, and use typed enums for type kind and endpoint kind.
 - Precompute immutable lookup maps once per catalog snapshot rather than querying internal tables during each property bind.
 - Keep legacy fallback explicit in one catalog boundary rather than scattering mode checks through binder and lowerer.
-- Prefer precise errors such as `PropertyNotOwned`, `AmbiguousSemanticType`, `AbstractTypeInstantiation`, `IncompatiblePropertyType`, and `InvalidEndpointType` over generic unsupported errors.
+- Prefer precise errors such as `PropertyNotOwned`, `AmbiguousSemanticType`, `FragmentNotInstantiable`, `FragmentNameCollision`, `IncompatiblePropertyType`, and `InvalidEndpointType` over generic unsupported errors.
 - Measure prepare/bind overhead and catalog snapshot construction separately from execution.
 
 # IMPLEMENTATION PIPELINE
@@ -433,7 +508,7 @@ Do not record a new conformance baseline merely to implement this feature. After
 ## Later milestone entry criteria
 
 - Milestone 3 starts only after Milestones 1-2 have a reviewed public API and prepare-time measurements.
-- Milestone 4 starts only after inheritance semantics and direct-SQL enforcement policy are explicit.
+- Milestone 4 starts only after fragment-interface polymorphism semantics and direct-SQL enforcement policy are explicit.
 - First-class attributes, n-ary relations, and inference each require their named ADR decision gate.
 
 ## Failure conditions

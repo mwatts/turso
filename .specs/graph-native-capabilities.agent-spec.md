@@ -62,6 +62,21 @@ The portable/Turso-native capabilities in this spec have direct user value:
 
 The following Apache AGE or donor-specific internals are deliberately out of scope: `vertex_stats`, `graph_stats`, `delete_global_graphs`, `start_id`, `end_id`, `btic`, `is_valid_label_name`, and a compatibility scalar named `full_text_search`. Do not stub these names for corpus points. If the conformance harness encounters them, classify them as vendor-specific unsupported behavior. `startNode()`/`endNode()` are portable entity functions and are not aliases for AGE's raw-id helpers.
 
+## Coordination with the semantic-schema overlay stream
+
+The semantic-schema overlay (`.specs/graph-semantic-schema-overlay.agent-spec.md`, Milestones 1-2) and this spec edit the same files (`binder.rs`, `catalog.rs`, `schema_catalog.rs`, `session.rs`, `lib.rs`). Run the streams in sequence, never in parallel worktrees. The recommended combined ordering, with rationale, is `tessera/.specs/tessera-turso.design-spec.md` (tessera repository) section 11.2: overlay Milestones 1-2 first, then this spec's phases in the order procedures → endpoints → diagnostics → FTS, each built semantic-aware from the start.
+
+Semantic-aware means, concretely:
+
+- `db.labels()`, `db.relationshipTypes()`, and `db.propertyKeys()` return semantic names (from the semantic snapshot) when the graph has a registered semantic schema, and physical logical names otherwise. Enumeration stays catalog-only either way.
+- The FTS administration API validates logical property names through semantic ownership when a semantic schema exists.
+- `startNode()`/`endNode()` may use registered endpoint constraints to narrow the returned node's static semantic type set.
+- Snapshot diagnostics need no extra work: semantic registration bumps the graph generation this spec's diagnostics already report.
+
+If this spec's stream lands first instead, the overlay stream owns retrofitting the three items above; record that handoff explicitly in whichever lands second.
+
+Adjacent future capability, out of scope here: a graph vector-index administration API for embedding similarity search. Core already ships the vector scalar layer (`vector32`/`vector64`/`vector8`/`vector1bit`/`vector32_sparse`, `vector_distance_cos`/`_l2`/`_dot`/`_jaccard`), the graph frontend already types those functions for Cypher, and the `CREATE INDEX ... USING <method>` seam this spec uses for FTS is the same seam a future ANN method would use. When a production ANN index method exists in core, the graph FTS administration API defined here is the template to mirror (feature gate, structured typed input, transactional versioned metadata, reopen stability). See `tessera/.specs/tessera-turso.design-spec.md` (tessera repository) section 8.6.
+
 ## Relevant Files
 
 | File | Purpose | Access |

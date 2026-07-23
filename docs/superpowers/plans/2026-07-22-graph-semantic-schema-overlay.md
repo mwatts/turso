@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Add an opt-in semantic-schema catalog to the Turso graph frontend that decouples conceptual node/relationship/property types from physical source tables and validates typed ownership on reads and writes (spec Milestones 1-2 of `.specs/graph-semantic-schema-overlay.agent-spec.md`), with serde-serializable registration structs so external toolchains (the tessera-turso adapter, planned separately) can author schemas as data.
+**Goal:** Add an opt-in semantic-schema catalog to the Turso graph frontend that decouples conceptual node/relationship/property types from physical source tables and validates typed ownership on reads and writes (spec Milestones 1-2 of `.specs/graph-semantic-schema-overlay.agent-spec.md`). The public registration API is the integration surface for downstream consumers such as the tessera-turso adapter (planned separately, in the tessera repository), which will depend on `turso_graph_frontend` directly and call `register_semantic_schema`. The registration structs also derive serde as a secondary convenience so tooling can cache, inspect, or transport a registration as JSON.
 
 **Architecture:** A new focused module `graph/frontend/src/semantic.rs` owns the additive catalog tables, the `register_semantic_schema` API, and an immutable `SemanticSnapshot` loaded once per `GraphConnection::open`. `SchemaCatalog` holds `Option<Arc<SemanticSnapshot>>`; when present, the `GraphCatalogSnapshot` resolution methods switch to persisted conceptual IDs and owner-aware property resolution. The binder already tracks per-binding label/type names in `EntityBinding.names` (`binder.rs:218-222`) — semantic type tracking extends that. Physical names stay exclusively behind `RelationalCatalogSnapshot`. Legacy graphs (no semantic rows) behave byte-for-byte as today.
 
@@ -10,7 +10,7 @@
 
 ## Global Constraints
 
-- Spec: `.specs/graph-semantic-schema-overlay.agent-spec.md` — Milestones 1-2 ONLY. No inheritance, no abstract types, no constraints beyond endpoint checks, no TypeQL, no attribute instances, no n-ary relations.
+- Spec: `.specs/graph-semantic-schema-overlay.agent-spec.md` — Milestones 1-2 ONLY. No fragment-interface polymorphism (that is the amended Milestone 3; there is no inheritance or abstract-type machinery in any milestone), no constraints beyond endpoint checks, no TypeQL, no attribute instances, no native n-ary storage (named/n-ary relation semantics arrive by adapter-side reification over these same Milestone 1-2 primitives — no plan impact).
 - `GraphRegistration` and every existing public type MUST compile unchanged for existing callers (spec MUST, line 107). All API additions are new types/functions only.
 - Conceptual IDs (`LabelId`, `RelationshipTypeId`, `PropertyId`) are persisted catalog values in semantic mode — never source-list positions or column ordinals (spec failure conditions, lines 442-443). Never reuse `SourceTableId` as a conceptual identity.
 - Value types derive ONLY through `SchemaCatalog::column_value_type` → core `Schema::classify_column` (`graph/frontend/src/schema_catalog.rs:166-238`). No second type classifier (spec MUST NOT, line 263).
@@ -32,7 +32,7 @@
 - Do NOT record a new conformance baseline as part of this plan (spec line 417).
 - Never build/run with `--release`.
 
-**Scope note:** The tessera-turso adapter (lowering Tessera PERA IR onto this API) is a SEPARATE plan in the tessera repository — see `.specs/graph-tessera-pera-overlay.design-eval.md`. This plan only guarantees the registration structs are serde-serializable so that adapter can emit them as JSON.
+**Scope note:** The tessera-turso adapter (lowering Tessera PERA IR onto this API) is a SEPARATE plan in the tessera repository — see `tessera/.specs/tessera-turso.design-spec.md` (tessera repository). The adapter will depend on `turso_graph_frontend` as a git dependency and call `register_semantic_schema` directly; this plan's obligation to it is only a stable, documented, additive public registration API. The serde derives on the registration structs are a secondary tooling convenience, not the integration mechanism.
 
 **Related work — `.specs/graph-native-capabilities.agent-spec.md` (procedure registry, `db.propertyKeys()`, FTS, `startNode()`/`endNode()`, snapshot diagnostics):**
 - **File overlap:** that stream also edits `binder.rs`, `catalog.rs`, `schema_catalog.rs`, `session.rs`, `lib.rs`. Do not run the two streams in parallel worktrees against the same files; sequence them. This plan touches `bind_call` (`binder.rs:365-395`) not at all, so the procedure-registry work composes, but rebases will be nontrivial in `binder.rs` and `schema_catalog.rs`.
@@ -426,7 +426,7 @@ CREATE TABLE IF NOT EXISTS __turso_internal_graph_semantic_endpoints(
 ```
 
 Notes locked in here (spec Slice 0.2 checkpoint items):
-- No `supertype_id`/`is_abstract` columns yet — Milestone 3 adds them (spec says "reserved", but the registration API must not expose abstractness; omitting the columns entirely is the safest additive-forward choice and avoids dead schema. Document this deviation in the commit body).
+- No `supertype_id`/`is_abstract` columns — ever. The amended Milestone 3 (fragment-interface polymorphism) uses additive fragment and fragment-membership tables added when that milestone starts; no inheritance state exists in this schema at any point.
 - Case folding: `COLLATE NOCASE` + Rust-side `to_lowercase()` for map keys.
 - Relationship types keep their own dense ID space (RelationshipTypeId), disjoint from labels.
 - Registering a semantic schema bumps the graph generation (`UPDATE __turso_graph_generations SET generation = generation + 1 WHERE graph_id = ?`) so existing traversal snapshots (which validate against generation) rebuild rather than silently carrying legacy identities. `GRAPH_CATALOG_VERSION` (`catalog.rs:23`) stays 1: table additions are `IF NOT EXISTS`-additive and old code never reads them. State this decision in the commit body (spec M1 item 6).
@@ -806,8 +806,9 @@ persisted; they are never derived from source positions or column
 ordinals. Registration bumps the graph generation so traversal snapshots
 rebuild instead of carrying legacy identities. GRAPH_CATALOG_VERSION
 stays 1: the semantic tables are IF NOT EXISTS-additive and invisible to
-legacy readers. supertype/abstract columns are deferred to Milestone 3
-rather than reserved as dead schema."
+legacy readers. No supertype/abstract columns exist: the amended
+Milestone 3 uses additive fragment-membership tables instead of
+inheritance state."
 ```
 
 ---
@@ -1003,6 +1004,7 @@ impl SchemaCatalog {
 - `node_source_for_label`/`relationship_source_for_type`: semantic → the type's mapped `SourceTableId`.
 - `relationship_endpoints`: from `SemanticSnapshot::endpoints`, mapping type_ids to `LabelId`s.
 - `RelationalCatalogSnapshot::property_column(source, property)` (`schema_catalog.rs:372-393`): semantic → look up by persisted `PropertyId` → owned column name for a type mapped to `source`. This is the ONLY place semantic property IDs meet physical column names.
+- `RelationalCatalogSnapshot::label_name(label)` (`schema_catalog.rs:316-321`) and `relationship_type_name(rt)` (`schema_catalog.rs:327-348`): semantic → resolve the persisted ID through `SemanticSnapshot::node_type_by_id`/`relationship_type_by_id` and return the semantic type name. CRITICAL: the legacy implementations index `node_sources`/`relationship_sources` by `id - 1`; with persisted semantic IDs that returns the wrong name or `None`. Both label recording (`mutation.rs:1148-1178 record_node_labels`) and labeled-scan filtering (`lowering.rs:935-945`) resolve through these methods, so without the semantic branch, instance-to-type membership silently breaks for semantic graphs: created nodes would get no (or wrong) junction rows and labeled MATCH would filter on the wrong name.
 
 **Session wiring** (`session.rs:148`): replace
 ```rust
@@ -1018,7 +1020,7 @@ let catalog = Arc::new(crate::SchemaCatalog::with_semantic(
 ));
 ```
 
-- [ ] **Step 1: Write failing inline tests** in `schema_catalog.rs` tests module: register the Task 2 semantic fixture, build `SchemaCatalog::with_semantic`, assert: `label` returns the persisted ID for "Customer" and `None` for the source name "people_src" (spec: physical spelling must NOT resolve); `resolve_owned_property` returns `Resolved` for `["Customer"]`+"displayName", `NotOwned` for `["Supplier"]`+"born", `Ambiguous` for `[]`+"born"; `property_column` maps (`people_src` id, PropertyId 1) → "full_name".
+- [ ] **Step 1: Write failing inline tests** in `schema_catalog.rs` tests module: register the Task 2 semantic fixture, build `SchemaCatalog::with_semantic`, assert: `label` returns the persisted ID for "Customer" and `None` for the source name "people_src" (spec: physical spelling must NOT resolve); `resolve_owned_property` returns `Resolved` for `["Customer"]`+"displayName", `NotOwned` for `["Supplier"]`+"born", `Ambiguous` for `[]`+"born"; `property_column` maps (`people_src` id, PropertyId 1) → "full_name"; `label_name` round-trips — `label_name(label("Customer"))` returns "Customer" and `relationship_type_name(relationship_type("TRADES_WITH"))` returns "TRADES_WITH" (the inverse resolution feeds junction recording and label filters; the legacy `id - 1` indexing would fail this for persisted IDs).
 - [ ] **Step 2: Run** `rtk cargo test -p turso_graph_frontend schema_catalog` → FAIL.
 - [ ] **Step 3: Implement** trait additions + `SchemaCatalog` changes + session wiring as specified above. Export `PropertyResolution` from `lib.rs` (`pub use binder::{..., PropertyResolution}`).
 - [ ] **Step 4: Run** full crate tests: `rtk cargo test -p turso_graph_frontend` and `rtk cargo test -p turso_graph_testkit` (proves `DynamicCatalog` and mocks compile unchanged via defaults) → PASS.
@@ -1039,7 +1041,7 @@ let catalog = Arc::new(crate::SchemaCatalog::with_semantic(
 ```rust
 #[error("CREATE/MERGE requires exactly one semantic type in strict mode at byte {span_start}..{span_end}")]
 MissingSemanticType { entity: &'static str, span_start: usize, span_end: usize },
-#[error("multiple semantic labels {names:?} are not supported before inheritance at byte {span_start}..{span_end}")]
+#[error("multiple semantic labels {names:?} are not supported before fragment-interface polymorphism (Milestone 3) at byte {span_start}..{span_end}")]
 MultipleSemanticTypes { names: Vec<String>, span_start: usize, span_end: usize },
 ```
 
@@ -1073,7 +1075,7 @@ fn create_without_a_label_is_rejected_in_semantic_mode() {
 }
 
 #[test]
-fn create_with_multiple_labels_is_rejected_before_inheritance() {
+fn create_with_multiple_labels_is_rejected_before_fragment_polymorphism() {
     let session = semantic_session();
     let error = session
         .execute("CREATE (n:Customer:Supplier)", &Default::default())
@@ -1657,7 +1659,7 @@ Expected: all PASS; corpus results match the Task 1 baseline (donor `DynamicCata
 
 - [ ] **Step 1: Documentation.** Add to `docs/graph.md`: a registration example (the Task 2 fixture verbatim), the strict-mode validation behaviors with example error messages, legacy-mode guarantee, and this exact boundary statement (spec Slice 4.2 + MUST NOT list):
 
-> Semantic schema is an opt-in overlay validated by the graph frontend. It is inspired by TypeDB's conceptual data model but is not TypeDB, TypeQL, or PERA compatible: no inheritance, no attribute instances, no named roles or n-ary relations, and no inference. Integrity is enforced for graph-frontend reads and writes plus any physical SQL constraints on the backing tables; direct SQL against backing tables is not semantically validated.
+> Semantic schema is an opt-in overlay validated by the graph frontend. It is inspired by TypeDB's conceptual data model but is not TypeDB, TypeQL, or PERA compatible: no inheritance (polymorphism, when it arrives in Milestone 3, is composition over fragment interfaces, not subtyping), no attribute instances, no named roles or n-ary relations, and no inference. Integrity is enforced for graph-frontend reads and writes plus any physical SQL constraints on the backing tables; direct SQL against backing tables is not semantically validated.
 
 Link from `graph/README.md` in one sentence.
 
@@ -1673,4 +1675,4 @@ Link from `graph/README.md` in one sentence.
 
 - **Spec coverage:** M1 items 1-6 → Tasks 1-4 (item 6's version decision: generation bump, documented in Task 2 commit). M2 items 1-8 → Tasks 5-10 (item 1's type tracking is pre-existing `EntityBinding.names`; item 2 → Task 6; items 3-5 → Tasks 5, 6, 8, 9; item 6 → Task 7; item 7 → Task 10; item 8 → error variants across Tasks 5-10). Spec test matrix items 1-3 → Tasks 2-3 fixtures; 4 → Tasks 1-2; 5 → Tasks 3, 5, 11; 6-7 → Tasks 6-8; 8 → Tasks 9-10; 9 → Task 7; 10 → Tasks 3, 11; 11 → Tasks 4, 11.
 - **Known lookups deferred to execution** (verifications, not design gaps): exact `session::Error` variant plumbing (Task 4), the full `rg` sweep of `resolve_property` read-path call sites (Task 6), mutation.rs evaluated-value insertion points (Task 9), and the map-parameter `Value` constructor (Task 10 — flagged inline as MUST-replace).
-- **Out of scope, do not add:** inheritance/abstract columns, constraint catalog, multi-source-per-type scans, `DynamicCatalog` semantic support, conformance re-baselining, tessera dependency.
+- **Out of scope, do not add:** fragment-interface polymorphism (amended Milestone 3: fragment catalog, membership tables, fragment-label scans), inheritance or abstract-type machinery in any form, constraint catalog, multi-source-per-type scans, `DynamicCatalog` semantic support, conformance re-baselining, tessera dependency.
