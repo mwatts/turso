@@ -256,11 +256,11 @@ pub enum SemanticCatalogError {
         /// First owner encountered during validation.
         first_owner: String,
         /// First owner's graph value type.
-        first_type: ir::ValueType,
+        first_type: Box<ir::ValueType>,
         /// Conflicting owner.
         second_owner: String,
         /// Conflicting graph value type.
-        second_type: ir::ValueType,
+        second_type: Box<ir::ValueType>,
     },
     /// A different schema is already registered for the graph.
     #[error("graph `{0}` already has a different semantic schema registered")]
@@ -527,9 +527,9 @@ fn check_owned_columns(
                     return Err(SemanticCatalogError::IncompatiblePropertyType {
                         property: property.name.clone(),
                         first_owner: first_owner.clone(),
-                        first_type: first_type.clone(),
+                        first_type: Box::new(first_type.clone()),
                         second_owner: owner.to_owned(),
-                        second_type: value_type,
+                        second_type: Box::new(value_type),
                     });
                 }
             }
@@ -559,7 +559,7 @@ fn register_semantic_in_transaction(
         || !existing.ownership.is_empty()
         || !existing.endpoints.is_empty()
     {
-        return if existing.canonicalized() == expected.clone().canonicalized() {
+        return if existing.canonicalized() == expected.canonicalized() {
             Ok(())
         } else {
             Err(SemanticCatalogError::ConflictingSchema(graph.name.clone()))
