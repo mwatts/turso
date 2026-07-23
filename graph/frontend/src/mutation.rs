@@ -7,6 +7,7 @@ use turso_graph_ir as ir;
 use crate::{
     bind_mutation,
     binder::{BoundMutation, StageItem, StageProjection},
+    catalog::CatalogError,
     lowering::{
         lower_mutation_expression, lower_mutation_input, mutation_rows_with_sources_sql,
         quoted_identifier, unit_mutation_input, LoweredMutationInput, MutationEntityKind,
@@ -60,6 +61,8 @@ pub enum MutationError {
     },
     #[error("dynamic map key `{key}` is not an owned semantic property")]
     UnknownDynamicKey { key: String },
+    #[error("semantic constraint violation: {0}")]
+    SemanticConstraintViolation(String),
     #[error("mutation expression did not produce exactly one scalar value")]
     MissingEvaluatedValue,
     #[error("mutation failed and savepoint rollback also failed: {cause}; rollback: {rollback}")]
@@ -154,7 +157,13 @@ fn check_runtime_value(
         }
         .into());
     };
-    check_runtime_value_against(&name, &expected, value)
+    check_runtime_value_against(&name, &expected, value)?;
+    if let Some(constraints) = catalog.semantic_constraints() {
+        constraints
+            .validate_runtime(source, semantic_types, property, value)
+            .map_err(MutationError::SemanticConstraintViolation)?;
+    }
+    Ok(())
 }
 
 fn check_runtime_value_against(
@@ -216,42 +225,52 @@ pub fn execute_cypher_mutation(
     };
 
     connection.execute(format!("SAVEPOINT {SAVEPOINT}"))?;
-    let result = execute_bound(connection, catalog.as_ref(), &bound, &input, parameters).map(
-        |mut summary| {
-            if !bound.returns_order.is_empty() {
-                summary.rows.sort_by(|left, right| {
-                    for (index, descending) in &bound.returns_order {
-                        let ordering = compare_returned_values(&left[*index], &right[*index]);
-                        let ordering = if *descending {
-                            ordering.reverse()
-                        } else {
-                            ordering
-                        };
-                        if ordering != std::cmp::Ordering::Equal {
-                            return ordering;
+    let result =
+        execute_bound(connection, catalog.as_ref(), &bound, &input, parameters).and_then(
+            |mut summary| {
+                if let Some(constraints) = catalog.semantic_constraints() {
+                    constraints.validate_state(connection).map_err(|error| match error {
+                        crate::SemanticCatalogError::Database(error)
+                        | crate::SemanticCatalogError::Catalog(CatalogError::Database(error)) => {
+                            MutationError::Database(error)
                         }
-                    }
-                    std::cmp::Ordering::Equal
-                });
-            }
-            if !bound.returns_order.is_empty() {
-                for row in &mut summary.rows {
-                    row.truncate(bound.returns_visible);
+                        error => MutationError::SemanticConstraintViolation(error.to_string()),
+                    })?;
                 }
-            }
-            if bound.returns_distinct {
-                let mut seen = std::collections::HashSet::new();
-                summary.rows.retain(|row| seen.insert(format!("{row:?}")));
-            }
-            if let Some(skip) = bound.returns_skip {
-                summary.rows.drain(..skip.min(summary.rows.len()));
-            }
-            if let Some(limit) = bound.returns_limit {
-                summary.rows.truncate(limit);
-            }
-            summary
-        },
-    );
+                if !bound.returns_order.is_empty() {
+                    summary.rows.sort_by(|left, right| {
+                        for (index, descending) in &bound.returns_order {
+                            let ordering = compare_returned_values(&left[*index], &right[*index]);
+                            let ordering = if *descending {
+                                ordering.reverse()
+                            } else {
+                                ordering
+                            };
+                            if ordering != std::cmp::Ordering::Equal {
+                                return ordering;
+                            }
+                        }
+                        std::cmp::Ordering::Equal
+                    });
+                }
+                if !bound.returns_order.is_empty() {
+                    for row in &mut summary.rows {
+                        row.truncate(bound.returns_visible);
+                    }
+                }
+                if bound.returns_distinct {
+                    let mut seen = std::collections::HashSet::new();
+                    summary.rows.retain(|row| seen.insert(format!("{row:?}")));
+                }
+                if let Some(skip) = bound.returns_skip {
+                    summary.rows.drain(..skip.min(summary.rows.len()));
+                }
+                if let Some(limit) = bound.returns_limit {
+                    summary.rows.truncate(limit);
+                }
+                Ok(summary)
+            },
+        );
     match result {
         Ok(summary) => {
             connection.execute(format!("RELEASE {SAVEPOINT}"))?;
@@ -1348,6 +1367,23 @@ fn execute_operation(
                         return Err(MutationError::UnknownDynamicKey { key });
                     };
                     check_runtime_value_against(&property_name, &expected, value)?;
+                    if let Some(constraints) = catalog.semantic_constraints() {
+                        let property = owned_properties
+                            .iter()
+                            .find(|(_, name, _, owned_column)| {
+                                name.eq_ignore_ascii_case(&property_name)
+                                    && owned_column.eq_ignore_ascii_case(&column)
+                            })
+                            .map(|(property, _, _, _)| *property)
+                            .ok_or_else(|| {
+                                MutationError::SemanticConstraintViolation(format!(
+                                    "property `{property_name}` is missing constraint metadata"
+                                ))
+                            })?;
+                        constraints
+                            .validate_runtime(source, &replace.semantic_types, property, value)
+                            .map_err(MutationError::SemanticConstraintViolation)?;
+                    }
                     updates.insert(column, value.clone());
                 }
                 let mut assignments = Vec::new();

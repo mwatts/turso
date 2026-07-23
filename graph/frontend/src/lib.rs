@@ -16,6 +16,7 @@ mod lowering;
 mod mutation;
 mod schema_catalog;
 mod semantic;
+mod semantic_constraints;
 mod session;
 mod snapshot;
 mod statement;
@@ -40,11 +41,16 @@ pub use lowering::{
 pub use mutation::{execute_cypher_mutation, MutationError, MutationSummary, Parameters};
 pub use schema_catalog::SchemaCatalog;
 pub use semantic::{
-    load_semantic_snapshot, register_semantic_schema, register_semantic_schema_with_fragments,
-    EndpointConstraint, OwnedProperty, SemanticCatalogError, SemanticFragment,
-    SemanticFragmentInfo, SemanticFragmentMember, SemanticFragmentRegistration, SemanticNodeType,
-    SemanticProperty, SemanticRelationshipType, SemanticSchemaRegistration, SemanticSnapshot,
-    SemanticTypeInfo,
+    load_semantic_snapshot, register_semantic_constraints, register_semantic_schema,
+    register_semantic_schema_with_fragments, EndpointConstraint, OwnedProperty,
+    SemanticCatalogError, SemanticFragment, SemanticFragmentInfo, SemanticFragmentMember,
+    SemanticFragmentRegistration, SemanticNodeType, SemanticProperty, SemanticRelationshipType,
+    SemanticSchemaRegistration, SemanticSnapshot, SemanticTypeInfo,
+};
+pub use semantic_constraints::{
+    SemanticConstraintRegistration, SemanticEndpoint, SemanticKeyConstraint,
+    SemanticPropertyValueConstraint, SemanticRangeBound, SemanticRelationshipCardinality,
+    SemanticRequiredProperty, SemanticScalar, SemanticUniqueProperty, SemanticValuePredicate,
 };
 pub use session::{
     open_database, open_database_with_io, strip_explain_prefix, Error, GraphConnection,

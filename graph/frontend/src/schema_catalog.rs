@@ -641,6 +641,12 @@ impl GraphCatalogSnapshot for SchemaCatalog {
             .collect::<Option<Vec<_>>>()?;
         Some((start, end))
     }
+
+    fn semantic_constraints(
+        &self,
+    ) -> Option<&crate::semantic_constraints::SemanticConstraintSnapshot> {
+        self.semantic.as_deref().map(SemanticSnapshot::constraints)
+    }
 }
 
 impl RelationalCatalogSnapshot for SchemaCatalog {

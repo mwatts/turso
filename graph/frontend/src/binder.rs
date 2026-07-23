@@ -120,6 +120,12 @@ pub trait GraphCatalogSnapshot {
     ) -> Option<(Vec<ir::LabelId>, Vec<ir::LabelId>)> {
         None
     }
+
+    fn semantic_constraints(
+        &self,
+    ) -> Option<&crate::semantic_constraints::SemanticConstraintSnapshot> {
+        None
+    }
 }
 
 pub type ParameterTypes = HashMap<String, (ir::ValueType, ir::Nullability)>;
@@ -311,6 +317,12 @@ pub enum BindError {
         property: String,
         expected: ir::ValueType,
         actual: ir::ValueType,
+        span_start: usize,
+        span_end: usize,
+    },
+    #[error("semantic constraint violation: {detail} at byte {span_start}..{span_end}")]
+    SemanticConstraintViolation {
+        detail: String,
         span_start: usize,
         span_end: usize,
     },
@@ -1556,15 +1568,13 @@ impl<'a> Binder<'a> {
             semantic_names.clone(),
             node.span,
         )?;
+        let properties =
+            self.bind_mutation_properties(CatalogEntity::Node, &semantic_names, &node.properties)?;
         let create = ir::CreateNode {
             binding: binding.clone(),
             source,
             labels,
-            properties: self.bind_mutation_properties(
-                CatalogEntity::Node,
-                &semantic_names,
-                &node.properties,
-            )?,
+            properties,
         };
         operations.push(if merge {
             ir::Mutation::MergeNode(ir::MergeNode {
@@ -1626,6 +1636,7 @@ impl<'a> Binder<'a> {
                         &bound,
                         value.span,
                     )?;
+                    self.validate_constraint_literal(&type_names, property.id, &bound, value.span)?;
                 }
                 Ok(ir::Mutation::SetProperty(ir::SetProperty {
                     entity: binding,
@@ -1780,6 +1791,12 @@ impl<'a> Binder<'a> {
                         &bound_value,
                         value.span,
                     )?;
+                    self.validate_constraint_literal(
+                        type_names,
+                        resolved.id,
+                        &bound_value,
+                        value.span,
+                    )?;
                 }
                 Ok(ir::PropertyValue {
                     property: resolved.id,
@@ -1788,6 +1805,28 @@ impl<'a> Binder<'a> {
                 })
             })
             .collect()
+    }
+
+    fn validate_constraint_literal(
+        &self,
+        type_names: &[String],
+        property: ir::PropertyId,
+        value: &ir::TypedExpression,
+        span: cypher::Span,
+    ) -> Result<(), BindError> {
+        let ir::Expression::Literal(literal) = &value.expression else {
+            return Ok(());
+        };
+        let Some(constraints) = self.catalog.semantic_constraints() else {
+            return Ok(());
+        };
+        constraints
+            .validate_literal(type_names, property, literal)
+            .map_err(|detail| BindError::SemanticConstraintViolation {
+                detail,
+                span_start: span.start,
+                span_end: span.end,
+            })
     }
 
     fn resolve_mutation_target(

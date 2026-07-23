@@ -15,7 +15,9 @@ path = "src/lib.rs"
 
 [dependencies]
 parking_lot = { workspace = true }
+regex.workspace = true
 serde = { workspace = true, features = ["derive"] }
+serde_json.workspace = true
 thiserror = { workspace = true }
 tracing = { workspace = true }
 turso_core = { workspace = true }
@@ -28,7 +30,6 @@ turso_parser = { workspace = true }
 
 [dev-dependencies]
 divan.workspace = true
-serde_json.workspace = true
 tempfile = { workspace = true }
 toml = { workspace = true }
 turso_macros.workspace = true

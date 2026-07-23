@@ -199,19 +199,116 @@ already registered semantic schema when the supplied base schema is identical.
 That upgrade is atomic and idempotent. Changing or removing a persisted
 fragment or membership remains an explicit future schema-evolution operation.
 
+### Semantic constraints and additive evolution
+
+Constraints are registered separately after the semantic schema so existing
+schema registration structs remain source-compatible:
+
+```rust
+use turso_graph_frontend::{
+    register_semantic_constraints, SemanticConstraintRegistration,
+    SemanticEndpoint, SemanticKeyConstraint, SemanticPropertyValueConstraint,
+    SemanticRangeBound, SemanticRelationshipCardinality,
+    SemanticRequiredProperty, SemanticScalar, SemanticUniqueProperty,
+    SemanticValuePredicate,
+};
+
+register_semantic_constraints(
+    &conn,
+    "social",
+    &SemanticConstraintRegistration {
+        required: vec![SemanticRequiredProperty {
+            owner: "Person".to_owned(),
+            property: "displayName".to_owned(),
+        }],
+        keys: vec![SemanticKeyConstraint {
+            owner: "Person".to_owned(),
+            properties: vec!["displayName".to_owned(), "age".to_owned()],
+        }],
+        unique: vec![SemanticUniqueProperty {
+            owner: "Person".to_owned(),
+            property: "displayName".to_owned(),
+        }],
+        values: vec![
+            SemanticPropertyValueConstraint {
+                owner: "Person".to_owned(),
+                property: "age".to_owned(),
+                predicate: SemanticValuePredicate::Range {
+                    minimum: Some(SemanticRangeBound {
+                        value: SemanticScalar::Integer(0),
+                        inclusive: true,
+                    }),
+                    maximum: None,
+                },
+            },
+            SemanticPropertyValueConstraint {
+                owner: "Person".to_owned(),
+                property: "displayName".to_owned(),
+                predicate: SemanticValuePredicate::Regex {
+                    pattern: r"^[A-Z]".to_owned(),
+                },
+            },
+        ],
+        cardinalities: vec![SemanticRelationshipCardinality {
+            relationship_type: "KNOWS".to_owned(),
+            endpoint: SemanticEndpoint::Start,
+            minimum: 0,
+            maximum: Some(100),
+        }],
+    },
+)?;
+```
+
+A required property is non-NULL. Every member of a composite key is required,
+and key tuples are unique within one concrete semantic owner type. A unique
+property permits multiple NULL values but rejects duplicate non-NULL values
+within its owner. Value predicates support inclusive/exclusive numeric or text
+ranges, finite Boolean/integer/real/text allowed-value sets, and Rust regular
+expressions over text.
+
+Endpoint cardinality counts relationships of one semantic relationship type
+at the selected stored start or end endpoint for every permitted concrete node
+type. The minimum and optional maximum apply per node. Incoming Cypher syntax
+does not reverse the stored constraint: endpoint validation follows the
+relationship source's stored start/end mapping.
+
+Constraint registration is append-only, atomic, and idempotent. New
+constraints validate all visible data inside the registration transaction
+before catalog rows become active. Failure leaves the prior catalog,
+generation, and application data unchanged. Replaying an identical constraint
+set writes nothing. Changing or removing an active constraint, remapping a
+type/property, and removing a fragment membership require a future explicit
+evolution API and are rejected by additive registration. Register constraints
+before opening a `GraphConnection`, or reopen the graph afterward so its
+immutable preparation snapshot includes the new catalog generation.
+
+Literal value predicates can fail during binding. Deferred expressions and
+dynamic maps are checked at runtime. Required, key, unique, and endpoint
+cardinality state is validated before the complete Cypher mutation savepoint
+is released, so any failure rolls back every row and operation. Validation at
+the final savepoint boundary also lets one multi-operation query repair a
+temporary intermediate database-state violation before commit.
+
 ### Direct-SQL integrity boundary
 
-Semantic ownership, value-type, and endpoint checks are graph-frontend
-guarantees. SQL issued directly against a registered source table bypasses
-them. Physical `NOT NULL`, `UNIQUE`, `CHECK`, foreign-key, and application
-triggers still apply, but Milestones 1–2 do not install equivalent semantic
-constraints for direct SQL writers.
+Semantic ownership, value-type, endpoint, and Milestone 4 constraint checks are
+graph-frontend guarantees. SQL issued directly against a registered source
+table bypasses semantic membership and validation. Physical `NOT NULL`,
+`UNIQUE`, `CHECK`, foreign-key, and application triggers still apply.
+
+The graph frontend does not install a native unique index when multiple
+semantic types share a source: such an index would incorrectly enforce
+uniqueness across types, while a partial index cannot express membership in
+the graph's label/type junction table. The same boundary applies to composite
+keys and relationship participation counts. Existing physical constraints
+remain the durable direct-SQL enforcement mechanism wherever their semantics
+match.
 
 If all writers must preserve semantic integrity, route writes through Cypher or
 enforce the same rules with physical schema constraints under application
-control. Direct-SQL enforcement, required/cardinality/key constraints,
-fragment-membership removal, broader schema evolution, and native n-ary
-relationships are deliberately deferred. This overlay does not claim TypeDB,
+control. Database-wide protection of owned backing tables,
+fragment-membership removal, non-additive constraint evolution, and native
+n-ary relationships remain deferred. This overlay does not claim TypeDB,
 TypeQL, or PERA compatibility.
 
 ## The session API

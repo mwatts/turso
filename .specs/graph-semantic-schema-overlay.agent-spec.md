@@ -201,8 +201,9 @@ this milestone was implemented.
 
 ### Milestone 4 — constraints and safe additive evolution
 
-**Status: next.** Entry criteria are satisfied by the validated fragment
-semantics and the documented direct-SQL integrity boundary.
+**Status: complete and validated (2026-07-23).** The detailed contract,
+implementation notes, functional coverage, and validation evidence are in
+`.specs/graph-semantic-constraints.agent-spec.md`.
 
 Implement in this order: required/minimum cardinality, key, unique, range/value/regex, then broader cardinality.
 
@@ -212,6 +213,18 @@ Implement in this order: required/minimum cardinality, key, unique, range/value/
 4. A schema change MUST validate all existing visible data before becoming active. Failed validation leaves the old schema and data unchanged.
 5. Additive schema writes are idempotent. Constraint tightening, fragment-membership removal, type remapping, property removal, and value-type changes require an explicit later evolution design; do not smuggle them into an “additive” API.
 6. Define direct-SQL bypass policy before claiming database-wide semantic integrity. Until core can protect owned backing tables, document integrity as guaranteed only for graph-frontend writes plus physical SQL constraints.
+
+Validation recorded on 2026-07-23:
+
+- semantic integration: 62/62 passed;
+- `turso_graph_frontend`: 201 passed;
+- `turso_graph_ir`: 10 passed;
+- `turso_graph_testkit`: 41 passed;
+- smoke corpus: 11/11 clean;
+- non-recorded deep corpus unchanged at 8,919 passed, 53 unsupported, and
+  1,270 failed;
+- workspace Clippy completed with zero errors; formatting and patch hygiene
+  checks passed.
 
 ### Decision gate A — first-class attribute instances
 

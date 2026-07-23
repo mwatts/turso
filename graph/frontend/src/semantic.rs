@@ -18,6 +18,10 @@ use crate::catalog::{
     execute_internal, integer, load_registered_graph, query_rows, scalar_integer, sql_string, text,
     CatalogError, RegisteredGraph, GENERATIONS_TABLE,
 };
+use crate::semantic_constraints::{
+    create_constraint_catalog, insert_additive_rows, load_constraint_snapshot,
+    rows_for_registration, SemanticConstraintRegistration, SemanticConstraintSnapshot,
+};
 
 pub(crate) const SEMANTIC_TYPES_TABLE: &str = "__turso_internal_graph_semantic_types";
 pub(crate) const SEMANTIC_PROPERTIES_TABLE: &str = "__turso_internal_graph_semantic_properties";
@@ -43,6 +47,7 @@ pub struct SemanticSnapshot {
     fragment_names: HashMap<String, u32>,
     fragments: HashMap<u32, SemanticFragmentInfo>,
     endpoints: HashMap<u32, EndpointConstraint>,
+    constraints: SemanticConstraintSnapshot,
 }
 
 /// Resolved fragment identity and its precomputed concrete member types.
@@ -182,6 +187,10 @@ impl SemanticSnapshot {
 
     pub(crate) fn relationship_type_values(&self) -> impl Iterator<Item = &SemanticTypeInfo> {
         self.relationship_types.values()
+    }
+
+    pub(crate) fn constraints(&self) -> &SemanticConstraintSnapshot {
+        &self.constraints
     }
 }
 
@@ -432,6 +441,50 @@ pub enum SemanticCatalogError {
         /// Conflicting graph value type.
         second_type: Box<ir::ValueType>,
     },
+    /// A constraint references an unknown concrete semantic owner.
+    #[error("semantic constraint references unknown owner `{owner}`")]
+    UnknownConstraintOwner {
+        /// Unknown node or relationship type.
+        owner: String,
+    },
+    /// A constraint references a property absent from its owner.
+    #[error("semantic constraint references unknown property `{owner}.{property}`")]
+    UnknownConstraintProperty {
+        /// Concrete semantic owner.
+        owner: String,
+        /// Unknown property.
+        property: String,
+    },
+    /// The same constraint identity appears more than once in one registration.
+    #[error("semantic constraint `{constraint}` is duplicated")]
+    DuplicateConstraint {
+        /// Duplicated constraint description.
+        constraint: String,
+    },
+    /// A constraint definition is structurally invalid.
+    #[error("invalid semantic constraint `{constraint}`: {detail}")]
+    InvalidConstraint {
+        /// Constraint being validated.
+        constraint: String,
+        /// Invalid invariant.
+        detail: String,
+    },
+    /// Existing data or a graph mutation violates an active constraint.
+    #[error("semantic constraint `{constraint}` violated: {detail}")]
+    ConstraintViolation {
+        /// Constraint that failed.
+        constraint: String,
+        /// Failure detail.
+        detail: String,
+    },
+    /// Additive registration cannot change an already-active constraint.
+    #[error(
+        "semantic constraint `{constraint}` already exists with a different definition; constraint evolution is not supported"
+    )]
+    ConstraintEvolutionUnsupported {
+        /// Constraint whose definition would change.
+        constraint: String,
+    },
     /// A different schema is already registered for the graph.
     #[error("graph `{0}` already has a different semantic schema registered")]
     ConflictingSchema(String),
@@ -661,6 +714,45 @@ pub fn register_semantic_schema_with_fragments(
     validate_against_graph(connection, &graph, registration, fragments)?;
     run_in_registration_transaction(connection, |connection| {
         register_semantic_in_transaction(connection, &graph, registration, fragments)
+    })
+}
+
+/// Add semantic constraints to an already-registered semantic schema.
+///
+/// Registration is append-only, atomic, and idempotent. Every newly requested
+/// constraint validates all visible graph data before it becomes active.
+pub fn register_semantic_constraints(
+    connection: &Arc<Connection>,
+    graph_name: &str,
+    registration: &SemanticConstraintRegistration,
+) -> Result<(), SemanticCatalogError> {
+    let graph = match load_registered_graph(connection, graph_name) {
+        Ok(graph) => graph,
+        Err(CatalogError::GraphNotFound(_)) => {
+            return Err(SemanticCatalogError::GraphNotFound(graph_name.to_owned()));
+        }
+        Err(error) => return Err(error.into()),
+    };
+    let semantic = load_semantic_snapshot(connection, &graph)?.ok_or_else(|| {
+        SemanticCatalogError::InvalidConstraint {
+            constraint: "constraint registration".to_owned(),
+            detail: "requires a registered semantic schema".to_owned(),
+        }
+    })?;
+    let requested = rows_for_registration(registration, &semantic)?;
+    if requested.is_empty() {
+        return Ok(());
+    }
+    run_in_registration_transaction(connection, |connection| {
+        create_constraint_catalog(connection)?;
+        if !insert_additive_rows(connection, graph.id.get(), &requested)? {
+            return Ok(());
+        }
+        let updated = load_semantic_snapshot(connection, &graph)?.ok_or(
+            SemanticCatalogError::InvalidCatalogValue("semantic schema disappeared"),
+        )?;
+        updated.constraints().validate_state(connection)?;
+        bump_semantic_generation(connection, graph.id.get())
     })
 }
 
@@ -1697,6 +1789,7 @@ pub fn load_semantic_snapshot(
         fragment_names: HashMap::new(),
         fragments: HashMap::new(),
         endpoints: HashMap::new(),
+        constraints: SemanticConstraintSnapshot::default(),
     };
     for row in &type_rows {
         let kind = text(row, 0, "semantic type kind")?;
@@ -2108,6 +2201,7 @@ pub fn load_semantic_snapshot(
         constraints.start.sort_unstable();
         constraints.end.sort_unstable();
     }
+    snapshot.constraints = load_constraint_snapshot(connection, graph, &snapshot)?;
     Ok(Some(snapshot))
 }
 

@@ -3,10 +3,12 @@ use std::sync::Arc;
 use divan::{black_box, Bencher};
 use turso_graph_frontend::{
     core::{Database, MemoryIO, SqliteDialect},
-    register_graph, register_semantic_schema, register_semantic_schema_with_fragments,
-    GraphConnection, GraphRegistration, NodeSourceRegistration, RelationshipSourceRegistration,
+    register_graph, register_semantic_constraints, register_semantic_schema,
+    register_semantic_schema_with_fragments, GraphConnection, GraphRegistration,
+    NodeSourceRegistration, RelationshipSourceRegistration, SemanticConstraintRegistration,
     SemanticFragment, SemanticFragmentMember, SemanticFragmentRegistration, SemanticNodeType,
-    SemanticProperty, SemanticSchemaRegistration,
+    SemanticProperty, SemanticPropertyValueConstraint, SemanticRangeBound,
+    SemanticRequiredProperty, SemanticScalar, SemanticSchemaRegistration, SemanticValuePredicate,
 };
 
 #[global_allocator]
@@ -208,6 +210,35 @@ fn fragment_database() -> Arc<Database> {
     database
 }
 
+fn constrained_database() -> Arc<Database> {
+    let database = database(true);
+    let connection = database.connect().expect("connect constraint benchmark");
+    register_semantic_constraints(
+        &connection,
+        "social",
+        &SemanticConstraintRegistration {
+            required: vec![SemanticRequiredProperty {
+                owner: "Person".to_owned(),
+                property: "displayName".to_owned(),
+            }],
+            values: vec![SemanticPropertyValueConstraint {
+                owner: "Person".to_owned(),
+                property: "born".to_owned(),
+                predicate: SemanticValuePredicate::Range {
+                    minimum: Some(SemanticRangeBound {
+                        value: SemanticScalar::Integer(0),
+                        inclusive: true,
+                    }),
+                    maximum: None,
+                },
+            }],
+            ..SemanticConstraintRegistration::default()
+        },
+    )
+    .expect("register benchmark constraints");
+    database
+}
+
 #[turso_macros::divan_bench]
 fn open_legacy(bencher: Bencher) {
     let database = database(false);
@@ -241,6 +272,15 @@ fn open_semantic_fragment(bencher: Bencher) {
     bencher.bench_local(|| {
         let connection = database.connect().expect("connect fragment graph");
         black_box(GraphConnection::open(connection, "social").expect("open fragment graph"));
+    });
+}
+
+#[turso_macros::divan_bench]
+fn open_semantic_constrained(bencher: Bencher) {
+    let database = constrained_database();
+    bencher.bench_local(|| {
+        let connection = database.connect().expect("connect constrained graph");
+        black_box(GraphConnection::open(connection, "social").expect("open constrained graph"));
     });
 }
 
@@ -325,6 +365,23 @@ fn prepare_semantic_fragment(bencher: Bencher) {
                     &Default::default(),
                 )
                 .expect("prepare fragment query"),
+        );
+    });
+}
+
+#[turso_macros::divan_bench]
+fn prepare_semantic_constrained(bencher: Bencher) {
+    let database = constrained_database();
+    let session =
+        GraphConnection::open(database.connect().expect("connect"), "social").expect("open graph");
+    bencher.bench_local(|| {
+        black_box(
+            session
+                .prepare(
+                    black_box("MATCH (n:Person) RETURN n.displayName, n.born"),
+                    &Default::default(),
+                )
+                .expect("prepare constrained semantic query"),
         );
     });
 }

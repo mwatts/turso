@@ -26,8 +26,8 @@ cypher   runtime
 ## Quickstart
 
 Full consumer guide — registration, sessions, parameters, transactions,
-semantic schemas, fragment-interface polymorphism, the direct-SQL integrity
-boundary, and traversal snapshots — lives in
+semantic schemas, fragment-interface polymorphism, additive semantic
+constraints, the direct-SQL integrity boundary, and traversal snapshots — lives in
 [`docs/graph.md`](../docs/graph.md).
 
 ```rust
