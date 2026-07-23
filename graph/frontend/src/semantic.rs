@@ -23,6 +23,13 @@ pub(crate) const SEMANTIC_TYPES_TABLE: &str = "__turso_internal_graph_semantic_t
 pub(crate) const SEMANTIC_PROPERTIES_TABLE: &str = "__turso_internal_graph_semantic_properties";
 pub(crate) const SEMANTIC_OWNERSHIP_TABLE: &str = "__turso_internal_graph_semantic_ownership";
 pub(crate) const SEMANTIC_ENDPOINTS_TABLE: &str = "__turso_internal_graph_semantic_endpoints";
+pub(crate) const SEMANTIC_FRAGMENTS_TABLE: &str = "__turso_internal_graph_semantic_fragments";
+pub(crate) const SEMANTIC_FRAGMENT_MEMBERS_TABLE: &str =
+    "__turso_internal_graph_semantic_fragment_members";
+pub(crate) const SEMANTIC_FRAGMENT_PROPERTIES_TABLE: &str =
+    "__turso_internal_graph_semantic_fragment_properties";
+pub(crate) const SEMANTIC_FRAGMENT_OWNERSHIP_TABLE: &str =
+    "__turso_internal_graph_semantic_fragment_ownership";
 
 const REGISTRATION_SAVEPOINT: &str = "turso_graph_register_semantic";
 
@@ -33,7 +40,26 @@ pub struct SemanticSnapshot {
     relationship_names: HashMap<String, u32>,
     node_types: HashMap<u32, SemanticTypeInfo>,
     relationship_types: HashMap<u32, SemanticTypeInfo>,
+    fragment_names: HashMap<String, u32>,
+    fragments: HashMap<u32, SemanticFragmentInfo>,
     endpoints: HashMap<u32, EndpointConstraint>,
+}
+
+/// Resolved fragment identity and its precomputed concrete member types.
+#[derive(Debug)]
+pub struct SemanticFragmentInfo {
+    /// Preserved conceptual spelling.
+    pub name: String,
+    /// Persisted `LabelId` value.
+    pub fragment_id: u32,
+    member_type_ids: Vec<u32>,
+}
+
+impl SemanticFragmentInfo {
+    /// Concrete node types carrying this fragment, sorted by stable identity.
+    pub fn member_type_ids(&self) -> &[u32] {
+        &self.member_type_ids
+    }
 }
 
 /// Resolved semantic type identity, source mapping, and owned properties.
@@ -103,6 +129,38 @@ impl SemanticSnapshot {
             .and_then(|id| self.relationship_types.get(id))
     }
 
+    /// Resolve a semantic fragment by conceptual name.
+    pub fn fragment(&self, name: &str) -> Option<&SemanticFragmentInfo> {
+        self.fragment_names
+            .get(&fold(name))
+            .and_then(|id| self.fragments.get(id))
+    }
+
+    /// Resolve a semantic fragment by persisted label identity.
+    pub fn fragment_by_id(&self, id: ir::LabelId) -> Option<&SemanticFragmentInfo> {
+        self.fragments.get(&id.get())
+    }
+
+    /// Resolve the concrete node types selected by a label conjunction.
+    pub fn node_types_for_labels(&self, labels: &[ir::LabelId]) -> Vec<&SemanticTypeInfo> {
+        let mut selected = self.node_types.keys().copied().collect::<HashSet<_>>();
+        for label in labels {
+            if self.node_types.contains_key(&label.get()) {
+                selected.retain(|type_id| *type_id == label.get());
+            } else if let Some(fragment) = self.fragments.get(&label.get()) {
+                selected.retain(|type_id| fragment.member_type_ids.binary_search(type_id).is_ok());
+            } else {
+                selected.clear();
+            }
+        }
+        let mut types = selected
+            .into_iter()
+            .filter_map(|type_id| self.node_types.get(&type_id))
+            .collect::<Vec<_>>();
+        types.sort_by_key(|type_info| type_info.type_id);
+        types
+    }
+
     /// Resolve a semantic node type by persisted identity.
     pub fn node_type_by_id(&self, id: ir::LabelId) -> Option<&SemanticTypeInfo> {
         self.node_types.get(&id.get())
@@ -135,6 +193,33 @@ pub struct SemanticSchemaRegistration {
     /// Conceptual relationship types addressed through Cypher relationship
     /// types.
     pub relationship_types: Vec<SemanticRelationshipType>,
+}
+
+/// Complete fragment-interface definition registered with a semantic schema.
+#[derive(Clone, Debug, Default, Eq, PartialEq, Serialize, Deserialize)]
+pub struct SemanticFragmentRegistration {
+    /// Graph-scoped node fragments.
+    pub fragments: Vec<SemanticFragment>,
+}
+
+/// An uninstantiable node interface with contributed property ownership.
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+pub struct SemanticFragment {
+    /// Conceptual name addressed through a Cypher label.
+    pub name: String,
+    /// Conceptual properties every member must map.
+    pub properties: Vec<String>,
+    /// Concrete node types carrying this fragment.
+    pub members: Vec<SemanticFragmentMember>,
+}
+
+/// One concrete node type's membership and physical property mappings.
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+pub struct SemanticFragmentMember {
+    /// Name of a concrete semantic node type.
+    pub node_type: String,
+    /// Physical mappings for every property declared by the fragment.
+    pub properties: Vec<SemanticProperty>,
 }
 
 /// A conceptual node type and its physical source mapping.
@@ -186,6 +271,72 @@ pub enum SemanticCatalogError {
     DuplicateTypeName {
         /// Duplicated spelling from the registration.
         name: String,
+    },
+    /// A fragment name collides with another fragment or concrete type.
+    #[error("semantic fragment name `{name}` collides with an existing semantic name")]
+    DuplicateFragmentName {
+        /// Colliding fragment spelling.
+        name: String,
+    },
+    /// A fragment names the same member type more than once.
+    #[error("semantic fragment `{fragment}` contains duplicate member `{node_type}`")]
+    DuplicateFragmentMember {
+        /// Fragment containing the duplicate.
+        fragment: String,
+        /// Duplicated concrete node type.
+        node_type: String,
+    },
+    /// A fragment without concrete members cannot produce an executable scan.
+    #[error("semantic fragment `{fragment}` must contain at least one member")]
+    EmptyFragment {
+        /// Empty fragment.
+        fragment: String,
+    },
+    /// A fragment references a node type absent from this registration.
+    #[error("semantic fragment `{fragment}` references unknown node type `{node_type}`")]
+    UnknownFragmentMember {
+        /// Fragment containing the invalid membership.
+        fragment: String,
+        /// Unknown concrete node type.
+        node_type: String,
+    },
+    /// A member omits a property declared by its fragment.
+    #[error(
+        "semantic fragment `{fragment}` member `{node_type}` is missing property mapping `{property}`"
+    )]
+    MissingFragmentProperty {
+        /// Owning fragment.
+        fragment: Box<str>,
+        /// Concrete member.
+        node_type: Box<str>,
+        /// Missing declared property.
+        property: Box<str>,
+    },
+    /// A member maps a property not declared by its fragment.
+    #[error(
+        "semantic fragment `{fragment}` member `{node_type}` maps undeclared property `{property}`"
+    )]
+    UndeclaredFragmentProperty {
+        /// Owning fragment.
+        fragment: Box<str>,
+        /// Concrete member.
+        node_type: Box<str>,
+        /// Extra mapped property.
+        property: Box<str>,
+    },
+    /// Direct or contributed ownership maps one property inconsistently.
+    #[error(
+        "semantic property `{property}` on type `{node_type}` has conflicting physical mappings `{first_column}` and `{second_column}`"
+    )]
+    ConflictingPropertyMapping {
+        /// Concrete semantic node type.
+        node_type: Box<str>,
+        /// Conceptual property.
+        property: Box<str>,
+        /// First physical mapping.
+        first_column: Box<str>,
+        /// Conflicting physical mapping.
+        second_column: Box<str>,
     },
     /// A property is duplicated within one semantic owner.
     #[error("semantic property `{property}` is duplicated on type `{owner}`")]
@@ -319,8 +470,19 @@ fn require_name(kind: &'static str, name: &str) -> Result<(), SemanticCatalogErr
     Ok(())
 }
 
+#[cfg(test)]
 pub(crate) fn validate_registration_shape(
     registration: &SemanticSchemaRegistration,
+) -> Result<(), SemanticCatalogError> {
+    validate_registration_shape_with_fragments(
+        registration,
+        &SemanticFragmentRegistration::default(),
+    )
+}
+
+fn validate_registration_shape_with_fragments(
+    registration: &SemanticSchemaRegistration,
+    fragments: &SemanticFragmentRegistration,
 ) -> Result<(), SemanticCatalogError> {
     let mut type_names = HashSet::new();
     let mut node_type_names = HashSet::new();
@@ -335,9 +497,25 @@ pub(crate) fn validate_registration_shape(
         node_type_names.insert(fold(&node_type.name));
         validate_properties(&node_type.name, &node_type.properties)?;
     }
+    let mut fragment_names = HashSet::new();
+    for fragment in &fragments.fragments {
+        require_name("semantic fragment", &fragment.name)?;
+        let folded = fold(&fragment.name);
+        if type_names.contains(&folded) || !fragment_names.insert(folded) {
+            return Err(SemanticCatalogError::DuplicateFragmentName {
+                name: fragment.name.clone(),
+            });
+        }
+        validate_fragment_shape(fragment, &node_type_names)?;
+    }
     for relationship in &registration.relationship_types {
         require_name("semantic type", &relationship.name)?;
         require_name("source", &relationship.source)?;
+        if fragment_names.contains(&fold(&relationship.name)) {
+            return Err(SemanticCatalogError::DuplicateFragmentName {
+                name: relationship.name.clone(),
+            });
+        }
         if !type_names.insert(fold(&relationship.name)) {
             return Err(SemanticCatalogError::DuplicateTypeName {
                 name: relationship.name.clone(),
@@ -346,7 +524,8 @@ pub(crate) fn validate_registration_shape(
         validate_properties(&relationship.name, &relationship.properties)?;
         for (endpoint, allowed) in [("start", &relationship.start), ("end", &relationship.end)] {
             for node_type in allowed {
-                if !node_type_names.contains(&fold(node_type)) {
+                let folded = fold(node_type);
+                if !node_type_names.contains(&folded) && !fragment_names.contains(&folded) {
                     return Err(SemanticCatalogError::UnknownEndpointType {
                         relationship_type: relationship.name.clone(),
                         endpoint,
@@ -354,6 +533,73 @@ pub(crate) fn validate_registration_shape(
                     });
                 }
             }
+        }
+    }
+    Ok(())
+}
+
+fn validate_fragment_shape(
+    fragment: &SemanticFragment,
+    node_type_names: &HashSet<String>,
+) -> Result<(), SemanticCatalogError> {
+    if fragment.members.is_empty() {
+        return Err(SemanticCatalogError::EmptyFragment {
+            fragment: fragment.name.clone(),
+        });
+    }
+    let mut declared = HashSet::new();
+    for property in &fragment.properties {
+        require_name("property", property)?;
+        if !declared.insert(fold(property)) {
+            return Err(SemanticCatalogError::DuplicatePropertyName {
+                owner: fragment.name.clone(),
+                property: property.clone(),
+            });
+        }
+    }
+    let mut members = HashSet::new();
+    for member in &fragment.members {
+        require_name("semantic node type", &member.node_type)?;
+        let folded_member = fold(&member.node_type);
+        if !node_type_names.contains(&folded_member) {
+            return Err(SemanticCatalogError::UnknownFragmentMember {
+                fragment: fragment.name.clone(),
+                node_type: member.node_type.clone(),
+            });
+        }
+        if !members.insert(folded_member) {
+            return Err(SemanticCatalogError::DuplicateFragmentMember {
+                fragment: fragment.name.clone(),
+                node_type: member.node_type.clone(),
+            });
+        }
+        validate_properties(&fragment.name, &member.properties)?;
+        let mapped = member
+            .properties
+            .iter()
+            .map(|property| fold(&property.name))
+            .collect::<HashSet<_>>();
+        if let Some(property) = fragment
+            .properties
+            .iter()
+            .find(|property| !mapped.contains(&fold(property)))
+        {
+            return Err(SemanticCatalogError::MissingFragmentProperty {
+                fragment: fragment.name.clone().into_boxed_str(),
+                node_type: member.node_type.clone().into_boxed_str(),
+                property: property.clone().into_boxed_str(),
+            });
+        }
+        if let Some(property) = member
+            .properties
+            .iter()
+            .find(|property| !declared.contains(&fold(&property.name)))
+        {
+            return Err(SemanticCatalogError::UndeclaredFragmentProperty {
+                fragment: fragment.name.clone().into_boxed_str(),
+                node_type: member.node_type.clone().into_boxed_str(),
+                property: property.name.clone().into_boxed_str(),
+            });
         }
     }
     Ok(())
@@ -386,7 +632,25 @@ pub fn register_semantic_schema(
     graph_name: &str,
     registration: &SemanticSchemaRegistration,
 ) -> Result<(), SemanticCatalogError> {
-    validate_registration_shape(registration)?;
+    register_semantic_schema_with_fragments(
+        connection,
+        graph_name,
+        registration,
+        &SemanticFragmentRegistration::default(),
+    )
+}
+
+/// Register a semantic schema and its fragment interfaces atomically.
+///
+/// Identical replay is idempotent; a changed schema, membership, or physical
+/// mapping is rejected.
+pub fn register_semantic_schema_with_fragments(
+    connection: &Arc<Connection>,
+    graph_name: &str,
+    registration: &SemanticSchemaRegistration,
+    fragments: &SemanticFragmentRegistration,
+) -> Result<(), SemanticCatalogError> {
+    validate_registration_shape_with_fragments(registration, fragments)?;
     let graph = match load_registered_graph(connection, graph_name) {
         Ok(graph) => graph,
         Err(CatalogError::GraphNotFound(_)) => {
@@ -394,9 +658,9 @@ pub fn register_semantic_schema(
         }
         Err(error) => return Err(error.into()),
     };
-    validate_against_graph(connection, &graph, registration)?;
+    validate_against_graph(connection, &graph, registration, fragments)?;
     run_in_registration_transaction(connection, |connection| {
-        register_semantic_in_transaction(connection, &graph, registration)
+        register_semantic_in_transaction(connection, &graph, registration, fragments)
     })
 }
 
@@ -451,6 +715,7 @@ fn validate_against_graph(
     connection: &Arc<Connection>,
     graph: &RegisteredGraph,
     registration: &SemanticSchemaRegistration,
+    fragments: &SemanticFragmentRegistration,
 ) -> Result<(), SemanticCatalogError> {
     let mut property_types = HashMap::<String, (String, ir::ValueType)>::new();
     let node_sources = registration
@@ -477,6 +742,59 @@ fn validate_against_graph(
             &[source.identity_column.as_str()],
             &mut property_types,
         )?;
+    }
+
+    let node_types = registration
+        .node_types
+        .iter()
+        .map(|node_type| (fold(&node_type.name), node_type))
+        .collect::<HashMap<_, _>>();
+    let mut owner_mappings = registration
+        .node_types
+        .iter()
+        .flat_map(|node_type| {
+            node_type.properties.iter().map(move |property| {
+                (
+                    (fold(&node_type.name), fold(&property.name)),
+                    property.column.clone(),
+                )
+            })
+        })
+        .collect::<HashMap<_, _>>();
+    for fragment in &fragments.fragments {
+        for member in &fragment.members {
+            let node_type = node_types
+                .get(&fold(&member.node_type))
+                .expect("fragment shape validated member type");
+            let source = graph
+                .node_sources
+                .iter()
+                .find(|source| source.name.eq_ignore_ascii_case(&node_type.source))
+                .expect("semantic node source validated above");
+            check_owned_columns(
+                connection,
+                &fragment.name,
+                &member.properties,
+                &source.table,
+                &[source.identity_column.as_str()],
+                &mut property_types,
+            )?;
+            for property in &member.properties {
+                let key = (fold(&member.node_type), fold(&property.name));
+                if let Some(first_column) = owner_mappings.get(&key) {
+                    if !first_column.eq_ignore_ascii_case(&property.column) {
+                        return Err(SemanticCatalogError::ConflictingPropertyMapping {
+                            node_type: member.node_type.clone().into_boxed_str(),
+                            property: property.name.clone().into_boxed_str(),
+                            first_column: first_column.clone().into_boxed_str(),
+                            second_column: property.column.clone().into_boxed_str(),
+                        });
+                    }
+                } else {
+                    owner_mappings.insert(key, property.column.clone());
+                }
+            }
+        }
     }
 
     for relationship in &registration.relationship_types {
@@ -510,7 +828,7 @@ fn validate_against_graph(
                 .iter()
                 .find(|node_source| node_source.id == required_source)
                 .expect("registered relationship endpoint source exists");
-            for node_type in allowed {
+            for node_type in expand_endpoint_names(allowed, fragments) {
                 let actual_name = node_sources
                     .get(&fold(node_type))
                     .expect("registration shape validated endpoint type");
@@ -523,7 +841,7 @@ fn validate_against_graph(
                     return Err(SemanticCatalogError::EndpointSourceMismatch {
                         relationship_type: relationship.name.clone().into_boxed_str(),
                         endpoint,
-                        node_type: node_type.clone().into_boxed_str(),
+                        node_type: node_type.to_owned().into_boxed_str(),
                         actual_source: actual.name.clone().into_boxed_str(),
                         relationship_source: source.name.clone().into_boxed_str(),
                         required_source: required.name.clone().into_boxed_str(),
@@ -533,6 +851,29 @@ fn validate_against_graph(
         }
     }
     Ok(())
+}
+
+fn expand_endpoint_names<'a>(
+    names: &'a [String],
+    fragments: &'a SemanticFragmentRegistration,
+) -> Vec<&'a str> {
+    names
+        .iter()
+        .flat_map(|name| {
+            fragments
+                .fragments
+                .iter()
+                .find(|fragment| fragment.name.eq_ignore_ascii_case(name))
+                .map(|fragment| {
+                    fragment
+                        .members
+                        .iter()
+                        .map(|member| member.node_type.as_str())
+                        .collect::<Vec<_>>()
+                })
+                .unwrap_or_else(|| vec![name.as_str()])
+        })
+        .collect()
 }
 
 fn check_owned_columns(
@@ -598,40 +939,119 @@ struct CatalogRows {
     properties: Vec<(u64, String)>,
     ownership: Vec<(String, u64, u64, u64, String)>,
     endpoints: Vec<(u64, String, u64)>,
+    fragments: Vec<(u64, String)>,
+    fragment_members: Vec<(u64, u64)>,
+    fragment_properties: Vec<(u64, u64)>,
+    fragment_ownership: Vec<(u64, u64, u64, u64, String)>,
 }
 
 fn register_semantic_in_transaction(
     connection: &Arc<Connection>,
     graph: &RegisteredGraph,
     registration: &SemanticSchemaRegistration,
+    fragments: &SemanticFragmentRegistration,
 ) -> Result<(), SemanticCatalogError> {
-    create_semantic_catalog(connection)?;
-    let expected = catalog_rows_for_registration(graph, registration);
+    create_semantic_catalog(connection, !fragments.fragments.is_empty())?;
+    let expected = catalog_rows_for_registration(graph, registration, fragments);
     let existing = load_catalog_rows(connection, graph.id.get())?;
-    if !existing.types.is_empty()
+    let has_existing = !existing.types.is_empty()
         || !existing.properties.is_empty()
         || !existing.ownership.is_empty()
         || !existing.endpoints.is_empty()
-    {
-        return if existing.canonicalized() == expected.canonicalized() {
-            Ok(())
-        } else {
-            Err(SemanticCatalogError::ConflictingSchema(graph.name.clone()))
-        };
+        || !existing.fragments.is_empty()
+        || !existing.fragment_members.is_empty()
+        || !existing.fragment_properties.is_empty()
+        || !existing.fragment_ownership.is_empty();
+    if has_existing {
+        if existing.clone().canonicalized() == expected.clone().canonicalized() {
+            return Ok(());
+        }
+        if fragments.fragments.is_empty()
+            && !existing.fragments.is_empty()
+            && existing.clone().without_fragments().canonicalized()
+                == expected.clone().canonicalized()
+        {
+            return Ok(());
+        }
+        if !fragments.fragments.is_empty()
+            && existing.fragments.is_empty()
+            && !endpoints_reference_fragments(registration, fragments)
+        {
+            let base = catalog_rows_for_registration(
+                graph,
+                registration,
+                &SemanticFragmentRegistration::default(),
+            );
+            let base_matches = existing.canonicalized() == base.clone().canonicalized();
+            if base_matches {
+                let base_property_ids = base
+                    .properties
+                    .iter()
+                    .map(|(property_id, _)| *property_id)
+                    .collect::<HashSet<_>>();
+                let delta = CatalogRows {
+                    types: Vec::new(),
+                    properties: expected
+                        .properties
+                        .into_iter()
+                        .filter(|(property_id, _)| !base_property_ids.contains(property_id))
+                        .collect(),
+                    ownership: Vec::new(),
+                    endpoints: Vec::new(),
+                    fragments: expected.fragments,
+                    fragment_members: expected.fragment_members,
+                    fragment_properties: expected.fragment_properties,
+                    fragment_ownership: expected.fragment_ownership,
+                };
+                insert_catalog_rows(connection, graph.id.get(), &delta)?;
+                bump_semantic_generation(connection, graph.id.get())?;
+                return Ok(());
+            }
+        }
+        return Err(SemanticCatalogError::ConflictingSchema(graph.name.clone()));
     }
 
     insert_catalog_rows(connection, graph.id.get(), &expected)?;
+    bump_semantic_generation(connection, graph.id.get())?;
+    Ok(())
+}
+
+fn endpoints_reference_fragments(
+    registration: &SemanticSchemaRegistration,
+    fragments: &SemanticFragmentRegistration,
+) -> bool {
+    registration.relationship_types.iter().any(|relationship| {
+        relationship
+            .start
+            .iter()
+            .chain(&relationship.end)
+            .any(|endpoint| {
+                fragments
+                    .fragments
+                    .iter()
+                    .any(|fragment| fragment.name.eq_ignore_ascii_case(endpoint))
+            })
+    })
+}
+
+fn bump_semantic_generation(
+    connection: &Arc<Connection>,
+    graph_id: u64,
+) -> Result<(), SemanticCatalogError> {
     execute_internal(
         connection,
         format!(
-            "UPDATE {GENERATIONS_TABLE} SET generation = generation + 1 WHERE graph_id = {}",
-            graph.id.get()
+            "UPDATE {GENERATIONS_TABLE} SET generation = generation + 1 \
+             WHERE graph_id = {graph_id}"
         ),
     )?;
     Ok(())
 }
 
-fn create_semantic_catalog(connection: &Arc<Connection>) -> Result<(), SemanticCatalogError> {
+fn create_semantic_catalog(
+    connection: &Arc<Connection>,
+    include_fragments: bool,
+) -> Result<(), SemanticCatalogError> {
     for ddl in [
         format!(
             "CREATE TABLE IF NOT EXISTS {SEMANTIC_TYPES_TABLE}(\
@@ -676,17 +1096,65 @@ fn create_semantic_catalog(connection: &Arc<Connection>) -> Result<(), SemanticC
     ] {
         execute_internal(connection, ddl)?;
     }
+    if !include_fragments {
+        return Ok(());
+    }
+    for ddl in [
+        format!(
+            "CREATE TABLE IF NOT EXISTS {SEMANTIC_FRAGMENTS_TABLE}(\
+                graph_id INTEGER NOT NULL, \
+                fragment_id INTEGER NOT NULL CHECK(fragment_id > 0), \
+                name TEXT NOT NULL COLLATE NOCASE, \
+                PRIMARY KEY(graph_id, fragment_id), \
+                UNIQUE(graph_id, name)\
+            )"
+        ),
+        format!(
+            "CREATE TABLE IF NOT EXISTS {SEMANTIC_FRAGMENT_MEMBERS_TABLE}(\
+                graph_id INTEGER NOT NULL, \
+                fragment_id INTEGER NOT NULL, \
+                node_type_id INTEGER NOT NULL, \
+                PRIMARY KEY(graph_id, fragment_id, node_type_id)\
+            )"
+        ),
+        format!(
+            "CREATE TABLE IF NOT EXISTS {SEMANTIC_FRAGMENT_PROPERTIES_TABLE}(\
+                graph_id INTEGER NOT NULL, \
+                fragment_id INTEGER NOT NULL, \
+                property_id INTEGER NOT NULL, \
+                PRIMARY KEY(graph_id, fragment_id, property_id)\
+            )"
+        ),
+        format!(
+            "CREATE TABLE IF NOT EXISTS {SEMANTIC_FRAGMENT_OWNERSHIP_TABLE}(\
+                graph_id INTEGER NOT NULL, \
+                fragment_id INTEGER NOT NULL, \
+                node_type_id INTEGER NOT NULL, \
+                property_id INTEGER NOT NULL, \
+                source_id INTEGER NOT NULL, \
+                column_name TEXT NOT NULL, \
+                PRIMARY KEY(graph_id, fragment_id, node_type_id, property_id)\
+            )"
+        ),
+    ] {
+        execute_internal(connection, ddl)?;
+    }
     Ok(())
 }
 
 fn catalog_rows_for_registration(
     graph: &RegisteredGraph,
     registration: &SemanticSchemaRegistration,
+    fragment_registration: &SemanticFragmentRegistration,
 ) -> CatalogRows {
     let mut types = Vec::new();
     let mut properties = Vec::new();
     let mut ownership = Vec::new();
     let mut endpoints = Vec::new();
+    let mut fragments = Vec::new();
+    let mut fragment_members = Vec::new();
+    let mut fragment_properties = Vec::new();
+    let mut fragment_ownership = Vec::new();
     let node_ids = registration
         .node_types
         .iter()
@@ -741,16 +1209,59 @@ fn catalog_rows_for_registration(
             &mut ownership,
         );
         for (endpoint, allowed) in [("start", &relationship.start), ("end", &relationship.end)] {
-            for node_type in allowed {
+            for node_type in expand_endpoint_names(allowed, fragment_registration) {
                 endpoints.push((type_id, endpoint.to_owned(), node_ids[&fold(node_type)]));
             }
         }
     }
+    for (index, fragment) in fragment_registration.fragments.iter().enumerate() {
+        let fragment_id = registration.node_types.len() as u64 + index as u64 + 1;
+        fragments.push((fragment_id, fragment.name.clone()));
+        for property in &fragment.properties {
+            let folded_name = fold(property);
+            let property_id = *property_ids.entry(folded_name).or_insert_with(|| {
+                let id = properties.len() as u64 + 1;
+                properties.push((id, property.clone()));
+                id
+            });
+            fragment_properties.push((fragment_id, property_id));
+        }
+        for member in &fragment.members {
+            let node_type_id = node_ids[&fold(&member.node_type)];
+            let node_type = registration
+                .node_types
+                .iter()
+                .find(|node_type| node_type.name.eq_ignore_ascii_case(&member.node_type))
+                .expect("fragment shape validated member type");
+            let source = graph
+                .node_sources
+                .iter()
+                .find(|source| source.name.eq_ignore_ascii_case(&node_type.source))
+                .expect("registration was physically validated");
+            fragment_members.push((fragment_id, node_type_id));
+            for property in &member.properties {
+                let property_id = property_ids[&fold(&property.name)];
+                fragment_ownership.push((
+                    fragment_id,
+                    node_type_id,
+                    property_id,
+                    source.id.get(),
+                    property.column.clone(),
+                ));
+            }
+        }
+    }
+    endpoints.sort();
+    endpoints.dedup();
     let mut rows = CatalogRows {
         types,
         properties,
         ownership,
         endpoints,
+        fragments,
+        fragment_members,
+        fragment_properties,
+        fragment_ownership,
     };
     sort_catalog_rows(&mut rows);
     rows
@@ -870,14 +1381,132 @@ fn load_catalog_rows(
         ))
     })
     .collect::<Result<Vec<_>, SemanticCatalogError>>()?;
+    let has_fragment_catalog = connection
+        .current_schema()
+        .get_table(SEMANTIC_FRAGMENTS_TABLE)
+        .is_some();
+    let (mut fragments, mut fragment_members, mut fragment_properties, mut fragment_ownership) =
+        if has_fragment_catalog {
+            load_fragment_catalog_rows(connection, graph_id)?
+        } else {
+            (Vec::new(), Vec::new(), Vec::new(), Vec::new())
+        };
     let mut rows = CatalogRows {
         types: std::mem::take(&mut types),
         properties: std::mem::take(&mut properties),
         ownership: std::mem::take(&mut ownership),
         endpoints: std::mem::take(&mut endpoints),
+        fragments: std::mem::take(&mut fragments),
+        fragment_members: std::mem::take(&mut fragment_members),
+        fragment_properties: std::mem::take(&mut fragment_properties),
+        fragment_ownership: std::mem::take(&mut fragment_ownership),
     };
     sort_catalog_rows(&mut rows);
     Ok(rows)
+}
+
+type FragmentCatalogRows = (
+    Vec<(u64, String)>,
+    Vec<(u64, u64)>,
+    Vec<(u64, u64)>,
+    Vec<(u64, u64, u64, u64, String)>,
+);
+
+fn load_fragment_catalog_rows(
+    connection: &Arc<Connection>,
+    graph_id: u64,
+) -> Result<FragmentCatalogRows, SemanticCatalogError> {
+    let fragments = query_rows(
+        connection,
+        &format!(
+            "SELECT fragment_id, name FROM {SEMANTIC_FRAGMENTS_TABLE} \
+             WHERE graph_id = {graph_id}"
+        ),
+    )?
+    .iter()
+    .map(|row| {
+        Ok((
+            positive_u64(
+                integer(row, 0, "semantic fragment id")?,
+                "semantic fragment id",
+            )?,
+            text(row, 1, "semantic fragment name")?.to_owned(),
+        ))
+    })
+    .collect::<Result<Vec<_>, SemanticCatalogError>>()?;
+    let members = query_rows(
+        connection,
+        &format!(
+            "SELECT fragment_id, node_type_id FROM {SEMANTIC_FRAGMENT_MEMBERS_TABLE} \
+             WHERE graph_id = {graph_id}"
+        ),
+    )?
+    .iter()
+    .map(|row| {
+        Ok((
+            positive_u64(
+                integer(row, 0, "semantic fragment member fragment")?,
+                "semantic fragment member fragment",
+            )?,
+            positive_u64(
+                integer(row, 1, "semantic fragment member type")?,
+                "semantic fragment member type",
+            )?,
+        ))
+    })
+    .collect::<Result<Vec<_>, SemanticCatalogError>>()?;
+    let properties = query_rows(
+        connection,
+        &format!(
+            "SELECT fragment_id, property_id FROM {SEMANTIC_FRAGMENT_PROPERTIES_TABLE} \
+             WHERE graph_id = {graph_id}"
+        ),
+    )?
+    .iter()
+    .map(|row| {
+        Ok((
+            positive_u64(
+                integer(row, 0, "semantic fragment property fragment")?,
+                "semantic fragment property fragment",
+            )?,
+            positive_u64(
+                integer(row, 1, "semantic fragment property")?,
+                "semantic fragment property",
+            )?,
+        ))
+    })
+    .collect::<Result<Vec<_>, SemanticCatalogError>>()?;
+    let ownership = query_rows(
+        connection,
+        &format!(
+            "SELECT fragment_id, node_type_id, property_id, source_id, column_name \
+             FROM {SEMANTIC_FRAGMENT_OWNERSHIP_TABLE} WHERE graph_id = {graph_id}"
+        ),
+    )?
+    .iter()
+    .map(|row| {
+        Ok((
+            positive_u64(
+                integer(row, 0, "semantic fragment owner fragment")?,
+                "semantic fragment owner fragment",
+            )?,
+            positive_u64(
+                integer(row, 1, "semantic fragment owner type")?,
+                "semantic fragment owner type",
+            )?,
+            positive_u64(
+                integer(row, 2, "semantic fragment owner property")?,
+                "semantic fragment owner property",
+            )?,
+            positive_u64(
+                integer(row, 3, "semantic fragment owner source")?,
+                "semantic fragment owner source",
+            )?,
+            text(row, 4, "semantic fragment owner column")?.to_owned(),
+        ))
+    })
+    .collect::<Result<Vec<_>, SemanticCatalogError>>()?;
+    Ok((fragments, members, properties, ownership))
 }
 
 fn positive_u64(value: i64, kind: &'static str) -> Result<u64, SemanticCatalogError> {
@@ -892,9 +1521,28 @@ fn sort_catalog_rows(rows: &mut CatalogRows) {
     rows.properties.sort();
     rows.ownership.sort();
     rows.endpoints.sort();
+    rows.fragments.sort();
+    rows.fragment_members.sort_unstable();
+    rows.fragment_properties.sort_unstable();
+    rows.fragment_ownership.sort();
 }
 
 impl CatalogRows {
+    fn without_fragments(mut self) -> Self {
+        let direct_property_ids = self
+            .ownership
+            .iter()
+            .map(|(_, _, property_id, _, _)| *property_id)
+            .collect::<HashSet<_>>();
+        self.properties
+            .retain(|(property_id, _)| direct_property_ids.contains(property_id));
+        self.fragments.clear();
+        self.fragment_members.clear();
+        self.fragment_properties.clear();
+        self.fragment_ownership.clear();
+        self
+    }
+
     fn canonicalized(mut self) -> Self {
         for (_, _, name, _) in &mut self.types {
             *name = fold(name);
@@ -903,6 +1551,12 @@ impl CatalogRows {
             *name = fold(name);
         }
         for (_, _, _, _, column) in &mut self.ownership {
+            *column = fold(column);
+        }
+        for (_, name) in &mut self.fragments {
+            *name = fold(name);
+        }
+        for (_, _, _, _, column) in &mut self.fragment_ownership {
             *column = fold(column);
         }
         sort_catalog_rows(&mut self);
@@ -959,6 +1613,49 @@ fn insert_catalog_rows(
             ),
         )?;
     }
+    for (fragment_id, name) in &rows.fragments {
+        execute_internal(
+            connection,
+            format!(
+                "INSERT INTO {SEMANTIC_FRAGMENTS_TABLE}(graph_id, fragment_id, name) \
+                 VALUES ({graph_id}, {fragment_id}, {})",
+                sql_string(name)
+            ),
+        )?;
+    }
+    for (fragment_id, node_type_id) in &rows.fragment_members {
+        execute_internal(
+            connection,
+            format!(
+                "INSERT INTO {SEMANTIC_FRAGMENT_MEMBERS_TABLE}(\
+                    graph_id, fragment_id, node_type_id\
+                 ) VALUES ({graph_id}, {fragment_id}, {node_type_id})"
+            ),
+        )?;
+    }
+    for (fragment_id, property_id) in &rows.fragment_properties {
+        execute_internal(
+            connection,
+            format!(
+                "INSERT INTO {SEMANTIC_FRAGMENT_PROPERTIES_TABLE}(\
+                    graph_id, fragment_id, property_id\
+                 ) VALUES ({graph_id}, {fragment_id}, {property_id})"
+            ),
+        )?;
+    }
+    for (fragment_id, node_type_id, property_id, source_id, column) in &rows.fragment_ownership {
+        execute_internal(
+            connection,
+            format!(
+                "INSERT INTO {SEMANTIC_FRAGMENT_OWNERSHIP_TABLE}(\
+                    graph_id, fragment_id, node_type_id, property_id, source_id, column_name\
+                 ) VALUES (\
+                    {graph_id}, {fragment_id}, {node_type_id}, {property_id}, {source_id}, {}\
+                 )",
+                sql_string(column)
+            ),
+        )?;
+    }
     Ok(())
 }
 
@@ -997,6 +1694,8 @@ pub fn load_semantic_snapshot(
         relationship_names: HashMap::new(),
         node_types: HashMap::new(),
         relationship_types: HashMap::new(),
+        fragment_names: HashMap::new(),
+        fragments: HashMap::new(),
         endpoints: HashMap::new(),
     };
     for row in &type_rows {
@@ -1033,6 +1732,94 @@ pub fn load_semantic_snapshot(
         }
     }
 
+    let has_fragment_catalog = connection
+        .current_schema()
+        .get_table(SEMANTIC_FRAGMENTS_TABLE)
+        .is_some();
+    let mut has_fragments = false;
+    if has_fragment_catalog {
+        let fragment_rows = query_rows(
+            connection,
+            &format!(
+                "SELECT fragment_id, name FROM {SEMANTIC_FRAGMENTS_TABLE} \
+                 WHERE graph_id = {}",
+                graph.id.get()
+            ),
+        )?;
+        has_fragments = !fragment_rows.is_empty();
+        if has_fragments {
+            for row in &fragment_rows {
+                let fragment_id = positive_u32(
+                    integer(row, 0, "semantic fragment id")?,
+                    "semantic fragment id",
+                )?;
+                let name = text(row, 1, "semantic fragment name")?.to_owned();
+                if snapshot.node_types.contains_key(&fragment_id)
+                    || snapshot.node_names.contains_key(&fold(&name))
+                    || snapshot.relationship_names.contains_key(&fold(&name))
+                {
+                    return Err(SemanticCatalogError::InvalidCatalogValue(
+                        "semantic fragment identity collision",
+                    ));
+                }
+                let info = SemanticFragmentInfo {
+                    name: name.clone(),
+                    fragment_id,
+                    member_type_ids: Vec::new(),
+                };
+                if snapshot
+                    .fragment_names
+                    .insert(fold(&name), fragment_id)
+                    .is_some()
+                    || snapshot.fragments.insert(fragment_id, info).is_some()
+                {
+                    return Err(SemanticCatalogError::InvalidCatalogValue(
+                        "duplicate semantic fragment",
+                    ));
+                }
+            }
+            let member_rows = query_rows(
+                connection,
+                &format!(
+                    "SELECT fragment_id, node_type_id FROM {SEMANTIC_FRAGMENT_MEMBERS_TABLE} \
+                 WHERE graph_id = {}",
+                    graph.id.get()
+                ),
+            )?;
+            for row in &member_rows {
+                let fragment_id = positive_u32(
+                    integer(row, 0, "semantic fragment member fragment")?,
+                    "semantic fragment member fragment",
+                )?;
+                let node_type_id = positive_u32(
+                    integer(row, 1, "semantic fragment member type")?,
+                    "semantic fragment member type",
+                )?;
+                if !snapshot.node_types.contains_key(&node_type_id) {
+                    return Err(SemanticCatalogError::InvalidCatalogValue(
+                        "semantic fragment member type",
+                    ));
+                }
+                let fragment = snapshot.fragments.get_mut(&fragment_id).ok_or(
+                    SemanticCatalogError::InvalidCatalogValue("semantic fragment member fragment"),
+                )?;
+                fragment.member_type_ids.push(node_type_id);
+            }
+            for fragment in snapshot.fragments.values_mut() {
+                fragment.member_type_ids.sort_unstable();
+                if fragment
+                    .member_type_ids
+                    .windows(2)
+                    .any(|ids| ids[0] == ids[1])
+                {
+                    return Err(SemanticCatalogError::InvalidCatalogValue(
+                        "duplicate semantic fragment member",
+                    ));
+                }
+            }
+        }
+    }
+
     let property_rows = query_rows(
         connection,
         &format!(
@@ -1052,6 +1839,44 @@ pub fn load_semantic_snapshot(
             return Err(SemanticCatalogError::InvalidCatalogValue(
                 "duplicate semantic property",
             ));
+        }
+    }
+    let mut fragment_properties = snapshot
+        .fragments
+        .keys()
+        .map(|fragment_id| (*fragment_id, HashSet::new()))
+        .collect::<HashMap<_, _>>();
+    if has_fragments {
+        let fragment_property_rows = query_rows(
+            connection,
+            &format!(
+                "SELECT fragment_id, property_id FROM {SEMANTIC_FRAGMENT_PROPERTIES_TABLE} \
+                 WHERE graph_id = {}",
+                graph.id.get()
+            ),
+        )?;
+        for row in &fragment_property_rows {
+            let fragment_id = positive_u32(
+                integer(row, 0, "semantic fragment property fragment")?,
+                "semantic fragment property fragment",
+            )?;
+            let property_id = positive_u32(
+                integer(row, 1, "semantic fragment property")?,
+                "semantic fragment property",
+            )?;
+            if !property_names.contains_key(&property_id) {
+                return Err(SemanticCatalogError::InvalidCatalogValue(
+                    "semantic fragment property",
+                ));
+            }
+            let properties = fragment_properties.get_mut(&fragment_id).ok_or(
+                SemanticCatalogError::InvalidCatalogValue("semantic fragment property fragment"),
+            )?;
+            if !properties.insert(property_id) {
+                return Err(SemanticCatalogError::InvalidCatalogValue(
+                    "duplicate semantic fragment property",
+                ));
+            }
         }
     }
 
@@ -1120,6 +1945,123 @@ pub fn load_semantic_snapshot(
             return Err(SemanticCatalogError::InvalidCatalogValue(
                 "duplicate semantic ownership",
             ));
+        }
+    }
+
+    if has_fragments {
+        let mut loaded_fragment_ownership = HashSet::new();
+        let fragment_ownership_rows = query_rows(
+            connection,
+            &format!(
+                "SELECT fragment_id, node_type_id, property_id, source_id, column_name \
+                 FROM {SEMANTIC_FRAGMENT_OWNERSHIP_TABLE} WHERE graph_id = {}",
+                graph.id.get()
+            ),
+        )?;
+        for row in &fragment_ownership_rows {
+            let fragment_id = positive_u32(
+                integer(row, 0, "semantic fragment owner fragment")?,
+                "semantic fragment owner fragment",
+            )?;
+            let node_type_id = positive_u32(
+                integer(row, 1, "semantic fragment owner type")?,
+                "semantic fragment owner type",
+            )?;
+            let property_id = positive_u32(
+                integer(row, 2, "semantic fragment owner property")?,
+                "semantic fragment owner property",
+            )?;
+            let source_id = ir::SourceTableId::new(positive_u64(
+                integer(row, 3, "semantic fragment owner source")?,
+                "semantic fragment owner source",
+            )?)
+            .map_err(|_| {
+                SemanticCatalogError::InvalidCatalogValue("semantic fragment owner source")
+            })?;
+            let column_name = text(row, 4, "semantic fragment owner column")?.to_owned();
+            let fragment = snapshot.fragments.get(&fragment_id).ok_or(
+                SemanticCatalogError::InvalidCatalogValue("semantic fragment owner fragment"),
+            )?;
+            if !fragment.member_type_ids.contains(&node_type_id) {
+                return Err(SemanticCatalogError::InvalidCatalogValue(
+                    "semantic fragment owner membership",
+                ));
+            }
+            if !fragment_properties
+                .get(&fragment_id)
+                .is_some_and(|properties| properties.contains(&property_id))
+            {
+                return Err(SemanticCatalogError::InvalidCatalogValue(
+                    "undeclared semantic fragment ownership",
+                ));
+            }
+            if !loaded_fragment_ownership.insert((fragment_id, node_type_id, property_id)) {
+                return Err(SemanticCatalogError::InvalidCatalogValue(
+                    "duplicate semantic fragment ownership",
+                ));
+            }
+            let property_name = property_names.get(&property_id).ok_or(
+                SemanticCatalogError::InvalidCatalogValue("semantic fragment owner property"),
+            )?;
+            let (type_info, table_name) =
+                semantic_owner_and_table(&mut snapshot, graph, "node", node_type_id, source_id)?;
+            let schema = connection.current_schema();
+            let table = schema.get_table(table_name).ok_or_else(|| {
+                SemanticCatalogError::Catalog(CatalogError::SourceTableMissing(
+                    table_name.to_owned(),
+                ))
+            })?;
+            let Some((_, column)) = table.get_column_by_name(&column_name) else {
+                return Err(SemanticCatalogError::ColumnMissing {
+                    owner: type_info.name.clone(),
+                    property: property_name.clone(),
+                    column: column_name,
+                    table: table_name.to_owned(),
+                });
+            };
+            let property_id = ir::PropertyId::new(property_id)
+                .map_err(|_| SemanticCatalogError::InvalidCatalogValue("semantic property id"))?;
+            let owned = OwnedProperty {
+                name: property_name.clone(),
+                id: property_id,
+                value_type: crate::schema_catalog::column_value_type(
+                    &schema,
+                    column,
+                    table.is_strict(),
+                ),
+                nullability: crate::schema_catalog::column_nullability(column),
+                column: column_name,
+            };
+            let folded_property = fold(property_name);
+            if let Some(existing) = type_info.properties.get(&folded_property) {
+                if existing.id != owned.id
+                    || existing.value_type != owned.value_type
+                    || existing.nullability != owned.nullability
+                    || !existing.name.eq_ignore_ascii_case(&owned.name)
+                    || !existing.column.eq_ignore_ascii_case(&owned.column)
+                {
+                    return Err(SemanticCatalogError::InvalidCatalogValue(
+                        "conflicting semantic fragment ownership",
+                    ));
+                }
+            } else {
+                type_info.properties.insert(folded_property, owned);
+            }
+        }
+        for (fragment_id, fragment) in &snapshot.fragments {
+            for node_type_id in &fragment.member_type_ids {
+                for property_id in &fragment_properties[fragment_id] {
+                    if !loaded_fragment_ownership.contains(&(
+                        *fragment_id,
+                        *node_type_id,
+                        *property_id,
+                    )) {
+                        return Err(SemanticCatalogError::InvalidCatalogValue(
+                            "missing semantic fragment ownership",
+                        ));
+                    }
+                }
+            }
         }
     }
 
@@ -1306,6 +2248,28 @@ mod tests {
         let json = serde_json::to_string(&registration).expect("serialize registration");
         let decoded = serde_json::from_str::<SemanticSchemaRegistration>(&json)
             .expect("deserialize registration");
+
+        assert_eq!(registration, decoded);
+    }
+
+    #[test]
+    fn fragment_registration_round_trips_through_serde_json() {
+        let registration = SemanticFragmentRegistration {
+            fragments: vec![SemanticFragment {
+                name: "Named".to_owned(),
+                properties: vec!["displayName".to_owned()],
+                members: vec![SemanticFragmentMember {
+                    node_type: "Customer".to_owned(),
+                    properties: vec![SemanticProperty {
+                        name: "displayName".to_owned(),
+                        column: "name".to_owned(),
+                    }],
+                }],
+            }],
+        };
+        let json = serde_json::to_string(&registration).expect("serialize fragments");
+        let decoded = serde_json::from_str::<SemanticFragmentRegistration>(&json)
+            .expect("deserialize fragments");
 
         assert_eq!(registration, decoded);
     }

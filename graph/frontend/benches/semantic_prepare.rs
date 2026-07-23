@@ -3,9 +3,10 @@ use std::sync::Arc;
 use divan::{black_box, Bencher};
 use turso_graph_frontend::{
     core::{Database, MemoryIO, SqliteDialect},
-    register_graph, register_semantic_schema, GraphConnection, GraphRegistration,
-    NodeSourceRegistration, RelationshipSourceRegistration, SemanticNodeType, SemanticProperty,
-    SemanticSchemaRegistration,
+    register_graph, register_semantic_schema, register_semantic_schema_with_fragments,
+    GraphConnection, GraphRegistration, NodeSourceRegistration, RelationshipSourceRegistration,
+    SemanticFragment, SemanticFragmentMember, SemanticFragmentRegistration, SemanticNodeType,
+    SemanticProperty, SemanticSchemaRegistration,
 };
 
 #[global_allocator]
@@ -144,32 +145,66 @@ fn multi_source_database() -> Arc<Database> {
         },
     )
     .expect("register multi-source benchmark graph");
-    register_semantic_schema(
+    register_semantic_schema(&connection, "social", &multi_source_schema())
+        .expect("register multi-source semantic schema");
+    database
+}
+
+fn multi_source_schema() -> SemanticSchemaRegistration {
+    SemanticSchemaRegistration {
+        node_types: vec![
+            SemanticNodeType {
+                name: "Person".to_owned(),
+                source: "people_src".to_owned(),
+                properties: vec![SemanticProperty {
+                    name: "displayName".to_owned(),
+                    column: "display_name".to_owned(),
+                }],
+            },
+            SemanticNodeType {
+                name: "Company".to_owned(),
+                source: "companies_src".to_owned(),
+                properties: vec![SemanticProperty {
+                    name: "displayName".to_owned(),
+                    column: "legal_name".to_owned(),
+                }],
+            },
+        ],
+        relationship_types: Vec::new(),
+    }
+}
+
+fn fragment_database() -> Arc<Database> {
+    let database = multi_source_database();
+    let connection = database.connect().expect("connect fragment benchmark");
+    register_semantic_schema_with_fragments(
         &connection,
         "social",
-        &SemanticSchemaRegistration {
-            node_types: vec![
-                SemanticNodeType {
-                    name: "Person".to_owned(),
-                    source: "people_src".to_owned(),
-                    properties: vec![SemanticProperty {
-                        name: "displayName".to_owned(),
-                        column: "display_name".to_owned(),
-                    }],
-                },
-                SemanticNodeType {
-                    name: "Company".to_owned(),
-                    source: "companies_src".to_owned(),
-                    properties: vec![SemanticProperty {
-                        name: "displayName".to_owned(),
-                        column: "legal_name".to_owned(),
-                    }],
-                },
-            ],
-            relationship_types: Vec::new(),
+        &multi_source_schema(),
+        &SemanticFragmentRegistration {
+            fragments: vec![SemanticFragment {
+                name: "Nameable".to_owned(),
+                properties: vec!["displayName".to_owned()],
+                members: vec![
+                    SemanticFragmentMember {
+                        node_type: "Person".to_owned(),
+                        properties: vec![SemanticProperty {
+                            name: "displayName".to_owned(),
+                            column: "display_name".to_owned(),
+                        }],
+                    },
+                    SemanticFragmentMember {
+                        node_type: "Company".to_owned(),
+                        properties: vec![SemanticProperty {
+                            name: "displayName".to_owned(),
+                            column: "legal_name".to_owned(),
+                        }],
+                    },
+                ],
+            }],
         },
     )
-    .expect("register multi-source semantic schema");
+    .expect("register benchmark fragment");
     database
 }
 
@@ -197,6 +232,15 @@ fn open_semantic_multi_source(bencher: Bencher) {
     bencher.bench_local(|| {
         let connection = database.connect().expect("connect semantic graph");
         black_box(GraphConnection::open(connection, "social").expect("open semantic graph"));
+    });
+}
+
+#[turso_macros::divan_bench]
+fn open_semantic_fragment(bencher: Bencher) {
+    let database = fragment_database();
+    bencher.bench_local(|| {
+        let connection = database.connect().expect("connect fragment graph");
+        black_box(GraphConnection::open(connection, "social").expect("open fragment graph"));
     });
 }
 
@@ -264,6 +308,23 @@ fn prepare_semantic_unlabeled_multi_source(bencher: Bencher) {
                     &Default::default(),
                 )
                 .expect("prepare multi-source semantic query"),
+        );
+    });
+}
+
+#[turso_macros::divan_bench]
+fn prepare_semantic_fragment(bencher: Bencher) {
+    let database = fragment_database();
+    let session =
+        GraphConnection::open(database.connect().expect("connect"), "social").expect("open graph");
+    bencher.bench_local(|| {
+        black_box(
+            session
+                .prepare(
+                    black_box("MATCH (n:Nameable) RETURN n.displayName"),
+                    &Default::default(),
+                )
+                .expect("prepare fragment query"),
         );
     });
 }

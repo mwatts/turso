@@ -2,12 +2,13 @@ use std::sync::Arc;
 
 use turso_graph_frontend::core::{Database, MemoryIO, SqliteDialect};
 use turso_graph_frontend::{
-    load_registered_graph, load_semantic_snapshot, register_graph, register_semantic_schema,
-    relationship_types_table_name, CatalogEntity, GraphCatalogSnapshot, GraphRegistration,
+    bind, load_registered_graph, load_semantic_snapshot, register_graph, register_semantic_schema,
+    register_semantic_schema_with_fragments, relationship_types_table_name, BindError,
+    CatalogEntity, Error as FrontendError, GraphCatalogSnapshot, GraphRegistration, MutationError,
     NodeSourceRegistration, PropertyResolution, RelationalCatalogSnapshot,
-    RelationshipSourceRegistration, SchemaCatalog, SemanticCatalogError, SemanticNodeType,
-    SemanticProperty, SemanticRelationshipType, SemanticSchemaRegistration, SnapshotStatus,
-    SnapshotStore,
+    RelationshipSourceRegistration, SchemaCatalog, SemanticCatalogError, SemanticFragment,
+    SemanticFragmentMember, SemanticFragmentRegistration, SemanticNodeType, SemanticProperty,
+    SemanticRelationshipType, SemanticSchemaRegistration, SnapshotStatus, SnapshotStore,
 };
 
 fn connection() -> Arc<turso_graph_frontend::core::Connection> {
@@ -874,7 +875,35 @@ fn snapshot_reloads_identical_identities() {
     .expect("open database");
     let connection = database.connect().expect("first connection");
     registered_graph(&connection);
-    register_semantic_schema(&connection, "social", &semantic_registration()).expect("register");
+    let fragments = SemanticFragmentRegistration {
+        fragments: vec![SemanticFragment {
+            name: "Named".to_owned(),
+            properties: vec!["displayName".to_owned()],
+            members: vec![
+                SemanticFragmentMember {
+                    node_type: "Customer".to_owned(),
+                    properties: vec![SemanticProperty {
+                        name: "displayName".to_owned(),
+                        column: "full_name".to_owned(),
+                    }],
+                },
+                SemanticFragmentMember {
+                    node_type: "Supplier".to_owned(),
+                    properties: vec![SemanticProperty {
+                        name: "displayName".to_owned(),
+                        column: "full_name".to_owned(),
+                    }],
+                },
+            ],
+        }],
+    };
+    register_semantic_schema_with_fragments(
+        &connection,
+        "social",
+        &semantic_registration(),
+        &fragments,
+    )
+    .expect("register");
     let graph = load_registered_graph(&connection, "social").expect("load graph");
 
     let first = load_semantic_snapshot(&connection, &graph)
@@ -892,6 +921,7 @@ fn snapshot_reloads_identical_identities() {
     assert_eq!(customer.property("displayName").expect("owned").id.get(), 1);
 
     let customer_id = customer.type_id;
+    let fragment_id = first.fragment("Named").expect("fragment").fragment_id;
     drop(connection);
     let reopened = database.connect().expect("reopen connection");
     let reopened_graph = load_registered_graph(&reopened, "social").expect("reload graph");
@@ -902,6 +932,9 @@ fn snapshot_reloads_identical_identities() {
         second.node_type("Customer").expect("customer").type_id,
         customer_id
     );
+    let reopened_fragment = second.fragment("named").expect("reopened fragment");
+    assert_eq!(reopened_fragment.fragment_id, fragment_id);
+    assert_eq!(reopened_fragment.member_type_ids(), &[1, 2]);
 }
 
 #[test]
@@ -1124,14 +1157,16 @@ fn create_without_a_label_is_rejected_in_semantic_mode() {
 }
 
 #[test]
-fn create_with_multiple_labels_is_rejected_before_fragment_polymorphism() {
+fn create_with_multiple_concrete_labels_is_rejected() {
     let session = semantic_session();
     let error = session
         .execute("CREATE (n:Customer:Supplier)", &Default::default())
         .expect_err("reject multiple semantic labels");
 
     assert!(
-        error.to_string().contains("multiple semantic labels"),
+        error
+            .to_string()
+            .contains("multiple concrete semantic labels"),
         "{error}"
     );
 }
@@ -1225,6 +1260,124 @@ fn reads_reject_unowned_and_ambiguous_properties() {
     session
         .query("MATCH (n) RETURN n.displayName", &Default::default())
         .expect("displayName is owned by every node type");
+}
+
+#[test]
+fn label_predicates_narrow_semantic_property_ownership() {
+    let session = semantic_session();
+    session
+        .execute(
+            "CREATE (:Customer {displayName: 'Ada', born: 1815}), \
+             (:Supplier {displayName: 'Iron Co'})",
+            &Default::default(),
+        )
+        .expect("seed both possible semantic types");
+
+    let rows = session
+        .query(
+            "MATCH (n) WHERE n:Customer RETURN n.born",
+            &Default::default(),
+        )
+        .expect("the label predicate narrows n before binding n.born");
+    assert_eq!(
+        rows,
+        vec![vec![turso_graph_frontend::Value::Numeric(
+            turso_graph_frontend::Numeric::Integer(1815),
+        )]]
+    );
+
+    session
+        .execute(
+            "MATCH (n) WHERE n:Customer SET n.born = 1816",
+            &Default::default(),
+        )
+        .expect("the narrowed semantic type flows into mutation binding");
+    let rows = session
+        .query(
+            "MATCH (n) WHERE n:Customer RETURN n.born",
+            &Default::default(),
+        )
+        .expect("read the narrowed update");
+    assert_eq!(
+        rows,
+        vec![vec![turso_graph_frontend::Value::Numeric(
+            turso_graph_frontend::Numeric::Integer(1816),
+        )]]
+    );
+}
+
+#[test]
+fn semantic_bind_errors_preserve_variants_payloads_and_source_spans() {
+    let connection = connection();
+    registered_graph(&connection);
+    register_semantic_schema(&connection, "social", &semantic_registration()).expect("register");
+    let graph = load_registered_graph(&connection, "social").expect("load graph");
+    let semantic = load_semantic_snapshot(&connection, &graph)
+        .expect("load snapshot")
+        .map(Arc::new);
+    let catalog = SchemaCatalog::with_semantic(connection.clone(), graph.clone(), semantic);
+
+    let not_owned_query = "MATCH (n:Supplier) RETURN n.born";
+    let property_start = not_owned_query.find("born").expect("property spelling");
+    let syntax = turso_graph_cypher::parse(not_owned_query).expect("parse query");
+    let error = bind(&syntax, graph.id, &catalog, &Default::default())
+        .expect_err("Supplier does not own born");
+    assert!(matches!(
+        error,
+        BindError::PropertyNotOwned {
+            name,
+            types,
+            span_start,
+            span_end,
+        } if name == "born"
+            && types == vec!["Supplier"]
+            && span_start == property_start
+            && span_end == property_start + "born".len()
+    ));
+
+    let ambiguous_query = "MATCH (n) RETURN n.born";
+    let property_start = ambiguous_query.find("born").expect("property spelling");
+    let syntax = turso_graph_cypher::parse(ambiguous_query).expect("parse query");
+    let error = bind(&syntax, graph.id, &catalog, &Default::default())
+        .expect_err("only Customer owns born");
+    assert!(matches!(
+        error,
+        BindError::AmbiguousProperty {
+            name,
+            owners,
+            non_owners,
+            span_start,
+            span_end,
+        } if name == "born"
+            && owners == vec!["Customer"]
+            && non_owners == vec!["Supplier"]
+            && span_start == property_start
+            && span_end == property_start + "born".len()
+    ));
+
+    let session =
+        turso_graph_frontend::Connection::open(connection, "social").expect("open semantic graph");
+    let incompatible_query = "CREATE (:Customer {displayName: 'Ada', born: 'not an integer'})";
+    let value_start = incompatible_query
+        .find("'not an integer'")
+        .expect("value spelling");
+    let error = session
+        .execute(incompatible_query, &Default::default())
+        .expect_err("the literal has the wrong static type");
+    assert!(matches!(
+        error,
+        FrontendError::Mutation(MutationError::Bind(
+            BindError::IncompatiblePropertyValue {
+                property,
+                expected: turso_graph_ir::ValueType::Integer,
+                actual: turso_graph_ir::ValueType::Text,
+                span_start,
+                span_end,
+            }
+        )) if property == "born"
+            && span_start == value_start
+            && span_end == value_start + "'not an integer'".len()
+    ));
 }
 
 #[test]
@@ -1421,6 +1574,142 @@ fn endpoint_validation_covers_both_directions() {
         )
         .expect_err("incoming reversal must be checked");
     assert!(error.to_string().contains("endpoint"), "{error}");
+}
+
+#[test]
+fn semantic_relationship_merge_enforces_types_endpoints_and_idempotency() {
+    let session = semantic_session();
+    let merge = "MERGE (:Customer {displayName: 'Buyer'})\
+               -[:TRADES_WITH {since: 1840}]->\
+               (:Supplier {displayName: 'Seller'})";
+    session
+        .execute(merge, &Default::default())
+        .expect("first merge");
+    session
+        .execute(merge, &Default::default())
+        .expect("matching merge");
+
+    let rows = session
+        .query(
+            "MATCH (:Customer)-[r:TRADES_WITH]->(:Supplier) RETURN r.since",
+            &Default::default(),
+        )
+        .expect("read merged relationship");
+    assert_eq!(
+        rows,
+        vec![vec![turso_graph_frontend::Value::Numeric(
+            turso_graph_frontend::Numeric::Integer(1840),
+        )]]
+    );
+
+    let invalid = "MERGE (:Supplier {displayName: 'Wrong'})\
+               -[:TRADES_WITH]->\
+               (:Customer {displayName: 'Direction'})";
+    let error = session
+        .execute(invalid, &Default::default())
+        .expect_err("MERGE must enforce the relationship endpoints");
+    assert!(matches!(
+        error,
+        FrontendError::Mutation(MutationError::Bind(BindError::InvalidEndpointType {
+            relationship_type,
+            endpoint: "start",
+            node_types,
+            ..
+        })) if relationship_type == "TRADES_WITH" && node_types == vec!["Supplier"]
+    ));
+}
+
+#[test]
+fn dynamic_relationship_maps_validate_keys_and_values_atomically() {
+    let session = semantic_session();
+    session
+        .execute(
+            "CREATE (:Customer {displayName: 'Buyer'})\
+                    -[:TRADES_WITH {since: 1840}]->\
+                    (:Supplier {displayName: 'Seller'})",
+            &Default::default(),
+        )
+        .expect("seed typed relationship");
+
+    let unknown_key = turso_graph_frontend::Parameters::from([(
+        "properties".to_owned(),
+        turso_graph_frontend::Value::Text(r#"{"ghost":1}"#.into()),
+    )]);
+    let error = session
+        .execute(
+            "MATCH ()-[r:TRADES_WITH]->() SET r = $properties",
+            &unknown_key,
+        )
+        .expect_err("unknown relationship keys must fail");
+    assert!(error.to_string().contains("ghost"), "{error}");
+
+    let wrong_value = turso_graph_frontend::Parameters::from([(
+        "properties".to_owned(),
+        turso_graph_frontend::Value::Text(r#"{"since":"old"}"#.into()),
+    )]);
+    let error = session
+        .execute(
+            "MATCH ()-[r:TRADES_WITH]->() SET r += $properties",
+            &wrong_value,
+        )
+        .expect_err("relationship values must retain semantic types");
+    assert!(matches!(
+        error,
+        FrontendError::Mutation(MutationError::IncompatibleRuntimeValue {
+            property,
+            expected: turso_graph_ir::ValueType::Integer,
+        }) if property == "since"
+    ));
+
+    let rows = session
+        .query(
+            "MATCH ()-[r:TRADES_WITH]->() RETURN r.since",
+            &Default::default(),
+        )
+        .expect("the failed replacements leave the relationship unchanged");
+    assert_eq!(
+        rows,
+        vec![vec![turso_graph_frontend::Value::Numeric(
+            turso_graph_frontend::Numeric::Integer(1840),
+        )]]
+    );
+}
+
+#[test]
+fn ambiguous_matched_bindings_cannot_create_semantic_relationship_endpoints() {
+    let session = semantic_session();
+    session
+        .execute(
+            "CREATE (:Customer {displayName: 'Customer'}), \
+             (:Supplier {displayName: 'Supplier'})",
+            &Default::default(),
+        )
+        .expect("seed both endpoint types");
+
+    let error = session
+        .execute(
+            "MATCH (start), (end) CREATE (start)-[:TRADES_WITH]->(end)",
+            &Default::default(),
+        )
+        .expect_err("untyped bindings cannot prove either endpoint constraint");
+    assert!(
+        matches!(
+            &error,
+            FrontendError::Mutation(MutationError::Bind(BindError::InvalidEndpointType {
+                relationship_type,
+                endpoint: "start",
+                node_types,
+                ..
+            })) if relationship_type == "TRADES_WITH"
+                && node_types == &vec!["Customer".to_owned(), "Supplier".to_owned()]
+        ),
+        "{error:?}"
+    );
+
+    let rows = session
+        .query("MATCH ()-[r:TRADES_WITH]->() RETURN r", &Default::default())
+        .expect("read relationships after rejected mutation");
+    assert!(rows.is_empty());
 }
 
 #[test]
@@ -1621,4 +1910,833 @@ fn one_invalid_matched_row_rolls_back_prior_row_updates() {
             ],
         ]
     );
+}
+
+fn fragment_registration() -> SemanticFragmentRegistration {
+    SemanticFragmentRegistration {
+        fragments: vec![
+            SemanticFragment {
+                name: "Nameable".to_owned(),
+                properties: vec!["displayName".to_owned()],
+                members: vec![
+                    SemanticFragmentMember {
+                        node_type: "Person".to_owned(),
+                        properties: vec![SemanticProperty {
+                            name: "displayName".to_owned(),
+                            column: "person_name".to_owned(),
+                        }],
+                    },
+                    SemanticFragmentMember {
+                        node_type: "Company".to_owned(),
+                        properties: vec![SemanticProperty {
+                            name: "displayName".to_owned(),
+                            column: "company_name".to_owned(),
+                        }],
+                    },
+                    SemanticFragmentMember {
+                        node_type: "Alias".to_owned(),
+                        properties: vec![SemanticProperty {
+                            name: "displayName".to_owned(),
+                            column: "alias_name".to_owned(),
+                        }],
+                    },
+                ],
+            },
+            SemanticFragment {
+                name: "NaturalPerson".to_owned(),
+                properties: Vec::new(),
+                members: vec![SemanticFragmentMember {
+                    node_type: "Person".to_owned(),
+                    properties: Vec::new(),
+                }],
+            },
+        ],
+    }
+}
+
+fn fragment_schema() -> SemanticSchemaRegistration {
+    SemanticSchemaRegistration {
+        node_types: vec![
+            SemanticNodeType {
+                name: "Person".to_owned(),
+                source: "people_src".to_owned(),
+                properties: vec![SemanticProperty {
+                    name: "age".to_owned(),
+                    column: "age".to_owned(),
+                }],
+            },
+            SemanticNodeType {
+                name: "Company".to_owned(),
+                source: "companies_src".to_owned(),
+                properties: Vec::new(),
+            },
+            SemanticNodeType {
+                name: "Alias".to_owned(),
+                source: "people_src".to_owned(),
+                properties: Vec::new(),
+            },
+        ],
+        relationship_types: vec![SemanticRelationshipType {
+            name: "WORKS_AT".to_owned(),
+            source: "employment_src".to_owned(),
+            start: vec!["Person".to_owned()],
+            end: vec!["Company".to_owned()],
+            properties: Vec::new(),
+        }],
+    }
+}
+
+fn register_fragment_graph(connection: &Arc<turso_graph_frontend::core::Connection>) {
+    connection
+        .execute(
+            "CREATE TABLE people(\
+                 id INTEGER PRIMARY KEY, \
+                 person_name TEXT, \
+                 alias_name TEXT, \
+                 age INTEGER\
+             ); \
+             CREATE TABLE companies(id INTEGER PRIMARY KEY, company_name TEXT); \
+             CREATE TABLE employment(\
+                 id INTEGER PRIMARY KEY, \
+                 person_id INTEGER, \
+                 company_id INTEGER\
+             );",
+        )
+        .expect("create fragment sources");
+    register_graph(
+        connection,
+        &GraphRegistration {
+            name: "fragments".to_owned(),
+            node_sources: vec![
+                NodeSourceRegistration {
+                    name: "people_src".to_owned(),
+                    table: "people".to_owned(),
+                    identity_column: "id".to_owned(),
+                },
+                NodeSourceRegistration {
+                    name: "companies_src".to_owned(),
+                    table: "companies".to_owned(),
+                    identity_column: "id".to_owned(),
+                },
+            ],
+            relationship_sources: vec![RelationshipSourceRegistration {
+                name: "employment_src".to_owned(),
+                table: "employment".to_owned(),
+                identity_column: "id".to_owned(),
+                start_column: "person_id".to_owned(),
+                end_column: "company_id".to_owned(),
+                start_node_source: "people_src".to_owned(),
+                end_node_source: "companies_src".to_owned(),
+            }],
+        },
+    )
+    .expect("register fragment graph");
+}
+
+fn fragment_connection() -> Arc<turso_graph_frontend::core::Connection> {
+    let connection = connection();
+    register_fragment_graph(&connection);
+    register_semantic_schema_with_fragments(
+        &connection,
+        "fragments",
+        &fragment_schema(),
+        &fragment_registration(),
+    )
+    .expect("register semantic fragments");
+    connection
+}
+
+fn fragment_session() -> turso_graph_frontend::Connection {
+    let connection = fragment_connection();
+    turso_graph_frontend::Connection::open(connection, "fragments").expect("open fragment graph")
+}
+
+fn first_union_inputs(plan: &turso_graph_ir::Plan) -> Option<&[turso_graph_ir::Plan]> {
+    use turso_graph_ir::PlanKind;
+
+    match plan.kind() {
+        PlanKind::Union(union) => Some(union.inputs()),
+        PlanKind::FixedExpand(expand) => first_union_inputs(&expand.input),
+        PlanKind::GraphExpand(expand) => first_union_inputs(&expand.input),
+        PlanKind::Filter(filter) => first_union_inputs(&filter.input),
+        PlanKind::Project(project) => first_union_inputs(&project.input),
+        PlanKind::Aggregate(aggregate) => first_union_inputs(&aggregate.input),
+        PlanKind::Distinct(distinct) => first_union_inputs(&distinct.input),
+        PlanKind::Sort(sort) => first_union_inputs(&sort.input),
+        PlanKind::Skip(skip) => first_union_inputs(&skip.input),
+        PlanKind::Limit(limit) => first_union_inputs(&limit.input),
+        PlanKind::LeftApply(apply) => {
+            first_union_inputs(&apply.left).or_else(|| first_union_inputs(&apply.right))
+        }
+        PlanKind::Unwind(unwind) => first_union_inputs(&unwind.input),
+        PlanKind::Join(join) => {
+            first_union_inputs(&join.left).or_else(|| first_union_inputs(&join.right))
+        }
+        PlanKind::Unit(_) | PlanKind::NodeScan(_) => None,
+    }
+}
+
+#[test]
+fn fragment_scan_unions_concrete_members_across_sources() {
+    let session = fragment_session();
+    session
+        .execute(
+            "CREATE (:Person:Nameable:NaturalPerson {displayName: 'Ada'}), \
+             (:Company:Nameable {displayName: 'Analytical Engines'}), \
+             (:Alias:Nameable {displayName: 'Enchantress of Numbers'})",
+            &Default::default(),
+        )
+        .expect("create fragment members");
+    session
+        .execute(
+            "MATCH (p:Person {displayName: 'Ada'}), \
+                   (c:Company {displayName: 'Analytical Engines'}) \
+             CREATE (p)-[:WORKS_AT]->(c)",
+            &Default::default(),
+        )
+        .expect("connect fragment members");
+
+    let rows = session
+        .query(
+            "MATCH (n:Nameable) RETURN n.displayName ORDER BY n.displayName",
+            &Default::default(),
+        )
+        .expect("scan fragment members");
+    assert_eq!(
+        rows,
+        vec![
+            vec![turso_graph_frontend::Value::Text("Ada".into())],
+            vec![turso_graph_frontend::Value::Text(
+                "Analytical Engines".into()
+            )],
+            vec![turso_graph_frontend::Value::Text(
+                "Enchantress of Numbers".into()
+            )],
+        ]
+    );
+
+    let people = session
+        .query(
+            "MATCH (n:Person:Nameable) RETURN n.displayName",
+            &Default::default(),
+        )
+        .expect("conjoin concrete and fragment labels");
+    assert_eq!(
+        people,
+        vec![vec![turso_graph_frontend::Value::Text("Ada".into())]]
+    );
+    let natural_nameables = session
+        .query(
+            "MATCH (n:Nameable:NaturalPerson) RETURN n.displayName",
+            &Default::default(),
+        )
+        .expect("intersect two fragment membership sets");
+    assert_eq!(
+        natural_nameables,
+        vec![vec![turso_graph_frontend::Value::Text("Ada".into())]]
+    );
+    let expanded = session
+        .query(
+            "MATCH (:Person)-[:WORKS_AT]->(n:Nameable) RETURN n.displayName",
+            &Default::default(),
+        )
+        .expect("enforce a fragment label on an expansion target");
+    assert_eq!(
+        expanded,
+        vec![vec![turso_graph_frontend::Value::Text(
+            "Analytical Engines".into()
+        )]]
+    );
+
+    let partial_property =
+        match session.prepare("MATCH (n:Nameable) RETURN n.age", &Default::default()) {
+            Ok(_) => panic!("a property owned by only one fragment member must be ambiguous"),
+            Err(error) => error,
+        };
+    assert!(
+        partial_property
+            .to_string()
+            .contains("owned by [\"Person\"] but not by"),
+        "{partial_property}"
+    );
+}
+
+#[test]
+fn fragment_scans_bind_as_union_of_concrete_node_scans() {
+    let connection = fragment_connection();
+    let graph = load_registered_graph(&connection, "fragments").expect("load graph");
+    let semantic = Arc::new(
+        load_semantic_snapshot(&connection, &graph)
+            .expect("load snapshot")
+            .expect("semantic schema"),
+    );
+    let fragment_id = semantic
+        .fragment("Nameable")
+        .expect("fragment identity")
+        .fragment_id;
+    let expected_type_ids = ["Person", "Company", "Alias"]
+        .map(|name| semantic.node_type(name).expect("concrete type").type_id);
+    let catalog = SchemaCatalog::with_semantic(connection, graph.clone(), Some(semantic));
+    let syntax = turso_graph_cypher::parse("MATCH (n:Nameable) RETURN n").expect("parse query");
+    let bound = bind(&syntax, graph.id, &catalog, &Default::default()).expect("bind query");
+
+    let inputs = first_union_inputs(&bound.plan).expect("fragment scan must use Union");
+    assert_eq!(inputs.len(), expected_type_ids.len());
+    let mut actual_type_ids = inputs
+        .iter()
+        .map(|input| match input.kind() {
+            turso_graph_ir::PlanKind::NodeScan(scan) => {
+                assert_eq!(scan.labels.len(), 1);
+                assert_ne!(scan.labels[0].get(), fragment_id);
+                scan.labels[0].get()
+            }
+            other => panic!("Union branch must be a concrete NodeScan, got {other:?}"),
+        })
+        .collect::<Vec<_>>();
+    actual_type_ids.sort_unstable();
+    let mut expected_type_ids = expected_type_ids.to_vec();
+    expected_type_ids.sort_unstable();
+    assert_eq!(actual_type_ids, expected_type_ids);
+}
+
+#[test]
+fn fragments_are_not_instantiable_and_membership_is_checked() {
+    let session = fragment_session();
+    let fragment_only = session
+        .execute(
+            "CREATE (:Nameable {displayName: 'invalid'})",
+            &Default::default(),
+        )
+        .expect_err("fragment-only creation must fail");
+    assert!(
+        fragment_only
+            .to_string()
+            .contains("exactly one semantic type"),
+        "{fragment_only}"
+    );
+
+    let unrelated = session
+        .execute(
+            "CREATE (:Company:NaturalPerson {displayName: 'invalid'})",
+            &Default::default(),
+        )
+        .expect_err("concrete type must carry every written fragment");
+    assert!(
+        unrelated
+            .to_string()
+            .contains("have no common concrete node type"),
+        "{unrelated}"
+    );
+}
+
+#[test]
+fn fragment_merge_requires_one_concrete_type_and_carried_fragments() {
+    let session = fragment_session();
+    let merge = "MERGE (:Person:Nameable:NaturalPerson {displayName: 'Ada', age: 1815})";
+    session
+        .execute(merge, &Default::default())
+        .expect("first merge");
+    session
+        .execute(merge, &Default::default())
+        .expect("matching merge");
+    let rows = session
+        .query(
+            "MATCH (n:Nameable:NaturalPerson) RETURN n.displayName, n.age",
+            &Default::default(),
+        )
+        .expect("read merged fragment member");
+    assert_eq!(
+        rows,
+        vec![vec![
+            turso_graph_frontend::Value::Text("Ada".into()),
+            turso_graph_frontend::Value::Numeric(turso_graph_frontend::Numeric::Integer(1815),),
+        ]]
+    );
+
+    let fragment_only = session
+        .execute(
+            "MERGE (:Nameable {displayName: 'invalid'})",
+            &Default::default(),
+        )
+        .expect_err("a fragment cannot become the MERGE instance type");
+    assert!(matches!(
+        fragment_only,
+        FrontendError::Mutation(MutationError::Bind(BindError::MissingSemanticType {
+            entity: "node",
+            ..
+        }))
+    ));
+
+    let unrelated = session
+        .execute(
+            "MERGE (:Company:NaturalPerson {displayName: 'invalid'})",
+            &Default::default(),
+        )
+        .expect_err("the concrete type must carry every MERGE fragment");
+    assert!(matches!(
+        unrelated,
+        FrontendError::Mutation(MutationError::Bind(
+            BindError::IncompatibleSemanticLabels { names, .. }
+        )) if names == vec!["Company", "NaturalPerson"]
+    ));
+}
+
+#[test]
+fn fragment_snapshot_precomputes_members_properties_and_endpoint_expansion() {
+    let connection = connection();
+    registered_graph(&connection);
+    let schema = SemanticSchemaRegistration {
+        node_types: semantic_registration().node_types,
+        relationship_types: vec![SemanticRelationshipType {
+            name: "TRADES_WITH".to_owned(),
+            source: "edges_src".to_owned(),
+            start: vec!["Party".to_owned()],
+            end: vec!["Party".to_owned()],
+            properties: Vec::new(),
+        }],
+    };
+    let fragments = SemanticFragmentRegistration {
+        fragments: vec![SemanticFragment {
+            name: "Party".to_owned(),
+            properties: vec!["displayName".to_owned()],
+            members: vec![
+                SemanticFragmentMember {
+                    node_type: "Customer".to_owned(),
+                    properties: vec![SemanticProperty {
+                        name: "displayName".to_owned(),
+                        column: "full_name".to_owned(),
+                    }],
+                },
+                SemanticFragmentMember {
+                    node_type: "Supplier".to_owned(),
+                    properties: vec![SemanticProperty {
+                        name: "displayName".to_owned(),
+                        column: "full_name".to_owned(),
+                    }],
+                },
+            ],
+        }],
+    };
+
+    register_semantic_schema_with_fragments(&connection, "social", &schema, &fragments)
+        .expect("register fragment endpoint schema");
+    register_semantic_schema_with_fragments(&connection, "social", &schema, &fragments)
+        .expect("identical replay is idempotent");
+    let mut conflicting = fragments.clone();
+    conflicting.fragments[0].members.pop();
+    assert!(matches!(
+        register_semantic_schema_with_fragments(&connection, "social", &schema, &conflicting),
+        Err(SemanticCatalogError::ConflictingSchema(name)) if name == "social"
+    ));
+    register_semantic_schema_with_fragments(&connection, "social", &schema, &fragments)
+        .expect("conflicting replay left the catalog unchanged");
+    let session = turso_graph_frontend::Connection::open(connection.clone(), "social")
+        .expect("open fragment endpoint graph");
+    session
+        .execute(
+            "CREATE (:Supplier:Party {displayName: 'Supplier'})\
+                    -[:TRADES_WITH]->\
+                    (:Customer:Party {displayName: 'Customer'})",
+            &Default::default(),
+        )
+        .expect("expanded fragment endpoints permit every member type");
+    drop(session);
+    let graph = load_registered_graph(&connection, "social").expect("reload graph");
+    let snapshot = load_semantic_snapshot(&connection, &graph)
+        .expect("load semantic snapshot")
+        .expect("semantic schema exists");
+    let party = snapshot.fragment("party").expect("fragment resolves");
+    assert_eq!(party.member_type_ids(), &[1, 2]);
+    assert!(snapshot
+        .node_type("Customer")
+        .expect("customer type")
+        .property("displayName")
+        .is_some());
+    let endpoints = snapshot
+        .endpoints(turso_graph_ir::RelationshipTypeId::new(1).expect("relationship type id"))
+        .expect("expanded endpoints");
+    assert_eq!(endpoints.start, vec![1, 2]);
+    assert_eq!(endpoints.end, vec![1, 2]);
+}
+
+#[test]
+fn fragment_reopen_preserves_noncolliding_ids_properties_memberships_and_endpoints() {
+    let database = Database::open_file(
+        Arc::new(MemoryIO::new()),
+        ":memory:fragment-schema-reopen",
+        Arc::new(SqliteDialect),
+    )
+    .expect("open database");
+    let connection = database.connect().expect("first connection");
+    register_fragment_graph(&connection);
+    let mut schema = fragment_schema();
+    schema.relationship_types[0].start = vec!["NaturalPerson".to_owned()];
+    schema.relationship_types[0].end = vec!["Employer".to_owned()];
+    let mut fragments = fragment_registration();
+    fragments.fragments.push(SemanticFragment {
+        name: "Employer".to_owned(),
+        properties: Vec::new(),
+        members: vec![SemanticFragmentMember {
+            node_type: "Company".to_owned(),
+            properties: Vec::new(),
+        }],
+    });
+    register_semantic_schema_with_fragments(&connection, "fragments", &schema, &fragments)
+        .expect("register fragment schema");
+
+    let graph = load_registered_graph(&connection, "fragments").expect("load graph");
+    let first = load_semantic_snapshot(&connection, &graph)
+        .expect("load snapshot")
+        .expect("semantic schema");
+    let concrete_ids = ["Person", "Company", "Alias"]
+        .map(|name| first.node_type(name).expect("concrete type").type_id);
+    let nameable_id = first
+        .fragment("Nameable")
+        .expect("Nameable fragment")
+        .fragment_id;
+    let natural_person_id = first
+        .fragment("NaturalPerson")
+        .expect("NaturalPerson fragment")
+        .fragment_id;
+    let employer_id = first
+        .fragment("Employer")
+        .expect("Employer fragment")
+        .fragment_id;
+    for fragment_id in [nameable_id, natural_person_id, employer_id] {
+        assert!(
+            !concrete_ids.contains(&fragment_id),
+            "fragment identity {fragment_id} collided with a concrete type"
+        );
+    }
+    assert_ne!(nameable_id, natural_person_id);
+    assert_ne!(nameable_id, employer_id);
+    assert_ne!(natural_person_id, employer_id);
+
+    let person_property = first
+        .node_type("Person")
+        .and_then(|type_info| type_info.property("displayName"))
+        .expect("fragment-contributed Person property");
+    let company_property = first
+        .node_type("Company")
+        .and_then(|type_info| type_info.property("displayName"))
+        .expect("fragment-contributed Company property");
+    let display_name_id = person_property.id;
+    assert_eq!(company_property.id, display_name_id);
+    assert_eq!(person_property.column, "person_name");
+    assert_eq!(company_property.column, "company_name");
+    let relationship_id = first
+        .relationship_type("WORKS_AT")
+        .expect("relationship type")
+        .type_id;
+    let endpoints = first
+        .endpoints(
+            turso_graph_ir::RelationshipTypeId::new(relationship_id).expect("relationship type id"),
+        )
+        .expect("expanded endpoints");
+    assert_eq!(endpoints.start, vec![concrete_ids[0]]);
+    assert_eq!(endpoints.end, vec![concrete_ids[1]]);
+
+    drop(connection);
+    let reopened = database.connect().expect("reopen connection");
+    let graph = load_registered_graph(&reopened, "fragments").expect("reload graph");
+    let second = load_semantic_snapshot(&reopened, &graph)
+        .expect("reload snapshot")
+        .expect("semantic schema");
+    assert_eq!(
+        second
+            .fragment("nameable")
+            .expect("reopened Nameable")
+            .fragment_id,
+        nameable_id
+    );
+    assert_eq!(
+        second
+            .fragment("NaturalPerson")
+            .expect("reopened NaturalPerson")
+            .member_type_ids(),
+        &[concrete_ids[0]]
+    );
+    assert_eq!(
+        second
+            .fragment("Employer")
+            .expect("reopened Employer")
+            .member_type_ids(),
+        &[concrete_ids[1]]
+    );
+    let reopened_person_property = second
+        .node_type("Person")
+        .and_then(|type_info| type_info.property("displayName"))
+        .expect("reopened Person property");
+    let reopened_company_property = second
+        .node_type("Company")
+        .and_then(|type_info| type_info.property("displayName"))
+        .expect("reopened Company property");
+    assert_eq!(reopened_person_property.id, display_name_id);
+    assert_eq!(reopened_company_property.id, display_name_id);
+    assert_eq!(reopened_person_property.column, "person_name");
+    assert_eq!(reopened_company_property.column, "company_name");
+    let endpoints = second
+        .endpoints(
+            turso_graph_ir::RelationshipTypeId::new(relationship_id).expect("relationship type id"),
+        )
+        .expect("reopened expanded endpoints");
+    assert_eq!(endpoints.start, vec![concrete_ids[0]]);
+    assert_eq!(endpoints.end, vec![concrete_ids[1]]);
+}
+
+#[test]
+fn fragment_endpoint_expansion_rejects_physical_source_mismatches() {
+    let connection = connection();
+    register_fragment_graph(&connection);
+    let mut schema = fragment_schema();
+    schema.relationship_types[0].start = vec!["Nameable".to_owned()];
+
+    let error = register_semantic_schema_with_fragments(
+        &connection,
+        "fragments",
+        &schema,
+        &fragment_registration(),
+    )
+    .expect_err("Nameable includes Company, which cannot occupy employment.person_id");
+    assert!(matches!(
+        error,
+        SemanticCatalogError::EndpointSourceMismatch {
+            relationship_type,
+            endpoint: "start",
+            node_type,
+            actual_source,
+            relationship_source,
+            required_source,
+        } if relationship_type.as_ref() == "WORKS_AT"
+            && node_type.as_ref() == "Company"
+            && actual_source.as_ref() == "companies_src"
+            && relationship_source.as_ref() == "employment_src"
+            && required_source.as_ref() == "people_src"
+    ));
+}
+
+#[test]
+fn fragment_registration_upgrades_an_identical_fragment_free_schema() {
+    let connection = connection();
+    registered_graph(&connection);
+    let schema = semantic_registration();
+    register_semantic_schema(&connection, "social", &schema).expect("register base schema");
+    let fragments = SemanticFragmentRegistration {
+        fragments: vec![SemanticFragment {
+            name: "Party".to_owned(),
+            properties: vec!["displayName".to_owned()],
+            members: vec![
+                SemanticFragmentMember {
+                    node_type: "Customer".to_owned(),
+                    properties: vec![SemanticProperty {
+                        name: "displayName".to_owned(),
+                        column: "full_name".to_owned(),
+                    }],
+                },
+                SemanticFragmentMember {
+                    node_type: "Supplier".to_owned(),
+                    properties: vec![SemanticProperty {
+                        name: "displayName".to_owned(),
+                        column: "full_name".to_owned(),
+                    }],
+                },
+            ],
+        }],
+    };
+
+    register_semantic_schema_with_fragments(&connection, "social", &schema, &fragments)
+        .expect("add first fragment definition");
+    register_semantic_schema_with_fragments(&connection, "social", &schema, &fragments)
+        .expect("fragment upgrade replay is idempotent");
+    register_semantic_schema(&connection, "social", &schema)
+        .expect("legacy base-schema replay remains idempotent");
+    let graph = load_registered_graph(&connection, "social").expect("reload graph");
+    let snapshot = load_semantic_snapshot(&connection, &graph)
+        .expect("load upgraded snapshot")
+        .expect("semantic schema");
+    assert_eq!(
+        snapshot
+            .fragment("Party")
+            .expect("upgraded fragment")
+            .member_type_ids(),
+        &[1, 2]
+    );
+}
+
+#[test]
+fn fragment_registration_rejects_collisions_and_invalid_property_mappings() {
+    let connection = connection();
+    registered_graph(&connection);
+    let schema = semantic_registration();
+
+    let collision = SemanticFragmentRegistration {
+        fragments: vec![SemanticFragment {
+            name: "Customer".to_owned(),
+            properties: Vec::new(),
+            members: vec![SemanticFragmentMember {
+                node_type: "Customer".to_owned(),
+                properties: Vec::new(),
+            }],
+        }],
+    };
+    assert!(matches!(
+        register_semantic_schema_with_fragments(&connection, "social", &schema, &collision),
+        Err(SemanticCatalogError::DuplicateFragmentName { .. })
+    ));
+
+    let missing = SemanticFragmentRegistration {
+        fragments: vec![SemanticFragment {
+            name: "Named".to_owned(),
+            properties: vec!["displayName".to_owned()],
+            members: vec![SemanticFragmentMember {
+                node_type: "Customer".to_owned(),
+                properties: Vec::new(),
+            }],
+        }],
+    };
+    assert!(matches!(
+        register_semantic_schema_with_fragments(&connection, "social", &schema, &missing),
+        Err(SemanticCatalogError::MissingFragmentProperty { .. })
+    ));
+
+    let valid = SemanticFragmentRegistration {
+        fragments: vec![SemanticFragment {
+            name: "Named".to_owned(),
+            properties: vec!["displayName".to_owned()],
+            members: vec![SemanticFragmentMember {
+                node_type: "Customer".to_owned(),
+                properties: vec![SemanticProperty {
+                    name: "displayName".to_owned(),
+                    column: "full_name".to_owned(),
+                }],
+            }],
+        }],
+    };
+    let mut unknown_member = valid.clone();
+    unknown_member.fragments[0].members[0].node_type = "Ghost".to_owned();
+    assert!(matches!(
+        register_semantic_schema_with_fragments(
+            &connection,
+            "social",
+            &schema,
+            &unknown_member
+        ),
+        Err(SemanticCatalogError::UnknownFragmentMember {
+            fragment,
+            node_type,
+        }) if fragment == "Named" && node_type == "Ghost"
+    ));
+
+    let mut duplicate_member = valid.clone();
+    let duplicate = duplicate_member.fragments[0].members[0].clone();
+    duplicate_member.fragments[0].members.push(duplicate);
+    assert!(matches!(
+        register_semantic_schema_with_fragments(
+            &connection,
+            "social",
+            &schema,
+            &duplicate_member
+        ),
+        Err(SemanticCatalogError::DuplicateFragmentMember {
+            fragment,
+            node_type,
+        }) if fragment == "Named" && node_type == "Customer"
+    ));
+
+    let mut empty_fragment = valid.clone();
+    empty_fragment.fragments[0].members.clear();
+    assert!(matches!(
+        register_semantic_schema_with_fragments(
+            &connection,
+            "social",
+            &schema,
+            &empty_fragment
+        ),
+        Err(SemanticCatalogError::EmptyFragment { fragment }) if fragment == "Named"
+    ));
+
+    let mut duplicate_fragment = valid.clone();
+    let mut duplicate = duplicate_fragment.fragments[0].clone();
+    duplicate.name = "nAmEd".to_owned();
+    duplicate_fragment.fragments.push(duplicate);
+    assert!(matches!(
+        register_semantic_schema_with_fragments(
+            &connection,
+            "social",
+            &schema,
+            &duplicate_fragment
+        ),
+        Err(SemanticCatalogError::DuplicateFragmentName { name }) if name == "nAmEd"
+    ));
+
+    let mut extra_mapping = valid.clone();
+    extra_mapping.fragments[0].members[0]
+        .properties
+        .push(SemanticProperty {
+            name: "ghost".to_owned(),
+            column: "birth_year".to_owned(),
+        });
+    assert!(matches!(
+        register_semantic_schema_with_fragments(
+            &connection,
+            "social",
+            &schema,
+            &extra_mapping
+        ),
+        Err(SemanticCatalogError::UndeclaredFragmentProperty {
+            fragment,
+            node_type,
+            property,
+        }) if fragment.as_ref() == "Named"
+            && node_type.as_ref() == "Customer"
+            && property.as_ref() == "ghost"
+    ));
+
+    let conflicting = SemanticFragmentRegistration {
+        fragments: vec![SemanticFragment {
+            name: "Named".to_owned(),
+            properties: vec!["displayName".to_owned()],
+            members: vec![SemanticFragmentMember {
+                node_type: "Customer".to_owned(),
+                properties: vec![SemanticProperty {
+                    name: "displayName".to_owned(),
+                    column: "supplier_name".to_owned(),
+                }],
+            }],
+        }],
+    };
+    assert!(matches!(
+        register_semantic_schema_with_fragments(&connection, "social", &schema, &conflicting),
+        Err(SemanticCatalogError::ConflictingPropertyMapping { .. })
+    ));
+
+    let incompatible = SemanticFragmentRegistration {
+        fragments: vec![SemanticFragment {
+            name: "Shared".to_owned(),
+            properties: vec!["shared".to_owned()],
+            members: vec![
+                SemanticFragmentMember {
+                    node_type: "Customer".to_owned(),
+                    properties: vec![SemanticProperty {
+                        name: "shared".to_owned(),
+                        column: "full_name".to_owned(),
+                    }],
+                },
+                SemanticFragmentMember {
+                    node_type: "Supplier".to_owned(),
+                    properties: vec![SemanticProperty {
+                        name: "shared".to_owned(),
+                        column: "birth_year".to_owned(),
+                    }],
+                },
+            ],
+        }],
+    };
+    assert!(matches!(
+        register_semantic_schema_with_fragments(&connection, "social", &schema, &incompatible),
+        Err(SemanticCatalogError::IncompatiblePropertyType { .. })
+    ));
+
+    register_semantic_schema_with_fragments(&connection, "social", &schema, &valid)
+        .expect("all rejected registrations left the catalog clean");
 }

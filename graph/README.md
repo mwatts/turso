@@ -26,8 +26,9 @@ cypher   runtime
 ## Quickstart
 
 Full consumer guide — registration, sessions, parameters, transactions,
-semantic schemas and their direct-SQL integrity boundary, traversal snapshots
-— lives in [`docs/graph.md`](../docs/graph.md).
+semantic schemas, fragment-interface polymorphism, the direct-SQL integrity
+boundary, and traversal snapshots — lives in
+[`docs/graph.md`](../docs/graph.md).
 
 ```rust
 let (io, db) = turso_graph_frontend::open_database(

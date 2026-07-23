@@ -6,7 +6,9 @@ use turso_core::{
 };
 use turso_graph_ir as ir;
 
-use crate::binder::{CatalogEntity, GraphCatalogSnapshot, PropertyResolution, ResolvedProperty};
+use crate::binder::{
+    CatalogEntity, GraphCatalogSnapshot, PropertyResolution, ResolvedNodeType, ResolvedProperty,
+};
 use crate::catalog::{RegisteredGraph, RegisteredNodeSource, RegisteredRelationshipSource};
 use crate::lowering::{NodeTableLayout, RelationalCatalogSnapshot, RelationshipTableLayout};
 use crate::semantic::{OwnedProperty, SemanticSnapshot, SemanticTypeInfo};
@@ -466,7 +468,9 @@ impl GraphCatalogSnapshot for SchemaCatalog {
         if let Some(semantic) = &self.semantic {
             return semantic
                 .node_type(name)
-                .and_then(|type_info| ir::LabelId::new(type_info.type_id).ok());
+                .map(|type_info| type_info.type_id)
+                .or_else(|| semantic.fragment(name).map(|fragment| fragment.fragment_id))
+                .and_then(|id| ir::LabelId::new(id).ok());
         }
         let index = self
             .graph
@@ -537,16 +541,47 @@ impl GraphCatalogSnapshot for SchemaCatalog {
         if graph != self.graph.id {
             return None;
         }
-        self.semantic
-            .as_ref()
-            .and_then(|semantic| semantic.node_type_by_id(label))
-            .map(|type_info| type_info.source)
-            .or_else(|| {
-                self.graph
-                    .node_sources
-                    .get((label.get() as usize).checked_sub(1)?)
-                    .map(|source| source.id)
-            })
+        if let Some(semantic) = &self.semantic {
+            return semantic
+                .node_type_by_id(label)
+                .map(|type_info| type_info.source);
+        }
+        self.graph
+            .node_sources
+            .get((label.get() as usize).checked_sub(1)?)
+            .map(|source| source.id)
+    }
+
+    fn semantic_node_types_for_labels(
+        &self,
+        graph: ir::GraphId,
+        labels: &[ir::LabelId],
+    ) -> Option<Vec<ResolvedNodeType>> {
+        if graph != self.graph.id {
+            return None;
+        }
+        let semantic = self.semantic.as_ref()?;
+        Some(
+            semantic
+                .node_types_for_labels(labels)
+                .into_iter()
+                .filter_map(|type_info| {
+                    Some(ResolvedNodeType {
+                        label: ir::LabelId::new(type_info.type_id).ok()?,
+                        name: type_info.name.clone(),
+                        source: type_info.source,
+                    })
+                })
+                .collect(),
+        )
+    }
+
+    fn node_label_is_fragment(&self, graph: ir::GraphId, label: ir::LabelId) -> bool {
+        graph == self.graph.id
+            && self
+                .semantic
+                .as_ref()
+                .is_some_and(|semantic| semantic.fragment_by_id(label).is_some())
     }
 
     fn relationship_source_for_type(
@@ -557,16 +592,15 @@ impl GraphCatalogSnapshot for SchemaCatalog {
         if graph != self.graph.id {
             return None;
         }
-        self.semantic
-            .as_ref()
-            .and_then(|semantic| semantic.relationship_type_by_id(relationship_type))
-            .map(|type_info| type_info.source)
-            .or_else(|| {
-                self.graph
-                    .relationship_sources
-                    .get((relationship_type.get() as usize).checked_sub(1)?)
-                    .map(|source| source.id)
-            })
+        if let Some(semantic) = &self.semantic {
+            return semantic
+                .relationship_type_by_id(relationship_type)
+                .map(|type_info| type_info.source);
+        }
+        self.graph
+            .relationship_sources
+            .get((relationship_type.get() as usize).checked_sub(1)?)
+            .map(|source| source.id)
     }
 
     fn resolve_owned_property(
@@ -625,7 +659,12 @@ impl RelationalCatalogSnapshot for SchemaCatalog {
         if let Some(semantic) = &self.semantic {
             return semantic
                 .node_type_by_id(label)
-                .map(|type_info| type_info.name.clone());
+                .map(|type_info| type_info.name.clone())
+                .or_else(|| {
+                    semantic
+                        .fragment_by_id(label)
+                        .map(|fragment| fragment.name.clone())
+                });
         }
         self.graph
             .node_sources
@@ -869,7 +908,10 @@ mod tests {
         GraphRegistration, NodeSourceRegistration, RelationshipSourceRegistration,
     };
     use crate::semantic::{
-        SemanticNodeType, SemanticProperty, SemanticSchemaRegistration, SEMANTIC_ENDPOINTS_TABLE,
+        SemanticFragment, SemanticFragmentMember, SemanticFragmentRegistration, SemanticNodeType,
+        SemanticProperty, SemanticSchemaRegistration, SEMANTIC_ENDPOINTS_TABLE,
+        SEMANTIC_FRAGMENTS_TABLE, SEMANTIC_FRAGMENT_MEMBERS_TABLE,
+        SEMANTIC_FRAGMENT_OWNERSHIP_TABLE, SEMANTIC_FRAGMENT_PROPERTIES_TABLE,
         SEMANTIC_OWNERSHIP_TABLE, SEMANTIC_PROPERTIES_TABLE, SEMANTIC_TYPES_TABLE,
     };
     use std::sync::Arc;
@@ -946,7 +988,7 @@ mod tests {
     fn preparation_uses_the_loaded_semantic_snapshot_without_catalog_queries() {
         let connection = connect(false);
         let graph = registered_social_graph(&connection);
-        crate::register_semantic_schema(
+        crate::register_semantic_schema_with_fragments(
             &connection,
             "social",
             &SemanticSchemaRegistration {
@@ -960,6 +1002,19 @@ mod tests {
                 }],
                 relationship_types: Vec::new(),
             },
+            &SemanticFragmentRegistration {
+                fragments: vec![SemanticFragment {
+                    name: "Named".to_owned(),
+                    properties: vec!["displayName".to_owned()],
+                    members: vec![SemanticFragmentMember {
+                        node_type: "Contact".to_owned(),
+                        properties: vec![SemanticProperty {
+                            name: "displayName".to_owned(),
+                            column: "name".to_owned(),
+                        }],
+                    }],
+                }],
+            },
         )
         .expect("register semantic schema");
         let semantic = crate::load_semantic_snapshot(&connection, &graph)
@@ -972,6 +1027,10 @@ mod tests {
             .execute("BEGIN IMMEDIATE")
             .expect("begin internal catalog teardown");
         for table in [
+            SEMANTIC_FRAGMENT_OWNERSHIP_TABLE,
+            SEMANTIC_FRAGMENT_PROPERTIES_TABLE,
+            SEMANTIC_FRAGMENT_MEMBERS_TABLE,
+            SEMANTIC_FRAGMENTS_TABLE,
             SEMANTIC_ENDPOINTS_TABLE,
             SEMANTIC_OWNERSHIP_TABLE,
             SEMANTIC_PROPERTIES_TABLE,
@@ -985,7 +1044,7 @@ mod tests {
             .expect("commit internal catalog teardown");
 
         let query = turso_graph_cypher::parse(
-            "MATCH (n:Contact) WHERE n.displayName = 'Ada' RETURN n.displayName",
+            "MATCH (n:Named) WHERE n.displayName = 'Ada' RETURN n.displayName",
         )
         .expect("parse query");
         let bound = crate::bind(&query, graph_id, &catalog, &Default::default())

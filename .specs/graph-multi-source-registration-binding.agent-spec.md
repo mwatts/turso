@@ -14,6 +14,8 @@ timeout_minutes: 240
 
 # TASK
 
+**Status: complete and validated (2026-07-23).**
+
 Implement end-to-end multi-source registration and binding for the Turso graph
 frontend without first-source fallbacks, identity collisions, or regressions to
 legacy and strict-semantic behavior.
@@ -276,18 +278,18 @@ unchanged and no result/history files changed.
 
 ## Success criteria
 
-- [ ] A graph with at least two node and two relationship sources registers and reopens with stable source IDs.
-- [ ] `MultipleSourcesUnsupported` no longer exists.
-- [ ] Typed node and relationship reads/writes hit only their mapped tables.
-- [ ] Unlabeled node scans return all rows from every source with `UNION ALL`.
-- [ ] Untyped relationship scans traverse every compatible relationship source.
-- [ ] Equal local identities in different sources do not cross-contaminate labels, types, properties, traversals, updates, or deletes.
-- [ ] Incoming, outgoing, and undirected traversal honor physical and semantic endpoint mappings.
-- [ ] Owner-aware property rejection and runtime value validation remain atomic across sources.
-- [ ] No production multi-source path depends on singular `node_source` or `relationship_source`.
-- [ ] Legacy single-source tests, smoke tests, and non-recorded donor corpus behavior remain unchanged.
-- [ ] Benchmarks report single-source and multi-source open/prepare time and allocations.
-- [ ] Formatting, focused tests, Clippy, and patch hygiene pass.
+- [x] A graph with at least two node and two relationship sources registers and reopens with stable source IDs.
+- [x] `MultipleSourcesUnsupported` no longer exists.
+- [x] Typed node and relationship reads/writes hit only their mapped tables.
+- [x] Unlabeled node scans return all rows from every source with `UNION ALL`.
+- [x] Untyped relationship scans traverse every compatible relationship source.
+- [x] Equal local identities in different sources do not cross-contaminate labels, types, properties, traversals, updates, or deletes.
+- [x] Incoming, outgoing, and undirected traversal honor physical and semantic endpoint mappings.
+- [x] Owner-aware property rejection and runtime value validation remain atomic across sources.
+- [x] No production multi-source path depends on singular `node_source` or `relationship_source`.
+- [x] Legacy single-source tests, smoke tests, and non-recorded donor corpus behavior remain unchanged.
+- [x] Benchmarks report single-source and multi-source open/prepare time and allocations.
+- [x] Formatting, focused tests, Clippy, and patch hygiene pass.
 
 ## Failure conditions
 

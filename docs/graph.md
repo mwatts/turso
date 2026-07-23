@@ -142,6 +142,63 @@ Graphs without semantic rows are not promoted and retain the legacy behavior.
 Semantic registration does not change canonical storage: property values remain
 in the application-owned source columns.
 
+### Fragment interfaces
+
+Fragments add reusable node-property interfaces and polymorphic scans without
+changing the existing semantic registration structs. Register the complete
+schema and fragment definition atomically:
+
+```rust
+use turso_graph_frontend::{
+    register_semantic_schema_with_fragments, SemanticFragment,
+    SemanticFragmentMember, SemanticFragmentRegistration,
+};
+
+let fragments = SemanticFragmentRegistration {
+    fragments: vec![SemanticFragment {
+        name: "Nameable".to_owned(),
+        properties: vec!["displayName".to_owned()],
+        members: vec![
+            SemanticFragmentMember {
+                node_type: "Person".to_owned(),
+                properties: vec![SemanticProperty {
+                    name: "displayName".to_owned(),
+                    column: "name".to_owned(),
+                }],
+            },
+        ],
+    }],
+};
+
+register_semantic_schema_with_fragments(
+    &conn,
+    "social",
+    &schema,
+    &fragments,
+)?;
+```
+
+Every member maps every declared fragment property onto a column on that
+concrete type's source. Fragment names and identities are graph-scoped,
+persisted, and case-insensitive. A fragment name cannot collide with a concrete
+semantic type.
+
+`MATCH (n:Nameable)` unions concrete member scans, including members backed by
+different physical sources. `MATCH (n:Person:Nameable)` is label-set
+intersection and selects `Person` only when `Person` carries `Nameable`.
+Fragments are interfaces, not abstract node instances: `CREATE` and `MERGE`
+still require one explicit concrete node type. A concrete label may be
+accompanied only by fragments that type carries.
+
+Relationship endpoint constraints may name a fragment. Registration expands
+that fragment to its concrete member-type set, while still checking that every
+member is compatible with the relationship source's physical endpoint.
+
+The fragment-aware call can also add the first fragment definition to an
+already registered semantic schema when the supplied base schema is identical.
+That upgrade is atomic and idempotent. Changing or removing a persisted
+fragment or membership remains an explicit future schema-evolution operation.
+
 ### Direct-SQL integrity boundary
 
 Semantic ownership, value-type, and endpoint checks are graph-frontend
@@ -153,9 +210,9 @@ constraints for direct SQL writers.
 If all writers must preserve semantic integrity, route writes through Cypher or
 enforce the same rules with physical schema constraints under application
 control. Direct-SQL enforcement, required/cardinality/key constraints,
-inheritance/polymorphism, schema evolution, and native n-ary relationships are
-deliberately deferred. This overlay does not claim TypeDB, TypeQL, or PERA
-compatibility.
+fragment-membership removal, broader schema evolution, and native n-ary
+relationships are deliberately deferred. This overlay does not claim TypeDB,
+TypeQL, or PERA compatibility.
 
 ## The session API
 

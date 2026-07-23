@@ -1,6 +1,14 @@
 # Graph Semantic Schema Overlay (Milestones 1-2) Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **Status: complete and validated as of 2026-07-23.** The checklist records
+> the delivered Milestones 1–2 implementation. Multi-source registration and
+> fragment-interface polymorphism subsequently completed the prerequisites for
+> Milestone 4; the parent agent spec is the authoritative next-work tracker.
+
+> **Historical execution note:** this plan originally required
+> `superpowers:subagent-driven-development` or
+> `superpowers:executing-plans`. Its checked steps are retained as delivery
+> history, not as instructions for new work.
 
 **Goal:** Add an opt-in semantic-schema catalog to the Turso graph frontend that decouples conceptual node/relationship/property types from physical source tables and validates typed ownership on reads and writes (spec Milestones 1-2 of `.specs/graph-semantic-schema-overlay.agent-spec.md`). The public registration API is the integration surface for downstream consumers such as the tessera-turso adapter (planned separately, in the tessera repository), which will depend on `turso_graph_frontend` directly and call `register_semantic_schema`. The registration structs also derive serde as a secondary convenience so tooling can cache, inspect, or transport a registration as JSON.
 
@@ -71,7 +79,7 @@ Task order below follows the spec's implementation pipeline (Phases 1-4). Tasks 
 **Interfaces:**
 - Produces: `SemanticSchemaRegistration { node_types, relationship_types }`, `SemanticNodeType { name, source, properties }`, `SemanticRelationshipType { name, source, start, end, properties }`, `SemanticProperty { name, column }`, `SemanticCatalogError`, `fn validate_semantic_registration(&SemanticSchemaRegistration, &RegisteredGraph) -> Result<(), SemanticCatalogError>`. All registration structs derive `Serialize, Deserialize`.
 
-- [ ] **Step 1: Record baseline** (spec Slice 0.1)
+- [x] **Step 1: Record baseline** (spec Slice 0.1)
 
 Run and save output to the task log — these must be green before and after every task:
 ```bash
@@ -80,11 +88,11 @@ rtk cargo test -p turso_graph_testkit
 ```
 Expected: PASS (record any pre-existing failures verbatim; do not fix them).
 
-- [ ] **Step 2: Add serde dependency**
+- [x] **Step 2: Add serde dependency**
 
 In `graph/frontend/Cargo.toml` under `[dependencies]` (match existing workspace-dep style used by sibling crates — check root `Cargo.toml` `[workspace.dependencies]` for a serde entry first; if present use `serde = { workspace = true, features = ["derive"] }`, otherwise `serde = { version = "1", features = ["derive"] }`).
 
-- [ ] **Step 3: Write failing unit tests for input validation**
+- [x] **Step 3: Write failing unit tests for input validation**
 
 Create `graph/frontend/src/semantic.rs` with the types and a `#[cfg(test)]` module. Tests first (they fail to compile until types exist — that is the failing state for pure-type tasks):
 
@@ -168,7 +176,7 @@ mod tests {
 
 Add `serde_json` to `[dev-dependencies]` in `graph/frontend/Cargo.toml` for the round-trip test.
 
-- [ ] **Step 4: Implement the types and shape validation**
+- [x] **Step 4: Implement the types and shape validation**
 
 ```rust
 //! Opt-in semantic schema catalog: conceptual node/relationship/property
@@ -364,12 +372,12 @@ pub use semantic::{
 };
 ```
 
-- [ ] **Step 5: Run tests**
+- [x] **Step 5: Run tests**
 
 Run: `rtk cargo test -p turso_graph_frontend semantic`
 Expected: PASS (all 5 new tests).
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add graph/frontend/src/semantic.rs graph/frontend/src/lib.rs graph/frontend/Cargo.toml Cargo.lock
@@ -431,7 +439,7 @@ Notes locked in here (spec Slice 0.2 checkpoint items):
 - Relationship types keep their own dense ID space (RelationshipTypeId), disjoint from labels.
 - Registering a semantic schema bumps the graph generation (`UPDATE __turso_graph_generations SET generation = generation + 1 WHERE graph_id = ?`) so existing traversal snapshots (which validate against generation) rebuild rather than silently carrying legacy identities. `GRAPH_CATALOG_VERSION` (`catalog.rs:23`) stays 1: table additions are `IF NOT EXISTS`-additive and old code never reads them. State this decision in the commit body (spec M1 item 6).
 
-- [ ] **Step 1: Write failing integration tests**
+- [x] **Step 1: Write failing integration tests**
 
 Create `graph/frontend/tests/semantic_schema.rs`:
 
@@ -613,11 +621,11 @@ fn failed_registration_writes_no_catalog_rows() {
 Run: `rtk cargo test -p turso_graph_frontend --test semantic_schema`
 Expected: FAIL — `register_semantic_schema` not found.
 
-- [ ] **Step 2: Make `catalog.rs` SQL helpers `pub(crate)`**
+- [x] **Step 2: Make `catalog.rs` SQL helpers `pub(crate)`**
 
 In `catalog.rs`, change `fn query_rows` (`:826`), `fn execute_internal` (`:830`), `fn scalar_integer` (`:838`), `fn integer` (`:850`), `fn text` (`:863`), `fn sql_string` (`:894`) from private to `pub(crate) fn`. No other edits.
 
-- [ ] **Step 3: Implement registration**
+- [x] **Step 3: Implement registration**
 
 In `semantic.rs` add (uses only already-shown types plus catalog helpers):
 
@@ -790,12 +798,12 @@ fn check_owned_columns(
 
 Export in `lib.rs`: add `register_semantic_schema` to the `pub use semantic::{...}` list.
 
-- [ ] **Step 4: Run tests**
+- [x] **Step 4: Run tests**
 
 Run: `rtk cargo test -p turso_graph_frontend --test semantic_schema`
 Expected: PASS (all 5). Also `rtk cargo test -p turso_graph_frontend` — no regressions.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add graph/frontend/src/semantic.rs graph/frontend/src/catalog.rs graph/frontend/src/schema_catalog.rs graph/frontend/src/lib.rs graph/frontend/tests/semantic_schema.rs
@@ -856,7 +864,7 @@ pub fn load_semantic_snapshot(connection: &Arc<Connection>, graph: &RegisteredGr
 ```
 - `load_semantic_snapshot` returns `Ok(None)` when the semantic tables don't exist or hold no rows for this graph (legacy mode). Value types/nullability are derived at load time via `column_value_type` + the nullability rule from `schema_catalog.rs:293-302` (extract that too as `pub(crate) fn column_nullability(column: &Column) -> ir::Nullability` so both call sites share it). Loading fails loudly (`ColumnMissing`) if a mapped column no longer exists (spec risk: physical schema drift).
 
-- [ ] **Step 1: Write failing tests** (append to `tests/semantic_schema.rs`)
+- [x] **Step 1: Write failing tests** (append to `tests/semantic_schema.rs`)
 
 ```rust
 use turso_graph_frontend::load_semantic_snapshot;
@@ -908,13 +916,13 @@ fn legacy_graph_without_semantic_rows_loads_none() {
 Run: `rtk cargo test -p turso_graph_frontend --test semantic_schema`
 Expected: FAIL — `load_semantic_snapshot` not found.
 
-- [ ] **Step 2: Implement the loader**
+- [x] **Step 2: Implement the loader**
 
 Read all four tables for `graph.id` (guard: if `SEMANTIC_TYPES_TABLE` absent from `sqlite_schema`, return `Ok(None)`; zero rows for this graph also `Ok(None)`). Build the maps keyed by `fold(name)`. For each ownership row resolve the source's table via `graph.node_sources`/`relationship_sources` by `SourceTableId`, then the column via `table.get_column_by_name`, then value type/nullability via the extracted `column_value_type`/`column_nullability`. `PropertyId::new(property_id)`, `LabelId::new(type_id)` failures map to `InvalidCatalogValue`.
 
-- [ ] **Step 3: Run tests** — `rtk cargo test -p turso_graph_frontend --test semantic_schema` → PASS.
+- [x] **Step 3: Run tests** — `rtk cargo test -p turso_graph_frontend --test semantic_schema` → PASS.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add graph/frontend/src/semantic.rs graph/frontend/src/schema_catalog.rs graph/frontend/src/lib.rs graph/frontend/tests/semantic_schema.rs
@@ -1020,11 +1028,11 @@ let catalog = Arc::new(crate::SchemaCatalog::with_semantic(
 ));
 ```
 
-- [ ] **Step 1: Write failing inline tests** in `schema_catalog.rs` tests module: register the Task 2 semantic fixture, build `SchemaCatalog::with_semantic`, assert: `label` returns the persisted ID for "Customer" and `None` for the source name "people_src" (spec: physical spelling must NOT resolve); `resolve_owned_property` returns `Resolved` for `["Customer"]`+"displayName", `NotOwned` for `["Supplier"]`+"born", `Ambiguous` for `[]`+"born"; `property_column` maps (`people_src` id, PropertyId 1) → "full_name"; `label_name` round-trips — `label_name(label("Customer"))` returns "Customer" and `relationship_type_name(relationship_type("TRADES_WITH"))` returns "TRADES_WITH" (the inverse resolution feeds junction recording and label filters; the legacy `id - 1` indexing would fail this for persisted IDs).
-- [ ] **Step 2: Run** `rtk cargo test -p turso_graph_frontend schema_catalog` → FAIL.
-- [ ] **Step 3: Implement** trait additions + `SchemaCatalog` changes + session wiring as specified above. Export `PropertyResolution` from `lib.rs` (`pub use binder::{..., PropertyResolution}`).
-- [ ] **Step 4: Run** full crate tests: `rtk cargo test -p turso_graph_frontend` and `rtk cargo test -p turso_graph_testkit` (proves `DynamicCatalog` and mocks compile unchanged via defaults) → PASS.
-- [ ] **Step 5: Commit** — `git commit -S -m "feat(graph): semantic-mode catalog resolution behind GraphCatalogSnapshot"`
+- [x] **Step 1: Write failing inline tests** in `schema_catalog.rs` tests module: register the Task 2 semantic fixture, build `SchemaCatalog::with_semantic`, assert: `label` returns the persisted ID for "Customer" and `None` for the source name "people_src" (spec: physical spelling must NOT resolve); `resolve_owned_property` returns `Resolved` for `["Customer"]`+"displayName", `NotOwned` for `["Supplier"]`+"born", `Ambiguous` for `[]`+"born"; `property_column` maps (`people_src` id, PropertyId 1) → "full_name"; `label_name` round-trips — `label_name(label("Customer"))` returns "Customer" and `relationship_type_name(relationship_type("TRADES_WITH"))` returns "TRADES_WITH" (the inverse resolution feeds junction recording and label filters; the legacy `id - 1` indexing would fail this for persisted IDs).
+- [x] **Step 2: Run** `rtk cargo test -p turso_graph_frontend schema_catalog` → FAIL.
+- [x] **Step 3: Implement** trait additions + `SchemaCatalog` changes + session wiring as specified above. Export `PropertyResolution` from `lib.rs` (`pub use binder::{..., PropertyResolution}`).
+- [x] **Step 4: Run** full crate tests: `rtk cargo test -p turso_graph_frontend` and `rtk cargo test -p turso_graph_testkit` (proves `DynamicCatalog` and mocks compile unchanged via defaults) → PASS.
+- [x] **Step 5: Commit** — `git commit -S -m "feat(graph): semantic-mode catalog resolution behind GraphCatalogSnapshot"`
 
 ---
 
@@ -1055,7 +1063,7 @@ MultipleSemanticTypes { names: Vec<String>, span_start: usize, span_end: usize }
 
 The possible-type set for match bindings needs no new state: `EntityBinding.names` (`binder.rs:218-222`) already stores declared label/type names at binding time, for both MATCH and CREATE paths (`new_entity_binding` calls at `:1130`, `:1263`, and the read-path equivalents around `:1856-2001`). Later tasks read it via `self.entities`.
 
-- [ ] **Step 1: Write failing tests** (append to `tests/semantic_schema.rs`; helper `open()` builds a `GraphConnection` via `turso_graph_frontend::Connection::open` after registering graph + semantic schema):
+- [x] **Step 1: Write failing tests** (append to `tests/semantic_schema.rs`; helper `open()` builds a `GraphConnection` via `turso_graph_frontend::Connection::open` after registering graph + semantic schema):
 
 ```rust
 fn semantic_session() -> turso_graph_frontend::Connection {
@@ -1109,9 +1117,9 @@ fn legacy_graph_still_creates_untyped_nodes() {
 
 Run: `rtk cargo test -p turso_graph_frontend --test semantic_schema` → the three semantic tests FAIL (untyped create currently succeeds), legacy test PASSES.
 
-- [ ] **Step 2: Implement** changes 1-3 + the two `BindError` variants.
-- [ ] **Step 3: Run** the test file + full `rtk cargo test -p turso_graph_frontend` → PASS.
-- [ ] **Step 4: Commit** — `git commit -S -m "feat(graph): strict semantic type selection for CREATE/MERGE"`
+- [x] **Step 2: Implement** changes 1-3 + the two `BindError` variants.
+- [x] **Step 3: Run** the test file + full `rtk cargo test -p turso_graph_frontend` → PASS.
+- [x] **Step 4: Commit** — `git commit -S -m "feat(graph): strict semantic type selection for CREATE/MERGE"`
 
 ---
 
@@ -1180,7 +1188,7 @@ Known sites and their owner context:
    - Any read-path property-access site the `rg` sweep finds (property access in expressions resolves the variable binding first — take `names` from `self.entities.get(&binding_id)`; a property access on a non-entity value keeps its current error).
 3. Read-path narrowing: `MATCH (n:Customer)` already stores `["Customer"]` in `EntityBinding.names`; unlabeled `MATCH (n)` stores `[]`, which Task 4 defined as "all types" resolution. No extra narrowing logic is needed for Milestones 1-2.
 
-- [ ] **Step 1: Write failing tests:**
+- [x] **Step 1: Write failing tests:**
 
 ```rust
 #[test]
@@ -1241,9 +1249,9 @@ fn typed_reads_and_writes_still_work_in_semantic_mode() {
 
 Run → FAIL (unowned property reads/writes currently resolve by column name).
 
-- [ ] **Step 2: Implement** changes 1-3.
-- [ ] **Step 3: Run** the test file, then the full gate trio (`turso_graph_frontend`, `turso_graph_testkit`, smoke) — legacy behavior must be untouched because every legacy catalog resolves through the default `resolve_owned_property` ⇒ `Resolved`.
-- [ ] **Step 4: Commit** — `git commit -S -m "feat(graph): owner-aware semantic property resolution in binder"`
+- [x] **Step 2: Implement** changes 1-3.
+- [x] **Step 3: Run** the test file, then the full gate trio (`turso_graph_frontend`, `turso_graph_testkit`, smoke) — legacy behavior must be untouched because every legacy catalog resolves through the default `resolve_owned_property` ⇒ `Resolved`.
+- [x] **Step 4: Commit** — `git commit -S -m "feat(graph): owner-aware semantic property resolution in binder"`
 
 ---
 
@@ -1312,7 +1320,7 @@ if let Some((start_allowed, end_allowed)) = self
 
 (An unlabeled matched endpoint — `names` empty — fails closed with `InvalidEndpointType` when the endpoint is constrained: the binder cannot prove the type statically in Milestones 1-2.)
 
-- [ ] **Step 1: Failing tests:**
+- [x] **Step 1: Failing tests:**
 
 ```rust
 #[test]
@@ -1344,8 +1352,8 @@ fn endpoint_validation_covers_both_directions() {
 ```
 
 Run → FAIL.
-- [ ] **Step 2: Implement.** Run → PASS + full crate tests.
-- [ ] **Step 3: Commit** — `git commit -S -m "feat(graph): validate semantic relationship endpoints in both directions"`
+- [x] **Step 2: Implement.** Run → PASS + full crate tests.
+- [x] **Step 3: Commit** — `git commit -S -m "feat(graph): validate semantic relationship endpoints in both directions"`
 
 ---
 
@@ -1404,7 +1412,7 @@ fn check_static_property_value(
 
 Call sites: `bind_mutation_properties` (after the `bound_value` match, `:1465-1480`) and `bind_set_item`'s `SetItem::Property` arm (after `bound`, `:1316-1333`). Both already have the resolved property and value span in scope.
 
-- [ ] **Step 1: Failing tests:**
+- [x] **Step 1: Failing tests:**
 
 ```rust
 #[test]
@@ -1429,8 +1437,8 @@ fn statically_wrong_value_types_fail_at_bind_time() {
 (Adjust the parameter assertion to the actual prepare/execute API for mutations with parameters — `session.execute` with a `Parameters` map containing `b` → integer works end-to-end; the negative case is covered in Task 9.)
 
 Run → FAIL.
-- [ ] **Step 2: Implement.** Run → PASS + full crate suite.
-- [ ] **Step 3: Commit** — `git commit -S -m "feat(graph): bind-time static type checks for semantic property writes"`
+- [x] **Step 2: Implement.** Run → PASS + full crate suite.
+- [x] **Step 3: Commit** — `git commit -S -m "feat(graph): bind-time static type checks for semantic property writes"`
 
 ---
 
@@ -1498,7 +1506,7 @@ fn check_runtime_value(
 
 **Call sites:** every point in `mutation.rs` where a bound `ir::PropertyValue` (or SET value) has been evaluated to a concrete `Value` and is about to be written. Enumerate them with `rg -n "PropertyValue|SetProperty" graph/frontend/src/mutation.rs`; the create-node path, create-relationship path (`:1320-1340` area), `SetProperty` execution (`:975-1010` area), and merge ON CREATE/ON MATCH actions all funnel evaluated values into row writes — insert `check_runtime_value(catalog.as_ref(), source, property, &value)?` immediately after evaluation in each.
 
-- [ ] **Step 1: Failing tests:**
+- [x] **Step 1: Failing tests:**
 
 ```rust
 #[test]
@@ -1525,9 +1533,9 @@ fn wrong_parameter_values_fail_at_runtime_with_zero_partial_writes() {
 (Use the real `Parameters` re-export path — `lib.rs:39` exports `Parameters` from `mutation`.)
 
 Run → FAIL (bad value currently reaches SQL and either stores coerced or errors differently).
-- [ ] **Step 2: Implement** trait method + impl + validator + call-site insertion.
-- [ ] **Step 3: Run** test file + full crate suite → PASS.
-- [ ] **Step 4: Commit** — `git commit -S -m "feat(graph): runtime semantic validation for parameter values"`
+- [x] **Step 2: Implement** trait method + impl + validator + call-site insertion.
+- [x] **Step 3: Run** test file + full crate suite → PASS.
+- [x] **Step 4: Commit** — `git commit -S -m "feat(graph): runtime semantic validation for parameter values"`
 
 ---
 
@@ -1559,7 +1567,7 @@ UnknownDynamicKey { key: String },
 
 **Change:** in the `ir::Mutation::ReplacePropertiesDynamic` arm (`mutation.rs:1066`), before mutating any row: iterate the evaluated map's keys; in semantic mode (`semantic_property_for_key` returns `Some(..)`), resolve every key first — any `Some(None)` ⇒ `UnknownDynamicKey`; then `check_runtime_value` every value against its resolved type; only then proceed to the column updates (which now target the resolved columns rather than raw `payload_columns` names). All checks complete before the first UPDATE statement for the entity.
 
-- [ ] **Step 1: Failing tests:**
+- [x] **Step 1: Failing tests:**
 
 ```rust
 #[test]
@@ -1609,8 +1617,8 @@ fn one_invalid_row_in_a_staged_mutation_aborts_everything() {
 Before writing the first test, find the existing map-parameter representation: `rg -n "Value::" graph/frontend/src/mutation.rs | rg -i "map|json" | head` and mirror it (the `todo_value()` placeholder above MUST be replaced with that concrete constructor during this step — it is a test-authoring lookup, not an implementation unknown).
 
 Run → FAIL.
-- [ ] **Step 2: Implement.** Run → PASS + full crate suite.
-- [ ] **Step 3: Commit** — `git commit -S -m "feat(graph): atomic semantic validation for dynamic map mutations"`
+- [x] **Step 2: Implement.** Run → PASS + full crate suite.
+- [x] **Step 3: Commit** — `git commit -S -m "feat(graph): atomic semantic validation for dynamic map mutations"`
 
 ---
 
@@ -1619,7 +1627,7 @@ Run → FAIL.
 **Files:**
 - Test: extend `tests/semantic_schema.rs`; no production code expected (fixes only if the sweep finds regressions)
 
-- [ ] **Step 1: Snapshot-staleness test** (spec test matrix item 10):
+- [x] **Step 1: Snapshot-staleness test** (spec test matrix item 10):
 
 ```rust
 #[test]
@@ -1633,7 +1641,7 @@ fn semantic_registration_bumps_generation_so_snapshots_rebuild() {
 }
 ```
 
-- [ ] **Step 2: Run the full verification battery:**
+- [x] **Step 2: Run the full verification battery:**
 
 ```bash
 rtk cargo fmt --all -- --check
@@ -1647,7 +1655,7 @@ rtk git diff --check
 ```
 Expected: all PASS; corpus results match the Task 1 baseline (donor `DynamicCatalog` untouched — verify `git diff --stat graph/testkit/src/dynamic_catalog.rs` is empty).
 
-- [ ] **Step 3: Commit** — `git commit -S -m "test(graph): semantic overlay compatibility and snapshot-staleness coverage"`
+- [x] **Step 3: Commit** — `git commit -S -m "test(graph): semantic overlay compatibility and snapshot-staleness coverage"`
 
 ---
 
@@ -1657,17 +1665,17 @@ Expected: all PASS; corpus results match the Task 1 baseline (donor `DynamicCata
 - Modify: `docs/graph.md`, `graph/README.md`
 - Create: benchmark in the pattern the graph crates already use (`turso_graph_runtime` has divan dev-deps; check `graph/frontend/Cargo.toml` bench setup first — add `[[bench]]` with `#[turso_macros::divan_bench]` per the CLAUDE.md benchmark-naming rule)
 
-- [ ] **Step 1: Documentation.** Add to `docs/graph.md`: a registration example (the Task 2 fixture verbatim), the strict-mode validation behaviors with example error messages, legacy-mode guarantee, and this exact boundary statement (spec Slice 4.2 + MUST NOT list):
+- [x] **Step 1: Documentation.** Add to `docs/graph.md`: a registration example (the Task 2 fixture verbatim), the strict-mode validation behaviors with example error messages, legacy-mode guarantee, and this exact boundary statement (spec Slice 4.2 + MUST NOT list):
 
 > Semantic schema is an opt-in overlay validated by the graph frontend. It is inspired by TypeDB's conceptual data model but is not TypeDB, TypeQL, or PERA compatible: no inheritance (polymorphism, when it arrives in Milestone 3, is composition over fragment interfaces, not subtyping), no attribute instances, no named roles or n-ary relations, and no inference. Integrity is enforced for graph-frontend reads and writes plus any physical SQL constraints on the backing tables; direct SQL against backing tables is not semantically validated.
 
 Link from `graph/README.md` in one sentence.
 
-- [ ] **Step 2: Benchmark.** Measure `GraphConnection::open` (catalog + snapshot construction) and one `prepare` of `MATCH (c:Customer)-[t:TRADES_WITH]->(s:Supplier) RETURN c.displayName` for (a) legacy graph, (b) semantic graph. No pass/fail threshold (spec Slice 4.3) — the benchmark exists to catch accidental per-property catalog SQL later. Assert in a companion test that `load_semantic_snapshot` issues a bounded number of queries (≤ 5: one per semantic table + existence check).
+- [x] **Step 2: Benchmark.** Measure `GraphConnection::open` (catalog + snapshot construction) and one `prepare` of `MATCH (c:Customer)-[t:TRADES_WITH]->(s:Supplier) RETURN c.displayName` for (a) legacy graph, (b) semantic graph. No pass/fail threshold (spec Slice 4.3) — the benchmark exists to catch accidental per-property catalog SQL later. Assert in a companion test that `load_semantic_snapshot` issues a bounded number of queries (≤ 5: one per semantic table + existence check).
 
-- [ ] **Step 3: Final gates** (same battery as Task 11 Step 2) → all PASS.
+- [x] **Step 3: Final gates** (same battery as Task 11 Step 2) → all PASS.
 
-- [ ] **Step 4: Commit** — `git commit -S -m "docs(graph): semantic schema overlay usage and integrity boundary"`
+- [x] **Step 4: Commit** — `git commit -S -m "docs(graph): semantic schema overlay usage and integrity boundary"`
 
 ---
 

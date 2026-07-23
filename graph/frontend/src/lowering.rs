@@ -300,6 +300,12 @@ fn resolved_property_column(
     }
 }
 
+#[derive(Clone, Copy, Default)]
+struct MaterializationContext<'a> {
+    null_probe: Option<&'a str>,
+    semantic_types: Option<&'a [String]>,
+}
+
 /// Extra SELECT columns materializing a binding's wanted properties from
 /// `alias`, recording availability on the layout. Properties without a
 /// physical column fall back to subquery lowering.
@@ -310,13 +316,14 @@ fn materialize_properties(
     alias: &str,
     catalog: &dyn RelationalCatalogSnapshot,
     layout: &mut BindingLayout,
-    null_probe: Option<&str>,
+    context: MaterializationContext<'_>,
 ) -> String {
     let Some(properties) = wanted.get(&binding) else {
         return String::new();
     };
     let mut columns = String::new();
-    for (property, semantic_types) in properties {
+    for (property, wanted_semantic_types) in properties {
+        let semantic_types = context.semantic_types.or(wanted_semantic_types.as_deref());
         let Some(semantic_types) = semantic_types else {
             continue;
         };
@@ -324,6 +331,17 @@ fn materialize_properties(
             continue;
         };
         let Some(column) = resolved_property_column(catalog, source, semantic_types, id) else {
+            if matches!(
+                catalog.semantic_property_for_id(source, semantic_types, id),
+                Some(None)
+            ) {
+                // A label predicate can narrow a polymorphic binding after
+                // its Union scan is built. Sources excluded by that
+                // predicate still need a positional placeholder so every
+                // SQL set-operation branch retains the same shape.
+                columns.push_str(&format!(", NULL AS {}", property_column_ref(binding, id)));
+                layout.properties.insert(*property);
+            }
             continue;
         };
         let value = format!("{alias}.{}", quote_identifier(&column));
@@ -332,7 +350,7 @@ fn materialize_properties(
         } else {
             value
         };
-        let value = null_probe.map_or(value.clone(), |null_probe| {
+        let value = context.null_probe.map_or(value.clone(), |null_probe| {
             format!("CASE WHEN {null_probe} IS NULL THEN NULL ELSE {value} END")
         });
         columns.push_str(&format!(
@@ -1097,6 +1115,11 @@ fn lower_node_scan(
         kind: EntityKind::Node,
         properties: Default::default(),
     };
+    let scan_semantic_types = scan
+        .labels
+        .iter()
+        .filter_map(|label| catalog.label_name(*label))
+        .collect::<Vec<_>>();
     let extra = materialize_properties(
         wanted,
         scan.binding,
@@ -1104,7 +1127,11 @@ fn lower_node_scan(
         "n",
         catalog,
         &mut binding_layout,
-        None,
+        MaterializationContext {
+            semantic_types: (!scan_semantic_types.is_empty())
+                .then_some(scan_semantic_types.as_slice()),
+            ..MaterializationContext::default()
+        },
     );
     bindings.insert(scan.binding, binding_layout);
     let mut sql = format!(
@@ -1352,7 +1379,10 @@ fn lower_fixed_expand(
         relationship_alias,
         catalog,
         &mut relationship_layout,
-        optional_probe,
+        MaterializationContext {
+            null_probe: optional_probe,
+            ..MaterializationContext::default()
+        },
     );
     // A cycle-closing target has no node alias to materialize from;
     // downstream references go through the pre-bound variable instead.
@@ -1368,7 +1398,10 @@ fn lower_fixed_expand(
             target_alias,
             catalog,
             &mut to_layout,
-            optional_probe,
+            MaterializationContext {
+                null_probe: optional_probe,
+                ..MaterializationContext::default()
+            },
         ));
         bindings.insert(expand.to.id(), to_layout);
     }

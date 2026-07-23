@@ -113,6 +113,8 @@ Semantic schema is opt-in per registered graph.
 
 ### Milestone 1 — decouple conceptual types from physical sources
 
+**Status: complete and validated (2026-07-23).**
+
 Deliver an additive semantic catalog and snapshot representation:
 
 1. Persist stable graph-scoped identities for semantic node types, relationship types, and properties. Reuse the existing strong `LabelId`, `RelationshipTypeId`, and `PropertyId` identities if their invariants fit; do not create redundant ID families and never reuse `SourceTableId` as a conceptual identity.
@@ -131,6 +133,8 @@ First delivery restriction: each concrete semantic type maps to one source. The 
 
 ### Milestone 2 — typed ownership and semantic write validation
 
+**Status: complete and validated (2026-07-23).**
+
 Deliver strict validation only for graphs with a registered semantic schema:
 
 1. Track the possible semantic types of every node/relationship binding through the binder. Label/type predicates narrow that set.
@@ -145,6 +149,8 @@ Deliver strict validation only for graphs with a registered semantic schema:
 Milestone 2 does **not** introduce required/cardinality/key/unique/value constraints. Existing physical `NOT NULL`, `UNIQUE`, and `CHECK` constraints continue to work, but are not yet semantic constraints.
 
 ### Milestone 3 — fragment-interface polymorphism and polymorphic scans
+
+**Status: complete and validated (2026-07-23).**
 
 > **Amendment (2026-07-22).** This milestone originally specified single
 > inheritance with abstract types. It now specifies fragment-interface
@@ -162,7 +168,8 @@ Milestone 2 does **not** introduce required/cardinality/key/unique/value constra
 > comparison table: `tessera/.specs/tessera-turso.design-spec.md` (tessera repository)
 > section 8.4.
 
-Do not implement until Milestones 1-2 are merged and measured.
+**Entry condition: satisfied.** Milestones 1–2 were merged and measured before
+this milestone was implemented.
 
 1. Add an additive fragment catalog: fragment identities (graph-scoped,
    stable ID, case-insensitive name) and a type-to-fragment membership
@@ -193,6 +200,9 @@ Do not implement until Milestones 1-2 are merged and measured.
    conjunction is set intersection — no chain or specificity rules.
 
 ### Milestone 4 — constraints and safe additive evolution
+
+**Status: next.** Entry criteria are satisfied by the validated fragment
+semantics and the documented direct-SQL integrity boundary.
 
 Implement in this order: required/minimum cardinality, key, unique, range/value/regex, then broader cardinality.
 
@@ -493,23 +503,35 @@ Do not record a new conformance baseline merely to implement this feature. After
 
 ## Milestones 1-2 success criteria
 
-- [ ] Semantic type/property IDs are persisted and independent of physical source/column positions.
-- [ ] Two differently named conceptual types can share one physical source.
-- [ ] Existing `GraphRegistration` callers and legacy graphs behave unchanged.
-- [ ] Strict semantic reads reject unowned or ambiguous properties with source spans.
-- [ ] Every mutation path rejects unowned properties, incompatible values, missing/unknown/ambiguous types, and invalid endpoints.
-- [ ] Dynamic validation failures cause zero partial writes.
-- [ ] No binder or IR value contains physical table/column names.
-- [ ] Reopening the database reconstructs the same semantic identities and mappings.
-- [ ] Traversal snapshots cannot silently use incompatible catalog identities.
-- [ ] Tests, formatting, targeted Clippy, smoke corpus, and non-recorded corpus pass.
-- [ ] Documentation states the direct-SQL integrity boundary and all deferred semantics.
+Validation recorded on 2026-07-23:
+
+- semantic integration: 51/51 passed;
+- `turso_graph_frontend`: 190 passed;
+- `turso_graph_ir`: 10 passed;
+- `turso_graph_testkit`: 41 passed;
+- smoke corpus: 11/11 clean;
+- non-recorded deep corpus unchanged at 8,919 passed, 53 unsupported, and
+  1,270 failed;
+- workspace Clippy completed with zero errors; formatting and patch hygiene
+  checks passed.
+
+- [x] Semantic type/property IDs are persisted and independent of physical source/column positions.
+- [x] Two differently named conceptual types can share one physical source.
+- [x] Existing `GraphRegistration` callers and legacy graphs behave unchanged.
+- [x] Strict semantic reads reject unowned or ambiguous properties with source spans.
+- [x] Every mutation path rejects unowned properties, incompatible values, missing/unknown/ambiguous types, and invalid endpoints.
+- [x] Dynamic validation failures cause zero partial writes.
+- [x] No binder or IR value contains physical table/column names.
+- [x] Reopening the database reconstructs the same semantic identities and mappings.
+- [x] Traversal snapshots cannot silently use incompatible catalog identities.
+- [x] Tests, formatting, targeted Clippy, smoke corpus, and non-recorded corpus pass.
+- [x] Documentation states the direct-SQL integrity boundary and all deferred semantics.
 
 ## Later milestone entry criteria
 
 - **Multi-source registration and binding is the first post-Milestone-2 work item** (added 2026-07-22). Rationale: (1) any downstream schema toolchain that derives one table per conceptual type — the natural, constrainable layout — is blocked by the one-source-per-kind limit, which forces every node type into one shared sparse table; (2) the foedus single-database end state needs frames, cursors, and entities as differently-tabled types in one graph for provenance edges; (3) Milestone 3's polymorphic fragment scans union per-source scans and land on ready ground if multi-source exists first. The cost is lowest immediately after Milestones 1-2: the semantic catalog already routes CREATE/mutation paths through per-type source resolution (`node_source_for_label`/`relationship_source_for_type`), so multi-source is the completion of that seam — lift the `MultipleSourcesUnsupported` rejection, union unlabeled scans, and audit the remaining singular `node_source`/`relationship_source` call sites — not a fresh subsystem. It requires its own focused spec; the ban on broadening multi-source *incidentally* stands.
-- Milestone 3 starts only after Milestones 1-2 have a reviewed public API and prepare-time measurements; multi-source SHOULD land before it.
-- Milestone 4 starts only after fragment-interface polymorphism semantics and direct-SQL enforcement policy are explicit.
+- [x] Milestone 3 entry: Milestones 1-2 have a reviewed public API and prepare-time measurements, and multi-source support landed first.
+- [x] Milestone 4 entry: fragment-interface polymorphism semantics and the direct-SQL enforcement policy are explicit.
 - First-class attributes, n-ary relations, and inference each require their named ADR decision gate.
 
 ## Failure conditions

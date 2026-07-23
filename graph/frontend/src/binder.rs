@@ -17,6 +17,17 @@ pub struct ResolvedProperty {
     pub nullability: ir::Nullability,
 }
 
+/// One concrete semantic node type selected by a label conjunction.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct ResolvedNodeType {
+    /// Persisted concrete semantic label identity.
+    pub label: ir::LabelId,
+    /// Preserved conceptual spelling.
+    pub name: String,
+    /// Physical source mapped to this concrete type.
+    pub source: ir::SourceTableId,
+}
+
 /// Owner-aware property resolution for semantic graph bindings.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum PropertyResolution {
@@ -68,6 +79,18 @@ pub trait GraphCatalogSnapshot {
         _label: ir::LabelId,
     ) -> Option<ir::SourceTableId> {
         self.node_source(graph)
+    }
+
+    fn semantic_node_types_for_labels(
+        &self,
+        _graph: ir::GraphId,
+        _labels: &[ir::LabelId],
+    ) -> Option<Vec<ResolvedNodeType>> {
+        None
+    }
+
+    fn node_label_is_fragment(&self, _graph: ir::GraphId, _label: ir::LabelId) -> bool {
+        false
     }
 
     fn relationship_source_for_type(
@@ -237,9 +260,17 @@ pub enum BindError {
         span_end: usize,
     },
     #[error(
-        "multiple semantic labels {names:?} are not supported before fragment-interface polymorphism (Milestone 3) at byte {span_start}..{span_end}"
+        "multiple concrete semantic labels {names:?} cannot identify one node type at byte {span_start}..{span_end}"
     )]
     MultipleSemanticTypes {
+        names: Vec<String>,
+        span_start: usize,
+        span_end: usize,
+    },
+    #[error(
+        "semantic labels {names:?} have no common concrete node type at byte {span_start}..{span_end}"
+    )]
+    IncompatibleSemanticLabels {
         names: Vec<String>,
         span_start: usize,
         span_end: usize,
@@ -1429,15 +1460,23 @@ impl<'a> Binder<'a> {
                 return Ok(binding.id());
             }
         }
-        if self.catalog.semantic_mode(self.graph) {
-            if node.labels.is_empty() {
+        let labels = self.resolve_labels(node)?;
+        let selected_types = self
+            .catalog
+            .semantic_node_types_for_labels(self.graph, &labels);
+        let (source, semantic_names) = if self.catalog.semantic_mode(self.graph) {
+            let concrete_labels = labels
+                .iter()
+                .filter(|label| !self.catalog.node_label_is_fragment(self.graph, **label))
+                .count();
+            if concrete_labels == 0 {
                 return Err(BindError::MissingSemanticType {
                     entity: "node",
                     span_start: node.span.start,
                     span_end: node.span.end,
                 });
             }
-            if node.labels.len() > 1 {
+            if concrete_labels > 1 {
                 return Err(BindError::MultipleSemanticTypes {
                     names: node
                         .labels
@@ -1448,43 +1487,65 @@ impl<'a> Binder<'a> {
                     span_end: node.span.end,
                 });
             }
-        }
-        let labels = self.resolve_labels(node)?;
-        let source = match labels.as_slice() {
-            [label] => self
-                .catalog
-                .node_source_for_label(self.graph, *label)
-                .ok_or(BindError::MissingSource {
-                    entity: "node",
+            let selected = selected_types
+                .as_ref()
+                .expect("semantic catalog returns concrete type selection");
+            let [selected] = selected.as_slice() else {
+                return Err(BindError::IncompatibleSemanticLabels {
+                    names: node
+                        .labels
+                        .iter()
+                        .map(|label| label.value.clone())
+                        .collect(),
                     span_start: node.span.start,
                     span_end: node.span.end,
-                })?,
-            [] => match self.catalog.node_sources(self.graph).as_slice() {
-                [source] => *source,
-                _ => {
-                    return Err(at_unsupported(
-                        node.span,
-                        "untyped node creation with multiple physical sources",
-                    ))
-                }
-            },
-            _ => {
-                let mut sources = labels
-                    .iter()
-                    .filter_map(|label| self.catalog.node_source_for_label(self.graph, *label))
-                    .collect::<Vec<_>>();
-                sources.sort_by_key(|source| source.get());
-                sources.dedup();
-                match sources.as_slice() {
+                });
+            };
+            (selected.source, vec![selected.name.clone()])
+        } else {
+            let source = match labels.as_slice() {
+                [label] => self
+                    .catalog
+                    .node_source_for_label(self.graph, *label)
+                    .ok_or(BindError::MissingSource {
+                        entity: "node",
+                        span_start: node.span.start,
+                        span_end: node.span.end,
+                    })?,
+                [] => match self.catalog.node_sources(self.graph).as_slice() {
                     [source] => *source,
                     _ => {
                         return Err(at_unsupported(
                             node.span,
-                            "node creation with labels from multiple physical sources",
+                            "untyped node creation with multiple physical sources",
                         ))
                     }
+                },
+                _ => {
+                    let mut sources = labels
+                        .iter()
+                        .filter_map(|label| self.catalog.node_source_for_label(self.graph, *label))
+                        .collect::<Vec<_>>();
+                    sources.sort_by_key(|source| source.get());
+                    sources.dedup();
+                    match sources.as_slice() {
+                        [source] => *source,
+                        _ => {
+                            return Err(at_unsupported(
+                                node.span,
+                                "node creation with labels from multiple physical sources",
+                            ))
+                        }
+                    }
                 }
-            }
+            };
+            (
+                source,
+                node.labels
+                    .iter()
+                    .map(|label| label.value.clone())
+                    .collect(),
+            )
         };
         let binding = self.new_entity_binding(
             node.variable.as_ref(),
@@ -1492,10 +1553,7 @@ impl<'a> Binder<'a> {
             ir::ValueType::Node,
             ir::Nullability::NonNull,
             CatalogEntity::Node,
-            node.labels
-                .iter()
-                .map(|label| label.value.clone())
-                .collect(),
+            semantic_names.clone(),
             node.span,
         )?;
         let create = ir::CreateNode {
@@ -1504,11 +1562,7 @@ impl<'a> Binder<'a> {
             labels,
             properties: self.bind_mutation_properties(
                 CatalogEntity::Node,
-                &node
-                    .labels
-                    .iter()
-                    .map(|label| label.value.clone())
-                    .collect::<Vec<_>>(),
+                &semantic_names,
                 &node.properties,
             )?,
         };
@@ -2040,6 +2094,7 @@ impl<'a> Binder<'a> {
             }
         }
         if let Some(predicate) = &clause.predicate {
+            self.narrow_entities_from_predicate(predicate)?;
             let predicate = self.bind_expression(predicate)?;
             let input = self.plan.take().ok_or(BindError::EmptyQuery)?;
             self.wrap_plan(ir::PlanKind::Filter(ir::Filter {
@@ -2085,6 +2140,99 @@ impl<'a> Binder<'a> {
                 scope,
                 ir::ResultShape::default(),
             )?);
+        }
+        Ok(())
+    }
+
+    /// Applies label facts guaranteed by a predicate conjunction before
+    /// property expressions in that predicate or later clauses are bound.
+    fn narrow_entities_from_predicate(
+        &mut self,
+        predicate: &cypher::Spanned<cypher::Expression>,
+    ) -> Result<(), BindError> {
+        fn collect(
+            expression: &cypher::Spanned<cypher::Expression>,
+            constraints: &mut HashMap<String, Vec<cypher::Spanned<String>>>,
+        ) {
+            match &expression.value {
+                cypher::Expression::Binary {
+                    left,
+                    operator: cypher::BinaryOperator::And,
+                    right,
+                } => {
+                    collect(left, constraints);
+                    collect(right, constraints);
+                }
+                cypher::Expression::HasLabels { operand, labels } => {
+                    if let cypher::Expression::Variable(name) = &operand.value {
+                        constraints
+                            .entry(name.clone())
+                            .or_default()
+                            .extend(labels.iter().cloned());
+                    }
+                }
+                _ => {}
+            }
+        }
+
+        let mut constraints = HashMap::new();
+        collect(predicate, &mut constraints);
+        for (name, labels) in constraints {
+            let Some(binding) = self
+                .scope
+                .iter()
+                .find(|binding| binding.name() == name)
+                .cloned()
+            else {
+                continue;
+            };
+            let Some(entity) = self.entities.get(&binding.id()) else {
+                continue;
+            };
+            if entity.kind != CatalogEntity::Node {
+                continue;
+            }
+            let label_ids = labels
+                .iter()
+                .map(|label| {
+                    self.catalog.label(self.graph, &label.value).ok_or_else(|| {
+                        BindError::UnknownLabel {
+                            name: label.value.clone(),
+                            span_start: label.span.start,
+                            span_end: label.span.end,
+                        }
+                    })
+                })
+                .collect::<Result<Vec<_>, _>>()?;
+            let Some(selected) = self
+                .catalog
+                .semantic_node_types_for_labels(self.graph, &label_ids)
+            else {
+                continue;
+            };
+            let mut names = selected
+                .iter()
+                .map(|type_info| type_info.name.clone())
+                .collect::<Vec<_>>();
+            if !entity.names.is_empty() {
+                names.retain(|candidate| {
+                    entity
+                        .names
+                        .iter()
+                        .any(|existing| existing.eq_ignore_ascii_case(candidate))
+                });
+                // A contradictory predicate produces no rows. Retain its
+                // original source/type metadata so later lowering cannot
+                // resolve columns through a source the scan never produces.
+                if names.is_empty() {
+                    continue;
+                }
+            }
+            let entity = self
+                .entities
+                .get_mut(&binding.id())
+                .expect("entity binding remained present while narrowing");
+            entity.names = names;
         }
         Ok(())
     }
@@ -2223,6 +2371,38 @@ impl<'a> Binder<'a> {
                     ));
                 }
             }
+            let node_labels = self.resolve_labels(node)?;
+            let selected_node_types = self
+                .catalog
+                .semantic_node_types_for_labels(self.graph, &node_labels);
+            if self.catalog.semantic_mode(self.graph)
+                && !node_labels.is_empty()
+                && selected_node_types.as_ref().is_some_and(Vec::is_empty)
+            {
+                return Err(BindError::IncompatibleSemanticLabels {
+                    names: node
+                        .labels
+                        .iter()
+                        .map(|label| label.value.clone())
+                        .collect(),
+                    span_start: node.span.start,
+                    span_end: node.span.end,
+                });
+            }
+            let node_type_names = selected_node_types
+                .as_ref()
+                .map(|types| {
+                    types
+                        .iter()
+                        .map(|type_info| type_info.name.clone())
+                        .collect()
+                })
+                .unwrap_or_else(|| {
+                    node.labels
+                        .iter()
+                        .map(|label| label.value.clone())
+                        .collect()
+                });
             let to = self.new_entity_binding(
                 if reused.is_some() {
                     None
@@ -2233,10 +2413,7 @@ impl<'a> Binder<'a> {
                 ir::ValueType::Node,
                 ir::Nullability::NonNull,
                 CatalogEntity::Node,
-                node.labels
-                    .iter()
-                    .map(|label| label.value.clone())
-                    .collect(),
+                node_type_names,
                 node.span,
             )?;
             let relationship_types = relationship
@@ -2528,19 +2705,33 @@ impl<'a> Binder<'a> {
                 return Ok(existing.id());
             }
         }
+        let labels = self.resolve_labels(node)?;
+        let selected_types = self
+            .catalog
+            .semantic_node_types_for_labels(self.graph, &labels);
+        let type_names = selected_types
+            .as_ref()
+            .map(|types| {
+                types
+                    .iter()
+                    .map(|type_info| type_info.name.clone())
+                    .collect()
+            })
+            .unwrap_or_else(|| {
+                node.labels
+                    .iter()
+                    .map(|label| label.value.clone())
+                    .collect()
+            });
         let binding = self.new_entity_binding(
             node.variable.as_ref(),
             "_node",
             ir::ValueType::Node,
             ir::Nullability::NonNull,
             CatalogEntity::Node,
-            node.labels
-                .iter()
-                .map(|label| label.value.clone())
-                .collect(),
+            type_names,
             node.span,
         )?;
-        let labels = self.resolve_labels(node)?;
         let sources = self
             .entities
             .get(&binding.id())
@@ -2554,15 +2745,30 @@ impl<'a> Binder<'a> {
             });
         }
         let scope = ir::Scope::new(self.scope.clone())?;
-        let mut scans = sources
+        let deduplicate_polymorphic_scan = selected_types.is_some() && !labels.is_empty();
+        let scan_inputs = selected_types
+            .filter(|_| !labels.is_empty())
+            .map(|types| {
+                types
+                    .into_iter()
+                    .map(|type_info| (type_info.source, vec![type_info.label]))
+                    .collect::<Vec<_>>()
+            })
+            .unwrap_or_else(|| {
+                sources
+                    .into_iter()
+                    .map(|source| (source, labels.clone()))
+                    .collect()
+            });
+        let mut scans = scan_inputs
             .into_iter()
-            .map(|source| {
+            .map(|(source, scan_labels)| {
                 ir::Plan::new(
                     ir::PlanKind::NodeScan(ir::NodeScan {
                         graph: self.graph,
                         source,
                         binding: binding.id(),
-                        labels: labels.clone(),
+                        labels: scan_labels,
                     }),
                     scope.clone(),
                     ir::ResultShape::default(),
@@ -2573,7 +2779,7 @@ impl<'a> Binder<'a> {
             scans.pop().expect("one scan")
         } else {
             ir::Plan::new(
-                ir::PlanKind::Union(ir::Union::new(scans, true)?),
+                ir::PlanKind::Union(ir::Union::new(scans, !deduplicate_polymorphic_scan)?),
                 scope.clone(),
                 ir::ResultShape::default(),
             )?
@@ -2595,10 +2801,6 @@ impl<'a> Binder<'a> {
         Ok(binding.id())
     }
 
-    fn bind_labels(&self, node: &cypher::NodePattern) -> Result<(), BindError> {
-        self.resolve_labels(node).map(|_| ())
-    }
-
     /// Enforces a node pattern's labels on an already-produced binding by
     /// filtering through the label junction — used for step nodes and
     /// reused variables, whose labels are not part of a NodeScan.
@@ -2607,9 +2809,60 @@ impl<'a> Binder<'a> {
         binding: ir::BindingId,
         node: &cypher::NodePattern,
     ) -> Result<(), BindError> {
-        self.bind_labels(node)?;
-        for label in &node.labels {
-            let predicate = ir::TypedExpression {
+        let pattern_labels = self.resolve_labels(node)?;
+        if self.catalog.semantic_mode(self.graph) && !pattern_labels.is_empty() {
+            let current_names = self
+                .entities
+                .get(&binding)
+                .expect("node binding retains semantic types")
+                .names
+                .clone();
+            let mut selected = self
+                .catalog
+                .semantic_node_types_for_labels(self.graph, &pattern_labels)
+                .expect("semantic catalog returns concrete type selection");
+            if !current_names.is_empty() {
+                selected.retain(|type_info| {
+                    current_names
+                        .iter()
+                        .any(|name| name.eq_ignore_ascii_case(&type_info.name))
+                });
+            }
+            if selected.is_empty() {
+                return Err(BindError::IncompatibleSemanticLabels {
+                    names: node
+                        .labels
+                        .iter()
+                        .map(|label| label.value.clone())
+                        .collect(),
+                    span_start: node.span.start,
+                    span_end: node.span.end,
+                });
+            }
+            let entity = self
+                .entities
+                .get_mut(&binding)
+                .expect("node binding retains semantic types");
+            entity.names = selected
+                .iter()
+                .map(|type_info| type_info.name.clone())
+                .collect();
+            entity.sources = selected.iter().map(|type_info| type_info.source).collect();
+            entity.sources.sort_by_key(|source| source.get());
+            entity.sources.dedup();
+        }
+        for (label_id, label) in pattern_labels.iter().copied().zip(&node.labels) {
+            let concrete_names = self
+                .catalog
+                .semantic_node_types_for_labels(self.graph, &[label_id])
+                .map(|types| {
+                    types
+                        .into_iter()
+                        .map(|type_info| type_info.name)
+                        .collect::<Vec<_>>()
+                })
+                .unwrap_or_else(|| vec![label.value.clone()]);
+            let mut predicates = concrete_names.into_iter().map(|name| ir::TypedExpression {
                 expression: ir::Expression::Function {
                     function: ir::FunctionName::new("__cypher_has_label").expect("static name"),
                     arguments: vec![
@@ -2619,9 +2872,7 @@ impl<'a> Binder<'a> {
                             nullability: ir::Nullability::NonNull,
                         },
                         ir::TypedExpression {
-                            expression: ir::Expression::Literal(ir::Literal::Text(
-                                label.value.clone(),
-                            )),
+                            expression: ir::Expression::Literal(ir::Literal::Text(name)),
                             value_type: ir::ValueType::Text,
                             nullability: ir::Nullability::NonNull,
                         },
@@ -2629,7 +2880,19 @@ impl<'a> Binder<'a> {
                 },
                 value_type: ir::ValueType::Boolean,
                 nullability: ir::Nullability::NonNull,
-            };
+            });
+            let first = predicates
+                .next()
+                .expect("registered fragments have at least one member");
+            let predicate = predicates.fold(first, |left, right| ir::TypedExpression {
+                expression: ir::Expression::Binary {
+                    left: Box::new(left),
+                    op: ir::BinaryOp::Or,
+                    right: Box::new(right),
+                },
+                value_type: ir::ValueType::Boolean,
+                nullability: ir::Nullability::NonNull,
+            });
             let input = self.plan.take().ok_or(BindError::EmptyQuery)?;
             self.wrap_plan(ir::PlanKind::Filter(ir::Filter {
                 input: Box::new(input),
