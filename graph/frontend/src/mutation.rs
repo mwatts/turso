@@ -2126,7 +2126,12 @@ fn parameter_types(parameters: &Parameters) -> ParameterTypes {
                     (ir::ValueType::Map, ir::Nullability::NonNull)
                 }
                 Value::Text(_) => (ir::ValueType::Text, ir::Nullability::NonNull),
-                Value::Blob(_) => (ir::ValueType::Bytes, ir::Nullability::NonNull),
+                // Turso stores bytes, lists, structs, unions, and vectors as
+                // BLOB values. The runtime property validator has the semantic
+                // type, but a bare parameter does not. Defer BLOB parameters
+                // so that validator can check the physical value shape against
+                // the target property before the write.
+                Value::Blob(_) => (ir::ValueType::Any, ir::Nullability::NonNull),
             };
             (name.clone(), (value_type, nullability))
         })
@@ -2348,6 +2353,20 @@ mod tests {
             &ir::ValueType::Struct(vec![("x".to_owned(), ir::ValueType::Integer)]),
             &text
         ));
+    }
+
+    #[test]
+    fn blob_mutation_parameters_defer_semantic_type_validation() {
+        let parameters = Parameters::from([(
+            "value".to_owned(),
+            Value::from_slice(&[1, 2, 3]).expect("small blob"),
+        )]);
+
+        assert_eq!(
+            parameter_types(&parameters).get("value"),
+            Some(&(ir::ValueType::Any, ir::Nullability::NonNull)),
+            "a BLOB can encode several semantic types and must be checked against its property"
+        );
     }
 
     #[test]
