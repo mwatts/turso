@@ -59,6 +59,17 @@ fn graph_fts_scalars_use_a_core_index() {
         }),
         "expected core FTS planner evidence, got {plan:?}"
     );
+    assert!(
+        plan.iter().flatten().any(|value| {
+            matches!(
+                value,
+                Value::Text(detail)
+                    if detail.as_str().contains("__turso_graph_node_labels_")
+                        && detail.as_str().contains("_ix1")
+            )
+        }),
+        "label-filtered graph plans must use the semantic-type-first junction index: {plan:?}"
+    );
     session
         .execute(
             "MATCH (n:Person {id: 2}) SET n.name = 'Systems engineer'",

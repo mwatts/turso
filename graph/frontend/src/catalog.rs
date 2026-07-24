@@ -457,10 +457,16 @@ fn register_graph_in_transaction(
     // node_id); per-entity lookups (labels(n), type(r), snapshot builds)
     // probe by identity.
     for (table, columns) in [
-        (labels_table_name(graph_id), ["source_id, node_id, label"]),
+        (
+            labels_table_name(graph_id),
+            ["source_id, node_id, label", "source_id, label, node_id"],
+        ),
         (
             relationship_types_table_name(graph_id),
-            ["source_id, relationship_id, type"],
+            [
+                "source_id, relationship_id, type",
+                "source_id, type, relationship_id",
+            ],
         ),
     ] {
         for (index, column_list) in columns.iter().enumerate() {
@@ -978,6 +984,46 @@ mod tests {
             Err(CatalogError::GraphNotFound(_))
         ));
         register_graph(&connection, &registration("social")).expect("register after rollback");
+    }
+
+    #[test]
+    fn register_graph_indexes_junctions_by_identity_and_semantic_type() {
+        let connection = connection();
+        create_sources(&connection);
+        let graph = register_graph(&connection, &registration("social")).expect("register graph");
+
+        for (table, expected) in [
+            (
+                labels_table_name(graph.id),
+                [
+                    vec!["source_id", "node_id", "label"],
+                    vec!["source_id", "label", "node_id"],
+                ],
+            ),
+            (
+                relationship_types_table_name(graph.id),
+                [
+                    vec!["source_id", "relationship_id", "type"],
+                    vec!["source_id", "type", "relationship_id"],
+                ],
+            ),
+        ] {
+            for (index, expected_columns) in expected.iter().enumerate() {
+                let rows = query_rows(
+                    &connection,
+                    &format!(
+                        "PRAGMA index_info({})",
+                        sql_string(&format!("{table}_ix{index}"))
+                    ),
+                )
+                .expect("inspect junction index");
+                let columns = rows
+                    .iter()
+                    .map(|row| text(row, 2, "index column").expect("text column"))
+                    .collect::<Vec<_>>();
+                assert_eq!(columns, *expected_columns);
+            }
+        }
     }
 
     #[test]
