@@ -6,8 +6,7 @@ use std::sync::{atomic::Ordering, Arc};
 
 use turso_core::{DatabaseOpts, MemoryIO, OpenFlags};
 use turso_graph_frontend::{
-    install_graph_catalog, open_database_with_io, register_graph,
-    take_closed_create_fast_path_hit,
+    install_graph_catalog, open_database_with_io, register_graph, take_closed_create_fast_path_hit,
     GraphConnection, GraphHostMode, GraphRegistration, NodeSourceRegistration, Parameters,
     RelationshipSourceRegistration, SnapshotStore, Value, GRAPH_EXPAND_TABLE_NAME,
 };

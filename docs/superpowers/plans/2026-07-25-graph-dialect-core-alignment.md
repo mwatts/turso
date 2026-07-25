@@ -743,10 +743,11 @@ Graph encodes Cypher `ValueType` as stable strings; session maps back.
 
 If gate fails (cache is fine), mark Task 8 cancelled in the plan checkboxes and skip.
 
-- [ ] **Step 1: Prove the gate with a failing test that only Core metadata fixes**
-- [ ] **Step 2: Minimal Core API + graph consumer**
-- [ ] **Step 3: `cargo test -p turso_core --lib` and graph tests**
-- [ ] **Step 4: Commit Core and graph separately if possible**
+- [x] **CANCELLED (gate not met, 2026-07-25):** Task 2–3 shared `Arc<GraphCompiler>` `CompileOutcome` cache is reprepare-safe; reviews APPROVED; no proof that reprepare loses types or concurrent prepare corrupts `last`. No Core metadata. See `.superpowers/sdd/2026-07-25-graph-dialect-core-alignment/task-8-report.md`.
+- [ ] ~~Step 1: Prove the gate with a failing test that only Core metadata fixes~~
+- [ ] ~~Step 2: Minimal Core API + graph consumer~~
+- [ ] ~~Step 3: `cargo test -p turso_core --lib` and graph tests~~
+- [ ] ~~Step 4: Commit Core and graph separately if possible~~
 
 ---
 
@@ -787,7 +788,7 @@ EOF
 - Modify: `docs/graph-frontend-core-alignment.md` (mark implemented paths)
 - Modify: this plan file checkboxes as done during execution
 
-- [ ] **Step 1: Run the verification suite**
+- [x] **Step 1: Run the verification suite** (2026-07-25)
 
 ```bash
 cargo fmt
@@ -799,11 +800,13 @@ cargo test -p turso_core --lib
 cargo clippy -p turso_graph_frontend -p turso_graph_temporal --all-targets --all-features -- --deny=warnings
 ```
 
-- [ ] **Step 2: Update alignment doc §8 roadmap**
+Graph package tests green. Clippy on graph packages blocked by pre-existing `turso_core` unused-import denials (not introduced by this plan).
+
+- [x] **Step 2: Update alignment doc §8 roadmap** (2026-07-25)
 
 Mark P0, P1, P3 hygiene, and partial P2 as done with date and plan link. Leave full multi-stage mutation convergence and P4 product surfaces open.
 
-- [ ] **Step 3: Final commit**
+- [x] **Step 3: Final commit**
 
 ```bash
 git commit -S -m "$(cat <<'EOF'

@@ -1,6 +1,6 @@
 # Graph frontend and Core alignment
 
-**Status:** findings document (2026-07-25)
+**Status:** findings + plan outcomes (2026-07-25); P0/P1/P3 hygiene and partial P2 shipped on this branch
 **Implementation plan:** [`docs/superpowers/plans/2026-07-25-graph-dialect-core-alignment.md`](superpowers/plans/2026-07-25-graph-dialect-core-alignment.md)
 **Branch:** `feature/graph-frontend`
 **Readers:** Core and graph frontend maintainers who choose the next work
@@ -415,48 +415,51 @@ Graph is farthest on (4) for mutations.
 Priority is **alignment with how Postgres uses Core** and multi-frontend hygiene.
 Priority is **not** raw TCK pass rate.
 
-### P0 — Document and freeze contracts (cheap)
+Plan: [`docs/superpowers/plans/2026-07-25-graph-dialect-core-alignment.md`](superpowers/plans/2026-07-25-graph-dialect-core-alignment.md) (2026-07-25). Status below reflects that plan’s outcomes on `feature/graph-frontend`.
+
+### P0 — Document and freeze contracts (cheap) — **done** (2026-07-25, plan Task 1)
 
 - Keep the two-seam model and the read path through `prepare_frontend`.
-- Document attach mode vs dialect-pinned open (guarantees, function install).
+- Document attach mode vs dialect-pinned open (guarantees, function install) — shipped in `docs/graph.md` and `graph/README.md`.
 - Keep mutation savepoint semantics tested. Treat the multi-prepare path as known debt, not as an accident.
 
-### P1 — Cut double work without a full mutation redesign
+### P1 — Cut double work without a full mutation redesign — **done** (2026-07-25, plan Tasks 2–3)
 
-- Parse and bind once. Options:
-  - session-owned "compile Cypher" shared by types and `FrontendCompiler` through shared catalog state, **or**
-  - extend `FrontendCompilation` in Core with type metadata (preferred long term)
-- Route EXPLAIN through one lower path that uses `prepare_translated_stmt` / frontend prepare in a consistent way.
+- **Shipped:** session-owned shared `GraphCompiler` / `CompileOutcome` cache — one Cypher parse+bind pass for prepare and types (Task 2).
+- **Shipped:** EXPLAIN routes through the same `compile_outcome` path (Task 3).
 - Avoid dialect `prepare` of stringified SQL when you already have AST.
+- **Deferred (Task 8 cancelled):** Core `FrontendCompilation` result-type metadata. Graph-side cache is reprepare-safe for current use; no gate evidence that Core metadata is required yet.
 
-### P2 — Mutation path convergence (largest graph effort)
+### P2 — Mutation path convergence (largest graph effort) — **partial** (2026-07-25, plan Tasks 6–7)
 
 Choose by measured pain:
 
 1. **Lower simple mutations** (single CREATE/SET/DELETE without multi-stage WITH) to **one** engine AST and one `prepare_frontend` statement — match Postgres.
-2. Keep complex pipelines in Rust, but drive them with a **Core multi-step transaction helper** (shared with batch SQL).
-3. Long term: multi-command `PreparedSource` with frontend id for the whole script.
+   - **Shipped (partial):** mutation helpers use `prepare_internal` (Task 6); **closed CREATE** (single unlabeled node, no multi-stage WITH) uses a one-program fast path (Task 7).
+   - **Still open:** true one-program path for **labeled** CREATE (still multi-prepare for labels); SET/DELETE single-program; full multi-stage mutation as one VDBE program.
+2. Keep complex pipelines in Rust, but drive them with a **Core multi-step transaction helper** (shared with batch SQL) — **open** (needs Core multi-cmd / multi-step prepare).
+3. Long term: multi-command `PreparedSource` with frontend id for the whole script — **open**.
 
 Do not rewrite mutation orchestration only for purity.
 Gate rewrites on test failures, performance, or cancel/reprepare bugs.
 
-### P3 — Function and catalog unification
+### P3 — Function and catalog unification — **hygiene done** (2026-07-25, plan Tasks 4–5)
 
-- Prefer dialect-owned temporal execution on `GraphDialect` databases.
-- Keep extension install for attach / SQLite-host only.
-- Consider install of `__turso_graph_expand` from dialect `register_catalog` when open with `GraphDialect` (connection install stays for attach).
+- Prefer dialect-owned temporal execution on `GraphDialect` databases — **shipped:** skip temporal extension install when dialect-pinned (Task 4).
+- Keep extension install for attach / SQLite-host only — **shipped**.
+- Expand install: `__turso_graph_expand` catalog install is idempotent; connection install stays for attach (Task 5).
 - Keep `turso_graphs` as the public listing.
 - Document private `__turso_internal_*` tables as engine-adjacent metadata (like `sqlite_sequence`).
 
-### P4 — Product surfaces (shared gap with Postgres)
+### P4 — Product surfaces (shared gap with Postgres) — **open** (out of scope for 2026-07-25 plan)
 
 - Thin async wrapper pattern shared with `turso_pg` (not graph-specific Core work).
 - Optional Cypher REPL / HTTP later.
 - Add Bolt only if client demand justifies it.
 
-### P5 — Keep using Core performance primitives
+### P5 — Keep using Core performance primitives — **discipline locked** (2026-07-25, plan Task 9)
 
-- Keep lowering shapes index-friendly (junction covering-count pattern).
+- Keep lowering shapes index-friendly (junction covering-count pattern) — covering-count regressions already present and green; no new code required.
 - Re-run merge leverage notes when main lands planner/VDBE wins.
 - Profile CSR build vs pure SQL joins before you add more Core opcodes.
 
