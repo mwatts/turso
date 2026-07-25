@@ -4,7 +4,9 @@ use serde::{Deserialize, Serialize};
 
 use crate::identity::TestId;
 
-pub const HISTORY_SCHEMA_VERSION: u32 = 1;
+/// 2 added `semantics_version`. Version 1 rows predate the semantic profile
+/// and read back with `semantics_version: 0`.
+pub const HISTORY_SCHEMA_VERSION: u32 = 2;
 
 #[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
 #[serde(rename_all = "kebab-case")]
@@ -62,6 +64,10 @@ pub struct RunEnvironment {
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 pub struct ResultRecord {
     pub schema_version: u32,
+    /// `turso_graph_ir::SEMANTIC_PROFILE_VERSION` in force when the verdict was
+    /// produced. 0 means the row predates the profile and its rules are unknown.
+    #[serde(default)]
+    pub semantics_version: u32,
     pub run_id: String,
     pub recorded_at: String,
     pub environment: RunEnvironment,

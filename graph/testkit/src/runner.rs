@@ -57,6 +57,7 @@ impl ScenarioRunner {
         let result_digest = rows.as_ref().map(|rows| result_digest(rows));
         Ok(ResultRecord {
             schema_version: HISTORY_SCHEMA_VERSION,
+            semantics_version: turso_graph_ir::SEMANTIC_PROFILE_VERSION,
             run_id: self.run_id.clone(),
             recorded_at: recorded_at(),
             environment: self.environment.clone(),

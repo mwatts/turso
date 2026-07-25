@@ -9,7 +9,7 @@ use clap::{Parser, Subcommand, ValueEnum};
 use turso_graph_testkit::{
     age::AgeCorpus,
     grafeo::GrafeoCorpus,
-    history::{append, discover_environment, new_run_id, read},
+    history::{append, build_profile, discover_environment, new_run_id, read},
     manifest::ScenarioManifest,
     model::Outcome,
     performance::PerformanceManifest,
@@ -246,7 +246,7 @@ fn age_stats(root: &Path) -> Result<bool> {
 fn run_age(root: &Path, history: Option<PathBuf>, no_record: bool) -> Result<bool> {
     let corpus = age_corpus(root)?;
     let stats = corpus.stats();
-    let environment = discover_environment("dev")?;
+    let environment = discover_environment(build_profile())?;
     let run_id = new_run_id(&environment, "age-deep");
     let mut parse_cache = QueryParseCache::default();
     let records = corpus.run_with_cache(environment, &run_id, &mut parse_cache);
@@ -279,7 +279,7 @@ fn run_corpus(root: &Path, history: Option<PathBuf>, no_record: bool) -> Result<
     let age = age_corpus(root)?;
     let sparrowdb = sparrowdb_corpus(root)?;
     let cqlite = cqlite_corpus(root)?;
-    let environment = discover_environment("dev")?;
+    let environment = discover_environment(build_profile())?;
     let run_id = new_run_id(&environment, "corpus-deep");
     let mut parse_cache = QueryParseCache::default();
     let mut records = tck.run_with_cache(environment.clone(), &run_id, &mut parse_cache);
@@ -334,7 +334,7 @@ fn grafeo_stats(root: &Path) -> Result<bool> {
 fn run_grafeo(root: &Path, history: Option<PathBuf>, no_record: bool) -> Result<bool> {
     let corpus = grafeo_corpus(root)?;
     let stats = corpus.stats();
-    let environment = discover_environment("dev")?;
+    let environment = discover_environment(build_profile())?;
     let run_id = new_run_id(&environment, "grafeo-deep");
     let records = corpus.run(environment, &run_id);
     let passed = records
@@ -382,7 +382,7 @@ fn tck_stats(root: &Path) -> Result<bool> {
 fn run_tck(root: &Path, history: Option<PathBuf>, no_record: bool) -> Result<bool> {
     let corpus = tck_corpus(root)?;
     let stats = corpus.stats();
-    let environment = discover_environment("dev")?;
+    let environment = discover_environment(build_profile())?;
     let run_id = new_run_id(&environment, "tck-deep");
     let records = corpus.run(environment, &run_id);
     let passed = records
@@ -505,7 +505,7 @@ fn run_performance(
     no_record: bool,
 ) -> Result<bool> {
     let manifest = PerformanceManifest::load(root.join("graph/testdata/suites/performance.toml"))?;
-    let environment = discover_environment("dev")?;
+    let environment = discover_environment(build_profile())?;
     let suite = format!("performance-{}", profile.as_str());
     let run_id = new_run_id(&environment, &suite);
     let records = manifest.run(profile.as_str(), environment, &run_id)?;
@@ -553,7 +553,7 @@ fn run_suite(root: &Path, suite: Suite, history: Option<PathBuf>, no_record: boo
         "suite `{}` discovered zero scenarios",
         suite.as_str()
     );
-    let environment = discover_environment("dev")?;
+    let environment = discover_environment(build_profile())?;
     let run_id = new_run_id(&environment, suite.as_str());
     let runner = ScenarioRunner::new(environment, &run_id, suite.as_str());
     let mut records = Vec::with_capacity(scenarios.len());
@@ -767,6 +767,7 @@ mod tests {
     fn record(outcome: Outcome) -> ResultRecord {
         ResultRecord {
             schema_version: HISTORY_SCHEMA_VERSION,
+            semantics_version: turso_graph_ir::SEMANTIC_PROFILE_VERSION,
             run_id: "run".to_owned(),
             recorded_at: "2026-07-18T00:00:00Z".to_owned(),
             environment: RunEnvironment {

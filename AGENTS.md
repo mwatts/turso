@@ -17,7 +17,15 @@ make -C sqlite/conformance run-rust ARGS='--snapshot-filter __never__'  # sqltes
 CI=1 make -C sqlite/conformance run-rust  # use only if snapshot tests are required
 
 scripts/diff.sh "SQL" [label]  # compare sqlite3 vs tursodb output
+
+mise run corpus                # graph conformance corpus (release, by design)
+mise run cypherbench-sample    # graph execution benchmark (release, by design)
 ```
+
+The `mise` graph tasks are the one exception to "never `--release`": rows
+appended to `graph/test-results/history.jsonl` are only comparable against that
+history when produced by an optimized build, and each row records the profile
+it was built with.
 
 ## Testing
 

@@ -34,10 +34,11 @@ pub fn render(records: &[ResultRecord]) -> String {
         let failed = latest.len() - passed - unsupported;
         let environment = &latest[0].environment;
         report.push_str(&format!(
-            "## Latest `{suite}` run\n\n- Run: `{latest_id}`\n- Commit: `{}`{}\n- Package: `{}`\n- Environment: `{}/{}` (`{}`)\n- Records: {}\n- Passed: {passed}\n- Unsupported: {unsupported}\n- Failed or changed: {failed}\n\n",
+            "## Latest `{suite}` run\n\n- Run: `{latest_id}`\n- Commit: `{}`{}\n- Package: `{}`\n- Semantics: v{}\n- Environment: `{}/{}` (`{}`)\n- Records: {}\n- Passed: {passed}\n- Unsupported: {unsupported}\n- Failed or changed: {failed}\n\n",
             environment.git_commit,
             if environment.git_dirty { " (dirty)" } else { "" },
             environment.package_version,
+            semantics_versions(latest.iter().copied()),
             environment.os,
             environment.architecture,
             environment.profile,
@@ -129,7 +130,8 @@ fn append_latest_corpus_histogram(report: &mut String, records: &[ResultRecord])
     histogram.sort_by(|left, right| right.1.cmp(&left.1).then_with(|| left.0.cmp(&right.0)));
 
     report.push_str(&format!(
-        "## Latest complete corpus run\n\n- Run: `{run_id}`\n- Records: {}\n- Passed: {passed}\n- Unsupported: {unsupported}\n- Failed: {}\n\n### Failure-reason histogram\n\n| Failure family | Count |\n|---|---:|\n",
+        "## Latest complete corpus run\n\n- Run: `{run_id}`\n- Semantics: v{}\n- Records: {}\n- Passed: {passed}\n- Unsupported: {unsupported}\n- Failed: {}\n\n### Failure-reason histogram\n\n| Failure family | Count |\n|---|---:|\n",
+        semantics_versions(run.iter().copied()),
         run.len(),
         failures.len()
     ));
@@ -137,6 +139,25 @@ fn append_latest_corpus_histogram(report: &mut String, records: &[ResultRecord])
         report.push_str(&format!("| {family} | {count} |\n"));
     }
     report.push('\n');
+}
+
+/// Semantic profile versions present in a run, as a `REPORT.md` fragment.
+///
+/// A run that mixes versions is a recording bug, not a summary detail, so list
+/// them all rather than picking one. Legacy rows report 0, which reads as
+/// "the rules that produced this are unknown".
+fn semantics_versions<'a>(records: impl IntoIterator<Item = &'a ResultRecord>) -> String {
+    let mut versions = records
+        .into_iter()
+        .map(|record| record.semantics_version)
+        .collect::<Vec<_>>();
+    versions.sort_unstable();
+    versions.dedup();
+    versions
+        .iter()
+        .map(u32::to_string)
+        .collect::<Vec<_>>()
+        .join(", ")
 }
 
 fn failure_family(record: &ResultRecord) -> String {
@@ -367,5 +388,38 @@ mod tests {
         assert!(report.contains("Failed: 0"));
         assert!(!report.contains("expected vendor-unsupported function | 1"));
         assert!(!report.contains("runtime scalar function missing | 1"));
+    }
+
+    #[test]
+    fn report_states_the_semantic_profile_version_of_the_run() {
+        // A pass count is only comparable against another run that used the
+        // same rules, so the report has to say which rules it used.
+        let mut record = test_record("run-1");
+        record.semantics_version = 7;
+
+        let report = render(&[record]);
+
+        assert!(
+            report.contains("Semantics: v7"),
+            "the report must say which rules produced its numbers, got:\n{report}"
+        );
+    }
+
+    #[test]
+    fn report_lists_every_semantic_version_when_a_run_mixes_them() {
+        // Mixed versions within one run mean the recording is broken. Picking
+        // one to display would hide that.
+        let mut first = test_record("run-1");
+        first.semantics_version = 1;
+        let mut second = test_record("run-1");
+        second.test_id = crate::identity::TestId::parse("tck.return.other").unwrap();
+        second.semantics_version = 2;
+
+        let report = render(&[first, second]);
+
+        assert!(
+            report.contains("Semantics: v1, 2"),
+            "a mixed-version run must show both, got:\n{report}"
+        );
     }
 }

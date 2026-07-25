@@ -322,6 +322,7 @@ impl RustDonorCorpus {
         ]);
         ResultRecord {
             schema_version: HISTORY_SCHEMA_VERSION,
+            semantics_version: turso_graph_ir::SEMANTIC_PROFILE_VERSION,
             run_id: run_id.to_owned(),
             recorded_at: recorded_at(),
             environment,

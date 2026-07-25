@@ -1,5 +1,15 @@
-# Benchmark timings are only comparable against graph/test-results history
-# when produced by a release build, so these tasks pin --release.
+# Runs recorded into graph/test-results/history.jsonl are only comparable
+# against that history when produced by a release build, so these tasks pin
+# --release. Every recorded row stamps the profile it was built with, so a
+# debug run is detectable rather than silently mixed in.
+
+[tasks.corpus]
+description = "Full conformance corpus across all five suites (release build)"
+run = "cargo run --release -p turso_graph_testkit -- corpus"
+
+[tasks.report]
+description = "Regenerate graph/test-results/REPORT.md from history"
+run = "cargo run --release -p turso_graph_testkit -- report"
 
 [tasks.cypherbench-full]
 description = "CypherBench full-scale graphs, every gold query (release build)"

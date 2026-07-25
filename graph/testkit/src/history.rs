@@ -37,6 +37,20 @@ pub enum HistoryError {
     Git { command: String },
 }
 
+/// The cargo profile this binary was built with.
+///
+/// Corpus and benchmark runs are pinned to `--release` because their timings
+/// are only comparable against history when optimized. A call site that names
+/// its own profile can disagree with the build; deriving it means it cannot.
+/// `debug_assertions` is the proxy: no workspace profile overrides it.
+pub fn build_profile() -> &'static str {
+    if cfg!(debug_assertions) {
+        "dev"
+    } else {
+        "release"
+    }
+}
+
 pub fn discover_environment(profile: impl Into<String>) -> Result<RunEnvironment, HistoryError> {
     let git_commit = git_output(&["rev-parse", "HEAD"])?;
     let git_dirty = !git_output(&["status", "--porcelain"])?.is_empty();
@@ -183,6 +197,7 @@ pub(crate) fn test_record(run_id: &str) -> ResultRecord {
 
     ResultRecord {
         schema_version: HISTORY_SCHEMA_VERSION,
+        semantics_version: turso_graph_ir::SEMANTIC_PROFILE_VERSION,
         run_id: run_id.to_owned(),
         recorded_at: "2026-07-17T00:00:00Z".to_owned(),
         environment: RunEnvironment {
@@ -239,6 +254,58 @@ mod tests {
         assert_eq!(read(&path).unwrap().len(), 2);
         assert!(append(&path, &[test_record("run-2")]).is_err());
         assert_eq!(read(&path).unwrap().len(), 2);
+    }
+
+    #[test]
+    fn legacy_schema_version_one_rows_read_without_a_semantics_version() {
+        // history.jsonl is append-only and ~1.25 GB of schema-version-1 rows.
+        // Reading must never require rewriting them.
+        let directory = tempfile::tempdir().unwrap();
+        let path = directory.path().join("history.jsonl");
+        let mut legacy = serde_json::to_value(test_record("legacy")).unwrap();
+        legacy["schema_version"] = serde_json::json!(1);
+        legacy
+            .as_object_mut()
+            .unwrap()
+            .remove("semantics_version")
+            .expect("current records carry the field");
+        std::fs::write(&path, format!("{legacy}\n")).unwrap();
+
+        let records = read(&path).unwrap();
+        assert_eq!(records.len(), 1);
+        assert_eq!(records[0].schema_version, 1);
+        assert_eq!(
+            records[0].semantics_version, 0,
+            "legacy rows report 0, meaning the semantics used are unknown"
+        );
+    }
+
+    #[test]
+    fn current_rows_carry_the_semantic_profile_version() {
+        let record = test_record("current");
+        assert_eq!(record.schema_version, HISTORY_SCHEMA_VERSION);
+        assert_eq!(
+            record.semantics_version,
+            turso_graph_ir::SEMANTIC_PROFILE_VERSION,
+            "a run must record which semantic rules produced its verdicts"
+        );
+    }
+
+    #[test]
+    fn build_profile_comes_from_the_build_not_the_caller() {
+        // A --release corpus or cypherbench run that records `profile: "dev"`
+        // makes its timings silently uncomparable against history. The string
+        // has to be derived, so no call site can get it wrong.
+        let expected = if cfg!(debug_assertions) {
+            "dev"
+        } else {
+            "release"
+        };
+        assert_eq!(build_profile(), expected);
+        assert_eq!(
+            discover_environment(build_profile()).unwrap().profile,
+            expected
+        );
     }
 
     #[test]

@@ -72,6 +72,30 @@ See [`CYPHER_CORPUS_GAPS.md`](archive/CYPHER_CORPUS_GAPS.md) and
 [`CYPHER_PARSER_GAP_HISTOGRAMS.md`](archive/CYPHER_PARSER_GAP_HISTOGRAMS.md)
 for provenance and quality-impact histograms after the source removal.
 
+## Semantic profile
+
+Cypher leaves row order, duplicate survival, NULL comparison, NULL sort rank,
+and label-list order undefined. Turso answers each one, and those answers
+decide pass/fail verdicts, so they are versioned data in
+[`ir/src/semantics.rs`](ir/src/semantics.rs) rather than prose here. The
+current answers:
+
+| Open choice | Turso's answer |
+| --- | --- |
+| Row order | Defined only under an explicit outermost `ORDER BY` |
+| Duplicates | Retained unless `DISTINCT` is written |
+| Comparison against `NULL` | Three-valued: yields `NULL`, never false |
+| `NULL` sort rank (ascending) | numbers, text, blobs, then `NULL` last |
+| `labels(n)` order | Label-table insertion order |
+| Write classification | Syntactic: a `DELETE` matching nothing is a write |
+
+Every recorded run stamps `semantics_version` (history schema version 2), and
+`REPORT.md` prints it. A moved pass count is therefore attributable: the code
+changed, or the rules changed, never ambiguously both. Rows written before the
+profile existed report `0`, meaning their rules are unknown. Changing any
+answer above requires bumping `SEMANTIC_PROFILE_VERSION`; the pin test in
+`ir/tests/semantic_profile_pin.rs` fails on an unversioned edit.
+
 ## Running it
 
 ```sh
@@ -81,3 +105,7 @@ cargo run -q -p turso_graph_testkit -- corpus --no-record
 
 The second command returns failure while any conformance contract fails. Omit
 `--no-record` only for an intentional append-only baseline run.
+
+Recorded baseline runs go through `mise run corpus`, which pins `--release`:
+history timings are only comparable against a release build. Each row records
+the profile it was actually built with, so a debug run cannot silently mix in.
