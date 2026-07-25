@@ -151,6 +151,59 @@ manifest is held to the same rule by
 `graph/frontend/tests/fixed_pattern_fixtures.rs`. For a mutation the rule reads
 `verification_query`, since that is what produces the compared rows.
 
+## Path algorithm legality
+
+Written before the syntax exists. `graph/cypher/src/cypher.pest` has
+`range_literal` (`[r:T*1..3]`) but no `SHORTEST`, `ALL SHORTEST`, `TRAIL`, or
+`ACYCLIC` selector. `turso_graph_runtime::resolve_path_algorithm`
+(`graph/runtime/src/path_policy.rs`) is the enforcing copy of this table; it is
+total, and a combination it refuses cannot be reached by any search entry
+point.
+
+Uniqueness is `turso_graph_ir::PathUniqueness`: `Walk` may repeat nodes and
+edges, `Trail` may not repeat an edge, `Path` may not repeat a node.
+
+| Selector | Weights | Walk | Trail | Path |
+| --- | --- | --- | --- | --- |
+| ANY | any | BFS | BFS | BFS |
+| ALL | any | not supported | DFS enumeration | DFS enumeration |
+| SHORTEST | unweighted | BFS | BFS | BFS |
+| SHORTEST | non-negative | Dijkstra | Dijkstra | Dijkstra |
+| SHORTEST | negative | not supported | not supported | not supported |
+| ALL SHORTEST | unweighted | BFS level set | BFS level set | BFS level set |
+| ALL SHORTEST | non-negative | Dijkstra level set | Dijkstra level set | Dijkstra level set |
+| ALL SHORTEST | negative | not supported | not supported | not supported |
+| SHORTEST k | unweighted | not supported | Yen | Yen |
+| SHORTEST k | non-negative | not supported | Yen | Yen |
+| SHORTEST k | negative | not supported | not supported | not supported |
+
+Reasons for each refusal:
+
+- **ALL over walks.** One cycle makes the answer infinite. The hop limit would
+  bound it, but the result would then be an arbitrary prefix, which is the
+  silent truncation `graph/runtime/src/traversal.rs` deliberately refuses.
+- **SHORTEST over walks with negative weights.** A negative cycle means no
+  shortest walk exists.
+- **SHORTEST over trails or paths with negative weights.** Shortest simple path
+  with negative weights is NP-hard; there is no correct polynomial algorithm to
+  offer.
+- **SHORTEST k over walks.** Yen's algorithm requires a simple-path constraint.
+
+Two things this table does not say. It does not claim an algorithm is
+implemented: `PathAlgorithm::YenKShortest`, `BreadthFirstAllShortest`, and
+`DijkstraAllShortest` are sound and unbuilt (`PathAlgorithm::is_implemented`
+answers that separate question), and reaching them yields
+`RuntimeError::PathAlgorithmNotImplemented`, distinct from
+`RuntimeError::UnsupportedPathCombination`. And it does not describe reachable
+state today: `EdgeInput.weight` and `Path.total_weight` are `u64`, so
+`WeightClass::Negative` is unreachable from the current type. Those rows exist
+so that widening the weight type trips a policy error rather than quietly
+feeding negative edges to Dijkstra.
+
+`PATH_POLICY_VERSION` is mirrored into
+`turso_graph_ir::SEMANTIC_PROFILE.path_policy_version`, so a change to this
+table moves the semantic profile digest recorded with every test run.
+
 ## Acknowledged hard blocks (no decision needed)
 
 - ~~`reduce()` (71) needs recursive CTEs; turso core rejects them today.~~

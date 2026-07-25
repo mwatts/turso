@@ -5,16 +5,18 @@
 // Adaptation: structural-adaptation
 // Changes: Replaced pgGraph node stores and projection neighbors with Turso
 // graph identities and owned CSR access; added shared cancellation and resource
-// accounting to unweighted BFS and weighted Dijkstra traversal.
+// accounting to unweighted BFS and weighted Dijkstra traversal; added path-policy
+// resolution.
 
 use std::cmp::Ordering;
 use std::collections::{BinaryHeap, HashMap, HashSet, VecDeque};
 use std::mem::size_of;
 
-use turso_graph_ir::{Direction, NodeId, RelationshipTypeId};
+use turso_graph_ir::{Direction, NodeId, PathUniqueness, RelationshipTypeId};
 
 use crate::{
-    limits::Budget, Cancellation, Graph, Path, RuntimeError, RuntimeResult, TraversalLimits,
+    limits::Budget, resolve_path_algorithm, Cancellation, Graph, Path, PathAlgorithm, PathSelector,
+    RuntimeError, RuntimeResult, TraversalLimits, WeightClass,
 };
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -33,6 +35,17 @@ pub fn shortest_path(
     cancellation: &dyn Cancellation,
 ) -> RuntimeResult<Option<Path>> {
     validate_request(graph, request)?;
+    // Unweighted single shortest path over walks. Stated rather than assumed,
+    // so a future caller cannot reach this BFS with a combination the table
+    // refuses.
+    debug_assert_eq!(
+        resolve_path_algorithm(
+            PathUniqueness::Walk,
+            PathSelector::Shortest,
+            WeightClass::Unweighted
+        ),
+        Ok(PathAlgorithm::BreadthFirst)
+    );
     let mut budget = Budget::new(limits)?;
     budget.require_hops(request.max_hops)?;
     let initial = Path {
@@ -124,6 +137,17 @@ pub fn weighted_shortest_path(
     cancellation: &dyn Cancellation,
 ) -> RuntimeResult<Option<Path>> {
     validate_request(graph, request)?;
+    // Non-negative weighted single shortest path over walks. Weights are `u64`,
+    // so the negative row the table refuses is unreachable from this type; the
+    // assertion is what makes that dependency explicit.
+    debug_assert_eq!(
+        resolve_path_algorithm(
+            PathUniqueness::Walk,
+            PathSelector::Shortest,
+            WeightClass::NonNegative
+        ),
+        Ok(PathAlgorithm::Dijkstra)
+    );
     let mut budget = Budget::new(limits)?;
     budget.require_hops(request.max_hops)?;
     let initial = Path {
@@ -335,5 +359,51 @@ mod tests {
         )
         .unwrap();
         assert_eq!(path, None);
+    }
+
+    #[test]
+    fn the_search_entry_points_agree_with_the_policy_table() {
+        // The table is only protection if the code consults it. These two
+        // entry points are the whole weighted/unweighted surface today; when a
+        // third arrives it must appear here.
+        use crate::{resolve_path_algorithm, PathAlgorithm, PathSelector, WeightClass};
+        use turso_graph_ir::PathUniqueness;
+
+        assert_eq!(
+            resolve_path_algorithm(
+                PathUniqueness::Walk,
+                PathSelector::Shortest,
+                WeightClass::Unweighted
+            ),
+            Ok(PathAlgorithm::BreadthFirst),
+            "shortest_path is a BFS and must resolve to one"
+        );
+        assert_eq!(
+            resolve_path_algorithm(
+                PathUniqueness::Walk,
+                PathSelector::Shortest,
+                WeightClass::NonNegative
+            ),
+            Ok(PathAlgorithm::Dijkstra),
+            "weighted_shortest_path is a Dijkstra and must resolve to one"
+        );
+    }
+
+    #[test]
+    fn an_unsupported_combination_becomes_a_runtime_error() {
+        use crate::{resolve_path_algorithm, PathSelector, RuntimeError, WeightClass};
+        use turso_graph_ir::PathUniqueness;
+
+        let refusal = resolve_path_algorithm(
+            PathUniqueness::Walk,
+            PathSelector::Shortest,
+            WeightClass::Negative,
+        )
+        .expect_err("negative-weight walks are refused");
+        let error = RuntimeError::from(refusal);
+        assert!(
+            matches!(error, RuntimeError::UnsupportedPathCombination { .. }),
+            "unexpected error: {error}"
+        );
     }
 }

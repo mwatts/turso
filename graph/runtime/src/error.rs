@@ -33,6 +33,17 @@ pub enum RuntimeError {
     Cancelled,
     #[error("path cost overflowed u64")]
     CostOverflow,
+    #[error("unsupported path combination: {reason}")]
+    UnsupportedPathCombination { reason: &'static str },
+    #[error("path algorithm {algorithm} is sound but not implemented")]
+    PathAlgorithmNotImplemented { algorithm: &'static str },
+}
+
+impl From<crate::PathPolicyError> for RuntimeError {
+    fn from(error: crate::PathPolicyError) -> Self {
+        let crate::PathPolicyError::Unsupported { reason, .. } = error;
+        Self::UnsupportedPathCombination { reason }
+    }
 }
 
 pub type RuntimeResult<T> = Result<T, RuntimeError>;

@@ -5,8 +5,8 @@
 
 use turso_graph_ir::{semantic_profile_digest, SEMANTIC_PROFILE, SEMANTIC_PROFILE_VERSION};
 
-/// Digest of `SEMANTIC_PROFILE.render()` at version 1.
-const PINNED_DIGEST: &str = "fnv1a64:ad39152313a92468";
+/// Digest of `SEMANTIC_PROFILE.render()` at version 2.
+const PINNED_DIGEST: &str = "fnv1a64:ad3c7f2313ac0e5d";
 
 #[test]
 fn semantic_profile_digest_is_pinned_to_its_version() {

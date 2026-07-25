@@ -12,7 +12,7 @@ use std::fmt::Write as _;
 /// Bump on any change to a `SemanticProfile` field value. Never bump for
 /// formatting or comments. A new field still changes the digest, so it still
 /// requires a bump even when its value restates existing behavior.
-pub const SEMANTIC_PROFILE_VERSION: u32 = 1;
+pub const SEMANTIC_PROFILE_VERSION: u32 = 2;
 
 /// Is the row order of a result defined?
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -77,7 +77,8 @@ pub struct SemanticProfile {
     /// `turso_graph_runtime::path_policy`; mirrored here so one number
     /// identifies the whole semantic contract. Mirrored rather than imported
     /// because this crate is the dependency root and must not depend on the
-    /// runtime. 0 means the table does not exist yet.
+    /// runtime. `graph/runtime/src/path_policy.rs` pins the two together, from
+    /// the side that can see both crates.
     pub path_policy_version: u32,
 }
 
@@ -89,7 +90,7 @@ pub const SEMANTIC_PROFILE: SemanticProfile = SemanticProfile {
     null_sort: NullSort::NumbersTextBlobsThenNullLast,
     label_list_order: LabelListOrder::LabelTableInsertion,
     write_classification: WriteClassification::SyntacticNeverResultDependent,
-    path_policy_version: 0,
+    path_policy_version: 1,
 };
 
 impl SemanticProfile {
