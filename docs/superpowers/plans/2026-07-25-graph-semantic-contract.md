@@ -740,7 +740,7 @@ reject manifests that claim a defined order for a query without ORDER BY."
   - `DivergenceReport { registered: usize, matched: usize }`
   - CLI: `cargo run -q -p turso_graph_testkit -- divergence verify` and `-- divergence sync`
 
-- [ ] **Step 1: Write the failing registry tests**
+- [x] **Step 1: Write the failing registry tests**
 
 Create `graph/testkit/tests/divergence.rs`:
 
@@ -911,12 +911,12 @@ pub fn record_with(test_id: &str, outcome: Outcome) -> ResultRecord {
 
 If `TestId` does not implement `FromStr`, use whatever constructor `graph/testkit/src/identity.rs` exposes (see its use in `graph/testkit/src/manifest.rs`) and adjust `record_with` accordingly. If `ResultRecord`'s fields are not all `pub`, make the test module build the record through the same path `graph/testkit/src/main.rs:807` uses.
 
-- [ ] **Step 2: Run to verify it fails**
+- [x] **Step 2: Run to verify it fails**
 
 Run: `cargo test -p turso_graph_testkit --test divergence`
 Expected: FAIL to compile — `unresolved import turso_graph_testkit::divergence`.
 
-- [ ] **Step 3: Implement the registry**
+- [x] **Step 3: Implement the registry**
 
 Create `graph/testkit/src/divergence.rs`:
 
@@ -1138,12 +1138,12 @@ Add `pub mod divergence;` to `graph/testkit/src/lib.rs` alongside the existing m
 
 If `TestId` does not derive `Ord`, add `Ord, PartialOrd` to its derive list in `graph/testkit/src/identity.rs` so `entry.tests.sort()` compiles.
 
-- [ ] **Step 4: Run the unit-level registry tests**
+- [x] **Step 4: Run the unit-level registry tests**
 
 Run: `cargo test -p turso_graph_testkit --test divergence -- --skip the_checked_in_registry --skip every_registry_entry`
 Expected: PASS for the four behavioral tests. The two file-backed tests still fail: the registry file does not exist.
 
-- [ ] **Step 5: Add the CLI subcommand**
+- [x] **Step 5: Add the CLI subcommand**
 
 In `graph/testkit/src/main.rs`, add to the `Command` enum (near `Command::VerifyHistory`):
 
@@ -1229,7 +1229,7 @@ fn latest_corpus_run(records: &[ResultRecord]) -> Option<Vec<ResultRecord>> {
 
 Match the existing handlers' return type and error handling — the dispatch at `graph/testkit/src/main.rs:138` expects `Result<bool, _>` where `false` becomes `ExitCode::FAILURE`.
 
-- [ ] **Step 6: Seed the registry from the recorded corpus run**
+- [x] **Step 6: Seed the registry from the recorded corpus run**
 
 Run:
 ```bash
@@ -1262,17 +1262,17 @@ fn the_registry_accounts_for_every_divergent_test_in_the_corpus() {
 
 If the sync produced a number other than 53, use the produced number and say so explicitly in the commit body and in `CONFORMANCE.md` — do not edit the registry to reach 53.
 
-- [ ] **Step 7: Run the full divergence test file**
+- [x] **Step 7: Run the full divergence test file**
 
 Run: `cargo test -p turso_graph_testkit --test divergence`
 Expected: PASS, all seven tests green.
 
-- [ ] **Step 8: Verify the CLI check passes**
+- [x] **Step 8: Verify the CLI check passes**
 
 Run: `cargo run -q -p turso_graph_testkit -- divergence`
 Expected: `divergence registry verified: 4 entries, 53 tests`, exit code 0.
 
-- [ ] **Step 9: Update CONFORMANCE.md**
+- [x] **Step 9: Update CONFORMANCE.md**
 
 Replace the `- **53 unsupported** vendor-specific behaviors; and` bullet's surrounding prose with:
 
@@ -1288,7 +1288,7 @@ outcome that no registry entry claims, when a registry entry names a test the
 run no longer contains, or when a registered divergence starts passing.
 ```
 
-- [ ] **Step 10: Verify and commit**
+- [x] **Step 10: Verify and commit**
 
 ```bash
 cargo fmt
@@ -1327,7 +1327,7 @@ whose test vanished or started passing fails."
   - `GraphConnection::is_read_only(&self) -> bool`
   - `Error::ReadOnlyConnection { kind: StatementKind }`
 
-- [ ] **Step 1: Write the failing classification tests**
+- [x] **Step 1: Write the failing classification tests**
 
 Create `graph/frontend/tests/statement_kind.rs`:
 
@@ -1412,12 +1412,12 @@ fn read_only_never_writes() {
 }
 ```
 
-- [ ] **Step 2: Run to verify it fails**
+- [x] **Step 2: Run to verify it fails**
 
 Run: `cargo test -p turso_graph_frontend --test statement_kind`
 Expected: FAIL to compile — `unresolved imports turso_graph_frontend::classify_statement, turso_graph_frontend::StatementKind`.
 
-- [ ] **Step 3: Implement classification in the binder**
+- [x] **Step 3: Implement classification in the binder**
 
 In `graph/frontend/src/binder.rs`, add above `pub fn bind_mutation` (around line 424):
 
@@ -1474,16 +1474,16 @@ pub fn classify_statement(query: &cypher::Query) -> StatementKind {
 
 Adjust the `cypher::Clause` variant names and the `Query` field names (`clauses`, `union_branches`) to whatever `graph/cypher/src/` actually exposes — read `graph/frontend/src/binder.rs:732-850`, where `bind_mutation_query` already matches on every mutating clause variant, and mirror that exact list. If `CALL` can invoke a mutating procedure, treat it as a write: `binder.rs:377` already carries the error `"mutating procedure ... is not valid in a read query"`, so reuse the same predicate that produces it.
 
-- [ ] **Step 4: Re-export from the crate root**
+- [x] **Step 4: Re-export from the crate root**
 
 In `graph/frontend/src/lib.rs`, extend the `pub use binder::{...}` block with `classify_statement, StatementKind,` in alphabetical position.
 
-- [ ] **Step 5: Run to verify it passes**
+- [x] **Step 5: Run to verify it passes**
 
 Run: `cargo test -p turso_graph_frontend --test statement_kind`
 Expected: PASS, seven tests green.
 
-- [ ] **Step 6: Commit classification**
+- [x] **Step 6: Commit classification**
 
 ```bash
 cargo fmt
@@ -1497,7 +1497,7 @@ syntactic classification. A DELETE that matches nothing stays a write:
 emptiness is a runtime fact and must not move a compile-time classification."
 ```
 
-- [ ] **Step 7: Write the failing read-only enforcement test**
+- [x] **Step 7: Write the failing read-only enforcement test**
 
 Add to `graph/frontend/tests/statement_kind.rs`:
 
@@ -1571,12 +1571,12 @@ mod read_only {
 
 The existing session tests build their fixture inside `graph/frontend/src/session.rs`'s `mod tests`. If that helper is not reachable from an integration test, move these four tests into that `mod tests` block instead and drop the `use super::super::common::fixture;` line — do not duplicate the fixture setup.
 
-- [ ] **Step 8: Run to verify it fails**
+- [x] **Step 8: Run to verify it fails**
 
 Run: `cargo test -p turso_graph_frontend read_only`
 Expected: FAIL to compile — `no method named set_read_only`, `no variant ReadOnlyConnection`.
 
-- [ ] **Step 9: Implement read-only enforcement**
+- [x] **Step 9: Implement read-only enforcement**
 
 In `graph/frontend/src/session.rs`, add the field to `GraphConnection` (line 86 area):
 
@@ -1622,12 +1622,12 @@ Add the variant to this crate's `Error` enum (the one `session.rs` returns; find
     ReadOnlyConnection { kind: crate::StatementKind },
 ```
 
-- [ ] **Step 10: Run to verify it passes**
+- [x] **Step 10: Run to verify it passes**
 
 Run: `cargo test -p turso_graph_frontend`
 Expected: PASS.
 
-- [ ] **Step 11: Verify and commit**
+- [x] **Step 11: Verify and commit**
 
 ```bash
 cargo fmt
@@ -1663,7 +1663,7 @@ whether a statement writes cannot depend on what it happened to change."
   - `RuntimeError::UnsupportedPathCombination { reason: &'static str }`
   - `RuntimeError::PathAlgorithmNotImplemented { algorithm: PathAlgorithm }`
 
-- [ ] **Step 1: Write the failing policy tests**
+- [x] **Step 1: Write the failing policy tests**
 
 Create the test module at the bottom of `graph/runtime/src/path_policy.rs` as part of Step 3; write it first here so the table is designed before it is coded. Create `graph/runtime/src/path_policy.rs` containing only:
 
@@ -1801,12 +1801,12 @@ mod tests {
 }
 ```
 
-- [ ] **Step 2: Run to verify it fails**
+- [x] **Step 2: Run to verify it fails**
 
 Run: `cargo test -p turso_graph_runtime path_policy`
 Expected: FAIL — the module is not declared in `lib.rs`, so the tests do not run. Add `mod path_policy;` to `graph/runtime/src/lib.rs`, re-run, and get compile errors for `resolve_path_algorithm`, `PathSelector`, `WeightClass`, `PathAlgorithm`, `PathPolicyError`.
 
-- [ ] **Step 3: Implement the table**
+- [x] **Step 3: Implement the table**
 
 Prepend to `graph/runtime/src/path_policy.rs`, above the test module:
 
@@ -1974,12 +1974,12 @@ pub use path_policy::{
 
 `graph/runtime/Cargo.toml` already depends on `thiserror` (see `graph/runtime/src/error.rs`); confirm before relying on it.
 
-- [ ] **Step 4: Run to verify it passes**
+- [x] **Step 4: Run to verify it passes**
 
 Run: `cargo test -p turso_graph_runtime path_policy`
 Expected: PASS, eight tests green.
 
-- [ ] **Step 5: Write the failing enforcement test**
+- [x] **Step 5: Write the failing enforcement test**
 
 Add to the existing `mod tests` block at the bottom of `graph/runtime/src/shortest.rs`, next to `weighted_path_prefers_lower_total_cost_and_honors_hop_limit` at `:305`:
 
@@ -2031,12 +2031,12 @@ Add to the existing `mod tests` block at the bottom of `graph/runtime/src/shorte
     }
 ```
 
-- [ ] **Step 6: Run to verify it fails**
+- [x] **Step 6: Run to verify it fails**
 
 Run: `cargo test -p turso_graph_runtime shortest`
 Expected: FAIL to compile — `no variant UnsupportedPathCombination` and no `From<PathPolicyError> for RuntimeError`.
 
-- [ ] **Step 7: Implement the runtime error bridge and consult the policy**
+- [x] **Step 7: Implement the runtime error bridge and consult the policy**
 
 Add to `RuntimeError` in `graph/runtime/src/error.rs`:
 
@@ -2076,12 +2076,12 @@ In `graph/runtime/src/shortest.rs`, make each entry point state which table row 
 
 and the equivalent `Dijkstra` / `WeightClass::NonNegative` assertion in `weighted_shortest_path`. Add the imports to the file's existing `use crate::{...}` block. Keep the donor header at the top of `shortest.rs` intact and extend its `Changes:` line with `added path-policy resolution`.
 
-- [ ] **Step 8: Run to verify it passes**
+- [x] **Step 8: Run to verify it passes**
 
 Run: `cargo test -p turso_graph_runtime`
 Expected: PASS.
 
-- [ ] **Step 9: Publish the table in DESIGN_DECISIONS.md**
+- [x] **Step 9: Publish the table in DESIGN_DECISIONS.md**
 
 Add to `graph/DESIGN_DECISIONS.md`:
 
@@ -2135,7 +2135,7 @@ so that widening the weight type trips a policy error rather than quietly
 feeding negative edges to Dijkstra.
 ```
 
-- [ ] **Step 10: Fold the policy version into the semantic profile**
+- [x] **Step 10: Fold the policy version into the semantic profile**
 
 In `graph/ir/src/semantics.rs`:
 - change `SEMANTIC_PROFILE_VERSION` from `1` to `2`
@@ -2149,7 +2149,7 @@ In `graph/ir/src/semantics.rs`:
     /// on the runtime. `graph/runtime/src/path_policy.rs` pins the two together.
 ```
 
-- [ ] **Step 11: Pin the mirror from the runtime side**
+- [x] **Step 11: Pin the mirror from the runtime side**
 
 Add to the test module in `graph/runtime/src/path_policy.rs`:
 
@@ -2166,13 +2166,13 @@ Add to the test module in `graph/runtime/src/path_policy.rs`:
     }
 ```
 
-- [ ] **Step 12: Re-pin the profile digest**
+- [x] **Step 12: Re-pin the profile digest**
 
 Run: `cargo test -p turso_graph_ir --test semantic_profile_pin`
 Expected: `semantic_profile_digest_is_pinned_to_its_version` FAILS with a new `left:` digest, because `path_policy` moved from 0 to 1 in `render()`.
 Copy that value into `PINNED_DIGEST` and update its doc comment to `/// Digest of `SEMANTIC_PROFILE.render()` at version 2.`
 
-- [ ] **Step 13: Run everything**
+- [x] **Step 13: Run everything**
 
 Run:
 ```bash
@@ -2182,7 +2182,7 @@ cargo test -p turso_graph_ir -p turso_graph_runtime -p turso_graph_frontend -p t
 ```
 Expected: PASS.
 
-- [ ] **Step 14: Commit**
+- [x] **Step 14: Commit**
 
 ```bash
 git add graph/runtime graph/ir graph/DESIGN_DECISIONS.md
