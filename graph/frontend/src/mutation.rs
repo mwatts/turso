@@ -26,22 +26,34 @@ use crate::{
 const SAVEPOINT: &str = "__turso_graph_mutation";
 pub(crate) const INTERNAL_PARAMETER_PREFIX: &str = "__turso_internal_graph_ref_";
 
-/// Count of mutations that took the closed single-program CREATE path.
+/// Count of mutations that took the closed CREATE fast path.
+///
+/// This is **not** "one VDBE program for the whole mutation": the node INSERT
+/// is a single `prepare_internal`, but label-junction membership (when labels
+/// exist and the catalog has a labels table) still uses additional helper
+/// prepares. True one-program labeled CREATE would need Core multi-cmd or a
+/// different encoding.
+///
 /// Always-on (not `cfg(test)`) so integration tests can observe it, matching
-/// `turso_graph_temporal::INSTALL_COUNT`. Prefer [`take_single_program_hit`]
-/// under parallel tests — the global counter races across threads.
-pub static SINGLE_PROGRAM_HITS: AtomicUsize = AtomicUsize::new(0);
+/// `turso_graph_temporal::INSTALL_COUNT`. Prefer
+/// [`take_closed_create_fast_path_hit`] under parallel tests — the global
+/// counter races across threads.
+pub static CLOSED_CREATE_FAST_PATH_HITS: AtomicUsize = AtomicUsize::new(0);
 
 thread_local! {
     /// Per-thread observation of the last `execute_cypher_mutation` attempt.
-    /// Cleared at the start of each call; set when the single-program path runs.
-    static SINGLE_PROGRAM_HIT: Cell<bool> = const { Cell::new(false) };
+    /// Cleared at the start of each call; set when the closed CREATE fast path runs.
+    static CLOSED_CREATE_FAST_PATH_HIT: Cell<bool> = const { Cell::new(false) };
 }
 
-/// Returns whether the current thread's last mutation used the single-program
-/// path, and clears the flag. Safe under parallel tests.
-pub fn take_single_program_hit() -> bool {
-    SINGLE_PROGRAM_HIT.with(|hit| hit.replace(false))
+/// Returns whether the current thread's last mutation used the closed CREATE
+/// fast path, and clears the flag. Safe under parallel tests.
+///
+/// A hit means the closed single-node CREATE branch ran (one prepare for the
+/// node INSERT). Labeled creates may still issue extra prepares for label
+/// junction rows — do not interpret a hit as "single VDBE program overall".
+pub fn take_closed_create_fast_path_hit() -> bool {
+    CLOSED_CREATE_FAST_PATH_HIT.with(|hit| hit.replace(false))
 }
 
 pub type Parameters = HashMap<String, Value>;
@@ -242,7 +254,7 @@ pub fn execute_cypher_mutation(
     source: &str,
     parameters: &Parameters,
 ) -> Result<MutationSummary, MutationError> {
-    SINGLE_PROGRAM_HIT.with(|hit| hit.set(false));
+    CLOSED_CREATE_FAST_PATH_HIT.with(|hit| hit.set(false));
     for name in parameters.keys() {
         if name.starts_with(INTERNAL_PARAMETER_PREFIX) {
             return Err(MutationError::ReservedParameter(name.clone()));
@@ -356,13 +368,16 @@ pub fn execute_cypher_mutation(
     }
 }
 
-/// Closed-subset single-program path for one `CREATE` node with no MATCH
-/// input, no WITH stages, and no RETURN. Unsupported shapes return `Ok(None)`
-/// so the multi-prepare savepoint executor remains the fallback.
+/// Closed CREATE fast path for one `CREATE` node with no MATCH input, no WITH
+/// stages, and no RETURN. Unsupported shapes return `Ok(None)` so the
+/// multi-prepare savepoint executor remains the fallback.
 ///
-/// The node insert is one `prepare_internal` program. Label-junction
-/// membership rows (when the catalog records labels) are still written with
-/// additional helper prepares — SQLite has no writable-CTE multi-table insert.
+/// **Prepare model:** the node INSERT is one `prepare_internal` program.
+/// Label-junction membership rows (when the catalog has a labels table and
+/// the create lists labels) still use additional helper prepares via
+/// [`record_node_labels`] — SQLite/Turso reject writable multi-table CTE
+/// inserts. A hit on [`CLOSED_CREATE_FAST_PATH_HITS`] therefore means "closed
+/// CREATE branch ran", not "one VDBE program for the whole mutation".
 fn try_single_program_mutation(
     connection: &Arc<Connection>,
     catalog: &dyn GraphCompilationCatalog,
@@ -410,8 +425,8 @@ fn try_single_program_mutation(
         &identity,
         parameters,
     )?;
-    SINGLE_PROGRAM_HIT.with(|hit| hit.set(true));
-    SINGLE_PROGRAM_HITS.fetch_add(1, Ordering::SeqCst);
+    CLOSED_CREATE_FAST_PATH_HIT.with(|hit| hit.set(true));
+    CLOSED_CREATE_FAST_PATH_HITS.fetch_add(1, Ordering::SeqCst);
     Ok(Some(MutationSummary {
         matched_rows: 1,
         operations_executed: 1,
@@ -2723,7 +2738,7 @@ mod tests {
     }
 
     #[test]
-    fn single_create_node_uses_single_program_path() {
+    fn single_create_node_uses_closed_create_fast_path() {
         let (connection, catalog, graph) = setup();
         let summary = execute(
             &connection,
@@ -2735,8 +2750,8 @@ mod tests {
         assert_eq!(summary.matched_rows, 1);
         assert_eq!(summary.operations_executed, 1);
         assert!(
-            take_single_program_hit(),
-            "closed single CREATE must take the single-program path"
+            take_closed_create_fast_path_hit(),
+            "closed single CREATE must take the closed CREATE fast path"
         );
         assert_eq!(
             rows(&connection, "SELECT id, name FROM people WHERE id = 42"),
@@ -2756,7 +2771,7 @@ mod tests {
         .unwrap();
         assert_eq!(summary.rows, vec![vec![Value::from_i64(1)]]);
         assert!(
-            !take_single_program_hit(),
+            !take_closed_create_fast_path_hit(),
             "WITH stages must stay on the multi-prepare savepoint path"
         );
         assert_eq!(
@@ -2766,7 +2781,7 @@ mod tests {
     }
 
     #[test]
-    fn multi_node_create_does_not_use_single_program_path() {
+    fn multi_node_create_does_not_use_closed_create_fast_path() {
         let (connection, catalog, graph) = setup();
         execute(
             &connection,
@@ -2776,8 +2791,8 @@ mod tests {
         )
         .unwrap();
         assert!(
-            !take_single_program_hit(),
-            "multi-operation CREATE is outside the closed single-program subset"
+            !take_closed_create_fast_path_hit(),
+            "multi-operation CREATE is outside the closed CREATE fast-path subset"
         );
     }
 

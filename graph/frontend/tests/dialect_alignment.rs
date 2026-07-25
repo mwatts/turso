@@ -6,7 +6,8 @@ use std::sync::{atomic::Ordering, Arc};
 
 use turso_core::{DatabaseOpts, MemoryIO, OpenFlags};
 use turso_graph_frontend::{
-    install_graph_catalog, open_database_with_io, register_graph, take_single_program_hit,
+    install_graph_catalog, open_database_with_io, register_graph,
+    take_closed_create_fast_path_hit,
     GraphConnection, GraphHostMode, GraphRegistration, NodeSourceRegistration, Parameters,
     RelationshipSourceRegistration, SnapshotStore, Value, GRAPH_EXPAND_TABLE_NAME,
 };
@@ -211,14 +212,18 @@ fn simple_create_mutation_commits_under_graph_dialect() {
     assert_eq!(rows, vec![vec![Value::build_text("Ada")]]);
 }
 
-/// Closed single-node CREATE must take the single-program path under
+/// Closed single-node CREATE must take the closed CREATE fast path under
 /// GraphDialect and remain visible to MATCH (including label membership).
+///
+/// A hit means the fast-path branch ran (one prepare for the node INSERT).
+/// Labeled creates may still use extra prepares for label-junction rows —
+/// this is not a claim of one VDBE program for the whole mutation.
 #[test]
-fn single_create_node_uses_single_program_path() {
+fn single_create_node_uses_closed_create_fast_path() {
     let io = Arc::new(MemoryIO::new());
     let database = open_database_with_io(
         io,
-        ":memory:dialect-single-program-create",
+        ":memory:dialect-closed-create-fast-path",
         OpenFlags::default(),
         DatabaseOpts::new(),
     )
@@ -260,8 +265,8 @@ fn single_create_node_uses_single_program_path() {
         )
         .expect("single create");
     assert!(
-        take_single_program_hit(),
-        "closed CREATE node must take the single-program path"
+        take_closed_create_fast_path_hit(),
+        "closed CREATE node must take the closed CREATE fast path"
     );
 
     let rows = session
@@ -269,11 +274,11 @@ fn single_create_node_uses_single_program_path() {
             "MATCH (n:Person {id: 42}) RETURN n.name AS name",
             &Parameters::new(),
         )
-        .expect("match after single-program create");
+        .expect("match after closed-create fast path");
     assert_eq!(rows, vec![vec![Value::build_text("Grace")]]);
 }
 
-/// Multi-stage mutations must not take the single-program path.
+/// Multi-stage mutations must not take the closed CREATE fast path.
 #[test]
 fn multi_stage_mutation_still_uses_savepoint_path() {
     let io = Arc::new(MemoryIO::new());
@@ -322,7 +327,7 @@ fn multi_stage_mutation_still_uses_savepoint_path() {
         .expect("multi-stage mutation");
     assert_eq!(summary.rows, vec![vec![Value::from_i64(1)]]);
     assert!(
-        !take_single_program_hit(),
+        !take_closed_create_fast_path_hit(),
         "WITH stages must stay on the multi-prepare savepoint path"
     );
 }

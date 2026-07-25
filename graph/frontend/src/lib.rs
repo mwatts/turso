@@ -50,8 +50,8 @@ pub use lowering::{
     RelationshipTableLayout,
 };
 pub use mutation::{
-    execute_cypher_mutation, take_single_program_hit, MutationError, MutationSummary, Parameters,
-    SINGLE_PROGRAM_HITS,
+    execute_cypher_mutation, take_closed_create_fast_path_hit, MutationError, MutationSummary,
+    Parameters, CLOSED_CREATE_FAST_PATH_HITS,
 };
 pub use schema_catalog::SchemaCatalog;
 pub use semantic::{
