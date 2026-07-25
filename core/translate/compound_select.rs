@@ -8,7 +8,7 @@ use crate::translate::emitter::{
 };
 use crate::translate::expr::translate_expr;
 use crate::translate::order_by::{custom_type_comparator, sorter_insert};
-use crate::translate::plan::{Plan, QueryDestination, SelectPlan};
+use crate::translate::plan::{CompoundOrderByKey, Plan, QueryDestination, SelectPlan};
 use crate::translate::result_row::emit_columns_to_destination;
 use crate::vdbe::builder::{CursorType, ProgramBuilder};
 use crate::vdbe::insn::Insn;
@@ -552,16 +552,13 @@ fn create_dedupe_index(
         .result_columns
         .iter()
         .enumerate()
-        .map(|(i, c)| IndexColumn {
-            name: c
-                .name(&right_select.table_references)
-                .map(|n| n.to_string())
-                .unwrap_or_default(),
-            order: SortOrder::Asc,
-            pos_in_table: i,
-            default: None,
-            collation: None,
-            expr: None,
+        .map(|(i, c)| {
+            IndexColumn::new(
+                c.name(&right_select.table_references)
+                    .map(|n| n.to_string())
+                    .unwrap_or_default(),
+                i,
+            )
         })
         .try_collect::<crate::alloc::Vec<_>>()?;
     for (i, column) in dedupe_columns.iter_mut().enumerate() {
@@ -828,7 +825,7 @@ fn create_collection_index(
 #[allow(clippy::too_many_arguments)]
 fn emit_compound_order_by(
     program: &mut ProgramBuilder,
-    order_by: &[(usize, SortOrder, Option<turso_parser::ast::NullsOrder>)],
+    order_by: &[CompoundOrderByKey],
     collection_cursor_id: usize,
     collection_index: &Index,
     num_result_cols: usize,
@@ -851,11 +848,13 @@ fn emit_compound_order_by(
         Option<turso_parser::ast::NullsOrder>,
     )> = order_by
         .iter()
-        .map(|(col_idx, order, nulls)| {
-            let collation = collection_index
-                .columns
-                .get(*col_idx)
-                .and_then(|c| c.collation);
+        .map(|(col_idx, order, nulls, explicit_collation)| {
+            let collation = (*explicit_collation).or_else(|| {
+                collection_index
+                    .columns
+                    .get(*col_idx)
+                    .and_then(|c| c.collation)
+            });
             (*order, collation, *nulls)
         })
         // Sequence tie-breaker: preserves insertion order for rows with equal ORDER BY keys
@@ -872,7 +871,7 @@ fn emit_compound_order_by(
             if let Some((sort_key_idx, _)) = order_by
                 .iter()
                 .enumerate()
-                .find(|(_, (ob_col, _, _))| *ob_col == col_idx)
+                .find(|(_, (ob_col, _, _, _))| *ob_col == col_idx)
             {
                 // This result column is also a sort key - deduplicate.
                 (sort_key_idx, true)
@@ -890,7 +889,7 @@ fn emit_compound_order_by(
     // NumericLt to sort correctly instead of default blob/text comparison).
     let comparators: crate::alloc::Vec<Option<crate::vdbe::insn::SortComparatorType>> = order_by
         .iter()
-        .map(|(col_idx, _, _)| {
+        .map(|(col_idx, _, _, _)| {
             program.result_columns.get(*col_idx).and_then(|rc| {
                 custom_type_comparator(
                     &rc.expr,
@@ -942,7 +941,7 @@ fn emit_compound_order_by(
     // Build sorter record: [sort_keys..., sequence, non-dedup result cols...]
     let sorter_regs = program.alloc_registers(sorter_column_count);
     // First emit sort keys
-    for (sort_key_idx, (col_idx, _, _)) in order_by.iter().enumerate() {
+    for (sort_key_idx, (col_idx, _, _, _)) in order_by.iter().enumerate() {
         program.emit_insn(Insn::Copy {
             src_reg: read_regs + col_idx,
             dst_reg: sorter_regs + sort_key_idx,

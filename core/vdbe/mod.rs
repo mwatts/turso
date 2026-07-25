@@ -17,6 +17,7 @@
 //!
 //! https://www.sqlite.org/opcode.html
 
+use crate::alloc::{TryReserveError, TursoFromIterator};
 use crate::translate::plan::BitSet;
 use crate::types::{Extendable, Text, ValueBlob};
 use crate::{turso_assert, turso_assert_ne, turso_debug_assert, NonNan};
@@ -41,7 +42,7 @@ pub mod value;
 // for benchmarks
 pub use crate::translate::collate::CollationSeq;
 use crate::{
-    alloc::DynAllocator,
+    alloc::{DynAllocator, TryClone},
     error::LimboError,
     function::FuncCtx,
     mvcc::{database::CommitStateMachine, MvccClock},
@@ -73,7 +74,7 @@ use crate::sync::RwLock;
 use crate::{
     storage::pager::Pager,
     translate::plan::ResultSetColumn,
-    types::{AggContext, Cursor, ImmutableRecord, Value},
+    types::{AggContext, Cursor, ImmutableRecord, RecordBuf, Value},
     vdbe::{builder::CursorType, insn::Insn},
 };
 use crate::{
@@ -261,7 +262,76 @@ pub enum Register {
     Record(ImmutableRecord),
 }
 
+impl TryClone for Register {
+    type Error = TryReserveError;
+
+    fn try_clone(&self) -> Result<Self, Self::Error> {
+        match self {
+            Register::Value(value) => Ok(Register::Value(value.try_clone()?)),
+            Register::Aggregate(context) => Ok(Register::Aggregate(context.try_clone()?)),
+            Register::Record(record) => Ok(Register::Record(ImmutableRecord::copy_payload(
+                record.get_payload(),
+                RecordBuf::alloc(),
+            )?)),
+        }
+    }
+
+    /// Fallibly copies `source` into this register, reusing the destination's
+    /// Value or record allocation when the variants match; see
+    /// [Value::try_clone_from].
+    #[turso_macros::allocation_site(crate::alloc::ValueBlobAllocationSite::CloneFrom)]
+    fn try_clone_from(&mut self, source: &Self) -> Result<(), Self::Error> {
+        match (self, source) {
+            (Register::Value(dst), Register::Value(src)) => dst.try_clone_from(src)?,
+            (Register::Record(dst), Register::Record(src)) => {
+                let buf = dst.as_blob_mut();
+                buf.clear();
+                buf.try_extend(src.get_payload().iter().copied())?;
+            }
+            (dst, Register::Value(src)) => {
+                let mut value = Value::Null;
+                value.try_clone_from(src)?;
+                *dst = Register::Value(value);
+            }
+            (dst, Register::Record(src)) => {
+                *dst = Register::Record(ImmutableRecord::copy_payload(
+                    src.get_payload(),
+                    RecordBuf::alloc(),
+                )?);
+            }
+            (dst, Register::Aggregate(src)) => *dst = Register::Aggregate(src.try_clone()?),
+        }
+        Ok(())
+    }
+}
+
 impl Register {
+    /// Takes the register's spent record buffer for reuse, leaving NULL.
+    /// Callers about to overwrite the register use this to recycle its
+    /// allocation instead of dropping it.
+    #[inline]
+    pub fn take_buf(&mut self) -> RecordBuf {
+        match std::mem::replace(self, Register::Value(Value::Null)) {
+            Register::Record(record) => record.retire(),
+            _ => RecordBuf::alloc(),
+        }
+    }
+
+    /// Fallibly sets the register to a copy of `val`, reusing the register's
+    /// existing allocation when possible; see [Value::try_clone_from].
+    #[inline]
+    pub fn try_clone_value_from(&mut self, val: &Value) -> crate::Result<()> {
+        match self {
+            Register::Value(v) => v.try_clone_from(val)?,
+            _ => {
+                let mut value = Value::Null;
+                value.try_clone_from(val)?;
+                *self = Register::Value(value);
+            }
+        }
+        Ok(())
+    }
+
     #[inline]
     pub const fn is_null(&self) -> bool {
         matches!(self, Register::Value(Value::Null))
@@ -749,8 +819,6 @@ pub struct ProgramState {
     seek_state: OpSeekState,
     /// Metrics collected for the lifetime of this prepared statement.
     pub metrics: StatementMetrics,
-    /// Current collation sequence set by OP_CollSeq instruction
-    current_collation: Option<CollationSeq>,
     op_vacuum_state: VacuumOpState,
     /// State machine for committing view deltas with I/O handling
     view_delta_state: ViewDeltaCommitState,
@@ -846,7 +914,6 @@ impl ProgramState {
             seek_state: OpSeekState::Start,
             metrics: StatementMetrics::new(),
             distinct_key_values: Vec::new(),
-            current_collation: None,
             op_vacuum_state: VacuumOpState::None,
             view_delta_state: ViewDeltaCommitState::NotStarted,
             auto_txn_cleanup: TxnCleanup::None,
@@ -956,7 +1023,6 @@ impl ProgramState {
         self.once.clear();
         self.execution_state = ProgramExecutionState::Init;
         self.query_deadline = None;
-        self.current_collation = None;
         #[cfg(feature = "json")]
         self.json_cache.clear();
 
@@ -967,7 +1033,6 @@ impl ProgramState {
         self.commit_state.cleanup_mvcc_checkpoint_state();
         self.active_op_state.clear();
         self.seek_state = OpSeekState::Start;
-        self.current_collation = None;
         self.commit_state = CommitState::Ready;
         // Drop any in-flight sequence inner-tx commit-state-machine. If
         // it was mid-step the inner mv_tx has already been swapped back
@@ -2827,15 +2892,6 @@ impl Deref for Program {
     }
 }
 
-pub(crate) fn make_record(
-    registers: &[Register],
-    start_reg: &usize,
-    count: &usize,
-) -> Result<ImmutableRecord> {
-    let regs = &registers[*start_reg..*start_reg + *count];
-    ImmutableRecord::from_registers(regs, regs.len())
-}
-
 /// Split a register slice into an immutable ref and a mutable ref at two distinct indices.
 pub(crate) fn split_registers(
     registers: &mut [Register],
@@ -3244,6 +3300,104 @@ mod tests {
             OpInsertSubState::Seek
         ));
         assert!(matches!(state.seek_state, OpSeekState::MoveLast));
+    }
+
+    #[test]
+    fn register_try_clone_copies_each_variant() {
+        let record_values = [Value::from_i64(1), Value::build_text("record payload")];
+        let aggregate_values = crate::alloc::vec![Value::build_text("aggregate payload")];
+        let registers = [
+            Register::Value(Value::build_text("value")),
+            Register::Aggregate(AggContext::Builtin(aggregate_values)),
+            Register::Record(
+                ImmutableRecord::from_values(&record_values, record_values.len()).unwrap(),
+            ),
+        ];
+
+        for source in registers {
+            assert_eq!(source.try_clone().unwrap(), source);
+        }
+    }
+
+    #[test]
+    fn register_try_clone_from_reuses_matching_allocations() {
+        use crate::types::Text;
+
+        let src = Register::Value(Value::Text(Text::new(String::from("short"))));
+        let mut dst = Register::Value(Value::Text(Text::new(String::from(
+            "a destination string with plenty of capacity",
+        ))));
+        let ptr = match &dst {
+            Register::Value(Value::Text(t)) => t.as_str().as_ptr(),
+            _ => unreachable!(),
+        };
+        dst.try_clone_from(&src).unwrap();
+        assert_eq!(dst, src);
+        match &dst {
+            Register::Value(Value::Text(t)) => assert_eq!(t.as_str().as_ptr(), ptr),
+            _ => unreachable!(),
+        }
+
+        let src_values = [Value::from_i64(1), Value::build_text("record payload")];
+        let src =
+            Register::Record(ImmutableRecord::from_values(&src_values, src_values.len()).unwrap());
+        let large_values = [Value::build_text(
+            "a much longer record payload that dwarfs the source record",
+        )];
+        let mut dst = Register::Record(
+            ImmutableRecord::from_values(&large_values, large_values.len()).unwrap(),
+        );
+        let ptr = match &dst {
+            Register::Record(record) => record.get_payload().as_ptr(),
+            _ => unreachable!(),
+        };
+        dst.try_clone_from(&src).unwrap();
+        assert_eq!(dst, src);
+        match &dst {
+            Register::Record(record) => assert_eq!(record.get_payload().as_ptr(), ptr),
+            _ => unreachable!(),
+        }
+
+        let src = Register::Aggregate(AggContext::Builtin(crate::alloc::vec![
+            Value::build_text("agg state"),
+            Value::from_i64(2),
+        ]));
+        let mut dst = Register::Value(Value::Null);
+        dst.try_clone_from(&src).unwrap();
+        assert_eq!(dst, src);
+    }
+
+    #[test]
+    fn register_take_buf_recycles_record_allocations() {
+        let values = [Value::build_text("some record payload")];
+        let record = ImmutableRecord::from_values(&values, values.len()).unwrap();
+        let capacity = record.as_blob().capacity();
+        let ptr = record.get_payload().as_ptr();
+
+        let mut register = Register::Record(record);
+        let rebuilt = ImmutableRecord::build(&values, register.take_buf()).unwrap();
+        assert!(register.is_null());
+        assert_eq!(rebuilt.as_blob().capacity(), capacity);
+        assert_eq!(rebuilt.get_payload().as_ptr(), ptr);
+    }
+
+    #[test]
+    fn register_try_clone_value_from_reuses_value_slot() {
+        let value = Value::build_text(String::from("payload"));
+        let mut register = Register::Value(Value::build_text(String::from(
+            "existing buffer with plenty of capacity to reuse",
+        )));
+        let ptr = match &register {
+            Register::Value(Value::Text(text)) => text.as_str().as_ptr(),
+            _ => unreachable!(),
+        };
+
+        register.try_clone_value_from(&value).unwrap();
+        assert_eq!(register, Register::Value(value));
+        match &register {
+            Register::Value(Value::Text(text)) => assert_eq!(text.as_str().as_ptr(), ptr),
+            _ => unreachable!(),
+        }
     }
 }
 

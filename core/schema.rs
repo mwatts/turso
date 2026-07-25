@@ -12,7 +12,9 @@ use crate::translate::emitter::Resolver;
 use crate::translate::expr::{
     bind_and_rewrite_expr, walk_expr, walk_expr_mut, BindingBehavior, WalkControl,
 };
-use crate::translate::index::{resolve_index_method_parameters, resolve_sorted_columns};
+use crate::translate::index::{
+    reject_explicit_nulls, resolve_index_method_parameters, resolve_sorted_columns,
+};
 use crate::translate::planner::ROWID_STRS;
 use crate::types::{IOResult, ImmutableRecord};
 use crate::util::{exprs_are_equivalent, normalize_ident};
@@ -4504,6 +4506,7 @@ pub fn create_table(tbl_name: &str, body: &CreateTableBody, root_page: i64) -> R
                     if *auto_increment {
                         has_autoincrement = true;
                     }
+                    reject_explicit_nulls(columns)?;
 
                     let mut pk_collations = Vec::try_with_capacity_ext(columns.len())?;
                     for column in columns {
@@ -4532,6 +4535,7 @@ pub fn create_table(tbl_name: &str, body: &CreateTableBody, root_page: i64) -> R
                     conflict_clause,
                 } = &c.constraint
                 {
+                    reject_explicit_nulls(columns)?;
                     let mut unique_columns = Vec::try_with_capacity_ext(columns.len())?;
                     let mut unique_collations = Vec::try_with_capacity_ext(columns.len())?;
                     for column in columns {
@@ -5730,6 +5734,43 @@ pub struct IndexColumn {
     pub default: Option<Box<Expr>>,
     /// Expression for expression indexes. None for simple column indexes.
     pub expr: Option<Box<Expr>>,
+}
+
+impl IndexColumn {
+    /// Returns a default column with the given name and position.
+    pub fn new(name: impl ToString, pos_in_table: usize) -> Self {
+        Self {
+            name: name.to_string(),
+            order: SortOrder::Asc,
+            pos_in_table,
+            collation: None,
+            default: None,
+            expr: None,
+        }
+    }
+
+    pub fn new_many<I>(names: I) -> Vec<Self>
+    where
+        I: IntoIterator,
+        I::Item: ToString,
+        I::IntoIter: ExactSizeIterator,
+    {
+        let iter = names.into_iter();
+        let mut cols = <Vec<_> as TursoVecExt<_>>::with_capacity(iter.len());
+
+        iter.enumerate()
+            .map(|(i, name)| Self {
+                name: name.to_string(),
+                order: SortOrder::Asc,
+                pos_in_table: i,
+                collation: None,
+                default: None,
+                expr: None,
+            })
+            .for_each(|col| cols.push(col));
+
+        cols
+    }
 }
 
 impl Index {

@@ -451,6 +451,8 @@ fn emit_refill_index(
             order_collations_nulls,
             comparators: crate::alloc::vec![],
         });
+        // SorterData moves each sorted record into the pseudo cursor's
+        // content register; the two must name the same register.
         let content_reg = program.alloc_register();
         program.emit_insn(Insn::OpenPseudo {
             cursor_id: pseudo_cursor_id,
@@ -551,8 +553,6 @@ fn emit_refill_index(
             pc_if_empty: sorted_loop_end,
         });
 
-        let sorted_record_reg = program.alloc_register();
-
         if idx.unique {
             let goto_label = program.allocate_label();
             let label_after_sorter_compare = program.allocate_label();
@@ -563,7 +563,7 @@ fn emit_refill_index(
             program.preassign_label_to_next_insn(sorted_loop_start);
             program.emit_insn(Insn::SorterCompare {
                 cursor_id: sorter_cursor_id,
-                sorted_record_reg,
+                sorted_record_reg: content_reg,
                 num_regs: columns.len(),
                 pc_when_nonequal: goto_label,
             });
@@ -581,7 +581,7 @@ fn emit_refill_index(
         program.emit_insn(Insn::SorterData {
             pseudo_cursor: pseudo_cursor_id,
             cursor_id: sorter_cursor_id,
-            dest_reg: sorted_record_reg,
+            dest_reg: content_reg,
         });
 
         program.emit_insn(Insn::SeekEnd {
@@ -589,7 +589,7 @@ fn emit_refill_index(
         });
         program.emit_insn(Insn::IdxInsert {
             cursor_id: index_cursor_id,
-            record_reg: sorted_record_reg,
+            record_reg: content_reg,
             unpacked_start: None,
             unpacked_count: None,
             flags: IdxInsertFlags::new().use_seek(false),
@@ -882,11 +882,26 @@ pub fn resolve_sorted_columns(
     resolve_sorted_columns_with_resolver(table, cols, None)
 }
 
+/// SQLite rejects explicit `NULLS FIRST`/`NULLS LAST` wherever an index key
+/// is defined or matched: CREATE INDEX, table PRIMARY KEY/UNIQUE constraints,
+/// and UPSERT conflict targets (see `sqlite3HasExplicitNulls`). Accepting the
+/// clause in schema definitions would store SQL in `sqlite_schema` that
+/// SQLite refuses to load ("malformed database schema").
+pub fn reject_explicit_nulls(cols: &[SortedColumn]) -> crate::Result<()> {
+    for sc in cols {
+        if let Some(nulls) = sc.nulls {
+            crate::bail_parse_error!("unsupported use of {}", nulls);
+        }
+    }
+    Ok(())
+}
+
 fn resolve_sorted_columns_with_resolver(
     table: &BTreeTable,
     cols: &[SortedColumn],
     resolver: Option<&Resolver>,
 ) -> crate::Result<crate::alloc::Vec<IndexColumn>> {
+    reject_explicit_nulls(cols)?;
     let mut resolved =
         <crate::alloc::Vec<_> as crate::alloc::TursoTryWithCapacityExt>::try_with_capacity_ext(
             cols.len(),

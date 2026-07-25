@@ -126,7 +126,7 @@ pub struct PageInner {
     /// The actual page data buffer. None if not loaded.
     pub buffer: Option<Arc<Buffer>>,
     /// Overflow cells during btree operations
-    pub overflow_cells: Vec<OverflowCell>,
+    pub overflow_cells: crate::alloc::Vec<OverflowCell>,
 }
 
 // Methods moved from PageContent - these provide btree page access
@@ -139,7 +139,7 @@ impl PageInner {
             pin_count: AtomicUsize::new(0),
             wal_tag: AtomicU64::new(TAG_UNSET),
             buffer: Some(buffer),
-            overflow_cells: Vec::new(),
+            overflow_cells: crate::alloc::vec![],
         }
     }
 
@@ -151,7 +151,7 @@ impl PageInner {
             pin_count: AtomicUsize::new(0),
             wal_tag: AtomicU64::new(TAG_UNSET),
             buffer: Some(Arc::new(buffer)),
-            overflow_cells: Vec::new(),
+            overflow_cells: crate::alloc::vec![],
         }
     }
     /// Get the page buffer as a mutable slice. Panics if buffer not loaded.
@@ -750,7 +750,7 @@ impl Page {
                 pin_count: AtomicUsize::new(0),
                 wal_tag: AtomicU64::new(TAG_UNSET),
                 buffer: None,
-                overflow_cells: Vec::new(),
+                overflow_cells: crate::alloc::vec![],
             }),
         }
     }
@@ -3322,7 +3322,7 @@ impl Pager {
                 self.pending_reads.write().remove(&page_idx);
                 Ok(IOResult::Done((page, c_disk)))
             }
-            IOResult::IO(IOCompletions::Single(spill_c)) => {
+            IOResult::IO(IOCompletions(spill_c)) => {
                 // Leave the pending entry in place; the next call to
                 // `read_page_nonblock(page_idx)` will recover it and retry
                 // `cache_insert` without re-issuing the disk read.
@@ -3559,7 +3559,7 @@ impl Pager {
                     dirty_ids,
                     completion: completion.clone(),
                 },
-                IOCompletions::Single(completion),
+                IOCompletions(completion),
             )),
             None => {
                 // No async prep needed, go straight to finish
@@ -3569,7 +3569,7 @@ impl Pager {
                         dirty_ids,
                         completion: completion.clone(),
                     },
-                    IOCompletions::Single(completion),
+                    IOCompletions(completion),
                 ))
             }
         }
@@ -3589,7 +3589,7 @@ impl Pager {
                     dirty_ids,
                     completion: completion.clone(),
                 },
-                IOCompletions::Single(completion),
+                IOCompletions(completion),
             ));
         }
 
@@ -3599,7 +3599,7 @@ impl Pager {
                 dirty_ids,
                 completion: finish_completion.clone(),
             },
-            IOCompletions::Single(finish_completion),
+            IOCompletions(finish_completion),
         ))
     }
 
@@ -3616,7 +3616,7 @@ impl Pager {
                     dirty_ids,
                     completion: completion.clone(),
                 },
-                IOCompletions::Single(completion),
+                IOCompletions(completion),
             ));
         }
 
@@ -3666,7 +3666,7 @@ impl Pager {
                                 page,
                                 completion: completion.clone(),
                             },
-                            IOCompletions::Single(completion),
+                            IOCompletions(completion),
                         ));
                     }
 
@@ -3706,7 +3706,7 @@ impl Pager {
                     page,
                     completion: completion.clone(),
                 },
-                IOCompletions::Single(completion),
+                IOCompletions(completion),
             ));
         }
         trace!(
