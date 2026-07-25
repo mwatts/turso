@@ -159,12 +159,12 @@ It also adds graph IR, a traversal runtime, and a separate mutation path.
 | Compiler registration | `register_frontend_compiler("graph-cypher", GraphCompiler)` on install; unregister on Drop | same |
 | Read path | Refresh snapshot if needed → `prepare_frontend` | `prepare_cancellable` |
 | Compile (reads) | Cypher parse → bind IR → `lower_relational` → engine AST | `compiler.rs`, `binder.rs`, `lowering.rs` |
-| Mutation path | **Does not use** `FrontendCompiler`: savepoint plus many SQL statements in Rust | `mutation.rs` |
+| Mutation path | **Does not use** `FrontendCompiler`: autocommit `BEGIN IMMEDIATE` or write-txn savepoint plus many `prepare_internal` SQL statements in Rust | `mutation.rs` |
 | Variable-length paths | `GraphExpand` IR → `__turso_graph_expand` internal virtual table | `graph_expand.rs`, runtime CSR/snapshot |
 | Dialect `parse` | **SQLite only**; Cypher text returns an error that points to `GraphConnection` | `dialect.rs` |
 | Schema store | Unmarked SQLite DDL for user tables; graph meta in `__turso_internal_graph_*` | catalog |
 | Catalog surface | `turso_graphs` virtual table via dialect plus registration tables | dialect + catalog |
-| Functions | Dialect temporal names plus per-connection `install_temporal_extension` | dialect + `graph/temporal` |
+| Functions | Dialect temporal names for Root; every `install` also calls `install_temporal_extension` for InternalHelper mutation SQL | dialect + `graph/temporal` |
 | Protocol / CLI | **None** | — |
 | Custom types | `requires_custom_types() == true` (for duration fixtures) | dialect |
 
@@ -177,9 +177,10 @@ Pipeline:
        │              │
        │              └─ GraphExpand fragment → __turso_graph_expand vtab
        │
-       └─ WRITE ─► bind_mutation ──► many lowered SQL statements
-                      under SAVEPOINT via Connection::prepare / execute
-                      (dialect path, not prepare_frontend)
+       └─ WRITE ─► bind_mutation ──► many lowered SQL statements via
+                      prepare_internal (InternalHelper); autocommit uses
+                      BEGIN IMMEDIATE, write txn uses SAVEPOINT
+                      (not prepare_frontend)
 ```
 
 ---
@@ -205,11 +206,11 @@ Legend:
 | Virtual tables for non-SQL ops | Many | Catalog | `__turso_graph_expand` | Expand is the main graph-specific Core hook |
 | FTS / index methods | Core FTS | Via SQL | Graph wrappers → Core FTS | Good use (see `native_capabilities` tests) |
 | Covering index / sorter / recycle wins | Automatic | Automatic | Automatic when lowering shape is good | See `MAIN_MERGE_LEVERAGE.md` |
-| EXPLAIN | Full | Full | Partial (rewrites to EQP over lowered SQL) | Session special case; not through the compiler |
-| Transaction API | Core | Core (BEGIN via SQL) | Savepoints for mutations; shares explicit core tx | Composition test: PG + Graph share rollback |
+| EXPLAIN | Full | Full | Full (session): one `compile_outcome` then SQL `EXPLAIN QUERY PLAN` over lowered AST | Empty Cypher `result_types` for EQP columns; not re-parsing Cypher as dialect |
+| Transaction API | Core | Core (BEGIN via SQL) | Mutations: autocommit `BEGIN IMMEDIATE`, write-txn savepoint, reject bare deferred `BEGIN` | Composition test: PG + Graph share rollback |
 | Wire / CLI product surface | CLI + bindings | Wire + CLI | Embed only | Product gap, not Core gap |
 | Async wrapper | `turso` crate | None | None | Shared product gap for PG and Graph |
-| Result type metadata | Column affinity / custom types | Wire types from SQL | Cypher `result_types()` on wrapper | Graph recomputes types with a second bind |
+| Result type metadata | Column affinity / custom types | Wire types from SQL | Cypher `result_types()` from shared `CompileOutcome` cache (recompile on miss) | Graph-side cache; Core `FrontendCompilation` types still deferred |
 
 ---
 
@@ -236,16 +237,16 @@ Postgres DML is **one compile → one VDBE program**.
 
 Graph mutations:
 - bind a mutation IR pipeline in Rust
-- open a **savepoint**
-- run many `Connection::prepare` / `execute` statements of **generated SQLite SQL**
+- wrap with **autocommit `BEGIN IMMEDIATE`** or **write-txn savepoint** (reject deferred bare `BEGIN`)
+- run many `Connection::prepare_internal` statements of **generated SQLite SQL**
 - apply ORDER BY / DISTINCT / SKIP / LIMIT for RETURN in Rust
 - clear snapshot caches after success or failure
 
 | Effect | Detail |
 |--------|--------|
 | No single `PreparedSource` for mutations | Reprepare, EXPLAIN, statement-journal batching, and statement-level cancel differ from reads |
-| Uses host dialect prepare | Mutation SQL goes through dialect `parse`, not `prepare_frontend`. It works because the SQL is SQLite-shaped, but it loses frontend identity |
-| Harder atomicity and re-entry | Correctness depends on savepoint rules and per-step prepares. Async yield across the whole mutation spans many statements |
+| Uses InternalHelper prepare | Mutation SQL uses `prepare_internal` (SQLite function resolve), not `prepare_frontend`. Needs session temporal extension even under GraphDialect |
+| Harder atomicity and re-entry | Correctness depends on txn/savepoint rules and per-step prepares. Async yield across the whole mutation spans many statements |
 | Blocks "mutation as Statement" API | The API alignment plan left this out on purpose. It is still the main Core-alignment gap |
 
 **Direction (not a rewrite order for tomorrow):** let Core own more of the mutation pipeline.
@@ -255,16 +256,16 @@ Options:
 
 Do not force Neo4j semantics into VDBE opcodes.
 
-### 6.2 Double parse and double bind on reads
+### 6.2 Double parse and double bind on reads — **largely closed on the graph side**
 
-`prepare_cancellable` parses Cypher for:
-1. the traversal-snapshot decision and EXPLAIN strip
-2. `result_types_for` (bind again for types)
-3. `GraphCompiler::compile` (parse + bind + lower again inside `prepare_frontend`)
+`prepare_cancellable` now shares one `GraphCompiler::compile_outcome` for:
+1. the traversal-snapshot decision
+2. Cypher `result_types` (from the same `CompileOutcome`; recompile on cache miss, never silent empty types)
+3. `prepare_frontend` recompile through the same compiler Arc / last-outcome cache
 
-Postgres uses one compiler pass for prepare (plus a special-case pre-parse when needed).
-The archived API plan named double-parse removal as a **Core change**: a richer `FrontendCompilation` that carries bound metadata.
-That need still stands.
+EXPLAIN strips the prefix, uses the same `compile_outcome` on the inner Cypher, then prepares pure SQL `EXPLAIN QUERY PLAN …` text (no dialect reparse of Cypher).
+
+**Residual:** Core `FrontendCompilation` still does not carry frontend result-type metadata. Graph compensates with a session-side cache. A richer Core compile result remains a multi-frontend opportunity (§7.1), not a live double-bind bug.
 
 ### 6.3 Compiler contract is AST-only and connection-blind
 
@@ -299,14 +300,15 @@ Any frontend that walks tables in steps could reuse it.
 | Native DDL is marked and reloaded | User tables are plain SQLite; graph registry is side tables |
 | `parse` accepts PG SQL | `parse` rejects Cypher (by design). Cypher never enters the dialect |
 | Rich `pg_*` catalog | One `turso_graphs` listing plus private tables |
-| Function surface is mainly dialect-owned | Temporal path is split: dialect resolve/exec **and** per-connection extension install |
+| Function surface is mainly dialect-owned | Root: dialect resolve/exec; **every** install also registers the static extension |
 
 Reject Cypher in `Dialect::parse` is correct. The compiler owns statements.
-The dual temporal install wastes work:
-- on a pure `GraphDialect` open, dialect `exec_scalar_function` should be enough
-- `install_temporal_extension` stays useful for attach mode and external-function registration
+Dual resolution is intentional, not waste:
+- Root dialect-pinned prepares use `GraphDialect` for temporal/`cypher_*` names
+- Mutation helpers use `prepare_internal` → InternalHelper → **SQLite** symbol table only, so they need `install_temporal_extension` even under DialectPinned
+- Attach mode relies on the extension for both Root and InternalHelper
 
-One mechanism would simplify sessions.
+One Core mechanism (frontend-scoped function resolve, §7.1) could collapse this later.
 
 ### 6.6 Attach mode vs dialect-pinned open
 
@@ -435,19 +437,20 @@ Plan: [`docs/superpowers/plans/2026-07-25-graph-dialect-core-alignment.md`](supe
 Choose by measured pain:
 
 1. **Lower simple mutations** (single CREATE/SET/DELETE without multi-stage WITH) to **one** engine AST and one `prepare_frontend` statement — match Postgres.
-   - **Shipped (partial):** mutation helpers use `prepare_internal` (Task 6); **closed CREATE** (single unlabeled node, no multi-stage WITH) uses a one-program fast path (Task 7).
-   - **Still open:** true one-program path for **labeled** CREATE (still multi-prepare for labels); SET/DELETE single-program; full multi-stage mutation as one VDBE program.
+   - **Shipped (partial):** mutation helpers use `prepare_internal` (Task 6); **closed CREATE** (single node, no multi-stage WITH) takes a fast path whose **node INSERT is one** `prepare_internal` program (Task 7).
+   - **Honest limit:** labeled CREATE still issues **extra prepares** for label-junction membership rows when the catalog has a labels table — a fast-path hit is not “one VDBE program for the whole mutation.”
+   - **Still open:** true one-program path for labeled CREATE; SET/DELETE single-program; full multi-stage mutation as one VDBE program.
 2. Keep complex pipelines in Rust, but drive them with a **Core multi-step transaction helper** (shared with batch SQL) — **open** (needs Core multi-cmd / multi-step prepare).
 3. Long term: multi-command `PreparedSource` with frontend id for the whole script — **open**.
 
 Do not rewrite mutation orchestration only for purity.
 Gate rewrites on test failures, performance, or cancel/reprepare bugs.
 
-### P3 — Function and catalog unification — **hygiene done** (2026-07-25, plan Tasks 4–5)
+### P3 — Function and catalog unification — **hygiene done** (2026-07-25, plan Tasks 4–5; Task 4 success redefined 2026-07-25 final fix)
 
-- Prefer dialect-owned temporal execution on `GraphDialect` databases — **shipped:** skip temporal extension install when dialect-pinned (Task 4).
-- Keep extension install for attach / SQLite-host only — **shipped**.
-- Expand install: `__turso_graph_expand` catalog install is idempotent; connection install stays for attach (Task 5).
+- Dialect is source of truth for **Root** temporal/`cypher_*` under `GraphDialect` — **shipped** (Task 4).
+- **Always** call `install_temporal_extension` on every `GraphConnection::install` (including DialectPinned) so InternalHelper mutation SQL can resolve the same names — **shipped** (final review fix; overrides earlier “zero installs on dialect open” claim).
+- Expand install: `__turso_graph_expand` catalog install is idempotent; session install for both modes (Task 5).
 - Keep `turso_graphs` as the public listing.
 - Document private `__turso_internal_*` tables as engine-adjacent metadata (like `sqlite_sequence`).
 

@@ -21,7 +21,8 @@ use turso_ext::{scalar, ExtensionApi, Value as ExtValue};
 
 /// How many times [`install_temporal_extension`] has been invoked in this
 /// process. Always available (not `cfg(test)`) so integration tests in
-/// dependent crates can assert dialect-pinned opens skip install.
+/// dependent crates can assert install policy (every `GraphConnection::install`
+/// installs, including dialect-pinned, for InternalHelper symbol safety).
 pub static INSTALL_COUNT: AtomicUsize = AtomicUsize::new(0);
 
 /// Registers the temporal functions on a connection. Safe to call more

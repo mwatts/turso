@@ -58,10 +58,10 @@ fn prepare_result_types_match_projection_width() {
     assert_eq!(stmt.result_types()[1], ValueType::Integer);
 }
 
-/// Dialect-pinned open must resolve temporal/duration via GraphDialect and
-/// must not call `install_temporal_extension` a second time on the session.
+/// Dialect-pinned open still installs the temporal extension for InternalHelper
+/// mutation SQL (SQLite symbol table), while Root reads resolve via GraphDialect.
 #[test]
-fn dialect_pinned_open_runs_duration_without_second_extension_install() {
+fn dialect_pinned_open_installs_temporal_extension_and_runs_duration() {
     let before = turso_graph_temporal::INSTALL_COUNT.load(Ordering::SeqCst);
     let io = Arc::new(MemoryIO::new());
     let database = open_database_with_io(
@@ -103,16 +103,88 @@ fn dialect_pinned_open_runs_duration_without_second_extension_install() {
     let session = GraphConnection::open(connection, "social").expect("open session");
     assert_eq!(session.host_mode(), GraphHostMode::DialectPinned);
     let after_open = turso_graph_temporal::INSTALL_COUNT.load(Ordering::SeqCst);
-    assert_eq!(
-        after_open - before,
-        0,
-        "dialect-pinned GraphConnection::open must skip install_temporal_extension"
+    assert!(
+        after_open - before >= 1,
+        "dialect-pinned GraphConnection::open must still install_temporal_extension for InternalHelper symbols (delta={})",
+        after_open - before
     );
 
     let rows = session
         .query("RETURN duration('P1DT25H') AS d", &Parameters::new())
-        .expect("duration must resolve via GraphDialect without extension install");
+        .expect("duration must resolve (dialect Root path; extension also present)");
     assert_eq!(rows, vec![vec![Value::build_text("P1DT25H")]]);
+}
+
+/// Mutation helpers use `prepare_internal` → SQLite function resolve only.
+/// Dialect-owned GraphDialect resolve does not cover that path, so
+/// `install_temporal_extension` must run even under DialectPinned — otherwise
+/// lowered `cypher_equals` (list IN membership) fails at prepare.
+#[test]
+fn dialect_pinned_mutation_in_predicate_needs_temporal_extension() {
+    let io = Arc::new(MemoryIO::new());
+    let database = open_database_with_io(
+        io,
+        ":memory:dialect-pinned-mutation-cypher-equals",
+        OpenFlags::default(),
+        DatabaseOpts::new(),
+    )
+    .expect("open graph dialect database");
+    let connection = database.connect().expect("connect");
+    connection
+        .execute(
+            "CREATE TABLE people(id INTEGER PRIMARY KEY, name TEXT, age INTEGER); \
+             CREATE TABLE relationships(id INTEGER PRIMARY KEY, src INTEGER, dst INTEGER);",
+        )
+        .expect("create sources");
+    register_graph(
+        &connection,
+        &GraphRegistration {
+            name: "social".to_owned(),
+            node_sources: vec![NodeSourceRegistration {
+                name: "Person".to_owned(),
+                table: "people".to_owned(),
+                identity_column: "id".to_owned(),
+            }],
+            relationship_sources: vec![RelationshipSourceRegistration {
+                name: "KNOWS".to_owned(),
+                table: "relationships".to_owned(),
+                identity_column: "id".to_owned(),
+                start_column: "src".to_owned(),
+                end_column: "dst".to_owned(),
+                start_node_source: "Person".to_owned(),
+                end_node_source: "Person".to_owned(),
+            }],
+        },
+    )
+    .expect("register graph");
+
+    let session = GraphConnection::open(connection, "social").expect("open session");
+    assert_eq!(session.host_mode(), GraphHostMode::DialectPinned);
+
+    session
+        .execute(
+            "CREATE (:Person {id: 1, name: 'Ada', age: 36})",
+            &Parameters::new(),
+        )
+        .expect("seed create");
+
+    // IN lowers through cypher_equals inside mutation helper SQL.
+    let summary = session
+        .execute(
+            "MATCH (n:Person) WHERE n.name IN ['Ada'] SET n.age = 40",
+            &Parameters::new(),
+        )
+        .expect("dialect-pinned mutation with cypher_equals must work when install always runs");
+    assert_eq!(summary.matched_rows, 1);
+    assert!(summary.operations_executed >= 1);
+
+    let rows = session
+        .query(
+            "MATCH (n:Person {id: 1}) RETURN n.age AS age",
+            &Parameters::new(),
+        )
+        .expect("match after set");
+    assert_eq!(rows, vec![vec![Value::from_i64(40)]]);
 }
 
 /// Attach mode (foreign dialect) still installs the temporal extension.

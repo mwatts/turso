@@ -79,15 +79,18 @@ Open-mode and Core-seam contract (see
 for findings and the implementation plan):
 
 - **Dialect-pinned open** — `open_database` / `open_database_with_io` use
-  `GraphDialect` (`name() == "graph-cypher"`). Temporal functions resolve on
-  the dialect. `turso_graphs` is registered on schema build.
+  `GraphDialect` (`name() == "graph-cypher"`). Root temporal/`cypher_*`
+  resolution is dialect-owned; `install` still registers the temporal
+  extension for InternalHelper mutation SQL. `turso_graphs` is registered on
+  schema build.
 - **Attach mode** — `GraphConnection::open` / `install` on an existing
   connection (often `SqliteDialect`). Guarantees come from `install`
   (compiler registration, temporal extension, expand vtab). File dialect name
   may stay `"sqlite"`.
 - **Reads** — go through `prepare_frontend("graph-cypher")`.
-- **Mutations** — multi-statement orchestration under a savepoint today; not
-  a single `PreparedSource`. This is known debt, not an accident.
+- **Mutations** — multi-statement orchestration today (autocommit:
+  `BEGIN IMMEDIATE`; write txn: savepoint; bare `BEGIN`:
+  `RequiresWriteTransaction`); not a single `PreparedSource`. Known debt.
 - **Composition** — Postgres and Graph stay separate crates; apps register
   both compilers on one core connection if needed.
 

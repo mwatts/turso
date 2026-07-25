@@ -384,7 +384,7 @@ EOF
 
 **Interfaces:**
 - Consumes: `connection.db` dialect name if available, or `GraphDialect` / `SqliteDialect` detection
-- Produces: `install_temporal_extension` called **only** when dialect does not already own temporal execution
+- Produces (superseded by final review fix): dialect is source of truth for Root under GraphDialect; **always** call `install_temporal_extension` on install for InternalHelper mutation SQL safety (not “zero installs on dialect open”)
 
 **How to detect host dialect:**
 
@@ -415,7 +415,7 @@ pub enum GraphHostMode {
 - `open_database` + `GraphConnection::open` on that db → `DialectPinned`
 - `GraphConnection::install` on arbitrary connection → `Attach` (call `install_temporal_extension`)
 
-Wire `open` path: after `open_database`, `open` uses `DialectPinned` and **skips** extension install.
+Wire `open` path: after `open_database`, `open` uses `DialectPinned` and **still installs** the temporal extension (InternalHelper mutation symbols; Root still dialect-owned).
 `install` keeps extension install for attach.
 
 - [ ] **Step 1: Write failing test**

@@ -47,8 +47,8 @@ pub fn register_graph_catalog(
 ///
 /// Called from [`crate::GraphConnection::install`] for both dialect-pinned and
 /// attach opens. **Idempotent:** safe to call more than once; later installs
-/// replace the earlier `SnapshotStore` binding (same contract as
-/// `install_temporal_extension` for attach-mode scalars).
+/// replace the earlier `SnapshotStore` binding (same contract as always-on
+/// `install_temporal_extension` for InternalHelper / Root scalar symbols).
 pub fn install_graph_catalog(
     connection: &Connection,
     snapshots: Arc<SnapshotStore>,

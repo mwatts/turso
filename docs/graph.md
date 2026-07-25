@@ -81,9 +81,11 @@ Two open modes exist. Both are supported.
 ### Dialect-pinned open
 
 `open_database` / `open_database_with_io` open the file with `GraphDialect`
-(`name() == "graph-cypher"`). Temporal functions resolve on the dialect.
-`turso_graphs` is registered on schema build. A later reopen with a different
-dialect name is rejected.
+(`name() == "graph-cypher"`). Root prepares resolve temporal/`cypher_*` names
+on the dialect. `GraphConnection::install` still registers the static temporal
+extension so mutation helpers (`prepare_internal` / InternalHelper, SQLite
+symbol table only) can resolve the same names. `turso_graphs` is registered on
+schema build. A later reopen with a different dialect name is rejected.
 
 ### Attach mode
 
@@ -114,9 +116,19 @@ lowers to engine AST; Core owns translate, reprepare, and step.
 
 ### Mutations
 
-Mutations are multi-statement orchestration under a savepoint today. They are
-not a single `PreparedSource`. That split is known debt, not an accident.
-Atomicity still holds via `SAVEPOINT __turso_graph_mutation`.
+Mutations are multi-statement orchestration today (not a single
+`PreparedSource`). That split is known debt, not an accident. Transaction
+wrapping matches other graph admin helpers that use `prepare_internal`:
+
+| Host state | Wrapper |
+|------------|---------|
+| Autocommit | `BEGIN IMMEDIATE` → work → `COMMIT` / `ROLLBACK` |
+| Existing write transaction | `SAVEPOINT __turso_graph_mutation` → work → `RELEASE` / `ROLLBACK TO` |
+| Deferred read transaction (`BEGIN` without write) | `MutationError::RequiresWriteTransaction` — use `BEGIN IMMEDIATE` or a prior write |
+
+Mutation helper SQL is prepared with `prepare_internal` (InternalHelper), so
+it relies on the session-installed temporal extension for `cypher_*` /
+`duration_*` names even under dialect-pinned open.
 
 ### Composition
 
@@ -521,9 +533,13 @@ issue `BEGIN` / `COMMIT` / `ROLLBACK` as SQL on the same connection. One
 transaction spans SQL statements and Cypher statements alike — an outer
 SQL `BEGIN` … `ROLLBACK` undoes a Cypher `CREATE`.
 
-- Each `execute()` wraps its work in an internal savepoint
-  (`SAVEPOINT __turso_graph_mutation`), so a mutation is atomic on its
-  own in autocommit and nests correctly inside your explicit transaction.
+- Each `execute()` is atomic: in **autocommit** it opens
+  `BEGIN IMMEDIATE` … `COMMIT` / `ROLLBACK`; inside an existing **write**
+  transaction it uses `SAVEPOINT __turso_graph_mutation` … `RELEASE` /
+  `ROLLBACK TO`. Nested helpers cannot upgrade a deferred read transaction,
+  so bare `BEGIN` without a prior write returns
+  `MutationError::RequiresWriteTransaction` — use `BEGIN IMMEDIATE` (or
+  write first), same as graph registration and FTS admin.
 - Deleting a node that still has relationships without `DETACH` fails
   with `MutationError::NodeHasRelationships`.
 

@@ -38,14 +38,19 @@ pub enum Error {
 
 /// How the graph layer was attached to the host connection's dialect.
 ///
-/// Dialect-pinned databases (`open_database*`) own temporal scalars via
-/// [`GraphDialect`]; attach mode installs the static temporal extension.
+/// Dialect-pinned databases (`open_database*`) own temporal scalars for
+/// **Root** prepares via [`GraphDialect`]. Both modes still call
+/// [`turso_graph_temporal::install_temporal_extension`] so mutation helpers
+/// prepared with `prepare_internal` (SQLite symbol table only) can resolve
+/// `cypher_*` / `duration_*` names.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum GraphHostMode {
     /// Database opened with [`GraphDialect`] — dialect owns `Func::Dialect`
-    /// temporal execution; no static extension install needed.
+    /// temporal execution for Root statements; extension still installed for
+    /// InternalHelper mutation SQL.
     DialectPinned,
-    /// `install` / `open` on a foreign dialect (typically SQLite) — needs
+    /// `install` / `open` on a foreign dialect (typically SQLite) — Root and
+    /// InternalHelper both rely on
     /// [`turso_graph_temporal::install_temporal_extension`].
     Attach,
 }
@@ -63,9 +68,10 @@ fn host_mode_for(connection: &Connection) -> GraphHostMode {
 ///
 /// This is the graph mirror of `turso_pg::open_database`. To attach the
 /// graph layer to an existing SQLite-dialect database instead, open it
-/// yourself and use [`GraphConnection::install`]/[`GraphConnection::open`];
-/// attach mode installs the temporal extension per connection, while
-/// dialect-pinned opens rely on [`GraphDialect`] for temporal scalars.
+/// yourself and use [`GraphConnection::install`]/[`GraphConnection::open`].
+/// Every install registers the temporal extension so InternalHelper mutation
+/// SQL can resolve `cypher_*` / `duration_*`; dialect-pinned Root reads also
+/// resolve the same names via [`GraphDialect`].
 pub fn open_database(
     path: &str,
     vfs: Option<&str>,
@@ -142,11 +148,10 @@ impl GraphConnection {
         // Expand is session-activated for both host modes (not dialect catalog).
         // install_graph_catalog is idempotent if install runs again on the same connection.
         install_graph_catalog(connection.as_ref(), shared_snapshots)?;
-        // Attach mode: lowered SQL needs the static temporal extension.
-        // Dialect-pinned opens resolve the same names via GraphDialect.
-        if host_mode == GraphHostMode::Attach {
-            turso_graph_temporal::install_temporal_extension(connection.as_ref());
-        }
+        // Always install temporal/cypher scalars. Root dialect-pinned prepares
+        // resolve via GraphDialect, but mutation helpers use prepare_internal
+        // (InternalHelper → SQLite symbol table only) and need the extension.
+        turso_graph_temporal::install_temporal_extension(connection.as_ref());
         let compiler = Arc::new(GraphCompiler::with_shared(
             graph.id,
             catalog.clone(),
@@ -320,10 +325,12 @@ impl GraphConnection {
             .connection
             .prepare_frontend(&graph_frontend_id(), source)?;
         bind_query_parameters(&mut statement, parameters)?;
-        let result_types = self
-            .compiler
-            .take_result_types_for(source)
-            .unwrap_or_default();
+        // Prefer the compile cache from the shared outcome; on miss recompile
+        // rather than silently returning empty types (bool-as-int fidelity).
+        let result_types = match self.compiler.take_result_types_for(source) {
+            Some(types) => types,
+            None => self.compiler.compile_outcome(source)?.result_types,
+        };
         Ok(crate::Statement::new(statement, result_types))
     }
 
