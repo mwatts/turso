@@ -945,10 +945,7 @@ fn pure_count_star_uses_junction_covering_index() {
 
     assert_eq!(
         session
-            .query(
-                "MATCH (n:Person) RETURN count(*) AS c",
-                &Parameters::new(),
-            )
+            .query("MATCH (n:Person) RETURN count(*) AS c", &Parameters::new(),)
             .expect("count people"),
         vec![vec![Value::from_i64(3)]]
     );

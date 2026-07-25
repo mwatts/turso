@@ -89,8 +89,8 @@ pub struct GraphConnection {
     graph_name: String,
     catalog: SharedGraphCatalog,
     catalog_generation: Option<Mutex<u64>>,
-    parameters: ParameterTypes,
     /// Same `Arc` registered with Core for `prepare_frontend` recompile safety.
+    /// Declared query parameters live on the compiler (shared bind path).
     compiler: Arc<GraphCompiler>,
     snapshots: Arc<SessionSnapshotStore>,
     limits: BuildLimits,
@@ -122,7 +122,7 @@ impl GraphConnection {
         let compiler = Arc::new(GraphCompiler::with_shared(
             graph.id,
             catalog.clone(),
-            parameters.clone(),
+            parameters,
         ));
         // Register the same Arc Core will recompile through; session prepare
         // reuses its compile cache for result types.
@@ -133,7 +133,6 @@ impl GraphConnection {
             graph_name: graph.name.clone(),
             catalog,
             catalog_generation: None,
-            parameters,
             compiler,
             snapshots,
             limits,
@@ -251,12 +250,12 @@ impl GraphConnection {
     ) -> Result<crate::Statement, Error> {
         self.refresh_catalog_if_stale()?;
         // EXPLAIN-prefixed queries (including postgres option lists like
-        // EXPLAIN (VERBOSE, COSTS OFF)) compile the inner query and return
-        // core's own plan via EXPLAIN QUERY PLAN over the lowered SQL.
-        // Task 3 routes this through compile_outcome; keep the working path.
+        // EXPLAIN (VERBOSE, COSTS OFF)) share the same compile_outcome as
+        // ordinary reads, then prepare pure SQL EXPLAIN QUERY PLAN text so
+        // Core never re-parses the original Cypher through the dialect.
         if let Some(inner) = strip_explain_prefix(source) {
-            let syntax = turso_graph_cypher::parse(inner)?;
-            if requires_traversal_snapshot(&syntax) {
+            let outcome = self.compiler.compile_outcome(inner)?;
+            if outcome.needs_snapshot {
                 self.snapshots.refresh_visible_if_stale(
                     &self.connection,
                     &self.graph_name,
@@ -264,15 +263,11 @@ impl GraphConnection {
                     cancellation,
                 )?;
             }
-            let catalog = self.catalog.read().clone();
-            let bound = crate::bind(&syntax, self.graph, catalog.as_ref(), &self.parameters)?;
-            let statement =
-                crate::lower_relational(&bound.plan, catalog.as_ref()).map_err(|error| {
-                    Error::Database(turso_core::LimboError::ParseError(error.to_string()))
-                })?;
-            let mut statement = self
-                .connection
-                .prepare(format!("EXPLAIN QUERY PLAN {statement}"))?;
+            let sql = match outcome.cmd {
+                turso_parser::ast::Cmd::Stmt(stmt) => format!("EXPLAIN QUERY PLAN {stmt}"),
+                other => format!("EXPLAIN QUERY PLAN {other}"),
+            };
+            let mut statement = self.connection.prepare(sql)?;
             bind_query_parameters(&mut statement, parameters)?;
             return Ok(crate::Statement::new(statement, Vec::new()));
         }
@@ -337,10 +332,6 @@ impl GraphConnection {
         self.compiler.clear_last_compile();
         Ok(())
     }
-}
-
-fn requires_traversal_snapshot(query: &turso_graph_cypher::Query) -> bool {
-    crate::compiler::query_needs_traversal_snapshot(query)
 }
 
 /// Strips a leading `EXPLAIN` (with an optional parenthesized postgres
@@ -864,6 +855,34 @@ mod tests {
         );
         assert_eq!(stmt.result_types().len(), 1);
         assert_eq!(stmt.result_types()[0], ir::ValueType::Text);
+    }
+
+    #[test]
+    fn explain_binds_cypher_once_via_compile_outcome() {
+        // EXPLAIN must reuse the shared compile_outcome path (one bind / one
+        // cache miss on the inner Cypher) and not session-side re-parse.
+        let fixture = fixture(":memory:graph-session-explain-single-bind");
+        let before = crate::binder::BIND_COUNT.with(|count| count.get());
+        let compile_before = fixture.reader_session.compiler.compile_misses();
+        let rows = fixture
+            .reader_session
+            .query("EXPLAIN MATCH (n:Person) RETURN n.name", &Parameters::new())
+            .expect("explain");
+        let after = crate::binder::BIND_COUNT.with(|count| count.get());
+        let compile_after = fixture.reader_session.compiler.compile_misses();
+        assert!(!rows.is_empty(), "EXPLAIN must return core EQP rows");
+        assert_eq!(
+            after - before,
+            1,
+            "EXPLAIN must bind the inner Cypher once, got {}",
+            after - before
+        );
+        assert_eq!(
+            compile_after - compile_before,
+            1,
+            "EXPLAIN must go through compile_outcome (one cache miss), got {}",
+            compile_after - compile_before
+        );
     }
 
     #[test]

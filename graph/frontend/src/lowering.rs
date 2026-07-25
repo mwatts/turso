@@ -3096,8 +3096,7 @@ mod tests {
         );
         let lowered = lower_plan(&plan, &LabeledCatalog, false, &WantedProperties::new()).unwrap();
         assert_eq!(
-            lowered.sql,
-            "SELECT count(*) AS b2 FROM \"people\"",
+            lowered.sql, "SELECT count(*) AS b2 FROM \"people\"",
             "unlabeled star-count must not wrap a node projection: {}",
             lowered.sql
         );
