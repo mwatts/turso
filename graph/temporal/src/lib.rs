@@ -9,6 +9,8 @@
 //! implemented with `jiff`, whose bundled IANA tz database provides named
 //! zones without a system dependency.
 
+use std::sync::atomic::{AtomicUsize, Ordering};
+
 use jiff::{
     civil,
     tz::{Offset, TimeZone},
@@ -17,9 +19,15 @@ use jiff::{
 use turso_core::Connection;
 use turso_ext::{scalar, ExtensionApi, Value as ExtValue};
 
+/// How many times [`install_temporal_extension`] has been invoked in this
+/// process. Always available (not `cfg(test)`) so integration tests in
+/// dependent crates can assert dialect-pinned opens skip install.
+pub static INSTALL_COUNT: AtomicUsize = AtomicUsize::new(0);
+
 /// Registers the temporal functions on a connection. Safe to call more
 /// than once; later registrations replace the earlier entries.
 pub fn install_temporal_extension(connection: &Connection) {
+    INSTALL_COUNT.fetch_add(1, Ordering::SeqCst);
     connection.register_static_extension(|ext_api: &mut ExtensionApi| unsafe {
         let register = |name: *const std::ffi::c_char, function| {
             (ext_api.register_scalar_function)(

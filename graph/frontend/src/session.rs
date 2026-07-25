@@ -10,7 +10,7 @@ use crate::{
     compiler::SharedGraphCatalog, execute_cypher_mutation, graph_frontend_id,
     install_graph_catalog, GraphCompilationCatalog, GraphCompiler, GraphDiagnostics, MutationError,
     MutationSummary, ParameterTypes, Parameters, RegisteredGraph, SessionSnapshotStore,
-    SnapshotError, SnapshotStore,
+    SnapshotError, SnapshotStore, GRAPH_DIALECT_NAME,
 };
 
 #[derive(Debug, Error)]
@@ -36,14 +36,36 @@ pub enum Error {
     MissingParameter(String),
 }
 
+/// How the graph layer was attached to the host connection's dialect.
+///
+/// Dialect-pinned databases (`open_database*`) own temporal scalars via
+/// [`GraphDialect`]; attach mode installs the static temporal extension.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum GraphHostMode {
+    /// Database opened with [`GraphDialect`] — dialect owns `Func::Dialect`
+    /// temporal execution; no static extension install needed.
+    DialectPinned,
+    /// `install` / `open` on a foreign dialect (typically SQLite) — needs
+    /// [`turso_graph_temporal::install_temporal_extension`].
+    Attach,
+}
+
+fn host_mode_for(connection: &Connection) -> GraphHostMode {
+    if connection.dialect().name() == GRAPH_DIALECT_NAME {
+        GraphHostMode::DialectPinned
+    } else {
+        GraphHostMode::Attach
+    }
+}
+
 /// Open a database with the graph-cypher schema dialect, resolving the IO
 /// backend from `vfs` or the path like [`turso_core::Database::open_new`].
 ///
 /// This is the graph mirror of `turso_pg::open_database`. To attach the
 /// graph layer to an existing SQLite-dialect database instead, open it
 /// yourself and use [`GraphConnection::install`]/[`GraphConnection::open`];
-/// in that mode call `turso_graph_temporal::install_temporal_extension`
-/// per connection (GraphConnection::install already does).
+/// attach mode installs the temporal extension per connection, while
+/// dialect-pinned opens rely on [`GraphDialect`] for temporal scalars.
 pub fn open_database(
     path: &str,
     vfs: Option<&str>,
@@ -94,6 +116,7 @@ pub struct GraphConnection {
     compiler: Arc<GraphCompiler>,
     snapshots: Arc<SessionSnapshotStore>,
     limits: BuildLimits,
+    host_mode: GraphHostMode,
 }
 
 impl Drop for GraphConnection {
@@ -112,13 +135,16 @@ impl GraphConnection {
         shared_snapshots: Arc<SnapshotStore>,
         limits: BuildLimits,
     ) -> Result<Self, Error> {
+        let host_mode = host_mode_for(connection.as_ref());
         let catalog = Arc::new(RwLock::new(catalog));
         let snapshots = Arc::new(SessionSnapshotStore::new(shared_snapshots.clone()));
         shared_snapshots.register_session(&connection, &snapshots)?;
         install_graph_catalog(connection.as_ref(), shared_snapshots)?;
-        // Lowered SQL calls temporal/duration scalars; without them embedders
-        // hit "runtime scalar function missing" on any temporal query.
-        turso_graph_temporal::install_temporal_extension(connection.as_ref());
+        // Attach mode: lowered SQL needs the static temporal extension.
+        // Dialect-pinned opens resolve the same names via GraphDialect.
+        if host_mode == GraphHostMode::Attach {
+            turso_graph_temporal::install_temporal_extension(connection.as_ref());
+        }
         let compiler = Arc::new(GraphCompiler::with_shared(
             graph.id,
             catalog.clone(),
@@ -136,6 +162,7 @@ impl GraphConnection {
             compiler,
             snapshots,
             limits,
+            host_mode,
         })
     }
 
@@ -181,6 +208,11 @@ impl GraphConnection {
 
     pub fn graph_name(&self) -> &str {
         &self.graph_name
+    }
+
+    /// Whether this session is dialect-pinned or attach-mode.
+    pub fn host_mode(&self) -> GraphHostMode {
+        self.host_mode
     }
 
     /// Returns metadata for the snapshot visible to this graph session.

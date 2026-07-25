@@ -65,7 +65,7 @@ pub use semantic_constraints::{
 };
 pub use session::{
     open_database, open_database_with_io, strip_explain_prefix, Error, GraphConnection,
-    GraphConnection as Connection,
+    GraphConnection as Connection, GraphHostMode,
 };
 pub use snapshot::{
     build_traversal_snapshot, build_visible_traversal_snapshot, GraphDiagnostics, NodeCoordinate,

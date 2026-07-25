@@ -2,7 +2,13 @@
 
 mod fixture;
 
-use turso_graph_frontend::{Parameters, Value};
+use std::sync::{atomic::Ordering, Arc};
+
+use turso_core::{DatabaseOpts, MemoryIO, OpenFlags};
+use turso_graph_frontend::{
+    open_database_with_io, register_graph, GraphConnection, GraphHostMode, GraphRegistration,
+    NodeSourceRegistration, Parameters, RelationshipSourceRegistration, Value,
+};
 use turso_graph_ir::ValueType;
 
 #[test]
@@ -49,6 +55,76 @@ fn prepare_result_types_match_projection_width() {
     assert_eq!(stmt.result_types().len(), 2);
     assert_eq!(stmt.result_types()[0], ValueType::Text);
     assert_eq!(stmt.result_types()[1], ValueType::Integer);
+}
+
+/// Dialect-pinned open must resolve temporal/duration via GraphDialect and
+/// must not call `install_temporal_extension` a second time on the session.
+#[test]
+fn dialect_pinned_open_runs_duration_without_second_extension_install() {
+    let before = turso_graph_temporal::INSTALL_COUNT.load(Ordering::SeqCst);
+    let io = Arc::new(MemoryIO::new());
+    let database = open_database_with_io(
+        io,
+        ":memory:dialect-pinned-duration",
+        OpenFlags::default(),
+        DatabaseOpts::new(),
+    )
+    .expect("open graph dialect database");
+    let connection = database.connect().expect("connect");
+    connection
+        .execute(
+            "CREATE TABLE people(id INTEGER PRIMARY KEY, name TEXT, age INTEGER); \
+             CREATE TABLE relationships(id INTEGER PRIMARY KEY, src INTEGER, dst INTEGER);",
+        )
+        .expect("create sources");
+    register_graph(
+        &connection,
+        &GraphRegistration {
+            name: "social".to_owned(),
+            node_sources: vec![NodeSourceRegistration {
+                name: "Person".to_owned(),
+                table: "people".to_owned(),
+                identity_column: "id".to_owned(),
+            }],
+            relationship_sources: vec![RelationshipSourceRegistration {
+                name: "KNOWS".to_owned(),
+                table: "relationships".to_owned(),
+                identity_column: "id".to_owned(),
+                start_column: "src".to_owned(),
+                end_column: "dst".to_owned(),
+                start_node_source: "Person".to_owned(),
+                end_node_source: "Person".to_owned(),
+            }],
+        },
+    )
+    .expect("register graph");
+
+    let session = GraphConnection::open(connection, "social").expect("open session");
+    assert_eq!(session.host_mode(), GraphHostMode::DialectPinned);
+    let after_open = turso_graph_temporal::INSTALL_COUNT.load(Ordering::SeqCst);
+    assert_eq!(
+        after_open - before,
+        0,
+        "dialect-pinned GraphConnection::open must skip install_temporal_extension"
+    );
+
+    let rows = session
+        .query("RETURN duration('P1DT25H') AS d", &Parameters::new())
+        .expect("duration must resolve via GraphDialect without extension install");
+    assert_eq!(rows, vec![vec![Value::build_text("P1DT25H")]]);
+}
+
+/// Attach mode (foreign dialect) still installs the temporal extension.
+#[test]
+fn attach_mode_install_increments_temporal_install_count() {
+    let before = turso_graph_temporal::INSTALL_COUNT.load(Ordering::SeqCst);
+    let (_database, session) = fixture::social_graph_connection();
+    assert_eq!(session.host_mode(), GraphHostMode::Attach);
+    let after = turso_graph_temporal::INSTALL_COUNT.load(Ordering::SeqCst);
+    assert!(
+        after > before,
+        "attach-mode install must call install_temporal_extension"
+    );
 }
 
 /// EXPLAIN must lower Cypher once, then prepare pure SQL `EXPLAIN QUERY PLAN`
