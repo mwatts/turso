@@ -12,6 +12,7 @@ mod identity;
 mod mutation;
 mod plan;
 mod scope;
+mod semantics;
 
 pub use error::{InvalidId, PlanError};
 pub use expression::{
@@ -34,3 +35,7 @@ pub use plan::{
     Unwind,
 };
 pub use scope::{Binding, Direction, Nullability, ResultColumn, ResultShape, Scope};
+pub use semantics::{
+    semantic_profile_digest, Duplicates, LabelListOrder, NullComparison, NullSort, RowOrder,
+    SemanticProfile, WriteClassification, SEMANTIC_PROFILE, SEMANTIC_PROFILE_VERSION,
+};
