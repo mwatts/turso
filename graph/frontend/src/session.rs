@@ -368,6 +368,24 @@ impl GraphConnection {
             }
         }
         self.refresh_catalog_if_stale()?;
+        // A source the parser rejects is left to the mutation path below, which
+        // owns the error message callers already match on.
+        let syntax = turso_graph_cypher::parse(source).ok();
+        // A mutation is the only entry point that does not compile through
+        // GraphCompiler, so nothing else refreshes the snapshot `graph_expand`
+        // reads. Without this, a variable-length pattern in a mutation works
+        // only when some earlier read happened to leave a snapshot behind.
+        if syntax
+            .as_ref()
+            .is_some_and(crate::compiler::query_needs_traversal_snapshot)
+        {
+            self.snapshots.refresh_visible_if_stale(
+                &self.connection,
+                &self.graph_name,
+                self.limits,
+                &NeverCancelled,
+            )?;
+        }
         let catalog = self.catalog.read().clone();
         let result =
             execute_cypher_mutation(&self.connection, self.graph, catalog, source, parameters);
@@ -1188,6 +1206,37 @@ mod tests {
                 end_node_source: "Person".to_owned(),
             }],
         }
+    }
+
+    #[test]
+    fn a_mutation_over_a_variable_length_pattern_builds_its_own_snapshot() {
+        // graph_expand reads the session snapshot, and a mutation is the only
+        // entry point that never prepares through the compiler. Before this,
+        // the snapshot existed only because a failed read attempt happened to
+        // refresh it before its bind error; a caller that goes straight to
+        // execute got "graph snapshot 1 is not built".
+        let fixture = fixture(":memory:graph-mutation-snapshot");
+        fixture
+            .writer
+            .execute("INSERT INTO relationships VALUES (1, 1, 2)")
+            .unwrap();
+        fixture
+            .writer_session
+            .execute(
+                "MATCH (a:Person)-[*1..2]->(b:Person) DETACH DELETE a, b",
+                &Parameters::new(),
+            )
+            .expect("a variable-length mutation must not depend on a prior read");
+        assert_eq!(
+            fixture
+                .writer
+                .prepare("SELECT count(*) FROM people")
+                .unwrap()
+                .run_collect_rows()
+                .unwrap(),
+            vec![vec![Value::from_i64(0)]],
+            "both endpoints of the only relationship must be gone"
+        );
     }
 
     #[test]
