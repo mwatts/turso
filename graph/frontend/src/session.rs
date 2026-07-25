@@ -34,6 +34,8 @@ pub enum Error {
     UndeclaredParameter(String),
     #[error("query parameter `${0}` has no bound value")]
     MissingParameter(String),
+    #[error("this graph connection is read-only and cannot run a {kind:?} statement")]
+    ReadOnlyConnection { kind: crate::StatementKind },
 }
 
 /// How the graph layer was attached to the host connection's dialect.
@@ -123,6 +125,10 @@ pub struct GraphConnection {
     snapshots: Arc<SessionSnapshotStore>,
     limits: BuildLimits,
     host_mode: GraphHostMode,
+    /// When set, the session refuses any statement the binder classifies as a
+    /// write. Enforcement is syntactic and happens before the statement runs,
+    /// so a write that would have changed nothing is still refused.
+    read_only: bool,
 }
 
 impl Drop for GraphConnection {
@@ -170,7 +176,27 @@ impl GraphConnection {
             snapshots,
             limits,
             host_mode,
+            read_only: false,
         })
+    }
+
+    /// Refuse every statement this connection classifies as a write.
+    ///
+    /// The check is syntactic and runs before the statement does, so a write
+    /// that would have changed nothing is refused too.
+    pub fn set_read_only(&mut self, read_only: bool) {
+        self.read_only = read_only;
+    }
+
+    pub fn is_read_only(&self) -> bool {
+        self.read_only
+    }
+
+    /// Read/write character of `source`, without binding or running it.
+    pub fn classify(&self, source: &str) -> Result<crate::StatementKind, Error> {
+        Ok(crate::classify_statement(&turso_graph_cypher::parse(
+            source,
+        )?))
     }
 
     /// Attach to an already-registered graph by name with default limits and a
@@ -335,6 +361,12 @@ impl GraphConnection {
     }
 
     pub fn execute(&self, source: &str, parameters: &Parameters) -> Result<MutationSummary, Error> {
+        if self.read_only {
+            let kind = self.classify(source)?;
+            if kind.writes() {
+                return Err(Error::ReadOnlyConnection { kind });
+            }
+        }
         self.refresh_catalog_if_stale()?;
         let catalog = self.catalog.read().clone();
         let result =
@@ -1156,6 +1188,80 @@ mod tests {
                 end_node_source: "Person".to_owned(),
             }],
         }
+    }
+
+    #[test]
+    fn a_read_only_connection_runs_reads() {
+        let mut fixture = fixture(":memory:graph-read-only-reads");
+        fixture.writer_session.set_read_only(true);
+        assert!(fixture.writer_session.is_read_only());
+        fixture
+            .writer_session
+            .query("MATCH (n:Person) RETURN n.name", &Parameters::new())
+            .expect("a read-only connection serves reads");
+    }
+
+    #[test]
+    fn a_read_only_connection_refuses_a_write_before_running_it() {
+        let mut fixture = fixture(":memory:graph-read-only-writes");
+        fixture.writer_session.set_read_only(true);
+        let error = fixture
+            .writer_session
+            .execute("CREATE (n:Person {id: 3, name: 'a'})", &Parameters::new())
+            .expect_err("a read-only connection refuses writes");
+        assert!(
+            matches!(error, Error::ReadOnlyConnection { .. }),
+            "unexpected error: {error}"
+        );
+        // Refused before running: the graph is untouched.
+        assert_eq!(
+            fixture
+                .writer_session
+                .query("MATCH (n:Person) RETURN n.name", &Parameters::new())
+                .unwrap()
+                .len(),
+            2
+        );
+    }
+
+    #[test]
+    fn a_read_only_connection_refuses_a_delete_that_would_match_nothing() {
+        // The refusal is decided by syntax, so it does not depend on the graph
+        // containing a matching row.
+        let mut fixture = fixture(":memory:graph-read-only-empty-delete");
+        fixture.writer_session.set_read_only(true);
+        let error = fixture
+            .writer_session
+            .execute("MATCH (n:Absent) DELETE n", &Parameters::new())
+            .expect_err("an empty DELETE is still a write");
+        assert!(
+            matches!(
+                error,
+                Error::ReadOnlyConnection {
+                    kind: crate::StatementKind::WriteWithoutRows
+                }
+            ),
+            "unexpected error: {error}"
+        );
+    }
+
+    #[test]
+    fn classify_routes_without_trying_and_failing() {
+        let fixture = fixture(":memory:graph-classify-route");
+        assert_eq!(
+            fixture
+                .writer_session
+                .classify("MATCH (n) RETURN n")
+                .expect("parses"),
+            crate::StatementKind::ReadOnly
+        );
+        assert_eq!(
+            fixture
+                .writer_session
+                .classify("CREATE (n:Person) RETURN n")
+                .expect("parses"),
+            crate::StatementKind::WriteReturningRows
+        );
     }
 
     #[test]
