@@ -6,9 +6,9 @@ use std::sync::{atomic::Ordering, Arc};
 
 use turso_core::{DatabaseOpts, MemoryIO, OpenFlags};
 use turso_graph_frontend::{
-    install_graph_catalog, open_database_with_io, register_graph, GraphConnection, GraphHostMode,
-    GraphRegistration, NodeSourceRegistration, Parameters, RelationshipSourceRegistration,
-    SnapshotStore, Value, GRAPH_EXPAND_TABLE_NAME,
+    install_graph_catalog, open_database_with_io, register_graph, take_single_program_hit,
+    GraphConnection, GraphHostMode, GraphRegistration, NodeSourceRegistration, Parameters,
+    RelationshipSourceRegistration, SnapshotStore, Value, GRAPH_EXPAND_TABLE_NAME,
 };
 use turso_graph_ir::ValueType;
 
@@ -209,6 +209,122 @@ fn simple_create_mutation_commits_under_graph_dialect() {
         )
         .expect("match after create");
     assert_eq!(rows, vec![vec![Value::build_text("Ada")]]);
+}
+
+/// Closed single-node CREATE must take the single-program path under
+/// GraphDialect and remain visible to MATCH (including label membership).
+#[test]
+fn single_create_node_uses_single_program_path() {
+    let io = Arc::new(MemoryIO::new());
+    let database = open_database_with_io(
+        io,
+        ":memory:dialect-single-program-create",
+        OpenFlags::default(),
+        DatabaseOpts::new(),
+    )
+    .expect("open graph dialect database");
+    let connection = database.connect().expect("connect");
+    connection
+        .execute(
+            "CREATE TABLE people(id INTEGER PRIMARY KEY, name TEXT, age INTEGER); \
+             CREATE TABLE relationships(id INTEGER PRIMARY KEY, src INTEGER, dst INTEGER);",
+        )
+        .expect("create sources");
+    register_graph(
+        &connection,
+        &GraphRegistration {
+            name: "social".to_owned(),
+            node_sources: vec![NodeSourceRegistration {
+                name: "Person".to_owned(),
+                table: "people".to_owned(),
+                identity_column: "id".to_owned(),
+            }],
+            relationship_sources: vec![RelationshipSourceRegistration {
+                name: "KNOWS".to_owned(),
+                table: "relationships".to_owned(),
+                identity_column: "id".to_owned(),
+                start_column: "src".to_owned(),
+                end_column: "dst".to_owned(),
+                start_node_source: "Person".to_owned(),
+                end_node_source: "Person".to_owned(),
+            }],
+        },
+    )
+    .expect("register graph");
+
+    let session = GraphConnection::open(connection, "social").expect("open session");
+    session
+        .execute(
+            "CREATE (:Person {id: 42, name: 'Grace'})",
+            &Parameters::new(),
+        )
+        .expect("single create");
+    assert!(
+        take_single_program_hit(),
+        "closed CREATE node must take the single-program path"
+    );
+
+    let rows = session
+        .query(
+            "MATCH (n:Person {id: 42}) RETURN n.name AS name",
+            &Parameters::new(),
+        )
+        .expect("match after single-program create");
+    assert_eq!(rows, vec![vec![Value::build_text("Grace")]]);
+}
+
+/// Multi-stage mutations must not take the single-program path.
+#[test]
+fn multi_stage_mutation_still_uses_savepoint_path() {
+    let io = Arc::new(MemoryIO::new());
+    let database = open_database_with_io(
+        io,
+        ":memory:dialect-multi-stage-mutation",
+        OpenFlags::default(),
+        DatabaseOpts::new(),
+    )
+    .expect("open graph dialect database");
+    let connection = database.connect().expect("connect");
+    connection
+        .execute(
+            "CREATE TABLE people(id INTEGER PRIMARY KEY, name TEXT, age INTEGER); \
+             CREATE TABLE relationships(id INTEGER PRIMARY KEY, src INTEGER, dst INTEGER);",
+        )
+        .expect("create sources");
+    register_graph(
+        &connection,
+        &GraphRegistration {
+            name: "social".to_owned(),
+            node_sources: vec![NodeSourceRegistration {
+                name: "Person".to_owned(),
+                table: "people".to_owned(),
+                identity_column: "id".to_owned(),
+            }],
+            relationship_sources: vec![RelationshipSourceRegistration {
+                name: "KNOWS".to_owned(),
+                table: "relationships".to_owned(),
+                identity_column: "id".to_owned(),
+                start_column: "src".to_owned(),
+                end_column: "dst".to_owned(),
+                start_node_source: "Person".to_owned(),
+                end_node_source: "Person".to_owned(),
+            }],
+        },
+    )
+    .expect("register graph");
+
+    let session = GraphConnection::open(connection, "social").expect("open session");
+    let summary = session
+        .execute(
+            "CREATE (:Person {id: 1, name: 'Ada'}) WITH 1 AS x RETURN x",
+            &Parameters::new(),
+        )
+        .expect("multi-stage mutation");
+    assert_eq!(summary.rows, vec![vec![Value::from_i64(1)]]);
+    assert!(
+        !take_single_program_hit(),
+        "WITH stages must stay on the multi-prepare savepoint path"
+    );
 }
 
 /// EXPLAIN must lower Cypher once, then prepare pure SQL `EXPLAIN QUERY PLAN`

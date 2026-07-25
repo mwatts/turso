@@ -1,4 +1,11 @@
-use std::{collections::HashMap, sync::Arc};
+use std::{
+    cell::Cell,
+    collections::HashMap,
+    sync::{
+        atomic::{AtomicUsize, Ordering},
+        Arc,
+    },
+};
 
 use thiserror::Error;
 use turso_core::{Connection, Numeric, Value};
@@ -18,6 +25,24 @@ use crate::{
 
 const SAVEPOINT: &str = "__turso_graph_mutation";
 pub(crate) const INTERNAL_PARAMETER_PREFIX: &str = "__turso_internal_graph_ref_";
+
+/// Count of mutations that took the closed single-program CREATE path.
+/// Always-on (not `cfg(test)`) so integration tests can observe it, matching
+/// `turso_graph_temporal::INSTALL_COUNT`. Prefer [`take_single_program_hit`]
+/// under parallel tests — the global counter races across threads.
+pub static SINGLE_PROGRAM_HITS: AtomicUsize = AtomicUsize::new(0);
+
+thread_local! {
+    /// Per-thread observation of the last `execute_cypher_mutation` attempt.
+    /// Cleared at the start of each call; set when the single-program path runs.
+    static SINGLE_PROGRAM_HIT: Cell<bool> = const { Cell::new(false) };
+}
+
+/// Returns whether the current thread's last mutation used the single-program
+/// path, and clears the flag. Safe under parallel tests.
+pub fn take_single_program_hit() -> bool {
+    SINGLE_PROGRAM_HIT.with(|hit| hit.replace(false))
+}
 
 pub type Parameters = HashMap<String, Value>;
 
@@ -217,6 +242,7 @@ pub fn execute_cypher_mutation(
     source: &str,
     parameters: &Parameters,
 ) -> Result<MutationSummary, MutationError> {
+    SINGLE_PROGRAM_HIT.with(|hit| hit.set(false));
     for name in parameters.keys() {
         if name.starts_with(INTERNAL_PARAMETER_PREFIX) {
             return Err(MutationError::ReservedParameter(name.clone()));
@@ -239,51 +265,57 @@ pub fn execute_cypher_mutation(
     }
 
     let run = || {
-        execute_bound(connection, catalog.as_ref(), &bound, &input, parameters).and_then(
-            |mut summary| {
-                if let Some(constraints) = catalog.semantic_constraints() {
-                    constraints.validate_state(connection).map_err(|error| match error {
-                        crate::SemanticCatalogError::Database(error)
-                        | crate::SemanticCatalogError::Catalog(CatalogError::Database(error)) => {
-                            MutationError::Database(error)
-                        }
-                        error => MutationError::SemanticConstraintViolation(error.to_string()),
-                    })?;
-                }
-                if !bound.returns_order.is_empty() {
-                    summary.rows.sort_by(|left, right| {
-                        for (index, descending) in &bound.returns_order {
-                            let ordering = compare_returned_values(&left[*index], &right[*index]);
-                            let ordering = if *descending {
-                                ordering.reverse()
-                            } else {
-                                ordering
-                            };
-                            if ordering != std::cmp::Ordering::Equal {
-                                return ordering;
-                            }
-                        }
-                        std::cmp::Ordering::Equal
-                    });
-                }
-                if !bound.returns_order.is_empty() {
-                    for row in &mut summary.rows {
-                        row.truncate(bound.returns_visible);
+        let summary = if let Some(summary) =
+            try_single_program_mutation(connection, catalog.as_ref(), &bound, &input, parameters)?
+        {
+            summary
+        } else {
+            execute_bound(connection, catalog.as_ref(), &bound, &input, parameters)?
+        };
+        if let Some(constraints) = catalog.semantic_constraints() {
+            constraints
+                .validate_state(connection)
+                .map_err(|error| match error {
+                    crate::SemanticCatalogError::Database(error)
+                    | crate::SemanticCatalogError::Catalog(CatalogError::Database(error)) => {
+                        MutationError::Database(error)
+                    }
+                    error => MutationError::SemanticConstraintViolation(error.to_string()),
+                })?;
+        }
+        let mut summary = summary;
+        if !bound.returns_order.is_empty() {
+            summary.rows.sort_by(|left, right| {
+                for (index, descending) in &bound.returns_order {
+                    let ordering = compare_returned_values(&left[*index], &right[*index]);
+                    let ordering = if *descending {
+                        ordering.reverse()
+                    } else {
+                        ordering
+                    };
+                    if ordering != std::cmp::Ordering::Equal {
+                        return ordering;
                     }
                 }
-                if bound.returns_distinct {
-                    let mut seen = std::collections::HashSet::new();
-                    summary.rows.retain(|row| seen.insert(format!("{row:?}")));
-                }
-                if let Some(skip) = bound.returns_skip {
-                    summary.rows.drain(..skip.min(summary.rows.len()));
-                }
-                if let Some(limit) = bound.returns_limit {
-                    summary.rows.truncate(limit);
-                }
-                Ok(summary)
-            },
-        )
+                std::cmp::Ordering::Equal
+            });
+        }
+        if !bound.returns_order.is_empty() {
+            for row in &mut summary.rows {
+                row.truncate(bound.returns_visible);
+            }
+        }
+        if bound.returns_distinct {
+            let mut seen = std::collections::HashSet::new();
+            summary.rows.retain(|row| seen.insert(format!("{row:?}")));
+        }
+        if let Some(skip) = bound.returns_skip {
+            summary.rows.drain(..skip.min(summary.rows.len()));
+        }
+        if let Some(limit) = bound.returns_limit {
+            summary.rows.truncate(limit);
+        }
+        Ok(summary)
     };
 
     if connection.get_auto_commit() {
@@ -322,6 +354,70 @@ pub fn execute_cypher_mutation(
             }
         }
     }
+}
+
+/// Closed-subset single-program path for one `CREATE` node with no MATCH
+/// input, no WITH stages, and no RETURN. Unsupported shapes return `Ok(None)`
+/// so the multi-prepare savepoint executor remains the fallback.
+///
+/// The node insert is one `prepare_internal` program. Label-junction
+/// membership rows (when the catalog records labels) are still written with
+/// additional helper prepares — SQLite has no writable-CTE multi-table insert.
+fn try_single_program_mutation(
+    connection: &Arc<Connection>,
+    catalog: &dyn GraphCompilationCatalog,
+    bound: &BoundMutation,
+    input: &LoweredMutationInput,
+    parameters: &Parameters,
+) -> Result<Option<MutationSummary>, MutationError> {
+    if bound.request.input.is_some()
+        || !bound.stages.is_empty()
+        || !bound.returns.is_empty()
+        || bound.request.operations.len() != 1
+    {
+        return Ok(None);
+    }
+    let ir::Mutation::CreateNode(create) = &bound.request.operations[0] else {
+        return Ok(None);
+    };
+    // Deferred Any-typed property values need a separate SELECT evaluate step
+    // before INSERT; keep that on the multi-prepare path.
+    if create
+        .properties
+        .iter()
+        .any(|property| property.value.value_type == ir::ValueType::Any)
+    {
+        return Ok(None);
+    }
+
+    let empty_values = HashMap::new();
+    let empty_layouts = HashMap::new();
+    let (identity, _) = insert_node(
+        connection,
+        catalog,
+        input,
+        create,
+        parameters,
+        &empty_values,
+        &empty_layouts,
+        false,
+    )?;
+    record_node_labels(
+        connection,
+        catalog,
+        create.source,
+        &create.labels,
+        &identity,
+        parameters,
+    )?;
+    SINGLE_PROGRAM_HIT.with(|hit| hit.set(true));
+    SINGLE_PROGRAM_HITS.fetch_add(1, Ordering::SeqCst);
+    Ok(Some(MutationSummary {
+        matched_rows: 1,
+        operations_executed: 1,
+        rows: Vec::new(),
+        result_types: bound.return_types.clone(),
+    }))
 }
 
 /// Cypher ORDER BY comparison over returned SQL values: numbers before
@@ -2623,6 +2719,65 @@ mod tests {
         assert_eq!(
             rows(&connection, "SELECT count(*) FROM relationships"),
             vec![vec![Value::from_i64(2)]]
+        );
+    }
+
+    #[test]
+    fn single_create_node_uses_single_program_path() {
+        let (connection, catalog, graph) = setup();
+        let summary = execute(
+            &connection,
+            &catalog,
+            graph,
+            "CREATE (:Person {id: 42, name: 'Grace'})",
+        )
+        .unwrap();
+        assert_eq!(summary.matched_rows, 1);
+        assert_eq!(summary.operations_executed, 1);
+        assert!(
+            take_single_program_hit(),
+            "closed single CREATE must take the single-program path"
+        );
+        assert_eq!(
+            rows(&connection, "SELECT id, name FROM people WHERE id = 42"),
+            vec![vec![Value::from_i64(42), Value::build_text("Grace")]]
+        );
+    }
+
+    #[test]
+    fn multi_stage_mutation_still_uses_savepoint_path() {
+        let (connection, catalog, graph) = setup();
+        let summary = execute(
+            &connection,
+            &catalog,
+            graph,
+            "CREATE (:Person {id: 1, name: 'Ada'}) WITH 1 AS x RETURN x",
+        )
+        .unwrap();
+        assert_eq!(summary.rows, vec![vec![Value::from_i64(1)]]);
+        assert!(
+            !take_single_program_hit(),
+            "WITH stages must stay on the multi-prepare savepoint path"
+        );
+        assert_eq!(
+            rows(&connection, "SELECT id, name FROM people WHERE id = 1"),
+            vec![vec![Value::from_i64(1), Value::build_text("Ada")]]
+        );
+    }
+
+    #[test]
+    fn multi_node_create_does_not_use_single_program_path() {
+        let (connection, catalog, graph) = setup();
+        execute(
+            &connection,
+            &catalog,
+            graph,
+            "CREATE (:Person {id: 1, name: 'Ada'}), (:Person {id: 2, name: 'Grace'})",
+        )
+        .unwrap();
+        assert!(
+            !take_single_program_hit(),
+            "multi-operation CREATE is outside the closed single-program subset"
         );
     }
 

@@ -49,7 +49,10 @@ pub use lowering::{
     lower_relational, LowerError, NodeTableLayout, RelationalCatalogSnapshot,
     RelationshipTableLayout,
 };
-pub use mutation::{execute_cypher_mutation, MutationError, MutationSummary, Parameters};
+pub use mutation::{
+    execute_cypher_mutation, take_single_program_hit, MutationError, MutationSummary, Parameters,
+    SINGLE_PROGRAM_HITS,
+};
 pub use schema_catalog::SchemaCatalog;
 pub use semantic::{
     load_semantic_snapshot, register_semantic_constraints, register_semantic_schema,
