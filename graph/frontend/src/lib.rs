@@ -28,8 +28,9 @@ mod snapshot;
 mod statement;
 
 pub use binder::{
-    bind, bind_mutation, BindError, BoundMutation, BoundQuery, CatalogEntity, GraphCatalogSnapshot,
-    ParameterTypes, PropertyResolution, ResolvedNodeType, ResolvedProperty,
+    bind, bind_mutation, classify_statement, BindError, BoundMutation, BoundQuery, CatalogEntity,
+    GraphCatalogSnapshot, ParameterTypes, PropertyResolution, ResolvedNodeType, ResolvedProperty,
+    StatementKind,
 };
 pub use catalog::{
     graph_generation, labels_table_name, load_registered_graph, register_graph,

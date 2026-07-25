@@ -421,6 +421,79 @@ pub enum BindError {
 /// longer admissible path exists instead of silently truncating results.
 const DEFAULT_UNBOUNDED_MAX_HOPS: u32 = 64;
 
+/// What a statement is allowed to do, decided from its syntax alone.
+///
+/// `SEMANTIC_PROFILE.write_classification` fixes the rule: a statement that
+/// *can* write is a write, whatever it ends up changing. A DELETE that matches
+/// no row is `WriteWithoutRows`, not `ReadOnly` — a read-only connection must
+/// reject it before it runs, and a mutation savepoint must wrap it even when
+/// the transaction turns out to be empty.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum StatementKind {
+    ReadOnly,
+    WriteReturningRows,
+    WriteWithoutRows,
+}
+
+impl StatementKind {
+    pub fn writes(&self) -> bool {
+        matches!(self, Self::WriteReturningRows | Self::WriteWithoutRows)
+    }
+}
+
+/// Classify a parsed query without binding it. Cheap, infallible, and total:
+/// an unbindable query still has a definite read/write character, and callers
+/// need that character to pick a route before binding can fail.
+pub fn classify_statement(query: &cypher::Query) -> StatementKind {
+    let writes = query_writes(query);
+    // Only the outermost clause list can return rows to the caller. A RETURN
+    // inside a CALL subquery feeds the outer scope, and a union branch's RETURN
+    // is subordinate to the first branch's.
+    let returns_rows = query
+        .clauses
+        .last()
+        .is_some_and(|clause| matches!(clause.value, cypher::Clause::Return(_)));
+    match (writes, returns_rows) {
+        (false, _) => StatementKind::ReadOnly,
+        (true, true) => StatementKind::WriteReturningRows,
+        (true, false) => StatementKind::WriteWithoutRows,
+    }
+}
+
+fn query_writes(query: &cypher::Query) -> bool {
+    clauses_write(&query.clauses)
+        || query
+            .unions
+            .iter()
+            .any(|branch| clauses_write(&branch.clauses))
+}
+
+/// A write anywhere in the clause tree makes the whole statement a write.
+/// FOREACH and CALL subqueries carry their own clause lists, so reading only
+/// the top level would classify `FOREACH (x IN xs | SET ...)` as a read.
+fn clauses_write(clauses: &[cypher::Spanned<cypher::Clause>]) -> bool {
+    clauses.iter().any(|clause| match &clause.value {
+        cypher::Clause::Create(_)
+        | cypher::Clause::Merge(_)
+        | cypher::Clause::Set(_)
+        | cypher::Clause::Remove(_)
+        | cypher::Clause::Delete(_) => true,
+        cypher::Clause::Foreach(foreach) => clauses_write(&foreach.body),
+        cypher::Clause::CallSubquery(inner) => query_writes(inner),
+        // An unknown procedure is not a write here; the binder rejects it by
+        // name, and guessing would classify a typo as a mutation.
+        cypher::Clause::Call(call) => {
+            crate::procedures::lookup(&call.name.value).is_some_and(|descriptor| {
+                descriptor.access == crate::procedures::ProcedureAccess::Mutating
+            })
+        }
+        cypher::Clause::Match(_)
+        | cypher::Clause::Unwind(_)
+        | cypher::Clause::With(_)
+        | cypher::Clause::Return(_) => false,
+    })
+}
+
 pub fn bind(
     query: &cypher::Query,
     graph: ir::GraphId,
