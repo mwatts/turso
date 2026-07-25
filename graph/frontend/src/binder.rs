@@ -1,8 +1,17 @@
+#[cfg(test)]
+use std::cell::Cell;
 use std::collections::HashMap;
 
 use thiserror::Error;
 use turso_graph_cypher as cypher;
 use turso_graph_ir as ir;
+
+// Per-test-thread bind entries so prepare can assert a single compile pass
+// without racing other tests that also call `bind`.
+#[cfg(test)]
+thread_local! {
+    pub(crate) static BIND_COUNT: Cell<usize> = const { Cell::new(0) };
+}
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum CatalogEntity {
@@ -418,6 +427,8 @@ pub fn bind(
     catalog: &dyn GraphCatalogSnapshot,
     parameters: &ParameterTypes,
 ) -> Result<BoundQuery, BindError> {
+    #[cfg(test)]
+    BIND_COUNT.with(|count| count.set(count.get() + 1));
     Binder::new(graph, catalog, parameters).bind_query(query)
 }
 

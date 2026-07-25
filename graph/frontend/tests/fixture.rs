@@ -102,6 +102,7 @@ fn social_graph_connection_with_options(opts: DatabaseOpts) -> (Arc<Database>, G
 /// A second connection onto the same underlying database as `database`, for
 /// exercising session setup (like [`GraphConnection::open`]) that must not
 /// depend on the connection that performed the original registration.
+#[allow(dead_code)] // Shared fixture; not every integration crate calls this.
 pub fn second_connection(database: &Arc<Database>) -> Arc<Connection> {
     database.connect().expect("connect")
 }

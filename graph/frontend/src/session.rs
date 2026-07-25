@@ -90,6 +90,8 @@ pub struct GraphConnection {
     catalog: SharedGraphCatalog,
     catalog_generation: Option<Mutex<u64>>,
     parameters: ParameterTypes,
+    /// Same `Arc` registered with Core for `prepare_frontend` recompile safety.
+    compiler: Arc<GraphCompiler>,
     snapshots: Arc<SessionSnapshotStore>,
     limits: BuildLimits,
 }
@@ -117,14 +119,14 @@ impl GraphConnection {
         // Lowered SQL calls temporal/duration scalars; without them embedders
         // hit "runtime scalar function missing" on any temporal query.
         turso_graph_temporal::install_temporal_extension(connection.as_ref());
-        connection.register_frontend_compiler(
-            graph_frontend_id(),
-            Arc::new(GraphCompiler::with_shared(
-                graph.id,
-                catalog.clone(),
-                parameters.clone(),
-            )),
-        )?;
+        let compiler = Arc::new(GraphCompiler::with_shared(
+            graph.id,
+            catalog.clone(),
+            parameters.clone(),
+        ));
+        // Register the same Arc Core will recompile through; session prepare
+        // reuses its compile cache for result types.
+        connection.register_frontend_compiler(graph_frontend_id(), compiler.clone())?;
         Ok(Self {
             connection,
             graph: graph.id,
@@ -132,6 +134,7 @@ impl GraphConnection {
             catalog,
             catalog_generation: None,
             parameters,
+            compiler,
             snapshots,
             limits,
         })
@@ -240,29 +243,6 @@ impl GraphConnection {
         self.prepare_cancellable(source, parameters, &NeverCancelled)
     }
 
-    /// Static result-column types of a read query, in projection order.
-    /// Booleans reach storage as integers, so callers that need to render
-    /// Cypher values faithfully must consult these types.
-    fn result_types_for(
-        &self,
-        syntax: &turso_graph_cypher::Query,
-    ) -> Result<Vec<turso_graph_ir::ValueType>, Error> {
-        let catalog = self.catalog.read().clone();
-        let bound = crate::bind(syntax, self.graph, catalog.as_ref(), &self.parameters)?;
-        let scope = bound.plan.scope();
-        Ok(bound
-            .plan
-            .result_shape()
-            .iter()
-            .map(|column| {
-                scope
-                    .get(column.binding())
-                    .map(|binding| binding.value_type().clone())
-                    .unwrap_or(turso_graph_ir::ValueType::Any)
-            })
-            .collect())
-    }
-
     pub fn prepare_cancellable(
         &self,
         source: &str,
@@ -273,6 +253,7 @@ impl GraphConnection {
         // EXPLAIN-prefixed queries (including postgres option lists like
         // EXPLAIN (VERBOSE, COSTS OFF)) compile the inner query and return
         // core's own plan via EXPLAIN QUERY PLAN over the lowered SQL.
+        // Task 3 routes this through compile_outcome; keep the working path.
         if let Some(inner) = strip_explain_prefix(source) {
             let syntax = turso_graph_cypher::parse(inner)?;
             if requires_traversal_snapshot(&syntax) {
@@ -295,8 +276,10 @@ impl GraphConnection {
             bind_query_parameters(&mut statement, parameters)?;
             return Ok(crate::Statement::new(statement, Vec::new()));
         }
-        let syntax = turso_graph_cypher::parse(source)?;
-        if requires_traversal_snapshot(&syntax) {
+        // One parse/bind/lower: cache feeds prepare_frontend recompile and
+        // result_types without a second bind.
+        let outcome = self.compiler.compile_outcome(source)?;
+        if outcome.needs_snapshot {
             self.snapshots.refresh_visible_if_stale(
                 &self.connection,
                 &self.graph_name,
@@ -308,7 +291,10 @@ impl GraphConnection {
             .connection
             .prepare_frontend(&graph_frontend_id(), source)?;
         bind_query_parameters(&mut statement, parameters)?;
-        let result_types = self.result_types_for(&syntax)?;
+        let result_types = self
+            .compiler
+            .take_result_types_for(source)
+            .unwrap_or_default();
         Ok(crate::Statement::new(statement, result_types))
     }
 
@@ -347,25 +333,14 @@ impl GraphConnection {
             semantic,
         ));
         *known_generation = graph.generation;
+        // Catalog shapes affect bind/lower; drop the shared compile cache.
+        self.compiler.clear_last_compile();
         Ok(())
     }
 }
 
 fn requires_traversal_snapshot(query: &turso_graph_cypher::Query) -> bool {
-    let clause_needs =
-        |clause: &turso_graph_cypher::Spanned<turso_graph_cypher::Clause>| match &clause.value {
-            turso_graph_cypher::Clause::Match(value) => value.paths.iter().any(|path| {
-                path.steps
-                    .iter()
-                    .any(|(relationship, _)| relationship.range.is_some())
-            }),
-            _ => false,
-        };
-    query.clauses.iter().any(clause_needs)
-        || query
-            .unions
-            .iter()
-            .any(|branch| branch.clauses.iter().any(clause_needs))
+    crate::compiler::query_needs_traversal_snapshot(query)
 }
 
 /// Strips a leading `EXPLAIN` (with an optional parenthesized postgres
@@ -860,6 +835,35 @@ mod tests {
             )
             .expect("explicit bounds keep truncation semantics");
         assert_eq!(rows.len(), 3);
+    }
+
+    #[test]
+    fn prepare_binds_cypher_once_for_result_types_and_frontend() {
+        // Read prepare must not re-bind solely to recover result types after
+        // FrontendCompiler::compile already bound the same source.
+        let fixture = fixture(":memory:graph-session-single-bind");
+        let before = crate::binder::BIND_COUNT.with(|count| count.get());
+        let compile_before = fixture.reader_session.compiler.compile_misses();
+        let stmt = fixture
+            .reader_session
+            .prepare("MATCH (n:Person) RETURN n.name AS name", &Parameters::new())
+            .expect("prepare");
+        let after = crate::binder::BIND_COUNT.with(|count| count.get());
+        let compile_after = fixture.reader_session.compiler.compile_misses();
+        assert_eq!(
+            after - before,
+            1,
+            "prepare must bind once (compile_outcome shared with prepare_frontend), got {}",
+            after - before
+        );
+        assert_eq!(
+            compile_after - compile_before,
+            1,
+            "prepare must miss the compile cache once, got {}",
+            compile_after - compile_before
+        );
+        assert_eq!(stmt.result_types().len(), 1);
+        assert_eq!(stmt.result_types()[0], ir::ValueType::Text);
     }
 
     #[test]
