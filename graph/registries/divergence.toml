@@ -1,0 +1,86 @@
+version = 1
+
+[[entry]]
+id = "apache-age.delete_global_graphs"
+vendor = "Apache AGE"
+area = "vendor-function"
+reason = "AGE administers globally registered graphs through `ag_catalog.delete_global_graphs(graph)`. Turso registers graphs per database and drops them through the Turso catalog, so there is no global namespace for this function to operate on."
+tests = [
+    "age.age.global.graph.query-10",
+    "age.age.global.graph.query-11",
+    "age.age.global.graph.query-12",
+    "age.age.global.graph.query-13",
+    "age.age.global.graph.query-14",
+    "age.age.global.graph.query-15",
+    "age.age.global.graph.query-19",
+    "age.age.global.graph.query-20",
+    "age.age.global.graph.query-21",
+    "age.age.global.graph.query-22",
+    "age.age.global.graph.query-8",
+    "age.age.global.graph.query-9",
+    "age.expr.query-994",
+    "age.expr.query-995",
+    "age.expr.query-996",
+    "age.expr.query-997",
+]
+
+[[entry]]
+id = "apache-age.graph_stats"
+vendor = "Apache AGE"
+area = "vendor-function"
+reason = "AGE's `ag_catalog.graph_stats(graph)` is the graph-granularity companion to `vertex_stats` and diverges for the same reason: it reads AGE's `ag_catalog` tables, which Turso does not have."
+tests = [
+    "age.age.global.graph.query-28",
+    "age.age.global.graph.query-29",
+    "age.age.global.graph.query-30",
+    "age.age.global.graph.query-35",
+    "age.age.global.graph.query-39",
+    "age.age.global.graph.query-40",
+    "age.age.load.query-9",
+]
+
+[[entry]]
+id = "apache-age.is_valid_label_name"
+vendor = "Apache AGE"
+area = "vendor-function"
+reason = "AGE exposes its label-name validator as the runtime SQL predicate `ag_catalog.is_valid_label_name(name)`. Turso validates label names when it binds a query and reports an error there, so the check has no runtime callable form to test."
+tests = [
+    "age.expr.query-1000",
+    "age.expr.query-998",
+    "age.expr.query-999",
+    "age.name.validation.query-10",
+    "age.name.validation.query-5",
+    "age.name.validation.query-6",
+    "age.name.validation.query-7",
+    "age.name.validation.query-8",
+    "age.name.validation.query-9",
+]
+
+[[entry]]
+id = "apache-age.vertex_stats"
+vendor = "Apache AGE"
+area = "vendor-function"
+reason = "AGE exposes per-vertex catalog statistics as the SQL function `ag_catalog.vertex_stats(graph, label)`. Turso has no `ag_catalog` schema and no AGE-shaped statistics surface; graph statistics are reached through the Turso catalog instead. Implementing the function would mean adopting AGE's catalog layout, not a Cypher behavior."
+tests = [
+    "age.age.global.graph.query-16",
+    "age.age.global.graph.query-17",
+    "age.age.global.graph.query-18",
+    "age.age.global.graph.query-26",
+    "age.age.global.graph.query-27",
+    "age.age.global.graph.query-4",
+    "age.age.global.graph.query-5",
+    "age.age.global.graph.query-6",
+    "age.age.global.graph.query-7",
+    "age.age.shortest.path.query-134",
+    "age.age.shortest.path.query-142",
+    "age.age.shortest.path.query-168",
+    "age.age.shortest.path.query-180",
+    "age.age.shortest.path.query-190",
+    "age.age.shortest.path.query-2",
+    "age.age.shortest.path.query-66",
+    "age.age.shortest.path.query-73",
+    "age.expr.query-874",
+    "age.expr.query-875",
+    "age.expr.query-876",
+    "age.expr.query-877",
+]

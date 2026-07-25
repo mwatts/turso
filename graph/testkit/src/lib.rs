@@ -6,6 +6,7 @@
 
 pub mod age;
 pub mod cypherbench;
+pub mod divergence;
 pub mod dynamic_catalog;
 pub mod grafeo;
 pub mod history;

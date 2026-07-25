@@ -1,5 +1,6 @@
 use std::collections::{BTreeMap, BTreeSet};
 
+use crate::history::latest_corpus_run_id;
 use crate::model::{Outcome, ResultRecord};
 
 pub fn render(records: &[ResultRecord]) -> String {
@@ -98,12 +99,7 @@ pub fn render(records: &[ResultRecord]) -> String {
 }
 
 fn append_latest_corpus_histogram(report: &mut String, records: &[ResultRecord]) {
-    let Some(run_id) = records
-        .iter()
-        .filter(|record| record.run_id.ends_with("corpus-deep"))
-        .map(|record| record.run_id.as_str())
-        .max()
-    else {
+    let Some(run_id) = latest_corpus_run_id(records) else {
         return;
     };
     let run = records

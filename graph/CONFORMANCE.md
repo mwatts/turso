@@ -42,8 +42,16 @@ Latest recorded corpus run
 over all 10,242 identities:
 
 - **8,919 passed**;
-- **53 unsupported** vendor-specific behaviors; and
+- **53 unsupported** vendor-specific behaviors, every one of them named by
+  [`registries/divergence.toml`](registries/divergence.toml); and
 - **1,270 failed** with a non-empty reason.
+
+The unsupported count is enforced, not asserted. `cargo run -q -p
+turso_graph_testkit -- divergence` reads the same corpus run this section
+quotes and fails when a test reports an unsupported outcome that no registry
+entry claims, when a registry entry names a test the run no longer contains, or
+when a registered divergence starts passing. The registry currently holds four
+entries, all Apache AGE `ag_catalog` administration and statistics functions.
 
 The dominant failure families from that run (full histogram in
 [`test-results/REPORT.md`](test-results/REPORT.md)):

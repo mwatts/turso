@@ -8,8 +8,11 @@ use anyhow::{Context, Result};
 use clap::{Parser, Subcommand, ValueEnum};
 use turso_graph_testkit::{
     age::AgeCorpus,
+    divergence::DivergenceRegistry,
     grafeo::GrafeoCorpus,
-    history::{append, build_profile, discover_environment, new_run_id, prune, read},
+    history::{
+        append, build_profile, discover_environment, latest_corpus_run_id, new_run_id, prune, read,
+    },
     manifest::ScenarioManifest,
     model::Outcome,
     performance::PerformanceManifest,
@@ -117,6 +120,17 @@ enum Command {
         #[arg(long, default_value_t = 5)]
         keep: usize,
     },
+    /// Check `graph/registries/divergence.toml` against the latest recorded
+    /// corpus run, or regenerate it from that run.
+    Divergence {
+        #[arg(long)]
+        history: Option<PathBuf>,
+        #[arg(long)]
+        registry: Option<PathBuf>,
+        /// Rewrite the registry from the run instead of checking it.
+        #[arg(long)]
+        sync: bool,
+    },
 }
 
 #[derive(Clone, Copy, Debug, ValueEnum)]
@@ -209,7 +223,64 @@ fn run(arguments: Arguments) -> Result<bool> {
             );
             Ok(true)
         }
+        Command::Divergence {
+            history,
+            registry,
+            sync,
+        } => {
+            let history = history.unwrap_or_else(|| default_history(&root));
+            run_divergence(&root, &history, registry.as_deref(), sync)
+        }
     }
+}
+
+/// The latest corpus run is the source of truth for what currently diverges;
+/// `graph/test-results/REPORT.md` is generated from the same rows.
+fn run_divergence(
+    root: &Path,
+    history: &Path,
+    registry: Option<&Path>,
+    sync: bool,
+) -> Result<bool> {
+    let path = registry
+        .map(Path::to_path_buf)
+        .unwrap_or_else(|| root.join("graph/registries/divergence.toml"));
+    let records = read(history)?;
+    let run_id = latest_corpus_run_id(&records)
+        .context("history contains no complete corpus run")?
+        .to_owned();
+    let latest = records
+        .into_iter()
+        .filter(|record| record.run_id == run_id)
+        .collect::<Vec<_>>();
+
+    if sync {
+        let generated = DivergenceRegistry::sync(&latest);
+        if let Some(parent) = path.parent() {
+            fs::create_dir_all(parent)?;
+        }
+        fs::write(&path, toml::to_string_pretty(&generated)?)?;
+        println!(
+            "wrote {} divergence entries covering {} tests to {}",
+            generated.entry.len(),
+            generated
+                .entry
+                .iter()
+                .map(|entry| entry.tests.len())
+                .sum::<usize>(),
+            path.display()
+        );
+        return Ok(true);
+    }
+
+    let registry = DivergenceRegistry::load(&path)?;
+    let report = registry.verify(&latest)?;
+    println!(
+        "divergence registry verified against `{run_id}`: {} entries, {} tests",
+        registry.entry.len(),
+        report.matched
+    );
+    Ok(true)
 }
 
 fn corpus_stats(root: &Path) -> Result<bool> {

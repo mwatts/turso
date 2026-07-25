@@ -145,6 +145,26 @@ pub struct PruneOutcome {
     pub runs_dropped: usize,
 }
 
+/// The suffix `run_id` carries when the run covered the whole donor corpus.
+///
+/// A corpus run spans five suites (`tck-deep`, `age-deep`, `grafeo-deep`,
+/// `sparrowdb-deep`, `cqlite-deep`) under one shared run id, so there is no
+/// single suite name to select on.
+pub const CORPUS_RUN_SUFFIX: &str = "corpus-deep";
+
+/// The newest complete corpus run, or `None` when history holds no corpus run.
+///
+/// Run ids carry a timestamp prefix, so lexicographic order is recency order.
+/// The report and the divergence registry both answer "what does Turso
+/// currently do" and must read the same run to agree.
+pub fn latest_corpus_run_id(records: &[ResultRecord]) -> Option<&str> {
+    records
+        .iter()
+        .filter(|record| record.run_id.ends_with(CORPUS_RUN_SUFFIX))
+        .map(|record| record.run_id.as_str())
+        .max()
+}
+
 /// The newest `keep` run ids of every suite, floored at [`MINIMUM_RETAINED_RUNS`].
 ///
 /// Run ids carry a timestamp prefix, so lexicographic order is recency order;
