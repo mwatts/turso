@@ -118,6 +118,9 @@ postgres/regress/results/
 # Full per-row corpus history is local-only (hundreds of MB); the tracked
 # record is graph/test-results/runs.jsonl plus REPORT.md.
 graph/test-results/history.jsonl
+# Pruned copies and gzip archives written by `prune-history`.
+graph/test-results/history.jsonl.pruned
+graph/test-results/history-archive-*.jsonl.gz
 # CypherBench graphs download on demand (scripts/fetch-cypherbench.sh)
 graph/testdata/benchmarks/cypherbench/data/
 # Local terminalgraph tool state

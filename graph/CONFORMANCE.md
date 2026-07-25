@@ -109,3 +109,26 @@ The second command returns failure while any conformance contract fails. Omit
 Recorded baseline runs go through `mise run corpus`, which pins `--release`:
 history timings are only comparable against a release build. Each row records
 the profile it was actually built with, so a debug run cannot silently mix in.
+
+### Pruning history
+
+`history.jsonl` is gitignored and local-only, but both `append` and `report`
+read the whole file, so an unbounded history slows every recorded run. The
+report itself only reads the newest run of each suite and the one before it.
+
+```sh
+cargo run --release -p turso_graph_testkit -- prune-history --keep 5
+```
+
+This writes `history.jsonl.pruned` and leaves the source untouched: pruning
+never destroys, because these rows cannot be regenerated. Archive before
+swapping, and confirm the report is unchanged:
+
+```sh
+gzip -6 -c history.jsonl > history-archive-$(date +%Y%m%d).jsonl.gz
+gzip -t history-archive-*.jsonl.gz
+mv history.jsonl.pruned history.jsonl
+```
+
+Retention is floored at 2 runs per suite, and counted per suite so a suite that
+runs often cannot evict one that runs rarely.

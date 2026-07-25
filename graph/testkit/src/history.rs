@@ -1,5 +1,5 @@
 use std::{
-    collections::HashSet,
+    collections::{BTreeMap, BTreeSet, HashSet},
     fs::{self, OpenOptions},
     io::{BufRead, BufReader, Write},
     path::Path,
@@ -128,6 +128,83 @@ pub fn read(path: impl AsRef<Path>) -> Result<Vec<ResultRecord>, HistoryError> {
     }
     validate_unique(&records)?;
     Ok(records)
+}
+
+/// The report renders the newest run of each suite and diffs it against the
+/// one before, so retention below this keeps a file that cannot answer the
+/// question it exists to answer.
+pub const MINIMUM_RETAINED_RUNS: usize = 2;
+
+/// What `prune` did, for the caller to print before anything is swapped.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct PruneOutcome {
+    pub records_read: usize,
+    pub records_written: usize,
+    pub runs_kept: usize,
+    pub runs_dropped: usize,
+}
+
+/// The newest `keep` run ids of every suite, floored at [`MINIMUM_RETAINED_RUNS`].
+///
+/// Run ids carry a timestamp prefix, so lexicographic order is recency order;
+/// `report::render` already depends on that, and retention reuses it rather
+/// than inventing a second rule. Counting per suite stops a suite that runs
+/// hourly from evicting one that runs weekly.
+pub fn retained_run_ids(records: &[ResultRecord], keep: usize) -> BTreeSet<String> {
+    let keep = keep.max(MINIMUM_RETAINED_RUNS);
+    let mut by_suite: BTreeMap<&str, BTreeSet<&str>> = BTreeMap::new();
+    for record in records {
+        by_suite
+            .entry(&record.suite)
+            .or_default()
+            .insert(&record.run_id);
+    }
+    by_suite
+        .into_values()
+        .flat_map(|runs| {
+            runs.into_iter()
+                .rev()
+                .take(keep)
+                .map(ToOwned::to_owned)
+                .collect::<Vec<_>>()
+        })
+        .collect()
+}
+
+/// Copy the retained runs of `source` into `target`, leaving `source` intact.
+///
+/// history.jsonl is gitignored and cannot be regenerated, so pruning never
+/// destroys: it writes beside the source and the caller decides whether to
+/// archive and swap.
+pub fn prune(
+    source: impl AsRef<Path>,
+    target: impl AsRef<Path>,
+    keep: usize,
+) -> Result<PruneOutcome, HistoryError> {
+    let records = read(source)?;
+    let retained = retained_run_ids(&records, keep);
+    let runs_total = records
+        .iter()
+        .map(|record| record.run_id.as_str())
+        .collect::<BTreeSet<_>>()
+        .len();
+    let kept = records
+        .iter()
+        .filter(|record| retained.contains(&record.run_id))
+        .cloned()
+        .collect::<Vec<_>>();
+    let outcome = PruneOutcome {
+        records_read: records.len(),
+        records_written: kept.len(),
+        runs_kept: retained.len(),
+        runs_dropped: runs_total - retained.len(),
+    };
+    let target = target.as_ref();
+    if target.exists() {
+        fs::remove_file(target).map_err(|source| io_error(target, source))?;
+    }
+    append(target, &kept)?;
+    Ok(outcome)
 }
 
 pub fn result_digest(rows: &[Vec<String>]) -> String {
@@ -305,6 +382,85 @@ mod tests {
         assert_eq!(
             discover_environment(build_profile()).unwrap().profile,
             expected
+        );
+    }
+
+    fn record_in(run_id: &str, suite: &str, test: &str) -> ResultRecord {
+        let mut record = test_record(run_id);
+        record.suite = suite.to_owned();
+        record.test_id = crate::identity::TestId::parse(test).unwrap();
+        record
+    }
+
+    #[test]
+    fn retention_keeps_the_newest_runs_of_every_suite_independently() {
+        // Run ids are timestamp-prefixed, so lexicographic order is recency
+        // order. `report::render` already relies on that; retention must not
+        // invent a second rule. A rarely-run suite must not be evicted by a
+        // frequently-run one, so the count is per suite.
+        let records = vec![
+            record_in("20260101T000000Z-aaa-corpus", "corpus", "tck.a.b.c"),
+            record_in("20260102T000000Z-bbb-corpus", "corpus", "tck.a.b.c"),
+            record_in("20260103T000000Z-ccc-corpus", "corpus", "tck.a.b.c"),
+            record_in("20260101T000000Z-aaa-smoke", "smoke", "tck.a.b.c"),
+        ];
+
+        let retained = retained_run_ids(&records, 2);
+
+        assert_eq!(
+            retained,
+            BTreeSet::from([
+                "20260102T000000Z-bbb-corpus".to_owned(),
+                "20260103T000000Z-ccc-corpus".to_owned(),
+                "20260101T000000Z-aaa-smoke".to_owned(),
+            ])
+        );
+    }
+
+    #[test]
+    fn retention_never_drops_below_what_the_report_reads() {
+        // report::render renders the latest run and diffs it against the one
+        // before, so a retention of 1 would silently empty the change table.
+        let records = vec![
+            record_in("20260101T000000Z-aaa-corpus", "corpus", "tck.a.b.c"),
+            record_in("20260102T000000Z-bbb-corpus", "corpus", "tck.a.b.c"),
+        ];
+
+        assert_eq!(retained_run_ids(&records, 0).len(), 2);
+        assert_eq!(retained_run_ids(&records, 1).len(), 2);
+    }
+
+    #[test]
+    fn prune_writes_a_new_file_and_never_touches_the_source() {
+        // history.jsonl is not in git and cannot be regenerated. Pruning writes
+        // beside the source so the caller decides when to swap, and the caller
+        // can archive the original first.
+        let directory = tempfile::tempdir().unwrap();
+        let source = directory.path().join("history.jsonl");
+        let target = directory.path().join("history.pruned.jsonl");
+        append(
+            &source,
+            &[
+                record_in("20260101T000000Z-aaa-corpus", "corpus", "tck.a.b.c"),
+                record_in("20260102T000000Z-bbb-corpus", "corpus", "tck.a.b.c"),
+                record_in("20260103T000000Z-ccc-corpus", "corpus", "tck.a.b.c"),
+            ],
+        )
+        .unwrap();
+
+        let outcome = prune(&source, &target, 2).unwrap();
+
+        assert_eq!(outcome.records_read, 3);
+        assert_eq!(outcome.records_written, 2);
+        assert_eq!(outcome.runs_dropped, 1);
+        assert_eq!(read(&source).unwrap().len(), 3, "source is left intact");
+        let pruned = read(&target).unwrap();
+        assert_eq!(pruned.len(), 2);
+        assert!(
+            pruned
+                .iter()
+                .all(|record| record.run_id != "20260101T000000Z-aaa-corpus"),
+            "the oldest run is the one dropped"
         );
     }
 

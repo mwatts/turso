@@ -5,6 +5,7 @@ Generated from `graph/test-results/history.jsonl`. Results are grouped by stable
 ## Latest complete corpus run
 
 - Run: `20260722T204051.387397Z-0de15cc74e02-corpus-deep`
+- Semantics: v0
 - Records: 10242
 - Passed: 8919
 - Unsupported: 53
@@ -36,6 +37,7 @@ Generated from `graph/test-results/history.jsonl`. Results are grouped by stable
 - Run: `20260722T204051.387397Z-0de15cc74e02-corpus-deep`
 - Commit: `0de15cc74e02831de3432a5d369ff06ff4ba8290` (dirty)
 - Package: `0.8.0-pre.1`
+- Semantics: v0
 - Environment: `macos/aarch64` (`dev`)
 - Records: 3595
 - Passed: 3036
@@ -729,6 +731,7 @@ Generated from `graph/test-results/history.jsonl`. Results are grouped by stable
 - Run: `20260722T204051.387397Z-0de15cc74e02-corpus-deep`
 - Commit: `0de15cc74e02831de3432a5d369ff06ff4ba8290` (dirty)
 - Package: `0.8.0-pre.1`
+- Semantics: v0
 - Environment: `macos/aarch64` (`dev`)
 - Records: 124
 - Passed: 113
@@ -871,6 +874,7 @@ Generated from `graph/test-results/history.jsonl`. Results are grouped by stable
 - Run: `20260718T013941.952713Z-e1d73880b749-deep`
 - Commit: `e1d73880b74901c879c5bcf4cc96b1006f2d16b5` (dirty)
 - Package: `0.7.0`
+- Semantics: v0
 - Environment: `macos/aarch64` (`dev`)
 - Records: 34
 - Passed: 29
@@ -919,6 +923,7 @@ Generated from `graph/test-results/history.jsonl`. Results are grouped by stable
 - Run: `20260722T204051.387397Z-0de15cc74e02-corpus-deep`
 - Commit: `0de15cc74e02831de3432a5d369ff06ff4ba8290` (dirty)
 - Package: `0.8.0-pre.1`
+- Semantics: v0
 - Environment: `macos/aarch64` (`dev`)
 - Records: 372
 - Passed: 276
@@ -1309,6 +1314,7 @@ Generated from `graph/test-results/history.jsonl`. Results are grouped by stable
 - Run: `20260718T013944.410388Z-e1d73880b749-performance-deep`
 - Commit: `e1d73880b74901c879c5bcf4cc96b1006f2d16b5` (dirty)
 - Package: `0.7.0`
+- Semantics: v0
 - Environment: `macos/aarch64` (`dev`)
 - Records: 10
 - Passed: 10
@@ -1333,6 +1339,7 @@ Generated from `graph/test-results/history.jsonl`. Results are grouped by stable
 - Run: `20260718T013943.199409Z-e1d73880b749-performance-smoke`
 - Commit: `e1d73880b74901c879c5bcf4cc96b1006f2d16b5` (dirty)
 - Package: `0.7.0`
+- Semantics: v0
 - Environment: `macos/aarch64` (`dev`)
 - Records: 10
 - Passed: 10
@@ -1357,6 +1364,7 @@ Generated from `graph/test-results/history.jsonl`. Results are grouped by stable
 - Run: `20260718T013940.911425Z-e1d73880b749-smoke`
 - Commit: `e1d73880b74901c879c5bcf4cc96b1006f2d16b5`
 - Package: `0.7.0`
+- Semantics: v0
 - Environment: `macos/aarch64` (`dev`)
 - Records: 11
 - Passed: 11
@@ -1382,6 +1390,7 @@ Generated from `graph/test-results/history.jsonl`. Results are grouped by stable
 - Run: `20260722T204051.387397Z-0de15cc74e02-corpus-deep`
 - Commit: `0de15cc74e02831de3432a5d369ff06ff4ba8290` (dirty)
 - Package: `0.8.0-pre.1`
+- Semantics: v0
 - Environment: `macos/aarch64` (`dev`)
 - Records: 2225
 - Passed: 2164
@@ -1645,6 +1654,7 @@ Generated from `graph/test-results/history.jsonl`. Results are grouped by stable
 - Run: `20260722T204051.387397Z-0de15cc74e02-corpus-deep`
 - Commit: `0de15cc74e02831de3432a5d369ff06ff4ba8290` (dirty)
 - Package: `0.8.0-pre.1`
+- Semantics: v0
 - Environment: `macos/aarch64` (`dev`)
 - Records: 3926
 - Passed: 3330
@@ -3322,6 +3332,6 @@ CREATE (b1)-[:FRIEND]->(b2),
 
 ## Longitudinal inventory
 
-- Runs: 599
-- Result records: 1230070
-- Unique test identities: 10441
+- Runs: 29
+- Result records: 51275
+- Unique test identities: 10291

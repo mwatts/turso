@@ -9,7 +9,7 @@ use clap::{Parser, Subcommand, ValueEnum};
 use turso_graph_testkit::{
     age::AgeCorpus,
     grafeo::GrafeoCorpus,
-    history::{append, build_profile, discover_environment, new_run_id, read},
+    history::{append, build_profile, discover_environment, new_run_id, prune, read},
     manifest::ScenarioManifest,
     model::Outcome,
     performance::PerformanceManifest,
@@ -104,6 +104,19 @@ enum Command {
         #[arg(long)]
         history: Option<PathBuf>,
     },
+    /// Copy the newest runs of every suite into a new file, leaving the source
+    /// untouched. Every append and every report reads the whole history, so a
+    /// history that grows without bound makes both progressively slower.
+    PruneHistory {
+        #[arg(long)]
+        history: Option<PathBuf>,
+        /// Where to write the pruned copy. Defaults to `<history>.pruned`.
+        #[arg(long)]
+        output: Option<PathBuf>,
+        /// Runs to keep per suite. Floored at 2, which is what the report reads.
+        #[arg(long, default_value_t = 5)]
+        keep: usize,
+    },
 }
 
 #[derive(Clone, Copy, Debug, ValueEnum)]
@@ -171,6 +184,29 @@ fn run(arguments: Arguments) -> Result<bool> {
         Command::VerifyHistory { history } => {
             let records = read(history.unwrap_or_else(|| default_history(&root)))?;
             println!("verified {} history records", records.len());
+            Ok(true)
+        }
+        Command::PruneHistory {
+            history,
+            output,
+            keep,
+        } => {
+            let history = history.unwrap_or_else(|| default_history(&root));
+            let output = output.unwrap_or_else(|| history.with_extension("jsonl.pruned"));
+            let outcome = prune(&history, &output, keep)?;
+            println!(
+                "read {} records across {} runs; wrote {} records across {} runs to {}; {} runs dropped",
+                outcome.records_read,
+                outcome.runs_kept + outcome.runs_dropped,
+                outcome.records_written,
+                outcome.runs_kept,
+                output.display(),
+                outcome.runs_dropped,
+            );
+            println!(
+                "{} is unchanged; archive it before swapping",
+                history.display()
+            );
             Ok(true)
         }
     }
