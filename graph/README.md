@@ -74,6 +74,23 @@ Attach mode — graph layer on an existing SQLite-dialect database:
 `GraphConnection::install` registers the per-connection compiler and the
 temporal extension; nothing about the database file changes.
 
+Open-mode and Core-seam contract (see
+[`docs/graph-frontend-core-alignment.md`](../docs/graph-frontend-core-alignment.md)
+for findings and the implementation plan):
+
+- **Dialect-pinned open** — `open_database` / `open_database_with_io` use
+  `GraphDialect` (`name() == "graph-cypher"`). Temporal functions resolve on
+  the dialect. `turso_graphs` is registered on schema build.
+- **Attach mode** — `GraphConnection::open` / `install` on an existing
+  connection (often `SqliteDialect`). Guarantees come from `install`
+  (compiler registration, temporal extension, expand vtab). File dialect name
+  may stay `"sqlite"`.
+- **Reads** — go through `prepare_frontend("graph-cypher")`.
+- **Mutations** — multi-statement orchestration under a savepoint today; not
+  a single `PreparedSource`. This is known debt, not an accident.
+- **Composition** — Postgres and Graph stay separate crates; apps register
+  both compilers on one core connection if needed.
+
 - Frontend separation: this crate never depends on, and is never depended on
   by, the Postgres frontend. An app that wants Cypher and Postgres SQL on one
   connection installs both compilers itself via core's

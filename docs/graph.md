@@ -72,6 +72,45 @@ multiple node and relationship sources. Relationship sources name the node
 source stored at each endpoint, so identities are table-local coordinates:
 equal numeric identities in two source tables remain distinct graph entities.
 
+## Open modes and Core seams
+
+The graph frontend uses Core the same way Postgres does: one host `Dialect`
+per database file, and a per-connection `FrontendCompiler` for Cypher reads.
+Two open modes exist. Both are supported.
+
+### Dialect-pinned open
+
+`open_database` / `open_database_with_io` open the file with `GraphDialect`
+(`name() == "graph-cypher"`). Temporal functions resolve on the dialect.
+`turso_graphs` is registered on schema build. A later reopen with a different
+dialect name is rejected.
+
+### Attach mode
+
+`GraphConnection::open` / `install` attach the graph layer to an existing
+connection (often `SqliteDialect`). Guarantees come from `install`: compiler
+registration, temporal extension, and the expand virtual table. The file's
+dialect name may stay `"sqlite"`. Prefer dialect-pinned open for new graph
+databases; use attach when the file already hosts another dialect.
+
+### Reads
+
+Cypher reads go through `prepare_frontend("graph-cypher")`. The compiler
+lowers to engine AST; Core owns translate, reprepare, and step.
+
+### Mutations
+
+Mutations are multi-statement orchestration under a savepoint today. They are
+not a single `PreparedSource`. That split is known debt, not an accident.
+Atomicity still holds via `SAVEPOINT __turso_graph_mutation`.
+
+### Composition
+
+Postgres and Graph stay separate crates. An app that needs both languages on
+one connection registers both compilers itself. See
+[Composing frontends](#composing-frontends). Alignment findings live in
+[`docs/graph-frontend-core-alignment.md`](graph-frontend-core-alignment.md).
+
 ## Optional semantic schema
 
 `register_graph` keeps the source-derived, schemaless behavior shown above.
