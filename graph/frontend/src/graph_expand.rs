@@ -24,9 +24,13 @@ const COL_GRAPH_ID: usize = OUTPUT_COLUMN_COUNT;
 const COL_MAX_MEMORY_BYTES: usize = COL_GRAPH_ID + 13;
 const CURSOR_WORK_QUANTUM: u64 = 256;
 
-/// Install graph query tables while a graph-capable dialect constructs its
-/// catalog. The snapshot store is process-local derived state; canonical graph
-/// rows remain in Turso tables.
+/// Install graph expand into a schema under construction.
+///
+/// Prefer [`install_graph_catalog`] for production activation: expand needs a
+/// connection-bound [`SnapshotStore`], which is not available when
+/// [`crate::GraphDialect::register_catalog`] runs at schema build. This helper
+/// remains for callers that already hold a store and own the schema lifecycle.
+/// Safe to call more than once; later installs replace the earlier binding.
 pub fn register_graph_catalog(
     schema: &mut Schema,
     snapshots: Arc<SnapshotStore>,
@@ -34,9 +38,17 @@ pub fn register_graph_catalog(
     schema.register_internal_vtab(GraphExpandTable { snapshots })
 }
 
-/// Install the graph query tables on an already-open connection. This is the
-/// activation path used by embedders that select graph compilation per query
-/// instead of defining a dedicated database dialect.
+/// Session-activate `__turso_graph_expand` on an open connection.
+///
+/// Variable-length path execution holds a [`SnapshotStore`] that is session-
+/// (and optionally process-) local derived state, not durable catalog. That is
+/// why expand is **not** installed from [`crate::GraphDialect::register_catalog`]
+/// — dialect catalog registration has no connection snapshot to bind.
+///
+/// Called from [`crate::GraphConnection::install`] for both dialect-pinned and
+/// attach opens. **Idempotent:** safe to call more than once; later installs
+/// replace the earlier `SnapshotStore` binding (same contract as
+/// `install_temporal_extension` for attach-mode scalars).
 pub fn install_graph_catalog(
     connection: &Connection,
     snapshots: Arc<SnapshotStore>,

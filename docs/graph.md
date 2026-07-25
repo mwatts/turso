@@ -93,6 +93,20 @@ registration, temporal extension, and the expand virtual table. The file's
 dialect name may stay `"sqlite"`. Prefer dialect-pinned open for new graph
 databases; use attach when the file already hosts another dialect.
 
+### Expand virtual table (session activation)
+
+Variable-length paths lower to the internal `__turso_graph_expand` virtual
+table. That table holds a process-local [`SnapshotStore`] — derived adjacency
+state, not durable catalog rows — so it **cannot** be installed from
+`GraphDialect::register_catalog` at schema build (no connection snapshot
+exists there). Both dialect-pinned and attach sessions activate expand via
+`install_graph_catalog` inside `GraphConnection::install`.
+
+`install_graph_catalog` is **idempotent**: calling it more than once on the
+same connection succeeds; a later call replaces the earlier `SnapshotStore`
+binding. Prefer one shared store per database (via `install`) when multiple
+connections should amortize committed snapshot rebuilds.
+
 ### Reads
 
 Cypher reads go through `prepare_frontend("graph-cypher")`. The compiler

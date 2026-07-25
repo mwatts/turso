@@ -139,6 +139,8 @@ impl GraphConnection {
         let catalog = Arc::new(RwLock::new(catalog));
         let snapshots = Arc::new(SessionSnapshotStore::new(shared_snapshots.clone()));
         shared_snapshots.register_session(&connection, &snapshots)?;
+        // Expand is session-activated for both host modes (not dialect catalog).
+        // install_graph_catalog is idempotent if install runs again on the same connection.
         install_graph_catalog(connection.as_ref(), shared_snapshots)?;
         // Attach mode: lowered SQL needs the static temporal extension.
         // Dialect-pinned opens resolve the same names via GraphDialect.

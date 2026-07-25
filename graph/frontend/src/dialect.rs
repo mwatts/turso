@@ -199,6 +199,10 @@ impl Dialect for GraphDialect {
         enable_custom_types: bool,
     ) -> Result<()> {
         turso_core::dialect::sqlite::register_builtin_catalog(schema, enable_custom_types)?;
+        // Durable graph metadata only. `__turso_graph_expand` stays
+        // session-activated via `install_graph_catalog` because it holds a
+        // SnapshotStore that is not available at schema build (no process-
+        // global snapshot default). See docs/graph.md § expand activation.
         let vtab = turso_core::VirtualTable::new_internal(
             "turso_graphs".to_string(),
             TURSO_GRAPHS_VTAB_SQL.to_string(),

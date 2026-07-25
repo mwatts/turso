@@ -6,8 +6,9 @@ use std::sync::{atomic::Ordering, Arc};
 
 use turso_core::{DatabaseOpts, MemoryIO, OpenFlags};
 use turso_graph_frontend::{
-    open_database_with_io, register_graph, GraphConnection, GraphHostMode, GraphRegistration,
-    NodeSourceRegistration, Parameters, RelationshipSourceRegistration, Value,
+    install_graph_catalog, open_database_with_io, register_graph, GraphConnection, GraphHostMode,
+    GraphRegistration, NodeSourceRegistration, Parameters, RelationshipSourceRegistration,
+    SnapshotStore, Value, GRAPH_EXPAND_TABLE_NAME,
 };
 use turso_graph_ir::ValueType;
 
@@ -125,6 +126,27 @@ fn attach_mode_install_increments_temporal_install_count() {
         after > before,
         "attach-mode install must call install_temporal_extension"
     );
+}
+
+/// Expand stays session-activated: double `install_graph_catalog` must not error.
+#[test]
+fn install_graph_catalog_is_idempotent() {
+    let io = Arc::new(MemoryIO::new());
+    let database = open_database_with_io(
+        io,
+        ":memory:expand-idempotent",
+        OpenFlags::default(),
+        DatabaseOpts::new(),
+    )
+    .expect("open graph dialect database");
+    let connection = database.connect().expect("connect");
+    let store = Arc::new(SnapshotStore::default());
+    let first = install_graph_catalog(connection.as_ref(), store.clone())
+        .expect("first expand catalog install");
+    let second = install_graph_catalog(connection.as_ref(), store)
+        .expect("second expand catalog install must be idempotent");
+    assert_eq!(first, GRAPH_EXPAND_TABLE_NAME);
+    assert_eq!(second, GRAPH_EXPAND_TABLE_NAME);
 }
 
 /// EXPLAIN must lower Cypher once, then prepare pure SQL `EXPLAIN QUERY PLAN`
