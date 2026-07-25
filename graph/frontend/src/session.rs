@@ -599,7 +599,7 @@ mod tests {
     #[test]
     fn explicit_transaction_reads_its_writes_without_global_publication() {
         let fixture = fixture(":memory:graph-session-explicit");
-        fixture.writer.execute("BEGIN").unwrap();
+        fixture.writer.execute("BEGIN IMMEDIATE").unwrap();
         fixture
             .writer_session
             .execute(
@@ -621,7 +621,7 @@ mod tests {
     #[test]
     fn committed_and_autocommit_writes_become_visible_on_the_next_read() {
         let fixture = fixture(":memory:graph-session-commit");
-        fixture.writer.execute("BEGIN").unwrap();
+        fixture.writer.execute("BEGIN IMMEDIATE").unwrap();
         fixture
             .writer_session
             .execute(
@@ -654,7 +654,7 @@ mod tests {
         let fixture = fixture(":memory:graph-session-savepoint");
         fixture
             .writer
-            .execute("BEGIN; SAVEPOINT user_change")
+            .execute("BEGIN IMMEDIATE; SAVEPOINT user_change")
             .unwrap();
         fixture
             .writer_session
@@ -1048,7 +1048,7 @@ mod tests {
     #[test]
     fn diagnostics_prefer_transaction_visible_overlay_and_observe_rollback() {
         let fixture = fixture(":memory:graph-session-diagnostics-overlay");
-        fixture.writer.execute("BEGIN").unwrap();
+        fixture.writer.execute("BEGIN IMMEDIATE").unwrap();
         fixture
             .writer_session
             .execute(

@@ -149,6 +149,68 @@ fn install_graph_catalog_is_idempotent() {
     assert_eq!(second, GRAPH_EXPAND_TABLE_NAME);
 }
 
+/// Mutation helper SQL is prepared via `prepare_internal` (InternalHelper).
+/// Under GraphDialect, CREATE must still commit and be visible to MATCH.
+#[test]
+fn simple_create_mutation_commits_under_graph_dialect() {
+    let io = Arc::new(MemoryIO::new());
+    let database = open_database_with_io(
+        io,
+        ":memory:dialect-pinned-create",
+        OpenFlags::default(),
+        DatabaseOpts::new(),
+    )
+    .expect("open graph dialect database");
+    let connection = database.connect().expect("connect");
+    connection
+        .execute(
+            "CREATE TABLE people(id INTEGER PRIMARY KEY, name TEXT, age INTEGER); \
+             CREATE TABLE relationships(id INTEGER PRIMARY KEY, src INTEGER, dst INTEGER);",
+        )
+        .expect("create sources");
+    register_graph(
+        &connection,
+        &GraphRegistration {
+            name: "social".to_owned(),
+            node_sources: vec![NodeSourceRegistration {
+                name: "Person".to_owned(),
+                table: "people".to_owned(),
+                identity_column: "id".to_owned(),
+            }],
+            relationship_sources: vec![RelationshipSourceRegistration {
+                name: "KNOWS".to_owned(),
+                table: "relationships".to_owned(),
+                identity_column: "id".to_owned(),
+                start_column: "src".to_owned(),
+                end_column: "dst".to_owned(),
+                start_node_source: "Person".to_owned(),
+                end_node_source: "Person".to_owned(),
+            }],
+        },
+    )
+    .expect("register graph");
+
+    let session = GraphConnection::open(connection, "social").expect("open session");
+    assert_eq!(session.host_mode(), GraphHostMode::DialectPinned);
+
+    let summary = session
+        .execute(
+            "CREATE (:Person {id: 1, name: 'Ada', age: 36})",
+            &Parameters::new(),
+        )
+        .expect("create under GraphDialect");
+    assert_eq!(summary.matched_rows, 1);
+    assert!(summary.operations_executed >= 1);
+
+    let rows = session
+        .query(
+            "MATCH (n:Person {id: 1}) RETURN n.name AS name",
+            &Parameters::new(),
+        )
+        .expect("match after create");
+    assert_eq!(rows, vec![vec![Value::build_text("Ada")]]);
+}
+
 /// EXPLAIN must lower Cypher once, then prepare pure SQL `EXPLAIN QUERY PLAN`
 /// against Core — never re-parse the Cypher text as a dialect statement.
 #[test]

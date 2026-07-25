@@ -70,6 +70,12 @@ pub enum MutationError {
         cause: Box<MutationError>,
         rollback: turso_core::LimboError,
     },
+    /// Internal helper statements cannot upgrade a deferred read transaction
+    /// to write. Callers must use `BEGIN IMMEDIATE` or a prior write first.
+    #[error(
+        "graph mutation inside an open transaction requires a write transaction (BEGIN IMMEDIATE or a prior write)"
+    )]
+    RequiresWriteTransaction,
 }
 
 #[derive(Clone)]
@@ -224,8 +230,15 @@ pub fn execute_cypher_mutation(
         None => unit_mutation_input(),
     };
 
-    connection.execute(format!("SAVEPOINT {SAVEPOINT}"))?;
-    let result =
+    // Mutation SQL runs via prepare_internal (InternalHelper). Nested helpers
+    // cannot upgrade a deferred read transaction to write — same discipline as
+    // register_graph / FTS admin: BEGIN IMMEDIATE in autocommit, SAVEPOINT only
+    // inside an existing write transaction.
+    if !connection.get_auto_commit() && !connection.in_write_transaction() {
+        return Err(MutationError::RequiresWriteTransaction);
+    }
+
+    let run = || {
         execute_bound(connection, catalog.as_ref(), &bound, &input, parameters).and_then(
             |mut summary| {
                 if let Some(constraints) = catalog.semantic_constraints() {
@@ -270,22 +283,42 @@ pub fn execute_cypher_mutation(
                 }
                 Ok(summary)
             },
-        );
-    match result {
-        Ok(summary) => {
-            connection.execute(format!("RELEASE {SAVEPOINT}"))?;
-            Ok(summary)
-        }
-        Err(cause) => {
-            let rollback = connection
-                .execute(format!("ROLLBACK TO {SAVEPOINT}"))
-                .and_then(|()| connection.execute(format!("RELEASE {SAVEPOINT}")));
-            match rollback {
+        )
+    };
+
+    if connection.get_auto_commit() {
+        connection.execute("BEGIN IMMEDIATE")?;
+        match run() {
+            Ok(summary) => {
+                connection.execute("COMMIT")?;
+                Ok(summary)
+            }
+            Err(cause) => match connection.execute("ROLLBACK") {
                 Ok(()) => Err(cause),
                 Err(rollback) => Err(MutationError::RollbackFailed {
                     cause: Box::new(cause),
                     rollback,
                 }),
+            },
+        }
+    } else {
+        connection.execute(format!("SAVEPOINT {SAVEPOINT}"))?;
+        match run() {
+            Ok(summary) => {
+                connection.execute(format!("RELEASE {SAVEPOINT}"))?;
+                Ok(summary)
+            }
+            Err(cause) => {
+                let rollback = connection
+                    .execute(format!("ROLLBACK TO {SAVEPOINT}"))
+                    .and_then(|()| connection.execute(format!("RELEASE {SAVEPOINT}")));
+                match rollback {
+                    Ok(()) => Err(cause),
+                    Err(rollback) => Err(MutationError::RollbackFailed {
+                        cause: Box::new(cause),
+                        rollback,
+                    }),
+                }
             }
         }
     }
@@ -2061,7 +2094,9 @@ fn run_ignore(
     parameters: &Parameters,
     internal: &HashMap<String, Value>,
 ) -> Result<(), turso_core::LimboError> {
-    let mut statement = connection.prepare(sql)?;
+    // Engine-generated mutation SQL: InternalHelper origin so SQLite function
+    // resolution applies (no user dialect / GraphDialect parse of helper SQL).
+    let mut statement = connection.prepare_internal(sql)?;
     bind_parameters(&mut statement, parameters, internal)?;
     statement.run_ignore_rows()
 }
@@ -2072,7 +2107,9 @@ fn run_rows(
     parameters: &Parameters,
     internal: &HashMap<String, Value>,
 ) -> Result<Vec<Vec<Value>>, turso_core::LimboError> {
-    let mut statement = connection.prepare(sql)?;
+    // Engine-generated mutation SQL: InternalHelper origin so SQLite function
+    // resolution applies (no user dialect / GraphDialect parse of helper SQL).
+    let mut statement = connection.prepare_internal(sql)?;
     bind_parameters(&mut statement, parameters, internal)?;
     statement.run_collect_rows()
 }
@@ -2592,7 +2629,9 @@ mod tests {
     #[test]
     fn mutation_savepoint_remains_inside_an_explicit_transaction() {
         let (connection, catalog, graph) = setup();
-        connection.execute("BEGIN").unwrap();
+        // prepare_internal helpers cannot upgrade deferred BEGIN; IMMEDIATE
+        // (or a prior write) is required, matching register_graph / FTS.
+        connection.execute("BEGIN IMMEDIATE").unwrap();
         execute(
             &connection,
             &catalog,
@@ -2604,6 +2643,25 @@ mod tests {
             rows(&connection, "SELECT count(*) FROM people"),
             vec![vec![Value::from_i64(1)]]
         );
+        connection.execute("ROLLBACK").unwrap();
+        assert_eq!(
+            rows(&connection, "SELECT count(*) FROM people"),
+            vec![vec![Value::from_i64(0)]]
+        );
+    }
+
+    #[test]
+    fn mutation_rejects_deferred_read_transaction() {
+        let (connection, catalog, graph) = setup();
+        connection.execute("BEGIN").unwrap();
+        let error = execute(
+            &connection,
+            &catalog,
+            graph,
+            "CREATE (:Person {id: 1, name: 'Ada'})",
+        )
+        .unwrap_err();
+        assert!(matches!(error, MutationError::RequiresWriteTransaction));
         connection.execute("ROLLBACK").unwrap();
         assert_eq!(
             rows(&connection, "SELECT count(*) FROM people"),
