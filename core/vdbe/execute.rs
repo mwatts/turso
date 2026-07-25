@@ -1405,7 +1405,7 @@ pub fn op_vfilter(
         cursor.filter(*idx_num as i32, idx_str, *arg_count, args)?
     };
     if step == crate::InternalVirtualTableStep::Yield {
-        return Ok(InsnFunctionStepResult::IO(IOCompletions::Single(
+        return Ok(InsnFunctionStepResult::IO(IOCompletions(
             Completion::new_yield(),
         )));
     }
@@ -1559,7 +1559,7 @@ pub fn op_vnext(
         cursor.next()?
     };
     if step == crate::InternalVirtualTableStep::Yield {
-        return Ok(InsnFunctionStepResult::IO(IOCompletions::Single(
+        return Ok(InsnFunctionStepResult::IO(IOCompletions(
             Completion::new_yield(),
         )));
     }

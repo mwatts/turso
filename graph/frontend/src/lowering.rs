@@ -581,6 +581,13 @@ fn lower_plan(
             lower_optional_chain(&apply.right, Some(&apply.left), catalog, wanted)
         }
         ir::PlanKind::Aggregate(aggregate) => {
+            // Column-free count(*) over a bare node scan can skip materializing
+            // node rows and ride complete B-tree indexes core now treats as
+            // covering (table PK / secondary indexes) or the label-first
+            // junction index for labeled membership counts.
+            if let Some(lowered) = try_lower_column_free_node_count(aggregate, catalog)? {
+                return Ok(lowered);
+            }
             let input = lower_plan(&aggregate.input, catalog, optional, wanted)?;
             let mut selects = Vec::new();
             let mut groups = Vec::new();
@@ -1230,6 +1237,96 @@ fn lower_ordering(
         })
         .collect::<Result<Vec<_>, LowerError>>()
         .map(|items| items.join(", "))
+}
+
+/// When `RETURN count(*)` (or an equivalent pure star-count aggregate) sits
+/// directly on a node scan, emit a column-free `count(*)` that core can plan
+/// with covering indexes instead of wrapping a full node projection.
+fn try_lower_column_free_node_count(
+    aggregate: &ir::Aggregate,
+    catalog: &dyn RelationalCatalogSnapshot,
+) -> Result<Option<Lowered>, LowerError> {
+    if !aggregate.groupings.is_empty() || aggregate.aggregations.len() != 1 {
+        return Ok(None);
+    }
+    let aggregation = &aggregate.aggregations[0];
+    if aggregation.function != ir::AggregateFunction::Count
+        || aggregation.expression.is_some()
+        || aggregation.distinct
+    {
+        return Ok(None);
+    }
+    let ir::PlanKind::NodeScan(scan) = aggregate.input.kind() else {
+        return Ok(None);
+    };
+    let count_column = binding_column(aggregation.output.id());
+    let sql = if scan.labels.is_empty() {
+        let layout = catalog
+            .node_layout(scan.source)
+            .ok_or(LowerError::MissingSource(scan.source))?;
+        format!(
+            "SELECT count(*) AS {count_column} FROM {}",
+            quote_identifier(&layout.table)
+        )
+    } else {
+        let Some(labels_table) = catalog.labels_table() else {
+            // Without a junction, labels do not filter the scan; count the
+            // full source table the same way unlabeled scans do.
+            let layout = catalog
+                .node_layout(scan.source)
+                .ok_or(LowerError::MissingSource(scan.source))?;
+            return Ok(Some(Lowered {
+                sql: format!(
+                    "SELECT count(*) AS {count_column} FROM {}",
+                    quote_identifier(&layout.table)
+                ),
+                bindings: HashMap::new(),
+            }));
+        };
+        let mut label_names = Vec::with_capacity(scan.labels.len());
+        for label in &scan.labels {
+            let Some(name) = catalog.label_name(*label) else {
+                // Unresolved label identities fall back to the generic path.
+                return Ok(None);
+            };
+            label_names.push(name);
+        }
+        let labels_table = quote_identifier(&labels_table);
+        let mut from = format!("{labels_table} AS lbl0");
+        let source_predicate = |alias: &str| {
+            if catalog.source_qualified_membership() {
+                format!("{alias}.source_id = {} AND ", scan.source.get())
+            } else {
+                String::new()
+            }
+        };
+        let where_clause = format!(
+            "{}lbl0.label = '{}'",
+            source_predicate("lbl0"),
+            label_names[0].replace('\'', "''")
+        );
+        for (index, name) in label_names.iter().enumerate().skip(1) {
+            let alias = format!("lbl{index}");
+            from.push_str(&format!(
+                " JOIN {labels_table} AS {alias} ON {alias}.node_id = lbl0.node_id AND {}{alias}.label = '{}'",
+                source_predicate(&alias),
+                name.replace('\'', "''")
+            ));
+        }
+        // Multi-label intersection still needs a derived row set; single-label
+        // membership is a direct indexable count on the junction table.
+        if label_names.len() == 1 {
+            format!("SELECT count(*) AS {count_column} FROM {from} WHERE {where_clause}")
+        } else {
+            format!(
+                "SELECT count(*) AS {count_column} FROM (SELECT lbl0.node_id FROM {from} WHERE {where_clause}) AS membership"
+            )
+        }
+    };
+    Ok(Some(Lowered {
+        sql,
+        bindings: HashMap::new(),
+    }))
 }
 
 fn lower_node_scan(
@@ -2897,6 +2994,142 @@ mod tests {
         ) -> Option<String> {
             Some("address".to_owned())
         }
+    }
+
+    /// Catalog with a label junction so pure `count(*)` can use the
+    /// column-free membership path.
+    struct LabeledCatalog;
+
+    impl RelationalCatalogSnapshot for LabeledCatalog {
+        fn node_layout(&self, _source: ir::SourceTableId) -> Option<NodeTableLayout> {
+            Some(NodeTableLayout {
+                table: "people".to_owned(),
+                identity_column: "id".to_owned(),
+            })
+        }
+
+        fn relationship_layout(
+            &self,
+            _source: ir::SourceTableId,
+        ) -> Option<RelationshipTableLayout> {
+            None
+        }
+
+        fn property_column(
+            &self,
+            _source: ir::SourceTableId,
+            _property: ir::PropertyId,
+        ) -> Option<String> {
+            Some("name".to_owned())
+        }
+
+        fn source_qualified_membership(&self) -> bool {
+            true
+        }
+
+        fn labels_table(&self) -> Option<String> {
+            Some("__turso_graph_node_labels_1".to_owned())
+        }
+
+        fn label_name(&self, label: ir::LabelId) -> Option<String> {
+            match label.get() {
+                1 => Some("Person".to_owned()),
+                2 => Some("Engineer".to_owned()),
+                _ => None,
+            }
+        }
+    }
+
+    fn pure_count_aggregate(scan: ir::NodeScan, count_binding: ir::BindingId) -> ir::Plan {
+        let node_binding = ir::Binding::new(
+            scan.binding,
+            "n",
+            ir::ValueType::Node,
+            ir::Nullability::NonNull,
+        )
+        .unwrap();
+        let count_out = ir::Binding::new(
+            count_binding,
+            "c",
+            ir::ValueType::Integer,
+            ir::Nullability::NonNull,
+        )
+        .unwrap();
+        let input_scope = ir::Scope::new(vec![node_binding]).unwrap();
+        let input = ir::Plan::new(
+            ir::PlanKind::NodeScan(scan),
+            input_scope,
+            ir::ResultShape::default(),
+        )
+        .unwrap();
+        let output_scope = ir::Scope::new(vec![count_out.clone()]).unwrap();
+        ir::Plan::new(
+            ir::PlanKind::Aggregate(ir::Aggregate {
+                input: Box::new(input),
+                groupings: vec![],
+                aggregations: vec![ir::Aggregation {
+                    output: count_out,
+                    function: ir::AggregateFunction::Count,
+                    expression: None,
+                    distinct: false,
+                }],
+            }),
+            output_scope,
+            ir::ResultShape::default(),
+        )
+        .unwrap()
+    }
+
+    #[test]
+    fn pure_count_star_over_unlabeled_node_scan_is_column_free() {
+        let source = ir::SourceTableId::new(1).unwrap();
+        let binding = ir::BindingId::new(1).unwrap();
+        let count = ir::BindingId::new(2).unwrap();
+        let plan = pure_count_aggregate(
+            ir::NodeScan {
+                graph: ir::GraphId::new(1).unwrap(),
+                source,
+                binding,
+                labels: vec![],
+            },
+            count,
+        );
+        let lowered = lower_plan(&plan, &LabeledCatalog, false, &WantedProperties::new()).unwrap();
+        assert_eq!(
+            lowered.sql,
+            "SELECT count(*) AS b2 FROM \"people\"",
+            "unlabeled star-count must not wrap a node projection: {}",
+            lowered.sql
+        );
+    }
+
+    #[test]
+    fn pure_count_star_over_labeled_node_scan_counts_junction_membership() {
+        let source = ir::SourceTableId::new(1).unwrap();
+        let binding = ir::BindingId::new(1).unwrap();
+        let count = ir::BindingId::new(2).unwrap();
+        let plan = pure_count_aggregate(
+            ir::NodeScan {
+                graph: ir::GraphId::new(1).unwrap(),
+                source,
+                binding,
+                labels: vec![ir::LabelId::new(1).unwrap()],
+            },
+            count,
+        );
+        let lowered = lower_plan(&plan, &LabeledCatalog, false, &WantedProperties::new()).unwrap();
+        assert_eq!(
+            lowered.sql,
+            "SELECT count(*) AS b2 FROM \"__turso_graph_node_labels_1\" AS lbl0 \
+             WHERE lbl0.source_id = 1 AND lbl0.label = 'Person'",
+            "labeled star-count must count junction rows directly: {}",
+            lowered.sql
+        );
+        assert!(
+            !lowered.sql.contains("people"),
+            "must not join the node table for pure label membership count: {}",
+            lowered.sql
+        );
     }
 
     #[test]

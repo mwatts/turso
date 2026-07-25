@@ -928,3 +928,178 @@ fn property_keys_enumerates_declared_logical_payloads_across_sources() {
         .collect::<Vec<_>>()
     );
 }
+
+/// After main's covering-index / column-free scan work, pure Cypher
+/// `count(*)` over labeled nodes must lower to a junction membership count
+/// that uses the semantic-type-first complete index (not a full node-table
+/// scan). This exercises the real EXPLAIN QUERY PLAN prepare path.
+#[test]
+fn pure_count_star_uses_junction_covering_index() {
+    let (_database, session) = fixture::social_graph_connection();
+    session
+        .execute(
+            "CREATE (:Person {id: 3, name: 'Alan', age: 41})",
+            &Parameters::new(),
+        )
+        .expect("seed a third person");
+
+    assert_eq!(
+        session
+            .query(
+                "MATCH (n:Person) RETURN count(*) AS c",
+                &Parameters::new(),
+            )
+            .expect("count people"),
+        vec![vec![Value::from_i64(3)]]
+    );
+
+    let plan = session
+        .query(
+            "EXPLAIN MATCH (n:Person) RETURN count(*) AS c",
+            &Parameters::new(),
+        )
+        .expect("explain pure count");
+    let plan_text = plan
+        .iter()
+        .flatten()
+        .filter_map(|value| match value {
+            Value::Text(text) => Some(text.as_str().to_owned()),
+            _ => None,
+        })
+        .collect::<Vec<_>>()
+        .join("\n");
+    assert!(
+        plan_text.contains("__turso_graph_node_labels_")
+            && (plan_text.contains("USING INDEX")
+                || plan_text.contains("USING COVERING INDEX")
+                || plan_text.contains("SEARCH")),
+        "labeled count(*) must plan through the label junction index, got:\n{plan_text}"
+    );
+    assert!(
+        !plan_text.contains("SCAN people")
+            || plan_text.contains("USING COVERING INDEX")
+            || plan_text.contains("USING INDEX"),
+        "labeled count(*) must not fall back to an unindexed people table scan:\n{plan_text}"
+    );
+}
+
+/// Relationship tables get complete endpoint indexes at registration; bare
+/// `count(*)` over those tables must be able to use a covering index (core
+/// column-free covering path). Drive via the same connection the graph
+/// session owns so registration-created indexes are present.
+#[test]
+fn relationship_table_count_uses_registration_covering_index() {
+    let (database, session) = fixture::social_graph_connection();
+    session
+        .execute(
+            "MATCH (a:Person {id: 1}), (b:Person {id: 2}) CREATE (a)-[:KNOWS]->(b)",
+            &Parameters::new(),
+        )
+        .expect("seed relationship");
+    let connection = fixture::second_connection(&database);
+    let plan = connection
+        .prepare("EXPLAIN QUERY PLAN SELECT count(*) FROM relationships")
+        .expect("prepare count plan")
+        .run_collect_rows()
+        .expect("run plan");
+    let plan_text = plan
+        .iter()
+        .flatten()
+        .filter_map(|value| match value {
+            Value::Text(text) => Some(text.as_str().to_owned()),
+            _ => None,
+        })
+        .collect::<Vec<_>>()
+        .join("\n");
+    assert!(
+        plan_text.contains("USING COVERING INDEX") || plan_text.contains("USING INDEX"),
+        "count(*) over graph-indexed relationship table must use a complete index:\n{plan_text}"
+    );
+}
+
+/// Main's aggregate-collation + sorter/NULLS work must keep Cypher text
+/// ORDER BY / min / max stable on the real prepare+execute path. Graph
+/// already emits NULLS FIRST/LAST; no extra COLLATE is required for default
+/// BINARY property columns, but regressions here would surface as reorderings.
+#[test]
+fn text_order_by_and_min_max_follow_sqlite_binary_collation() {
+    let (_database, session) = fixture::social_graph_connection();
+    session
+        .execute(
+            "CREATE (:Person {id: 3, name: 'alan', age: 20}), \
+             (:Person {id: 4, name: 'Zed', age: 30}), \
+             (:Person {id: 5, name: NULL, age: 10})",
+            &Parameters::new(),
+        )
+        .expect("seed mixed-case and null names");
+
+    // Cypher ORDER BY has no NULLS FIRST/LAST surface syntax; the binder maps
+    // ASC → NULLS LAST and DESC → NULLS FIRST before lowering to SQL.
+    let ordered_asc = session
+        .query(
+            "MATCH (n:Person) RETURN n.name AS name ORDER BY n.name ASC",
+            &Parameters::new(),
+        )
+        .expect("order by name asc");
+    assert_eq!(
+        ordered_asc,
+        vec![
+            vec![Value::build_text("Ada")],
+            vec![Value::build_text("Grace")],
+            vec![Value::build_text("Zed")],
+            vec![Value::build_text("alan")],
+            vec![Value::Null],
+        ],
+        "BINARY ASC places uppercase before lowercase; binder ASC uses NULLS LAST"
+    );
+
+    let ordered_desc = session
+        .query(
+            "MATCH (n:Person) RETURN n.name AS name ORDER BY n.name DESC",
+            &Parameters::new(),
+        )
+        .expect("order by name desc");
+    assert_eq!(
+        ordered_desc,
+        vec![
+            vec![Value::Null],
+            vec![Value::build_text("alan")],
+            vec![Value::build_text("Zed")],
+            vec![Value::build_text("Grace")],
+            vec![Value::build_text("Ada")],
+        ],
+        "binder DESC uses NULLS FIRST with BINARY reverse order"
+    );
+
+    let mins = session
+        .query(
+            "MATCH (n:Person) RETURN min(n.name) AS lo, max(n.name) AS hi",
+            &Parameters::new(),
+        )
+        .expect("min/max name");
+    assert_eq!(
+        mins,
+        vec![vec![Value::build_text("Ada"), Value::build_text("alan"),]],
+        "min/max on text properties must use SQLite BINARY aggregate collation"
+    );
+
+    let plan = session
+        .query(
+            "EXPLAIN MATCH (n:Person) RETURN n.name ORDER BY n.name DESC",
+            &Parameters::new(),
+        )
+        .expect("explain ordered projection");
+    let plan_text = plan
+        .iter()
+        .flatten()
+        .filter_map(|value| match value {
+            Value::Text(text) => Some(text.as_str().to_owned()),
+            _ => None,
+        })
+        .collect::<Vec<_>>()
+        .join("\n");
+    assert!(
+        !plan_text.is_empty(),
+        "ordered text projection must produce an EXPLAIN QUERY PLAN"
+    );
+}
