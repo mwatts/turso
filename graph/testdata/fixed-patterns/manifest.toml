@@ -104,7 +104,7 @@ adaptation = "fixture-adaptation"
 [[fixture]]
 id = "unwind-list"
 query = "UNWIND [1, 2, 3] AS x RETURN x"
-ordering = "ordered"
+ordering = "unordered"
 parser_status = "supported"
 source_repo = "https://github.com/apache/age"
 revision = "6876abcab0a3281eb65a7e2a91238e0b5abfdea7"

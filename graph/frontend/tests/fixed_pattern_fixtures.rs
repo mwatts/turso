@@ -119,8 +119,20 @@ fn fixture_manifest_has_provenance_ordering_and_explicit_support_status() {
     assert!(manifest.fixture.len() >= 11);
     let mut ids = HashSet::new();
     for fixture in manifest.fixture {
-        assert!(ids.insert(fixture.id));
+        assert!(ids.insert(fixture.id.clone()));
         assert!(matches!(fixture.ordering.as_str(), "ordered" | "unordered"));
+        // SEMANTIC_PROFILE.row_order is OrderedOnlyUnderExplicitOrderBy. A
+        // fixture that claims an order its query never asked for documents a
+        // guarantee Turso does not make: UNWIND, for one, lowers to a bare
+        // `JOIN json_each(...)` with no ORDER BY, so its row order is a query
+        // plan artifact that a planner change may reorder.
+        assert!(
+            fixture.ordering != "ordered"
+                || fixture.query.to_ascii_uppercase().contains("ORDER BY"),
+            "fixture `{}` claims ordered without ORDER BY: {}",
+            fixture.id,
+            fixture.query
+        );
         assert!(matches!(
             fixture.parser_status.as_str(),
             "supported" | "unsupported"

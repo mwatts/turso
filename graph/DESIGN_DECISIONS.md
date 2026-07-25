@@ -117,6 +117,40 @@ clause".
 
 Recommendation: A with three to five procedures.
 
+## Result ordering contract
+
+`SEMANTIC_PROFILE.row_order` is `OrderedOnlyUnderExplicitOrderBy`. A result's
+row order is part of its identity only when the outermost RETURN carries
+`ORDER BY`. Everything else is a **multiset**: duplicates count, order does not.
+
+| Result | Comparison | Recorded digest |
+| --- | --- | --- |
+| RETURN … ORDER BY … | sequence | `fnv1a64:` |
+| RETURN … (no ORDER BY) | multiset (sorted, duplicates retained) | `fnv1a64u:` |
+| aggregate without ORDER BY | multiset | `fnv1a64u:` |
+| UNWIND without ORDER BY | multiset | `fnv1a64u:` |
+| `labels(n)` list contents | sequence, label-table insertion order | n/a |
+
+UNWIND is the one that looks like an exception and is not. It lowers to
+`SELECT q.*, j.value … FROM (…) AS q JOIN json_each(<list>) AS j`
+(`graph/frontend/src/lowering.rs`) with no `ORDER BY`, so list order survives
+only because the current plan happens to preserve it. Guaranteeing it would mean
+emitting an explicit order and adding the guarantee to `SEMANTIC_PROFILE`, with
+a version bump — not asserting it in a manifest.
+
+`labels(n)` is a real exception. Relational lowering emits `ORDER BY lbl.rowid`
+inside the `json_group_array` subquery for `labels()` and the `LIMIT 1` subquery
+for `label()` (`graph/frontend/src/lowering.rs`), so the list is deterministic
+within one database. It is not
+portable across databases that inserted the same labels in a different order,
+and no test may depend on cross-database label order.
+
+Suite manifests may not declare `ordering = "ordered"` for a query with no
+`ORDER BY`; `ScenarioManifest::validate` rejects it, and the fixed-pattern
+manifest is held to the same rule by
+`graph/frontend/tests/fixed_pattern_fixtures.rs`. For a mutation the rule reads
+`verification_query`, since that is what produces the compared rows.
+
 ## Acknowledged hard blocks (no decision needed)
 
 - ~~`reduce()` (71) needs recursive CTEs; turso core rejects them today.~~

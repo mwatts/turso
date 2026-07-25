@@ -5,7 +5,7 @@ use serde::Deserialize;
 use turso_graph_frontend::Parameters;
 
 use crate::{
-    history::{recorded_at, result_digest},
+    history::{recorded_at, result_digest_with, ResultOrdering},
     identity::TestId,
     model::{
         Expectation, Outcome, ResultRecord, RunEnvironment, SourceIdentity, TestKind,
@@ -319,7 +319,13 @@ fn record(
             row_count: Some(measurement.rows.len() as u64),
             node_count: Some(measurement.nodes),
             relationship_count: Some(measurement.relationships),
-            result_digest: Some(result_digest(&measurement.rows)),
+            // Benchmark rows are never compared against an expectation; the
+            // digest exists only to catch drift across runs. Hashing them as a
+            // sequence would report drift on any B-tree layout change.
+            result_digest: Some(result_digest_with(
+                &measurement.rows,
+                ResultOrdering::Unordered,
+            )),
             message: None,
             dimensions: BTreeMap::from([
                 ("units".to_owned(), measurement.units.to_string()),

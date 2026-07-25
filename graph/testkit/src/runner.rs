@@ -14,7 +14,7 @@ use turso_graph_frontend::{
 use turso_graph_ir as ir;
 
 use crate::{
-    history::{recorded_at, result_digest},
+    history::{recorded_at, result_digest_with, ResultOrdering},
     manifest::Scenario,
     model::{Outcome, ResultRecord, RunEnvironment, HISTORY_SCHEMA_VERSION},
 };
@@ -54,7 +54,9 @@ impl ScenarioRunner {
         let duration_ns = started.elapsed().as_nanos().try_into().unwrap_or(u64::MAX);
         let (outcome, rows, message) = classify(scenario, result);
         let row_count = rows.as_ref().map(|rows| rows.len() as u64);
-        let result_digest = rows.as_ref().map(|rows| result_digest(rows));
+        let result_digest = rows
+            .as_ref()
+            .map(|rows| result_digest_with(rows, scenario_ordering(scenario)));
         Ok(ResultRecord {
             schema_version: HISTORY_SCHEMA_VERSION,
             semantics_version: turso_graph_ir::SEMANTIC_PROFILE_VERSION,
@@ -412,6 +414,17 @@ fn execute(
         rows.sort();
     }
     Ok(rows)
+}
+
+/// A scenario declares `ordering: unordered` when its query defines no order.
+/// The digest reads the same field the comparison does, so a scenario cannot
+/// be compared as a multiset while being recorded as a sequence.
+fn scenario_ordering(scenario: &Scenario) -> ResultOrdering {
+    if scenario.ordering == "unordered" {
+        ResultOrdering::Unordered
+    } else {
+        ResultOrdering::Ordered
+    }
 }
 
 fn classify(

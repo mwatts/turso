@@ -1,4 +1,5 @@
 use std::{
+    borrow::Cow,
     collections::{BTreeMap, BTreeSet, HashSet},
     fs::{self, OpenOptions},
     io::{BufRead, BufReader, Write},
@@ -207,9 +208,38 @@ pub fn prune(
     Ok(outcome)
 }
 
+/// Whether a result's row order is part of its identity.
+///
+/// `SEMANTIC_PROFILE.row_order` is `RowOrder::OrderedOnlyUnderExplicitOrderBy`:
+/// without ORDER BY the engine may return rows in any order, so hashing them as
+/// a sequence records B-tree layout rather than query behavior. Callers pass the
+/// same mode they compare with, so the recorded digest and the pass/fail verdict
+/// cannot disagree.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum ResultOrdering {
+    Ordered,
+    Unordered,
+}
+
+/// Order-sensitive digest, kept for callers that already recorded one.
 pub fn result_digest(rows: &[Vec<String>]) -> String {
+    result_digest_with(rows, ResultOrdering::Ordered)
+}
+
+pub fn result_digest_with(rows: &[Vec<String>], ordering: ResultOrdering) -> String {
+    let (prefix, rows) = match ordering {
+        ResultOrdering::Ordered => ("fnv1a64", Cow::Borrowed(rows)),
+        ResultOrdering::Unordered => {
+            // Sorting canonicalizes the multiset without collapsing it:
+            // duplicate rows still contribute, so a lost row still moves the
+            // digest.
+            let mut sorted = rows.to_vec();
+            sorted.sort();
+            ("fnv1a64u", Cow::Owned(sorted))
+        }
+    };
     let mut hash = 0xcbf29ce484222325_u64;
-    for row in rows {
+    for row in rows.iter() {
         for value in row {
             for byte in value.as_bytes().iter().copied().chain([0xff]) {
                 hash ^= u64::from(byte);
@@ -219,7 +249,7 @@ pub fn result_digest(rows: &[Vec<String>]) -> String {
         hash ^= 0xfe;
         hash = hash.wrapping_mul(0x100000001b3);
     }
-    format!("fnv1a64:{hash:016x}")
+    format!("{prefix}:{hash:016x}")
 }
 
 fn validate_unique(records: &[ResultRecord]) -> Result<(), HistoryError> {
@@ -465,10 +495,60 @@ mod tests {
     }
 
     #[test]
-    fn result_digest_is_order_sensitive_and_reproducible() {
+    fn ordered_digests_are_order_sensitive() {
+        // A result whose order the query defined must drift when the order
+        // drifts: that is a real regression, not noise.
         let first = vec![vec!["a".to_owned()], vec!["b".to_owned()]];
         let second = vec![vec!["b".to_owned()], vec!["a".to_owned()]];
-        assert_eq!(result_digest(&first), result_digest(&first));
-        assert_ne!(result_digest(&first), result_digest(&second));
+        assert_eq!(
+            result_digest_with(&first, ResultOrdering::Ordered),
+            result_digest_with(&first, ResultOrdering::Ordered)
+        );
+        assert_ne!(
+            result_digest_with(&first, ResultOrdering::Ordered),
+            result_digest_with(&second, ResultOrdering::Ordered)
+        );
+    }
+
+    #[test]
+    fn unordered_digests_ignore_row_order() {
+        // Without ORDER BY the row order is whatever the B-tree gave us. A
+        // digest that moves with it reports a regression when nothing broke.
+        let first = vec![vec!["a".to_owned()], vec!["b".to_owned()]];
+        let second = vec![vec!["b".to_owned()], vec!["a".to_owned()]];
+        assert_eq!(
+            result_digest_with(&first, ResultOrdering::Unordered),
+            result_digest_with(&second, ResultOrdering::Unordered)
+        );
+    }
+
+    #[test]
+    fn unordered_digests_still_count_duplicates() {
+        // Results are multisets, not sets: losing a duplicate row is a
+        // cardinality bug and must move the digest.
+        let once = vec![vec!["a".to_owned()]];
+        let twice = vec![vec!["a".to_owned()], vec!["a".to_owned()]];
+        assert_ne!(
+            result_digest_with(&once, ResultOrdering::Unordered),
+            result_digest_with(&twice, ResultOrdering::Unordered)
+        );
+    }
+
+    #[test]
+    fn the_two_digest_modes_are_distinguishable_in_recorded_history() {
+        // History mixes both modes forever. A reader must be able to tell
+        // which rule produced a digest without consulting the suite.
+        let rows = vec![vec!["a".to_owned()]];
+        assert!(result_digest_with(&rows, ResultOrdering::Ordered).starts_with("fnv1a64:"));
+        assert!(result_digest_with(&rows, ResultOrdering::Unordered).starts_with("fnv1a64u:"));
+    }
+
+    #[test]
+    fn the_default_digest_stays_ordered_for_existing_history_rows() {
+        let rows = vec![vec!["a".to_owned()], vec!["b".to_owned()]];
+        assert_eq!(
+            result_digest(&rows),
+            result_digest_with(&rows, ResultOrdering::Ordered)
+        );
     }
 }

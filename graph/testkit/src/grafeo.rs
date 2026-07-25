@@ -12,7 +12,7 @@ use turso_core::{Numeric, Value};
 use turso_graph_frontend::{GraphConnection, Parameters};
 
 use crate::{
-    history::{recorded_at, result_digest},
+    history::{recorded_at, result_digest_with, ResultOrdering},
     identity::TestId,
     model::{
         Expectation, Outcome, ResultRecord, RunEnvironment, SourceIdentity, TestKind,
@@ -568,6 +568,16 @@ fn compare_rows(
     }
 }
 
+/// Only a `Rows` expectation that declares `ordered` compares a sequence. Count,
+/// Empty, Error, and an absent expectation compare nothing positional, so their
+/// digests must not move with B-tree order.
+fn case_ordering(case: &GrafeoCase) -> ResultOrdering {
+    match case.expectation.as_ref() {
+        Some(GrafeoExpectation::Rows { ordered: true, .. }) => ResultOrdering::Ordered,
+        _ => ResultOrdering::Unordered,
+    }
+}
+
 #[expect(
     clippy::too_many_arguments,
     reason = "result records require explicit outcome evidence"
@@ -584,7 +594,9 @@ fn base_record(
     execution: &str,
 ) -> ResultRecord {
     let row_count = rows.as_ref().map(|rows| rows.len() as u64);
-    let digest = rows.as_ref().map(|rows| result_digest(rows));
+    let digest = rows
+        .as_ref()
+        .map(|rows| result_digest_with(rows, case_ordering(case)));
     ResultRecord {
         schema_version: HISTORY_SCHEMA_VERSION,
         semantics_version: turso_graph_ir::SEMANTIC_PROFILE_VERSION,

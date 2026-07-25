@@ -29,7 +29,7 @@ area = "traversal"
 fixture = "social"
 expectation = "rows"
 action = "query"
-ordering = "ordered"
+ordering = "unordered"
 query = "MATCH (a:Person {id: 2})-[:KNOWS*0..0]->(b) RETURN a.name, b.name"
 expected_rows = [["Grace", "Grace"]]
 [scenario.source]
@@ -49,7 +49,7 @@ area = "null"
 fixture = "social"
 expectation = "rows"
 action = "query"
-ordering = "ordered"
+ordering = "unordered"
 query = "MATCH (n:Person {id: 4}) RETURN n.name, n.age"
 expected_rows = [["Edsger", "50"]]
 [scenario.source]
@@ -91,7 +91,7 @@ area = "parameters"
 fixture = "social"
 expectation = "rows"
 action = "query"
-ordering = "ordered"
+ordering = "unordered"
 query = "MATCH (n:Person {name: $name}) RETURN n.age"
 parameters = { name = "Ada" }
 expected_rows = [["40"]]
@@ -112,7 +112,7 @@ area = "aggregation"
 fixture = "social"
 expectation = "rows"
 action = "query"
-ordering = "ordered"
+ordering = "unordered"
 query = "MATCH (p:Person {id: 4}) OPTIONAL MATCH (p)-[:KNOWS]->(f:Person) RETURN p.name, count(f)"
 expected_rows = [["Edsger", "0"]]
 [scenario.source]

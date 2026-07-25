@@ -12,7 +12,7 @@ use turso_core::{Numeric, Value};
 use turso_graph_frontend::Parameters;
 
 use crate::{
-    history::{recorded_at, result_digest},
+    history::{recorded_at, result_digest_with, ResultOrdering},
     identity::TestId,
     model::{
         Expectation, Outcome, ResultRecord, RunEnvironment, SourceIdentity, TestKind,
@@ -882,12 +882,27 @@ fn expected(case: &TckCase) -> Expectation {
     }
 }
 
-fn expected_rows(case: &TckCase) -> Option<(Vec<Vec<String>>, bool)> {
-    let step = case.steps.iter().find(|step| {
+/// The `Then` step that states what the result must be, if the case has one.
+fn expectation_step(case: &TckCase) -> Option<&Step> {
+    case.steps.iter().find(|step| {
         step.ty == StepType::Then
             && (step.value.starts_with("the result should be")
                 || step.value == "the result should be empty")
-    })?;
+    })
+}
+
+/// TCK marks a defined row order with an `in order:` suffix on the expectation
+/// step. Everything else is a multiset, so the digest and the comparison read
+/// the same step and cannot disagree about what the result's identity is.
+fn case_ordering(case: &TckCase) -> ResultOrdering {
+    match expectation_step(case) {
+        Some(step) if step.value.ends_with("in order:") => ResultOrdering::Ordered,
+        _ => ResultOrdering::Unordered,
+    }
+}
+
+fn expected_rows(case: &TckCase) -> Option<(Vec<Vec<String>>, bool)> {
+    let step = expectation_step(case)?;
     if step.value == "the result should be empty" {
         return Some((Vec::new(), true));
     }
@@ -1531,7 +1546,9 @@ fn base_record(
     ]);
     dimensions.insert("feature".to_owned(), case.feature_name.clone());
     let row_count = rows.as_ref().map(|rows| rows.len() as u64);
-    let digest = rows.as_ref().map(|rows| result_digest(rows));
+    let digest = rows
+        .as_ref()
+        .map(|rows| result_digest_with(rows, case_ordering(case)));
     ResultRecord {
         schema_version: HISTORY_SCHEMA_VERSION,
         semantics_version: turso_graph_ir::SEMANTIC_PROFILE_VERSION,
