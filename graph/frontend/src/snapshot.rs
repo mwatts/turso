@@ -1757,18 +1757,83 @@ mod tests {
         );
     }
 
-    /// Task 17 review, Important-2: the pair loop is O(players^2) per
-    /// relationship, so a single relationship with many `Many`-role players
-    /// can blow well past `max_edges` before `Graph::build_cancellable` ever
-    /// sees an edge. Asserting only that an error comes back would pass
-    /// even with the old, post-materialization guard -- `Graph::build_cancellable`
-    /// enforces `max_edges` too, once it receives the vector -- so that
-    /// alone would be worth nothing. This test proves the exit is early:
-    /// fully materializing this relation's ~12,500,000-edge cross product
-    /// before failing is measurably slow, while bailing during generation
-    /// is not, and the margin below is wide enough to absorb CI jitter
-    /// while still catching a regression to the old, late-only guard (see
-    /// the sabotage note in the Task 17 report for the measured numbers).
+    /// Counts `is_cancelled` polls instead of reporting a cancellation
+    /// decision, so a test can use poll count as a deterministic,
+    /// machine-independent stand-in for "how many loop iterations ran"
+    /// without depending on wall-clock time.
+    struct CountingCancellation {
+        polls: std::sync::atomic::AtomicU64,
+    }
+
+    impl CountingCancellation {
+        fn new() -> Self {
+            Self {
+                polls: std::sync::atomic::AtomicU64::new(0),
+            }
+        }
+
+        fn polls(&self) -> u64 {
+            self.polls.load(std::sync::atomic::Ordering::Relaxed)
+        }
+    }
+
+    impl Cancellation for CountingCancellation {
+        fn is_cancelled(&self) -> bool {
+            self.polls
+                .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+            false
+        }
+    }
+
+    /// Task 17 review, Important-2, round 3: a wall-clock margin is a CI
+    /// flake waiting to happen -- comfortable on an idle machine, tight on
+    /// a loaded runner executing other jobs in parallel. Replaced with a
+    /// deterministic observable: the pair loop's `check_cancelled` call
+    /// already threads a `Cancellation` implementation through the whole
+    /// build, so this counts how many times it is polled instead of timing
+    /// anything.
+    ///
+    /// Both an early exit (bailing inside the pair loop) and a late exit
+    /// (bailing only once `Graph::build_cancellable` sees the fully-built
+    /// `Vec<EdgeInput>`) return the identical `LimitExceeded` error, so
+    /// that alone proves nothing -- a bare "an error came back" assertion
+    /// would pass either way.
+    ///
+    /// An earlier draft of this test compared the capped run's poll count
+    /// against an *uncapped* run's (nothing trips `max_edges`, so the pair
+    /// loop runs to completion). That comparison does not discriminate the
+    /// regression this test exists to catch: removing the guard doesn't
+    /// change the uncapped run at all, since the uncapped run's own
+    /// `max_edges` is never reached either way. Verified by sabotage (see
+    /// below): with the guard removed, the uncapped run's poll count was
+    /// unaffected, so a threshold relative to it passed under sabotage too
+    /// -- exactly the false-negative failure mode a discriminator must not
+    /// have.
+    ///
+    /// What genuinely differs between "guard present" and "guard removed"
+    /// on this exact fixture is the *capped* run's own poll count, compared
+    /// against a fixed, exact number:
+    /// - Guard present: the pair loop bails after ~`max_edges` iterations,
+    ///   for 110 total polls (25 players/role, `max_edges` = 3).
+    /// - Guard removed (sabotaged): the pair loop runs unpolled to
+    ///   completion, and the refusal comes only from
+    ///   `Graph::build_cancellable`'s own separate `max_edges` check --
+    ///   which also bails quickly once reached, but only after
+    ///   `Graph::build_cancellable`'s *node* loop polls once per graph node
+    ///   (2 x 25 = 50 of them, unconditionally, since that loop has no
+    ///   early-exit of its own to skip), for 161 total polls.
+    ///
+    /// Both counts are exact and 100% reproducible on every run of this
+    /// exact fixture -- not a range to guess a safety margin against like
+    /// wall-clock time, so any boundary strictly between 110 and 161 is
+    /// completely reliable, with zero chance of flipping due to load or
+    /// scheduling.
+    ///
+    /// A poll-count discriminator does not need a wall-clock-sized margin,
+    /// so the fixture shrank from 2,500 players per role (12,500,000
+    /// candidate edges) to 25 (1,250) -- the smallest size that still
+    /// separates the two paths by an unambiguous, exact count rather than
+    /// by a timing guess.
     #[test]
     fn a_relation_whose_cross_product_exceeds_max_edges_is_refused_during_generation_not_after() {
         let connection = connection(":memory:snapshot-max-edges-early-exit");
@@ -1810,9 +1875,11 @@ mod tests {
         )
         .unwrap();
 
-        // 2,500 authors x 2,500 editors x 2 directions = 12,500,000 candidate
-        // edges for a single relationship, well past any plausible max_edges.
-        const PLAYERS_PER_ROLE: i64 = 2500;
+        // 25 authors x 25 editors x 2 directions = 1,250 candidate edges for
+        // a single relationship: comfortably past max_edges below, and large
+        // enough that "ran the pair loop to completion" and "bailed after
+        // ~max_edges iterations" produce unmistakably different poll counts.
+        const PLAYERS_PER_ROLE: i64 = 25;
         let people = (1..=2 * PLAYERS_PER_ROLE)
             .map(|id| format!("({id})"))
             .collect::<Vec<_>>()
@@ -1834,19 +1901,14 @@ mod tests {
             ))
             .unwrap();
 
+        // max_edges well below the 1,250-edge cross product.
+        let cancellation = CountingCancellation::new();
         let limits = BuildLimits {
             max_edges: 3,
             ..BuildLimits::default()
         };
-
-        let started = Instant::now();
-        let result = build_traversal_snapshot(
-            &connection,
-            "collab",
-            limits,
-            &turso_graph_runtime::NeverCancelled,
-        );
-        let elapsed = started.elapsed();
+        let result = build_traversal_snapshot(&connection, "collab", limits, &cancellation);
+        let polls = cancellation.polls();
 
         assert!(
             matches!(
@@ -1859,21 +1921,19 @@ mod tests {
             "expected a max_edges refusal, got {:?}",
             result.err()
         );
-        // Measured on the development machine: bailing inside the pair loop
-        // takes ~15ms end to end (dominated by inserting and loading the
-        // 5,000 people/spill rows); fully materializing the 12,500,000-edge
-        // cross product before the check ever ran (the old, post-hoc-only
-        // guard) took ~260ms. 100ms sits with wide margin above the former
-        // and wide margin below the latter, so it tolerates CI jitter in
-        // either direction while still failing if the guard regresses to
-        // checking only after `Graph::build_cancellable` receives the
-        // fully-built `Vec<EdgeInput>`.
+        // 110 with the guard in place, 161 with it removed (see the
+        // doc comment above for how both numbers were derived and
+        // verified by sabotage); 135 sits exactly between them. Unlike a
+        // wall-clock bound, this has no jitter to allow for -- these are
+        // exact, reproducible counts on this fixture, not a range.
         assert!(
-            elapsed < Duration::from_millis(100),
-            "refusal took {elapsed:?}; that is consistent with the full \
-             12,500,000-edge cross product having been materialized before \
-             the max_edges check ever ran, not with an early exit inside \
-             the pair loop"
+            polls < 135,
+            "pair loop polled cancellation {polls} times; expected fewer \
+             than 135, which is only reachable if the max_edges check \
+             inside the pair loop bailed during generation. A count this \
+             high is consistent with that guard having been removed and \
+             the pair loop running to completion, with the refusal coming \
+             only from Graph::build_cancellable's own downstream check"
         );
     }
 }
