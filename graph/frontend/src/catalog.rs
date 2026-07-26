@@ -185,6 +185,8 @@ pub enum CatalogError {
     InvalidIdentity { kind: &'static str, value: i64 },
     #[error("catalog row has an invalid value in `{0}`")]
     InvalidCatalogValue(&'static str),
+    #[error("graph catalog predates native relationship roles ({detail}); this build reads only role-shaped catalogs and there is no migration, so the graph must be created fresh")]
+    IncompatibleGraphLayout { detail: String },
     #[error("source table `{table}` has a struct/union/custom-typed column `{column}` but this connection does not have --experimental-custom-types enabled")]
     CustomTypesDisabled { table: String, column: String },
     #[error("catalog operation failed: {0}")]
@@ -258,6 +260,19 @@ pub fn load_registered_graph(
     name: &str,
 ) -> Result<RegisteredGraph, CatalogError> {
     ensure_catalog_exists(connection)?;
+    if query_rows(
+        connection,
+        &format!(
+            "SELECT name FROM sqlite_schema WHERE type = 'table' AND name = {}",
+            sql_string(RELATIONSHIP_ROLES_TABLE)
+        ),
+    )?
+    .is_empty()
+    {
+        return Err(CatalogError::IncompatibleGraphLayout {
+            detail: format!("{RELATIONSHIP_ROLES_TABLE} is absent"),
+        });
+    }
     let graph_rows = query_rows(
         connection,
         &format!(
@@ -1814,6 +1829,38 @@ mod tests {
             load_registered_graph(&connection, "social"),
             Err(CatalogError::SourceTableMissing(table)) if table == "people"
         ));
+    }
+
+    #[test]
+    fn a_catalog_predating_roles_fails_at_open_and_names_the_fresh_start_policy() {
+        // Fresh start: there is no legacy reader and no migration. Opening a
+        // pre-role catalog must say so rather than reporting a confusing
+        // "invalid catalog value" from a missing column.
+        let connection = connection();
+        create_sources(&connection);
+        register_graph(&connection, &registration("social")).expect("register graph");
+        // Simulate the pre-role layout: the roles table did not exist.
+        // DROP TABLE on a reserved-prefixed table is only permitted for a
+        // nested (internal) statement, and a nested statement cannot open
+        // its own write transaction, so drive it inside an explicit one.
+        connection.execute("BEGIN IMMEDIATE").expect("begin");
+        execute_internal(
+            &connection,
+            format!("DROP TABLE {RELATIONSHIP_ROLES_TABLE}"),
+        )
+        .expect("drop roles table");
+        connection.execute("COMMIT").expect("commit");
+
+        let error = load_registered_graph(&connection, "social").expect_err("pre-role catalog");
+        let message = error.to_string();
+        assert!(
+            matches!(error, CatalogError::IncompatibleGraphLayout { .. }),
+            "expected IncompatibleGraphLayout, got {message}"
+        );
+        assert!(
+            message.contains("no migration"),
+            "the error must name the fresh-start policy, got {message}"
+        );
     }
 
     #[test]
