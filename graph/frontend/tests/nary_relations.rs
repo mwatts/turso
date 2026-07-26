@@ -1033,3 +1033,39 @@ fn a_match_role_pattern_may_leave_roles_unnamed() {
         "both relations must be returned, not collapsed into one"
     );
 }
+
+/// `bind_match_role_pattern` rejects a `Many`-cardinality role argument
+/// (`witnessed_session`'s `witness` role) rather than joining through its
+/// spill table: that hop changes row-multiplication semantics and is
+/// deferred to a later task (Task 14b), so naming `witness` here must fail
+/// to bind instead of silently mishandling the join.
+#[test]
+fn a_match_role_pattern_rejects_a_many_cardinality_role_argument() {
+    let (_database, session) = fixture::witnessed_session();
+    session
+        .execute(
+            "CREATE (:Person {id: 1}), (:Person {id: 2}), (:Person {id: 3})",
+            &Parameters::new(),
+        )
+        .expect("seed people");
+    session
+        .execute(
+            "MATCH (a:Person {id: 1}), (b:Person {id: 2}), (w:Person {id: 3}) \
+             MERGE [x:KNOWS](start: a, end: b, witness: w)",
+            &Parameters::new(),
+        )
+        .expect("seed a relation with a witness");
+
+    let error = session
+        .query(
+            "MATCH [x:KNOWS](start: s, end: e, witness: w) RETURN w.id",
+            &Parameters::new(),
+        )
+        .expect_err("naming a Many-cardinality role in a MATCH role pattern must not bind");
+    assert!(
+        error
+            .to_string()
+            .contains("a Many-cardinality role in a MATCH role pattern"),
+        "unexpected error: {error}"
+    );
+}
