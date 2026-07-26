@@ -231,6 +231,53 @@ fn merge_matches_on_the_full_set_of_bound_roles() {
     );
 }
 
+/// The merge key must include a `Many` role's membership, not just the
+/// `One` roles' fixed columns: if it did not, a second MERGE naming a
+/// different `witness` but the same `start`/`end` would silently match the
+/// first relation instead of creating a new one, discarding the new witness
+/// fact with nothing reporting it. Unlike
+/// `merge_matches_on_the_full_set_of_bound_roles` (which varies the `One`
+/// role `folio`), every `One` role here (`start`, `end`) is held fixed and
+/// only the `Many` role (`witness`) varies.
+#[test]
+fn merge_with_different_witness_does_not_collapse_into_the_first_relation() {
+    let (database, session) = fixture::witnessed_session();
+    session
+        .execute(
+            "CREATE (:Person {id: 1}), (:Person {id: 2}), (:Person {id: 3}), (:Person {id: 4})",
+            &Parameters::new(),
+        )
+        .expect("seed people");
+
+    session
+        .execute(
+            "MATCH (a:Person {id: 1}), (b:Person {id: 2}), (w:Person {id: 3}) \
+             MERGE [x:KNOWS](start: a, end: b, witness: w)",
+            &Parameters::new(),
+        )
+        .expect("first merge creates the relation with witness 3");
+    session
+        .execute(
+            "MATCH (a:Person {id: 1}), (b:Person {id: 2}), (w:Person {id: 4}) \
+             MERGE [x:KNOWS](start: a, end: b, witness: w)",
+            &Parameters::new(),
+        )
+        .expect(
+            "second merge, same start/end but a different witness, must create a second relation",
+        );
+
+    let connection = fixture::second_connection(&database);
+    assert_eq!(
+        connection
+            .prepare("SELECT count(*) FROM relationships")
+            .unwrap()
+            .run_collect_rows()
+            .unwrap(),
+        vec![vec![Value::from_i64(2)]],
+        "a different witness is a different assertion, not an update of the first"
+    );
+}
+
 /// `mutation.rs`'s `insert_relationship` guards its spill writes with `if
 /// created` (added in Task 14a, untested until now: it can only be
 /// exercised through MERGE over a role pattern). A relation matched by
