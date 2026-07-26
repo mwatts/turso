@@ -6,11 +6,12 @@ use turso_core::{Database, MemoryIO, SqliteDialect, Value};
 use turso_graph_cypher::parse;
 use turso_graph_frontend::{
     bind, graph_frontend_id, lower_relational, CatalogEntity, GraphCatalogSnapshot, GraphCompiler,
-    NodeTableLayout, ParameterTypes, RelationalCatalogSnapshot, RelationshipTableLayout,
-    ResolvedProperty,
+    NodeTableLayout, ParameterTypes, RelationalCatalogSnapshot, RelationshipRoleLayout,
+    RelationshipTableLayout, ResolvedProperty,
 };
 use turso_graph_ir::{
-    GraphId, LabelId, Nullability, PropertyId, RelationshipTypeId, SourceTableId, ValueType,
+    GraphId, LabelId, Nullability, PropertyId, RelationshipTypeId, RoleCardinality, RoleId,
+    SourceTableId, ValueType,
 };
 
 const MANIFEST: &str = include_str!("../../testdata/fixed-patterns/manifest.toml");
@@ -92,8 +93,22 @@ impl RelationalCatalogSnapshot for Catalog {
         (source.get() == 2).then(|| RelationshipTableLayout {
             table: "relationships".to_owned(),
             identity_column: "id".to_owned(),
-            start_column: "src".to_owned(),
-            end_column: "dst".to_owned(),
+            roles: vec![
+                RelationshipRoleLayout {
+                    role: RoleId::new(1).unwrap(),
+                    name: "start".to_owned(),
+                    column: "src".to_owned(),
+                    cardinality: RoleCardinality::One,
+                    spill_table: None,
+                },
+                RelationshipRoleLayout {
+                    role: RoleId::new(2).unwrap(),
+                    name: "end".to_owned(),
+                    column: "dst".to_owned(),
+                    cardinality: RoleCardinality::One,
+                    spill_table: None,
+                },
+            ],
         })
     }
 

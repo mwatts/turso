@@ -1419,11 +1419,12 @@ fn execute_operation(
                         }
                     }
                 } else {
-                    let mut structural = vec![layout.identity.clone()];
-                    if let Some(relationship) = catalog.relationship_layout(source) {
-                        structural.push(relationship.start_column);
-                        structural.push(relationship.end_column);
-                    }
+                    let structural = if let Some(relationship) = catalog.relationship_layout(source)
+                    {
+                        relationship.structural_columns()
+                    } else {
+                        vec![layout.identity.clone()]
+                    };
                     let escaped = layout.table.replace('\'', "''");
                     let columns = run_rows(
                         connection,
@@ -1873,9 +1874,12 @@ fn insert_relationship(
         entity_layouts,
         merge,
         "relationship",
+        // `CREATE (a)-[r]->(b)` is always a two-role pattern hop, in
+        // declaration order, regardless of how many roles the relation
+        // carries in total.
         &[
-            (layout.start_column, from.clone()),
-            (layout.end_column, to.clone()),
+            (layout.roles[0].column.clone(), from.clone()),
+            (layout.roles[1].column.clone(), to.clone()),
         ],
         &merge_predicates,
     )
@@ -2023,16 +2027,18 @@ fn delete_entity(
             };
             let parameter = identity_parameter(delete.entity);
             let mut predicates = Vec::new();
+            // `relationship_endpoint_sources` only resolves for the two-role
+            // pattern-hop shape, so the role pair is always [start, end].
             if start_source == source {
                 predicates.push(format!(
                     "{} = ${parameter}",
-                    quoted_identifier(&relationship.start_column)
+                    quoted_identifier(&relationship.roles[0].column)
                 ));
             }
             if end_source == source {
                 predicates.push(format!(
                     "{} = ${parameter}",
-                    quoted_identifier(&relationship.end_column)
+                    quoted_identifier(&relationship.roles[1].column)
                 ));
             }
             if predicates.is_empty() {
@@ -2291,7 +2297,7 @@ mod tests {
     use super::*;
     use crate::{
         CatalogEntity, GraphCatalogSnapshot, NodeTableLayout, RelationalCatalogSnapshot,
-        RelationshipTableLayout, ResolvedProperty,
+        RelationshipRoleLayout, RelationshipTableLayout, ResolvedProperty,
     };
     use turso_core::{Database, MemoryIO, SqliteDialect};
 
@@ -2367,8 +2373,22 @@ mod tests {
             (source == self.relationship_source).then(|| RelationshipTableLayout {
                 table: "relationships".to_owned(),
                 identity_column: "id".to_owned(),
-                start_column: "src".to_owned(),
-                end_column: "dst".to_owned(),
+                roles: vec![
+                    RelationshipRoleLayout {
+                        role: ir::RoleId::new(1).unwrap(),
+                        name: "start".to_owned(),
+                        column: "src".to_owned(),
+                        cardinality: ir::RoleCardinality::One,
+                        spill_table: None,
+                    },
+                    RelationshipRoleLayout {
+                        role: ir::RoleId::new(2).unwrap(),
+                        name: "end".to_owned(),
+                        column: "dst".to_owned(),
+                        cardinality: ir::RoleCardinality::One,
+                        spill_table: None,
+                    },
+                ],
             })
         }
 

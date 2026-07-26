@@ -11,11 +11,40 @@ pub struct NodeTableLayout {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
+pub struct RelationshipRoleLayout {
+    pub role: ir::RoleId,
+    pub name: String,
+    /// Endpoint column on the relation table. Empty for `Many` roles.
+    pub column: String,
+    pub cardinality: ir::RoleCardinality,
+    /// Set for `Many` roles: `<table>__<role>(relation_id, node_id)`.
+    pub spill_table: Option<String>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct RelationshipTableLayout {
     pub table: String,
     pub identity_column: String,
-    pub start_column: String,
-    pub end_column: String,
+    /// Declaration order. A two-role relation is `[start, end]`.
+    pub roles: Vec<RelationshipRoleLayout>,
+}
+
+impl RelationshipTableLayout {
+    pub fn role(&self, role: ir::RoleId) -> Option<&RelationshipRoleLayout> {
+        self.roles.iter().find(|entry| entry.role == role)
+    }
+
+    /// Columns that carry participation rather than payload.
+    pub fn structural_columns(&self) -> Vec<String> {
+        let mut columns = vec![self.identity_column.clone()];
+        columns.extend(
+            self.roles
+                .iter()
+                .filter(|role| role.cardinality == ir::RoleCardinality::One)
+                .map(|role| role.column.clone()),
+        );
+        columns
+    }
 }
 
 /// Physical relational names resolved from stable graph catalog identities.
@@ -1425,6 +1454,11 @@ fn lower_fixed_expand(
     let relationship = catalog
         .relationship_layout(expand.relationship_source)
         .ok_or(LowerError::MissingSource(expand.relationship_source))?;
+    // `Expand` is a Cypher `-[r]->` hop: always exactly two roles, in
+    // declaration order, regardless of how many roles the relation carries
+    // in total.
+    let start_column = &relationship.roles[0].column;
+    let end_column = &relationship.roles[1].column;
     let target = catalog
         .node_layout(expand.target_node_source)
         .ok_or(LowerError::MissingSource(expand.target_node_source))?;
@@ -1442,24 +1476,24 @@ fn lower_fixed_expand(
         (Some(bound), ir::Direction::Outgoing) => (
             format!(
                 "{relationship_alias}.{} = {from} AND {relationship_alias}.{} = {bound}",
-                quote_identifier(&relationship.start_column),
-                quote_identifier(&relationship.end_column)
+                quote_identifier(start_column),
+                quote_identifier(end_column)
             ),
             String::new(),
         ),
         (Some(bound), ir::Direction::Incoming) => (
             format!(
                 "{relationship_alias}.{} = {from} AND {relationship_alias}.{} = {bound}",
-                quote_identifier(&relationship.end_column),
-                quote_identifier(&relationship.start_column)
+                quote_identifier(end_column),
+                quote_identifier(start_column)
             ),
             String::new(),
         ),
         (Some(bound), ir::Direction::Both) => (
             format!(
                 "(({relationship_alias}.{start} = {from} AND {relationship_alias}.{end} = {bound})                  OR ({relationship_alias}.{end} = {from} AND {relationship_alias}.{start} = {bound}))",
-                start = quote_identifier(&relationship.start_column),
-                end = quote_identifier(&relationship.end_column)
+                start = quote_identifier(start_column),
+                end = quote_identifier(end_column)
             ),
             String::new(),
         ),
@@ -1467,38 +1501,38 @@ fn lower_fixed_expand(
         ir::Direction::Outgoing => (
             format!(
                 "{relationship_alias}.{} = {from}",
-                quote_identifier(&relationship.start_column)
+                quote_identifier(start_column)
             ),
             format!(
                 "{target_alias}.{} = {relationship_alias}.{}",
                 quote_identifier(&target.identity_column),
-                quote_identifier(&relationship.end_column)
+                quote_identifier(end_column)
             ),
         ),
         ir::Direction::Incoming => (
             format!(
                 "{relationship_alias}.{} = {from}",
-                quote_identifier(&relationship.end_column)
+                quote_identifier(end_column)
             ),
             format!(
                 "{target_alias}.{} = {relationship_alias}.{}",
                 quote_identifier(&target.identity_column),
-                quote_identifier(&relationship.start_column)
+                quote_identifier(start_column)
             ),
         ),
         ir::Direction::Both => (
             format!(
                 "({relationship_alias}.{} = {from} OR {relationship_alias}.{} = {from})",
-                quote_identifier(&relationship.start_column),
-                quote_identifier(&relationship.end_column)
+                quote_identifier(start_column),
+                quote_identifier(end_column)
             ),
             format!(
                 "{target_alias}.{} = CASE WHEN {relationship_alias}.{} = {from} \
                  THEN {relationship_alias}.{} ELSE {relationship_alias}.{} END",
                 quote_identifier(&target.identity_column),
-                quote_identifier(&relationship.start_column),
-                quote_identifier(&relationship.end_column),
-                quote_identifier(&relationship.start_column)
+                quote_identifier(start_column),
+                quote_identifier(end_column),
+                quote_identifier(start_column)
             ),
         ),
         },
@@ -2428,10 +2462,12 @@ fn lower_expression_with_references(
                     let relationship = catalog
                         .relationship_layout(*source)
                         .ok_or(LowerError::MissingSource(*source))?;
+                    // startNode()/endNode() only ever address the two-role
+                    // pattern-hop relationship, in declaration order.
                     let endpoint = if function.as_str() == "__cypher_start_node" {
-                        relationship.start_column
+                        relationship.roles[0].column.clone()
                     } else {
-                        relationship.end_column
+                        relationship.roles[1].column.clone()
                     };
                     branches.push((
                         *source,
@@ -2958,8 +2994,22 @@ mod tests {
             Some(RelationshipTableLayout {
                 table: "relationship table".to_owned(),
                 identity_column: "relationship id".to_owned(),
-                start_column: "start node".to_owned(),
-                end_column: "end node".to_owned(),
+                roles: vec![
+                    RelationshipRoleLayout {
+                        role: ir::RoleId::new(1).unwrap(),
+                        name: "start".to_owned(),
+                        column: "start node".to_owned(),
+                        cardinality: ir::RoleCardinality::One,
+                        spill_table: None,
+                    },
+                    RelationshipRoleLayout {
+                        role: ir::RoleId::new(2).unwrap(),
+                        name: "end".to_owned(),
+                        column: "end node".to_owned(),
+                        cardinality: ir::RoleCardinality::One,
+                        spill_table: None,
+                    },
+                ],
             })
         }
 

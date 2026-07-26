@@ -581,10 +581,11 @@ mod tests {
         graph_frontend_id, load_registered_graph, register_graph, CatalogEntity,
         GraphCatalogSnapshot, GraphCompiler, GraphRegistration, NodeSourceRegistration,
         NodeTableLayout, ParameterTypes, PublishOutcome, RelationalCatalogSnapshot,
-        RelationshipSourceRegistration, RelationshipTableLayout, ResolvedProperty,
+        RelationshipRoleLayout, RelationshipSourceRegistration, RelationshipTableLayout,
+        ResolvedProperty,
     };
     use turso_core::{Database, MemoryIO, SqliteDialect};
-    use turso_graph_ir::{LabelId, Nullability, PropertyId, ValueType};
+    use turso_graph_ir::{LabelId, Nullability, PropertyId, RoleCardinality, RoleId, ValueType};
     use turso_graph_runtime::{BuildLimits, NeverCancelled};
 
     fn setup() -> (Arc<Connection>, Arc<SnapshotStore>, GraphId) {
@@ -774,8 +775,22 @@ mod tests {
             (source == self.relationship_source).then(|| RelationshipTableLayout {
                 table: "relationships".to_owned(),
                 identity_column: "id".to_owned(),
-                start_column: "src".to_owned(),
-                end_column: "dst".to_owned(),
+                roles: vec![
+                    RelationshipRoleLayout {
+                        role: RoleId::new(1).unwrap(),
+                        name: "start".to_owned(),
+                        column: "src".to_owned(),
+                        cardinality: RoleCardinality::One,
+                        spill_table: None,
+                    },
+                    RelationshipRoleLayout {
+                        role: RoleId::new(2).unwrap(),
+                        name: "end".to_owned(),
+                        column: "dst".to_owned(),
+                        cardinality: RoleCardinality::One,
+                        spill_table: None,
+                    },
+                ],
             })
         }
 

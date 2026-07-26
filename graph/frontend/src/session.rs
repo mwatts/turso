@@ -479,7 +479,7 @@ mod tests {
     use super::*;
     use crate::{
         register_graph, CatalogEntity, GraphCatalogSnapshot, GraphRegistration,
-        NodeSourceRegistration, NodeTableLayout, RelationalCatalogSnapshot,
+        NodeSourceRegistration, NodeTableLayout, RelationalCatalogSnapshot, RelationshipRoleLayout,
         RelationshipSourceRegistration, RelationshipTableLayout, ResolvedProperty, SnapshotStatus,
     };
     use turso_core::{Database, MemoryIO, SqliteDialect};
@@ -545,8 +545,22 @@ mod tests {
             (source == self.relationship_source).then(|| RelationshipTableLayout {
                 table: "relationships".to_owned(),
                 identity_column: "id".to_owned(),
-                start_column: "src".to_owned(),
-                end_column: "dst".to_owned(),
+                roles: vec![
+                    RelationshipRoleLayout {
+                        role: ir::RoleId::new(1).unwrap(),
+                        name: "start".to_owned(),
+                        column: "src".to_owned(),
+                        cardinality: ir::RoleCardinality::One,
+                        spill_table: None,
+                    },
+                    RelationshipRoleLayout {
+                        role: ir::RoleId::new(2).unwrap(),
+                        name: "end".to_owned(),
+                        column: "dst".to_owned(),
+                        cardinality: ir::RoleCardinality::One,
+                        spill_table: None,
+                    },
+                ],
             })
         }
 

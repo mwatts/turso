@@ -10,7 +10,9 @@ use crate::binder::{
     CatalogEntity, GraphCatalogSnapshot, PropertyResolution, ResolvedNodeType, ResolvedProperty,
 };
 use crate::catalog::{RegisteredGraph, RegisteredNodeSource, RegisteredRelationshipSource};
-use crate::lowering::{NodeTableLayout, RelationalCatalogSnapshot, RelationshipTableLayout};
+use crate::lowering::{
+    NodeTableLayout, RelationalCatalogSnapshot, RelationshipRoleLayout, RelationshipTableLayout,
+};
 use crate::semantic::{OwnedProperty, SemanticSnapshot, SemanticTypeInfo};
 
 /// Production catalog snapshot backed directly by `core::Schema` — no PRAGMA
@@ -763,13 +765,23 @@ impl RelationalCatalogSnapshot for SchemaCatalog {
 
     fn relationship_layout(&self, source: ir::SourceTableId) -> Option<RelationshipTableLayout> {
         let entry = self.relationship_source_entry(source)?;
-        let start = entry.role_by_name("start")?;
-        let end = entry.role_by_name("end")?;
         Some(RelationshipTableLayout {
             table: entry.table.clone(),
             identity_column: entry.identity_column.clone(),
-            start_column: start.column.clone(),
-            end_column: end.column.clone(),
+            roles: entry
+                .roles
+                .iter()
+                .map(|role| RelationshipRoleLayout {
+                    role: role.role,
+                    name: role.name.clone(),
+                    column: role.column.clone(),
+                    cardinality: role.cardinality,
+                    spill_table: match role.cardinality {
+                        ir::RoleCardinality::One => None,
+                        ir::RoleCardinality::Many => Some(entry.spill_table(role)),
+                    },
+                })
+                .collect(),
         })
     }
 
@@ -832,10 +844,8 @@ impl RelationalCatalogSnapshot for SchemaCatalog {
     fn payload_columns(&self, source: ir::SourceTableId) -> Option<Vec<(String, String)>> {
         let (table_name, structural) = if let Some(entry) = self.node_source_entry(source) {
             (entry.table.clone(), vec![entry.identity_column.clone()])
-        } else if let Some(entry) = self.relationship_source_entry(source) {
-            let mut structural = vec![entry.identity_column.clone()];
-            structural.extend(entry.single_valued_roles().map(|role| role.column.clone()));
-            (entry.table.clone(), structural)
+        } else if let Some(layout) = self.relationship_layout(source) {
+            (layout.table.clone(), layout.structural_columns())
         } else {
             return None;
         };
@@ -1024,6 +1034,39 @@ mod tests {
             },
         )
         .expect("register graph")
+    }
+
+    fn binary_relationship_catalog() -> (SchemaCatalog, ir::SourceTableId) {
+        let connection = connect(false);
+        connection
+            .execute(
+                "CREATE TABLE people(id INTEGER PRIMARY KEY, name TEXT); \
+                 CREATE TABLE friendships(id INTEGER PRIMARY KEY, src INTEGER, dst INTEGER);",
+            )
+            .expect("create sources");
+        let graph = crate::catalog::register_graph(
+            &connection,
+            &GraphRegistration {
+                name: "friends".to_owned(),
+                node_sources: vec![NodeSourceRegistration {
+                    name: "Person".to_owned(),
+                    table: "people".to_owned(),
+                    identity_column: "id".to_owned(),
+                }],
+                relationship_sources: vec![RelationshipSourceRegistration::binary(
+                    "KNOWS",
+                    "friendships",
+                    "id",
+                    "src",
+                    "dst",
+                    "Person",
+                    "Person",
+                )],
+            },
+        )
+        .expect("register graph");
+        let source = graph.relationship_sources[0].id;
+        (SchemaCatalog::new(connection, graph), source)
     }
 
     #[test]
@@ -1329,6 +1372,35 @@ mod tests {
                 ("phone".to_owned(), ir::ValueType::Text),
             ]),
             "bare-primitive UNION variants must resolve to their scalar type, not Any"
+        );
+    }
+
+    #[test]
+    fn a_relationship_layout_exposes_roles_and_excludes_them_from_payload() {
+        // Payload columns are everything that is not structural. A role column
+        // that leaked into the payload would be readable as a property and
+        // writable by SET, which would corrupt the relation's participation.
+        let (catalog, source) = binary_relationship_catalog();
+        let layout = catalog
+            .relationship_layout(source)
+            .expect("relationship layout");
+        assert_eq!(layout.roles.len(), 2);
+        assert_eq!(layout.roles[0].name, "start");
+        assert_eq!(layout.roles[0].column, "src");
+        assert!(layout.roles[0].spill_table.is_none());
+        assert_eq!(
+            layout
+                .role(layout.roles[1].role)
+                .map(|role| role.column.as_str()),
+            Some("dst")
+        );
+
+        let payload = catalog.payload_columns(source).expect("payload columns");
+        assert!(
+            payload
+                .iter()
+                .all(|(logical, _)| logical != "src" && logical != "dst"),
+            "role columns must not appear as payload properties: {payload:?}"
         );
     }
 }

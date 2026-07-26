@@ -206,10 +206,11 @@ mod tests {
     use super::*;
     use crate::{
         CatalogEntity, GraphCatalogSnapshot, NodeTableLayout, RelationalCatalogSnapshot,
-        RelationshipTableLayout, ResolvedProperty,
+        RelationshipRoleLayout, RelationshipTableLayout, ResolvedProperty,
     };
     use turso_graph_ir::{
-        GraphId, LabelId, Nullability, PropertyId, RelationshipTypeId, SourceTableId, ValueType,
+        GraphId, LabelId, Nullability, PropertyId, RelationshipTypeId, RoleCardinality, RoleId,
+        SourceTableId, ValueType,
     };
 
     struct Catalog;
@@ -262,8 +263,22 @@ mod tests {
             (source.get() == 2).then(|| RelationshipTableLayout {
                 table: "relationships".to_owned(),
                 identity_column: "id".to_owned(),
-                start_column: "src".to_owned(),
-                end_column: "dst".to_owned(),
+                roles: vec![
+                    RelationshipRoleLayout {
+                        role: RoleId::new(1).unwrap(),
+                        name: "start".to_owned(),
+                        column: "src".to_owned(),
+                        cardinality: RoleCardinality::One,
+                        spill_table: None,
+                    },
+                    RelationshipRoleLayout {
+                        role: RoleId::new(2).unwrap(),
+                        name: "end".to_owned(),
+                        column: "dst".to_owned(),
+                        cardinality: RoleCardinality::One,
+                        spill_table: None,
+                    },
+                ],
             })
         }
 
