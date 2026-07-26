@@ -144,6 +144,23 @@ pub struct SemanticRole {
     pub cardinality: ir::RoleCardinality,
 }
 
+impl From<crate::lowering::RelationshipRoleLayout> for SemanticRole {
+    /// Projects a physical role registration into the schema-free view used
+    /// by schemaless catalogs: the `RoleId` is reused directly (never
+    /// re-derived), there is no target-type constraint (schemaless imposes
+    /// none), and the role is never optional (a physical registration
+    /// requires every declared role to be filled).
+    fn from(role: crate::lowering::RelationshipRoleLayout) -> Self {
+        SemanticRole {
+            role: role.role,
+            name: role.name,
+            targets: Vec::new(),
+            optional: false,
+            cardinality: role.cardinality,
+        }
+    }
+}
+
 impl SemanticSnapshot {
     /// Resolve a semantic node type by conceptual name.
     pub fn node_type(&self, name: &str) -> Option<&SemanticTypeInfo> {

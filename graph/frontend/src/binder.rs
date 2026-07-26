@@ -134,21 +134,37 @@ pub trait GraphCatalogSnapshot {
     }
 
     /// Roles of a relationship type in declaration order. Empty when the
-    /// type is unknown or the catalog has no semantic schema (schemaless
-    /// mode places no target-type constraint on `start`/`end`).
+    /// type is unknown. A catalog with no semantic schema has no role
+    /// registrations to report here, so the default projects the physical
+    /// role layout instead (same `RoleId`s, no target-type constraint,
+    /// never optional) rather than returning nothing: binary is a two-role
+    /// layout, not a hard-coded kind, and every catalog already exposes
+    /// that layout via `relationship_source_for_type`/
+    /// `relationship_source_roles` for the read-side role lookup.
     fn relationship_roles(
         &self,
-        _ty: ir::RelationshipTypeId,
+        graph: ir::GraphId,
+        ty: ir::RelationshipTypeId,
     ) -> Vec<crate::semantic::SemanticRole> {
-        Vec::new()
+        self.relationship_source_for_type(graph, ty)
+            .and_then(|source| self.relationship_source_roles(source))
+            .map(|layout| {
+                layout
+                    .roles
+                    .into_iter()
+                    .map(crate::semantic::SemanticRole::from)
+                    .collect()
+            })
+            .unwrap_or_default()
     }
 
     fn relationship_role(
         &self,
+        graph: ir::GraphId,
         ty: ir::RelationshipTypeId,
         name: &str,
     ) -> Option<crate::semantic::SemanticRole> {
-        self.relationship_roles(ty)
+        self.relationship_roles(graph, ty)
             .into_iter()
             .find(|role| role.name.eq_ignore_ascii_case(name))
     }
@@ -1581,9 +1597,9 @@ impl<'a> Binder<'a> {
                 };
             for (role_name, binding_id) in [("start", relationship_from), ("end", relationship_to)]
             {
-                let Some(role) = self
-                    .catalog
-                    .relationship_role(relationship_types[0], role_name)
+                let Some(role) =
+                    self.catalog
+                        .relationship_role(self.graph, relationship_types[0], role_name)
                 else {
                     continue;
                 };
@@ -1624,6 +1640,27 @@ impl<'a> Binder<'a> {
                     });
                 }
             }
+            // Roles are resolved by NAME, not by declaration position: a
+            // relation's roles are not guaranteed to be declared
+            // start-then-end (see the read-side expand above).
+            let start_role = self
+                .catalog
+                .relationship_role(self.graph, relationship_types[0], "start")
+                .ok_or(BindError::MissingRelationshipRole {
+                    role: "start",
+                    span_start: relationship.span.start,
+                    span_end: relationship.span.end,
+                })?
+                .role;
+            let end_role = self
+                .catalog
+                .relationship_role(self.graph, relationship_types[0], "end")
+                .ok_or(BindError::MissingRelationshipRole {
+                    role: "end",
+                    span_start: relationship.span.start,
+                    span_end: relationship.span.end,
+                })?
+                .role;
             let create = ir::CreateRelationship {
                 binding,
                 source,
@@ -1632,6 +1669,16 @@ impl<'a> Binder<'a> {
                 direction: ir::CreateRelationship::default_direction(),
                 relationship_types,
                 properties,
+                roles: vec![
+                    ir::RoleBinding {
+                        role: start_role,
+                        value: relationship_from,
+                    },
+                    ir::RoleBinding {
+                        role: end_role,
+                        value: relationship_to,
+                    },
+                ],
             };
             operations.push(if merge {
                 ir::Mutation::MergeRelationship(ir::MergeRelationship {
@@ -7187,6 +7234,47 @@ mod tests {
             panic!("expected second node creation")
         };
         assert_eq!(relationship.to, second.binding.id());
+    }
+
+    /// Regression test for role/value mispairing, the recurring defect class
+    /// on this plan (already caught at Tasks 4, 5, 6, 7). The fixture
+    /// `Catalog::relationship_source_roles` above registers `start` as
+    /// `RoleId(1)` and `end` as `RoleId(2)`; a binder that swapped which
+    /// value each role binds to, or dropped `roles` entirely, would leave
+    /// every other test in this module (including
+    /// `binds_created_path_to_stable_sources_and_endpoints`, which only
+    /// checks `from`/`to`) unaffected. Asserting the exact `(role, value)`
+    /// pairs -- not just their count or their set -- is what actually
+    /// exercises the binder's use of the catalog projection Task 9 depends
+    /// on.
+    #[test]
+    fn binds_created_path_role_bindings_pair_the_physical_role_with_its_resolved_value() {
+        let bound = bind_mutation_text(
+            "CREATE (a:Person {id: 1, name: 'Ada'})-[r:KNOWS {since: 2020}]->(b:Person {id: 2})",
+        )
+        .expect("mutation should bind");
+        let ir::Mutation::CreateNode(first) = &bound.request.operations[0] else {
+            panic!("expected first node creation")
+        };
+        let ir::Mutation::CreateNode(second) = &bound.request.operations[1] else {
+            panic!("expected second node creation")
+        };
+        let ir::Mutation::CreateRelationship(relationship) = &bound.request.operations[2] else {
+            panic!("expected relationship creation")
+        };
+        assert_eq!(
+            relationship.roles,
+            vec![
+                ir::RoleBinding {
+                    role: ir::RoleId::new(1).expect("non-zero"),
+                    value: first.binding.id(),
+                },
+                ir::RoleBinding {
+                    role: ir::RoleId::new(2).expect("non-zero"),
+                    value: second.binding.id(),
+                },
+            ]
+        );
     }
 
     #[test]

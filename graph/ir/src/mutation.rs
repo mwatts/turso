@@ -1,6 +1,6 @@
 use crate::{
     Binding, BindingId, Direction, GraphId, LabelId, Plan, PropertyId, RelationshipTypeId,
-    SourceTableId, TypedExpression,
+    RoleBinding, SourceTableId, TypedExpression,
 };
 
 /// A bound graph mutation whose names and storage sources have been resolved.
@@ -50,6 +50,9 @@ pub struct CreateRelationship {
     pub direction: Direction,
     pub relationship_types: Vec<RelationshipTypeId>,
     pub properties: Vec<PropertyValue>,
+    /// One entry per filled role, in the relation type's declaration order.
+    /// A repeated player is legal; nothing here assumes distinct values.
+    pub roles: Vec<RoleBinding>,
 }
 
 impl CreateRelationship {
@@ -150,4 +153,77 @@ pub struct MergeRelationship {
     pub on_create: Vec<Mutation>,
     /// Applied only when the merge matched an existing entity.
     pub on_match: Vec<Mutation>,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::{Nullability, RoleId, ValueType};
+
+    fn sample_create_relationship() -> CreateRelationship {
+        let from = BindingId::new(1).unwrap();
+        let to = BindingId::new(2).unwrap();
+        CreateRelationship {
+            binding: Binding::new(
+                BindingId::new(3).unwrap(),
+                "r",
+                ValueType::Relationship,
+                Nullability::NonNull,
+            )
+            .unwrap(),
+            source: SourceTableId::new(1).unwrap(),
+            from,
+            to,
+            direction: CreateRelationship::default_direction(),
+            relationship_types: vec![RelationshipTypeId::new(1).unwrap()],
+            properties: Vec::new(),
+            roles: vec![
+                RoleBinding {
+                    role: RoleId::new(1).unwrap(),
+                    value: from,
+                },
+                RoleBinding {
+                    role: RoleId::new(2).unwrap(),
+                    value: to,
+                },
+            ],
+        }
+    }
+
+    #[test]
+    fn a_created_relationship_lists_its_role_bindings_in_declaration_order() {
+        let create = sample_create_relationship();
+        assert_eq!(
+            create.roles,
+            vec![
+                RoleBinding {
+                    role: RoleId::new(1).unwrap(),
+                    value: BindingId::new(1).unwrap()
+                },
+                RoleBinding {
+                    role: RoleId::new(2).unwrap(),
+                    value: BindingId::new(2).unwrap()
+                },
+            ]
+        );
+    }
+
+    #[test]
+    fn a_role_binding_list_permits_the_same_player_twice() {
+        // Repeated players are legal: a Match with the same team in the home
+        // and away roles is a real thing to record, and nothing downstream may
+        // assume role players are distinct.
+        let player = BindingId::new(1).unwrap();
+        let roles = [
+            RoleBinding {
+                role: RoleId::new(1).unwrap(),
+                value: player,
+            },
+            RoleBinding {
+                role: RoleId::new(2).unwrap(),
+                value: player,
+            },
+        ];
+        assert_eq!(roles.iter().filter(|role| role.value == player).count(), 2);
+    }
 }

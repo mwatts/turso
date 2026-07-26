@@ -631,11 +631,29 @@ impl GraphCatalogSnapshot for SchemaCatalog {
             })
     }
 
-    fn relationship_roles(&self, ty: ir::RelationshipTypeId) -> Vec<SemanticRole> {
-        self.semantic
-            .as_ref()
-            .and_then(|semantic| semantic.relationship_type_by_id(ty))
-            .map(|info| info.roles.clone())
+    fn relationship_roles(
+        &self,
+        graph: ir::GraphId,
+        ty: ir::RelationshipTypeId,
+    ) -> Vec<SemanticRole> {
+        if graph != self.graph.id {
+            return Vec::new();
+        }
+        if let Some(semantic) = &self.semantic {
+            return semantic
+                .relationship_type_by_id(ty)
+                .map(|info| info.roles.clone())
+                .unwrap_or_default();
+        }
+        // Schemaless mode has no semantic role registration to report;
+        // project the physical role layout instead so the roles carry the
+        // real, physically-registered `RoleId`s. This is the same
+        // projection the trait default applies, kept explicit here so it
+        // runs whenever `self.semantic` is `None` rather than only for
+        // catalogs that don't override this method at all.
+        self.relationship_source_for_type(graph, ty)
+            .and_then(|source| self.relationship_source_roles(source))
+            .map(|layout| layout.roles.into_iter().map(SemanticRole::from).collect())
             .unwrap_or_default()
     }
 
@@ -1492,5 +1510,51 @@ mod tests {
         let bound =
             crate::bind(&query, graph_id, &catalog, &Default::default()).expect("bind hop query");
         crate::lower_relational(&bound.plan, &catalog).expect("lower hop query");
+    }
+
+    /// A schemaless catalog has no semantic role registration at all
+    /// (`self.semantic` is `None`), so `relationship_roles` cannot read role
+    /// identities off a semantic snapshot the way schema'd mode does. It
+    /// must still report the relation's roles, carrying the physical
+    /// `RoleId`s straight from the registration: the binder writes exactly
+    /// this list into `CreateRelationship.roles`, and an empty response
+    /// here (the pre-fix behavior) silently drops every role binding at
+    /// bind time for every schemaless relationship create/merge.
+    ///
+    /// Uses the end-before-start registration deliberately: reusing
+    /// `layout.roles[0]`/`[1]` positionally instead of the real `RoleId`
+    /// would still pass a start-then-end fixture by coincidence.
+    #[test]
+    fn schemaless_relationship_roles_project_the_physical_role_layout() {
+        let (catalog, source, graph_id) = reversed_binary_relationship_catalog();
+        let layout = catalog
+            .relationship_layout(source)
+            .expect("relationship layout");
+        let ty = catalog
+            .relationship_type(graph_id, "KNOWS")
+            .expect("relationship type resolves");
+
+        let roles = catalog.relationship_roles(graph_id, ty);
+        assert_eq!(roles.len(), 2, "schemaless mode must not report zero roles");
+
+        let physical_start = layout.start_role().expect("physical start role");
+        let physical_end = layout.end_role().expect("physical end role");
+        let projected_start = roles
+            .iter()
+            .find(|role| role.name == "start")
+            .expect("start role projected");
+        let projected_end = roles
+            .iter()
+            .find(|role| role.name == "end")
+            .expect("end role projected");
+
+        assert_eq!(projected_start.role, physical_start.role);
+        assert_eq!(projected_end.role, physical_end.role);
+        assert_eq!(projected_start.cardinality, ir::RoleCardinality::One);
+        assert!(
+            projected_start.targets.is_empty(),
+            "schemaless mode imposes no target-type constraint"
+        );
+        assert!(!projected_start.optional);
     }
 }
