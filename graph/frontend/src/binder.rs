@@ -133,12 +133,24 @@ pub trait GraphCatalogSnapshot {
             .map(PropertyResolution::Resolved)
     }
 
-    fn relationship_endpoints(
+    /// Roles of a relationship type in declaration order. Empty when the
+    /// type is unknown or the catalog has no semantic schema (schemaless
+    /// mode places no target-type constraint on `start`/`end`).
+    fn relationship_roles(
         &self,
-        _graph: ir::GraphId,
-        _relationship_type: ir::RelationshipTypeId,
-    ) -> Option<(Vec<ir::LabelId>, Vec<ir::LabelId>)> {
-        None
+        _ty: ir::RelationshipTypeId,
+    ) -> Vec<crate::semantic::SemanticRole> {
+        Vec::new()
+    }
+
+    fn relationship_role(
+        &self,
+        ty: ir::RelationshipTypeId,
+        name: &str,
+    ) -> Option<crate::semantic::SemanticRole> {
+        self.relationship_roles(ty)
+            .into_iter()
+            .find(|role| role.name.eq_ignore_ascii_case(name))
     }
 
     fn semantic_constraints(
@@ -321,12 +333,12 @@ pub enum BindError {
         span_end: usize,
     },
     #[error(
-        "semantic type(s) {node_types:?} are not allowed as the {endpoint} endpoint of `{relationship_type}` at byte {span_start}..{span_end}"
+        "role `{role}` of relationship type `{relationship_type}` does not accept {found} at byte {span_start}..{span_end}"
     )]
-    InvalidEndpointType {
+    RoleTargetTypeViolation {
         relationship_type: String,
-        endpoint: &'static str,
-        node_types: Vec<String>,
+        role: String,
+        found: String,
         span_start: usize,
         span_end: usize,
     },
@@ -1567,37 +1579,49 @@ impl<'a> Binder<'a> {
                 } else {
                     (from, to)
                 };
-            if let Some((start_allowed, end_allowed)) = self
-                .catalog
-                .relationship_endpoints(self.graph, relationship_types[0])
+            for (role_name, binding_id) in [("start", relationship_from), ("end", relationship_to)]
             {
-                for (endpoint, binding_id, allowed) in [
-                    ("start", relationship_from, &start_allowed),
-                    ("end", relationship_to, &end_allowed),
-                ] {
-                    if allowed.is_empty() {
-                        continue;
-                    }
-                    let names = self
-                        .entities
-                        .get(&binding_id)
-                        .map(|entity| entity.names.clone())
-                        .unwrap_or_default();
-                    let all_allowed = !names.is_empty()
-                        && names.iter().all(|name| {
-                            self.catalog
-                                .label(self.graph, name)
-                                .is_some_and(|label| allowed.contains(&label))
-                        });
-                    if !all_allowed {
-                        return Err(BindError::InvalidEndpointType {
-                            relationship_type: relationship.types[0].value.clone(),
-                            endpoint,
-                            node_types: names,
-                            span_start: relationship.span.start,
-                            span_end: relationship.span.end,
-                        });
-                    }
+                let Some(role) = self
+                    .catalog
+                    .relationship_role(relationship_types[0], role_name)
+                else {
+                    continue;
+                };
+                let allowed = role
+                    .targets
+                    .iter()
+                    .filter_map(|target| match target {
+                        ir::RoleTarget::Node(label) => Some(*label),
+                        ir::RoleTarget::Relation(_) => None,
+                    })
+                    .collect::<Vec<_>>();
+                if allowed.is_empty() {
+                    continue;
+                }
+                let names = self
+                    .entities
+                    .get(&binding_id)
+                    .map(|entity| entity.names.clone())
+                    .unwrap_or_default();
+                let all_allowed = !names.is_empty()
+                    && names.iter().all(|name| {
+                        self.catalog
+                            .label(self.graph, name)
+                            .is_some_and(|label| allowed.contains(&label))
+                    });
+                if !all_allowed {
+                    let found = if names.is_empty() {
+                        "an unlabeled binding".to_owned()
+                    } else {
+                        names.join(", ")
+                    };
+                    return Err(BindError::RoleTargetTypeViolation {
+                        relationship_type: relationship.types[0].value.clone(),
+                        role: role.name,
+                        found,
+                        span_start: relationship.span.start,
+                        span_end: relationship.span.end,
+                    });
                 }
             }
             let create = ir::CreateRelationship {

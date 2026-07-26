@@ -13,7 +13,7 @@ use crate::catalog::{RegisteredGraph, RegisteredNodeSource, RegisteredRelationsh
 use crate::lowering::{
     NodeTableLayout, RelationalCatalogSnapshot, RelationshipRoleLayout, RelationshipTableLayout,
 };
-use crate::semantic::{OwnedProperty, SemanticSnapshot, SemanticTypeInfo};
+use crate::semantic::{OwnedProperty, SemanticRole, SemanticSnapshot, SemanticTypeInfo};
 
 /// Production catalog snapshot backed directly by `core::Schema` — no PRAGMA
 /// string-parsing, no parallel type model. Column classification reuses
@@ -631,26 +631,12 @@ impl GraphCatalogSnapshot for SchemaCatalog {
             })
     }
 
-    fn relationship_endpoints(
-        &self,
-        graph: ir::GraphId,
-        relationship_type: ir::RelationshipTypeId,
-    ) -> Option<(Vec<ir::LabelId>, Vec<ir::LabelId>)> {
-        if graph != self.graph.id {
-            return None;
-        }
-        let constraints = self.semantic.as_ref()?.endpoints(relationship_type)?;
-        let start = constraints
-            .start
-            .iter()
-            .map(|id| ir::LabelId::new(*id).ok())
-            .collect::<Option<Vec<_>>>()?;
-        let end = constraints
-            .end
-            .iter()
-            .map(|id| ir::LabelId::new(*id).ok())
-            .collect::<Option<Vec<_>>>()?;
-        Some((start, end))
+    fn relationship_roles(&self, ty: ir::RelationshipTypeId) -> Vec<SemanticRole> {
+        self.semantic
+            .as_ref()
+            .and_then(|semantic| semantic.relationship_type_by_id(ty))
+            .map(|info| info.roles.clone())
+            .unwrap_or_default()
     }
 
     fn semantic_constraints(
@@ -991,10 +977,10 @@ mod tests {
     };
     use crate::semantic::{
         SemanticFragment, SemanticFragmentMember, SemanticFragmentRegistration, SemanticNodeType,
-        SemanticProperty, SemanticSchemaRegistration, SEMANTIC_ENDPOINTS_TABLE,
-        SEMANTIC_FRAGMENTS_TABLE, SEMANTIC_FRAGMENT_MEMBERS_TABLE,
-        SEMANTIC_FRAGMENT_OWNERSHIP_TABLE, SEMANTIC_FRAGMENT_PROPERTIES_TABLE,
-        SEMANTIC_OWNERSHIP_TABLE, SEMANTIC_PROPERTIES_TABLE, SEMANTIC_TYPES_TABLE,
+        SemanticProperty, SemanticSchemaRegistration, SEMANTIC_FRAGMENTS_TABLE,
+        SEMANTIC_FRAGMENT_MEMBERS_TABLE, SEMANTIC_FRAGMENT_OWNERSHIP_TABLE,
+        SEMANTIC_FRAGMENT_PROPERTIES_TABLE, SEMANTIC_OWNERSHIP_TABLE, SEMANTIC_PROPERTIES_TABLE,
+        SEMANTIC_ROLE_TABLE, SEMANTIC_TYPES_TABLE,
     };
     use std::sync::Arc;
     use turso_core::{Database, DatabaseOpts, MemoryIO, OpenFlags, SqliteDialect};
@@ -1197,7 +1183,7 @@ mod tests {
             SEMANTIC_FRAGMENT_PROPERTIES_TABLE,
             SEMANTIC_FRAGMENT_MEMBERS_TABLE,
             SEMANTIC_FRAGMENTS_TABLE,
-            SEMANTIC_ENDPOINTS_TABLE,
+            SEMANTIC_ROLE_TABLE,
             SEMANTIC_OWNERSHIP_TABLE,
             SEMANTIC_PROPERTIES_TABLE,
             SEMANTIC_TYPES_TABLE,

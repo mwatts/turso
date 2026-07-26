@@ -856,14 +856,16 @@ pub(crate) fn rows_for_registration(
                 detail: "minimum exceeds maximum".to_owned(),
             });
         }
-        let endpoints = semantic
-            .endpoints(
-                ir::RelationshipTypeId::new(relationship.type_id)
-                    .expect("persisted relationship type id is valid"),
-            )
-            .map(|endpoints| match cardinality.endpoint {
-                SemanticEndpoint::Start => endpoints.start.as_slice(),
-                SemanticEndpoint::End => endpoints.end.as_slice(),
+        let endpoints: Vec<u32> = relationship
+            .role(cardinality.endpoint.as_str())
+            .map(|role| {
+                role.targets
+                    .iter()
+                    .filter_map(|target| match target {
+                        ir::RoleTarget::Node(label) => Some(label.get()),
+                        ir::RoleTarget::Relation(_) => None,
+                    })
+                    .collect()
             })
             .unwrap_or_default();
         if endpoints.is_empty() {
@@ -1430,14 +1432,19 @@ pub(crate) fn load_constraint_snapshot(
             .ok_or(SemanticCatalogError::InvalidCatalogValue(
                 "cardinality relationship source",
             ))?;
-        let endpoint_type_ids = semantic
-            .endpoints(
-                ir::RelationshipTypeId::new(relationship.type_id)
-                    .expect("persisted relationship type id is valid"),
-            )
-            .map(|constraints| match endpoint {
-                SemanticEndpoint::Start => constraints.start.as_slice(),
-                SemanticEndpoint::End => constraints.end.as_slice(),
+        let endpoint_type_ids: Vec<u32> = relationship
+            .role(match endpoint {
+                SemanticEndpoint::Start => "start",
+                SemanticEndpoint::End => "end",
+            })
+            .map(|role| {
+                role.targets
+                    .iter()
+                    .filter_map(|target| match target {
+                        ir::RoleTarget::Node(label) => Some(label.get()),
+                        ir::RoleTarget::Relation(_) => None,
+                    })
+                    .collect()
             })
             .unwrap_or_default();
         if endpoint_type_ids.is_empty() {
@@ -1448,7 +1455,7 @@ pub(crate) fn load_constraint_snapshot(
         let mut node_owners = Vec::new();
         for type_id in endpoint_type_ids {
             let owner = semantic
-                .node_type_by_id(ir::LabelId::new(*type_id).map_err(|_| {
+                .node_type_by_id(ir::LabelId::new(type_id).map_err(|_| {
                     SemanticCatalogError::InvalidCatalogValue("cardinality endpoint type")
                 })?)
                 .ok_or(SemanticCatalogError::InvalidCatalogValue(

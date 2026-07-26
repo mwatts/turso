@@ -58,10 +58,10 @@ pub use mutation::{
 pub use schema_catalog::SchemaCatalog;
 pub use semantic::{
     load_semantic_snapshot, register_semantic_constraints, register_semantic_schema,
-    register_semantic_schema_with_fragments, EndpointConstraint, OwnedProperty,
-    SemanticCatalogError, SemanticFragment, SemanticFragmentInfo, SemanticFragmentMember,
-    SemanticFragmentRegistration, SemanticNodeType, SemanticProperty, SemanticRelationshipType,
-    SemanticSchemaRegistration, SemanticSnapshot, SemanticTypeInfo,
+    register_semantic_schema_with_fragments, OwnedProperty, SemanticCatalogError, SemanticFragment,
+    SemanticFragmentInfo, SemanticFragmentMember, SemanticFragmentRegistration, SemanticNodeType,
+    SemanticProperty, SemanticRelationshipType, SemanticRole, SemanticRoleCardinality,
+    SemanticRoleRegistration, SemanticSchemaRegistration, SemanticSnapshot, SemanticTypeInfo,
 };
 pub use semantic_constraints::{
     SemanticConstraintRegistration, SemanticEndpoint, SemanticKeyConstraint,
