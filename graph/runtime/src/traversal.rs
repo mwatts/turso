@@ -45,6 +45,33 @@ pub struct TraversalRequest {
     pub order: TraversalOrder,
 }
 
+impl TraversalRequest {
+    /// Convenience constructor for the common outgoing-BFS request shape,
+    /// so callers that only ever want "outgoing" don't have to name
+    /// `Direction` themselves. Goes away with `direction` once Task 17
+    /// makes traversal requests role-shaped.
+    pub fn outgoing(
+        start: NodeId,
+        relationship_types: Vec<RelationshipTypeId>,
+        min_hops: u32,
+        max_hops: u32,
+        error_at_max_hops: bool,
+        uniqueness: Uniqueness,
+        order: TraversalOrder,
+    ) -> Self {
+        Self {
+            start,
+            direction: Direction::Outgoing,
+            relationship_types,
+            min_hops,
+            max_hops,
+            error_at_max_hops,
+            uniqueness,
+            order,
+        }
+    }
+}
+
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Path {
     pub nodes: Vec<NodeId>,

@@ -1605,7 +1605,7 @@ impl<'a> Binder<'a> {
                 source,
                 from: relationship_from,
                 to: relationship_to,
-                direction: ir::Direction::Outgoing,
+                direction: ir::CreateRelationship::default_direction(),
                 relationship_types,
                 properties,
             };

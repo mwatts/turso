@@ -965,31 +965,25 @@ fn lower_graph_expand(
     let target = catalog
         .node_layout(expand.target_node_source)
         .ok_or(LowerError::MissingSource(expand.target_node_source))?;
-    // The variable-length expand vtab is a physical BFS over a binary CSR
-    // snapshot (role-oblivious until Task 17), so it still takes a direction
-    // word rather than role names. The role pair says which physical
-    // direction that is: binary is a layout of the role model, not a
-    // separate kind, so this reads the same start/end accessors the fixed
-    // hop and the binder already resolve by name.
-    let start_role = relationship
-        .start_role()
+    // Lowering only names the two roles here -- exactly what the fixed hop
+    // already does via `relationship.role(id)` -- and makes no
+    // outgoing/incoming/both judgment of its own. The variable-length
+    // expand vtab still runs a physical BFS over a binary CSR snapshot
+    // (role-oblivious until Task 17), so *it* is where the remaining
+    // role-pair-to-direction reasoning lives now (see the adapter in
+    // graph_expand.rs), not here.
+    let from_role = relationship
+        .role(expand.from_role)
         .ok_or_else(|| LowerError::UnknownRole {
             relation: relationship.table.clone(),
             role: expand.from_role,
         })?;
-    let end_role = relationship
-        .end_role()
+    let to_role = relationship
+        .role(expand.to_role)
         .ok_or_else(|| LowerError::UnknownRole {
             relation: relationship.table.clone(),
             role: expand.to_role,
         })?;
-    let direction = if expand.symmetric {
-        "both"
-    } else if expand.from_role == start_role.role && expand.to_role == end_role.role {
-        "outgoing"
-    } else {
-        "incoming"
-    };
     let uniqueness = match expand.uniqueness {
         ir::PathUniqueness::Walk => "walk",
         ir::PathUniqueness::Trail => "trail",
@@ -1083,7 +1077,7 @@ fn lower_graph_expand(
                  max(CASE WHEN gx.is_terminal = 1 THEN gx.node_identity END) AS __gx_node, \
                  max(CASE WHEN gx.is_terminal = 1 THEN gx.relationship_identity END) AS __gx_rel \
                  FROM ({}) AS q \
-                 JOIN __turso_graph_expand({}, {}, q.{}, '{}', '{}', {}, {}, {}, '{}', {}, {}, {}, {}, {}) AS gx{source_join} \
+                 JOIN __turso_graph_expand({}, {}, q.{}, '{}', '{}', {}, '{}', {}, {}, {}, '{}', {}, {}, {}, {}, {}) AS gx{source_join} \
                  GROUP BY {}gx.path_id) AS g \
                  JOIN {} AS n ON n.{} = g.__gx_node \
                  LEFT JOIN {} AS r ON r.{} = g.__gx_rel",
@@ -1100,7 +1094,9 @@ fn lower_graph_expand(
                 expand.graph.get(),
                 expand.from_node_source.get(),
                 binding_column(expand.from),
-                direction,
+                from_role.name,
+                to_role.name,
+                u8::from(expand.symmetric),
                 relationship_types,
                 expand.min_hops,
                 expand.max_hops,
@@ -1124,7 +1120,7 @@ fn lower_graph_expand(
         sql: format!(
             "SELECT q.*, r.{} AS {}, {} AS {}, n.{} AS {}, {} AS {} \
              FROM ({}) AS q \
-             JOIN __turso_graph_expand({}, {}, q.{}, '{}', '{}', {}, {}, {}, '{}', {}, {}, {}, {}, {}) AS gx{source_join} \
+             JOIN __turso_graph_expand({}, {}, q.{}, '{}', '{}', {}, '{}', {}, {}, {}, '{}', {}, {}, {}, {}, {}) AS gx{source_join} \
              JOIN {} AS n ON gx.is_terminal = 1 AND gx.node_source_id = {} AND n.{} = gx.node_identity \
              LEFT JOIN {} AS r ON gx.relationship_source_id = {} AND r.{} = gx.relationship_identity",
             quote_identifier(&relationship.identity_column),
@@ -1139,7 +1135,9 @@ fn lower_graph_expand(
             expand.graph.get(),
             expand.from_node_source.get(),
             binding_column(expand.from),
-            direction,
+            from_role.name,
+            to_role.name,
+            u8::from(expand.symmetric),
             relationship_types,
             expand.min_hops,
             expand.max_hops,

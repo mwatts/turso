@@ -892,7 +892,6 @@ mod tests {
         RelationshipSourceRegistration,
     };
     use turso_core::{Database, MemoryIO, SqliteDialect};
-    use turso_graph_ir::Direction;
     use turso_graph_runtime::{
         traverse, LimitKind, TraversalLimits, TraversalOrder, TraversalRequest, Uniqueness,
     };
@@ -1083,16 +1082,15 @@ mod tests {
 
         let paths = traverse(
             snapshot.graph(),
-            &TraversalRequest {
-                start: NodeId::new(1).unwrap(),
-                direction: Direction::Outgoing,
-                relationship_types: vec![RelationshipTypeId::new(1).unwrap()],
-                min_hops: 2,
-                max_hops: 2,
-                error_at_max_hops: false,
-                uniqueness: Uniqueness::Trail,
-                order: TraversalOrder::BreadthFirst,
-            },
+            &TraversalRequest::outgoing(
+                NodeId::new(1).unwrap(),
+                vec![RelationshipTypeId::new(1).unwrap()],
+                2,
+                2,
+                false,
+                Uniqueness::Trail,
+                TraversalOrder::BreadthFirst,
+            ),
             TraversalLimits::default(),
             &turso_graph_runtime::NeverCancelled,
         )

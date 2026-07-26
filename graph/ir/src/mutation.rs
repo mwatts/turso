@@ -52,6 +52,18 @@ pub struct CreateRelationship {
     pub properties: Vec<PropertyValue>,
 }
 
+impl CreateRelationship {
+    /// The binder always creates an edge that points `from -> to`, so
+    /// `direction` here is really just a hardcoded "outgoing". Naming it
+    /// through this accessor instead of `Direction::Outgoing` directly
+    /// means the frontend never has to name the `Direction` type at all.
+    /// Task 11 deletes `direction` from this struct once CREATE planning
+    /// becomes role-shaped, and this accessor goes with it.
+    pub fn default_direction() -> Direction {
+        Direction::Outgoing
+    }
+}
+
 /// Resolves the physical source for a mutation target.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum MutationSource {
