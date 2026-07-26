@@ -1,6 +1,6 @@
 use crate::{
-    Binding, BindingId, Direction, GraphId, LabelId, NullOrder, PlanError, RelationshipTypeId,
-    ResultShape, RoleId, Scope, SortDirection, SourceTableId, TypedExpression,
+    Binding, BindingId, GraphId, LabelId, NullOrder, PlanError, RelationshipTypeId, ResultShape,
+    RoleId, Scope, SortDirection, SourceTableId, TypedExpression,
 };
 
 /// A validated bound graph plan node with explicit visible scope and output.
@@ -39,7 +39,7 @@ impl Plan {
 pub enum PlanKind {
     Unit(Unit),
     NodeScan(NodeScan),
-    FixedExpand(FixedExpand),
+    RoleExpand(RoleExpand),
     GraphExpand(GraphExpand),
     Filter(Filter),
     Project(Project),
@@ -77,7 +77,7 @@ pub struct NodeScan {
 
 /// A single relationship hop from an already-bound node.
 #[derive(Clone, Debug, PartialEq)]
-pub struct FixedExpand {
+pub struct RoleExpand {
     pub input: Box<Plan>,
     pub from_node_source: SourceTableId,
     pub relationship_source: SourceTableId,
@@ -85,7 +85,6 @@ pub struct FixedExpand {
     pub from: BindingId,
     pub relationship: Binding,
     pub to: Binding,
-    pub direction: Direction,
     /// Role the traversal leaves the source binding through.
     pub from_role: RoleId,
     /// Role the traversal enters the target binding through.
@@ -102,7 +101,7 @@ pub struct FixedExpand {
     pub bound_target: Option<BindingId>,
 }
 
-impl FixedExpand {
+impl RoleExpand {
     pub fn role_pair(&self) -> (RoleId, RoleId) {
         (self.from_role, self.to_role)
     }
@@ -119,7 +118,6 @@ pub struct GraphExpand {
     pub from: BindingId,
     pub relationship: Binding,
     pub to: Binding,
-    pub direction: Direction,
     /// Role the traversal leaves the source binding through.
     pub from_role: RoleId,
     /// Role the traversal enters the target binding through.
@@ -376,6 +374,44 @@ mod tests {
             })
         );
         assert!(Union::new(vec![scan(1, 1), scan(2, 1)], true).is_ok());
+    }
+
+    fn sample_role_expand() -> RoleExpand {
+        let from_binding = BindingId::new(1).unwrap();
+        let relationship_binding = BindingId::new(2).unwrap();
+        let to_binding = BindingId::new(3).unwrap();
+        RoleExpand {
+            input: Box::new(scan(1, 1)),
+            from_node_source: SourceTableId::new(1).unwrap(),
+            relationship_source: SourceTableId::new(2).unwrap(),
+            target_node_source: SourceTableId::new(3).unwrap(),
+            from: from_binding,
+            relationship: Binding::new(
+                relationship_binding,
+                "r",
+                ValueType::Relationship,
+                Nullability::NonNull,
+            )
+            .unwrap(),
+            to: Binding::new(to_binding, "b", ValueType::Node, Nullability::NonNull).unwrap(),
+            from_role: RoleId::new(1).unwrap(),
+            to_role: RoleId::new(2).unwrap(),
+            symmetric: false,
+            relationship_types: vec![],
+            bound_target: None,
+        }
+    }
+
+    #[test]
+    fn a_role_expand_names_its_roles_and_no_direction() {
+        // Direction is a parser spelling, not a plan concept. A plan that still
+        // carried it would give two sources of truth for which way a traversal
+        // runs.
+        let expand = sample_role_expand();
+        assert_eq!(
+            expand.role_pair(),
+            (RoleId::new(1).unwrap(), RoleId::new(2).unwrap())
+        );
     }
 
     #[test]

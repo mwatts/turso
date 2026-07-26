@@ -14,9 +14,9 @@ use turso_graph_frontend::{
     RelationshipTableLayout, ResolvedProperty, SnapshotStore, Value, GRAPH_EXPAND_TABLE_NAME,
 };
 use turso_graph_ir::{
-    Binding, BindingId, Direction, FixedExpand, GraphId, LabelId, NodeScan, Nullability, Plan,
-    PlanKind, PropertyId, RelationshipTypeId, ResultShape, RoleCardinality, RoleId, Scope,
-    SourceTableId, ValueType,
+    Binding, BindingId, GraphId, LabelId, NodeScan, Nullability, Plan, PlanKind, PropertyId,
+    RelationshipTypeId, ResultShape, RoleCardinality, RoleExpand, RoleId, Scope, SourceTableId,
+    ValueType,
 };
 
 #[test]
@@ -665,7 +665,7 @@ impl RelationalCatalogSnapshot for TernaryCatalog {
     }
 }
 
-/// Lowers a hand-built `ir::FixedExpand` over [`TernaryCatalog`]'s
+/// Lowers a hand-built `ir::RoleExpand` over [`TernaryCatalog`]'s
 /// `scribe -> folio` role pair. `_query` documents the surface syntax this
 /// stands in for (`[x:Transcription](scribe: s, folio: f)`, not yet parsable
 /// -- that lands in Task 12); the plan below is built directly so this test
@@ -704,7 +704,7 @@ fn lower_ternary_to_sql(_query: &str) -> String {
     .unwrap();
 
     let expand = Plan::new(
-        PlanKind::FixedExpand(FixedExpand {
+        PlanKind::RoleExpand(RoleExpand {
             input: Box::new(scan),
             from_node_source: scribe_source,
             relationship_source,
@@ -712,7 +712,6 @@ fn lower_ternary_to_sql(_query: &str) -> String {
             from: from_binding,
             relationship: relationship_var.clone(),
             to: to_var.clone(),
-            direction: Direction::Outgoing,
             from_role: scribe_role,
             to_role: folio_role,
             symmetric: false,

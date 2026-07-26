@@ -438,7 +438,7 @@ fn collect_wanted(plan: &ir::Plan, wanted: &mut WantedProperties) {
     let mut expressions: Vec<&ir::TypedExpression> = Vec::new();
     match plan.kind() {
         ir::PlanKind::Unit(_) | ir::PlanKind::NodeScan(_) => {}
-        ir::PlanKind::FixedExpand(expand) => collect_wanted(&expand.input, wanted),
+        ir::PlanKind::RoleExpand(expand) => collect_wanted(&expand.input, wanted),
         ir::PlanKind::GraphExpand(expand) => collect_wanted(&expand.input, wanted),
         ir::PlanKind::Filter(filter) => {
             expressions.push(&filter.predicate);
@@ -607,8 +607,8 @@ fn lower_plan(
             bindings: HashMap::new(),
         }),
         ir::PlanKind::NodeScan(scan) => lower_node_scan(scan, catalog, wanted),
-        ir::PlanKind::FixedExpand(expand) => {
-            lower_fixed_expand(expand, catalog, optional, &[], wanted, None)
+        ir::PlanKind::RoleExpand(expand) => {
+            lower_role_expand(expand, catalog, optional, &[], wanted, None)
         }
         ir::PlanKind::GraphExpand(expand) => lower_graph_expand(expand, catalog, wanted),
         ir::PlanKind::Filter(filter) => {
@@ -965,10 +965,30 @@ fn lower_graph_expand(
     let target = catalog
         .node_layout(expand.target_node_source)
         .ok_or(LowerError::MissingSource(expand.target_node_source))?;
-    let direction = match expand.direction {
-        ir::Direction::Outgoing => "outgoing",
-        ir::Direction::Incoming => "incoming",
-        ir::Direction::Both => "both",
+    // The variable-length expand vtab is a physical BFS over a binary CSR
+    // snapshot (role-oblivious until Task 17), so it still takes a direction
+    // word rather than role names. The role pair says which physical
+    // direction that is: binary is a layout of the role model, not a
+    // separate kind, so this reads the same start/end accessors the fixed
+    // hop and the binder already resolve by name.
+    let start_role = relationship
+        .start_role()
+        .ok_or_else(|| LowerError::UnknownRole {
+            relation: relationship.table.clone(),
+            role: expand.from_role,
+        })?;
+    let end_role = relationship
+        .end_role()
+        .ok_or_else(|| LowerError::UnknownRole {
+            relation: relationship.table.clone(),
+            role: expand.to_role,
+        })?;
+    let direction = if expand.symmetric {
+        "both"
+    } else if expand.from_role == start_role.role && expand.to_role == end_role.role {
+        "outgoing"
+    } else {
+        "incoming"
     };
     let uniqueness = match expand.uniqueness {
         ir::PathUniqueness::Walk => "walk",
@@ -1172,16 +1192,16 @@ fn lower_optional_chain(
         return lower_plan(original, catalog, false, wanted);
     }
     match current.kind() {
-        ir::PlanKind::FixedExpand(expand) => {
-            lower_fixed_expand(expand, catalog, true, &predicates, wanted, boundary)
+        ir::PlanKind::RoleExpand(expand) => {
+            lower_role_expand(expand, catalog, true, &predicates, wanted, boundary)
         }
         ir::PlanKind::Union(union) => {
             let mut parts = Vec::new();
             let mut bindings: Option<HashMap<ir::BindingId, BindingLayout>> = None;
             for branch in union.inputs() {
                 let lowered = match branch.kind() {
-                    ir::PlanKind::FixedExpand(expand) => {
-                        lower_fixed_expand(expand, catalog, true, &predicates, wanted, boundary)?
+                    ir::PlanKind::RoleExpand(expand) => {
+                        lower_role_expand(expand, catalog, true, &predicates, wanted, boundary)?
                     }
                     _ => lower_optional_chain(branch, boundary, catalog, wanted)?,
                 };
@@ -1445,8 +1465,8 @@ fn lower_node_scan(
     Ok(Lowered { sql, bindings })
 }
 
-fn lower_fixed_expand(
-    expand: &ir::FixedExpand,
+fn lower_role_expand(
+    expand: &ir::RoleExpand,
     catalog: &dyn RelationalCatalogSnapshot,
     optional: bool,
     join_predicates: &[&ir::TypedExpression],

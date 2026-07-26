@@ -2177,7 +2177,7 @@ fn first_union_inputs(plan: &turso_graph_ir::Plan) -> Option<&[turso_graph_ir::P
 
     match plan.kind() {
         PlanKind::Union(union) => Some(union.inputs()),
-        PlanKind::FixedExpand(expand) => first_union_inputs(&expand.input),
+        PlanKind::RoleExpand(expand) => first_union_inputs(&expand.input),
         PlanKind::GraphExpand(expand) => first_union_inputs(&expand.input),
         PlanKind::Filter(filter) => first_union_inputs(&filter.input),
         PlanKind::Project(project) => first_union_inputs(&project.input),

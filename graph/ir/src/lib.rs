@@ -30,10 +30,9 @@ pub use mutation::{
     ReplacePropertiesDynamic, SetLabels, SetProperty,
 };
 pub use plan::{
-    Aggregate, AggregateFunction, Aggregation, Distinct, Filter, FixedExpand, GraphExpand,
-    Grouping, Join, LeftApply, Limit, NodeScan, PathUniqueness, Plan, PlanKind, ProcedureCall,
-    ProcedureIdentity, ProcedureOutput, Project, Projection, Skip, Sort, SortKey, Union, Unit,
-    Unwind,
+    Aggregate, AggregateFunction, Aggregation, Distinct, Filter, GraphExpand, Grouping, Join,
+    LeftApply, Limit, NodeScan, PathUniqueness, Plan, PlanKind, ProcedureCall, ProcedureIdentity,
+    ProcedureOutput, Project, Projection, RoleExpand, Skip, Sort, SortKey, Union, Unit, Unwind,
 };
 pub use role::{RoleBinding, RoleCardinality, RoleDef, RoleTarget};
 pub use scope::{Binding, Direction, Nullability, ResultColumn, ResultShape, Scope};

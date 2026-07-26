@@ -8,10 +8,16 @@
 use std::sync::Arc;
 
 use turso_core::{Connection, Database, DatabaseOpts, MemoryIO, OpenOptions, SqliteDialect};
+use turso_graph_cypher::parse;
 use turso_graph_frontend::{
-    register_graph, GraphCompilationCatalog, GraphConnection, GraphRegistration,
-    NodeSourceRegistration, ParameterTypes, Parameters, RelationshipSourceRegistration,
-    SchemaCatalog, SnapshotStore,
+    bind, register_graph, CatalogEntity, GraphCatalogSnapshot, GraphCompilationCatalog,
+    GraphConnection, GraphRegistration, NodeSourceRegistration, NodeTableLayout, ParameterTypes,
+    Parameters, RelationalCatalogSnapshot, RelationshipRoleLayout, RelationshipSourceRegistration,
+    RelationshipTableLayout, ResolvedProperty, SchemaCatalog, SnapshotStore,
+};
+use turso_graph_ir::{
+    GraphId, LabelId, Nullability, Plan, PlanKind, PropertyId, RelationshipTypeId, RoleCardinality,
+    RoleExpand, RoleId, SourceTableId, ValueType,
 };
 use turso_graph_runtime::{BuildLimits, NeverCancelled};
 
@@ -20,6 +26,7 @@ use turso_graph_runtime::{BuildLimits, NeverCancelled};
 /// (`relationships(id, src, dst)`), seeded with two people. Returns the
 /// `Arc<Database>` alongside the session so callers can open further
 /// connections onto the same graph (see [`second_connection`]).
+#[allow(dead_code)] // This file is also compiled as its own integration-test crate.
 pub fn social_graph_connection() -> (Arc<Database>, GraphConnection) {
     social_graph_connection_with_options(DatabaseOpts::default())
 }
@@ -105,4 +112,132 @@ fn social_graph_connection_with_options(opts: DatabaseOpts) -> (Arc<Database>, G
 #[allow(dead_code)] // Shared fixture; not every integration crate calls this.
 pub fn second_connection(database: &Arc<Database>) -> Arc<Connection> {
     database.connect().expect("connect")
+}
+
+/// A lightweight in-process `Person`/`KNOWS` catalog (role 1 = `start`, role
+/// 2 = `end`) for tests that bind a query directly, without a real
+/// `GraphConnection`.
+#[allow(dead_code)] // Shared fixture; not every integration crate calls this.
+struct Catalog;
+
+impl GraphCatalogSnapshot for Catalog {
+    fn node_source(&self, _graph: GraphId) -> Option<SourceTableId> {
+        SourceTableId::new(1).ok()
+    }
+
+    fn relationship_source(&self, _graph: GraphId) -> Option<SourceTableId> {
+        SourceTableId::new(2).ok()
+    }
+
+    fn label(&self, _graph: GraphId, _name: &str) -> Option<LabelId> {
+        LabelId::new(1).ok()
+    }
+
+    fn relationship_type(&self, _graph: GraphId, _name: &str) -> Option<RelationshipTypeId> {
+        RelationshipTypeId::new(1).ok()
+    }
+
+    fn property(
+        &self,
+        _graph: GraphId,
+        _entity: CatalogEntity,
+        name: &str,
+    ) -> Option<ResolvedProperty> {
+        let id = if name == "name" { 1 } else { 2 };
+        Some(ResolvedProperty {
+            id: PropertyId::new(id).ok()?,
+            value_type: if name == "name" {
+                ValueType::Text
+            } else {
+                ValueType::Integer
+            },
+            nullability: Nullability::Nullable,
+        })
+    }
+
+    fn relationship_source_roles(&self, source: SourceTableId) -> Option<RelationshipTableLayout> {
+        self.relationship_layout(source)
+    }
+}
+
+impl RelationalCatalogSnapshot for Catalog {
+    fn node_layout(&self, source: SourceTableId) -> Option<NodeTableLayout> {
+        (source.get() == 1).then(|| NodeTableLayout {
+            table: "people".to_owned(),
+            identity_column: "id".to_owned(),
+        })
+    }
+
+    fn relationship_layout(&self, source: SourceTableId) -> Option<RelationshipTableLayout> {
+        (source.get() == 2).then(|| RelationshipTableLayout {
+            table: "relationships".to_owned(),
+            identity_column: "id".to_owned(),
+            roles: vec![
+                RelationshipRoleLayout {
+                    role: RoleId::new(1).unwrap(),
+                    name: "start".to_owned(),
+                    column: "src".to_owned(),
+                    cardinality: RoleCardinality::One,
+                    spill_table: None,
+                },
+                RelationshipRoleLayout {
+                    role: RoleId::new(2).unwrap(),
+                    name: "end".to_owned(),
+                    column: "dst".to_owned(),
+                    cardinality: RoleCardinality::One,
+                    spill_table: None,
+                },
+            ],
+        })
+    }
+
+    fn property_column(&self, _source: SourceTableId, property: PropertyId) -> Option<String> {
+        match property.get() {
+            1 => Some("name".to_owned()),
+            2 => Some("age".to_owned()),
+            _ => None,
+        }
+    }
+}
+
+/// Binds `query` against [`Catalog`]'s `Person`/`KNOWS` shape.
+#[allow(dead_code)] // Shared fixture; not every integration crate calls this.
+pub fn bind_fixture(query: &str) -> Plan {
+    let parsed = parse(query).expect("fixture query must parse");
+    bind(
+        &parsed,
+        GraphId::new(1).expect("graph id"),
+        &Catalog,
+        &ParameterTypes::new(),
+    )
+    .expect("fixture query must bind")
+    .plan
+}
+
+/// Depth-first walk to the first `RoleExpand` in a plan, following every
+/// operator that carries an input.
+#[allow(dead_code)] // Shared fixture; not every integration crate calls this.
+pub fn first_role_expand(plan: &Plan) -> &RoleExpand {
+    fn walk(plan: &Plan) -> Option<&RoleExpand> {
+        match plan.kind() {
+            PlanKind::RoleExpand(expand) => Some(expand),
+            PlanKind::GraphExpand(expand) => walk(&expand.input),
+            PlanKind::Unit(_) | PlanKind::NodeScan(_) => None,
+            PlanKind::Filter(filter) => walk(&filter.input),
+            PlanKind::Project(project) => walk(&project.input),
+            PlanKind::Aggregate(aggregate) => walk(&aggregate.input),
+            PlanKind::Distinct(distinct) => walk(&distinct.input),
+            PlanKind::Sort(sort) => walk(&sort.input),
+            PlanKind::Skip(skip) => walk(&skip.input),
+            PlanKind::Limit(limit) => walk(&limit.input),
+            PlanKind::LeftApply(left_apply) => {
+                walk(&left_apply.left).or_else(|| walk(&left_apply.right))
+            }
+            PlanKind::Unwind(unwind) => walk(&unwind.input),
+            PlanKind::ProcedureCall(call) => walk(&call.input),
+            PlanKind::Union(union) => union.inputs().iter().find_map(walk),
+            PlanKind::Join(join) => walk(&join.left).or_else(|| walk(&join.right)),
+        }
+    }
+    walk(plan).expect("plan must contain a RoleExpand")
 }

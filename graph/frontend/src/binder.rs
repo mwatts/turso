@@ -2723,23 +2723,23 @@ impl<'a> Binder<'a> {
                         relationship_source,
                         start,
                         end,
-                        ir::Direction::Outgoing,
+                        cypher::Direction::Outgoing,
                     )),
                     cypher::Direction::Incoming if incoming => expansion_sources.push((
                         relationship_source,
                         end,
                         start,
-                        ir::Direction::Incoming,
+                        cypher::Direction::Incoming,
                     )),
                     cypher::Direction::Both if start == end && outgoing => expansion_sources
-                        .push((relationship_source, start, end, ir::Direction::Both)),
+                        .push((relationship_source, start, end, cypher::Direction::Both)),
                     cypher::Direction::Both => {
                         if outgoing {
                             expansion_sources.push((
                                 relationship_source,
                                 start,
                                 end,
-                                ir::Direction::Outgoing,
+                                cypher::Direction::Outgoing,
                             ));
                         }
                         if incoming {
@@ -2747,7 +2747,7 @@ impl<'a> Binder<'a> {
                                 relationship_source,
                                 end,
                                 start,
-                                ir::Direction::Incoming,
+                                cypher::Direction::Incoming,
                             ));
                         }
                     }
@@ -2817,9 +2817,13 @@ impl<'a> Binder<'a> {
                                 span_end: relationship.span.end,
                             })?;
                         let (from_role, to_role, symmetric) = match direction {
-                            ir::Direction::Outgoing => (start_role, end_role, false),
-                            ir::Direction::Incoming => (end_role, start_role, false),
-                            ir::Direction::Both => (start_role, end_role, true),
+                            cypher::Direction::Outgoing => (start_role, end_role, false),
+                            cypher::Direction::Incoming => (end_role, start_role, false),
+                            // Undirected only stays one expand when both roles
+                            // target the same node source; otherwise the
+                            // caller has already split it into a union of two
+                            // directed branches above.
+                            cypher::Direction::Both => (start_role, end_role, true),
                         };
                         let kind = if let Some((min_hops, max_hops, unbounded)) = range {
                             ir::PlanKind::GraphExpand(ir::GraphExpand {
@@ -2831,7 +2835,6 @@ impl<'a> Binder<'a> {
                                 from,
                                 relationship: relationship_binding.clone(),
                                 to: to.clone(),
-                                direction,
                                 from_role,
                                 to_role,
                                 symmetric,
@@ -2844,7 +2847,7 @@ impl<'a> Binder<'a> {
                                 relationship_list_output: relationship_list.clone(),
                             })
                         } else {
-                            ir::PlanKind::FixedExpand(ir::FixedExpand {
+                            ir::PlanKind::RoleExpand(ir::RoleExpand {
                                 input: Box::new(input.clone()),
                                 from_node_source,
                                 relationship_source,
@@ -2852,7 +2855,6 @@ impl<'a> Binder<'a> {
                                 from,
                                 relationship: relationship_binding.clone(),
                                 to: to.clone(),
-                                direction,
                                 from_role,
                                 to_role,
                                 symmetric,
@@ -7404,7 +7406,7 @@ mod tests {
     fn innermost_node_scan_binding(plan: &ir::Plan) -> ir::BindingId {
         match plan.kind() {
             ir::PlanKind::NodeScan(scan) => scan.binding,
-            ir::PlanKind::FixedExpand(expand) => innermost_node_scan_binding(&expand.input),
+            ir::PlanKind::RoleExpand(expand) => innermost_node_scan_binding(&expand.input),
             ir::PlanKind::GraphExpand(expand) => innermost_node_scan_binding(&expand.input),
             ir::PlanKind::Filter(filter) => innermost_node_scan_binding(&filter.input),
             ir::PlanKind::Project(project) => innermost_node_scan_binding(&project.input),

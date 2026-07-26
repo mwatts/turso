@@ -1,6 +1,9 @@
+mod fixture;
+
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 
+use fixture::{bind_fixture, first_role_expand};
 use serde::Deserialize;
 use turso_core::{Database, MemoryIO, SqliteDialect, Value};
 use turso_graph_cypher::parse;
@@ -10,8 +13,8 @@ use turso_graph_frontend::{
     RelationshipTableLayout, ResolvedProperty,
 };
 use turso_graph_ir::{
-    FixedExpand, GraphId, LabelId, Nullability, Plan, PlanKind, PropertyId, RelationshipTypeId,
-    RoleCardinality, RoleId, SourceTableId, ValueType,
+    GraphId, LabelId, Nullability, PropertyId, RelationshipTypeId, RoleCardinality, RoleId,
+    SourceTableId, ValueType,
 };
 
 const MANIFEST: &str = include_str!("../../testdata/fixed-patterns/manifest.toml");
@@ -132,45 +135,6 @@ fn manifest() -> Manifest {
 
 fn role(value: u32) -> RoleId {
     RoleId::new(value).unwrap()
-}
-
-fn bind_fixture(query: &str) -> Plan {
-    let parsed = parse(query).expect("fixture query must parse");
-    bind(
-        &parsed,
-        GraphId::new(1).expect("graph id"),
-        &Catalog,
-        &ParameterTypes::new(),
-    )
-    .expect("fixture query must bind")
-    .plan
-}
-
-/// Depth-first walk to the first `FixedExpand` in a plan, following every
-/// operator that carries an input.
-fn first_fixed_expand(plan: &Plan) -> &FixedExpand {
-    fn walk(plan: &Plan) -> Option<&FixedExpand> {
-        match plan.kind() {
-            PlanKind::FixedExpand(expand) => Some(expand),
-            PlanKind::GraphExpand(expand) => walk(&expand.input),
-            PlanKind::Unit(_) | PlanKind::NodeScan(_) => None,
-            PlanKind::Filter(filter) => walk(&filter.input),
-            PlanKind::Project(project) => walk(&project.input),
-            PlanKind::Aggregate(aggregate) => walk(&aggregate.input),
-            PlanKind::Distinct(distinct) => walk(&distinct.input),
-            PlanKind::Sort(sort) => walk(&sort.input),
-            PlanKind::Skip(skip) => walk(&skip.input),
-            PlanKind::Limit(limit) => walk(&limit.input),
-            PlanKind::LeftApply(left_apply) => {
-                walk(&left_apply.left).or_else(|| walk(&left_apply.right))
-            }
-            PlanKind::Unwind(unwind) => walk(&unwind.input),
-            PlanKind::ProcedureCall(call) => walk(&call.input),
-            PlanKind::Union(union) => union.inputs().iter().find_map(walk),
-            PlanKind::Join(join) => walk(&join.left).or_else(|| walk(&join.right)),
-        }
-    }
-    walk(plan).expect("plan must contain a FixedExpand")
 }
 
 #[test]
@@ -350,7 +314,7 @@ fn an_outgoing_expand_binds_the_start_to_end_role_pair() {
     // The role pair must agree with the direction it is replacing, or the
     // contract half of this migration silently reverses every traversal.
     let plan = bind_fixture("MATCH (a:Person)-[r:KNOWS]->(b:Person) RETURN b");
-    let expand = first_fixed_expand(&plan);
+    let expand = first_role_expand(&plan);
     assert_eq!(expand.from_role.get(), 1, "role 1 is `start`");
     assert_eq!(expand.to_role.get(), 2, "role 2 is `end`");
     assert!(!expand.symmetric);
@@ -359,7 +323,7 @@ fn an_outgoing_expand_binds_the_start_to_end_role_pair() {
 #[test]
 fn an_incoming_expand_reverses_the_role_pair_rather_than_flagging_it() {
     let plan = bind_fixture("MATCH (a:Person)<-[r:KNOWS]-(b:Person) RETURN b");
-    let expand = first_fixed_expand(&plan);
+    let expand = first_role_expand(&plan);
     assert_eq!(expand.role_pair(), (role(2), role(1)));
     assert!(!expand.symmetric);
 }
@@ -370,7 +334,7 @@ fn an_undirected_same_source_expand_is_the_symmetric_pair() {
     // come from one node source; otherwise it unions two directed branches,
     // and this test would find two expands rather than a symmetric one.
     let plan = bind_fixture("MATCH (a:Person)-[r:KNOWS]-(b:Person) RETURN b");
-    let expand = first_fixed_expand(&plan);
+    let expand = first_role_expand(&plan);
     assert_eq!(expand.role_pair(), (role(1), role(2)));
     assert!(
         expand.symmetric,
