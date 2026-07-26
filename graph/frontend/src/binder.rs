@@ -1740,6 +1740,83 @@ impl<'a> Binder<'a> {
     /// A repeated role PLAYER is legal (no cross-role uniqueness rule); a
     /// repeated role NAME is refused rather than silently taking the last
     /// write.
+    /// Resolves one role argument's player: it must already be a bound
+    /// variable, and the player's bound entity type must be a legal target
+    /// for `role`. Shared by relation creation (`bind_create_role_pattern`)
+    /// and relation role updates (`SET [x](role: player)`), so both surfaces
+    /// refuse the same shapes for the same reason.
+    ///
+    /// A literal `null` player gets its own refusal (`RoleTargetTypeViolation`,
+    /// naming the role) rather than the generic "not a bound variable"
+    /// `Unsupported`: `SET [x](start: null)` is not a feature that might be
+    /// supported later, it can never mean anything, because SET has no
+    /// syntax to represent "clear this role" -- a `One` role must always
+    /// have a player and a `Many` role's absence is spelled by omitting the
+    /// role entirely, not by naming it with a null player.
+    fn bind_role_player(
+        &self,
+        relationship_type: &str,
+        role: &crate::semantic::SemanticRole,
+        argument: &cypher::RoleArgument,
+    ) -> Result<ir::BindingId, BindError> {
+        let cypher::Expression::Variable(name) = &argument.player.value else {
+            if matches!(
+                argument.player.value,
+                cypher::Expression::Literal(cypher::Literal::Null)
+            ) {
+                return Err(BindError::RoleTargetTypeViolation {
+                    relationship_type: relationship_type.to_owned(),
+                    role: role.name.clone(),
+                    found: "a null player -- there is no way to clear a role via SET".to_owned(),
+                    span_start: argument.player.span.start,
+                    span_end: argument.player.span.end,
+                });
+            }
+            return Err(at_unsupported(
+                argument.player.span,
+                "a role player that is not a bound variable",
+            ));
+        };
+        let value = self.resolve_binding(name, argument.player.span)?.id();
+
+        let allowed = role
+            .targets
+            .iter()
+            .filter_map(|target| match target {
+                ir::RoleTarget::Node(label) => Some(*label),
+                ir::RoleTarget::Relation(_) => None,
+            })
+            .collect::<Vec<_>>();
+        if !allowed.is_empty() {
+            let names = self
+                .entities
+                .get(&value)
+                .map(|entity| entity.names.clone())
+                .unwrap_or_default();
+            let all_allowed = !names.is_empty()
+                && names.iter().all(|name| {
+                    self.catalog
+                        .label(self.graph, name)
+                        .is_some_and(|label| allowed.contains(&label))
+                });
+            if !all_allowed {
+                let found = if names.is_empty() {
+                    "an unlabeled binding".to_owned()
+                } else {
+                    names.join(", ")
+                };
+                return Err(BindError::RoleTargetTypeViolation {
+                    relationship_type: relationship_type.to_owned(),
+                    role: role.name.clone(),
+                    found,
+                    span_start: argument.span.start,
+                    span_end: argument.span.end,
+                });
+            }
+        }
+        Ok(value)
+    }
+
     fn bind_create_role_pattern(
         &mut self,
         pattern: &cypher::RolePattern,
@@ -1803,49 +1880,7 @@ impl<'a> Binder<'a> {
                     span_end: argument.span.end,
                 });
             }
-            let cypher::Expression::Variable(name) = &argument.player.value else {
-                return Err(at_unsupported(
-                    argument.player.span,
-                    "a role player that is not a bound variable",
-                ));
-            };
-            let value = self.resolve_binding(name, argument.player.span)?.id();
-
-            let allowed = role
-                .targets
-                .iter()
-                .filter_map(|target| match target {
-                    ir::RoleTarget::Node(label) => Some(*label),
-                    ir::RoleTarget::Relation(_) => None,
-                })
-                .collect::<Vec<_>>();
-            if !allowed.is_empty() {
-                let names = self
-                    .entities
-                    .get(&value)
-                    .map(|entity| entity.names.clone())
-                    .unwrap_or_default();
-                let all_allowed = !names.is_empty()
-                    && names.iter().all(|name| {
-                        self.catalog
-                            .label(self.graph, name)
-                            .is_some_and(|label| allowed.contains(&label))
-                    });
-                if !all_allowed {
-                    let found = if names.is_empty() {
-                        "an unlabeled binding".to_owned()
-                    } else {
-                        names.join(", ")
-                    };
-                    return Err(BindError::RoleTargetTypeViolation {
-                        relationship_type: type_name.value.clone(),
-                        role: role.name.clone(),
-                        found,
-                        span_start: argument.span.start,
-                        span_end: argument.span.end,
-                    });
-                }
-            }
+            let value = self.bind_role_player(&type_name.value, role, argument)?;
 
             fills.push((role.role, value));
         }
@@ -2201,7 +2236,121 @@ impl<'a> Binder<'a> {
                     },
                 ))
             }
+            cypher::SetItem::Roles {
+                relation,
+                roles,
+                span,
+            } => self.bind_set_roles(relation, roles, *span),
         }
+    }
+
+    /// Binds `SET [x](role: player, ...)`: repoints a subset of `x`'s roles.
+    /// Role arguments resolve by NAME against the relation type's declared
+    /// roles (never by position), exactly like `bind_create_role_pattern`.
+    /// Unlike creation, this does not require every declared role to be
+    /// named -- a role update names only the roles it wants to change, so
+    /// the required-role check from creation does not apply here. The
+    /// duplicate-role rule still applies: a repeated `One` role argument is
+    /// refused, a repeated `Many` role argument is not (one argument per
+    /// player is the normal shape for a many-valued role).
+    fn bind_set_roles(
+        &mut self,
+        relation: &cypher::Spanned<String>,
+        roles: &[cypher::RoleArgument],
+        span: cypher::Span,
+    ) -> Result<ir::Mutation, BindError> {
+        let (binding, kind) = self.resolve_set_variable(relation)?;
+        if kind != CatalogEntity::Relationship {
+            return Err(at_unsupported(
+                relation.span,
+                "a role update on a non-relationship entity",
+            ));
+        }
+        let type_names = self.entity_type_names(binding, relation.span)?;
+        let [type_name] = type_names.as_slice() else {
+            return Err(at_unsupported(
+                relation.span,
+                "a role update on a relation without exactly one relationship type",
+            ));
+        };
+        let relationship_type = self
+            .catalog
+            .relationship_type(self.graph, type_name)
+            .ok_or_else(|| BindError::UnknownRelationshipType {
+                name: type_name.clone(),
+                span_start: relation.span.start,
+                span_end: relation.span.end,
+            })?;
+        let declared = self
+            .catalog
+            .relationship_roles(self.graph, relationship_type);
+        let source = self
+            .catalog
+            .relationship_source_for_type(self.graph, relationship_type)
+            .ok_or(BindError::MissingSource {
+                entity: "relationship",
+                span_start: span.start,
+                span_end: span.end,
+            })?;
+
+        let mut fills: Vec<(ir::RoleId, ir::BindingId)> = Vec::with_capacity(roles.len());
+        let mut seen: std::collections::HashSet<ir::RoleId> = std::collections::HashSet::new();
+        for argument in roles {
+            let role = declared
+                .iter()
+                .find(|role| role.name.eq_ignore_ascii_case(&argument.name.value))
+                .ok_or_else(|| BindError::UnknownRole {
+                    relationship_type: type_name.clone(),
+                    role: argument.name.value.clone(),
+                    known: declared
+                        .iter()
+                        .map(|role| role.name.as_str())
+                        .collect::<Vec<_>>()
+                        .join(", "),
+                    span_start: argument.name.span.start,
+                    span_end: argument.name.span.end,
+                })?;
+            // Same rule as creation: a repeated `One` role argument is a
+            // mistake (it can hold exactly one player); a repeated `Many`
+            // role argument is one argument per player and is not.
+            let repeated = !seen.insert(role.role);
+            if repeated && role.cardinality == ir::RoleCardinality::One {
+                return Err(BindError::DuplicateRoleArgument {
+                    relationship_type: type_name.clone(),
+                    role: role.name.clone(),
+                    span_start: argument.span.start,
+                    span_end: argument.span.end,
+                });
+            }
+            let value = self.bind_role_player(type_name, role, argument)?;
+            fills.push((role.role, value));
+        }
+        // No required-role check here: a role update names a subset of
+        // roles by design, unlike creation which must cover every
+        // non-optional role.
+
+        // Declaration order, not source order, so a `Many` role's players
+        // stay grouped by `RoleId` regardless of how the query spelled its
+        // role arguments -- the executor purges and rewrites one role's
+        // spill rows at a time.
+        let roles = declared
+            .iter()
+            .flat_map(|role| {
+                fills
+                    .iter()
+                    .filter(move |(role_id, _)| *role_id == role.role)
+                    .map(|(role_id, value)| ir::RoleBinding {
+                        role: *role_id,
+                        value: *value,
+                    })
+            })
+            .collect();
+
+        Ok(ir::Mutation::SetRoles(ir::SetRoles {
+            relation: binding,
+            source,
+            roles,
+        }))
     }
 
     fn resolve_set_variable(

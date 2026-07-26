@@ -270,6 +270,24 @@ fn walk_set_item(pair: Pair<'_, Rule>) -> Result<SetItem, ParseError> {
                 .collect();
             Ok(SetItem::Labels { variable, labels })
         }
+        Rule::set_role_item => {
+            let relation = inner
+                .next()
+                .ok_or_else(|| ParseError::at(span, "SET role item has no relation"))?;
+            let relation = Spanned::new(identifier_text(relation.as_str()), pair_span(&relation));
+            let arguments = inner
+                .next()
+                .ok_or_else(|| ParseError::at(span, "SET role item has no role arguments"))?;
+            let roles = arguments
+                .into_inner()
+                .map(walk_role_argument)
+                .collect::<Result<Vec<_>, _>>()?;
+            Ok(SetItem::Roles {
+                relation,
+                roles,
+                span,
+            })
+        }
         _ => Err(ParseError::at(span, "unsupported SET item form")),
     }
 }

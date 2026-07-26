@@ -17,6 +17,7 @@ pub enum Mutation {
     CreateRelation(CreateRelation),
     SetProperty(SetProperty),
     SetLabels(SetLabels),
+    SetRoles(SetRoles),
     ReplaceProperties(ReplaceProperties),
     ReplacePropertiesDynamic(ReplacePropertiesDynamic),
     RemoveProperty(RemoveProperty),
@@ -77,6 +78,19 @@ pub struct SetLabels {
     pub entity: BindingId,
     pub source: MutationSource,
     pub labels: Vec<LabelId>,
+}
+
+/// `SET [x](role: player, ...)` — repoints a subset of an existing relation's
+/// roles. Unlike `CreateRelation.roles`, this is not required to cover every
+/// declared role: a role update names only the roles it wants to change.
+/// Replaces (does not append) whatever players a `Many` role already holds --
+/// `SET` has no undo syntax, so appending would make running one statement
+/// twice mean something different from running it once.
+#[derive(Clone, Debug, PartialEq)]
+pub struct SetRoles {
+    pub relation: BindingId,
+    pub source: SourceTableId,
+    pub roles: Vec<RoleBinding>,
 }
 
 /// `SET n = map` / `SET n += map` over a literal component map. `clear`

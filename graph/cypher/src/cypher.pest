@@ -66,11 +66,15 @@ merge_clause = { MERGE ~ path_pattern ~ merge_action* }
 merge_action = { ON ~ (CREATE | MATCH) ~ SET ~ set_item ~ ("," ~ set_item)* }
 ON = @{ ^"on" ~ !ident_char }
 set_clause = { SET ~ set_item ~ ("," ~ set_item)* }
-set_item = { set_property_item | set_merge_item | set_replace_item | set_label_item }
+set_item = { set_role_item | set_property_item | set_merge_item | set_replace_item | set_label_item }
 set_property_item = { property_target ~ "=" ~ expression }
 set_merge_item = { identifier ~ "+=" ~ expression }
 set_replace_item = { identifier ~ "=" ~ expression }
 set_label_item = { identifier ~ node_labels }
+// `SET [x](role: player, ...)` — repoints roles of an already-bound
+// relation. No type list or property map: unlike `role_pattern` (which
+// creates), this only ever targets a relation bound elsewhere.
+set_role_item = { "[" ~ identifier ~ "]" ~ role_arguments }
 remove_clause = { REMOVE ~ property_target ~ ("," ~ property_target)* }
 property_target = { identifier ~ "." ~ identifier }
 delete_clause = { DETACH? ~ DELETE ~ identifier ~ ("," ~ identifier)* }

@@ -1632,6 +1632,103 @@ fn execute_operation(
                 connection, catalog, graph, delete, source, parameters, values,
             )?;
         }
+        ir::Mutation::SetRoles(update) => {
+            let layout = catalog
+                .relationship_layout(update.source)
+                .ok_or(LowerError::MissingSource(update.source))?;
+            let identity = values
+                .get(&update.relation)
+                .ok_or(MutationError::MissingBinding(update.relation))?
+                .clone();
+            let identity_param = identity_parameter(update.relation);
+            let mut internal: HashMap<String, Value> =
+                HashMap::from([(identity_param.clone(), identity)]);
+            // Group role arguments by `RoleId`: a `Many` role can be named by
+            // more than one argument (one per player), and every player in
+            // the group must land together -- grouping keeps the spill
+            // purge-then-write to one purge per role rather than one purge
+            // per argument, which would delete players an earlier argument
+            // in the same SET just inserted.
+            let mut groups: Vec<(ir::RoleId, Vec<ir::BindingId>)> = Vec::new();
+            for binding in &update.roles {
+                match groups.iter_mut().find(|(role, _)| *role == binding.role) {
+                    Some((_, players)) => players.push(binding.value),
+                    None => groups.push((binding.role, vec![binding.value])),
+                }
+            }
+            let mut assignments = Vec::new();
+            for (index, (role_id, players)) in groups.iter().enumerate() {
+                let role = layout
+                    .role(*role_id)
+                    .ok_or(MutationError::UnknownRole { role: *role_id })?;
+                match role.cardinality {
+                    ir::RoleCardinality::One => {
+                        // The binder refuses a repeated `One` role argument,
+                        // so exactly one player reaches here.
+                        let player = values
+                            .get(&players[0])
+                            .ok_or(MutationError::MissingBinding(players[0]))?;
+                        let parameter = format!("{INTERNAL_PARAMETER_PREFIX}set_role_{index}");
+                        internal.insert(parameter.clone(), player.clone());
+                        assignments.push(format!(
+                            "{} = ${parameter}",
+                            quoted_identifier(&role.column)
+                        ));
+                    }
+                    ir::RoleCardinality::Many => {
+                        let table = role
+                            .spill_table
+                            .as_ref()
+                            .expect("a Many role always has a spill table");
+                        // SET replaces the whole player set rather than
+                        // appending: there is no "unset" syntax to undo an
+                        // append, so an appending SET would make running one
+                        // statement twice mean something different from
+                        // running it once.
+                        run_ignore(
+                            connection,
+                            &format!(
+                                "DELETE FROM {} WHERE relation_id = ${identity_param}",
+                                quoted_identifier(table),
+                            ),
+                            parameters,
+                            &internal,
+                        )?;
+                        for (player_index, player_binding) in players.iter().enumerate() {
+                            let player = values
+                                .get(player_binding)
+                                .ok_or(MutationError::MissingBinding(*player_binding))?;
+                            let player_parameter = format!(
+                                "{INTERNAL_PARAMETER_PREFIX}set_role_player_{index}_{player_index}"
+                            );
+                            internal.insert(player_parameter.clone(), player.clone());
+                            run_ignore(
+                                connection,
+                                &format!(
+                                    "INSERT INTO {}(relation_id, node_id) VALUES (${identity_param}, ${player_parameter})",
+                                    quoted_identifier(table),
+                                ),
+                                parameters,
+                                &internal,
+                            )?;
+                        }
+                    }
+                }
+            }
+            if !assignments.is_empty() {
+                run_ignore(
+                    connection,
+                    &format!(
+                        "UPDATE {} SET {} WHERE {} = ${identity_param}",
+                        quoted_identifier(&layout.table),
+                        assignments.join(", "),
+                        quoted_identifier(&layout.identity_column),
+                    ),
+                    parameters,
+                    &internal,
+                )?;
+            }
+        }
     }
     Ok(())
 }

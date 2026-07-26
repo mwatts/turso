@@ -477,3 +477,263 @@ fn an_optional_role_may_be_omitted() {
         "only the three named roles should be filled"
     );
 }
+
+// --- Task 15: `SET [x](role: player, ...)` -- repointing roles of an
+// already-bound relation. Task 13b (the standalone role pattern in MATCH,
+// `MATCH [x:T](role: player)`) is not implemented, so every test below binds
+// its relation with today's arrow form (`MATCH (a)-[r:KNOWS]->(b)`) instead.
+
+/// Repointing a `One` role updates that role's endpoint column and leaves
+/// every other role alone.
+#[test]
+fn a_single_valued_role_can_be_repointed_after_create() {
+    let (database, session) = fixture::witnessed_session();
+    session
+        .execute(
+            "CREATE (:Person {id: 1}), (:Person {id: 2}), (:Person {id: 3}), (:Person {id: 4})",
+            &Parameters::new(),
+        )
+        .expect("seed people");
+    session
+        .execute(
+            "MATCH (a:Person {id: 1}), (b:Person {id: 2}), (w:Person {id: 4}) \
+             CREATE [x:KNOWS](start: a, end: b, witness: w)",
+            &Parameters::new(),
+        )
+        .expect("create relation");
+    session
+        .execute(
+            "MATCH (a:Person)-[r:KNOWS]->(b:Person), (c:Person {id: 3}) \
+             SET [r](start: c)",
+            &Parameters::new(),
+        )
+        .expect("repoint start to c");
+
+    let connection = fixture::second_connection(&database);
+    let rows = connection
+        .prepare("SELECT src, dst FROM relationships")
+        .unwrap()
+        .run_collect_rows()
+        .unwrap();
+    assert_eq!(
+        rows,
+        vec![vec![Value::from_i64(3), Value::from_i64(2)]],
+        "start moved to c (3); end (2) is untouched"
+    );
+}
+
+/// `SET` on a `Many` role replaces its whole player set rather than
+/// appending to it. Append has no undo syntax -- there is no way to spell
+/// "remove this one witness" -- so an appending SET would make running the
+/// same statement twice mean something different from running it once
+/// (two witnesses after one run, four after two). Replace does not have
+/// that problem: running it twice leaves the same one witness both times.
+#[test]
+fn setting_a_many_valued_role_replaces_rather_than_appends() {
+    let (database, session) = fixture::witnessed_session();
+    session
+        .execute(
+            "CREATE (:Person {id: 1}), (:Person {id: 2}), (:Person {id: 3}), \
+                    (:Person {id: 4}), (:Person {id: 5})",
+            &Parameters::new(),
+        )
+        .expect("seed people");
+    session
+        .execute(
+            "MATCH (a:Person {id: 1}), (b:Person {id: 2}), \
+                   (w1:Person {id: 3}), (w2:Person {id: 4}) \
+             CREATE [x:KNOWS](start: a, end: b, witness: w1, witness: w2)",
+            &Parameters::new(),
+        )
+        .expect("create relation with two witnesses");
+    session
+        .execute(
+            "MATCH (a:Person)-[r:KNOWS]->(b:Person), (w3:Person {id: 5}) \
+             SET [r](witness: w3)",
+            &Parameters::new(),
+        )
+        .expect("replace the witness set with a single new witness");
+
+    let connection = fixture::second_connection(&database);
+    let rows = connection
+        .prepare("SELECT node_id FROM relationships__witness")
+        .unwrap()
+        .run_collect_rows()
+        .unwrap();
+    assert_eq!(
+        rows,
+        vec![vec![Value::from_i64(5)]],
+        "only the new witness remains -- the two old witnesses were replaced, not joined"
+    );
+}
+
+/// The target-type check on a role update reuses `bind_role_player`, the
+/// helper extracted from `bind_create_role_pattern`'s inline check (Task
+/// 13a): `witnessed_session`'s roles all target `Person`, so it cannot
+/// exercise a target-type refusal. Bind straight against `RoledCatalog`
+/// instead, combining CREATE and SET in one statement bound (not executed)
+/// through `bind_mutation`: CREATE registers `x`'s entity binding before SET
+/// resolves it, so no MATCH -- arrow-form or standalone -- is needed at all.
+#[test]
+fn a_role_update_rejects_a_player_of_the_wrong_type() {
+    let error = bind_role_pattern_query(
+        "MATCH (p:Person), (t:Text), (f:Folio) \
+         CREATE [x:Transcription](scribe: p, text: t, folio: f) \
+         SET [x](scribe: t)",
+    )
+    .expect_err("t is a Text, not a Person, and cannot fill scribe");
+    let message = error.to_string();
+    assert!(message.contains("scribe"), "{message}");
+    assert!(message.contains("Text"), "{message}");
+}
+
+/// A role update names a subset of roles by design (unlike creation, it has
+/// no required-role check), but naming a role with a null player is refused
+/// rather than treated as "clear this role": SET has no syntax for clearing
+/// a role, so a null player can only ever be a mistake.
+#[test]
+fn a_role_update_rejects_a_null_player() {
+    let (_database, session) = fixture::witnessed_session();
+    session
+        .execute(
+            "CREATE (:Person {id: 1}), (:Person {id: 2}), (:Person {id: 3})",
+            &Parameters::new(),
+        )
+        .expect("seed people");
+    session
+        .execute(
+            "MATCH (a:Person {id: 1}), (b:Person {id: 2}), (w:Person {id: 3}) \
+             CREATE [x:KNOWS](start: a, end: b, witness: w)",
+            &Parameters::new(),
+        )
+        .expect("create relation");
+    let error = session
+        .execute(
+            "MATCH (a:Person)-[r:KNOWS]->(b:Person) SET [r](start: null)",
+            &Parameters::new(),
+        )
+        .expect_err("start cannot be cleared with a null player");
+    let message = error.to_string();
+    assert!(message.contains("start"), "{message}");
+}
+
+/// The central semantic claim behind "`SET` replaces, it does not append":
+/// running the same `SET` twice must mean what running it once means. If
+/// the executor appended instead of replacing, the second run would leave
+/// two copies of the new witness instead of one.
+#[test]
+fn setting_a_many_valued_role_twice_is_idempotent() {
+    let (database, session) = fixture::witnessed_session();
+    session
+        .execute(
+            "CREATE (:Person {id: 1}), (:Person {id: 2}), (:Person {id: 3}), \
+                    (:Person {id: 4}), (:Person {id: 5})",
+            &Parameters::new(),
+        )
+        .expect("seed people");
+    session
+        .execute(
+            "MATCH (a:Person {id: 1}), (b:Person {id: 2}), \
+                   (w1:Person {id: 3}), (w2:Person {id: 4}) \
+             CREATE [x:KNOWS](start: a, end: b, witness: w1, witness: w2)",
+            &Parameters::new(),
+        )
+        .expect("create relation with two witnesses");
+    let set_query = "MATCH (a:Person)-[r:KNOWS]->(b:Person), (w3:Person {id: 5}) \
+                     SET [r](witness: w3)";
+    session
+        .execute(set_query, &Parameters::new())
+        .expect("replace the witness set with a single new witness (first run)");
+    session
+        .execute(set_query, &Parameters::new())
+        .expect("replace the witness set with a single new witness (second run)");
+
+    let connection = fixture::second_connection(&database);
+    let rows = connection
+        .prepare("SELECT node_id FROM relationships__witness")
+        .unwrap()
+        .run_collect_rows()
+        .unwrap();
+    assert_eq!(
+        rows,
+        vec![vec![Value::from_i64(5)]],
+        "running the same SET twice leaves exactly one witness, not two"
+    );
+}
+
+/// A single `SET` can name one `Many` role with more than one player
+/// argument, same as `CREATE` (one argument per player). The executor must
+/// purge the role's spill rows once per role, not once per argument -- a
+/// purge-per-argument would delete an earlier argument's just-inserted row,
+/// leaving only the last player standing.
+#[test]
+fn setting_a_many_valued_role_with_two_players_in_one_set_lands_both() {
+    let (database, session) = fixture::witnessed_session();
+    session
+        .execute(
+            "CREATE (:Person {id: 1}), (:Person {id: 2}), (:Person {id: 3}), \
+                    (:Person {id: 4}), (:Person {id: 5})",
+            &Parameters::new(),
+        )
+        .expect("seed people");
+    session
+        .execute(
+            "MATCH (a:Person {id: 1}), (b:Person {id: 2}), (w:Person {id: 3}) \
+             CREATE [x:KNOWS](start: a, end: b, witness: w)",
+            &Parameters::new(),
+        )
+        .expect("create relation with one witness");
+    session
+        .execute(
+            "MATCH (a:Person)-[r:KNOWS]->(b:Person), \
+                   (w1:Person {id: 4}), (w2:Person {id: 5}) \
+             SET [r](witness: w1, witness: w2)",
+            &Parameters::new(),
+        )
+        .expect("replace the witness set with two new witnesses in one SET");
+
+    let connection = fixture::second_connection(&database);
+    let mut rows = connection
+        .prepare("SELECT node_id FROM relationships__witness")
+        .unwrap()
+        .run_collect_rows()
+        .unwrap();
+    rows.sort();
+    assert_eq!(
+        rows,
+        vec![vec![Value::from_i64(4)], vec![Value::from_i64(5)]],
+        "both players named for the witness role in one SET land, not just the last one"
+    );
+}
+
+/// The `SET` path shares the create path's duplicate-role rule: a repeated
+/// `One` role argument in a single `SET` is refused (a `One` role can only
+/// ever hold one player), unlike a repeated `Many` role argument, which is
+/// one argument per player and is legal.
+#[test]
+fn a_role_update_rejects_a_repeated_one_role_argument() {
+    let (_database, session) = fixture::witnessed_session();
+    session
+        .execute(
+            "CREATE (:Person {id: 1}), (:Person {id: 2}), (:Person {id: 3}), \
+                    (:Person {id: 4})",
+            &Parameters::new(),
+        )
+        .expect("seed people");
+    session
+        .execute(
+            "MATCH (a:Person {id: 1}), (b:Person {id: 2}), (w:Person {id: 4}) \
+             CREATE [x:KNOWS](start: a, end: b, witness: w)",
+            &Parameters::new(),
+        )
+        .expect("create relation");
+    let error = session
+        .execute(
+            "MATCH (a:Person)-[r:KNOWS]->(b:Person), (c:Person {id: 3}) \
+             SET [r](start: b, start: c)",
+            &Parameters::new(),
+        )
+        .expect_err("start is a One role and cannot be named twice in one SET");
+    let message = error.to_string();
+    assert!(message.contains("start"), "{message}");
+}

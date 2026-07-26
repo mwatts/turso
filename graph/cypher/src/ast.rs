@@ -109,6 +109,15 @@ pub enum SetItem {
         variable: Spanned<String>,
         labels: Vec<Spanned<String>>,
     },
+    /// `SET [x](role: player, ...)` — repoints the named roles of an
+    /// already-bound relation. Unlike `RolePattern` (which creates), this
+    /// carries no type list or property map: it only ever retargets roles on
+    /// a relation bound elsewhere in the query.
+    Roles {
+        relation: Spanned<String>,
+        roles: Vec<RoleArgument>,
+        span: Span,
+    },
 }
 
 #[derive(Clone, Debug, PartialEq)]
