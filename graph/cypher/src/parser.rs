@@ -169,7 +169,14 @@ fn walk_merge(pair: Pair<'_, Rule>) -> Result<MergeClause, ParseError> {
     let mut on_match = Vec::new();
     for item in pair.into_inner() {
         match item.as_rule() {
-            Rule::path_pattern => path = Some(walk_path(item)?),
+            Rule::pattern_element => {
+                let inner = only_child(item)?;
+                path = Some(match inner.as_rule() {
+                    Rule::role_pattern => PatternElement::Roles(walk_role_pattern(inner)?),
+                    Rule::path_pattern => PatternElement::Path(walk_path(inner)?),
+                    rule => return Err(unexpected(&inner, "merge pattern", rule)),
+                });
+            }
             Rule::merge_action => {
                 let mut created = false;
                 let mut items = Vec::new();
@@ -1754,7 +1761,37 @@ mod tests {
         let Clause::Merge(merge) = &query.clauses[1].value else {
             panic!("expected MERGE")
         };
-        assert_eq!(merge.path.steps.len(), 1);
+        // The arrow form must still parse to `PatternElement::Path` now that
+        // `merge_clause` accepts `pattern_element` (arrow or role form)
+        // instead of `path_pattern` directly.
+        let PatternElement::Path(merge_path) = &merge.path else {
+            panic!("expected a path pattern")
+        };
+        assert_eq!(merge_path.steps.len(), 1);
+    }
+
+    #[test]
+    fn merge_accepts_a_standalone_role_pattern() {
+        // `merge_clause` bypassed the `role_pattern | path_pattern`
+        // alternation that CREATE goes through, taking `path_pattern`
+        // directly; this is the grammar fix for Task 18b.
+        let query =
+            parse("MATCH (p), (t), (f) MERGE [x:Transcription](scribe: p, text: t, folio: f)")
+                .expect("MERGE must accept a standalone role pattern");
+        let Clause::Merge(merge) = &query.clauses[1].value else {
+            panic!("expected MERGE")
+        };
+        let PatternElement::Roles(roles) = &merge.path else {
+            panic!("expected a role pattern")
+        };
+        assert_eq!(
+            roles
+                .roles
+                .iter()
+                .map(|role| role.name.value.as_str())
+                .collect::<Vec<_>>(),
+            vec!["scribe", "text", "folio"]
+        );
     }
 
     #[test]

@@ -167,6 +167,181 @@ fn role_arguments_bind_by_name_regardless_of_source_order() {
     );
 }
 
+// --- Task 18b: `MERGE [x:T](role: player, ...)` -- MERGE over a standalone
+// role pattern. The grammar previously accepted only the arrow form after
+// MERGE (`merge_clause` took `path_pattern` directly, bypassing the
+// `role_pattern | path_pattern` alternation CREATE goes through); binding
+// routes a role pattern under MERGE to `ir::Mutation::MergeRelation` by
+// reusing `bind_create_role_pattern`, the same single implementation CREATE
+// uses, rather than a second copy of role resolution.
+
+/// Matching on a subset would make a second MERGE with a different folio
+/// silently update the first transcription instead of creating a second
+/// one, collapsing two distinct assertions into one.
+#[test]
+fn merge_matches_on_the_full_set_of_bound_roles() {
+    let (database, session) = fixture::ternary_session();
+    let seed = fixture::second_connection(&database);
+    let graph = load_registered_graph(&seed, "scriptorium").expect("load registered graph");
+    seed_node(&seed, &graph, "Person", "people", 1);
+    seed_node(&seed, &graph, "Text", "texts", 2);
+    seed_node(&seed, &graph, "Folio", "folios", 3);
+
+    let merge_query = "MATCH (p:Person), (t:Text), (f:Folio) \
+                        MERGE [x:Transcription](scribe: p, text: t, folio: f)";
+    session
+        .execute(merge_query, &Parameters::new())
+        .expect("first merge creates the relation");
+    session
+        .execute(merge_query, &Parameters::new())
+        .expect("second, identical merge matches rather than creating");
+
+    let connection = fixture::second_connection(&database);
+    assert_eq!(
+        connection
+            .prepare("SELECT count(*) FROM transcriptions")
+            .unwrap()
+            .run_collect_rows()
+            .unwrap(),
+        vec![vec![Value::from_i64(1)]],
+        "running the same MERGE twice leaves exactly one row"
+    );
+
+    // A MERGE differing only in folio must be a different assertion, not an
+    // update of the first. `ternary_session` cannot filter an existing
+    // Folio by property (three node sources, no semantic schema -- see
+    // `fixture::ternary_session`'s doc comment), so create a second, fresh
+    // Folio in the same statement and merge through it instead of trying to
+    // MATCH a specific one.
+    session
+        .execute(
+            "MATCH (p:Person), (t:Text) CREATE (f:Folio) \
+             MERGE [x:Transcription](scribe: p, text: t, folio: f)",
+            &Parameters::new(),
+        )
+        .expect("merge with a different folio creates a second relation");
+    assert_eq!(
+        connection
+            .prepare("SELECT count(*) FROM transcriptions")
+            .unwrap()
+            .run_collect_rows()
+            .unwrap(),
+        vec![vec![Value::from_i64(2)]],
+        "a different folio is a different assertion, not an update of the first"
+    );
+}
+
+/// `mutation.rs`'s `insert_relationship` guards its spill writes with `if
+/// created` (added in Task 14a, untested until now: it can only be
+/// exercised through MERGE over a role pattern). A relation matched by
+/// MERGE already has whatever spill rows its original CREATE wrote; without
+/// the guard, a second MERGE would insert the witness a second time.
+#[test]
+fn merging_a_relation_with_a_many_valued_role_does_not_duplicate_spill_rows() {
+    let (database, session) = fixture::witnessed_session();
+    session
+        .execute(
+            "CREATE (:Person {id: 1}), (:Person {id: 2}), (:Person {id: 3})",
+            &Parameters::new(),
+        )
+        .expect("seed people");
+    let merge_query = "MATCH (a:Person {id: 1}), (b:Person {id: 2}), (w:Person {id: 3}) \
+                        MERGE [x:KNOWS](start: a, end: b, witness: w)";
+    session
+        .execute(merge_query, &Parameters::new())
+        .expect("first merge creates the relation with one witness");
+    session
+        .execute(merge_query, &Parameters::new())
+        .expect("second, identical merge matches rather than creating");
+
+    let connection = fixture::second_connection(&database);
+    assert_eq!(
+        connection
+            .prepare("SELECT count(*) FROM relationships")
+            .unwrap()
+            .run_collect_rows()
+            .unwrap(),
+        vec![vec![Value::from_i64(1)]],
+        "one relation row"
+    );
+    assert_eq!(
+        connection
+            .prepare("SELECT count(*) FROM relationships__witness")
+            .unwrap()
+            .run_collect_rows()
+            .unwrap(),
+        vec![vec![Value::from_i64(1)]],
+        "the witness is written once, not once per MERGE run"
+    );
+}
+
+/// `merge_clause` is reachable both from `clause` directly and from
+/// `foreach_body`; changing it to accept a role pattern must not disturb
+/// the `FOREACH (... | MERGE ...)` path, which routes through a separate
+/// binder branch (`bind_foreach`) from a bare top-level MERGE.
+#[test]
+fn a_role_pattern_merge_inside_foreach_still_binds() {
+    let (database, session) = fixture::ternary_session();
+    let seed = fixture::second_connection(&database);
+    let graph = load_registered_graph(&seed, "scriptorium").expect("load registered graph");
+    seed_node(&seed, &graph, "Person", "people", 1);
+    seed_node(&seed, &graph, "Text", "texts", 2);
+    seed_node(&seed, &graph, "Folio", "folios", 3);
+
+    session
+        .execute(
+            "MATCH (p:Person), (t:Text), (f:Folio) \
+             FOREACH (i IN [1] | MERGE [x:Transcription](scribe: p, text: t, folio: f))",
+            &Parameters::new(),
+        )
+        .expect("role-pattern MERGE inside FOREACH must bind");
+
+    let connection = fixture::second_connection(&database);
+    assert_eq!(
+        connection
+            .prepare("SELECT count(*) FROM transcriptions")
+            .unwrap()
+            .run_collect_rows()
+            .unwrap(),
+        vec![vec![Value::from_i64(1)]],
+        "one relation row created through FOREACH"
+    );
+}
+
+/// The arrow form must keep working inside `FOREACH` too: `bind_foreach`'s
+/// MERGE branch now calls the shared `bind_merge_pattern` helper instead of
+/// `bind_create_path` directly, and its `PatternElement::Path` arm must stay
+/// a pass-through to that same call.
+#[test]
+fn an_arrow_form_merge_inside_foreach_still_binds() {
+    let (database, session) = fixture::witnessed_session();
+    session
+        .execute(
+            "CREATE (:Person {id: 1}), (:Person {id: 2})",
+            &Parameters::new(),
+        )
+        .expect("seed people");
+
+    session
+        .execute(
+            "MATCH (a:Person {id: 1}), (b:Person {id: 2}) \
+             FOREACH (i IN [1] | MERGE (a)-[:KNOWS]->(b))",
+            &Parameters::new(),
+        )
+        .expect("arrow-form MERGE inside FOREACH must bind");
+
+    let connection = fixture::second_connection(&database);
+    assert_eq!(
+        connection
+            .prepare("SELECT count(*) FROM relationships")
+            .unwrap()
+            .run_collect_rows()
+            .unwrap(),
+        vec![vec![Value::from_i64(1)]],
+        "one relation row created through FOREACH"
+    );
+}
+
 /// A `Many` role stores its players in a spill table rather than a column,
 /// so creating a relation with two `witness` players is one relation row
 /// plus two spill rows -- not two relation rows, which would double-count

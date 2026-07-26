@@ -76,7 +76,11 @@ pub struct CreateClause {
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct MergeClause {
-    pub path: PathPattern,
+    /// The single pattern being merged: either the arrow form
+    /// (`PatternElement::Path`) or the standalone role form
+    /// (`PatternElement::Roles`). MERGE takes exactly one pattern, unlike
+    /// CREATE's comma-separated `Pattern`.
+    pub path: PatternElement,
     pub on_create: Vec<SetItem>,
     pub on_match: Vec<SetItem>,
 }
@@ -201,6 +205,15 @@ pub struct RelationshipPattern {
 pub enum PatternElement {
     Path(PathPattern),
     Roles(RolePattern),
+}
+
+impl PatternElement {
+    pub fn span(&self) -> Span {
+        match self {
+            PatternElement::Path(path) => path.span,
+            PatternElement::Roles(roles) => roles.span,
+        }
+    }
 }
 
 /// `[x:Transcription {year: 1387}](scribe: p, text: t, folio: f)`

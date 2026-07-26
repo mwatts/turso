@@ -945,7 +945,7 @@ impl<'a> Binder<'a> {
                 cypher::Clause::Merge(value) => {
                     mutation_started = true;
                     let mut new_operations = Vec::new();
-                    self.bind_create_path(&value.path, true, &mut new_operations)?;
+                    self.bind_merge_pattern(&value.path, &mut new_operations)?;
                     self.attach_merge_actions(value, &mut new_operations)?;
                     route(&mut operations, &mut stages, new_operations);
                 }
@@ -1161,7 +1161,7 @@ impl<'a> Binder<'a> {
                     }
                     cypher::Clause::Merge(value) => {
                         let mut operations = Vec::new();
-                        self.bind_create_path(&value.path, true, &mut operations)?;
+                        self.bind_merge_pattern(&value.path, &mut operations)?;
                         self.attach_merge_actions(value, &mut operations)?;
                         items.extend(operations.into_iter().map(StageItem::Operation));
                     }
@@ -1731,6 +1731,31 @@ impl<'a> Binder<'a> {
         Ok(())
     }
 
+    /// Binds a MERGE pattern (`MergeClause.path`), which is either the arrow
+    /// form or the standalone role form. The arrow form already knows how to
+    /// merge (`bind_create_path`'s `merge` flag); the role form only knows
+    /// how to create (`bind_create_role_pattern` returns `CreateRelation`),
+    /// so it is wrapped in `MergeRelation` here rather than duplicating role
+    /// resolution to produce one directly.
+    fn bind_merge_pattern(
+        &mut self,
+        pattern: &cypher::PatternElement,
+        operations: &mut Vec<ir::Mutation>,
+    ) -> Result<(), BindError> {
+        match pattern {
+            cypher::PatternElement::Path(path) => self.bind_create_path(path, true, operations),
+            cypher::PatternElement::Roles(role_pattern) => {
+                let create = self.bind_create_role_pattern(role_pattern)?;
+                operations.push(ir::Mutation::MergeRelation(ir::MergeRelation {
+                    create,
+                    on_create: Vec::new(),
+                    on_match: Vec::new(),
+                }));
+                Ok(())
+            }
+        }
+    }
+
     /// Binds the standalone role-pattern CREATE surface
     /// (`[x:T {props}](role: player, ...)`). Role arguments arrive in
     /// source order, which is deliberately not declaration order; each is
@@ -1977,7 +2002,7 @@ impl<'a> Binder<'a> {
             }
         }
         Err(at_unsupported(
-            clause.path.span,
+            clause.path.span(),
             "ON CREATE/ON MATCH without a merge operation",
         ))
     }

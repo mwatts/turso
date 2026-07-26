@@ -1943,7 +1943,7 @@ pub(crate) fn insert_relationship(
     let layout = catalog
         .relationship_layout(create.source)
         .ok_or(LowerError::MissingSource(create.source))?;
-    let merge_predicates = if merge {
+    let mut merge_predicates = if merge {
         relationship_type_predicates(
             catalog,
             create.source,
@@ -1971,8 +1971,29 @@ pub(crate) fn insert_relationship(
             ir::RoleCardinality::One => fixed.push((role.column.clone(), player.clone())),
             // A many-valued role has no column on the relation table; its
             // players land in the spill table after the relation row exists
-            // and has an identity to point at.
-            ir::RoleCardinality::Many => spilled.push((role.clone(), player.clone())),
+            // and has an identity to point at. `fixed` cannot express this,
+            // so a MERGE matches a `Many` role by membership instead: each
+            // named player must already be present in that role's spill
+            // table for the same relation. `binding.value`'s parameter is
+            // already registered in `insert_entity`'s `internal` map via
+            // `reference_parameters(values)`, so no extra plumbing is
+            // needed to reference it here.
+            ir::RoleCardinality::Many => {
+                if merge {
+                    let table = role
+                        .spill_table
+                        .as_ref()
+                        .expect("a Many role always has a spill table");
+                    let player_parameter = identity_parameter(binding.value);
+                    merge_predicates.push(format!(
+                        "EXISTS (SELECT 1 FROM {} WHERE relation_id = {}.{} AND node_id = ${player_parameter})",
+                        quoted_identifier(table),
+                        quoted_identifier(&layout.table),
+                        quoted_identifier(&layout.identity_column),
+                    ));
+                }
+                spilled.push((role.clone(), player.clone()));
+            }
         }
     }
     let (identity, created) = insert_entity(
