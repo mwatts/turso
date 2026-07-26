@@ -7,7 +7,7 @@ mod fixture;
 use fixture::{bind_fixture, first_role_expand};
 
 #[test]
-#[ignore = "standalone role pattern lands in Task 12"]
+#[ignore = "standalone role pattern MATCH-side binding lands in Task 13b"]
 fn arrow_and_role_forms_of_the_same_pattern_bind_identically() {
     let arrow = bind_fixture("MATCH (a:Person)-[r:KNOWS]->(b:Person) RETURN b");
     let roles = bind_fixture("MATCH (a:Person), (b:Person), [r:KNOWS](start: a, end: b) RETURN b");
@@ -15,7 +15,7 @@ fn arrow_and_role_forms_of_the_same_pattern_bind_identically() {
 }
 
 #[test]
-#[ignore = "standalone role pattern lands in Task 12"]
+#[ignore = "standalone role pattern MATCH-side binding lands in Task 13b"]
 fn the_reversed_arrow_is_the_reversed_role_pair() {
     let arrow = bind_fixture("MATCH (a:Person)<-[r:KNOWS]-(b:Person) RETURN b");
     let roles = bind_fixture("MATCH (a:Person), (b:Person), [r:KNOWS](end: a, start: b) RETURN b");
