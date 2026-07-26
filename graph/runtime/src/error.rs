@@ -37,12 +37,18 @@ pub enum RuntimeError {
     UnsupportedPathCombination { reason: &'static str },
     #[error("path algorithm {algorithm} is sound but not implemented")]
     PathAlgorithmNotImplemented { algorithm: &'static str },
+    #[error("variable-length traversal over a relation with {arity} roles must name a role pair")]
+    RolePairRequired { arity: usize },
 }
 
 impl From<crate::PathPolicyError> for RuntimeError {
     fn from(error: crate::PathPolicyError) -> Self {
-        let crate::PathPolicyError::Unsupported { reason, .. } = error;
-        Self::UnsupportedPathCombination { reason }
+        match error {
+            crate::PathPolicyError::Unsupported { reason, .. } => {
+                Self::UnsupportedPathCombination { reason }
+            }
+            crate::PathPolicyError::RolePairRequired { arity } => Self::RolePairRequired { arity },
+        }
     }
 }
 

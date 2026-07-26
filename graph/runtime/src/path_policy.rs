@@ -15,11 +15,11 @@
 //! so that widening the weight type trips a policy error instead of quietly
 //! feeding negative edges to Dijkstra.
 
-use turso_graph_ir::PathUniqueness;
+use turso_graph_ir::{PathUniqueness, RoleId};
 
 /// Bump on any change to the table below, and mirror into
 /// `turso_graph_ir::SEMANTIC_PROFILE.path_policy_version`.
-pub const PATH_POLICY_VERSION: u32 = 1;
+pub const PATH_POLICY_VERSION: u32 = 2;
 
 /// How many of the matching paths the caller wants.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -97,10 +97,40 @@ pub enum PathPolicyError {
         weights: WeightClass,
         reason: &'static str,
     },
+    /// A relation with `arity` roles exposes `arity * (arity - 1)` directed
+    /// pairs. Past arity 2 there is more than one, so picking one silently
+    /// would answer a question the author did not ask.
+    #[error(
+        "variable-length traversal over a relation with {arity} roles must name a role pair: \
+         it exposes {} directed pairs",
+        arity * (arity - 1)
+    )]
+    RolePairRequired { arity: usize },
 }
 
 /// The legality table. Total over every combination.
+///
+/// `arity` is the number of roles the relation declares; `role_pair` is the
+/// ordered pair of roles the caller picked to traverse. Arity 2 has exactly
+/// one directed pair per direction, so it needs no `role_pair` and falls
+/// through to [`resolve_selector`] unchanged: binary is a layout, not a kind.
 pub fn resolve_path_algorithm(
+    uniqueness: PathUniqueness,
+    selector: PathSelector,
+    weights: WeightClass,
+    arity: usize,
+    role_pair: Option<(RoleId, RoleId)>,
+) -> Result<PathAlgorithm, PathPolicyError> {
+    if arity > 2 && role_pair.is_none() {
+        return Err(PathPolicyError::RolePairRequired { arity });
+    }
+    resolve_selector(uniqueness, selector, weights)
+}
+
+/// The arity-blind legality table: which algorithm answers a given
+/// uniqueness/selector/weight combination once a role pair (or arity 2,
+/// which needs none) has already been settled.
+fn resolve_selector(
     uniqueness: PathUniqueness,
     selector: PathSelector,
     weights: WeightClass,
@@ -193,7 +223,13 @@ mod tests {
             PathUniqueness::Path,
         ] {
             assert_eq!(
-                resolve_path_algorithm(uniqueness, PathSelector::Shortest, WeightClass::Unweighted),
+                resolve_path_algorithm(
+                    uniqueness,
+                    PathSelector::Shortest,
+                    WeightClass::Unweighted,
+                    2,
+                    None
+                ),
                 Ok(PathAlgorithm::BreadthFirst)
             );
         }
@@ -212,7 +248,9 @@ mod tests {
                 resolve_path_algorithm(
                     uniqueness,
                     PathSelector::Shortest,
-                    WeightClass::NonNegative
+                    WeightClass::NonNegative,
+                    2,
+                    None
                 ),
                 Ok(PathAlgorithm::Dijkstra)
             );
@@ -235,7 +273,8 @@ mod tests {
                 PathSelector::ShortestK(2),
             ] {
                 assert!(
-                    resolve_path_algorithm(uniqueness, selector, WeightClass::Negative).is_err(),
+                    resolve_path_algorithm(uniqueness, selector, WeightClass::Negative, 2, None)
+                        .is_err(),
                     "{uniqueness:?}/{selector:?} must refuse negative weights"
                 );
             }
@@ -250,7 +289,7 @@ mod tests {
             WeightClass::Negative,
         ] {
             assert_eq!(
-                resolve_path_algorithm(PathUniqueness::Trail, PathSelector::Any, weights),
+                resolve_path_algorithm(PathUniqueness::Trail, PathSelector::Any, weights, 2, None),
                 Ok(PathAlgorithm::BreadthFirst),
                 "ANY asks for existence, which no weight sign changes"
             );
@@ -265,7 +304,7 @@ mod tests {
             WeightClass::Negative,
         ] {
             assert_eq!(
-                resolve_path_algorithm(PathUniqueness::Trail, PathSelector::All, weights),
+                resolve_path_algorithm(PathUniqueness::Trail, PathSelector::All, weights, 2, None),
                 Ok(PathAlgorithm::DepthFirstEnumeration)
             );
         }
@@ -277,7 +316,9 @@ mod tests {
             resolve_path_algorithm(
                 PathUniqueness::Walk,
                 PathSelector::All,
-                WeightClass::Unweighted
+                WeightClass::Unweighted,
+                2,
+                None
             ),
             Err(PathPolicyError::Unsupported { .. })
         ));
@@ -292,7 +333,9 @@ mod tests {
             resolve_path_algorithm(
                 PathUniqueness::Path,
                 PathSelector::ShortestK(3),
-                WeightClass::NonNegative
+                WeightClass::NonNegative,
+                2,
+                None
             ),
             Ok(PathAlgorithm::YenKShortest)
         );
@@ -325,10 +368,127 @@ mod tests {
                     WeightClass::NonNegative,
                     WeightClass::Negative,
                 ] {
-                    let verdict = resolve_path_algorithm(uniqueness, selector, weights);
+                    // arity/role_pair held at the arity-2/no-pair case: this test's
+                    // job is the uniqueness/selector/weight space, not arity, which
+                    // has its own tests below.
+                    let verdict = resolve_path_algorithm(uniqueness, selector, weights, 2, None);
                     assert!(
                         verdict.is_ok() || verdict.is_err(),
                         "unreachable, but the call must not panic"
+                    );
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn a_relation_with_more_than_two_roles_requires_an_explicit_role_pair() {
+        // A k-role relation exposes k*(k-1) directed pairs. Picking one is a
+        // guess about which traversal the author meant, and the wrong guess
+        // returns a plausible, wrong path.
+        assert!(matches!(
+            resolve_path_algorithm(
+                PathUniqueness::Trail,
+                PathSelector::Shortest,
+                WeightClass::Unweighted,
+                3,
+                None,
+            ),
+            Err(PathPolicyError::RolePairRequired { arity: 3 })
+        ));
+    }
+
+    #[test]
+    fn a_two_role_relation_needs_no_explicit_pair_because_there_is_only_one() {
+        // Arity 2 has exactly one ordered pair per direction, so there is
+        // nothing to guess and every existing query keeps working.
+        assert_eq!(
+            resolve_path_algorithm(
+                PathUniqueness::Trail,
+                PathSelector::Shortest,
+                WeightClass::Unweighted,
+                2,
+                None,
+            ),
+            Ok(PathAlgorithm::BreadthFirst)
+        );
+    }
+
+    #[test]
+    fn an_explicit_pair_over_a_ternary_relation_resolves_normally() {
+        assert_eq!(
+            resolve_path_algorithm(
+                PathUniqueness::Trail,
+                PathSelector::Shortest,
+                WeightClass::Unweighted,
+                3,
+                Some((RoleId::new(1).unwrap(), RoleId::new(2).unwrap())),
+            ),
+            Ok(PathAlgorithm::BreadthFirst)
+        );
+    }
+
+    #[test]
+    fn arity_three_with_no_pair_is_refused_over_every_uniqueness_selector_and_weight() {
+        // The arity guard sits in front of the selector match, so it must
+        // refuse every combination the same way, not just the one case above.
+        for uniqueness in [
+            PathUniqueness::Walk,
+            PathUniqueness::Trail,
+            PathUniqueness::Path,
+        ] {
+            for selector in [
+                PathSelector::All,
+                PathSelector::Any,
+                PathSelector::Shortest,
+                PathSelector::AllShortest,
+                PathSelector::ShortestK(2),
+            ] {
+                for weights in [
+                    WeightClass::Unweighted,
+                    WeightClass::NonNegative,
+                    WeightClass::Negative,
+                ] {
+                    assert!(
+                        matches!(
+                            resolve_path_algorithm(uniqueness, selector, weights, 3, None),
+                            Err(PathPolicyError::RolePairRequired { arity: 3 })
+                        ),
+                        "{uniqueness:?}/{selector:?}/{weights:?} at arity 3 with no role pair \
+                         must be refused, not guessed"
+                    );
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn arity_two_with_no_pair_matches_the_arity_blind_table_exactly() {
+        // Binary is a layout, not a kind: a two-role relation with no role
+        // pair must fall through to exactly the verdict the table gave
+        // before arity existed. A future special case for binary here would
+        // make this comparison fail.
+        for uniqueness in [
+            PathUniqueness::Walk,
+            PathUniqueness::Trail,
+            PathUniqueness::Path,
+        ] {
+            for selector in [
+                PathSelector::All,
+                PathSelector::Any,
+                PathSelector::Shortest,
+                PathSelector::AllShortest,
+                PathSelector::ShortestK(2),
+            ] {
+                for weights in [
+                    WeightClass::Unweighted,
+                    WeightClass::NonNegative,
+                    WeightClass::Negative,
+                ] {
+                    assert_eq!(
+                        resolve_path_algorithm(uniqueness, selector, weights, 2, None),
+                        resolve_selector(uniqueness, selector, weights),
+                        "{uniqueness:?}/{selector:?}/{weights:?} diverged from the arity-blind table"
                     );
                 }
             }

@@ -968,10 +968,10 @@ fn lower_graph_expand(
     // Lowering only names the two roles here -- exactly what the fixed hop
     // already does via `relationship.role(id)` -- and makes no
     // outgoing/incoming/both judgment of its own. The variable-length
-    // expand vtab still runs a physical BFS over a binary CSR snapshot
-    // (role-oblivious until Task 17), so *it* is where the remaining
-    // role-pair-to-direction reasoning lives now (see the adapter in
-    // graph_expand.rs), not here.
+    // expand vtab and the traversal runtime it drives are role-pair-keyed
+    // (Task 17), so the numeric role ordinals resolved below pass straight
+    // through as `from_role`/`to_role` arguments with no direction
+    // translation anywhere in this path.
     let from_role = relationship
         .role(expand.from_role)
         .ok_or_else(|| LowerError::UnknownRole {
@@ -1077,7 +1077,7 @@ fn lower_graph_expand(
                  max(CASE WHEN gx.is_terminal = 1 THEN gx.node_identity END) AS __gx_node, \
                  max(CASE WHEN gx.is_terminal = 1 THEN gx.relationship_identity END) AS __gx_rel \
                  FROM ({}) AS q \
-                 JOIN __turso_graph_expand({}, {}, q.{}, '{}', '{}', {}, '{}', {}, {}, {}, '{}', {}, {}, {}, {}, {}) AS gx{source_join} \
+                 JOIN __turso_graph_expand({}, {}, q.{}, {}, {}, {}, '{}', {}, {}, {}, '{}', {}, {}, {}, {}, {}) AS gx{source_join} \
                  GROUP BY {}gx.path_id) AS g \
                  JOIN {} AS n ON n.{} = g.__gx_node \
                  LEFT JOIN {} AS r ON r.{} = g.__gx_rel",
@@ -1094,8 +1094,8 @@ fn lower_graph_expand(
                 expand.graph.get(),
                 expand.from_node_source.get(),
                 binding_column(expand.from),
-                from_role.name,
-                to_role.name,
+                from_role.role.get(),
+                to_role.role.get(),
                 u8::from(expand.symmetric),
                 relationship_types,
                 expand.min_hops,
@@ -1120,7 +1120,7 @@ fn lower_graph_expand(
         sql: format!(
             "SELECT q.*, r.{} AS {}, {} AS {}, n.{} AS {}, {} AS {} \
              FROM ({}) AS q \
-             JOIN __turso_graph_expand({}, {}, q.{}, '{}', '{}', {}, '{}', {}, {}, {}, '{}', {}, {}, {}, {}, {}) AS gx{source_join} \
+             JOIN __turso_graph_expand({}, {}, q.{}, {}, {}, {}, '{}', {}, {}, {}, '{}', {}, {}, {}, {}, {}) AS gx{source_join} \
              JOIN {} AS n ON gx.is_terminal = 1 AND gx.node_source_id = {} AND n.{} = gx.node_identity \
              LEFT JOIN {} AS r ON gx.relationship_source_id = {} AND r.{} = gx.relationship_identity",
             quote_identifier(&relationship.identity_column),
@@ -1135,8 +1135,8 @@ fn lower_graph_expand(
             expand.graph.get(),
             expand.from_node_source.get(),
             binding_column(expand.from),
-            from_role.name,
-            to_role.name,
+            from_role.role.get(),
+            to_role.role.get(),
             u8::from(expand.symmetric),
             relationship_types,
             expand.min_hops,

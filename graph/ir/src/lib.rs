@@ -35,7 +35,7 @@ pub use plan::{
     ProcedureOutput, Project, Projection, RoleExpand, Skip, Sort, SortKey, Union, Unit, Unwind,
 };
 pub use role::{RoleBinding, RoleCardinality, RoleDef, RoleTarget};
-pub use scope::{Binding, Direction, Nullability, ResultColumn, ResultShape, Scope};
+pub use scope::{Binding, Nullability, ResultColumn, ResultShape, Scope};
 pub use semantics::{
     semantic_profile_digest, Duplicates, LabelListOrder, NullComparison, NullSort, RowOrder,
     SemanticProfile, WriteClassification, SEMANTIC_PROFILE, SEMANTIC_PROFILE_VERSION,

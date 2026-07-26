@@ -8,13 +8,6 @@ pub enum Nullability {
     Nullable,
 }
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub enum Direction {
-    Outgoing,
-    Incoming,
-    Both,
-}
-
 /// A named value visible at a point in a bound graph plan.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Binding {

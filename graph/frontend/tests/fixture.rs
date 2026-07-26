@@ -192,10 +192,12 @@ pub fn ternary_session() -> (Arc<Database>, GraphConnection) {
     let catalog: Arc<dyn GraphCompilationCatalog> =
         Arc::new(SchemaCatalog::new(connection.clone(), registered.clone()));
     // Unlike `social_graph_connection`, this does not eagerly build a
-    // traversal snapshot: today's snapshot builder is binary-only (it looks
-    // up `start`/`end` roles on every relationship source), and none of this
-    // fixture's tests run a Cypher traversal that would need one. The store
-    // builds lazily on demand for whichever caller actually needs it.
+    // traversal snapshot: none of this fixture's tests run a Cypher
+    // traversal that would need one, so the store builds lazily on demand
+    // for whichever caller actually needs it. (The snapshot builder itself
+    // is no longer binary-only -- it derives edges from every ordered pair
+    // of single-valued roles, plus each single-valued/`Many` pair -- this is
+    // just this fixture not exercising that path.)
     let shared_snapshots = Arc::new(SnapshotStore::default());
     let session = GraphConnection::install(
         connection,
@@ -224,9 +226,10 @@ pub fn ternary_session() -> (Arc<Database>, GraphConnection) {
 /// bound for deletion until then.
 ///
 /// Modeled on `ternary_session`, not `social_graph_connection`: no eager
-/// `SnapshotStore::refresh`, since today's snapshot builder assumes every
-/// relationship source is binary and this task's tests never run a
-/// variable-length traversal that would need one. Unlike `ternary_session`,
+/// `SnapshotStore::refresh`, since this task's tests never run a
+/// variable-length traversal that would need one -- the snapshot builder
+/// itself supports `One`/`Many` role pairs like `witness` fine. Unlike
+/// `ternary_session`,
 /// this graph has exactly one node source, so `SchemaCatalog` can resolve
 /// node properties and tests may seed through Cypher `CREATE (:Person {id:
 /// ..})` directly, the same way `social_graph_connection` does.

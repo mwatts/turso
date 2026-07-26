@@ -5,7 +5,9 @@ use std::time::{Duration, Instant};
 
 use thiserror::Error;
 use turso_core::{Connection, Numeric, Value};
-use turso_graph_ir::{GraphId, NodeId, RelationshipId, RelationshipTypeId, SourceTableId};
+use turso_graph_ir::{
+    GraphId, NodeId, RelationshipId, RelationshipTypeId, RoleCardinality, SourceTableId,
+};
 use turso_graph_runtime::{BuildLimits, Cancellation, EdgeInput, Graph, RuntimeError};
 
 use crate::{
@@ -208,8 +210,16 @@ pub enum SnapshotError {
     MissingEndpoint {
         relationship_source: SourceTableId,
         relationship: SourceIdentity,
-        role: &'static str,
+        role: String,
         node_source: SourceTableId,
+        identity: SourceIdentity,
+    },
+    #[error(
+        "spill table for role `{role}` in relationship source {relationship_source} references relationship identity {identity:?}, which is not a relationship in that source"
+    )]
+    OrphanSpillRow {
+        relationship_source: SourceTableId,
+        role: String,
         identity: SourceIdentity,
     },
     #[error("snapshot contains too many {0} identities")]
@@ -612,15 +622,14 @@ fn build_in_transaction(
     for (type_index, source) in registered.relationship_sources.iter().enumerate() {
         check_cancelled(cancellation)?;
         let default_relationship_type = next_relationship_type(type_index)?;
-        // Traversal snapshots are binary today: every relationship source
-        // consumed here is registered with `start`/`end` roles (n-ary
-        // traversal is a later task).
-        let start_role = source
-            .role_by_name("start")
-            .expect("traversal snapshot source has a start role");
-        let end_role = source
-            .role_by_name("end")
-            .expect("traversal snapshot source has an end role");
+        // A relation's roles fall into two storage shapes: `One` roles are
+        // endpoint columns on the relationship row itself, `Many` roles
+        // spill into a per-role side table. Every ordered pair of `One`
+        // roles gets an edge straight from this row (for two roles that is
+        // exactly the old `start`/`end` forward-and-reverse pair); a `Many`
+        // role additionally pairs with every `One` role, fanning out over
+        // its spill rows. `Many`-`Many` pairs are not produced here.
+        let single_valued_roles = source.single_valued_roles().collect::<Vec<_>>();
         // Resolve each relationship's Cypher type through the junction and
         // registry so traversal filters see the identities the binder uses;
         // rows without a recorded type keep the source-index identity.
@@ -629,16 +638,18 @@ fn build_in_transaction(
         } else {
             String::new()
         };
+        let role_columns = single_valued_roles
+            .iter()
+            .map(|role| format!(", r.{}", quote_identifier(&role.column)))
+            .collect::<String>();
         let rows = query_rows_cancellable(
             connection,
             &format!(
-                "SELECT r.{}, r.{}, r.{}, reg.id, jt.type FROM {} AS r \
+                "SELECT r.{}{role_columns}, reg.id, jt.type FROM {} AS r \
                  LEFT JOIN \"{}\" AS jt ON {source_predicate}jt.relationship_id = r.{} \
                  LEFT JOIN \"{}\" AS reg ON reg.name = jt.type \
                  ORDER BY r.{}",
                 quote_identifier(&source.identity_column),
-                quote_identifier(&start_role.column),
-                quote_identifier(&end_role.column),
                 quote_identifier(&source.table),
                 relationship_types_table,
                 quote_identifier(&source.identity_column),
@@ -647,15 +658,20 @@ fn build_in_transaction(
             ),
             cancellation,
         )?;
+        // Row layout: identity, one column per single-valued role in
+        // declaration order, then the legacy and semantic type columns.
+        let type_column = 1 + single_valued_roles.len();
+        let mut relationships_by_identity = HashMap::new();
         for row in rows {
-            let semantic_relationship_type = row.get(4).and_then(|value| match value {
-                turso_core::Value::Text(name) => semantic
-                    .as_ref()
-                    .and_then(|snapshot| snapshot.relationship_type(name.as_str()))
-                    .and_then(|type_info| RelationshipTypeId::new(type_info.type_id).ok()),
-                _ => None,
-            });
-            let legacy_relationship_type = row.get(3).and_then(|value| match value {
+            let semantic_relationship_type =
+                row.get(type_column + 1).and_then(|value| match value {
+                    turso_core::Value::Text(name) => semantic
+                        .as_ref()
+                        .and_then(|snapshot| snapshot.relationship_type(name.as_str()))
+                        .and_then(|type_info| RelationshipTypeId::new(type_info.type_id).ok()),
+                    _ => None,
+                });
+            let legacy_relationship_type = row.get(type_column).and_then(|value| match value {
                 turso_core::Value::Numeric(turso_core::Numeric::Integer(id)) => u32::try_from(*id)
                     .ok()
                     .and_then(|id| RelationshipTypeId::new(id).ok()),
@@ -676,40 +692,107 @@ fn build_in_transaction(
                     identity,
                 });
             }
-            let start_identity = source_identity(row.get(1), "endpoint", start_role.node_source)?;
-            let end_identity = source_identity(row.get(2), "endpoint", end_role.node_source)?;
-            let start = node_ids
-                .get(&(start_role.node_source, start_identity.clone()))
-                .copied()
-                .ok_or_else(|| SnapshotError::MissingEndpoint {
-                    relationship_source: source.id,
-                    relationship: identity.clone(),
-                    role: "start",
-                    node_source: start_role.node_source,
-                    identity: start_identity,
-                })?;
-            let end = node_ids
-                .get(&(end_role.node_source, end_identity.clone()))
-                .copied()
-                .ok_or_else(|| SnapshotError::MissingEndpoint {
-                    relationship_source: source.id,
-                    relationship: identity.clone(),
-                    role: "end",
-                    node_source: end_role.node_source,
-                    identity: end_identity,
-                })?;
+            let mut role_nodes = Vec::with_capacity(single_valued_roles.len());
+            for (index, role) in single_valued_roles.iter().enumerate() {
+                let player_identity =
+                    source_identity(row.get(1 + index), "endpoint", role.node_source)?;
+                let node = node_ids
+                    .get(&(role.node_source, player_identity.clone()))
+                    .copied()
+                    .ok_or_else(|| SnapshotError::MissingEndpoint {
+                        relationship_source: source.id,
+                        relationship: identity.clone(),
+                        role: role.name.clone(),
+                        node_source: role.node_source,
+                        identity: player_identity,
+                    })?;
+                role_nodes.push(node);
+            }
+            for (from_index, from_role) in single_valued_roles.iter().enumerate() {
+                for (to_index, to_role) in single_valued_roles.iter().enumerate() {
+                    if from_index == to_index {
+                        continue;
+                    }
+                    edges.push(EdgeInput {
+                        relationship,
+                        from_role: from_role.role,
+                        to_role: to_role.role,
+                        source: role_nodes[from_index],
+                        target: role_nodes[to_index],
+                        relationship_type,
+                        weight: None,
+                    });
+                }
+            }
             relationship_coordinates.push(RelationshipCoordinate {
                 source: source.id,
-                identity,
+                identity: identity.clone(),
                 relationship_type,
             });
-            edges.push(EdgeInput {
-                relationship,
-                source: start,
-                target: end,
-                relationship_type,
-                weight: None,
-            });
+            relationships_by_identity
+                .insert(identity, (relationship, relationship_type, role_nodes));
+        }
+
+        for many_role in source
+            .roles
+            .iter()
+            .filter(|role| role.cardinality == RoleCardinality::Many)
+        {
+            check_cancelled(cancellation)?;
+            let spill_table = source.spill_table(many_role);
+            let spill_rows = query_rows_cancellable(
+                connection,
+                &format!(
+                    "SELECT relation_id, node_id FROM {} ORDER BY relation_id",
+                    quote_identifier(&spill_table)
+                ),
+                cancellation,
+            )?;
+            for row in spill_rows {
+                let relationship_identity =
+                    source_identity(row.first(), "relationship", source.id)?;
+                let player_identity =
+                    source_identity(row.get(1), "endpoint", many_role.node_source)?;
+                let (relationship, relationship_type, role_nodes) = relationships_by_identity
+                    .get(&relationship_identity)
+                    .ok_or_else(|| SnapshotError::OrphanSpillRow {
+                        relationship_source: source.id,
+                        role: many_role.name.clone(),
+                        identity: relationship_identity.clone(),
+                    })?;
+                let player = node_ids
+                    .get(&(many_role.node_source, player_identity.clone()))
+                    .copied()
+                    .ok_or_else(|| SnapshotError::MissingEndpoint {
+                        relationship_source: source.id,
+                        relationship: relationship_identity.clone(),
+                        role: many_role.name.clone(),
+                        node_source: many_role.node_source,
+                        identity: player_identity,
+                    })?;
+                for (one_role, one_node) in
+                    single_valued_roles.iter().zip(role_nodes.iter().copied())
+                {
+                    edges.push(EdgeInput {
+                        relationship: *relationship,
+                        from_role: one_role.role,
+                        to_role: many_role.role,
+                        source: one_node,
+                        target: player,
+                        relationship_type: *relationship_type,
+                        weight: None,
+                    });
+                    edges.push(EdgeInput {
+                        relationship: *relationship,
+                        from_role: many_role.role,
+                        to_role: one_role.role,
+                        source: player,
+                        target: one_node,
+                        relationship_type: *relationship_type,
+                        weight: None,
+                    });
+                }
+            }
         }
     }
 
@@ -892,9 +975,14 @@ mod tests {
         RelationshipSourceRegistration,
     };
     use turso_core::{Database, MemoryIO, SqliteDialect};
+    use turso_graph_ir::RoleId;
     use turso_graph_runtime::{
         traverse, LimitKind, TraversalLimits, TraversalOrder, TraversalRequest, Uniqueness,
     };
+
+    fn role(value: u32) -> RoleId {
+        RoleId::new(value).expect("non-zero role")
+    }
 
     fn connection(name: &str) -> Arc<Connection> {
         let io = Arc::new(MemoryIO::new());
@@ -1082,15 +1170,18 @@ mod tests {
 
         let paths = traverse(
             snapshot.graph(),
-            &TraversalRequest::outgoing(
-                NodeId::new(1).unwrap(),
-                vec![RelationshipTypeId::new(1).unwrap()],
-                2,
-                2,
-                false,
-                Uniqueness::Trail,
-                TraversalOrder::BreadthFirst,
-            ),
+            &TraversalRequest {
+                start: NodeId::new(1).unwrap(),
+                from_role: role(1),
+                to_role: role(2),
+                symmetric: false,
+                relationship_types: vec![RelationshipTypeId::new(1).unwrap()],
+                min_hops: 2,
+                max_hops: 2,
+                error_at_max_hops: false,
+                uniqueness: Uniqueness::Trail,
+                order: TraversalOrder::BreadthFirst,
+            },
             TraversalLimits::default(),
             &turso_graph_runtime::NeverCancelled,
         )
@@ -1155,7 +1246,7 @@ mod tests {
                 BuildLimits::default(),
                 &turso_graph_runtime::NeverCancelled,
             ),
-            Err(SnapshotError::MissingEndpoint { role: "end", .. })
+            Err(SnapshotError::MissingEndpoint { ref role, .. }) if role == "end"
         ));
 
         connection.execute("DELETE FROM relationships").unwrap();

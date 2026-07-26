@@ -1,5 +1,5 @@
 use divan::{black_box, Bencher};
-use turso_graph_ir::{NodeId, RelationshipId, RelationshipTypeId};
+use turso_graph_ir::{NodeId, RelationshipId, RelationshipTypeId, RoleId};
 use turso_graph_runtime::{BuildLimits, EdgeInput, Graph};
 
 fn main() {
@@ -41,6 +41,8 @@ fn fixture(shape: Shape, node_count: u64) -> (Vec<NodeId>, Vec<EdgeInput>) {
         .enumerate()
         .map(|(index, (source, target))| EdgeInput {
             relationship: RelationshipId::new(index as u64 + 1).unwrap(),
+            from_role: role(1),
+            to_role: role(2),
             source: node(source),
             target: node(target),
             relationship_type: RelationshipTypeId::new(1).unwrap(),
@@ -52,6 +54,10 @@ fn fixture(shape: Shape, node_count: u64) -> (Vec<NodeId>, Vec<EdgeInput>) {
 
 fn node(value: u64) -> NodeId {
     NodeId::new(value).unwrap()
+}
+
+fn role(value: u32) -> RoleId {
+    RoleId::new(value).unwrap()
 }
 
 fn bench_build(bencher: Bencher, shape: Shape, node_count: u64) {

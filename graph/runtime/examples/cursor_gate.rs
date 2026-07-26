@@ -1,6 +1,6 @@
 use std::time::{Duration, Instant};
 
-use turso_graph_ir::{Direction, NodeId, RelationshipId, RelationshipTypeId};
+use turso_graph_ir::{NodeId, RelationshipId, RelationshipTypeId, RoleId};
 use turso_graph_runtime::{
     BuildLimits, EdgeInput, Graph, NeverCancelled, TraversalCursor, TraversalLimits,
     TraversalOrder, TraversalRequest, TraversalStep, Uniqueness,
@@ -14,6 +14,8 @@ fn main() {
     let edges = (2..=FANOUT + 1)
         .map(|target| EdgeInput {
             relationship: relationship(target - 1),
+            from_role: role(1),
+            to_role: role(2),
             source: node(1),
             target: node(target),
             relationship_type: relationship_type(1),
@@ -23,7 +25,9 @@ fn main() {
     let graph = Graph::build(nodes, edges, BuildLimits::default()).expect("build benchmark graph");
     let request = TraversalRequest {
         start: node(1),
-        direction: Direction::Outgoing,
+        from_role: role(1),
+        to_role: role(2),
+        symmetric: false,
         relationship_types: Vec::new(),
         min_hops: 2,
         max_hops: 2,
@@ -68,4 +72,8 @@ fn relationship(value: u64) -> RelationshipId {
 
 fn relationship_type(value: u32) -> RelationshipTypeId {
     RelationshipTypeId::new(value).expect("non-zero relationship type")
+}
+
+fn role(value: u32) -> RoleId {
+    RoleId::new(value).expect("non-zero role")
 }

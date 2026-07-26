@@ -8,7 +8,7 @@ use turso_core::{
 use turso_ext::{
     ConstraintInfo, ConstraintOp, ConstraintUsage, IndexInfo, OrderByInfo, ResultCode,
 };
-use turso_graph_ir::{Direction, GraphId, RelationshipTypeId, SourceTableId};
+use turso_graph_ir::{GraphId, RelationshipTypeId, RoleId, SourceTableId};
 use turso_graph_runtime::{
     Cancellation, Path, TraversalCursor, TraversalLimits, TraversalOrder, TraversalRequest,
     TraversalStep, Uniqueness,
@@ -148,8 +148,8 @@ impl InternalVirtualTable for GraphExpandTable {
                 graph_id INTEGER HIDDEN,
                 start_node_source_id INTEGER HIDDEN,
                 start_node_identity ANY HIDDEN,
-                from_role TEXT HIDDEN,
-                to_role TEXT HIDDEN,
+                from_role INTEGER HIDDEN,
+                to_role INTEGER HIDDEN,
                 symmetric INTEGER HIDDEN,
                 relationship_types TEXT HIDDEN,
                 min_hops INTEGER HIDDEN,
@@ -232,10 +232,9 @@ impl GraphExpandCursor {
         let graph_id = graph_id(&args[0])?;
         let start_source = source_table_id(&args[1], "start_node_source_id")?;
         let start_identity = source_identity(&args[2], "start_node_identity")?;
-        let from_role = role_name(&args[3], "from_role")?;
-        let to_role = role_name(&args[4], "to_role")?;
+        let from_role = role_id(&args[3], "from_role")?;
+        let to_role = role_id(&args[4], "to_role")?;
         let symmetric = boolean(&args[5], "symmetric")?;
-        let direction = role_pair_to_direction(&from_role, &to_role, symmetric)?;
         let relationship_types = relationship_types(&args[6])?;
         let min_hops = nonnegative_u32(&args[7], "min_hops")?;
         let max_hops = nonnegative_u32(&args[8], "max_hops")?;
@@ -265,7 +264,9 @@ impl GraphExpandCursor {
             })?;
         let request = TraversalRequest {
             start,
-            direction,
+            from_role,
+            to_role,
+            symmetric,
             relationship_types,
             min_hops,
             max_hops,
@@ -469,50 +470,13 @@ fn source_identity(value: &Value, name: &str) -> turso_core::Result<SourceIdenti
     }
 }
 
-fn role_name(value: &Value, name: &str) -> turso_core::Result<String> {
-    text(value, name).map(|value| value.to_owned())
+fn role_id(value: &Value, name: &str) -> turso_core::Result<RoleId> {
+    RoleId::new(nonnegative_u32(value, name)?)
+        .map_err(|error| LimboError::InvalidArgument(error.to_string()))
 }
 
 fn boolean(value: &Value, name: &str) -> turso_core::Result<bool> {
     Ok(nonnegative_u32(value, name)? != 0)
-}
-
-/// Named, temporary adapter: the variable-length expand vtab is backed by a
-/// physical BFS over a binary CSR snapshot that only knows `Direction`
-/// (`Outgoing` / `Incoming` / `Both`), not role names -- the runtime side of
-/// this boundary is role-oblivious until Task 17. Lowering, by contrast, is
-/// already role-name-agnostic (see `lower_graph_expand` in `lowering.rs`,
-/// which resolves `from_role`/`to_role` through the generic
-/// `RelationshipTableLayout::role` accessor with no outgoing/incoming/both
-/// judgment of its own) and only ever names the two roles the binder
-/// resolved. Because `GraphExpand` today is only reachable for binary
-/// relationships registered via `RelationshipSourceRegistration::binary`,
-/// whose two roles are always literally named `"start"`/`"end"`, this
-/// adapter can safely translate that specific role pair (plus `symmetric`)
-/// back into the `Direction` the runtime still requires, and must error
-/// loudly rather than guess for anything else. Task 17 deletes this function
-/// along with `Direction` itself once the traversal runtime becomes
-/// role-aware.
-fn role_pair_to_direction(
-    from_role: &str,
-    to_role: &str,
-    symmetric: bool,
-) -> turso_core::Result<Direction> {
-    // The role pair is validated first, in every branch: `symmetric=true`
-    // does not, by itself, make an arbitrary role pair representable. Only
-    // the binary `start`/`end` convention is -- `symmetric` just picks
-    // which `Direction` that convention maps to.
-    match (from_role, to_role) {
-        ("start", "end") if symmetric => Ok(Direction::Both),
-        ("start", "end") => Ok(Direction::Outgoing),
-        ("end", "start") if !symmetric => Ok(Direction::Incoming),
-        (from, to) => Err(LimboError::InvalidArgument(format!(
-            "unsupported role pair ('{from}', '{to}', symmetric={symmetric}) for \
-             {GRAPH_EXPAND_TABLE_NAME}: only the binary 'start'/'end' role convention is \
-             supported until the traversal runtime \
-             becomes role-aware"
-        ))),
-    }
 }
 
 fn uniqueness(value: &Value) -> turso_core::Result<Uniqueness> {
@@ -625,7 +589,7 @@ mod tests {
         ResolvedProperty,
     };
     use turso_core::{Database, MemoryIO, SqliteDialect};
-    use turso_graph_ir::{LabelId, Nullability, PropertyId, RoleCardinality, RoleId, ValueType};
+    use turso_graph_ir::{LabelId, Nullability, PropertyId, RoleCardinality, ValueType};
     use turso_graph_runtime::{BuildLimits, NeverCancelled};
 
     fn setup() -> (Arc<Connection>, Arc<SnapshotStore>, GraphId) {
@@ -704,7 +668,7 @@ mod tests {
 
     fn invocation(graph_id: GraphId) -> String {
         format!(
-            "{GRAPH_EXPAND_TABLE_NAME}({}, 1, 10, 'start', 'end', 0, '1', 1, 2, 0, 'trail', \
+            "{GRAPH_EXPAND_TABLE_NAME}({}, 1, 10, 1, 2, 0, '1', 1, 2, 0, 'trail', \
              100, 100, 100, 1000, 1048576)",
             graph_id.get()
         )
@@ -904,7 +868,7 @@ mod tests {
         install_graph_catalog(&connection, snapshots).unwrap();
         assert!(connection
             .prepare(format!(
-                "SELECT * FROM {GRAPH_EXPAND_TABLE_NAME}({}, 1, 10, 'start')",
+                "SELECT * FROM {GRAPH_EXPAND_TABLE_NAME}({}, 1, 10, 1)",
                 graph_id.get()
             ))
             .is_err());
@@ -914,7 +878,7 @@ mod tests {
     fn scan_propagates_resource_exhaustion() {
         let (connection, _snapshots, graph_id) = setup();
         let sql = format!(
-            "SELECT * FROM {GRAPH_EXPAND_TABLE_NAME}({}, 1, 10, 'start', 'end', 0, '1', 1, 2, 0, \
+            "SELECT * FROM {GRAPH_EXPAND_TABLE_NAME}({}, 1, 10, 1, 2, 0, '1', 1, 2, 0, \
              'trail', 100, 100, 100, 1, 1048576)",
             graph_id.get()
         );
@@ -931,7 +895,7 @@ mod tests {
         let (connection, _snapshots, graph_id) = setup_with_fanout(300);
         let sql = format!(
             "SELECT path_id, node_identity FROM {GRAPH_EXPAND_TABLE_NAME}(
-                {}, 1, 10, 'start', 'end', 0, '1', 2, 2, 0, 'trail',
+                {}, 1, 10, 1, 2, 0, '1', 2, 2, 0, 'trail',
                 10000, 10000, 10000, 100000, 16777216
             )",
             graph_id.get()
@@ -968,7 +932,7 @@ mod tests {
         let mut statement = connection
             .prepare(format!(
                 "SELECT path_id FROM {GRAPH_EXPAND_TABLE_NAME}(
-                    {}, 1, 10, 'start', 'end', 0, '1', 2, 2, 0, 'trail',
+                    {}, 1, 10, 1, 2, 0, '1', 2, 2, 0, 'trail',
                     10000, 10000, 10000, 100000, 16777216
                 )",
                 graph_id.get()
@@ -991,7 +955,7 @@ mod tests {
     /// two slots to the right. A wrong index here is silent at compile
     /// time -- it either misparses a value (caught below by `.unwrap()`)
     /// or, worse, parses successfully into the wrong meaning. Requesting
-    /// the *reversed* role pair (`'end', 'start'`) from the traversal
+    /// the *reversed* role pair (role `2`, role `1`) from the traversal
     /// runtime's terminal node C, over an exact 2-hop expansion (so only
     /// one path length is ever terminal, keeping the row unambiguous), must
     /// walk the KNOWS edges backward to A, the opposite of the fixture's
@@ -1007,7 +971,7 @@ mod tests {
         let rows = connection
             .prepare(format!(
                 "SELECT e.depth, e.node_identity FROM {GRAPH_EXPAND_TABLE_NAME}(
-                    {}, 1, 30, 'end', 'start', 0, '1', 2, 2, 0, 'trail',
+                    {}, 1, 30, 2, 1, 0, '1', 2, 2, 0, 'trail',
                     100, 100, 100, 1000, 1048576
                 ) AS e WHERE e.is_terminal = 1 ORDER BY e.depth LIMIT 1",
                 graph_id.get()
@@ -1016,36 +980,5 @@ mod tests {
             .run_collect_rows()
             .unwrap();
         assert_eq!(rows, vec![vec![Value::from_i64(2), Value::from_i64(10)]]);
-    }
-
-    /// `role_pair_to_direction` is the one place left where a role pair is
-    /// translated into a binary `Direction` -- its entire justification is
-    /// that it errors loudly on any pair it cannot faithfully represent,
-    /// rather than silently guessing. These four cases are the complete set
-    /// this adapter is documented to handle: two directed orientations, the
-    /// symmetric case, and a genuine n-ary role pair that must be rejected
-    /// even when `symmetric` is set (a pair the caller cannot claim is
-    /// mutually reachable in both directions just because it *asked* for
-    /// `Both` -- only the binary `start`/`end` convention is representable
-    /// at all).
-    #[test]
-    fn role_pair_to_direction_resolves_the_four_documented_cases() {
-        assert_eq!(
-            role_pair_to_direction("start", "end", false).unwrap(),
-            Direction::Outgoing
-        );
-        assert_eq!(
-            role_pair_to_direction("end", "start", false).unwrap(),
-            Direction::Incoming
-        );
-        assert_eq!(
-            role_pair_to_direction("start", "end", true).unwrap(),
-            Direction::Both
-        );
-        let error = role_pair_to_direction("author", "book", true).unwrap_err();
-        assert!(
-            error.to_string().contains("unsupported role pair"),
-            "expected a typed 'unsupported role pair' error, got: {error}"
-        );
     }
 }
