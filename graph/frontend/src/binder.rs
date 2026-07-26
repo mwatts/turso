@@ -69,6 +69,17 @@ pub trait GraphCatalogSnapshot {
         let source = self.node_source(graph)?;
         Some((source, source))
     }
+    /// The relationship source's declared roles, as a name-resolvable
+    /// layout. The binder reads `start`/`end` off it by name (never by
+    /// declaration position: a relation's roles are not guaranteed to be
+    /// declared start-then-end) to derive `(from_role, to_role, symmetric)`
+    /// alongside the `direction` it already computes.
+    fn relationship_source_roles(
+        &self,
+        _source: ir::SourceTableId,
+    ) -> Option<crate::lowering::RelationshipTableLayout> {
+        None
+    }
     fn label(&self, graph: ir::GraphId, name: &str) -> Option<ir::LabelId>;
     fn relationship_type(&self, graph: ir::GraphId, name: &str) -> Option<ir::RelationshipTypeId>;
     fn property(
@@ -410,6 +421,12 @@ pub enum BindError {
     InvalidRelationshipRange {
         min: u32,
         max: u32,
+        span_start: usize,
+        span_end: usize,
+    },
+    #[error("relationship source has no `{role}` role at byte {span_start}..{span_end}")]
+    MissingRelationshipRole {
+        role: &'static str,
         span_start: usize,
         span_end: usize,
     },
@@ -2777,6 +2794,33 @@ impl<'a> Binder<'a> {
                 .into_iter()
                 .map(
                     |(relationship_source, from_node_source, target_node_source, direction)| {
+                        // Roles are resolved by NAME, not by declaration
+                        // position: nothing guarantees a relation's roles
+                        // are declared start-then-end.
+                        let roles = self.catalog.relationship_source_roles(relationship_source);
+                        let start_role = roles
+                            .as_ref()
+                            .and_then(|layout| layout.start_role())
+                            .map(|role| role.role)
+                            .ok_or(BindError::MissingRelationshipRole {
+                                role: "start",
+                                span_start: relationship.span.start,
+                                span_end: relationship.span.end,
+                            })?;
+                        let end_role = roles
+                            .as_ref()
+                            .and_then(|layout| layout.end_role())
+                            .map(|role| role.role)
+                            .ok_or(BindError::MissingRelationshipRole {
+                                role: "end",
+                                span_start: relationship.span.start,
+                                span_end: relationship.span.end,
+                            })?;
+                        let (from_role, to_role, symmetric) = match direction {
+                            ir::Direction::Outgoing => (start_role, end_role, false),
+                            ir::Direction::Incoming => (end_role, start_role, false),
+                            ir::Direction::Both => (start_role, end_role, true),
+                        };
                         let kind = if let Some((min_hops, max_hops, unbounded)) = range {
                             ir::PlanKind::GraphExpand(ir::GraphExpand {
                                 input: Box::new(input.clone()),
@@ -2788,6 +2832,9 @@ impl<'a> Binder<'a> {
                                 relationship: relationship_binding.clone(),
                                 to: to.clone(),
                                 direction,
+                                from_role,
+                                to_role,
+                                symmetric,
                                 relationship_types: relationship_types.clone(),
                                 min_hops,
                                 max_hops,
@@ -2806,14 +2853,21 @@ impl<'a> Binder<'a> {
                                 relationship: relationship_binding.clone(),
                                 to: to.clone(),
                                 direction,
+                                from_role,
+                                to_role,
+                                symmetric,
                                 relationship_types: relationship_types.clone(),
                                 bound_target,
                             })
                         };
-                        ir::Plan::new(kind, scope.clone(), ir::ResultShape::default())
+                        Ok(ir::Plan::new(
+                            kind,
+                            scope.clone(),
+                            ir::ResultShape::default(),
+                        )?)
                     },
                 )
-                .collect::<Result<Vec<_>, _>>()?;
+                .collect::<Result<Vec<_>, BindError>>()?;
             self.plan = Some(if branches.len() == 1 {
                 branches.pop().expect("one expansion branch")
             } else {
@@ -7036,6 +7090,32 @@ mod tests {
                 id: ir::PropertyId::new(id).expect("non-zero"),
                 value_type,
                 nullability,
+            })
+        }
+
+        fn relationship_source_roles(
+            &self,
+            _source: ir::SourceTableId,
+        ) -> Option<crate::lowering::RelationshipTableLayout> {
+            Some(crate::lowering::RelationshipTableLayout {
+                table: "relationships".to_owned(),
+                identity_column: "id".to_owned(),
+                roles: vec![
+                    crate::lowering::RelationshipRoleLayout {
+                        role: ir::RoleId::new(1).expect("non-zero"),
+                        name: "start".to_owned(),
+                        column: "src".to_owned(),
+                        cardinality: ir::RoleCardinality::One,
+                        spill_table: None,
+                    },
+                    crate::lowering::RelationshipRoleLayout {
+                        role: ir::RoleId::new(2).expect("non-zero"),
+                        name: "end".to_owned(),
+                        column: "dst".to_owned(),
+                        cardinality: ir::RoleCardinality::One,
+                        spill_table: None,
+                    },
+                ],
             })
         }
     }

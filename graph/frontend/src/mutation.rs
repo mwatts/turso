@@ -2378,6 +2378,13 @@ mod tests {
                 nullability,
             })
         }
+
+        fn relationship_source_roles(
+            &self,
+            source: ir::SourceTableId,
+        ) -> Option<RelationshipTableLayout> {
+            self.relationship_layout(source)
+        }
     }
 
     impl RelationalCatalogSnapshot for Catalog {

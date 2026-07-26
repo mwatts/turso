@@ -1,6 +1,6 @@
 use crate::{
     Binding, BindingId, Direction, GraphId, LabelId, NullOrder, PlanError, RelationshipTypeId,
-    ResultShape, Scope, SortDirection, SourceTableId, TypedExpression,
+    ResultShape, RoleId, Scope, SortDirection, SourceTableId, TypedExpression,
 };
 
 /// A validated bound graph plan node with explicit visible scope and output.
@@ -86,12 +86,26 @@ pub struct FixedExpand {
     pub relationship: Binding,
     pub to: Binding,
     pub direction: Direction,
+    /// Role the traversal leaves the source binding through.
+    pub from_role: RoleId,
+    /// Role the traversal enters the target binding through.
+    pub to_role: RoleId,
+    /// Also match the reversed pair. This is what an undirected pattern
+    /// means when both endpoints share a node source; a plain ordered pair
+    /// cannot say it.
+    pub symmetric: bool,
     pub relationship_types: Vec<RelationshipTypeId>,
     /// When the target closes a cycle onto an already-bound node, the
     /// binding whose identity the target must equal. Lowering folds the
     /// equality into the relationship join (making composite endpoint
     /// indexes usable) instead of filtering after an extra node join.
     pub bound_target: Option<BindingId>,
+}
+
+impl FixedExpand {
+    pub fn role_pair(&self) -> (RoleId, RoleId) {
+        (self.from_role, self.to_role)
+    }
 }
 
 /// A bounded variable-length expansion from an already-bound node.
@@ -106,6 +120,14 @@ pub struct GraphExpand {
     pub relationship: Binding,
     pub to: Binding,
     pub direction: Direction,
+    /// Role the traversal leaves the source binding through.
+    pub from_role: RoleId,
+    /// Role the traversal enters the target binding through.
+    pub to_role: RoleId,
+    /// Also match the reversed pair. This is what an undirected pattern
+    /// means when both endpoints share a node source; a plain ordered pair
+    /// cannot say it.
+    pub symmetric: bool,
     pub relationship_types: Vec<RelationshipTypeId>,
     pub min_hops: u32,
     pub max_hops: u32,

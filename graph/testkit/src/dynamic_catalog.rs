@@ -91,6 +91,13 @@ impl GraphCatalogSnapshot for DynamicCatalog {
             .relationship_endpoint_sources(graph, relationship_source)
     }
 
+    fn relationship_source_roles(
+        &self,
+        source: ir::SourceTableId,
+    ) -> Option<RelationshipTableLayout> {
+        self.inner.relationship_source_roles(source)
+    }
+
     fn label(&self, graph: ir::GraphId, name: &str) -> Option<ir::LabelId> {
         if let Some(label) = self.inner.label(graph, name) {
             return Some(label);

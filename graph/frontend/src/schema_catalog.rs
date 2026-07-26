@@ -465,6 +465,13 @@ impl GraphCatalogSnapshot for SchemaCatalog {
         Some((start.node_source, end.node_source))
     }
 
+    fn relationship_source_roles(
+        &self,
+        source: ir::SourceTableId,
+    ) -> Option<RelationshipTableLayout> {
+        self.relationship_layout(source)
+    }
+
     fn label(&self, graph: ir::GraphId, name: &str) -> Option<ir::LabelId> {
         if graph != self.graph.id {
             return None;

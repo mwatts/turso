@@ -761,6 +761,13 @@ mod tests {
                 nullability: Nullability::Nullable,
             })
         }
+
+        fn relationship_source_roles(
+            &self,
+            source: SourceTableId,
+        ) -> Option<RelationshipTableLayout> {
+            self.relationship_layout(source)
+        }
     }
 
     impl RelationalCatalogSnapshot for CompilerCatalog {
