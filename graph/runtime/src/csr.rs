@@ -108,7 +108,7 @@ impl Graph {
         }
 
         let mut edge_values = Vec::new();
-        let mut pair_ids = HashSet::new();
+        let mut seen_edges = HashSet::new();
         let mut relationship_ids = HashSet::new();
         for edge in edges {
             if cancellation.is_cancelled() {
@@ -121,11 +121,21 @@ impl Graph {
                 });
             }
             // One physical relationship legitimately contributes one edge per
-            // ordered role pair it participates in (k*(k-1) of them for a
-            // k-role relation), so the same relationship id recurring is
-            // expected; the same (relationship, from_role, to_role) triple
-            // recurring is not.
-            if !pair_ids.insert((edge.relationship, edge.from_role, edge.to_role)) {
+            // ordered role pair for every (from-player, to-player) combination
+            // participating in it: k*(k-1) of them when every role is
+            // single-valued, more when a `Many` role's several players each
+            // pair with the other side. So the same relationship id, and even
+            // the same (relationship, from_role, to_role) triple, recurring is
+            // expected. The same edge -- identical relationship, roles, source,
+            // AND target -- recurring is not: that always means the snapshot
+            // builder pushed the identical pairing twice.
+            if !seen_edges.insert((
+                edge.relationship,
+                edge.from_role,
+                edge.to_role,
+                edge.source,
+                edge.target,
+            )) {
                 return Err(RuntimeError::DuplicateRelationship(edge.relationship));
             }
             relationship_ids.insert(edge.relationship);

@@ -6,7 +6,7 @@ use std::time::{Duration, Instant};
 use thiserror::Error;
 use turso_core::{Connection, Numeric, Value};
 use turso_graph_ir::{
-    GraphId, NodeId, RelationshipId, RelationshipTypeId, RoleCardinality, SourceTableId,
+    GraphId, NodeId, RelationshipId, RelationshipTypeId, RoleCardinality, RoleId, SourceTableId,
 };
 use turso_graph_runtime::{BuildLimits, Cancellation, EdgeInput, Graph, RuntimeError};
 
@@ -624,12 +624,21 @@ fn build_in_transaction(
         let default_relationship_type = next_relationship_type(type_index)?;
         // A relation's roles fall into two storage shapes: `One` roles are
         // endpoint columns on the relationship row itself, `Many` roles
-        // spill into a per-role side table. Every ordered pair of `One`
-        // roles gets an edge straight from this row (for two roles that is
-        // exactly the old `start`/`end` forward-and-reverse pair); a `Many`
-        // role additionally pairs with every `One` role, fanning out over
-        // its spill rows. `Many`-`Many` pairs are not produced here.
+        // spill into a per-role side table. Both shapes are flattened below
+        // into `role_players`, a per-relationship list of (role, player)
+        // pairs; a single general pass at the end of this loop then emits
+        // an edge for every ordered pair of *distinct* roles found in that
+        // list, with no branch anywhere on how many roles are involved or
+        // what their cardinalities are. For two `One` roles that reduces to
+        // exactly the old `start`/`end` forward-and-reverse pair; for two
+        // `Many` roles it is the cross product of both roles' players, in
+        // both directions.
         let single_valued_roles = source.single_valued_roles().collect::<Vec<_>>();
+        let many_roles = source
+            .roles
+            .iter()
+            .filter(|role| role.cardinality == RoleCardinality::Many)
+            .collect::<Vec<_>>();
         // Resolve each relationship's Cypher type through the junction and
         // registry so traversal filters see the identities the binder uses;
         // rows without a recorded type keep the source-index identity.
@@ -662,6 +671,8 @@ fn build_in_transaction(
         // declaration order, then the legacy and semantic type columns.
         let type_column = 1 + single_valued_roles.len();
         let mut relationships_by_identity = HashMap::new();
+        let mut role_players: HashMap<SourceIdentity, Vec<(RoleId, NodeId)>> = HashMap::new();
+        let mut relationship_order = Vec::new();
         for row in rows {
             let semantic_relationship_type =
                 row.get(type_column + 1).and_then(|value| match value {
@@ -692,7 +703,7 @@ fn build_in_transaction(
                     identity,
                 });
             }
-            let mut role_nodes = Vec::with_capacity(single_valued_roles.len());
+            let mut players = Vec::with_capacity(single_valued_roles.len());
             for (index, role) in single_valued_roles.iter().enumerate() {
                 let player_identity =
                     source_identity(row.get(1 + index), "endpoint", role.node_source)?;
@@ -706,38 +717,19 @@ fn build_in_transaction(
                         node_source: role.node_source,
                         identity: player_identity,
                     })?;
-                role_nodes.push(node);
-            }
-            for (from_index, from_role) in single_valued_roles.iter().enumerate() {
-                for (to_index, to_role) in single_valued_roles.iter().enumerate() {
-                    if from_index == to_index {
-                        continue;
-                    }
-                    edges.push(EdgeInput {
-                        relationship,
-                        from_role: from_role.role,
-                        to_role: to_role.role,
-                        source: role_nodes[from_index],
-                        target: role_nodes[to_index],
-                        relationship_type,
-                        weight: None,
-                    });
-                }
+                players.push((role.role, node));
             }
             relationship_coordinates.push(RelationshipCoordinate {
                 source: source.id,
                 identity: identity.clone(),
                 relationship_type,
             });
-            relationships_by_identity
-                .insert(identity, (relationship, relationship_type, role_nodes));
+            relationship_order.push(identity.clone());
+            relationships_by_identity.insert(identity.clone(), (relationship, relationship_type));
+            role_players.insert(identity, players);
         }
 
-        for many_role in source
-            .roles
-            .iter()
-            .filter(|role| role.cardinality == RoleCardinality::Many)
-        {
+        for many_role in &many_roles {
             check_cancelled(cancellation)?;
             let spill_table = source.spill_table(many_role);
             let spill_rows = query_rows_cancellable(
@@ -753,13 +745,13 @@ fn build_in_transaction(
                     source_identity(row.first(), "relationship", source.id)?;
                 let player_identity =
                     source_identity(row.get(1), "endpoint", many_role.node_source)?;
-                let (relationship, relationship_type, role_nodes) = relationships_by_identity
-                    .get(&relationship_identity)
-                    .ok_or_else(|| SnapshotError::OrphanSpillRow {
+                if !relationships_by_identity.contains_key(&relationship_identity) {
+                    return Err(SnapshotError::OrphanSpillRow {
                         relationship_source: source.id,
                         role: many_role.name.clone(),
-                        identity: relationship_identity.clone(),
-                    })?;
+                        identity: relationship_identity,
+                    });
+                }
                 let player = node_ids
                     .get(&(many_role.node_source, player_identity.clone()))
                     .copied()
@@ -770,25 +762,34 @@ fn build_in_transaction(
                         node_source: many_role.node_source,
                         identity: player_identity,
                     })?;
-                for (one_role, one_node) in
-                    single_valued_roles.iter().zip(role_nodes.iter().copied())
-                {
+                role_players
+                    .get_mut(&relationship_identity)
+                    .expect("relationship existence just confirmed above")
+                    .push((many_role.role, player));
+            }
+        }
+
+        // The single general pass promised above: every ordered pair of
+        // distinct roles among a relationship's flattened players produces
+        // an edge. There is no cardinality branch in this loop at all — a
+        // `One` role contributed exactly one player above, a `Many` role
+        // contributed zero or more, and from here on they are
+        // indistinguishable.
+        for identity in &relationship_order {
+            let (relationship, relationship_type) = relationships_by_identity[identity];
+            let players = &role_players[identity];
+            for (from_role, from_node) in players {
+                for (to_role, to_node) in players {
+                    if from_role == to_role {
+                        continue;
+                    }
                     edges.push(EdgeInput {
-                        relationship: *relationship,
-                        from_role: one_role.role,
-                        to_role: many_role.role,
-                        source: one_node,
-                        target: player,
-                        relationship_type: *relationship_type,
-                        weight: None,
-                    });
-                    edges.push(EdgeInput {
-                        relationship: *relationship,
-                        from_role: many_role.role,
-                        to_role: one_role.role,
-                        source: player,
-                        target: one_node,
-                        relationship_type: *relationship_type,
+                        relationship,
+                        from_role: *from_role,
+                        to_role: *to_role,
+                        source: *from_node,
+                        target: *to_node,
+                        relationship_type,
                         weight: None,
                     });
                 }
@@ -972,10 +973,10 @@ mod tests {
     use super::*;
     use crate::{
         register_graph, GraphRegistration, NodeSourceRegistration, RegisteredGraph,
-        RelationshipSourceRegistration,
+        RelationshipSourceRegistration, RoleSourceRegistration,
     };
     use turso_core::{Database, MemoryIO, SqliteDialect};
-    use turso_graph_ir::RoleId;
+    use turso_graph_ir::{RoleCardinality, RoleId};
     use turso_graph_runtime::{
         traverse, LimitKind, TraversalLimits, TraversalOrder, TraversalRequest, Uniqueness,
     };
@@ -1527,6 +1528,214 @@ mod tests {
             )
             .unwrap(),
             vec![vec![Value::from_i64(1), Value::build_text("A")]]
+        );
+    }
+
+    /// A prior review (Task 17, Important-1) found that the only `Many`-role
+    /// test anywhere asserted a raw spill-table row count and never actually
+    /// traversed the graph: deleting the whole spill-table join pass left
+    /// every test green. This test walks the graph across both the
+    /// `(start, witness)` and `(witness, start)` role pairs, so removing
+    /// that pass makes this fail, not silently pass.
+    #[test]
+    fn a_single_valued_role_and_a_many_role_produce_traversable_edges_in_both_directions() {
+        let connection = connection(":memory:snapshot-one-many-traversal");
+        connection
+            .execute(
+                "CREATE TABLE people(id INTEGER PRIMARY KEY); \
+                 CREATE TABLE relationships(id INTEGER PRIMARY KEY, src INTEGER, dst INTEGER);",
+            )
+            .unwrap();
+        register_graph(
+            &connection,
+            &GraphRegistration {
+                name: "witnessed".to_owned(),
+                node_sources: vec![NodeSourceRegistration {
+                    name: "Person".to_owned(),
+                    table: "people".to_owned(),
+                    identity_column: "id".to_owned(),
+                }],
+                relationship_sources: vec![RelationshipSourceRegistration {
+                    name: "KNOWS".to_owned(),
+                    table: "relationships".to_owned(),
+                    identity_column: "id".to_owned(),
+                    roles: vec![
+                        RoleSourceRegistration {
+                            name: "start".to_owned(),
+                            column: "src".to_owned(),
+                            node_source: "Person".to_owned(),
+                            cardinality: RoleCardinality::One,
+                        },
+                        RoleSourceRegistration {
+                            name: "end".to_owned(),
+                            column: "dst".to_owned(),
+                            node_source: "Person".to_owned(),
+                            cardinality: RoleCardinality::One,
+                        },
+                        RoleSourceRegistration {
+                            name: "witness".to_owned(),
+                            column: String::new(),
+                            node_source: "Person".to_owned(),
+                            cardinality: RoleCardinality::Many,
+                        },
+                    ],
+                }],
+            },
+        )
+        .unwrap();
+        connection
+            .execute(
+                "INSERT INTO people VALUES (1), (2), (3), (4); \
+                 INSERT INTO relationships VALUES (10, 1, 2); \
+                 INSERT INTO relationships__witness VALUES (10, 3), (10, 4);",
+            )
+            .unwrap();
+
+        let snapshot = build_traversal_snapshot(
+            &connection,
+            "witnessed",
+            BuildLimits::default(),
+            &turso_graph_runtime::NeverCancelled,
+        )
+        .unwrap();
+
+        // `edge_count()` counts distinct physical relationships, not
+        // adjacency rows (see `edge_count_is_the_physical_relationship_count_
+        // not_the_stored_row_count` in `csr.rs`), so it can only distinguish
+        // "some edge was built for this relationship" (1) from "none was"
+        // (0, exactly the silent failure C1 found). The traversal assertions
+        // below are what actually prove start<->witness is wired in both
+        // directions.
+        assert_eq!(snapshot.graph().edge_count(), 1);
+
+        let start_node = NodeId::new(1).unwrap();
+        let start_to_witness = snapshot.graph().resolve_pairs(&[], role(1), role(3), false);
+        let mut witnesses = snapshot
+            .graph()
+            .neighbors(start_node, &start_to_witness)
+            .into_iter()
+            .map(|neighbor| neighbor.node)
+            .collect::<Vec<_>>();
+        witnesses.sort();
+        assert_eq!(
+            witnesses,
+            vec![NodeId::new(3).unwrap(), NodeId::new(4).unwrap()],
+            "traversing start -> witness must reach both spilled witnesses, not zero"
+        );
+
+        let witness_to_start = snapshot.graph().resolve_pairs(&[], role(3), role(1), false);
+        let reachable_from_witness = snapshot
+            .graph()
+            .neighbors(NodeId::new(3).unwrap(), &witness_to_start)
+            .into_iter()
+            .map(|neighbor| neighbor.node)
+            .collect::<Vec<_>>();
+        assert_eq!(
+            reachable_from_witness,
+            vec![start_node],
+            "the reverse witness -> start pair must be traversable too"
+        );
+    }
+
+    /// Critical-1 from the Task 17 review: a relationship source with two
+    /// `Many` roles and no `One` role at all is constructible through
+    /// registration (confirmed by the reviewer's own experiment), so it must
+    /// produce real, traversable edges rather than silently building a
+    /// zero-edge graph. Two authors and two editors on one relation must
+    /// yield the full 2x2 cross product, in both directions, and nothing
+    /// between two players of the *same* role.
+    #[test]
+    fn two_many_roles_produce_the_full_cross_product_of_traversable_edges() {
+        let connection = connection(":memory:snapshot-many-many-traversal");
+        connection
+            .execute(
+                "CREATE TABLE people(id INTEGER PRIMARY KEY); \
+                 CREATE TABLE collaborations(id INTEGER PRIMARY KEY);",
+            )
+            .unwrap();
+        register_graph(
+            &connection,
+            &GraphRegistration {
+                name: "collab".to_owned(),
+                node_sources: vec![NodeSourceRegistration {
+                    name: "Person".to_owned(),
+                    table: "people".to_owned(),
+                    identity_column: "id".to_owned(),
+                }],
+                relationship_sources: vec![RelationshipSourceRegistration {
+                    name: "COLLABORATED".to_owned(),
+                    table: "collaborations".to_owned(),
+                    identity_column: "id".to_owned(),
+                    roles: vec![
+                        RoleSourceRegistration {
+                            name: "authors".to_owned(),
+                            column: String::new(),
+                            node_source: "Person".to_owned(),
+                            cardinality: RoleCardinality::Many,
+                        },
+                        RoleSourceRegistration {
+                            name: "editors".to_owned(),
+                            column: String::new(),
+                            node_source: "Person".to_owned(),
+                            cardinality: RoleCardinality::Many,
+                        },
+                    ],
+                }],
+            },
+        )
+        .unwrap();
+        connection
+            .execute(
+                "INSERT INTO people VALUES (1), (2), (3), (4); \
+                 INSERT INTO collaborations VALUES (10); \
+                 INSERT INTO collaborations__authors VALUES (10, 1), (10, 2); \
+                 INSERT INTO collaborations__editors VALUES (10, 3), (10, 4);",
+            )
+            .unwrap();
+
+        let snapshot = build_traversal_snapshot(
+            &connection,
+            "collab",
+            BuildLimits::default(),
+            &turso_graph_runtime::NeverCancelled,
+        )
+        .unwrap();
+
+        // `edge_count()` counts distinct physical relationships, not
+        // adjacency rows: there is exactly one `COLLABORATED` relationship
+        // here, so 1 is the only value that means "an edge exists", versus
+        // C1's original finding of 0 ("no edge was ever built"). The
+        // traversal assertions below prove the full author x editor cross
+        // product, in both directions, and that same-role pairs (author <->
+        // author, editor <-> editor) are never produced.
+        assert_eq!(snapshot.graph().edge_count(), 1);
+
+        let author_to_editor = snapshot.graph().resolve_pairs(&[], role(1), role(2), false);
+        let mut reachable_from_author_1 = snapshot
+            .graph()
+            .neighbors(NodeId::new(1).unwrap(), &author_to_editor)
+            .into_iter()
+            .map(|neighbor| neighbor.node)
+            .collect::<Vec<_>>();
+        reachable_from_author_1.sort();
+        assert_eq!(
+            reachable_from_author_1,
+            vec![NodeId::new(3).unwrap(), NodeId::new(4).unwrap()],
+            "author 1 must reach both editors, not zero"
+        );
+
+        let editor_to_author = snapshot.graph().resolve_pairs(&[], role(2), role(1), false);
+        let mut reachable_from_editor_3 = snapshot
+            .graph()
+            .neighbors(NodeId::new(3).unwrap(), &editor_to_author)
+            .into_iter()
+            .map(|neighbor| neighbor.node)
+            .collect::<Vec<_>>();
+        reachable_from_editor_3.sort();
+        assert_eq!(
+            reachable_from_editor_3,
+            vec![NodeId::new(1).unwrap(), NodeId::new(2).unwrap()],
+            "the reverse editor -> author pair must be traversable too"
         );
     }
 }
