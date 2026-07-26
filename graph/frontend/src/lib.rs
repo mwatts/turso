@@ -36,7 +36,8 @@ pub use catalog::{
     graph_generation, labels_table_name, load_registered_graph, register_graph,
     relationship_type_registry_table_name, relationship_types_table_name, CatalogError,
     GraphRegistration, NodeSourceRegistration, RegisteredGraph, RegisteredNodeSource,
-    RegisteredRelationshipSource, RelationshipSourceRegistration, GRAPH_CATALOG_VERSION,
+    RegisteredRelationshipRole, RegisteredRelationshipSource, RelationshipSourceRegistration,
+    RoleSourceRegistration, GRAPH_CATALOG_VERSION,
 };
 pub use compiler::{graph_frontend_id, GraphCompilationCatalog, GraphCompiler};
 pub use dialect::{GraphDialect, GRAPH_DIALECT_NAME};

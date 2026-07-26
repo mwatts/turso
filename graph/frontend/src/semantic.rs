@@ -903,6 +903,12 @@ fn validate_against_graph(
                 kind: "relationship",
                 referenced_source: relationship.source.clone(),
             })?;
+        let start_role = source
+            .role_by_name("start")
+            .expect("binary relationship source has a start role");
+        let end_role = source
+            .role_by_name("end")
+            .expect("binary relationship source has an end role");
         check_owned_columns(
             connection,
             &relationship.name,
@@ -910,14 +916,14 @@ fn validate_against_graph(
             &source.table,
             &[
                 source.identity_column.as_str(),
-                source.start_column.as_str(),
-                source.end_column.as_str(),
+                start_role.column.as_str(),
+                end_role.column.as_str(),
             ],
             &mut property_types,
         )?;
         for (endpoint, allowed, required_source) in [
-            ("start", &relationship.start, source.start_node_source),
-            ("end", &relationship.end, source.end_node_source),
+            ("start", &relationship.start, start_role.node_source),
+            ("end", &relationship.end, end_role.node_source),
         ] {
             let required = graph
                 .node_sources

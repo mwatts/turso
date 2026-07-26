@@ -612,6 +612,15 @@ fn build_in_transaction(
     for (type_index, source) in registered.relationship_sources.iter().enumerate() {
         check_cancelled(cancellation)?;
         let default_relationship_type = next_relationship_type(type_index)?;
+        // Traversal snapshots are binary today: every relationship source
+        // consumed here is registered with `start`/`end` roles (n-ary
+        // traversal is a later task).
+        let start_role = source
+            .role_by_name("start")
+            .expect("traversal snapshot source has a start role");
+        let end_role = source
+            .role_by_name("end")
+            .expect("traversal snapshot source has an end role");
         // Resolve each relationship's Cypher type through the junction and
         // registry so traversal filters see the identities the binder uses;
         // rows without a recorded type keep the source-index identity.
@@ -628,8 +637,8 @@ fn build_in_transaction(
                  LEFT JOIN \"{}\" AS reg ON reg.name = jt.type \
                  ORDER BY r.{}",
                 quote_identifier(&source.identity_column),
-                quote_identifier(&source.start_column),
-                quote_identifier(&source.end_column),
+                quote_identifier(&start_role.column),
+                quote_identifier(&end_role.column),
                 quote_identifier(&source.table),
                 relationship_types_table,
                 quote_identifier(&source.identity_column),
@@ -667,26 +676,26 @@ fn build_in_transaction(
                     identity,
                 });
             }
-            let start_identity = source_identity(row.get(1), "endpoint", source.start_node_source)?;
-            let end_identity = source_identity(row.get(2), "endpoint", source.end_node_source)?;
+            let start_identity = source_identity(row.get(1), "endpoint", start_role.node_source)?;
+            let end_identity = source_identity(row.get(2), "endpoint", end_role.node_source)?;
             let start = node_ids
-                .get(&(source.start_node_source, start_identity.clone()))
+                .get(&(start_role.node_source, start_identity.clone()))
                 .copied()
                 .ok_or_else(|| SnapshotError::MissingEndpoint {
                     relationship_source: source.id,
                     relationship: identity.clone(),
                     role: "start",
-                    node_source: source.start_node_source,
+                    node_source: start_role.node_source,
                     identity: start_identity,
                 })?;
             let end = node_ids
-                .get(&(source.end_node_source, end_identity.clone()))
+                .get(&(end_role.node_source, end_identity.clone()))
                 .copied()
                 .ok_or_else(|| SnapshotError::MissingEndpoint {
                     relationship_source: source.id,
                     relationship: identity.clone(),
                     role: "end",
-                    node_source: source.end_node_source,
+                    node_source: end_role.node_source,
                     identity: end_identity,
                 })?;
             relationship_coordinates.push(RelationshipCoordinate {
@@ -912,15 +921,15 @@ mod tests {
                     table: "people".to_owned(),
                     identity_column: "id".to_owned(),
                 }],
-                relationship_sources: vec![RelationshipSourceRegistration {
-                    name: "KNOWS".to_owned(),
-                    table: "relationships".to_owned(),
-                    identity_column: "id".to_owned(),
-                    start_column: "src".to_owned(),
-                    end_column: "dst".to_owned(),
-                    start_node_source: "Person".to_owned(),
-                    end_node_source: "Person".to_owned(),
-                }],
+                relationship_sources: vec![RelationshipSourceRegistration::binary(
+                    "KNOWS",
+                    "relationships",
+                    "id",
+                    "src",
+                    "dst",
+                    "Person",
+                    "Person",
+                )],
             },
         )
         .unwrap()

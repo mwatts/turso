@@ -458,7 +458,9 @@ impl GraphCatalogSnapshot for SchemaCatalog {
             return None;
         }
         let source = self.relationship_source_entry(relationship_source)?;
-        Some((source.start_node_source, source.end_node_source))
+        let start = source.role_by_name("start")?;
+        let end = source.role_by_name("end")?;
+        Some((start.node_source, end.node_source))
     }
 
     fn label(&self, graph: ir::GraphId, name: &str) -> Option<ir::LabelId> {
@@ -761,11 +763,13 @@ impl RelationalCatalogSnapshot for SchemaCatalog {
 
     fn relationship_layout(&self, source: ir::SourceTableId) -> Option<RelationshipTableLayout> {
         let entry = self.relationship_source_entry(source)?;
+        let start = entry.role_by_name("start")?;
+        let end = entry.role_by_name("end")?;
         Some(RelationshipTableLayout {
             table: entry.table.clone(),
             identity_column: entry.identity_column.clone(),
-            start_column: entry.start_column.clone(),
-            end_column: entry.end_column.clone(),
+            start_column: start.column.clone(),
+            end_column: end.column.clone(),
         })
     }
 
@@ -829,14 +833,9 @@ impl RelationalCatalogSnapshot for SchemaCatalog {
         let (table_name, structural) = if let Some(entry) = self.node_source_entry(source) {
             (entry.table.clone(), vec![entry.identity_column.clone()])
         } else if let Some(entry) = self.relationship_source_entry(source) {
-            (
-                entry.table.clone(),
-                vec![
-                    entry.identity_column.clone(),
-                    entry.start_column.clone(),
-                    entry.end_column.clone(),
-                ],
-            )
+            let mut structural = vec![entry.identity_column.clone()];
+            structural.extend(entry.single_valued_roles().map(|role| role.column.clone()));
+            (entry.table.clone(), structural)
         } else {
             return None;
         };
@@ -1013,15 +1012,15 @@ mod tests {
                     table: "people".to_owned(),
                     identity_column: "id".to_owned(),
                 }],
-                relationship_sources: vec![RelationshipSourceRegistration {
-                    name: "KNOWS".to_owned(),
-                    table: "relationships".to_owned(),
-                    identity_column: "id".to_owned(),
-                    start_column: "src".to_owned(),
-                    end_column: "dst".to_owned(),
-                    start_node_source: "Person".to_owned(),
-                    end_node_source: "Person".to_owned(),
-                }],
+                relationship_sources: vec![RelationshipSourceRegistration::binary(
+                    "KNOWS",
+                    "relationships",
+                    "id",
+                    "src",
+                    "dst",
+                    "Person",
+                    "Person",
+                )],
             },
         )
         .expect("register graph")

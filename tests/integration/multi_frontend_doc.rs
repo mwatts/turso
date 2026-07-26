@@ -227,15 +227,9 @@ fn postgres_and_graph_frontends_share_one_connection_transaction() {
                 table: "people".to_owned(),
                 identity_column: "id".to_owned(),
             }],
-            relationship_sources: vec![RelationshipSourceRegistration {
-                name: "KNOWS".to_owned(),
-                table: "knows".to_owned(),
-                identity_column: "id".to_owned(),
-                start_column: "src".to_owned(),
-                end_column: "dst".to_owned(),
-                start_node_source: "Person".to_owned(),
-                end_node_source: "Person".to_owned(),
-            }],
+            relationship_sources: vec![RelationshipSourceRegistration::binary(
+                "KNOWS", "knows", "id", "src", "dst", "Person", "Person",
+            )],
         },
     )
     .unwrap();

@@ -49,15 +49,9 @@ fn profile(nodes: u64) -> Result<(), Box<dyn std::error::Error>> {
                 table: "nodes".to_owned(),
                 identity_column: "id".to_owned(),
             }],
-            relationship_sources: vec![RelationshipSourceRegistration {
-                name: "NEXT".to_owned(),
-                table: "edges".to_owned(),
-                identity_column: "id".to_owned(),
-                start_column: "src".to_owned(),
-                end_column: "dst".to_owned(),
-                start_node_source: "Node".to_owned(),
-                end_node_source: "Node".to_owned(),
-            }],
+            relationship_sources: vec![RelationshipSourceRegistration::binary(
+                "NEXT", "edges", "id", "src", "dst", "Node", "Node",
+            )],
         },
     )?;
 

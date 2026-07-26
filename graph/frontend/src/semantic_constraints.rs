@@ -1475,8 +1475,20 @@ pub(crate) fn load_constraint_snapshot(
             relationship_identity: relationship_source.identity_column.clone(),
             endpoint,
             endpoint_column: match endpoint {
-                SemanticEndpoint::Start => relationship_source.start_column.clone(),
-                SemanticEndpoint::End => relationship_source.end_column.clone(),
+                SemanticEndpoint::Start => relationship_source
+                    .role_by_name("start")
+                    .ok_or(SemanticCatalogError::InvalidCatalogValue(
+                        "cardinality endpoint column",
+                    ))?
+                    .column
+                    .clone(),
+                SemanticEndpoint::End => relationship_source
+                    .role_by_name("end")
+                    .ok_or(SemanticCatalogError::InvalidCatalogValue(
+                        "cardinality endpoint column",
+                    ))?
+                    .column
+                    .clone(),
             },
             minimum: row.minimum,
             maximum: row.maximum,

@@ -87,15 +87,15 @@ fn dialect_pinned_open_installs_temporal_extension_and_runs_duration() {
                 table: "people".to_owned(),
                 identity_column: "id".to_owned(),
             }],
-            relationship_sources: vec![RelationshipSourceRegistration {
-                name: "KNOWS".to_owned(),
-                table: "relationships".to_owned(),
-                identity_column: "id".to_owned(),
-                start_column: "src".to_owned(),
-                end_column: "dst".to_owned(),
-                start_node_source: "Person".to_owned(),
-                end_node_source: "Person".to_owned(),
-            }],
+            relationship_sources: vec![RelationshipSourceRegistration::binary(
+                "KNOWS",
+                "relationships",
+                "id",
+                "src",
+                "dst",
+                "Person",
+                "Person",
+            )],
         },
     )
     .expect("register graph");
@@ -145,15 +145,15 @@ fn dialect_pinned_mutation_in_predicate_needs_temporal_extension() {
                 table: "people".to_owned(),
                 identity_column: "id".to_owned(),
             }],
-            relationship_sources: vec![RelationshipSourceRegistration {
-                name: "KNOWS".to_owned(),
-                table: "relationships".to_owned(),
-                identity_column: "id".to_owned(),
-                start_column: "src".to_owned(),
-                end_column: "dst".to_owned(),
-                start_node_source: "Person".to_owned(),
-                end_node_source: "Person".to_owned(),
-            }],
+            relationship_sources: vec![RelationshipSourceRegistration::binary(
+                "KNOWS",
+                "relationships",
+                "id",
+                "src",
+                "dst",
+                "Person",
+                "Person",
+            )],
         },
     )
     .expect("register graph");
@@ -249,15 +249,15 @@ fn simple_create_mutation_commits_under_graph_dialect() {
                 table: "people".to_owned(),
                 identity_column: "id".to_owned(),
             }],
-            relationship_sources: vec![RelationshipSourceRegistration {
-                name: "KNOWS".to_owned(),
-                table: "relationships".to_owned(),
-                identity_column: "id".to_owned(),
-                start_column: "src".to_owned(),
-                end_column: "dst".to_owned(),
-                start_node_source: "Person".to_owned(),
-                end_node_source: "Person".to_owned(),
-            }],
+            relationship_sources: vec![RelationshipSourceRegistration::binary(
+                "KNOWS",
+                "relationships",
+                "id",
+                "src",
+                "dst",
+                "Person",
+                "Person",
+            )],
         },
     )
     .expect("register graph");
@@ -315,15 +315,15 @@ fn single_create_node_uses_closed_create_fast_path() {
                 table: "people".to_owned(),
                 identity_column: "id".to_owned(),
             }],
-            relationship_sources: vec![RelationshipSourceRegistration {
-                name: "KNOWS".to_owned(),
-                table: "relationships".to_owned(),
-                identity_column: "id".to_owned(),
-                start_column: "src".to_owned(),
-                end_column: "dst".to_owned(),
-                start_node_source: "Person".to_owned(),
-                end_node_source: "Person".to_owned(),
-            }],
+            relationship_sources: vec![RelationshipSourceRegistration::binary(
+                "KNOWS",
+                "relationships",
+                "id",
+                "src",
+                "dst",
+                "Person",
+                "Person",
+            )],
         },
     )
     .expect("register graph");
@@ -376,15 +376,15 @@ fn multi_stage_mutation_still_uses_savepoint_path() {
                 table: "people".to_owned(),
                 identity_column: "id".to_owned(),
             }],
-            relationship_sources: vec![RelationshipSourceRegistration {
-                name: "KNOWS".to_owned(),
-                table: "relationships".to_owned(),
-                identity_column: "id".to_owned(),
-                start_column: "src".to_owned(),
-                end_column: "dst".to_owned(),
-                start_node_source: "Person".to_owned(),
-                end_node_source: "Person".to_owned(),
-            }],
+            relationship_sources: vec![RelationshipSourceRegistration::binary(
+                "KNOWS",
+                "relationships",
+                "id",
+                "src",
+                "dst",
+                "Person",
+                "Person",
+            )],
         },
     )
     .expect("register graph");
