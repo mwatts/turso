@@ -8,7 +8,7 @@ use turso_core::{Connection, Numeric, Value};
 use turso_graph_ir::{
     GraphId, NodeId, RelationshipId, RelationshipTypeId, RoleCardinality, RoleId, SourceTableId,
 };
-use turso_graph_runtime::{BuildLimits, Cancellation, EdgeInput, Graph, RuntimeError};
+use turso_graph_runtime::{BuildLimits, Cancellation, EdgeInput, Graph, LimitKind, RuntimeError};
 
 use crate::{
     load_registered_graph, load_semantic_snapshot, CatalogError, SemanticCatalogError,
@@ -782,6 +782,24 @@ fn build_in_transaction(
                 for (to_role, to_node) in players {
                     if from_role == to_role {
                         continue;
+                    }
+                    // This pass is O(players^2) per relationship, so a single
+                    // relationship with a large `Many`-role player count can
+                    // amplify far faster than the old linear-in-relationships
+                    // producer this guard was originally sized against.
+                    // `Graph::build_cancellable` re-checks both once the full
+                    // `Vec<EdgeInput>` exists, but by then the oversized
+                    // allocation is already paid for; checking here, at the
+                    // same per-item cadence the runtime itself uses in its
+                    // own edge loop (csr.rs) and traversal step loop
+                    // (traversal.rs), catches it before that materialization.
+                    check_cancelled(cancellation)?;
+                    if edges.len() as u64 >= limits.max_edges {
+                        return Err(RuntimeError::LimitExceeded {
+                            kind: LimitKind::Edges,
+                            limit: limits.max_edges,
+                        }
+                        .into());
                     }
                     edges.push(EdgeInput {
                         relationship,
@@ -1736,6 +1754,126 @@ mod tests {
             reachable_from_editor_3,
             vec![NodeId::new(1).unwrap(), NodeId::new(2).unwrap()],
             "the reverse editor -> author pair must be traversable too"
+        );
+    }
+
+    /// Task 17 review, Important-2: the pair loop is O(players^2) per
+    /// relationship, so a single relationship with many `Many`-role players
+    /// can blow well past `max_edges` before `Graph::build_cancellable` ever
+    /// sees an edge. Asserting only that an error comes back would pass
+    /// even with the old, post-materialization guard -- `Graph::build_cancellable`
+    /// enforces `max_edges` too, once it receives the vector -- so that
+    /// alone would be worth nothing. This test proves the exit is early:
+    /// fully materializing this relation's ~12,500,000-edge cross product
+    /// before failing is measurably slow, while bailing during generation
+    /// is not, and the margin below is wide enough to absorb CI jitter
+    /// while still catching a regression to the old, late-only guard (see
+    /// the sabotage note in the Task 17 report for the measured numbers).
+    #[test]
+    fn a_relation_whose_cross_product_exceeds_max_edges_is_refused_during_generation_not_after() {
+        let connection = connection(":memory:snapshot-max-edges-early-exit");
+        connection
+            .execute(
+                "CREATE TABLE people(id INTEGER PRIMARY KEY); \
+                 CREATE TABLE collaborations(id INTEGER PRIMARY KEY);",
+            )
+            .unwrap();
+        register_graph(
+            &connection,
+            &GraphRegistration {
+                name: "collab".to_owned(),
+                node_sources: vec![NodeSourceRegistration {
+                    name: "Person".to_owned(),
+                    table: "people".to_owned(),
+                    identity_column: "id".to_owned(),
+                }],
+                relationship_sources: vec![RelationshipSourceRegistration {
+                    name: "COLLABORATED".to_owned(),
+                    table: "collaborations".to_owned(),
+                    identity_column: "id".to_owned(),
+                    roles: vec![
+                        RoleSourceRegistration {
+                            name: "authors".to_owned(),
+                            column: String::new(),
+                            node_source: "Person".to_owned(),
+                            cardinality: RoleCardinality::Many,
+                        },
+                        RoleSourceRegistration {
+                            name: "editors".to_owned(),
+                            column: String::new(),
+                            node_source: "Person".to_owned(),
+                            cardinality: RoleCardinality::Many,
+                        },
+                    ],
+                }],
+            },
+        )
+        .unwrap();
+
+        // 2,500 authors x 2,500 editors x 2 directions = 12,500,000 candidate
+        // edges for a single relationship, well past any plausible max_edges.
+        const PLAYERS_PER_ROLE: i64 = 2500;
+        let people = (1..=2 * PLAYERS_PER_ROLE)
+            .map(|id| format!("({id})"))
+            .collect::<Vec<_>>()
+            .join(", ");
+        let authors = (1..=PLAYERS_PER_ROLE)
+            .map(|id| format!("(10, {id})"))
+            .collect::<Vec<_>>()
+            .join(", ");
+        let editors = (PLAYERS_PER_ROLE + 1..=2 * PLAYERS_PER_ROLE)
+            .map(|id| format!("(10, {id})"))
+            .collect::<Vec<_>>()
+            .join(", ");
+        connection
+            .execute(format!(
+                "INSERT INTO people VALUES {people}; \
+                 INSERT INTO collaborations VALUES (10); \
+                 INSERT INTO collaborations__authors VALUES {authors}; \
+                 INSERT INTO collaborations__editors VALUES {editors};"
+            ))
+            .unwrap();
+
+        let limits = BuildLimits {
+            max_edges: 3,
+            ..BuildLimits::default()
+        };
+
+        let started = Instant::now();
+        let result = build_traversal_snapshot(
+            &connection,
+            "collab",
+            limits,
+            &turso_graph_runtime::NeverCancelled,
+        );
+        let elapsed = started.elapsed();
+
+        assert!(
+            matches!(
+                &result,
+                Err(SnapshotError::Runtime(RuntimeError::LimitExceeded {
+                    kind: LimitKind::Edges,
+                    limit: 3,
+                }))
+            ),
+            "expected a max_edges refusal, got {:?}",
+            result.err()
+        );
+        // Measured on the development machine: bailing inside the pair loop
+        // takes ~15ms end to end (dominated by inserting and loading the
+        // 5,000 people/spill rows); fully materializing the 12,500,000-edge
+        // cross product before the check ever ran (the old, post-hoc-only
+        // guard) took ~260ms. 100ms sits with wide margin above the former
+        // and wide margin below the latter, so it tolerates CI jitter in
+        // either direction while still failing if the guard regresses to
+        // checking only after `Graph::build_cancellable` receives the
+        // fully-built `Vec<EdgeInput>`.
+        assert!(
+            elapsed < Duration::from_millis(100),
+            "refusal took {elapsed:?}; that is consistent with the full \
+             12,500,000-edge cross product having been materialized before \
+             the max_edges check ever ran, not with an early exit inside \
+             the pair loop"
         );
     }
 }
