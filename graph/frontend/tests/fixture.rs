@@ -209,6 +209,97 @@ pub fn ternary_session() -> (Arc<Database>, GraphConnection) {
     (database, session)
 }
 
+/// Installs a `GraphConnection` over a fresh in-memory "witnessed" graph: a
+/// single `Person` node source (`people(id INTEGER PRIMARY KEY)`) and a
+/// `KNOWS` relationship source over `relationships(id INTEGER PRIMARY KEY,
+/// src INTEGER, dst INTEGER)` with three roles -- `start`/`end` (single-valued,
+/// the pattern-hop shape) plus `witness` (many-valued, no column of its own).
+///
+/// Binary-plus-`Many` is deliberate: it is the only role shape that lets a
+/// relation be both created through the standalone role pattern (Task 13a,
+/// `CREATE [x:KNOWS](start: a, end: b, witness: w)`) and bound for deletion
+/// through today's arrow syntax (`MATCH (a:Person)-[r:KNOWS]->(b:Person)
+/// DELETE r`), with no dependency on the standalone role pattern in `MATCH`
+/// (Task 13b, not yet implemented). A ternary relation can be created but not
+/// bound for deletion until then.
+///
+/// Modeled on `ternary_session`, not `social_graph_connection`: no eager
+/// `SnapshotStore::refresh`, since today's snapshot builder assumes every
+/// relationship source is binary and this task's tests never run a
+/// variable-length traversal that would need one. Unlike `ternary_session`,
+/// this graph has exactly one node source, so `SchemaCatalog` can resolve
+/// node properties and tests may seed through Cypher `CREATE (:Person {id:
+/// ..})` directly, the same way `social_graph_connection` does.
+#[allow(dead_code)] // This file is also compiled as its own integration-test crate.
+pub fn witnessed_session() -> (Arc<Database>, GraphConnection) {
+    let io = Arc::new(MemoryIO::new());
+    let database = Database::open(
+        io,
+        ":memory:fixture-witnessed",
+        OpenOptions::new(Arc::new(SqliteDialect)),
+    )
+    .expect("open database");
+    let connection = database.connect().expect("connect");
+    connection
+        .execute(
+            "CREATE TABLE people(id INTEGER PRIMARY KEY); \
+             CREATE TABLE relationships(id INTEGER PRIMARY KEY, src INTEGER, dst INTEGER);",
+        )
+        .expect("create sources");
+    let registered = register_graph(
+        &connection,
+        &GraphRegistration {
+            name: "witnessed".to_owned(),
+            node_sources: vec![NodeSourceRegistration {
+                name: "Person".to_owned(),
+                table: "people".to_owned(),
+                identity_column: "id".to_owned(),
+            }],
+            relationship_sources: vec![RelationshipSourceRegistration {
+                name: "KNOWS".to_owned(),
+                table: "relationships".to_owned(),
+                identity_column: "id".to_owned(),
+                roles: vec![
+                    RoleSourceRegistration {
+                        name: "start".to_owned(),
+                        column: "src".to_owned(),
+                        node_source: "Person".to_owned(),
+                        cardinality: RoleCardinality::One,
+                    },
+                    RoleSourceRegistration {
+                        name: "end".to_owned(),
+                        column: "dst".to_owned(),
+                        node_source: "Person".to_owned(),
+                        cardinality: RoleCardinality::One,
+                    },
+                    RoleSourceRegistration {
+                        name: "witness".to_owned(),
+                        // Empty for `Many` roles: their players live in the
+                        // spill table, not a column on the relation table.
+                        column: String::new(),
+                        node_source: "Person".to_owned(),
+                        cardinality: RoleCardinality::Many,
+                    },
+                ],
+            }],
+        },
+    )
+    .expect("register graph");
+    let catalog: Arc<dyn GraphCompilationCatalog> =
+        Arc::new(SchemaCatalog::new(connection.clone(), registered.clone()));
+    let shared_snapshots = Arc::new(SnapshotStore::default());
+    let session = GraphConnection::install(
+        connection,
+        &registered,
+        catalog,
+        ParameterTypes::new(),
+        shared_snapshots,
+        BuildLimits::default(),
+    )
+    .expect("install graph session");
+    (database, session)
+}
+
 /// A second connection onto the same underlying database as `database`, for
 /// exercising session setup (like [`GraphConnection::open`]) that must not
 /// depend on the connection that performed the original registration.

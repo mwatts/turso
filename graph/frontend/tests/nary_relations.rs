@@ -167,6 +167,169 @@ fn role_arguments_bind_by_name_regardless_of_source_order() {
     );
 }
 
+/// A `Many` role stores its players in a spill table rather than a column,
+/// so creating a relation with two `witness` players is one relation row
+/// plus two spill rows -- not two relation rows, which would double-count
+/// the relation in any aggregate.
+#[test]
+fn a_many_valued_role_holds_several_players_in_one_relation() {
+    let (database, session) = fixture::witnessed_session();
+    session
+        .execute(
+            "CREATE (:Person {id: 1}), (:Person {id: 2}), \
+                    (:Person {id: 3}), (:Person {id: 4})",
+            &Parameters::new(),
+        )
+        .expect("seed people");
+    session
+        .execute(
+            "MATCH (a:Person {id: 1}), (b:Person {id: 2}), \
+                   (w1:Person {id: 3}), (w2:Person {id: 4}) \
+             CREATE [x:KNOWS](start: a, end: b, witness: w1, witness: w2)",
+            &Parameters::new(),
+        )
+        .expect("create relation with two witnesses");
+
+    let connection = fixture::second_connection(&database);
+    assert_eq!(
+        connection
+            .prepare("SELECT count(*) FROM relationships")
+            .unwrap()
+            .run_collect_rows()
+            .unwrap(),
+        vec![vec![Value::from_i64(1)]],
+        "one relation row"
+    );
+    assert_eq!(
+        connection
+            .prepare("SELECT count(*) FROM relationships__witness")
+            .unwrap()
+            .run_collect_rows()
+            .unwrap(),
+        vec![vec![Value::from_i64(2)]],
+        "two spilled players"
+    );
+}
+
+/// Deleting a relation must remove its spilled players too: a spill row
+/// pointing at a relation that no longer exists is a dangling participant
+/// that a later hop through that role would surface as a live player.
+#[test]
+fn deleting_a_relation_removes_its_spilled_players() {
+    let (database, session) = fixture::witnessed_session();
+    session
+        .execute(
+            "CREATE (:Person {id: 1}), (:Person {id: 2}), (:Person {id: 3})",
+            &Parameters::new(),
+        )
+        .expect("seed people");
+    session
+        .execute(
+            "MATCH (a:Person {id: 1}), (b:Person {id: 2}), (w:Person {id: 3}) \
+             CREATE [x:KNOWS](start: a, end: b, witness: w)",
+            &Parameters::new(),
+        )
+        .expect("create relation with one witness");
+    session
+        .execute(
+            "MATCH (a:Person)-[r:KNOWS]->(b:Person) DELETE r",
+            &Parameters::new(),
+        )
+        .expect("delete the relation through today's arrow syntax");
+
+    let connection = fixture::second_connection(&database);
+    assert_eq!(
+        connection
+            .prepare("SELECT count(*) FROM relationships")
+            .unwrap()
+            .run_collect_rows()
+            .unwrap(),
+        vec![vec![Value::from_i64(0)]],
+        "relation row is gone"
+    );
+    assert_eq!(
+        connection
+            .prepare("SELECT count(*) FROM relationships__witness")
+            .unwrap()
+            .run_collect_rows()
+            .unwrap(),
+        vec![vec![Value::from_i64(0)]],
+        "spill row is gone with it"
+    );
+}
+
+/// `DETACH DELETE` on a node deletes the relations that reference it through
+/// a bare `DELETE FROM <relation> WHERE ...`, which does not on its own touch
+/// a spill table. The spilled players of those relations must still be
+/// cleaned up, for the same dangling-participant reason as a direct relation
+/// delete.
+#[test]
+fn detach_deleting_a_node_removes_its_relations_spilled_players() {
+    let (database, session) = fixture::witnessed_session();
+    session
+        .execute(
+            "CREATE (:Person {id: 1}), (:Person {id: 2}), (:Person {id: 3})",
+            &Parameters::new(),
+        )
+        .expect("seed people");
+    session
+        .execute(
+            "MATCH (a:Person {id: 1}), (b:Person {id: 2}), (w:Person {id: 3}) \
+             CREATE [x:KNOWS](start: a, end: b, witness: w)",
+            &Parameters::new(),
+        )
+        .expect("create relation with one witness");
+    session
+        .execute(
+            "MATCH (a:Person {id: 1}) DETACH DELETE a",
+            &Parameters::new(),
+        )
+        .expect("detach delete the start node");
+
+    let connection = fixture::second_connection(&database);
+    assert_eq!(
+        connection
+            .prepare("SELECT count(*) FROM relationships")
+            .unwrap()
+            .run_collect_rows()
+            .unwrap(),
+        vec![vec![Value::from_i64(0)]],
+        "the relation referencing the deleted node is gone"
+    );
+    assert_eq!(
+        connection
+            .prepare("SELECT count(*) FROM relationships__witness")
+            .unwrap()
+            .run_collect_rows()
+            .unwrap(),
+        vec![vec![Value::from_i64(0)]],
+        "its spill row must not dangle behind"
+    );
+}
+
+/// Regression guard on the pre-existing `DuplicateRoleArgument` refusal: it
+/// must keep rejecting a second player for a `One` role now that the same
+/// check lets a `Many` role repeat.
+#[test]
+fn a_single_valued_role_given_two_players_is_refused() {
+    let (_database, session) = fixture::witnessed_session();
+    session
+        .execute(
+            "CREATE (:Person {id: 1}), (:Person {id: 2}), (:Person {id: 3})",
+            &Parameters::new(),
+        )
+        .expect("seed people");
+    let error = session
+        .execute(
+            "MATCH (a:Person {id: 1}), (b:Person {id: 2}), (c:Person {id: 3}) \
+             CREATE [x:KNOWS](start: a, start: c, end: b, witness: c)",
+            &Parameters::new(),
+        )
+        .expect_err("start is a One role and cannot take two players");
+    let message = error.to_string();
+    assert!(message.contains("start"), "{message}");
+}
+
 /// A minimal, database-free `Transcription` catalog with real role
 /// target-type constraints (`scribe`/`witness` -> `Person`, `text` ->
 /// `Text`, `folio` -> `Folio`) and one optional role (`witness`), for

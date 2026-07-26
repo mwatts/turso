@@ -1878,11 +1878,7 @@ pub(crate) fn insert_relationship(
             ir::RoleCardinality::Many => spilled.push((role.clone(), player.clone())),
         }
     }
-    assert!(
-        spilled.is_empty(),
-        "many-valued roles are written in a later step; a Many role must not reach here yet"
-    );
-    insert_entity(
+    let (identity, created) = insert_entity(
         connection,
         catalog,
         input,
@@ -1897,7 +1893,36 @@ pub(crate) fn insert_relationship(
         "relationship",
         &fixed,
         &merge_predicates,
-    )
+    )?;
+    // A relation matched by MERGE already exists with whatever spill rows its
+    // original CREATE wrote; only a freshly created relation needs its
+    // many-valued role players written. (For a plain CREATE, `created` is
+    // always true -- `insert_entity` only takes the match branch when
+    // `merge` is set.)
+    if created {
+        let relation_parameter = format!("{INTERNAL_PARAMETER_PREFIX}spill_relation");
+        for (index, (role, player)) in spilled.iter().enumerate() {
+            let table = role
+                .spill_table
+                .as_ref()
+                .expect("a Many role always has a spill table");
+            let player_parameter = format!("{INTERNAL_PARAMETER_PREFIX}spill_player_{index}");
+            let internal = HashMap::from([
+                (relation_parameter.clone(), identity.clone()),
+                (player_parameter.clone(), player.clone()),
+            ]);
+            run_ignore(
+                connection,
+                &format!(
+                    "INSERT INTO {}(relation_id, node_id) VALUES (${relation_parameter}, ${player_parameter})",
+                    quoted_identifier(table),
+                ),
+                parameters,
+                &internal,
+            )?;
+        }
+    }
+    Ok((identity, created))
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -2069,6 +2094,34 @@ fn delete_entity(
             }
             let predicate = predicates.join(" OR ");
             if delete.detach {
+                // A many-valued role's players live in a spill table keyed by
+                // relation_id, not a column on the relation row. Purge them
+                // by the same predicate before the relation rows themselves
+                // are gone (the subquery needs the relation rows to still
+                // exist), so no dangling participant can surface as a live
+                // player on a later hop.
+                for role in relationship
+                    .roles
+                    .iter()
+                    .filter(|role| role.cardinality == ir::RoleCardinality::Many)
+                {
+                    let table = role
+                        .spill_table
+                        .as_ref()
+                        .expect("a Many role always has a spill table");
+                    run_ignore(
+                        connection,
+                        &format!(
+                            "DELETE FROM {} WHERE relation_id IN \
+                             (SELECT {} FROM {} WHERE {predicate})",
+                            quoted_identifier(table),
+                            quoted_identifier(&relationship.identity_column),
+                            quoted_identifier(&relationship.table),
+                        ),
+                        parameters,
+                        &internal,
+                    )?;
+                }
                 run_ignore(
                     connection,
                     &format!(
@@ -2135,6 +2188,30 @@ fn delete_entity(
                 &format!(
                     "DELETE FROM \"{}\" WHERE {source_predicate}relationship_id = ${}",
                     types_table.replace('"', "\"\""),
+                    identity_parameter(delete.entity),
+                ),
+                parameters,
+                &internal,
+            )?;
+        }
+        // A many-valued role's players live in a spill table keyed by
+        // relation_id, not a column on the relation row, so deleting the
+        // relation row alone would leave dangling participants that a later
+        // hop through that role would surface as live players.
+        for role in layout
+            .roles
+            .iter()
+            .filter(|role| role.cardinality == ir::RoleCardinality::Many)
+        {
+            let table = role
+                .spill_table
+                .as_ref()
+                .expect("a Many role always has a spill table");
+            run_ignore(
+                connection,
+                &format!(
+                    "DELETE FROM {} WHERE relation_id = ${}",
+                    quoted_identifier(table),
                     identity_parameter(delete.entity),
                 ),
                 parameters,

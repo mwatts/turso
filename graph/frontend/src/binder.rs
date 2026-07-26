@@ -1788,23 +1788,20 @@ impl<'a> Binder<'a> {
                     span_start: argument.name.span.start,
                     span_end: argument.name.span.end,
                 })?;
-            if !seen.insert(role.role) {
+            // A repeated role NAME is only a refusal for a `One` role: it can
+            // hold exactly one player, so a second argument naming it is a
+            // mistake rather than a second player. A `Many` role legitimately
+            // takes one argument per player, so its repeats are not
+            // duplicates. Either way the role counts as seen, so the
+            // required-role check below does not also complain about it.
+            let repeated = !seen.insert(role.role);
+            if repeated && role.cardinality == ir::RoleCardinality::One {
                 return Err(BindError::DuplicateRoleArgument {
                     relationship_type: type_name.value.clone(),
                     role: role.name.clone(),
                     span_start: argument.span.start,
                     span_end: argument.span.end,
                 });
-            }
-            // Many-valued roles spill into a per-role table that this
-            // writer doesn't populate yet (Task 14); refuse here rather
-            // than let `insert_relationship` reach its `spilled.is_empty()`
-            // assertion on a query supplied by a user.
-            if role.cardinality == ir::RoleCardinality::Many {
-                return Err(at_unsupported(
-                    argument.span,
-                    "creating a many-valued role in a role pattern",
-                ));
             }
             let cypher::Expression::Variable(name) = &argument.player.value else {
                 return Err(at_unsupported(
@@ -1866,13 +1863,16 @@ impl<'a> Binder<'a> {
 
         // Declaration order, not source order, so the writer's column
         // derivation (by `RoleId`) is stable regardless of how the query
-        // spelled its role arguments.
+        // spelled its role arguments. A `Many` role can have been filled by
+        // more than one argument, so every matching fill is kept (not just
+        // the first) -- otherwise a second, third, ... player would be
+        // silently dropped.
         let roles = declared
             .iter()
-            .filter_map(|role| {
+            .flat_map(|role| {
                 fills
                     .iter()
-                    .find(|(role_id, _)| *role_id == role.role)
+                    .filter(move |(role_id, _)| *role_id == role.role)
                     .map(|(role_id, value)| ir::RoleBinding {
                         role: *role_id,
                         value: *value,
