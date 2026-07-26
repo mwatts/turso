@@ -180,6 +180,8 @@ pub enum LowerError {
     InvalidGeneratedSql(#[from] turso_core::LimboError),
     #[error("generated relational SQL contained no statement")]
     EmptyGeneratedSql,
+    #[error("relation {relation} has no role {role:?}")]
+    UnknownRole { relation: String, role: ir::RoleId },
 }
 
 #[derive(Clone, Copy)]
@@ -1473,16 +1475,22 @@ fn lower_fixed_expand(
     let relationship = catalog
         .relationship_layout(expand.relationship_source)
         .ok_or(LowerError::MissingSource(expand.relationship_source))?;
-    // `Expand` is a Cypher `-[r]->` hop: always exactly two roles, named
-    // `start`/`end`. Resolve by name, not declaration order -- role order is
-    // not guaranteed to put `start` before `end`.
-    let start_column = &relationship
-        .start_role()
-        .ok_or(LowerError::MissingSource(expand.relationship_source))?
+    // The role pair says which column is `from` and which is `to`; binary is
+    // a layout of the role model, not a separate kind, so this is the same
+    // resolution an n-ary relation's roles get.
+    let from_column = &relationship
+        .role(expand.from_role)
+        .ok_or_else(|| LowerError::UnknownRole {
+            relation: relationship.table.clone(),
+            role: expand.from_role,
+        })?
         .column;
-    let end_column = &relationship
-        .end_role()
-        .ok_or(LowerError::MissingSource(expand.relationship_source))?
+    let to_column = &relationship
+        .role(expand.to_role)
+        .ok_or_else(|| LowerError::UnknownRole {
+            relation: relationship.table.clone(),
+            role: expand.to_role,
+        })?
         .column;
     let target = catalog
         .node_layout(expand.target_node_source)
@@ -1497,70 +1505,51 @@ fn lower_fixed_expand(
     let bound_reference = expand
         .bound_target
         .map(|binding| format!("q.{}", binding_column(binding)));
-    let (relationship_on, mut node_on) = match (&bound_reference, expand.direction) {
-        (Some(bound), ir::Direction::Outgoing) => (
+    // `symmetric` -- not a `Both` direction arm -- is what an undirected
+    // pattern means: the reversed role pair also matches.
+    let (relationship_on, mut node_on) = match (&bound_reference, expand.symmetric) {
+        (Some(bound), false) => (
             format!(
                 "{relationship_alias}.{} = {from} AND {relationship_alias}.{} = {bound}",
-                quote_identifier(start_column),
-                quote_identifier(end_column)
+                quote_identifier(from_column),
+                quote_identifier(to_column)
             ),
             String::new(),
         ),
-        (Some(bound), ir::Direction::Incoming) => (
+        (Some(bound), true) => (
             format!(
-                "{relationship_alias}.{} = {from} AND {relationship_alias}.{} = {bound}",
-                quote_identifier(end_column),
-                quote_identifier(start_column)
+                "(({relationship_alias}.{from_col} = {from} AND {relationship_alias}.{to_col} = {bound})                  OR ({relationship_alias}.{to_col} = {from} AND {relationship_alias}.{from_col} = {bound}))",
+                from_col = quote_identifier(from_column),
+                to_col = quote_identifier(to_column)
             ),
             String::new(),
         ),
-        (Some(bound), ir::Direction::Both) => (
-            format!(
-                "(({relationship_alias}.{start} = {from} AND {relationship_alias}.{end} = {bound})                  OR ({relationship_alias}.{end} = {from} AND {relationship_alias}.{start} = {bound}))",
-                start = quote_identifier(start_column),
-                end = quote_identifier(end_column)
-            ),
-            String::new(),
-        ),
-        (None, _) => match expand.direction {
-        ir::Direction::Outgoing => (
+        (None, false) => (
             format!(
                 "{relationship_alias}.{} = {from}",
-                quote_identifier(start_column)
+                quote_identifier(from_column)
             ),
             format!(
                 "{target_alias}.{} = {relationship_alias}.{}",
                 quote_identifier(&target.identity_column),
-                quote_identifier(end_column)
+                quote_identifier(to_column)
             ),
         ),
-        ir::Direction::Incoming => (
-            format!(
-                "{relationship_alias}.{} = {from}",
-                quote_identifier(end_column)
-            ),
-            format!(
-                "{target_alias}.{} = {relationship_alias}.{}",
-                quote_identifier(&target.identity_column),
-                quote_identifier(start_column)
-            ),
-        ),
-        ir::Direction::Both => (
+        (None, true) => (
             format!(
                 "({relationship_alias}.{} = {from} OR {relationship_alias}.{} = {from})",
-                quote_identifier(start_column),
-                quote_identifier(end_column)
+                quote_identifier(from_column),
+                quote_identifier(to_column)
             ),
             format!(
                 "{target_alias}.{} = CASE WHEN {relationship_alias}.{} = {from} \
                  THEN {relationship_alias}.{} ELSE {relationship_alias}.{} END",
                 quote_identifier(&target.identity_column),
-                quote_identifier(start_column),
-                quote_identifier(end_column),
-                quote_identifier(start_column)
+                quote_identifier(from_column),
+                quote_identifier(to_column),
+                quote_identifier(from_column)
             ),
         ),
-        },
     };
     // Filter typed hops through the relationship-type junction; recorded
     // types are authoritative, untyped rows only match untyped patterns.
