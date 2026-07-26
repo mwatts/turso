@@ -84,7 +84,18 @@ sort_item = { expression ~ (ASC | DESC)? }
 skip_clause = { SKIP ~ expression }
 limit_clause = { LIMIT ~ expression }
 
-pattern = { path_pattern ~ ("," ~ path_pattern)* }
+// `pattern_element` is an ordered choice with `role_pattern` first: `[` never
+// begins a `path_pattern`, so a leading `[` commits unambiguously to the role
+// form and every existing arrow/path query keeps parsing through the second
+// branch.
+pattern = { pattern_element ~ ("," ~ pattern_element)* }
+pattern_element = { role_pattern | path_pattern }
+// `[x:Transcription {year: 1387}](scribe: p, text: t, folio: f)`. The
+// argument list is one-or-more so `[x:T]()` is a parse error rather than a
+// silently accepted relation with no participants.
+role_pattern = { relationship_body ~ role_arguments }
+role_arguments = { "(" ~ role_argument ~ ("," ~ role_argument)* ~ ")" }
+role_argument = { identifier ~ ":" ~ expression }
 path_pattern = { (identifier ~ "=")? ~ node_pattern ~ (relationship_pattern ~ node_pattern)* }
 node_pattern = { "(" ~ identifier? ~ node_labels? ~ map_literal? ~ ")" }
 node_labels = { (":" ~ identifier)+ }

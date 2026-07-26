@@ -187,11 +187,19 @@ pub fn graph_frontend_id() -> FrontendId {
 pub(crate) fn query_needs_traversal_snapshot(query: &turso_graph_cypher::Query) -> bool {
     let clause_needs =
         |clause: &turso_graph_cypher::Spanned<turso_graph_cypher::Clause>| match &clause.value {
-            turso_graph_cypher::Clause::Match(value) => value.paths.iter().any(|path| {
-                path.steps
-                    .iter()
-                    .any(|(relationship, _)| relationship.range.is_some())
-            }),
+            turso_graph_cypher::Clause::Match(value) => {
+                value.paths.elements.iter().any(|element| {
+                    // A role pattern's grammar has no hop range at all (Task 12
+                    // rejects one as a parse error), so it can never need a
+                    // traversal snapshot.
+                    let turso_graph_cypher::PatternElement::Path(path) = element else {
+                        return false;
+                    };
+                    path.steps
+                        .iter()
+                        .any(|(relationship, _)| relationship.range.is_some())
+                })
+            }
             _ => false,
         };
     query.clauses.iter().any(clause_needs)

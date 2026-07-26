@@ -907,7 +907,7 @@ impl<'a> Binder<'a> {
                 cypher::Clause::Create(value) => {
                     mutation_started = true;
                     let mut new_operations = Vec::new();
-                    for path in &value.paths {
+                    for path in only_paths(&value.paths)? {
                         self.bind_create_path(path, false, &mut new_operations)?;
                     }
                     route(&mut operations, &mut stages, new_operations);
@@ -1124,7 +1124,7 @@ impl<'a> Binder<'a> {
                 match &inner.value {
                     cypher::Clause::Create(value) => {
                         let mut operations = Vec::new();
-                        for path in &value.paths {
+                        for path in only_paths(&value.paths)? {
                             self.bind_create_path(path, false, &mut operations)?;
                         }
                         items.extend(operations.into_iter().map(StageItem::Operation));
@@ -1189,7 +1189,8 @@ impl<'a> Binder<'a> {
         clause: &cypher::MatchClause,
         span: cypher::Span,
     ) -> Result<StageItem, BindError> {
-        for path in &clause.paths {
+        let paths = only_paths(&clause.paths)?;
+        for path in &paths {
             if path.variable.is_some() {
                 return Err(at_unsupported(
                     span,
@@ -1199,7 +1200,7 @@ impl<'a> Binder<'a> {
         }
         // Correlated variables: pattern variables already bound in scope.
         let mut correlated: Vec<(String, ir::BindingId)> = Vec::new();
-        for path in &clause.paths {
+        for path in &paths {
             let mut variables = Vec::new();
             if let Some(variable) = &path.start.variable {
                 variables.push(variable);
@@ -2362,10 +2363,11 @@ impl<'a> Binder<'a> {
         clause: &cypher::MatchClause,
         fallback: cypher::Span,
     ) -> Result<(), BindError> {
-        if clause.optional && clause.paths.len() != 1 {
+        let paths = only_paths(&clause.paths)?;
+        if clause.optional && paths.len() != 1 {
             return Err(at_unsupported(fallback, "multiple OPTIONAL MATCH paths"));
         }
-        for path in &clause.paths {
+        for path in paths.iter().copied() {
             if let Some(variable) = &path.variable {
                 // A path variable cannot rebind a name already in scope
                 // (openCypher VariableTypeConflict).
@@ -2403,7 +2405,7 @@ impl<'a> Binder<'a> {
         }
         let left = self.plan.clone();
         let old_ids: Vec<_> = self.scope.iter().map(ir::Binding::id).collect();
-        for path in &clause.paths {
+        for path in paths.iter().copied() {
             let path_binding = path.variable.as_ref().and_then(|variable| {
                 self.scope
                     .iter()
@@ -4069,7 +4071,7 @@ impl<'a> Binder<'a> {
         sub.bind_match(clause, span)?;
         let plan = sub.plan.ok_or(BindError::EmptyQuery)?;
         let mut correlations: Vec<(ir::BindingId, ir::BindingId)> = Vec::new();
-        for path in &clause.paths {
+        for path in only_paths(&clause.paths)? {
             let mut names: Vec<&str> = Vec::new();
             if let Some(variable) = &path.variable {
                 names.push(&variable.value);
@@ -4428,18 +4430,21 @@ impl<'a> Binder<'a> {
                 }
                 let clause = cypher::MatchClause {
                     optional: false,
-                    paths: vec![cypher::PathPattern {
-                        variable: None,
-                        start: cypher::NodePattern {
-                            variable: Some(cypher::Spanned::new(name.clone(), operand.span)),
-                            labels: labels.clone(),
-                            properties: Vec::new(),
-                            has_property_map: false,
+                    paths: cypher::Pattern {
+                        elements: vec![cypher::PatternElement::Path(cypher::PathPattern {
+                            variable: None,
+                            start: cypher::NodePattern {
+                                variable: Some(cypher::Spanned::new(name.clone(), operand.span)),
+                                labels: labels.clone(),
+                                properties: Vec::new(),
+                                has_property_map: false,
+                                span: expression.span,
+                            },
+                            steps: Vec::new(),
                             span: expression.span,
-                        },
-                        steps: Vec::new(),
+                        })],
                         span: expression.span,
-                    }],
+                    },
                     predicate: None,
                 };
                 self.bind_pattern_subquery(false, &clause, expression.span)?
@@ -4468,7 +4473,10 @@ impl<'a> Binder<'a> {
                 }
                 let clause = cypher::MatchClause {
                     optional: false,
-                    paths: vec![path.as_ref().clone()],
+                    paths: cypher::Pattern {
+                        elements: vec![cypher::PatternElement::Path(path.as_ref().clone())],
+                        span: path.span,
+                    },
                     predicate: None,
                 };
                 self.bind_pattern_subquery(false, &clause, expression.span)?
@@ -6348,32 +6356,49 @@ fn rename_match_clause(
     };
     cypher::MatchClause {
         optional: clause.optional,
-        paths: clause
-            .paths
-            .iter()
-            .map(|path| cypher::PathPattern {
-                variable: path.variable.clone(),
-                start: rename_node(&path.start),
-                steps: path
-                    .steps
-                    .iter()
-                    .map(|(relationship, node)| {
-                        (
-                            cypher::RelationshipPattern {
-                                variable: relationship.variable.as_ref().map(rename_name),
-                                types: relationship.types.clone(),
-                                direction: relationship.direction,
-                                range: relationship.range.clone(),
-                                properties: rename_properties(&relationship.properties),
-                                span: relationship.span,
-                            },
-                            rename_node(node),
-                        )
-                    })
-                    .collect(),
-                span: path.span,
-            })
-            .collect(),
+        paths: cypher::Pattern {
+            elements: clause
+                .paths
+                .elements
+                .iter()
+                .map(|element| match element {
+                    cypher::PatternElement::Path(path) => {
+                        cypher::PatternElement::Path(cypher::PathPattern {
+                            variable: path.variable.clone(),
+                            start: rename_node(&path.start),
+                            steps: path
+                                .steps
+                                .iter()
+                                .map(|(relationship, node)| {
+                                    (
+                                        cypher::RelationshipPattern {
+                                            variable: relationship
+                                                .variable
+                                                .as_ref()
+                                                .map(rename_name),
+                                            types: relationship.types.clone(),
+                                            direction: relationship.direction,
+                                            range: relationship.range.clone(),
+                                            properties: rename_properties(&relationship.properties),
+                                            span: relationship.span,
+                                        },
+                                        rename_node(node),
+                                    )
+                                })
+                                .collect(),
+                            span: path.span,
+                        })
+                    }
+                    // Every caller validates via `only_paths` before renaming,
+                    // so a `Roles` element is unreachable in practice here;
+                    // pass it through unchanged rather than drop or panic.
+                    cypher::PatternElement::Roles(roles) => {
+                        cypher::PatternElement::Roles(roles.clone())
+                    }
+                })
+                .collect(),
+            span: clause.paths.span,
+        },
         predicate: clause
             .predicate
             .as_ref()
@@ -7084,6 +7109,26 @@ fn at_unsupported(span: cypher::Span, feature: &'static str) -> BindError {
     }
 }
 
+/// The parser accepts the standalone role pattern (`[x:T](role: player,
+/// ...)`) as of Task 12, but binding it is Task 13's job. Every call site
+/// that used to walk a bare `Vec<PathPattern>` must reject a `Roles`
+/// element here rather than silently drop it — a `.filter_map` that quietly
+/// skipped role elements would let `MATCH [x:T](a: n) RETURN x` return an
+/// empty result instead of failing.
+fn only_paths(pattern: &cypher::Pattern) -> Result<Vec<&cypher::PathPattern>, BindError> {
+    pattern
+        .elements
+        .iter()
+        .map(|element| match element {
+            cypher::PatternElement::Path(path) => Ok(path),
+            cypher::PatternElement::Roles(roles) => Err(at_unsupported(
+                roles.span,
+                "role patterns are not supported yet",
+            )),
+        })
+        .collect()
+}
+
 /// Binds a SKIP/LIMIT expression that must be a non-negative integer
 /// literal: mutation pipelines execute row counts in Rust rather than
 /// lowering them into a SQL plan, so a runtime-only bound (a parameter or
@@ -7374,6 +7419,25 @@ mod tests {
         let output = bound.plan.scope().resolve("name").expect("projected name");
         assert_eq!(output.value_type(), &ir::ValueType::Text);
         assert_eq!(output.nullability(), ir::Nullability::Nullable);
+    }
+
+    #[test]
+    fn a_standalone_role_pattern_binds_to_an_error_not_an_empty_plan() {
+        // Task 12 only teaches the parser `[x:T](role: player, ...)`;
+        // binding it is Task 13's job. A `.filter_map` that silently
+        // dropped the `Roles` element instead of erroring here would make
+        // this bind to an empty plan — silently wrong, not merely
+        // unsupported. Task 13 flips this assertion to a success case.
+        assert!(matches!(
+            bind_text(
+                "MATCH [x:KNOWS](start: a, end: b) RETURN x",
+                ParameterTypes::new()
+            ),
+            Err(BindError::Unsupported {
+                feature: "role patterns are not supported yet",
+                ..
+            })
+        ));
     }
 
     #[test]
