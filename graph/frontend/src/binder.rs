@@ -497,6 +497,13 @@ pub enum BindError {
         span_start: usize,
         span_end: usize,
     },
+    #[error("`{name}` is both a role of `{relationship_type}` and a relationship type; write the role form `[x:{relationship_type}]({name}: target)` or qualify the type")]
+    AmbiguousRoleName {
+        name: String,
+        relationship_type: String,
+        span_start: usize,
+        span_end: usize,
+    },
 }
 
 /// Resource cap applied to unbounded variable-length ranges (`[*]`,
@@ -2753,6 +2760,67 @@ impl<'a> Binder<'a> {
         }
     }
 
+    /// Builds the `RelationScan` anchor shared by both spellings of a
+    /// relation-anchored pattern: the standalone role form
+    /// (`bind_match_role_pattern`) and the arrow-sugar anchor Rule A gives a
+    /// bare `(x:KNOWS)` (`bind_relation_anchor`). Registers the relation
+    /// binding and starts (or cartesian-joins into) the scan; role-specific
+    /// work happens in each caller afterward, so the two spellings share
+    /// this one code path instead of drifting.
+    fn bind_relation_scan_anchor(
+        &mut self,
+        variable: Option<&cypher::Spanned<String>>,
+        relationship_type: ir::RelationshipTypeId,
+        type_name: String,
+        span: cypher::Span,
+    ) -> Result<ir::Binding, BindError> {
+        let source = self
+            .catalog
+            .relationship_source_for_type(self.graph, relationship_type)
+            .ok_or(BindError::MissingSource {
+                entity: "relationship",
+                span_start: span.start,
+                span_end: span.end,
+            })?;
+        let relation = self.new_entity_binding(
+            variable,
+            "_relationship",
+            ir::ValueType::Relationship,
+            ir::Nullability::NonNull,
+            CatalogEntity::Relationship,
+            vec![type_name],
+            span,
+        )?;
+
+        // The relation is the anchor: a relation-anchored pattern reads
+        // relation rows and joins each named role out to its player, unlike
+        // a node-anchored arrow. A fresh anchor combines with any existing
+        // plan as a cartesian product, mirroring `bind_start_node`.
+        let scope = ir::Scope::new(self.scope.clone())?;
+        let scan = ir::Plan::new(
+            ir::PlanKind::RelationScan(ir::RelationScan {
+                graph: self.graph,
+                source,
+                binding: relation.id(),
+                relationship_types: vec![relationship_type],
+            }),
+            scope.clone(),
+            ir::ResultShape::default(),
+        )?;
+        self.plan = Some(match self.plan.take() {
+            None => scan,
+            Some(existing) => ir::Plan::new(
+                ir::PlanKind::Join(ir::Join {
+                    left: Box::new(existing),
+                    right: Box::new(scan),
+                }),
+                scope,
+                ir::ResultShape::default(),
+            )?,
+        });
+        Ok(relation)
+    }
+
     /// Binds a standalone role pattern (`[x:Transcription](scribe: s, folio:
     /// g)`) appearing directly in a MATCH pattern -- the read-side
     /// counterpart of `bind_create_role_pattern`. The relation is the
@@ -2794,45 +2862,12 @@ impl<'a> Binder<'a> {
                 span_start: pattern.span.start,
                 span_end: pattern.span.end,
             })?;
-
-        let type_names = vec![type_name.value.clone()];
-        let relation = self.new_entity_binding(
+        let relation = self.bind_relation_scan_anchor(
             pattern.variable.as_ref(),
-            "_relationship",
-            ir::ValueType::Relationship,
-            ir::Nullability::NonNull,
-            CatalogEntity::Relationship,
-            type_names,
+            relationship_type,
+            type_name.value.clone(),
             pattern.span,
         )?;
-
-        // The relation is the anchor: a standalone role pattern reads
-        // relation rows and joins each named role out to its player, unlike
-        // the arrow form, which anchors on a node. A fresh anchor combines
-        // with any existing plan as a cartesian product, mirroring
-        // `bind_start_node`.
-        let scope = ir::Scope::new(self.scope.clone())?;
-        let scan = ir::Plan::new(
-            ir::PlanKind::RelationScan(ir::RelationScan {
-                graph: self.graph,
-                source,
-                binding: relation.id(),
-                relationship_types: vec![relationship_type],
-            }),
-            scope.clone(),
-            ir::ResultShape::default(),
-        )?;
-        self.plan = Some(match self.plan.take() {
-            None => scan,
-            Some(existing) => ir::Plan::new(
-                ir::PlanKind::Join(ir::Join {
-                    left: Box::new(existing),
-                    right: Box::new(scan),
-                }),
-                scope,
-                ir::ResultShape::default(),
-            )?,
-        });
 
         let mut seen: std::collections::HashSet<ir::RoleId> = std::collections::HashSet::new();
         for argument in &pattern.roles {
@@ -3197,6 +3232,21 @@ impl<'a> Binder<'a> {
         let mut from = start;
         let mut list_equality: Option<(ir::Binding, ir::Binding)> = None;
         for (relationship, node) in &path.steps {
+            // Rule B: once `from` is bound as a relation (Rule A's anchor,
+            // or a role's player -- a node -- from an earlier iteration of
+            // this same check), the bracketed name is a role of that
+            // relation, never a relationship type. A relation can only ever
+            // be a path *anchor* in this IR: every expansion operator
+            // (`GraphExpand`/`RoleExpand`) below always produces a `Node`
+            // target, so `from` can only be a relation on the first
+            // iteration, straight out of `bind_start_node`.
+            if self.entities.get(&from).map(|entity| entity.kind)
+                == Some(CatalogEntity::Relationship)
+            {
+                from = self.bind_role_read_step(from, relationship, node)?;
+                nodes.push(from);
+                continue;
+            }
             let mut relationship_list = None;
             if relationship.range.is_some() {
                 variable_length = true;
@@ -3666,6 +3716,203 @@ impl<'a> Binder<'a> {
         })
     }
 
+    /// Binds one step of a path whose `from` binding is already a relation
+    /// (Rule B, `bind_path`): `-[:name]->` names a role of that relation,
+    /// not a relationship type, and the sugar delegates to the same
+    /// `RoleJoin` machinery `bind_match_role_pattern` uses for `MATCH
+    /// [x:T](role: player)` -- role resolution, ambiguity, and player
+    /// binding are not reimplemented here. Returns the bound player's
+    /// binding id, which becomes `from` for the next step.
+    ///
+    /// Restricted to the shape the underlying role machinery actually
+    /// supports: a single, plain `-[:role]->` (no variable-length range, no
+    /// name on the bracket itself, no bracket properties -- a role read has
+    /// no separate edge entity to hang those on), and, for a fresh player, a
+    /// bare `(var)` with no labels or properties (mirroring the standalone
+    /// role pattern's own restriction to a bare-variable player, since a
+    /// role argument's physical node source comes from the role's
+    /// registration, not from label text). A reused variable may still
+    /// carry labels/properties, exactly as `bind_start_node` allows when
+    /// reusing an already-bound node.
+    fn bind_role_read_step(
+        &mut self,
+        relation: ir::BindingId,
+        relationship: &cypher::RelationshipPattern,
+        node: &cypher::NodePattern,
+    ) -> Result<ir::BindingId, BindError> {
+        if relationship.direction != cypher::Direction::Outgoing {
+            return Err(at_unsupported(
+                relationship.span,
+                "a role arrow in a direction other than `->`",
+            ));
+        }
+        if relationship.range.is_some() {
+            return Err(at_unsupported(
+                relationship.span,
+                "a variable-length role arrow",
+            ));
+        }
+        if relationship.variable.is_some() {
+            return Err(at_unsupported(
+                relationship.span,
+                "naming the edge of a role arrow",
+            ));
+        }
+        if !relationship.properties.is_empty() {
+            return Err(at_unsupported(
+                relationship.span,
+                "properties on a role arrow",
+            ));
+        }
+        let [name] = relationship.types.as_slice() else {
+            return Err(at_unsupported(
+                relationship.span,
+                "a role arrow without exactly one name",
+            ));
+        };
+
+        let type_names = self.entity_type_names(relation, relationship.span)?;
+        let [type_name] = type_names.as_slice() else {
+            return Err(at_unsupported(
+                relationship.span,
+                "a role arrow from a relation without exactly one relationship type",
+            ));
+        };
+        let relationship_type = self
+            .catalog
+            .relationship_type(self.graph, type_name)
+            .ok_or_else(|| BindError::UnknownRelationshipType {
+                name: type_name.clone(),
+                span_start: relationship.span.start,
+                span_end: relationship.span.end,
+            })?;
+        let declared = self
+            .catalog
+            .relationship_roles(self.graph, relationship_type);
+        let role = declared
+            .iter()
+            .find(|role| role.name.eq_ignore_ascii_case(&name.value))
+            .ok_or_else(|| BindError::UnknownRole {
+                relationship_type: type_name.clone(),
+                role: name.value.clone(),
+                known: declared
+                    .iter()
+                    .map(|role| role.name.as_str())
+                    .collect::<Vec<_>>()
+                    .join(", "),
+                span_start: name.span.start,
+                span_end: name.span.end,
+            })?;
+        // Ambiguity must use the same case rule as the role match above
+        // (`eq_ignore_ascii_case`): checking the *canonical* role name
+        // (`role.name`, the spelling `declared` carries) against
+        // `relationship_type`, rather than the user's raw-cased `name`,
+        // means a differently-cased arrow (`-[:Witness]->`) that matched
+        // the role case-insensitively cannot dodge this check just because
+        // its exact spelling happens not to match a registered type.
+        // Ambiguity must use the same case rule as the role match above
+        // (`eq_ignore_ascii_case`): checking the *canonical* role name
+        // (`role.name`, the spelling `declared` carries) against
+        // `relationship_type`, rather than the user's raw-cased `name`,
+        // means a differently-cased arrow (`-[:Witness]->`) that matched
+        // the role case-insensitively cannot dodge this check just because
+        // its exact spelling happens not to match a registered type.
+        if self
+            .catalog
+            .relationship_type(self.graph, &role.name)
+            .is_some()
+        {
+            return Err(BindError::AmbiguousRoleName {
+                name: name.value.clone(),
+                relationship_type: type_name.clone(),
+                span_start: name.span.start,
+                span_end: name.span.end,
+            });
+        }
+        // A `Many` role's players live in a spill table; hopping through one
+        // changes the row-multiplication semantics of the pattern, the same
+        // reason `bind_match_role_pattern` refuses it for the standalone
+        // role form. That is a later task's (14b) job, not this sugar's.
+        if role.cardinality == ir::RoleCardinality::Many {
+            return Err(at_unsupported(
+                relationship.span,
+                "a role arrow over a Many-cardinality role",
+            ));
+        }
+        let source = self
+            .catalog
+            .relationship_source_for_type(self.graph, relationship_type)
+            .ok_or(BindError::MissingSource {
+                entity: "relationship",
+                span_start: relationship.span.start,
+                span_end: relationship.span.end,
+            })?;
+
+        let existing = node.variable.as_ref().and_then(|variable| {
+            self.scope
+                .iter()
+                .find(|binding| binding.name() == variable.value)
+                .cloned()
+        });
+        let (player_binding, player) = if let Some(existing) = existing {
+            if self.entities.get(&existing.id()).map(|entity| entity.kind)
+                != Some(CatalogEntity::Node)
+            {
+                return Err(at_unsupported(
+                    node.span,
+                    "reusing a non-node variable in a role arrow",
+                ));
+            }
+            self.enforce_labels(existing.id(), node)?;
+            self.bind_properties(&existing, CatalogEntity::Node, &node.properties)?;
+            (existing.id(), ir::RolePlayer::Bound(existing.id()))
+        } else {
+            if !node.labels.is_empty() || !node.properties.is_empty() {
+                return Err(at_unsupported(
+                    node.span,
+                    "a labeled or propertied fresh target in a role arrow",
+                ));
+            }
+            let node_source = self
+                .catalog
+                .relationship_role_node_source(self.graph, source, role.role)
+                .ok_or(BindError::MissingSource {
+                    entity: "role player",
+                    span_start: node.span.start,
+                    span_end: node.span.end,
+                })?;
+            let binding = self.new_entity_binding(
+                node.variable.as_ref(),
+                "_role_player",
+                ir::ValueType::Node,
+                ir::Nullability::NonNull,
+                CatalogEntity::Node,
+                Vec::new(),
+                node.span,
+            )?;
+            if let Some(entity) = self.entities.get_mut(&binding.id()) {
+                entity.sources = vec![node_source];
+            }
+            (
+                binding.id(),
+                ir::RolePlayer::Fresh {
+                    binding,
+                    node_source,
+                },
+            )
+        };
+
+        let input = self.plan.take().ok_or(BindError::EmptyQuery)?;
+        self.wrap_plan(ir::PlanKind::RoleJoin(ir::RoleJoin {
+            input: Box::new(input),
+            relationship: relation,
+            relationship_source: source,
+            role: role.role,
+            player,
+        }))?;
+        Ok(player_binding)
+    }
+
     fn bind_start_node(&mut self, node: &cypher::NodePattern) -> Result<ir::BindingId, BindError> {
         if let Some(variable) = &node.variable {
             if let Some(existing) = self
@@ -3687,6 +3934,25 @@ impl<'a> Binder<'a> {
                 self.enforce_labels(existing.id(), node)?;
                 self.bind_properties(&existing, CatalogEntity::Node, &node.properties)?;
                 return Ok(existing.id());
+            }
+        }
+        // Rule A: `Name` resolves as a node label whenever `catalog.label`
+        // returns `Some` -- unchanged, first, always. Adding a relationship
+        // type must never change what an existing node query means, so only
+        // when a single label name is *not* a node label, but *is* a
+        // relationship type, does `(x:Name)` become a relation anchor
+        // instead of a node. Multiple labels (`(x:A:B)`) never take this
+        // path: a relation has exactly one type, so ambiguity between "one
+        // failed node label" and "a relation anchor" cannot arise there --
+        // it falls through to `resolve_labels` below and reports whichever
+        // label is unknown, same as today.
+        if let [label] = node.labels.as_slice() {
+            if self.catalog.label(self.graph, &label.value).is_none() {
+                if let Some(relationship_type) =
+                    self.catalog.relationship_type(self.graph, &label.value)
+                {
+                    return self.bind_relation_anchor(node, relationship_type, &label.value);
+                }
             }
         }
         let labels = self.resolve_labels(node)?;
@@ -3783,6 +4049,27 @@ impl<'a> Binder<'a> {
         });
         self.bind_properties(&binding, CatalogEntity::Node, &node.properties)?;
         Ok(binding.id())
+    }
+
+    /// Binds `(x:Name)` as a relation anchor once Rule A (in
+    /// `bind_start_node`) has already established that `Name` is not a node
+    /// label but is a relationship type -- the arrow-sugar counterpart of
+    /// `bind_match_role_pattern`'s anchor, built through the same
+    /// `bind_relation_scan_anchor` so the two spellings cannot drift.
+    fn bind_relation_anchor(
+        &mut self,
+        node: &cypher::NodePattern,
+        relationship_type: ir::RelationshipTypeId,
+        type_name: &str,
+    ) -> Result<ir::BindingId, BindError> {
+        let relation = self.bind_relation_scan_anchor(
+            node.variable.as_ref(),
+            relationship_type,
+            type_name.to_owned(),
+            node.span,
+        )?;
+        self.bind_properties(&relation, CatalogEntity::Relationship, &node.properties)?;
+        Ok(relation.id())
     }
 
     /// Enforces a node pattern's labels on an already-produced binding by

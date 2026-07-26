@@ -1069,3 +1069,147 @@ fn a_match_role_pattern_rejects_a_many_cardinality_role_argument() {
         "unexpected error: {error}"
     );
 }
+
+// --- Task 16: `(x:T)-[:role]->(player)` -- arrow sugar over a relation
+// anchor. It is sugar over Task 13b's standalone role pattern, not a
+// separate implementation: Rule A decides when a bare `(x:Name)` is a
+// relation anchor rather than a node (`Name` is not a node label, but is a
+// relationship type -- checked in that order, unconditionally, so a new
+// relationship type can never change what an existing node query means);
+// Rule B decides that once the source binding is a relation, the bracketed
+// name is a role of that relation, never a relationship type, and refuses
+// as ambiguous rather than guess when a name is both. Both forms delegate to
+// `bind_match_role_pattern`'s `RelationScan`/`RoleJoin` machinery so they
+// cannot drift apart.
+
+/// Two relations share `start` but differ in `end`; reading only the `end`
+/// role through the arrow sugar must return both players. A one-row fixture,
+/// or reading `start` (the role a buggy "anchor's first player" fallback
+/// would return regardless of which role was named), cannot tell "reads the
+/// named role" apart from "returns the anchor's first player".
+#[test]
+fn an_arrow_from_a_relation_reads_that_relations_role() {
+    let (_database, session) = fixture::witnessed_session();
+    session
+        .execute(
+            "CREATE (:Person {id: 1}), (:Person {id: 2}), (:Person {id: 3})",
+            &Parameters::new(),
+        )
+        .expect("seed people");
+    session
+        .execute(
+            "MATCH (a:Person {id: 1}), (b:Person {id: 2}) CREATE (a)-[:KNOWS]->(b)",
+            &Parameters::new(),
+        )
+        .expect("create first relation");
+    session
+        .execute(
+            "MATCH (a:Person {id: 1}), (b:Person {id: 3}) CREATE (a)-[:KNOWS]->(b)",
+            &Parameters::new(),
+        )
+        .expect("create second relation");
+
+    let mut rows = session
+        .query(
+            "MATCH (x:KNOWS)-[:end]->(e) RETURN e.id",
+            &Parameters::new(),
+        )
+        .expect("an arrow from a relation anchor reads the named role");
+    rows.sort();
+    assert_eq!(
+        rows,
+        vec![vec![Value::from_i64(2)], vec![Value::from_i64(3)]],
+        "both relations' `end` players must be returned -- an empty result \
+         is not a read, and both rows rule out a positional fallback"
+    );
+}
+
+/// Both spellings are relation-anchored and label-less, so unlike the
+/// arrow-vs-role goldens in `desugaring_golden.rs` -- rewritten (commit
+/// `3dab1431d`) to assert row-equivalence under a ruling that emitted
+/// behaviour, not plan identity, is *their* contract, because a
+/// node-anchored arrow legitimately plans differently from the role form --
+/// there is no reason for these two plans to differ here. Assert plan
+/// equality, the stronger claim.
+#[test]
+fn the_role_arrow_and_the_role_pattern_bind_to_the_same_plan() {
+    let (database, _session) = fixture::witnessed_session();
+    let connection = fixture::second_connection(&database);
+    let arrow_plan =
+        fixture::bind_witnessed(&connection, "MATCH (x:KNOWS)-[:start]->(s) RETURN s.id");
+    let role_plan = fixture::bind_witnessed(&connection, "MATCH [x:KNOWS](start: s) RETURN s.id");
+    assert_eq!(
+        arrow_plan, role_plan,
+        "both spellings are relation-anchored and label-less; nothing \
+         legitimately distinguishes their plans"
+    );
+}
+
+/// `witness` is both a role of `KNOWS` and, in `ambiguous_session`, a
+/// relationship type in its own right. Guessing which one the arrow means
+/// would make this query mean one thing today and something else after an
+/// unrelated relationship type happened to be registered with the same
+/// name; refuse instead of guessing.
+#[test]
+fn a_name_that_is_both_a_role_and_a_relationship_type_is_ambiguous() {
+    let (_database, session) = fixture::ambiguous_session();
+
+    let error = session
+        .query(
+            "MATCH (x:KNOWS)-[:witness]->(w) RETURN w.id",
+            &Parameters::new(),
+        )
+        .expect_err("witness is ambiguous between a role of KNOWS and a relationship type");
+    let message = error.to_string();
+    assert!(message.contains("witness"), "{message}");
+    assert!(message.contains("role"), "{message}");
+    assert!(message.contains("relationship type"), "{message}");
+
+    // The ambiguity check must use the same case rule as role resolution
+    // (`eq_ignore_ascii_case`): checking a differently-cased spelling here
+    // catches a check that compared the user's raw-cased text against the
+    // registered relationship type instead of the role's own canonical
+    // name, which would let `Witness` resolve as a role while dodging the
+    // ambiguity check the lowercase spelling correctly hits.
+    let error = session
+        .query(
+            "MATCH (x:KNOWS)-[:Witness]->(w) RETURN w.id",
+            &Parameters::new(),
+        )
+        .expect_err("a differently-cased arrow must not dodge the ambiguity check");
+    let message = error.to_string();
+    assert!(message.contains("role"), "{message}");
+    assert!(message.contains("relationship type"), "{message}");
+}
+
+/// Regression guard: this already passes today, measured against the tree
+/// this task branched from. `start` from a *node* binding must still
+/// resolve as a relationship type, not a role, or adding `KNOWS`'s roles
+/// would change what this existing node-anchored arrow query means.
+#[test]
+fn the_role_arrow_is_only_available_from_a_relation_binding() {
+    let (_database, session) = fixture::witnessed_session();
+    session
+        .execute(
+            "CREATE (:Person {id: 1}), (:Person {id: 2})",
+            &Parameters::new(),
+        )
+        .expect("seed people");
+
+    let error = session
+        .query(
+            "MATCH (p:Person)-[:start]->(s) RETURN s.id",
+            &Parameters::new(),
+        )
+        .expect_err("start is not a relationship type, so this must not bind from a node");
+    // Must name `start` specifically, not merely say "relationship type": if
+    // the relation-binding guard were missing, a node source would also try
+    // role resolution using its own labels as fake "relationship type"
+    // names, producing an UnknownRelationshipType error that names the
+    // anchor's label (`Person`) instead -- a message that also contains
+    // "relationship type" and so would not go red under a weaker assertion.
+    let message = error.to_string();
+    assert!(message.contains("relationship type"), "{message}");
+    assert!(message.contains("start"), "{message}");
+    assert!(!message.contains("Person"), "{message}");
+}

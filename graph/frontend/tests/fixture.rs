@@ -10,11 +10,11 @@ use std::sync::Arc;
 use turso_core::{Connection, Database, DatabaseOpts, MemoryIO, OpenOptions, SqliteDialect};
 use turso_graph_cypher::parse;
 use turso_graph_frontend::{
-    bind, lower_relational, register_graph, CatalogEntity, GraphCatalogSnapshot,
-    GraphCompilationCatalog, GraphConnection, GraphRegistration, NodeSourceRegistration,
-    NodeTableLayout, ParameterTypes, Parameters, RelationalCatalogSnapshot, RelationshipRoleLayout,
-    RelationshipSourceRegistration, RelationshipTableLayout, ResolvedProperty,
-    RoleSourceRegistration, SchemaCatalog, SnapshotStore,
+    bind, load_registered_graph, lower_relational, register_graph, CatalogEntity,
+    GraphCatalogSnapshot, GraphCompilationCatalog, GraphConnection, GraphRegistration,
+    NodeSourceRegistration, NodeTableLayout, ParameterTypes, Parameters, RelationalCatalogSnapshot,
+    RelationshipRoleLayout, RelationshipSourceRegistration, RelationshipTableLayout,
+    ResolvedProperty, RoleSourceRegistration, SchemaCatalog, SnapshotStore,
 };
 use turso_graph_ir::{
     GraphId, LabelId, Nullability, Plan, PlanKind, PropertyId, RelationshipTypeId, RoleCardinality,
@@ -303,6 +303,99 @@ pub fn witnessed_session() -> (Arc<Database>, GraphConnection) {
     (database, session)
 }
 
+/// Installs a `GraphConnection` over a `KNOWS` shape close to
+/// `witnessed_session` (`Person`/`people`; `KNOWS`/`relationships` with roles
+/// `start`/`end`/`witness`) plus a second, unrelated relationship source
+/// literally named `witness`, over its own table (`witnesses`). `witness` is
+/// then simultaneously a role of `KNOWS` and a relationship type in its own
+/// right -- the shape Rule B's `AmbiguousRoleName` check exists to refuse
+/// rather than silently guess at. `register_graph` accepts this cleanly
+/// (role names and relationship-source names are validated in disjoint
+/// namespaces) and `MATCH [x:KNOWS](witness: w)` already binds against it
+/// through the standalone role pattern, unaffected by the second source.
+#[allow(dead_code)] // This file is also compiled as its own integration-test crate.
+pub fn ambiguous_session() -> (Arc<Database>, GraphConnection) {
+    let io = Arc::new(MemoryIO::new());
+    let database = Database::open(
+        io,
+        ":memory:fixture-ambiguous",
+        OpenOptions::new(Arc::new(SqliteDialect)),
+    )
+    .expect("open database");
+    let connection = database.connect().expect("connect");
+    connection
+        .execute(
+            "CREATE TABLE people(id INTEGER PRIMARY KEY); \
+             CREATE TABLE relationships(id INTEGER PRIMARY KEY, src INTEGER, dst INTEGER); \
+             CREATE TABLE witnesses(id INTEGER PRIMARY KEY, src INTEGER, dst INTEGER);",
+        )
+        .expect("create sources");
+    let registered = register_graph(
+        &connection,
+        &GraphRegistration {
+            name: "ambiguous".to_owned(),
+            node_sources: vec![NodeSourceRegistration {
+                name: "Person".to_owned(),
+                table: "people".to_owned(),
+                identity_column: "id".to_owned(),
+            }],
+            relationship_sources: vec![
+                RelationshipSourceRegistration {
+                    name: "KNOWS".to_owned(),
+                    table: "relationships".to_owned(),
+                    identity_column: "id".to_owned(),
+                    roles: vec![
+                        RoleSourceRegistration {
+                            name: "start".to_owned(),
+                            column: "src".to_owned(),
+                            node_source: "Person".to_owned(),
+                            cardinality: RoleCardinality::One,
+                        },
+                        RoleSourceRegistration {
+                            name: "end".to_owned(),
+                            column: "dst".to_owned(),
+                            node_source: "Person".to_owned(),
+                            cardinality: RoleCardinality::One,
+                        },
+                        RoleSourceRegistration {
+                            name: "witness".to_owned(),
+                            // Empty for `Many` roles: their players live in
+                            // the spill table, not a column on the relation
+                            // table.
+                            column: String::new(),
+                            node_source: "Person".to_owned(),
+                            cardinality: RoleCardinality::Many,
+                        },
+                    ],
+                },
+                RelationshipSourceRegistration::binary(
+                    "witness",
+                    "witnesses",
+                    "id",
+                    "src",
+                    "dst",
+                    "Person",
+                    "Person",
+                ),
+            ],
+        },
+    )
+    .expect("register graph");
+    let catalog: Arc<dyn GraphCompilationCatalog> =
+        Arc::new(SchemaCatalog::new(connection.clone(), registered.clone()));
+    let shared_snapshots = Arc::new(SnapshotStore::default());
+    let session = GraphConnection::install(
+        connection,
+        &registered,
+        catalog,
+        ParameterTypes::new(),
+        shared_snapshots,
+        BuildLimits::default(),
+    )
+    .expect("install graph session");
+    (database, session)
+}
+
 /// A second connection onto the same underlying database as `database`, for
 /// exercising session setup (like [`GraphConnection::open`]) that must not
 /// depend on the connection that performed the original registration.
@@ -409,6 +502,28 @@ pub fn bind_fixture(query: &str) -> Plan {
     )
     .expect("fixture query must bind")
     .plan
+}
+
+/// Binds `query` against [`witnessed_session`]'s real registered schema
+/// (`SchemaCatalog`, loaded fresh through `load_registered_graph` -- not
+/// [`bind_fixture`]'s stub `Catalog`, whose `label` and `relationship_type`
+/// both return `Some` for *every* name, making every name simultaneously a
+/// label, a type, and therefore ambiguous). Needed for plan-equality
+/// assertions between different spellings of one relation-anchored pattern:
+/// `ir::Plan` carries no connection state, only catalog-resolved ids, so two
+/// separate calls (even against separately-opened databases) that register
+/// the same graph shape produce comparable plans. `connection` must come
+/// from a database that already ran `witnessed_session`'s `register_graph`
+/// (e.g. via [`second_connection`]).
+#[allow(dead_code)] // Shared fixture; not every integration crate calls this.
+pub fn bind_witnessed(connection: &Arc<Connection>, query: &str) -> Plan {
+    let registered =
+        load_registered_graph(connection, "witnessed").expect("load witnessed registration");
+    let catalog = SchemaCatalog::new(connection.clone(), registered.clone());
+    let parsed = parse(query).expect("fixture query must parse");
+    bind(&parsed, registered.id, &catalog, &ParameterTypes::new())
+        .expect("fixture query must bind")
+        .plan
 }
 
 /// Lowers a plan bound by [`bind_fixture`] to SQL against the same
