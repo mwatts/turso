@@ -84,6 +84,8 @@ pub enum MutationError {
     MissingCreatedIdentity { entity: &'static str },
     #[error("mutation references binding {0} before it has a value")]
     MissingBinding(ir::BindingId),
+    #[error("relation has no role {role:?}")]
+    UnknownRole { role: ir::RoleId },
     #[error("mutation binding {binding} has invalid source provenance {value:?}")]
     InvalidSourceProvenance {
         binding: ir::BindingId,
@@ -1831,7 +1833,7 @@ fn node_label_predicates(
 }
 
 #[allow(clippy::too_many_arguments)]
-fn insert_relationship(
+pub(crate) fn insert_relationship(
     connection: &Arc<Connection>,
     catalog: &dyn GraphCompilationCatalog,
     input: &LoweredMutationInput,
@@ -1844,12 +1846,6 @@ fn insert_relationship(
     let layout = catalog
         .relationship_layout(create.source)
         .ok_or(LowerError::MissingSource(create.source))?;
-    let from = values
-        .get(&create.from)
-        .ok_or(MutationError::MissingBinding(create.from))?;
-    let to = values
-        .get(&create.to)
-        .ok_or(MutationError::MissingBinding(create.to))?;
     let merge_predicates = if merge {
         relationship_type_predicates(
             catalog,
@@ -1861,6 +1857,31 @@ fn insert_relationship(
     } else {
         Vec::new()
     };
+    // Resolve each role player by `RoleId`, not by declaration order or a
+    // hard-coded start/end pair: a relation may carry any number of
+    // single-valued roles, and a two-role pattern hop is just the case
+    // where that number happens to be two.
+    let mut fixed = Vec::with_capacity(create.roles.len());
+    let mut spilled = Vec::new();
+    for binding in &create.roles {
+        let role = layout
+            .role(binding.role)
+            .ok_or(MutationError::UnknownRole { role: binding.role })?;
+        let player = values
+            .get(&binding.value)
+            .ok_or(MutationError::MissingBinding(binding.value))?;
+        match role.cardinality {
+            ir::RoleCardinality::One => fixed.push((role.column.clone(), player.clone())),
+            // A many-valued role has no column on the relation table; its
+            // players land in the spill table after the relation row exists
+            // and has an identity to point at.
+            ir::RoleCardinality::Many => spilled.push((role.clone(), player.clone())),
+        }
+    }
+    assert!(
+        spilled.is_empty(),
+        "many-valued roles are written in a later step; a Many role must not reach here yet"
+    );
     insert_entity(
         connection,
         catalog,
@@ -1874,27 +1895,7 @@ fn insert_relationship(
         entity_layouts,
         merge,
         "relationship",
-        // `CREATE (a)-[r]->(b)` is always a two-role pattern hop. Resolve
-        // the roles by name, not declaration order -- role order is not
-        // guaranteed to put `start` before `end`.
-        &[
-            (
-                layout
-                    .start_role()
-                    .ok_or(LowerError::MissingSource(create.source))?
-                    .column
-                    .clone(),
-                from.clone(),
-            ),
-            (
-                layout
-                    .end_role()
-                    .ok_or(LowerError::MissingSource(create.source))?
-                    .column
-                    .clone(),
-                to.clone(),
-            ),
-        ],
+        &fixed,
         &merge_predicates,
     )
 }
@@ -2940,5 +2941,261 @@ mod tests {
         let relationships = path.as_str().split("\"relationships\":[").nth(1).unwrap();
         let relationships_list = relationships.split(']').next().unwrap();
         assert_eq!(relationships_list.split(',').count(), 1);
+    }
+
+    /// A three-role `Transcription` relation (`scribe`, `text`, `folio`,
+    /// all single-valued) over `transcriptions(id, scribe, txt, folio)`,
+    /// registered directly (no Cypher surface syntax exists yet for a
+    /// standalone role pattern with more than two roles -- that is a later
+    /// task) so `insert_relationship` can be exercised straight from IR.
+    struct TernaryCatalog;
+
+    impl GraphCatalogSnapshot for TernaryCatalog {
+        fn node_source(&self, _graph: ir::GraphId) -> Option<ir::SourceTableId> {
+            None
+        }
+
+        fn relationship_source(&self, _graph: ir::GraphId) -> Option<ir::SourceTableId> {
+            ir::SourceTableId::new(2).ok()
+        }
+
+        fn label(&self, _graph: ir::GraphId, _name: &str) -> Option<ir::LabelId> {
+            None
+        }
+
+        fn relationship_type(
+            &self,
+            _graph: ir::GraphId,
+            name: &str,
+        ) -> Option<ir::RelationshipTypeId> {
+            (name == "Transcription").then(|| ir::RelationshipTypeId::new(1).unwrap())
+        }
+
+        fn property(
+            &self,
+            _graph: ir::GraphId,
+            _entity: CatalogEntity,
+            _name: &str,
+        ) -> Option<ResolvedProperty> {
+            None
+        }
+
+        fn relationship_source_roles(
+            &self,
+            source: ir::SourceTableId,
+        ) -> Option<RelationshipTableLayout> {
+            self.relationship_layout(source)
+        }
+    }
+
+    impl RelationalCatalogSnapshot for TernaryCatalog {
+        fn node_layout(&self, _source: ir::SourceTableId) -> Option<NodeTableLayout> {
+            None
+        }
+
+        fn relationship_layout(
+            &self,
+            source: ir::SourceTableId,
+        ) -> Option<RelationshipTableLayout> {
+            (source.get() == 2).then(|| RelationshipTableLayout {
+                table: "transcriptions".to_owned(),
+                identity_column: "id".to_owned(),
+                // Declaration order (text, folio, scribe) is deliberately
+                // neither RoleId order (scribe=1, text=2, folio=3) nor the
+                // order role players are bound in the tests below (folio,
+                // scribe, text). All three orders must differ, or a
+                // positional `layout.roles[i]` bug could hide behind
+                // coincidentally-aligned indices.
+                roles: vec![
+                    RelationshipRoleLayout {
+                        role: ir::RoleId::new(2).unwrap(),
+                        name: "text".to_owned(),
+                        column: "txt".to_owned(),
+                        cardinality: ir::RoleCardinality::One,
+                        spill_table: None,
+                    },
+                    RelationshipRoleLayout {
+                        role: ir::RoleId::new(3).unwrap(),
+                        name: "folio".to_owned(),
+                        column: "folio".to_owned(),
+                        cardinality: ir::RoleCardinality::One,
+                        spill_table: None,
+                    },
+                    RelationshipRoleLayout {
+                        role: ir::RoleId::new(1).unwrap(),
+                        name: "scribe".to_owned(),
+                        column: "scribe".to_owned(),
+                        cardinality: ir::RoleCardinality::One,
+                        spill_table: None,
+                    },
+                ],
+            })
+        }
+
+        fn property_column(
+            &self,
+            _source: ir::SourceTableId,
+            _property: ir::PropertyId,
+        ) -> Option<String> {
+            None
+        }
+
+        fn relationship_types_table(&self) -> Option<String> {
+            None
+        }
+
+        fn relationship_type_name(
+            &self,
+            _relationship_type: ir::RelationshipTypeId,
+        ) -> Option<String> {
+            None
+        }
+    }
+
+    fn setup_ternary() -> (Arc<Connection>, Arc<TernaryCatalog>, ir::GraphId) {
+        let io = Arc::new(MemoryIO::new());
+        let connection = Database::open_file(
+            io,
+            ":memory:graph-mutation-ternary",
+            Arc::new(SqliteDialect),
+        )
+        .unwrap()
+        .connect()
+        .unwrap();
+        connection
+            .execute(
+                "CREATE TABLE transcriptions( \
+                   id INTEGER PRIMARY KEY, scribe INTEGER, txt INTEGER, folio INTEGER);",
+            )
+            .unwrap();
+        (
+            connection,
+            Arc::new(TernaryCatalog),
+            ir::GraphId::new(1).unwrap(),
+        )
+    }
+
+    /// Builds a `CreateRelationship` for `TernaryCatalog`'s `Transcription`
+    /// source with `roles` bound to `(scribe, text, folio)` player values
+    /// given in that order, but placed on the IR in (folio, scribe, text)
+    /// order -- yet a third permutation from both the layout's declaration
+    /// order and RoleId order.
+    fn ternary_create(
+        scribe: i64,
+        text: i64,
+        folio: i64,
+    ) -> (ir::CreateRelationship, HashMap<ir::BindingId, Value>) {
+        let folio_binding = ir::BindingId::new(1).unwrap();
+        let scribe_binding = ir::BindingId::new(2).unwrap();
+        let text_binding = ir::BindingId::new(3).unwrap();
+        let relation_binding = ir::BindingId::new(4).unwrap();
+
+        let mut values = HashMap::new();
+        values.insert(folio_binding, Value::from_i64(folio));
+        values.insert(scribe_binding, Value::from_i64(scribe));
+        values.insert(text_binding, Value::from_i64(text));
+
+        let create = ir::CreateRelationship {
+            binding: ir::Binding::new(
+                relation_binding,
+                "t",
+                ir::ValueType::Relationship,
+                ir::Nullability::NonNull,
+            )
+            .unwrap(),
+            source: ir::SourceTableId::new(2).unwrap(),
+            // Unused by the role-model write path; any binding id is fine.
+            from: folio_binding,
+            to: folio_binding,
+            direction: ir::CreateRelationship::default_direction(),
+            relationship_types: vec![ir::RelationshipTypeId::new(1).unwrap()],
+            properties: vec![],
+            roles: vec![
+                ir::RoleBinding {
+                    role: ir::RoleId::new(3).unwrap(), // folio
+                    value: folio_binding,
+                },
+                ir::RoleBinding {
+                    role: ir::RoleId::new(1).unwrap(), // scribe
+                    value: scribe_binding,
+                },
+                ir::RoleBinding {
+                    role: ir::RoleId::new(2).unwrap(), // text
+                    value: text_binding,
+                },
+            ],
+        };
+        (create, values)
+    }
+
+    #[test]
+    fn role_players_are_resolved_by_role_id_not_by_position() {
+        // Regression for the recurring defect class of this plan (Tasks 4,
+        // 5, 6, 7, 9): resolving a role player by its position in
+        // `create.roles` or `layout.roles` instead of by `RoleId` silently
+        // writes the wrong column. `ternary_create` binds roles in an order
+        // that differs from both the layout's declaration order and RoleId
+        // order, so a positional bug scrambles every column.
+        let (connection, catalog, _graph) = setup_ternary();
+        let (create, values) = ternary_create(10, 20, 30);
+        let entity_layouts = HashMap::new();
+        let parameters = Parameters::new();
+        let input = unit_mutation_input();
+        connection.execute("BEGIN IMMEDIATE").unwrap();
+        insert_relationship(
+            &connection,
+            catalog.as_ref(),
+            &input,
+            &create,
+            &parameters,
+            &values,
+            &entity_layouts,
+            false,
+        )
+        .expect("insert three-role relationship");
+        connection.execute("COMMIT").unwrap();
+
+        assert_eq!(
+            rows(&connection, "SELECT scribe, txt, folio FROM transcriptions"),
+            vec![vec![
+                Value::from_i64(10),
+                Value::from_i64(20),
+                Value::from_i64(30),
+            ]]
+        );
+    }
+
+    #[test]
+    fn a_repeated_player_fills_two_roles_of_one_relation() {
+        // Nothing may assume role players are distinct: the same node can
+        // legally fill two roles of one relation (e.g. a scribe
+        // transcribing their own dictation is also the `text`'s subject).
+        let (connection, catalog, _graph) = setup_ternary();
+        let (create, values) = ternary_create(7, 7, 30);
+        let entity_layouts = HashMap::new();
+        let parameters = Parameters::new();
+        let input = unit_mutation_input();
+        connection.execute("BEGIN IMMEDIATE").unwrap();
+        insert_relationship(
+            &connection,
+            catalog.as_ref(),
+            &input,
+            &create,
+            &parameters,
+            &values,
+            &entity_layouts,
+            false,
+        )
+        .expect("insert relationship with a repeated role player");
+        connection.execute("COMMIT").unwrap();
+
+        assert_eq!(
+            rows(&connection, "SELECT scribe, txt, folio FROM transcriptions"),
+            vec![vec![
+                Value::from_i64(7),
+                Value::from_i64(7),
+                Value::from_i64(30),
+            ]]
+        );
     }
 }

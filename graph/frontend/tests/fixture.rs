@@ -13,7 +13,8 @@ use turso_graph_frontend::{
     bind, register_graph, CatalogEntity, GraphCatalogSnapshot, GraphCompilationCatalog,
     GraphConnection, GraphRegistration, NodeSourceRegistration, NodeTableLayout, ParameterTypes,
     Parameters, RelationalCatalogSnapshot, RelationshipRoleLayout, RelationshipSourceRegistration,
-    RelationshipTableLayout, ResolvedProperty, SchemaCatalog, SnapshotStore,
+    RelationshipTableLayout, ResolvedProperty, RoleSourceRegistration, SchemaCatalog,
+    SnapshotStore,
 };
 use turso_graph_ir::{
     GraphId, LabelId, Nullability, Plan, PlanKind, PropertyId, RelationshipTypeId, RoleCardinality,
@@ -103,6 +104,108 @@ fn social_graph_connection_with_options(opts: DatabaseOpts) -> (Arc<Database>, G
             &Parameters::new(),
         )
         .expect("seed people");
+    (database, session)
+}
+
+/// Installs a `GraphConnection` over a fresh in-memory three-role
+/// "scriptorium" graph: `Person`/`Text`/`Folio` node sources and a
+/// `Transcription` relationship source with three single-valued roles
+/// (`scribe` -> `people`, `text` -> `texts`, `folio` -> `folios`, columns
+/// `scribe`/`txt`/`folio` on `transcriptions`), mirroring
+/// `catalog.rs`'s `a_three_role_registration_indexes_every_role_and_every_ordered_pair`
+/// fixture plus a `year` property on the relation. No rows are pre-seeded:
+/// `SchemaCatalog` without a semantic schema only resolves node properties
+/// when the graph has exactly one node source, which this graph (three node
+/// sources) does not have, so seeding through Cypher `CREATE (:Person {..})`
+/// is not available here. Relationship-property resolution still works
+/// without a semantic schema because this graph registers exactly one
+/// relationship source.
+#[allow(dead_code)] // This file is also compiled as its own integration-test crate.
+pub fn ternary_session() -> (Arc<Database>, GraphConnection) {
+    let io = Arc::new(MemoryIO::new());
+    let database = Database::open(
+        io,
+        ":memory:fixture-scriptorium",
+        OpenOptions::new(Arc::new(SqliteDialect)),
+    )
+    .expect("open database");
+    let connection = database.connect().expect("connect");
+    connection
+        .execute(
+            "CREATE TABLE people(id INTEGER PRIMARY KEY); \
+             CREATE TABLE texts(id INTEGER PRIMARY KEY); \
+             CREATE TABLE folios(id INTEGER PRIMARY KEY); \
+             CREATE TABLE transcriptions(\
+                 id INTEGER PRIMARY KEY, scribe INTEGER, txt INTEGER, folio INTEGER, \
+                 year INTEGER);",
+        )
+        .expect("create sources");
+    let registered = register_graph(
+        &connection,
+        &GraphRegistration {
+            name: "scriptorium".to_owned(),
+            node_sources: vec![
+                NodeSourceRegistration {
+                    name: "Person".to_owned(),
+                    table: "people".to_owned(),
+                    identity_column: "id".to_owned(),
+                },
+                NodeSourceRegistration {
+                    name: "Text".to_owned(),
+                    table: "texts".to_owned(),
+                    identity_column: "id".to_owned(),
+                },
+                NodeSourceRegistration {
+                    name: "Folio".to_owned(),
+                    table: "folios".to_owned(),
+                    identity_column: "id".to_owned(),
+                },
+            ],
+            relationship_sources: vec![RelationshipSourceRegistration {
+                name: "Transcription".to_owned(),
+                table: "transcriptions".to_owned(),
+                identity_column: "id".to_owned(),
+                roles: vec![
+                    RoleSourceRegistration {
+                        name: "scribe".to_owned(),
+                        column: "scribe".to_owned(),
+                        node_source: "Person".to_owned(),
+                        cardinality: RoleCardinality::One,
+                    },
+                    RoleSourceRegistration {
+                        name: "text".to_owned(),
+                        column: "txt".to_owned(),
+                        node_source: "Text".to_owned(),
+                        cardinality: RoleCardinality::One,
+                    },
+                    RoleSourceRegistration {
+                        name: "folio".to_owned(),
+                        column: "folio".to_owned(),
+                        node_source: "Folio".to_owned(),
+                        cardinality: RoleCardinality::One,
+                    },
+                ],
+            }],
+        },
+    )
+    .expect("register graph");
+    let catalog: Arc<dyn GraphCompilationCatalog> =
+        Arc::new(SchemaCatalog::new(connection.clone(), registered.clone()));
+    // Unlike `social_graph_connection`, this does not eagerly build a
+    // traversal snapshot: today's snapshot builder is binary-only (it looks
+    // up `start`/`end` roles on every relationship source), and none of this
+    // fixture's tests run a Cypher traversal that would need one. The store
+    // builds lazily on demand for whichever caller actually needs it.
+    let shared_snapshots = Arc::new(SnapshotStore::default());
+    let session = GraphConnection::install(
+        connection,
+        &registered,
+        catalog,
+        ParameterTypes::new(),
+        shared_snapshots,
+        BuildLimits::default(),
+    )
+    .expect("install graph session");
     (database, session)
 }
 
