@@ -27,12 +27,13 @@ use std::sync::Arc;
 use turso_core::{Connection, Value};
 use turso_graph_cypher::parse;
 use turso_graph_frontend::{
-    bind_mutation, labels_table_name, load_registered_graph, BindError, CatalogEntity,
+    bind, bind_mutation, labels_table_name, load_registered_graph, BindError, CatalogEntity,
     GraphCatalogSnapshot, ParameterTypes, Parameters, RegisteredGraph, ResolvedProperty,
     SemanticRole,
 };
 use turso_graph_ir::{
-    GraphId, LabelId, RelationshipTypeId, RoleCardinality, RoleId, RoleTarget, SourceTableId,
+    GraphId, LabelId, Nullability, Plan, PlanKind, PropertyId, RelationshipTypeId, RoleCardinality,
+    RoleId, RoleTarget, SourceTableId, ValueType,
 };
 
 /// Inserts a node row directly (bypassing Cypher, whose property binding
@@ -1124,6 +1125,53 @@ fn an_arrow_from_a_relation_reads_that_relations_role() {
     );
 }
 
+/// `bind_role_read_step` refuses a role arrow over a `Many`-cardinality role
+/// (`witnessed_session`'s `witness` role) rather than joining through its
+/// spill table, mirroring `bind_match_role_pattern`'s identical refusal for
+/// the standalone role form -- deferred to a later task (14b), not silently
+/// mishandled. `witnessed_session` has no relationship source literally
+/// named `witness` (unlike `ambiguous_session`), so this isolates the
+/// Many-cardinality guard from the separate ambiguity check: nothing else in
+/// `bind_role_read_step` can produce this failure.
+#[test]
+fn a_role_arrow_over_a_many_cardinality_role_is_refused() {
+    let (_database, session) = fixture::witnessed_session();
+    session
+        .execute(
+            "CREATE (:Person {id: 1}), (:Person {id: 2}), (:Person {id: 3})",
+            &Parameters::new(),
+        )
+        .expect("seed people");
+    session
+        .execute(
+            "MATCH (a:Person {id: 1}), (b:Person {id: 2}), (w:Person {id: 3}) \
+             MERGE [x:KNOWS](start: a, end: b, witness: w)",
+            &Parameters::new(),
+        )
+        .expect("seed a relation with a witness");
+
+    let error = session
+        .query(
+            "MATCH (x:KNOWS)-[:witness]->(w) RETURN w.id",
+            &Parameters::new(),
+        )
+        .expect_err("a role arrow over a Many-cardinality role must not bind");
+    // The exact phrase, not just "Many-cardinality role": `lowering.rs` has
+    // its own separate, deliberately-worded-differently defense-in-depth
+    // guard for the same condition ("MATCH role pattern join through a
+    // Many-cardinality role", `lower_role_join`, in case the binder guard is
+    // ever bypassed). A looser substring check would still pass if this
+    // binder-level refusal were removed, since the lowering guard would
+    // catch it instead -- this asserts the *binder* check specifically
+    // fired, not merely that binding failed somehow.
+    assert!(
+        error
+            .to_string()
+            .contains("a role arrow over a Many-cardinality role"),
+        "unexpected error: {error}"
+    );
+}
+
 /// Both spellings are relation-anchored and label-less, so unlike the
 /// arrow-vs-role goldens in `desugaring_golden.rs` -- rewritten (commit
 /// `3dab1431d`) to assert row-equivalence under a ruling that emitted
@@ -1150,6 +1198,13 @@ fn the_role_arrow_and_the_role_pattern_bind_to_the_same_plan() {
 /// would make this query mean one thing today and something else after an
 /// unrelated relationship type happened to be registered with the same
 /// name; refuse instead of guessing.
+///
+/// `ambiguous_session`'s `witness` role is `One`-cardinality specifically so
+/// that the ambiguity check is the only thing that can produce this
+/// failure: a `Many`-cardinality `witness` (as in `witnessed_session`) would
+/// also trip `bind_role_read_step`'s separate Many-cardinality guard, and
+/// removing only the ambiguity check would still leave this query failing
+/// (for the wrong reason) instead of going red.
 #[test]
 fn a_name_that_is_both_a_role_and_a_relationship_type_is_ambiguous() {
     let (_database, session) = fixture::ambiguous_session();
@@ -1212,4 +1267,84 @@ fn the_role_arrow_is_only_available_from_a_relation_binding() {
     assert!(message.contains("relationship type"), "{message}");
     assert!(message.contains("start"), "{message}");
     assert!(!message.contains("Person"), "{message}");
+}
+
+/// A minimal, database-free catalog where the name `"Ambiguous"` resolves as
+/// *both* a node label and a relationship type, and every other name
+/// resolves as neither. Purpose-built for Rule A's node-label-first
+/// ordering guard: unlike `dialect_alignment.rs`'s `BinaryCatalog`, whose
+/// `label`/`relationship_type` both return `Some` for *every* name (so it
+/// catches Rule A breakage only by accident, and would stop doing so the
+/// moment that stub changed for an unrelated reason), this collides exactly
+/// the one name under test and behaves normally otherwise -- so a test
+/// against it fails only when Rule A's ordering is actually broken, not as
+/// a side effect of some other name also being universally ambiguous.
+struct DualNameCatalog;
+
+impl GraphCatalogSnapshot for DualNameCatalog {
+    fn node_source(&self, _graph: GraphId) -> Option<SourceTableId> {
+        SourceTableId::new(1).ok()
+    }
+
+    fn relationship_source(&self, _graph: GraphId) -> Option<SourceTableId> {
+        SourceTableId::new(2).ok()
+    }
+
+    fn label(&self, _graph: GraphId, name: &str) -> Option<LabelId> {
+        (name == "Ambiguous").then(|| LabelId::new(1).unwrap())
+    }
+
+    fn relationship_type(&self, _graph: GraphId, name: &str) -> Option<RelationshipTypeId> {
+        (name == "Ambiguous").then(|| RelationshipTypeId::new(1).unwrap())
+    }
+
+    fn property(
+        &self,
+        _graph: GraphId,
+        _entity: CatalogEntity,
+        name: &str,
+    ) -> Option<ResolvedProperty> {
+        (name == "id").then(|| ResolvedProperty {
+            id: PropertyId::new(1).unwrap(),
+            value_type: ValueType::Integer,
+            nullability: Nullability::Nullable,
+        })
+    }
+}
+
+/// Depth-first walk to the pattern's anchor leaf, to tell a node reading
+/// (`NodeScan`) apart from a relation reading (`RelationScan`) -- the two
+/// leaf kinds Rule A (in `bind_start_node`) chooses between for a bare
+/// `(x:Name)` with no further path steps.
+fn anchor_is_node_scan(plan: &Plan) -> bool {
+    match plan.kind() {
+        PlanKind::NodeScan(_) => true,
+        PlanKind::RelationScan(_) => false,
+        PlanKind::Filter(filter) => anchor_is_node_scan(&filter.input),
+        PlanKind::Project(project) => anchor_is_node_scan(&project.input),
+        other => panic!("unexpected plan shape for a bare node/relation anchor: {other:?}"),
+    }
+}
+
+/// Rule A: a name that resolves as *both* a node label and a relationship
+/// type must read as a node, never a relation anchor -- `catalog.label` is
+/// checked first, unconditionally, so registering a new relationship type
+/// can never change what an existing node query returns. Before this test,
+/// this ordering was caught only by an unrelated golden in
+/// `dialect_alignment.rs` (see `DualNameCatalog`'s doc comment).
+#[test]
+fn a_name_that_is_both_a_label_and_a_relationship_type_reads_as_a_node() {
+    let parsed = parse("MATCH (x:Ambiguous) RETURN x.id").expect("query must parse");
+    let bound = bind(
+        &parsed,
+        GraphId::new(1).expect("graph id"),
+        &DualNameCatalog,
+        &ParameterTypes::new(),
+    )
+    .expect("Ambiguous must bind as a node label");
+    assert!(
+        anchor_is_node_scan(&bound.plan),
+        "Rule A must read Ambiguous as a node label, not a relation anchor: {:?}",
+        bound.plan
+    );
 }

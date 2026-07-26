@@ -3810,13 +3810,6 @@ impl<'a> Binder<'a> {
         // means a differently-cased arrow (`-[:Witness]->`) that matched
         // the role case-insensitively cannot dodge this check just because
         // its exact spelling happens not to match a registered type.
-        // Ambiguity must use the same case rule as the role match above
-        // (`eq_ignore_ascii_case`): checking the *canonical* role name
-        // (`role.name`, the spelling `declared` carries) against
-        // `relationship_type`, rather than the user's raw-cased `name`,
-        // means a differently-cased arrow (`-[:Witness]->`) that matched
-        // the role case-insensitively cannot dodge this check just because
-        // its exact spelling happens not to match a registered type.
         if self
             .catalog
             .relationship_type(self.graph, &role.name)

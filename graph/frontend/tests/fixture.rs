@@ -313,6 +313,15 @@ pub fn witnessed_session() -> (Arc<Database>, GraphConnection) {
 /// (role names and relationship-source names are validated in disjoint
 /// namespaces) and `MATCH [x:KNOWS](witness: w)` already binds against it
 /// through the standalone role pattern, unaffected by the second source.
+///
+/// `witness` is deliberately `One`-cardinality here (a real `witness` column
+/// on `relationships`), not `Many` as in `witnessed_session`: a `Many`-role
+/// `witness` would make this query also trip `bind_role_read_step`'s
+/// separate Many-cardinality guard, so a test asserting on the ambiguity
+/// error would still pass if the ambiguity check were removed (the
+/// Many-cardinality guard would fire instead). `One`-cardinality means the
+/// ambiguity check is the only thing standing between this query and a
+/// successful bind.
 #[allow(dead_code)] // This file is also compiled as its own integration-test crate.
 pub fn ambiguous_session() -> (Arc<Database>, GraphConnection) {
     let io = Arc::new(MemoryIO::new());
@@ -326,7 +335,8 @@ pub fn ambiguous_session() -> (Arc<Database>, GraphConnection) {
     connection
         .execute(
             "CREATE TABLE people(id INTEGER PRIMARY KEY); \
-             CREATE TABLE relationships(id INTEGER PRIMARY KEY, src INTEGER, dst INTEGER); \
+             CREATE TABLE relationships(id INTEGER PRIMARY KEY, src INTEGER, dst INTEGER, \
+                 witness INTEGER); \
              CREATE TABLE witnesses(id INTEGER PRIMARY KEY, src INTEGER, dst INTEGER);",
         )
         .expect("create sources");
@@ -359,12 +369,9 @@ pub fn ambiguous_session() -> (Arc<Database>, GraphConnection) {
                         },
                         RoleSourceRegistration {
                             name: "witness".to_owned(),
-                            // Empty for `Many` roles: their players live in
-                            // the spill table, not a column on the relation
-                            // table.
-                            column: String::new(),
+                            column: "witness".to_owned(),
                             node_source: "Person".to_owned(),
-                            cardinality: RoleCardinality::Many,
+                            cardinality: RoleCardinality::One,
                         },
                     ],
                 },
