@@ -303,6 +303,81 @@ pub fn witnessed_session() -> (Arc<Database>, GraphConnection) {
     (database, session)
 }
 
+/// Installs a `GraphConnection` over a graph whose only relationship type
+/// has two independently `Many`-cardinality roles and no `One`-cardinality
+/// role at all: `Person` nodes (`people(id)`), a `GATHERING` relationship
+/// source over `gatherings(id)` with roles `guest` and `witness`, both
+/// `Many`, each spilling into its own table (no shared endpoint column,
+/// since neither role has one -- `insert_entity`'s `columns.is_empty()`
+/// branch, `INSERT INTO gatherings DEFAULT VALUES`, is what makes a relation
+/// row with no `One` role writable at all).
+///
+/// Exists solely to test what naming two `Many` roles in the same hop does:
+/// `witnessed_session` only ever has one `Many` role live at a time (plus
+/// two `One` roles), so it cannot exercise the case where two independent
+/// multi-valued sets are joined into one row set.
+#[allow(dead_code)] // This file is also compiled as its own integration-test crate.
+pub fn two_many_roles_session() -> (Arc<Database>, GraphConnection) {
+    let io = Arc::new(MemoryIO::new());
+    let database = Database::open(
+        io,
+        ":memory:fixture-gathering",
+        OpenOptions::new(Arc::new(SqliteDialect)),
+    )
+    .expect("open database");
+    let connection = database.connect().expect("connect");
+    connection
+        .execute(
+            "CREATE TABLE people(id INTEGER PRIMARY KEY); \
+             CREATE TABLE gatherings(id INTEGER PRIMARY KEY);",
+        )
+        .expect("create sources");
+    let registered = register_graph(
+        &connection,
+        &GraphRegistration {
+            name: "gathering".to_owned(),
+            node_sources: vec![NodeSourceRegistration {
+                name: "Person".to_owned(),
+                table: "people".to_owned(),
+                identity_column: "id".to_owned(),
+            }],
+            relationship_sources: vec![RelationshipSourceRegistration {
+                name: "GATHERING".to_owned(),
+                table: "gatherings".to_owned(),
+                identity_column: "id".to_owned(),
+                roles: vec![
+                    RoleSourceRegistration {
+                        name: "guest".to_owned(),
+                        column: String::new(),
+                        node_source: "Person".to_owned(),
+                        cardinality: RoleCardinality::Many,
+                    },
+                    RoleSourceRegistration {
+                        name: "witness".to_owned(),
+                        column: String::new(),
+                        node_source: "Person".to_owned(),
+                        cardinality: RoleCardinality::Many,
+                    },
+                ],
+            }],
+        },
+    )
+    .expect("register graph");
+    let catalog: Arc<dyn GraphCompilationCatalog> =
+        Arc::new(SchemaCatalog::new(connection.clone(), registered.clone()));
+    let shared_snapshots = Arc::new(SnapshotStore::default());
+    let session = GraphConnection::install(
+        connection,
+        &registered,
+        catalog,
+        ParameterTypes::new(),
+        shared_snapshots,
+        BuildLimits::default(),
+    )
+    .expect("install graph session");
+    (database, session)
+}
+
 /// Installs a `GraphConnection` over a `KNOWS` shape close to
 /// `witnessed_session` (`Person`/`people`; `KNOWS`/`relationships` with roles
 /// `start`/`end`/`witness`) plus a second, unrelated relationship source

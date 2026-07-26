@@ -1539,3 +1539,97 @@ fn a_bound_player_constrains_a_many_valued_role() {
         "only relation B has witness id 7 among its players"
     );
 }
+
+/// Naming two `Many`-valued roles in the same hop must produce their
+/// Cartesian product, not a zip and not a truncation to one row. Each
+/// `Many` role is joined in independently by `lower_role_join` (no arity
+/// branch, no special-casing for "more than one Many role on this
+/// relation"): the `guest` join contributes one row per guest and the
+/// `witness` join contributes one row per witness for *each* of those rows,
+/// exactly the way composing any two ordinary joins multiplies their row
+/// counts. Cypher's pattern semantics are bag semantics, not set-zipping --
+/// there is no positional correspondence between two independently-declared
+/// role arguments to zip by, so 2 guests x 2 witnesses must read back as 4
+/// rows. Collapsing this to a zip (2 rows) or to a single row would both be
+/// silent data loss dressed up as a simplification.
+#[test]
+fn naming_two_many_valued_roles_at_once_produces_their_cartesian_product() {
+    let (_database, session) = fixture::two_many_roles_session();
+    session
+        .execute(
+            "CREATE (:Person {id: 1}), (:Person {id: 2}), \
+                    (:Person {id: 3}), (:Person {id: 4})",
+            &Parameters::new(),
+        )
+        .expect("seed people");
+    session
+        .execute(
+            "MATCH (g1:Person {id: 1}), (g2:Person {id: 2}), \
+                   (w1:Person {id: 3}), (w2:Person {id: 4}) \
+             CREATE [x:GATHERING](guest: g1, guest: g2, witness: w1, witness: w2)",
+            &Parameters::new(),
+        )
+        .expect("create a gathering with two guests and two witnesses");
+
+    let mut rows = session
+        .query(
+            "MATCH [x:GATHERING](guest: g, witness: w) RETURN g.id, w.id",
+            &Parameters::new(),
+        )
+        .expect("naming two Many-cardinality roles at once must bind");
+    rows.sort();
+    assert_eq!(
+        rows,
+        vec![
+            vec![Value::from_i64(1), Value::from_i64(3)],
+            vec![Value::from_i64(1), Value::from_i64(4)],
+            vec![Value::from_i64(2), Value::from_i64(3)],
+            vec![Value::from_i64(2), Value::from_i64(4)],
+        ],
+        "2 guests x 2 witnesses must read back as their full 4-row Cartesian \
+         product, one row per (guest, witness) pair"
+    );
+}
+
+/// A `Many` role's spill table carries no uniqueness constraint on
+/// `(relation_id, node_id)` (see `install_spill_table`), and Task 14a
+/// deliberately kept the duplicate-role-argument refusal restricted to
+/// `One` roles (`bind_match_role_pattern`'s `repeated && cardinality ==
+/// One` check): naming the same `Many` role twice with the same player is
+/// accepted at bind time and writes two spill rows. Reading that role back
+/// must therefore surface both rows rather than silently de-duplicating --
+/// a `SELECT DISTINCT` or any other collapse would discard data the write
+/// side intentionally allowed onto disk, and there would be no way to tell
+/// "witnessed once" from "witnessed twice" ever again.
+#[test]
+fn a_duplicated_player_in_one_many_role_produces_duplicate_rows() {
+    let (_database, session) = fixture::witnessed_session();
+    session
+        .execute(
+            "CREATE (:Person {id: 1}), (:Person {id: 2}), (:Person {id: 3})",
+            &Parameters::new(),
+        )
+        .expect("seed people");
+    session
+        .execute(
+            "MATCH (a:Person {id: 1}), (b:Person {id: 2}), (w:Person {id: 3}) \
+             CREATE [x:KNOWS](start: a, end: b, witness: w, witness: w)",
+            &Parameters::new(),
+        )
+        .expect("naming the same Many role twice with the same player must bind");
+
+    let rows = session
+        .query(
+            "MATCH [x:KNOWS](start: s, witness: w) RETURN w.id",
+            &Parameters::new(),
+        )
+        .expect("hop through the duplicated witness role");
+    assert_eq!(
+        rows,
+        vec![vec![Value::from_i64(3)], vec![Value::from_i64(3)]],
+        "the spill table holds two rows for player 3 (no unique constraint \
+         on (relation_id, node_id)), so the hop must surface both -- \
+         de-duplicating here would silently discard what the write side \
+         accepted by design"
+    );
+}
