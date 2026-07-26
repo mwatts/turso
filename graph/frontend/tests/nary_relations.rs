@@ -959,3 +959,77 @@ fn a_role_update_rejects_a_repeated_one_role_argument() {
     let message = error.to_string();
     assert!(message.contains("start"), "{message}");
 }
+
+// --- Task 13b: `MATCH [x:T](role: player, ...)` -- the read side of the
+// standalone role pattern. `RelationScan` anchors on the relation itself and
+// one `RoleJoin` per named role argument joins that role's player out to it,
+// so the plan composes to any arity with no arity branch. Seeded here
+// through today's arrow-form CREATE (unaffected by role-pattern CREATE's
+// all-declared-roles-required check) to isolate what is under test to the
+// role-pattern MATCH path itself.
+
+/// The named role arguments must resolve to the actual players of the
+/// relation, by `RoleId`, not by name or position: swapping which column
+/// `start`/`end` join through would still compile but return the wrong
+/// player, which this asserts against directly.
+#[test]
+fn a_match_role_pattern_binds_the_named_players() {
+    let (_database, session) = fixture::witnessed_session();
+    session
+        .execute(
+            "CREATE (:Person {id: 1}), (:Person {id: 2})",
+            &Parameters::new(),
+        )
+        .expect("seed people");
+    session
+        .execute(
+            "MATCH (a:Person {id: 1}), (b:Person {id: 2}) CREATE (a)-[:KNOWS]->(b)",
+            &Parameters::new(),
+        )
+        .expect("create relation via arrow form");
+
+    let rows = session
+        .query(
+            "MATCH [x:KNOWS](start: s, end: e) RETURN s.id, e.id",
+            &Parameters::new(),
+        )
+        .expect("match a standalone role pattern");
+    assert_eq!(rows, vec![vec![Value::from_i64(1), Value::from_i64(2)]]);
+}
+
+/// Unlike CREATE (`MissingRequiredRole`), a MATCH role pattern may name a
+/// subset of a relation's roles. Two relations share `start` but differ in
+/// `end`; matching on `start` alone must still return both relations
+/// instead of requiring `end` to be named, or collapsing them into one row.
+#[test]
+fn a_match_role_pattern_may_leave_roles_unnamed() {
+    let (_database, session) = fixture::witnessed_session();
+    session
+        .execute(
+            "CREATE (:Person {id: 1}), (:Person {id: 2}), (:Person {id: 3})",
+            &Parameters::new(),
+        )
+        .expect("seed people");
+    session
+        .execute(
+            "MATCH (a:Person {id: 1}), (b:Person {id: 2}) CREATE (a)-[:KNOWS]->(b)",
+            &Parameters::new(),
+        )
+        .expect("create first relation");
+    session
+        .execute(
+            "MATCH (a:Person {id: 1}), (b:Person {id: 3}) CREATE (a)-[:KNOWS]->(b)",
+            &Parameters::new(),
+        )
+        .expect("create second relation");
+
+    let mut rows = session
+        .query("MATCH [x:KNOWS](start: s) RETURN x.id", &Parameters::new())
+        .expect("match a role pattern naming only a subset of its roles");
+    rows.sort();
+    assert_eq!(
+        rows,
+        vec![vec![Value::from_i64(1)], vec![Value::from_i64(2)]],
+        "both relations must be returned, not collapsed into one"
+    );
+}

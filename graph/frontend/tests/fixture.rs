@@ -10,11 +10,11 @@ use std::sync::Arc;
 use turso_core::{Connection, Database, DatabaseOpts, MemoryIO, OpenOptions, SqliteDialect};
 use turso_graph_cypher::parse;
 use turso_graph_frontend::{
-    bind, register_graph, CatalogEntity, GraphCatalogSnapshot, GraphCompilationCatalog,
-    GraphConnection, GraphRegistration, NodeSourceRegistration, NodeTableLayout, ParameterTypes,
-    Parameters, RelationalCatalogSnapshot, RelationshipRoleLayout, RelationshipSourceRegistration,
-    RelationshipTableLayout, ResolvedProperty, RoleSourceRegistration, SchemaCatalog,
-    SnapshotStore,
+    bind, lower_relational, register_graph, CatalogEntity, GraphCatalogSnapshot,
+    GraphCompilationCatalog, GraphConnection, GraphRegistration, NodeSourceRegistration,
+    NodeTableLayout, ParameterTypes, Parameters, RelationalCatalogSnapshot, RelationshipRoleLayout,
+    RelationshipSourceRegistration, RelationshipTableLayout, ResolvedProperty,
+    RoleSourceRegistration, SchemaCatalog, SnapshotStore,
 };
 use turso_graph_ir::{
     GraphId, LabelId, Nullability, Plan, PlanKind, PropertyId, RelationshipTypeId, RoleCardinality,
@@ -411,6 +411,17 @@ pub fn bind_fixture(query: &str) -> Plan {
     .plan
 }
 
+/// Lowers a plan bound by [`bind_fixture`] to SQL against the same
+/// `Catalog`, as text: the contract two differently-shaped plans (e.g. the
+/// arrow and standalone-role-pattern forms of one relation) must share is
+/// the SQL they lower to, not their `ir::Plan` shape.
+#[allow(dead_code)] // Shared fixture; not every integration crate calls this.
+pub fn lower_fixture(plan: &Plan) -> String {
+    lower_relational(plan, &Catalog)
+        .expect("fixture plan must lower")
+        .to_string()
+}
+
 /// Depth-first walk to the first `RoleExpand` in a plan, following every
 /// operator that carries an input.
 #[allow(dead_code)] // Shared fixture; not every integration crate calls this.
@@ -434,6 +445,8 @@ pub fn first_role_expand(plan: &Plan) -> &RoleExpand {
             PlanKind::ProcedureCall(call) => walk(&call.input),
             PlanKind::Union(union) => union.inputs().iter().find_map(walk),
             PlanKind::Join(join) => walk(&join.left).or_else(|| walk(&join.right)),
+            PlanKind::RelationScan(_) => None,
+            PlanKind::RoleJoin(join) => walk(&join.input),
         }
     }
     walk(plan).expect("plan must contain a RoleExpand")

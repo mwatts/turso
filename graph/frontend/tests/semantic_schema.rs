@@ -2208,7 +2208,8 @@ fn first_union_inputs(plan: &turso_graph_ir::Plan) -> Option<&[turso_graph_ir::P
         PlanKind::Join(join) => {
             first_union_inputs(&join.left).or_else(|| first_union_inputs(&join.right))
         }
-        PlanKind::Unit(_) | PlanKind::NodeScan(_) => None,
+        PlanKind::Unit(_) | PlanKind::NodeScan(_) | PlanKind::RelationScan(_) => None,
+        PlanKind::RoleJoin(join) => first_union_inputs(&join.input),
     }
 }
 

@@ -53,6 +53,8 @@ pub enum PlanKind {
     ProcedureCall(ProcedureCall),
     Union(Union),
     Join(Join),
+    RelationScan(RelationScan),
+    RoleJoin(RoleJoin),
 }
 
 /// Cartesian product of two independent inputs; a later Filter applies any
@@ -105,6 +107,47 @@ impl RoleExpand {
     pub fn role_pair(&self) -> (RoleId, RoleId) {
         (self.from_role, self.to_role)
     }
+}
+
+/// Anchors a scan on a relationship (relation) table rather than a node
+/// table. A standalone role pattern `[x:Transcription](scribe: s, folio: g)`
+/// is not a traversal from a node — it is a scan of relation rows, with each
+/// named role joined out to its player afterward (see `RoleJoin`). This is
+/// what makes the arity of the relation irrelevant to the plan shape: a
+/// ternary relation is scanned exactly like a binary one, the difference is
+/// only in how many `RoleJoin`s follow.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct RelationScan {
+    pub graph: GraphId,
+    pub source: SourceTableId,
+    pub binding: BindingId,
+    pub relationship_types: Vec<RelationshipTypeId>,
+}
+
+/// One named role's player, resolved against an already-bound relation.
+/// `Fresh` introduces a new binding and joins its physical node table;
+/// `Bound` closes onto a variable already in scope by folding to an identity
+/// equality instead of a second join (mirrors `RoleExpand.bound_target`).
+#[derive(Clone, Debug, PartialEq)]
+pub enum RolePlayer {
+    Fresh {
+        binding: Binding,
+        node_source: SourceTableId,
+    },
+    Bound(BindingId),
+}
+
+/// Joins one named role of an already-scanned relation out to its player.
+/// Composing `n` of these onto a `RelationScan` reads a relation with `n`
+/// named roles — there is no arity branch because each role is joined
+/// independently by `RoleId`, never by name or position.
+#[derive(Clone, Debug, PartialEq)]
+pub struct RoleJoin {
+    pub input: Box<Plan>,
+    pub relationship: BindingId,
+    pub relationship_source: SourceTableId,
+    pub role: RoleId,
+    pub player: RolePlayer,
 }
 
 /// A bounded variable-length expansion from an already-bound node.

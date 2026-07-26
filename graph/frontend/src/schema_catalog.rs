@@ -465,6 +465,19 @@ impl GraphCatalogSnapshot for SchemaCatalog {
         Some((start.node_source, end.node_source))
     }
 
+    fn relationship_role_node_source(
+        &self,
+        graph: ir::GraphId,
+        relationship_source: ir::SourceTableId,
+        role: ir::RoleId,
+    ) -> Option<ir::SourceTableId> {
+        if graph != self.graph.id {
+            return None;
+        }
+        let source = self.relationship_source_entry(relationship_source)?;
+        source.role_by_id(role).map(|role| role.node_source)
+    }
+
     fn relationship_source_roles(
         &self,
         source: ir::SourceTableId,

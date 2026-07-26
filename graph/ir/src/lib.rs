@@ -32,7 +32,8 @@ pub use mutation::{
 pub use plan::{
     Aggregate, AggregateFunction, Aggregation, Distinct, Filter, GraphExpand, Grouping, Join,
     LeftApply, Limit, NodeScan, PathUniqueness, Plan, PlanKind, ProcedureCall, ProcedureIdentity,
-    ProcedureOutput, Project, Projection, RoleExpand, Skip, Sort, SortKey, Union, Unit, Unwind,
+    ProcedureOutput, Project, Projection, RelationScan, RoleExpand, RoleJoin, RolePlayer, Skip,
+    Sort, SortKey, Union, Unit, Unwind,
 };
 pub use role::{RoleBinding, RoleCardinality, RoleDef, RoleTarget};
 pub use scope::{Binding, Nullability, ResultColumn, ResultShape, Scope};

@@ -69,6 +69,23 @@ pub trait GraphCatalogSnapshot {
         let source = self.node_source(graph)?;
         Some((source, source))
     }
+    /// The physical node table a named role's player is drawn from. A
+    /// standalone role pattern has no label-annotation syntax on its role
+    /// arguments (`RoleArgument.player` is a bare expression), so a *fresh*
+    /// player's physical table cannot be inferred from the pattern text the
+    /// way `(p:Person)` infers it for an arrow-form node — it must come from
+    /// the relation's own role registration. This generalizes
+    /// `relationship_endpoint_sources` (which hard-codes the `start`/`end`
+    /// pair) to any named role; the default mirrors that method's own
+    /// single-node-source fallback.
+    fn relationship_role_node_source(
+        &self,
+        graph: ir::GraphId,
+        _relationship_source: ir::SourceTableId,
+        _role: ir::RoleId,
+    ) -> Option<ir::SourceTableId> {
+        self.node_source(graph)
+    }
     /// The relationship source's declared roles, as a name-resolvable
     /// layout. The binder reads `start`/`end` off it by name (never by
     /// declaration position: a relation's roles are not guaranteed to be
@@ -2736,15 +2753,219 @@ impl<'a> Binder<'a> {
         }
     }
 
+    /// Binds a standalone role pattern (`[x:Transcription](scribe: s, folio:
+    /// g)`) appearing directly in a MATCH pattern -- the read-side
+    /// counterpart of `bind_create_role_pattern`. The relation is the
+    /// anchor: this scans relation rows (`RelationScan`) and joins each
+    /// named role argument out to its player (`RoleJoin`), one role at a
+    /// time, so the plan composes to any arity with no arity branch.
+    ///
+    /// Unlike CREATE, a MATCH role pattern does not require every declared
+    /// role to be named -- naming a subset is a real, tested query shape
+    /// (`bind_create_role_pattern`'s `MissingRequiredRole` check has no
+    /// analogue here). A `Many`-cardinality role argument is rejected: its
+    /// players live in a spill table, and reading through one changes the
+    /// row-multiplication semantics of the surrounding pattern in a way left
+    /// to a later task.
+    fn bind_match_role_pattern(&mut self, pattern: &cypher::RolePattern) -> Result<(), BindError> {
+        if pattern.types.len() != 1 {
+            return Err(at_unsupported(
+                pattern.span,
+                "a MATCH role pattern without exactly one relationship type",
+            ));
+        }
+        let type_name = &pattern.types[0];
+        let relationship_type = self
+            .catalog
+            .relationship_type(self.graph, &type_name.value)
+            .ok_or_else(|| BindError::UnknownRelationshipType {
+                name: type_name.value.clone(),
+                span_start: type_name.span.start,
+                span_end: type_name.span.end,
+            })?;
+        let declared = self
+            .catalog
+            .relationship_roles(self.graph, relationship_type);
+        let source = self
+            .catalog
+            .relationship_source_for_type(self.graph, relationship_type)
+            .ok_or(BindError::MissingSource {
+                entity: "relationship",
+                span_start: pattern.span.start,
+                span_end: pattern.span.end,
+            })?;
+
+        let type_names = vec![type_name.value.clone()];
+        let relation = self.new_entity_binding(
+            pattern.variable.as_ref(),
+            "_relationship",
+            ir::ValueType::Relationship,
+            ir::Nullability::NonNull,
+            CatalogEntity::Relationship,
+            type_names,
+            pattern.span,
+        )?;
+
+        // The relation is the anchor: a standalone role pattern reads
+        // relation rows and joins each named role out to its player, unlike
+        // the arrow form, which anchors on a node. A fresh anchor combines
+        // with any existing plan as a cartesian product, mirroring
+        // `bind_start_node`.
+        let scope = ir::Scope::new(self.scope.clone())?;
+        let scan = ir::Plan::new(
+            ir::PlanKind::RelationScan(ir::RelationScan {
+                graph: self.graph,
+                source,
+                binding: relation.id(),
+                relationship_types: vec![relationship_type],
+            }),
+            scope.clone(),
+            ir::ResultShape::default(),
+        )?;
+        self.plan = Some(match self.plan.take() {
+            None => scan,
+            Some(existing) => ir::Plan::new(
+                ir::PlanKind::Join(ir::Join {
+                    left: Box::new(existing),
+                    right: Box::new(scan),
+                }),
+                scope,
+                ir::ResultShape::default(),
+            )?,
+        });
+
+        let mut seen: std::collections::HashSet<ir::RoleId> = std::collections::HashSet::new();
+        for argument in &pattern.roles {
+            let role = declared
+                .iter()
+                .find(|role| role.name.eq_ignore_ascii_case(&argument.name.value))
+                .ok_or_else(|| BindError::UnknownRole {
+                    relationship_type: type_name.value.clone(),
+                    role: argument.name.value.clone(),
+                    known: declared
+                        .iter()
+                        .map(|role| role.name.as_str())
+                        .collect::<Vec<_>>()
+                        .join(", "),
+                    span_start: argument.name.span.start,
+                    span_end: argument.name.span.end,
+                })?;
+            // A repeated role name is only a refusal for a `One` role,
+            // mirroring `bind_create_role_pattern`: it can hold exactly one
+            // player, so naming it twice is a mistake rather than a second
+            // player.
+            let repeated = !seen.insert(role.role);
+            if repeated && role.cardinality == ir::RoleCardinality::One {
+                return Err(BindError::DuplicateRoleArgument {
+                    relationship_type: type_name.value.clone(),
+                    role: role.name.clone(),
+                    span_start: argument.span.start,
+                    span_end: argument.span.end,
+                });
+            }
+            // A `Many` role's players live in a spill table
+            // (`<relation_table>__<role>`), identified structurally -- never
+            // by name or position -- via cardinality. Joining through one
+            // changes the row-multiplication semantics of the pattern;
+            // that hop is a later task's job, so it is rejected here rather
+            // than silently mishandled.
+            if role.cardinality == ir::RoleCardinality::Many {
+                return Err(at_unsupported(
+                    argument.span,
+                    "a Many-cardinality role in a MATCH role pattern",
+                ));
+            }
+
+            let cypher::Expression::Variable(name) = &argument.player.value else {
+                return Err(at_unsupported(
+                    argument.player.span,
+                    "a role player that is not a bound variable",
+                ));
+            };
+            let existing = self
+                .scope
+                .iter()
+                .find(|binding| binding.name() == *name)
+                .cloned();
+            let player = if let Some(existing) = existing {
+                ir::RolePlayer::Bound(existing.id())
+            } else {
+                let node_source = self
+                    .catalog
+                    .relationship_role_node_source(self.graph, source, role.role)
+                    .ok_or(BindError::MissingSource {
+                        entity: "role player",
+                        span_start: argument.player.span.start,
+                        span_end: argument.player.span.end,
+                    })?;
+                let variable = cypher::Spanned::new(name.clone(), argument.player.span);
+                let binding = self.new_entity_binding(
+                    Some(&variable),
+                    "_role_player",
+                    ir::ValueType::Node,
+                    ir::Nullability::NonNull,
+                    CatalogEntity::Node,
+                    Vec::new(),
+                    argument.player.span,
+                )?;
+                // `new_entity_binding`'s empty-`names` fallback resolves to
+                // every node source in the graph, which is right for a bare
+                // `(n)` pattern but wrong here: a role argument carries no
+                // label syntax, so its source is not inferred from the
+                // pattern text at all -- it comes from the role's own
+                // registration, which names exactly one source.
+                if let Some(entity) = self.entities.get_mut(&binding.id()) {
+                    entity.sources = vec![node_source];
+                }
+                ir::RolePlayer::Fresh {
+                    binding,
+                    node_source,
+                }
+            };
+
+            let input = self.plan.take().ok_or(BindError::EmptyQuery)?;
+            self.wrap_plan(ir::PlanKind::RoleJoin(ir::RoleJoin {
+                input: Box::new(input),
+                relationship: relation.id(),
+                relationship_source: source,
+                role: role.role,
+                player,
+            }))?;
+        }
+
+        self.bind_properties(&relation, CatalogEntity::Relationship, &pattern.properties)?;
+        Ok(())
+    }
+
     fn bind_match(
         &mut self,
         clause: &cypher::MatchClause,
         fallback: cypher::Span,
     ) -> Result<(), BindError> {
-        let paths = only_paths(&clause.paths)?;
-        if clause.optional && paths.len() != 1 {
+        if clause.optional && clause.paths.elements.len() != 1 {
             return Err(at_unsupported(fallback, "multiple OPTIONAL MATCH paths"));
         }
+        if clause.optional
+            && clause
+                .paths
+                .elements
+                .iter()
+                .any(|element| matches!(element, cypher::PatternElement::Roles(_)))
+        {
+            return Err(at_unsupported(
+                fallback,
+                "OPTIONAL MATCH over a role pattern",
+            ));
+        }
+        let paths: Vec<&cypher::PathPattern> = clause
+            .paths
+            .elements
+            .iter()
+            .filter_map(|element| match element {
+                cypher::PatternElement::Path(path) => Some(path),
+                cypher::PatternElement::Roles(_) => None,
+            })
+            .collect();
         for path in paths.iter().copied() {
             if let Some(variable) = &path.variable {
                 // A path variable cannot rebind a name already in scope
@@ -2783,25 +3004,38 @@ impl<'a> Binder<'a> {
         }
         let left = self.plan.clone();
         let old_ids: Vec<_> = self.scope.iter().map(ir::Binding::id).collect();
-        for path in paths.iter().copied() {
-            let path_binding = path.variable.as_ref().and_then(|variable| {
-                self.scope
-                    .iter()
-                    .find(|binding| binding.name() == variable.value)
-                    .cloned()
-            });
-            // Anchor the join at whichever end is more selective: a scan
-            // that starts from a constant-property lookup is far cheaper
-            // than one that starts from a bare label scan and only applies
-            // the selective filter after every hop.
-            let reversed = self
-                .should_reverse_path(path)
-                .then(|| Self::reverse_path(path));
-            let bound_path = reversed.as_ref().unwrap_or(path);
-            let composition = self.bind_path(bound_path, path_binding.as_ref(), old_ids.len())?;
-            if let Some(variable) = &path.variable {
-                self.path_compositions
-                    .insert(variable.value.clone(), composition);
+        // Dispatch each pattern element in the order it was written: a role
+        // pattern may bind a variable a later path element reuses, and vice
+        // versa, so the arrow and role forms cannot be handled as two
+        // separate passes.
+        for element in &clause.paths.elements {
+            match element {
+                cypher::PatternElement::Path(path) => {
+                    let path_binding = path.variable.as_ref().and_then(|variable| {
+                        self.scope
+                            .iter()
+                            .find(|binding| binding.name() == variable.value)
+                            .cloned()
+                    });
+                    // Anchor the join at whichever end is more selective: a
+                    // scan that starts from a constant-property lookup is
+                    // far cheaper than one that starts from a bare label
+                    // scan and only applies the selective filter after
+                    // every hop.
+                    let reversed = self
+                        .should_reverse_path(path)
+                        .then(|| Self::reverse_path(path));
+                    let bound_path = reversed.as_ref().unwrap_or(path);
+                    let composition =
+                        self.bind_path(bound_path, path_binding.as_ref(), old_ids.len())?;
+                    if let Some(variable) = &path.variable {
+                        self.path_compositions
+                            .insert(variable.value.clone(), composition);
+                    }
+                }
+                cypher::PatternElement::Roles(pattern) => {
+                    self.bind_match_role_pattern(pattern)?;
+                }
             }
         }
         if let Some(predicate) = &clause.predicate {
@@ -7800,22 +8034,28 @@ mod tests {
     }
 
     #[test]
-    fn a_standalone_role_pattern_binds_to_an_error_not_an_empty_plan() {
-        // Task 12 only teaches the parser `[x:T](role: player, ...)`;
-        // binding it is Task 13's job. A `.filter_map` that silently
-        // dropped the `Roles` element instead of erroring here would make
-        // this bind to an empty plan — silently wrong, not merely
-        // unsupported. Task 13 flips this assertion to a success case.
-        assert!(matches!(
-            bind_text(
-                "MATCH [x:KNOWS](start: a, end: b) RETURN x",
-                ParameterTypes::new()
-            ),
-            Err(BindError::Unsupported {
-                feature: "role patterns are not supported yet",
-                ..
-            })
-        ));
+    fn a_standalone_role_pattern_binds_to_a_relation_scan_and_role_joins() {
+        // Task 12 only taught the parser `[x:T](role: player, ...)`; Task
+        // 13b binds it. This flips the prior "not supported yet" assertion
+        // (see git history) to a success case: one `RoleJoin` per named
+        // role argument, wrapping a `RelationScan` anchor -- the same
+        // decomposition regardless of how many roles are named, so this
+        // shape check doubles as evidence no arity branch crept in.
+        let bound = bind_text(
+            "MATCH [x:KNOWS](start: a, end: b) RETURN x",
+            ParameterTypes::new(),
+        )
+        .expect("standalone role pattern should bind");
+        let ir::PlanKind::Project(project) = bound.plan.kind() else {
+            panic!("expected projection");
+        };
+        let ir::PlanKind::RoleJoin(outer) = project.input.kind() else {
+            panic!("expected outer RoleJoin");
+        };
+        let ir::PlanKind::RoleJoin(inner) = outer.input.kind() else {
+            panic!("expected inner RoleJoin");
+        };
+        assert!(matches!(inner.input.kind(), ir::PlanKind::RelationScan(_)));
     }
 
     #[test]

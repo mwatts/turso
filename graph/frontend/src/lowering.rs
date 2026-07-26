@@ -495,6 +495,8 @@ fn collect_wanted(plan: &ir::Plan, wanted: &mut WantedProperties) {
                 collect_wanted(input, wanted);
             }
         }
+        ir::PlanKind::RelationScan(_) => {}
+        ir::PlanKind::RoleJoin(join) => collect_wanted(&join.input, wanted),
     }
     for expression in expressions {
         collect_expression_wanted(expression, wanted);
@@ -830,6 +832,8 @@ fn lower_plan(
                 bindings: bindings.unwrap_or_default(),
             })
         }
+        ir::PlanKind::RelationScan(scan) => lower_relation_scan(scan, catalog, wanted),
+        ir::PlanKind::RoleJoin(join) => lower_role_join(join, catalog, wanted),
     }
 }
 
@@ -1461,6 +1465,175 @@ fn lower_node_scan(
         }
     }
     Ok(Lowered { sql, bindings })
+}
+
+/// Synthetic column carrying a `RelationScan`'s projection of one named
+/// role's endpoint column, so a later `RoleJoin` can address it without a
+/// second lookup against the relationship table. Keyed by the relation
+/// binding (not just the role) so a query with two independently scanned
+/// relations of the same type never collides.
+fn role_column_ref(relation: ir::BindingId, role: ir::RoleId) -> String {
+    format!("{}_role{}", binding_column(relation), role.get())
+}
+
+/// Anchors a scan on a relation's own table. Every `One`-cardinality role's
+/// endpoint column is projected under a synthetic, role-keyed name so any
+/// number of `RoleJoin`s can be composed on top — the scan itself carries no
+/// knowledge of which roles a query will actually join through.
+fn lower_relation_scan(
+    scan: &ir::RelationScan,
+    catalog: &dyn RelationalCatalogSnapshot,
+    wanted: &WantedProperties,
+) -> Result<Lowered, LowerError> {
+    let layout = catalog
+        .relationship_layout(scan.source)
+        .ok_or(LowerError::MissingSource(scan.source))?;
+    let alias = "r";
+    let mut binding_layout = BindingLayout {
+        source: scan.source,
+        sources: [scan.source].into_iter().collect(),
+        kind: EntityKind::Relationship,
+        properties: Default::default(),
+    };
+    let extra = materialize_properties(
+        wanted,
+        scan.binding,
+        scan.source,
+        alias,
+        catalog,
+        &mut binding_layout,
+        MaterializationContext::default(),
+    );
+    let mut bindings = HashMap::new();
+    bindings.insert(scan.binding, binding_layout);
+    let mut role_columns = String::new();
+    for role in layout
+        .roles
+        .iter()
+        .filter(|role| role.cardinality == ir::RoleCardinality::One)
+    {
+        role_columns.push_str(&format!(
+            ", {alias}.{} AS {}",
+            quote_identifier(&role.column),
+            role_column_ref(scan.binding, role.role)
+        ));
+    }
+    let mut sql = format!(
+        "SELECT {alias}.{} AS {}, {} AS {}{role_columns}{extra} FROM {} AS {alias}",
+        quote_identifier(&layout.identity_column),
+        binding_column(scan.binding),
+        scan.source.get(),
+        source_column_ref(scan.binding),
+        quote_identifier(&layout.table)
+    );
+    if !scan.relationship_types.is_empty() {
+        if let Some(types_table) = catalog.relationship_types_table() {
+            let names = scan
+                .relationship_types
+                .iter()
+                .filter_map(|relationship_type| catalog.relationship_type_name(*relationship_type))
+                .map(|name| format!("'{}'", name.replace('\'', "''")))
+                .collect::<Vec<_>>();
+            if !names.is_empty() {
+                let source_predicate = if catalog.source_qualified_membership() {
+                    format!("jt.source_id = {} AND ", scan.source.get())
+                } else {
+                    String::new()
+                };
+                sql.push_str(&format!(
+                    " JOIN {} AS jt ON {source_predicate}jt.relationship_id = {alias}.{} \
+                     AND jt.type IN ({})",
+                    quote_identifier(&types_table),
+                    quote_identifier(&layout.identity_column),
+                    names.join(", ")
+                ));
+            }
+        }
+    }
+    Ok(Lowered { sql, bindings })
+}
+
+/// Joins one named role of an already-scanned relation out to its player.
+/// `Bound` folds to an identity equality (mirrors `RoleExpand.bound_target`);
+/// `Fresh` joins the role's physical node table. Composing `n` of these onto
+/// a `RelationScan` reads a relation with `n` named roles with no arity
+/// branch — each role resolves independently by `RoleId`.
+fn lower_role_join(
+    join: &ir::RoleJoin,
+    catalog: &dyn RelationalCatalogSnapshot,
+    wanted: &WantedProperties,
+) -> Result<Lowered, LowerError> {
+    let input = lower_plan(&join.input, catalog, false, wanted)?;
+    let relationship = catalog
+        .relationship_layout(join.relationship_source)
+        .ok_or(LowerError::MissingSource(join.relationship_source))?;
+    let role = relationship
+        .role(join.role)
+        .ok_or_else(|| LowerError::UnknownRole {
+            relation: relationship.table.clone(),
+            role: join.role,
+        })?;
+    if role.cardinality != ir::RoleCardinality::One {
+        // A `Many` role's players live in a spill table, not an endpoint
+        // column; joining through one is Task 14b's concern (hopping
+        // through a `Many` role in depth), not this task's. The binder
+        // rejects this before a plan ever reaches lowering; this is a
+        // defense against that guard being bypassed, not the primary check.
+        return Err(LowerError::UnsupportedOperator(
+            "MATCH role pattern join through a Many-cardinality role",
+        ));
+    }
+    let role_column = role_column_ref(join.relationship, join.role);
+    let mut bindings = input.bindings;
+    match &join.player {
+        ir::RolePlayer::Bound(binding) => Ok(Lowered {
+            sql: format!(
+                "SELECT q.* FROM ({}) AS q WHERE q.{role_column} = q.{}",
+                input.sql,
+                binding_column(*binding)
+            ),
+            bindings,
+        }),
+        ir::RolePlayer::Fresh {
+            binding,
+            node_source,
+        } => {
+            let target = catalog
+                .node_layout(*node_source)
+                .ok_or(LowerError::MissingSource(*node_source))?;
+            let alias = "n";
+            let mut binding_layout = BindingLayout {
+                source: *node_source,
+                sources: [*node_source].into_iter().collect(),
+                kind: EntityKind::Node,
+                properties: Default::default(),
+            };
+            let extra = materialize_properties(
+                wanted,
+                binding.id(),
+                *node_source,
+                alias,
+                catalog,
+                &mut binding_layout,
+                MaterializationContext::default(),
+            );
+            bindings.insert(binding.id(), binding_layout);
+            Ok(Lowered {
+                sql: format!(
+                    "SELECT q.*, {alias}.{} AS {}, {} AS {}{extra} \
+                     FROM ({}) AS q JOIN {} AS {alias} ON {alias}.{} = q.{role_column}",
+                    quote_identifier(&target.identity_column),
+                    binding_column(binding.id()),
+                    node_source.get(),
+                    source_column_ref(binding.id()),
+                    input.sql,
+                    quote_identifier(&target.table),
+                    quote_identifier(&target.identity_column),
+                ),
+                bindings,
+            })
+        }
+    }
 }
 
 fn lower_role_expand(

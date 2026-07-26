@@ -91,6 +91,16 @@ impl GraphCatalogSnapshot for DynamicCatalog {
             .relationship_endpoint_sources(graph, relationship_source)
     }
 
+    fn relationship_role_node_source(
+        &self,
+        graph: ir::GraphId,
+        relationship_source: ir::SourceTableId,
+        role: ir::RoleId,
+    ) -> Option<ir::SourceTableId> {
+        self.inner
+            .relationship_role_node_source(graph, relationship_source, role)
+    }
+
     fn relationship_source_roles(
         &self,
         source: ir::SourceTableId,
