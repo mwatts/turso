@@ -63,6 +63,7 @@ define_u64_id!(RelationshipId, "relationship");
 define_u32_id!(LabelId, "label");
 define_u32_id!(RelationshipTypeId, "relationship type");
 define_u32_id!(PropertyId, "property");
+define_u32_id!(RoleId, "role");
 define_u32_id!(BindingId, "binding");
 
 #[cfg(test)]
@@ -79,6 +80,7 @@ mod tests {
         assert!(RelationshipTypeId::new(0).is_err());
         assert!(PropertyId::new(0).is_err());
         assert!(BindingId::new(0).is_err());
+        assert!(RoleId::new(0).is_err());
     }
 
     #[test]

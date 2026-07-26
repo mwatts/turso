@@ -11,6 +11,7 @@ mod expression;
 mod identity;
 mod mutation;
 mod plan;
+mod role;
 mod scope;
 mod semantics;
 
@@ -20,7 +21,7 @@ pub use expression::{
     TypedExpression, UnaryOp, ValueType, VectorKind,
 };
 pub use identity::{
-    BindingId, GraphId, LabelId, NodeId, PropertyId, RelationshipId, RelationshipTypeId,
+    BindingId, GraphId, LabelId, NodeId, PropertyId, RelationshipId, RelationshipTypeId, RoleId,
     SourceTableId,
 };
 pub use mutation::{
@@ -34,6 +35,7 @@ pub use plan::{
     ProcedureIdentity, ProcedureOutput, Project, Projection, Skip, Sort, SortKey, Union, Unit,
     Unwind,
 };
+pub use role::{RoleBinding, RoleCardinality, RoleDef, RoleTarget};
 pub use scope::{Binding, Direction, Nullability, ResultColumn, ResultShape, Scope};
 pub use semantics::{
     semantic_profile_digest, Duplicates, LabelListOrder, NullComparison, NullSort, RowOrder,
