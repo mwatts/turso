@@ -276,6 +276,7 @@ Expected: PASS.
 cargo fmt
 cargo clippy --workspace --all-features --all-targets -- --deny=warnings
 cargo test -p turso_graph_ir
+mise run corpus
 git add graph/ir/src/identity.rs graph/ir/src/role.rs graph/ir/src/lib.rs
 git commit -S -m "graph/ir: add RoleId and the role definition model
 
@@ -987,6 +988,7 @@ Expected: PASS.
 cargo fmt
 cargo clippy --workspace --all-features --all-targets -- --deny=warnings
 cargo test -p turso_graph_frontend
+mise run corpus
 git add graph/frontend/src/catalog.rs
 git commit -S -m "graph/catalog: reject pre-role catalogs at open
 
@@ -1379,12 +1381,34 @@ cargo test -p turso_graph_frontend --test dialect_alignment -- --nocapture print
 
 Add that printer as a `#[test] #[ignore]` helper in the same file.
 
+That golden is a regression fence, not the red-green driver: it passes before
+the change by construction. The behavioural test that must fail first is a hop
+a direction-based lowering cannot express at all. Add it in the same file:
+
+```rust
+#[test]
+fn a_ternary_hop_lowers_through_the_named_role_pair() {
+    // Direction-based lowering has only start and end to name, so a
+    // scribe -> folio hop is inexpressible: it would silently lower as
+    // start -> end and return the text instead of the folio.
+    let sql = lower_ternary_to_sql("MATCH [x:Transcription](scribe: s, folio: f) RETURN f.id");
+    assert!(sql.contains("scribe"), "the from role must name its own column: {sql}");
+    assert!(sql.contains("folio"), "the to role must name its own column: {sql}");
+    assert!(!sql.contains("txt"), "the unnamed text role must not be joined: {sql}");
+}
+```
+
+`lower_ternary_to_sql` lowers a hand-built `ir::RoleExpand` over the three-role
+fixture from Task 4, so it does not depend on the surface syntax landing in
+Task 12.
+
 - [ ] **Step 2: Run to verify it fails**
 
-Run: `cargo test -p turso_graph_frontend --test dialect_alignment role_lowering_emits`
-Expected: PASS trivially before the change (goldens recorded from the current
-lowering). This test is a regression fence, not a red-green cycle: its job is to
-fail in Step 4 if role lowering drifts.
+Run: `cargo test -p turso_graph_frontend --test dialect_alignment`
+Expected: `a_ternary_hop_lowers_through_the_named_role_pair` FAILS — lowering
+still reads `direction` and emits the `start`/`end` columns regardless of the
+role pair. `role_lowering_emits_byte_identical_sql_for_a_two_role_relation`
+passes, as the fence it is.
 
 - [ ] **Step 3: Replace the direction match with a role match**
 
