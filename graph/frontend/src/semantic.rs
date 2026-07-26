@@ -2834,6 +2834,93 @@ mod tests {
         }],
     };
 
+    /// Same physical shape as `TERNARY_SCHEMA`, but the semantic registration
+    /// omits `witness` entirely: no `RoleSpec` names it, so zero rows are
+    /// ever persisted for it in `SEMANTIC_ROLE_TABLE`. `load_roles` must
+    /// still recover it from the physical registration by left-joining
+    /// physical roles against persisted semantic rows; an inner join would
+    /// silently drop it.
+    const UNCONSTRAINED_ROLE_SCHEMA: Schema = Schema {
+        graph_name: "scriptorium",
+        create_tables_sql: "\
+            CREATE TABLE people(id INTEGER PRIMARY KEY, name TEXT); \
+            CREATE TABLE folios(id INTEGER PRIMARY KEY, label TEXT); \
+            CREATE TABLE transcriptions(\
+                id INTEGER PRIMARY KEY, \
+                scribe_id INTEGER, \
+                folio_id INTEGER\
+            );",
+        node_sources: &[
+            NodeSourceSpec {
+                name: "people_src",
+                table: "people",
+                identity_column: "id",
+            },
+            NodeSourceSpec {
+                name: "folios_src",
+                table: "folios",
+                identity_column: "id",
+            },
+        ],
+        relationship_sources: &[RelationshipSourceSpec {
+            name: "transcriptions_src",
+            table: "transcriptions",
+            identity_column: "id",
+            roles: &[
+                RoleSourceSpec {
+                    name: "scribe",
+                    column: "scribe_id",
+                    node_source: "people_src",
+                    cardinality: ir::RoleCardinality::One,
+                },
+                RoleSourceSpec {
+                    name: "folio",
+                    column: "folio_id",
+                    node_source: "folios_src",
+                    cardinality: ir::RoleCardinality::One,
+                },
+                RoleSourceSpec {
+                    name: "witness",
+                    column: "",
+                    node_source: "people_src",
+                    cardinality: ir::RoleCardinality::Many,
+                },
+            ],
+        }],
+        node_types: &[
+            NodeTypeSpec {
+                name: "Person",
+                source: "people_src",
+                properties: &[],
+            },
+            NodeTypeSpec {
+                name: "Folio",
+                source: "folios_src",
+                properties: &[],
+            },
+        ],
+        relationship_types: &[RelationshipTypeSpec {
+            name: "Transcription",
+            source: "transcriptions_src",
+            // `witness` intentionally has no entry here.
+            roles: &[
+                RoleSpec {
+                    name: "scribe",
+                    targets: &["Person"],
+                    optional: false,
+                    cardinality: SemanticRoleCardinality::One,
+                },
+                RoleSpec {
+                    name: "folio",
+                    targets: &["Folio"],
+                    optional: false,
+                    cardinality: SemanticRoleCardinality::One,
+                },
+            ],
+            properties: &[],
+        }],
+    };
+
     /// Relation-as-player: `Citation.cited` targets `Transcription`, itself a
     /// relationship type. The physical `cited` role uses a placeholder node
     /// source since the physical layer cannot yet resolve a role's player
@@ -3112,5 +3199,147 @@ mod tests {
                 role.name
             );
         }
+    }
+
+    #[test]
+    fn an_unconstrained_role_survives_the_left_join() {
+        // `witness` has no `SemanticRoleRegistration` entry at all, so zero
+        // rows are ever persisted for it. `load_roles` must recover it from
+        // the physical registration rather than silently dropping it.
+        let connection = connection();
+        install_semantic_schema(&connection, UNCONSTRAINED_ROLE_SCHEMA).expect("install schema");
+        let catalog = load_semantic_catalog(&connection, "scriptorium").expect("load catalog");
+
+        let transcription = catalog
+            .relationship_type("Transcription")
+            .expect("Transcription type");
+        assert_eq!(
+            transcription.roles.len(),
+            3,
+            "witness must survive despite having no semantic entry"
+        );
+
+        let witness = transcription
+            .role("witness")
+            .expect("witness role must be present even though it was never declared");
+        assert!(
+            witness.targets.is_empty(),
+            "an omitted role is unconstrained: targets must be empty, got {:?}",
+            witness.targets
+        );
+    }
+
+    #[test]
+    fn check_owned_columns_protects_a_third_roles_structural_column() {
+        // The old hardcoded start/end-only structural-column derivation
+        // would not have protected `folio_id`: TERNARY_SCHEMA's second role
+        // is named `folio`, not `start`/`end`. `check_owned_columns` must
+        // derive its structural set from every single-valued role.
+        use crate::catalog::{
+            register_graph, GraphRegistration, NodeSourceRegistration,
+            RelationshipSourceRegistration, RoleSourceRegistration,
+        };
+
+        let connection = connection();
+        connection
+            .execute(TERNARY_SCHEMA.create_tables_sql)
+            .expect("create tables");
+        register_graph(
+            &connection,
+            &GraphRegistration {
+                name: TERNARY_SCHEMA.graph_name.to_owned(),
+                node_sources: vec![
+                    NodeSourceRegistration {
+                        name: "people_src".to_owned(),
+                        table: "people".to_owned(),
+                        identity_column: "id".to_owned(),
+                    },
+                    NodeSourceRegistration {
+                        name: "folios_src".to_owned(),
+                        table: "folios".to_owned(),
+                        identity_column: "id".to_owned(),
+                    },
+                ],
+                relationship_sources: vec![RelationshipSourceRegistration {
+                    name: "transcriptions_src".to_owned(),
+                    table: "transcriptions".to_owned(),
+                    identity_column: "id".to_owned(),
+                    roles: vec![
+                        RoleSourceRegistration {
+                            name: "scribe".to_owned(),
+                            column: "scribe_id".to_owned(),
+                            node_source: "people_src".to_owned(),
+                            cardinality: ir::RoleCardinality::One,
+                        },
+                        RoleSourceRegistration {
+                            name: "folio".to_owned(),
+                            column: "folio_id".to_owned(),
+                            node_source: "folios_src".to_owned(),
+                            cardinality: ir::RoleCardinality::One,
+                        },
+                        RoleSourceRegistration {
+                            name: "witness".to_owned(),
+                            column: String::new(),
+                            node_source: "people_src".to_owned(),
+                            cardinality: ir::RoleCardinality::Many,
+                        },
+                    ],
+                }],
+            },
+        )
+        .expect("register graph");
+
+        let registration = SemanticSchemaRegistration {
+            node_types: vec![
+                SemanticNodeType {
+                    name: "Person".to_owned(),
+                    source: "people_src".to_owned(),
+                    properties: vec![],
+                },
+                SemanticNodeType {
+                    name: "Folio".to_owned(),
+                    source: "folios_src".to_owned(),
+                    properties: vec![],
+                },
+            ],
+            relationship_types: vec![SemanticRelationshipType {
+                name: "Transcription".to_owned(),
+                source: "transcriptions_src".to_owned(),
+                roles: vec![
+                    SemanticRoleRegistration {
+                        name: "scribe".to_owned(),
+                        targets: vec!["Person".to_owned()],
+                        optional: false,
+                        cardinality: SemanticRoleCardinality::One,
+                    },
+                    SemanticRoleRegistration {
+                        name: "folio".to_owned(),
+                        targets: vec!["Folio".to_owned()],
+                        optional: false,
+                        cardinality: SemanticRoleCardinality::One,
+                    },
+                    SemanticRoleRegistration {
+                        name: "witness".to_owned(),
+                        targets: vec!["Person".to_owned()],
+                        optional: true,
+                        cardinality: SemanticRoleCardinality::Many,
+                    },
+                ],
+                // `folio_id` is the `folio` role's structural column: a
+                // third role, distinct from `start`/`end`.
+                properties: vec![SemanticProperty {
+                    name: "folioId".to_owned(),
+                    column: "folio_id".to_owned(),
+                }],
+            }],
+        };
+
+        assert!(
+            matches!(
+                register_semantic_schema(&connection, "scriptorium", &registration),
+                Err(SemanticCatalogError::StructuralColumn { .. })
+            ),
+            "folio_id is the folio role's structural column and must not be mappable as a property"
+        );
     }
 }

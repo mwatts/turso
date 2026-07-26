@@ -2508,8 +2508,18 @@ fn fragment_reopen_preserves_noncolliding_ids_properties_memberships_and_endpoin
     let connection = database.connect().expect("first connection");
     register_fragment_graph(&connection);
     let mut schema = fragment_schema();
-    schema.relationship_types[0].roles[0].targets = vec!["NaturalPerson".to_owned()];
-    schema.relationship_types[0].roles[1].targets = vec!["Employer".to_owned()];
+    schema.relationship_types[0]
+        .roles
+        .iter_mut()
+        .find(|role| role.name == "start")
+        .expect("start role")
+        .targets = vec!["NaturalPerson".to_owned()];
+    schema.relationship_types[0]
+        .roles
+        .iter_mut()
+        .find(|role| role.name == "end")
+        .expect("end role")
+        .targets = vec!["Employer".to_owned()];
     let mut fragments = fragment_registration();
     fragments.fragments.push(SemanticFragment {
         name: "Employer".to_owned(),
@@ -2627,7 +2637,12 @@ fn fragment_endpoint_expansion_rejects_physical_source_mismatches() {
     let connection = connection();
     register_fragment_graph(&connection);
     let mut schema = fragment_schema();
-    schema.relationship_types[0].roles[0].targets = vec!["Nameable".to_owned()];
+    schema.relationship_types[0]
+        .roles
+        .iter_mut()
+        .find(|role| role.name == "start")
+        .expect("start role")
+        .targets = vec!["Nameable".to_owned()];
 
     let error = register_semantic_schema_with_fragments(
         &connection,
@@ -4425,7 +4440,13 @@ fn constraint_registration_rejects_every_invalid_public_shape() {
     let endpoint_connection = connection();
     registered_graph(&endpoint_connection);
     let mut endpoint_free = semantic_registration();
-    endpoint_free.relationship_types[0].roles[0].targets.clear();
+    endpoint_free.relationship_types[0]
+        .roles
+        .iter_mut()
+        .find(|role| role.name == "start")
+        .expect("start role")
+        .targets
+        .clear();
     register_semantic_schema(&endpoint_connection, "social", &endpoint_free)
         .expect("register relationship without a permitted start type");
     let missing_endpoint = SemanticConstraintRegistration {
@@ -4666,7 +4687,12 @@ fn cardinality_expands_fragment_endpoints_and_handles_colliding_source_ids() {
         ],
     });
     let mut schema = fragment_schema();
-    schema.relationship_types[0].roles[0].targets = vec!["Worker".to_owned()];
+    schema.relationship_types[0]
+        .roles
+        .iter_mut()
+        .find(|role| role.name == "start")
+        .expect("start role")
+        .targets = vec!["Worker".to_owned()];
     register_semantic_schema_with_fragments(&connection, "fragments", &schema, &fragments)
         .expect("register fragment-expanded endpoint");
     register_semantic_constraints(
