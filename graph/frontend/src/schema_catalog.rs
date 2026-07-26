@@ -980,6 +980,7 @@ mod tests {
     use super::*;
     use crate::catalog::{
         GraphRegistration, NodeSourceRegistration, RelationshipSourceRegistration,
+        RoleSourceRegistration,
     };
     use crate::semantic::{
         SemanticFragment, SemanticFragmentMember, SemanticFragmentRegistration, SemanticNodeType,
@@ -1067,6 +1068,57 @@ mod tests {
         .expect("register graph");
         let source = graph.relationship_sources[0].id;
         (SchemaCatalog::new(connection, graph), source)
+    }
+
+    /// Same shape as `binary_relationship_catalog`, but the `end` role is
+    /// declared BEFORE the `start` role. `RelationshipSourceRegistration::binary`
+    /// always declares `start` first, so building the registration by hand is
+    /// the only way to exercise declaration order other than start-then-end;
+    /// nothing in `validate_registration_names` requires `start` to precede
+    /// `end`, so a name-position-blind consumer must not care which one this
+    /// is.
+    fn reversed_binary_relationship_catalog() -> (SchemaCatalog, ir::SourceTableId, ir::GraphId) {
+        let connection = connect(false);
+        connection
+            .execute(
+                "CREATE TABLE people(id INTEGER PRIMARY KEY, name TEXT); \
+                 CREATE TABLE acquaintances(id INTEGER PRIMARY KEY, person_a INTEGER, person_b INTEGER);",
+            )
+            .expect("create sources");
+        let graph = crate::catalog::register_graph(
+            &connection,
+            &GraphRegistration {
+                name: "acquainted".to_owned(),
+                node_sources: vec![NodeSourceRegistration {
+                    name: "Person".to_owned(),
+                    table: "people".to_owned(),
+                    identity_column: "id".to_owned(),
+                }],
+                relationship_sources: vec![RelationshipSourceRegistration {
+                    name: "KNOWS".to_owned(),
+                    table: "acquaintances".to_owned(),
+                    identity_column: "id".to_owned(),
+                    roles: vec![
+                        RoleSourceRegistration {
+                            name: "end".to_owned(),
+                            column: "person_a".to_owned(),
+                            node_source: "Person".to_owned(),
+                            cardinality: ir::RoleCardinality::One,
+                        },
+                        RoleSourceRegistration {
+                            name: "start".to_owned(),
+                            column: "person_b".to_owned(),
+                            node_source: "Person".to_owned(),
+                            cardinality: ir::RoleCardinality::One,
+                        },
+                    ],
+                }],
+            },
+        )
+        .expect("register graph");
+        let source = graph.relationship_sources[0].id;
+        let graph_id = graph.id;
+        (SchemaCatalog::new(connection, graph), source, graph_id)
     }
 
     #[test]
@@ -1402,5 +1454,50 @@ mod tests {
                 .all(|(logical, _)| logical != "src" && logical != "dst"),
             "role columns must not appear as payload properties: {payload:?}"
         );
+    }
+
+    /// Regression test: a role-shaped `RelationshipTableLayout` must resolve
+    /// `start`/`end` by NAME, not by position in the `roles` vec. Declaration
+    /// order is not guaranteed to put `start` before `end` (nothing in
+    /// `validate_registration_names` requires it, and it would make binary a
+    /// validated special case rather than a layout). A positional
+    /// `roles[0]`/`roles[1]` reader silently inverts the hop the moment a
+    /// relation is registered with `end` declared first, with no compile
+    /// error and no panic -- just backwards SQL.
+    #[test]
+    fn a_relationship_with_end_declared_before_start_resolves_endpoints_by_name() {
+        let (catalog, source, graph_id) = reversed_binary_relationship_catalog();
+        let layout = catalog
+            .relationship_layout(source)
+            .expect("relationship layout");
+
+        // Declaration order really is [end, start] here; a positional reader
+        // would get this backwards.
+        assert_eq!(layout.roles[0].name, "end");
+        assert_eq!(layout.roles[1].name, "start");
+
+        assert_eq!(
+            layout.start_role().map(|role| role.column.as_str()),
+            Some("person_b"),
+            "start_role() must resolve by name even though `start` is declared second"
+        );
+        assert_eq!(
+            layout.end_role().map(|role| role.column.as_str()),
+            Some("person_a"),
+            "end_role() must resolve by name even though `end` is declared first"
+        );
+
+        // Exercise a real query against the reversed-order catalog: a
+        // `-[:KNOWS]->` hop must bind and lower without error even when
+        // `end` precedes `start` in the roles vec. `lowering.rs` carries the
+        // dedicated test that inspects the generated join SQL directly
+        // (`start_end_role_lookup_is_name_based_not_positional`); this just
+        // confirms the production `bind` + `lower_relational` pipeline is
+        // unaffected by declaration order end-to-end.
+        let query = turso_graph_cypher::parse("MATCH (a:Person)-[:KNOWS]->(b:Person) RETURN a.id")
+            .expect("parse hop query");
+        let bound =
+            crate::bind(&query, graph_id, &catalog, &Default::default()).expect("bind hop query");
+        crate::lower_relational(&bound.plan, &catalog).expect("lower hop query");
     }
 }

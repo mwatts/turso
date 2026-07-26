@@ -1874,12 +1874,26 @@ fn insert_relationship(
         entity_layouts,
         merge,
         "relationship",
-        // `CREATE (a)-[r]->(b)` is always a two-role pattern hop, in
-        // declaration order, regardless of how many roles the relation
-        // carries in total.
+        // `CREATE (a)-[r]->(b)` is always a two-role pattern hop. Resolve
+        // the roles by name, not declaration order -- role order is not
+        // guaranteed to put `start` before `end`.
         &[
-            (layout.roles[0].column.clone(), from.clone()),
-            (layout.roles[1].column.clone(), to.clone()),
+            (
+                layout
+                    .start_role()
+                    .ok_or(LowerError::MissingSource(create.source))?
+                    .column
+                    .clone(),
+                from.clone(),
+            ),
+            (
+                layout
+                    .end_role()
+                    .ok_or(LowerError::MissingSource(create.source))?
+                    .column
+                    .clone(),
+                to.clone(),
+            ),
         ],
         &merge_predicates,
     )
@@ -2028,17 +2042,25 @@ fn delete_entity(
             let parameter = identity_parameter(delete.entity);
             let mut predicates = Vec::new();
             // `relationship_endpoint_sources` only resolves for the two-role
-            // pattern-hop shape, so the role pair is always [start, end].
+            // pattern-hop shape. Resolve the roles by name, not declaration
+            // order -- role order is not guaranteed to put `start` before
+            // `end`.
             if start_source == source {
+                let role = relationship
+                    .start_role()
+                    .ok_or(LowerError::MissingSource(relationship_source))?;
                 predicates.push(format!(
                     "{} = ${parameter}",
-                    quoted_identifier(&relationship.roles[0].column)
+                    quoted_identifier(&role.column)
                 ));
             }
             if end_source == source {
+                let role = relationship
+                    .end_role()
+                    .ok_or(LowerError::MissingSource(relationship_source))?;
                 predicates.push(format!(
                     "{} = ${parameter}",
-                    quoted_identifier(&relationship.roles[1].column)
+                    quoted_identifier(&role.column)
                 ));
             }
             if predicates.is_empty() {

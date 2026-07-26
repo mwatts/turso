@@ -34,6 +34,25 @@ impl RelationshipTableLayout {
         self.roles.iter().find(|entry| entry.role == role)
     }
 
+    fn role_by_name(&self, name: &str) -> Option<&RelationshipRoleLayout> {
+        self.roles
+            .iter()
+            .find(|role| role.name.eq_ignore_ascii_case(name))
+    }
+
+    /// The `start` role of a two-role pattern-hop relationship, resolved by
+    /// name rather than declaration order: role declaration order is not
+    /// guaranteed to put `start` before `end`.
+    pub fn start_role(&self) -> Option<&RelationshipRoleLayout> {
+        self.role_by_name("start")
+    }
+
+    /// The `end` role of a two-role pattern-hop relationship, resolved by
+    /// name rather than declaration order.
+    pub fn end_role(&self) -> Option<&RelationshipRoleLayout> {
+        self.role_by_name("end")
+    }
+
     /// Columns that carry participation rather than payload.
     pub fn structural_columns(&self) -> Vec<String> {
         let mut columns = vec![self.identity_column.clone()];
@@ -1454,11 +1473,17 @@ fn lower_fixed_expand(
     let relationship = catalog
         .relationship_layout(expand.relationship_source)
         .ok_or(LowerError::MissingSource(expand.relationship_source))?;
-    // `Expand` is a Cypher `-[r]->` hop: always exactly two roles, in
-    // declaration order, regardless of how many roles the relation carries
-    // in total.
-    let start_column = &relationship.roles[0].column;
-    let end_column = &relationship.roles[1].column;
+    // `Expand` is a Cypher `-[r]->` hop: always exactly two roles, named
+    // `start`/`end`. Resolve by name, not declaration order -- role order is
+    // not guaranteed to put `start` before `end`.
+    let start_column = &relationship
+        .start_role()
+        .ok_or(LowerError::MissingSource(expand.relationship_source))?
+        .column;
+    let end_column = &relationship
+        .end_role()
+        .ok_or(LowerError::MissingSource(expand.relationship_source))?
+        .column;
     let target = catalog
         .node_layout(expand.target_node_source)
         .ok_or(LowerError::MissingSource(expand.target_node_source))?;
@@ -2463,12 +2488,18 @@ fn lower_expression_with_references(
                         .relationship_layout(*source)
                         .ok_or(LowerError::MissingSource(*source))?;
                     // startNode()/endNode() only ever address the two-role
-                    // pattern-hop relationship, in declaration order.
-                    let endpoint = if function.as_str() == "__cypher_start_node" {
-                        relationship.roles[0].column.clone()
+                    // pattern-hop relationship. Resolve by name, not
+                    // declaration order -- role order is not guaranteed to
+                    // put `start` before `end`.
+                    let role = if function.as_str() == "__cypher_start_node" {
+                        relationship.start_role()
                     } else {
-                        relationship.roles[1].column.clone()
+                        relationship.end_role()
                     };
+                    let endpoint = role
+                        .ok_or(LowerError::MissingSource(*source))?
+                        .column
+                        .clone();
                     branches.push((
                         *source,
                         format!(
@@ -3022,6 +3053,52 @@ mod tests {
         }
     }
 
+    /// Same layout as `EndpointCatalog`, but with `end` declared BEFORE
+    /// `start`. Declaration order is not guaranteed to put `start` first, so
+    /// a consumer that indexes `roles[0]`/`roles[1]` positionally instead of
+    /// resolving by name would silently swap start/end here.
+    struct ReversedEndpointCatalog;
+
+    impl RelationalCatalogSnapshot for ReversedEndpointCatalog {
+        fn node_layout(&self, _source: ir::SourceTableId) -> Option<NodeTableLayout> {
+            None
+        }
+
+        fn relationship_layout(
+            &self,
+            _source: ir::SourceTableId,
+        ) -> Option<RelationshipTableLayout> {
+            Some(RelationshipTableLayout {
+                table: "relationship table".to_owned(),
+                identity_column: "relationship id".to_owned(),
+                roles: vec![
+                    RelationshipRoleLayout {
+                        role: ir::RoleId::new(2).unwrap(),
+                        name: "end".to_owned(),
+                        column: "end node".to_owned(),
+                        cardinality: ir::RoleCardinality::One,
+                        spill_table: None,
+                    },
+                    RelationshipRoleLayout {
+                        role: ir::RoleId::new(1).unwrap(),
+                        name: "start".to_owned(),
+                        column: "start node".to_owned(),
+                        cardinality: ir::RoleCardinality::One,
+                        spill_table: None,
+                    },
+                ],
+            })
+        }
+
+        fn property_column(
+            &self,
+            _source: ir::SourceTableId,
+            _property: ir::PropertyId,
+        ) -> Option<String> {
+            None
+        }
+    }
+
     impl RelationalCatalogSnapshot for Catalog {
         fn node_layout(&self, _source: ir::SourceTableId) -> Option<NodeTableLayout> {
             Some(NodeTableLayout {
@@ -3221,6 +3298,61 @@ mod tests {
             lower_expression(&endpoint("__cypher_end_node"), &bindings, &Catalog, "q"),
             Err(LowerError::MissingSource(missing)) if missing == source
         ));
+    }
+
+    /// Regression test: `startNode()`/`endNode()` must resolve the relevant
+    /// role column by NAME, not by position in `RelationshipTableLayout::roles`.
+    /// A positional `roles[0]`/`roles[1]` reader would swap these two
+    /// assertions relative to `endpoint_functions_use_quoted_relationship_layout_columns`
+    /// above, because `ReversedEndpointCatalog` declares `end` first.
+    #[test]
+    fn start_end_role_lookup_is_name_based_not_positional() {
+        let source = ir::SourceTableId::new(7).unwrap();
+        let relationship = ir::BindingId::new(3).unwrap();
+        let bindings = HashMap::from([(
+            relationship,
+            BindingLayout {
+                source,
+                sources: [source].into_iter().collect(),
+                kind: EntityKind::Relationship,
+                properties: Default::default(),
+            },
+        )]);
+        let endpoint = |function: &str| ir::TypedExpression {
+            expression: ir::Expression::Function {
+                function: ir::FunctionName::new(function).unwrap(),
+                arguments: vec![ir::TypedExpression {
+                    expression: ir::Expression::Binding(relationship),
+                    value_type: ir::ValueType::Relationship,
+                    nullability: ir::Nullability::NonNull,
+                }],
+            },
+            value_type: ir::ValueType::Node,
+            nullability: ir::Nullability::NonNull,
+        };
+
+        assert_eq!(
+            lower_expression(
+                &endpoint("__cypher_start_node"),
+                &bindings,
+                &ReversedEndpointCatalog,
+                "q"
+            )
+            .unwrap(),
+            "(SELECT ep.\"start node\" FROM \"relationship table\" AS ep WHERE ep.\"relationship id\" = (q.b3))",
+            "startNode() must resolve the `start` role's column even though it is declared second"
+        );
+        assert_eq!(
+            lower_expression(
+                &endpoint("__cypher_end_node"),
+                &bindings,
+                &ReversedEndpointCatalog,
+                "q"
+            )
+            .unwrap(),
+            "(SELECT ep.\"end node\" FROM \"relationship table\" AS ep WHERE ep.\"relationship id\" = (q.b3))",
+            "endNode() must resolve the `end` role's column even though it is declared first"
+        );
     }
 
     #[test]
