@@ -28,8 +28,8 @@ use turso_core::{Connection, Value};
 use turso_graph_cypher::parse;
 use turso_graph_frontend::{
     bind, bind_mutation, labels_table_name, load_registered_graph, BindError, CatalogEntity,
-    GraphCatalogSnapshot, ParameterTypes, Parameters, RegisteredGraph, ResolvedProperty,
-    SemanticRole,
+    GraphCatalogSnapshot, GraphConnection, ParameterTypes, Parameters, RegisteredGraph,
+    ResolvedProperty, SemanticRole,
 };
 use turso_graph_ir::{
     GraphId, LabelId, Nullability, Plan, PlanKind, PropertyId, RelationshipTypeId, RoleCardinality,
@@ -1035,13 +1035,12 @@ fn a_match_role_pattern_may_leave_roles_unnamed() {
     );
 }
 
-/// `bind_match_role_pattern` rejects a `Many`-cardinality role argument
-/// (`witnessed_session`'s `witness` role) rather than joining through its
-/// spill table: that hop changes row-multiplication semantics and is
-/// deferred to a later task (Task 14b), so naming `witness` here must fail
-/// to bind instead of silently mishandling the join.
+/// `bind_match_role_pattern` no longer rejects a `Many`-cardinality role
+/// argument (`witnessed_session`'s `witness` role, Task 14b): naming it
+/// alongside the two `One` roles joins through its spill table like any
+/// other role, one row per player.
 #[test]
-fn a_match_role_pattern_rejects_a_many_cardinality_role_argument() {
+fn a_match_role_pattern_reads_a_many_cardinality_role_argument() {
     let (_database, session) = fixture::witnessed_session();
     session
         .execute(
@@ -1057,17 +1056,20 @@ fn a_match_role_pattern_rejects_a_many_cardinality_role_argument() {
         )
         .expect("seed a relation with a witness");
 
-    let error = session
+    let rows = session
         .query(
-            "MATCH [x:KNOWS](start: s, end: e, witness: w) RETURN w.id",
+            "MATCH [x:KNOWS](start: s, end: e, witness: w) RETURN s.id, e.id, w.id",
             &Parameters::new(),
         )
-        .expect_err("naming a Many-cardinality role in a MATCH role pattern must not bind");
-    assert!(
-        error
-            .to_string()
-            .contains("a Many-cardinality role in a MATCH role pattern"),
-        "unexpected error: {error}"
+        .expect("naming a Many-cardinality role in a MATCH role pattern must bind");
+    assert_eq!(
+        rows,
+        vec![vec![
+            Value::from_i64(1),
+            Value::from_i64(2),
+            Value::from_i64(3)
+        ]],
+        "all three named roles -- two `One`, one `Many` -- must resolve together"
     );
 }
 
@@ -1125,50 +1127,53 @@ fn an_arrow_from_a_relation_reads_that_relations_role() {
     );
 }
 
-/// `bind_role_read_step` refuses a role arrow over a `Many`-cardinality role
-/// (`witnessed_session`'s `witness` role) rather than joining through its
-/// spill table, mirroring `bind_match_role_pattern`'s identical refusal for
-/// the standalone role form -- deferred to a later task (14b), not silently
-/// mishandled. `witnessed_session` has no relationship source literally
-/// named `witness` (unlike `ambiguous_session`), so this isolates the
-/// Many-cardinality guard from the separate ambiguity check: nothing else in
-/// `bind_role_read_step` can produce this failure.
+/// `bind_role_read_step` no longer refuses a role arrow over a
+/// `Many`-cardinality role (`witnessed_session`'s `witness` role, Task 14b):
+/// it joins through the spill table exactly like `bind_match_role_pattern`'s
+/// standalone role form, since both delegate to the same `RoleJoin`
+/// machinery -- and so must produce the same rows.
 #[test]
-fn a_role_arrow_over_a_many_cardinality_role_is_refused() {
+fn a_many_role_hops_from_the_arrow_sugar_too() {
     let (_database, session) = fixture::witnessed_session();
     session
         .execute(
-            "CREATE (:Person {id: 1}), (:Person {id: 2}), (:Person {id: 3})",
+            "CREATE (:Person {id: 1}), (:Person {id: 2}), \
+                    (:Person {id: 3}), (:Person {id: 4})",
             &Parameters::new(),
         )
         .expect("seed people");
     session
         .execute(
-            "MATCH (a:Person {id: 1}), (b:Person {id: 2}), (w:Person {id: 3}) \
-             MERGE [x:KNOWS](start: a, end: b, witness: w)",
+            "MATCH (a:Person {id: 1}), (b:Person {id: 2}), \
+                   (w1:Person {id: 3}), (w2:Person {id: 4}) \
+             CREATE [x:KNOWS](start: a, end: b, witness: w1, witness: w2)",
             &Parameters::new(),
         )
-        .expect("seed a relation with a witness");
+        .expect("create a relation with two witnesses");
 
-    let error = session
+    let mut arrow_rows = session
         .query(
             "MATCH (x:KNOWS)-[:witness]->(w) RETURN w.id",
             &Parameters::new(),
         )
-        .expect_err("a role arrow over a Many-cardinality role must not bind");
-    // The exact phrase, not just "Many-cardinality role": `lowering.rs` has
-    // its own separate, deliberately-worded-differently defense-in-depth
-    // guard for the same condition ("MATCH role pattern join through a
-    // Many-cardinality role", `lower_role_join`, in case the binder guard is
-    // ever bypassed). A looser substring check would still pass if this
-    // binder-level refusal were removed, since the lowering guard would
-    // catch it instead -- this asserts the *binder* check specifically
-    // fired, not merely that binding failed somehow.
-    assert!(
-        error
-            .to_string()
-            .contains("a role arrow over a Many-cardinality role"),
-        "unexpected error: {error}"
+        .expect("a role arrow over a Many-cardinality role must bind");
+    arrow_rows.sort();
+    assert_eq!(
+        arrow_rows,
+        vec![vec![Value::from_i64(3)], vec![Value::from_i64(4)]],
+        "both witnesses must be returned via the arrow sugar"
+    );
+
+    let mut pattern_rows = session
+        .query(
+            "MATCH [x:KNOWS](witness: w) RETURN w.id",
+            &Parameters::new(),
+        )
+        .expect("the standalone role form must also bind");
+    pattern_rows.sort();
+    assert_eq!(
+        arrow_rows, pattern_rows,
+        "the arrow sugar and the standalone role form must agree"
     );
 }
 
@@ -1346,5 +1351,191 @@ fn a_name_that_is_both_a_label_and_a_relationship_type_reads_as_a_node() {
         anchor_is_node_scan(&bound.plan),
         "Rule A must read Ambiguous as a node label, not a relation anchor: {:?}",
         bound.plan
+    );
+}
+
+// --- Task 14b: hopping through a `Many`-valued role (read side). Task 14a
+// landed the write/delete side (spill rows on CREATE/MERGE/SET and their
+// cleanup); these tests cover reading them back through `lower_role_join`.
+
+/// Seeds `witnessed_session` with three `KNOWS` relations that deliberately
+/// differ in their `witness` sets: relation A (start id 1, end id 2) has two
+/// witnesses (ids 3, 4); relation B (start id 5, end id 6) has one witness
+/// (id 7) -- a different count from A, so a spill join missing its
+/// `relation_id` correlation (joining every relation to every spill row in
+/// the table rather than just its own) would multiply row counts instead of
+/// matching them; relation C (start id 8, end id 9) has none, created
+/// through the plain arrow so it never touches the spill table at all.
+/// A single-relation fixture cannot distinguish "returns every player of the
+/// named role" from "returns every row in the spill table" -- with only one
+/// relation the two coincide.
+fn seed_witness_variety(session: &GraphConnection) {
+    session
+        .execute(
+            "CREATE (:Person {id: 1}), (:Person {id: 2}), (:Person {id: 3}), \
+                    (:Person {id: 4}), (:Person {id: 5}), (:Person {id: 6}), \
+                    (:Person {id: 7}), (:Person {id: 8}), (:Person {id: 9})",
+            &Parameters::new(),
+        )
+        .expect("seed people");
+    session
+        .execute(
+            "MATCH (a:Person {id: 1}), (b:Person {id: 2}), \
+                   (w1:Person {id: 3}), (w2:Person {id: 4}) \
+             CREATE [x:KNOWS](start: a, end: b, witness: w1, witness: w2)",
+            &Parameters::new(),
+        )
+        .expect("create relation A with two witnesses");
+    session
+        .execute(
+            "MATCH (a:Person {id: 5}), (b:Person {id: 6}), (w:Person {id: 7}) \
+             CREATE [x:KNOWS](start: a, end: b, witness: w)",
+            &Parameters::new(),
+        )
+        .expect("create relation B with one witness");
+    session
+        .execute(
+            "MATCH (a:Person {id: 8}), (b:Person {id: 9}) CREATE (a)-[:KNOWS]->(b)",
+            &Parameters::new(),
+        )
+        .expect("create relation C with no witness");
+}
+
+/// The load-bearing case: a hop through a `Many`-valued role must return
+/// every player of every relation that named it, not truncate to one row per
+/// relation. A scalar subquery (the plan's own rejected Step 5 snippet)
+/// would collapse relation A's two witnesses into one, silently losing a
+/// player while still looking like a working query.
+#[test]
+fn a_hop_through_a_many_valued_role_returns_every_player() {
+    let (_database, session) = fixture::witnessed_session();
+    seed_witness_variety(&session);
+
+    let mut rows = session
+        .query(
+            "MATCH [x:KNOWS](start: s, witness: w) RETURN s.id, w.id",
+            &Parameters::new(),
+        )
+        .expect("a hop through a Many-cardinality role must bind");
+    rows.sort();
+    assert_eq!(
+        rows,
+        vec![
+            vec![Value::from_i64(1), Value::from_i64(3)],
+            vec![Value::from_i64(1), Value::from_i64(4)],
+            vec![Value::from_i64(5), Value::from_i64(7)],
+        ],
+        "every (relation, witness) pair must be returned -- collapsing \
+         relation A's two witnesses into one row is the exact data loss a \
+         scalar subquery would cause, and relation C (no witness) must \
+         contribute nothing"
+    );
+}
+
+/// The subset projection Task 13b's standalone role pattern established must
+/// survive adding a `Many` role to the relation: a query that never names
+/// `witness` must still return one row per relation, not one row per
+/// (relation, witness) pair. A spill join that leaks into queries which
+/// never named the role would turn every unrelated query's row count into a
+/// function of witness count.
+#[test]
+fn not_naming_a_many_valued_role_does_not_multiply_rows() {
+    let (_database, session) = fixture::witnessed_session();
+    seed_witness_variety(&session);
+
+    let mut rows = session
+        .query("MATCH [x:KNOWS](start: s) RETURN s.id", &Parameters::new())
+        .expect("naming only a One role must still bind");
+    rows.sort();
+    assert_eq!(
+        rows,
+        vec![
+            vec![Value::from_i64(1)],
+            vec![Value::from_i64(5)],
+            vec![Value::from_i64(8)],
+        ],
+        "one row per relation regardless of witness count"
+    );
+}
+
+/// Relation C has no players in `witness` at all. Naming `witness` must
+/// exclude it -- an inner join through the spill table, not an outer one --
+/// while a query that hops through a different role (`start`) must still see
+/// it, so the absence is specific to the `witness` hop, not a symptom of
+/// relation C being broken some other way.
+#[test]
+fn a_relation_with_no_players_in_a_many_role_is_absent_from_that_hop_but_not_others() {
+    let (_database, session) = fixture::witnessed_session();
+    seed_witness_variety(&session);
+
+    let mut with_witness = session
+        .query(
+            "MATCH [x:KNOWS](start: s, witness: w) RETURN s.id",
+            &Parameters::new(),
+        )
+        .expect("hop through witness must bind");
+    with_witness.sort();
+    assert_eq!(
+        with_witness,
+        vec![
+            vec![Value::from_i64(1)],
+            vec![Value::from_i64(1)],
+            vec![Value::from_i64(5)],
+        ],
+        "relation C (start id 8) must be absent from the witness hop"
+    );
+
+    let mut all_starts = session
+        .query("MATCH [x:KNOWS](start: s) RETURN s.id", &Parameters::new())
+        .expect("start must still bind for every relation");
+    all_starts.sort();
+    assert_eq!(
+        all_starts,
+        vec![
+            vec![Value::from_i64(1)],
+            vec![Value::from_i64(5)],
+            vec![Value::from_i64(8)],
+        ],
+        "relation C is absent only from the witness hop, not from every hop \
+         -- distinguishing an inner join from an outer one"
+    );
+}
+
+/// `RolePlayer::Bound` over a `Many`-cardinality role: the plan's own Step 5
+/// guidance covers only a fresh player and does not mention this case at
+/// all. The `One` arm folds a bound player to an identity equality
+/// (`q.<role_column> = q.<binding>`), but a `Many` role has no role column,
+/// so this needs a membership test against the spill table instead (the
+/// same shape `mutation.rs` builds for MERGE's merge key over a `Many`
+/// role). Two relations with different single witnesses (A's is id 3, B's
+/// is id 7) verify the bound player actually selects -- not merely that
+/// binding a player doesn't error.
+#[test]
+fn a_bound_player_constrains_a_many_valued_role() {
+    let (_database, session) = fixture::witnessed_session();
+    seed_witness_variety(&session);
+
+    let rows = session
+        .query(
+            "MATCH (w:Person {id: 3}), [x:KNOWS](start: s, witness: w) RETURN s.id",
+            &Parameters::new(),
+        )
+        .expect("a bound player must constrain a Many-cardinality role");
+    assert_eq!(
+        rows,
+        vec![vec![Value::from_i64(1)]],
+        "only relation A has witness id 3 among its players"
+    );
+
+    let rows = session
+        .query(
+            "MATCH (w:Person {id: 7}), [x:KNOWS](start: s, witness: w) RETURN s.id",
+            &Parameters::new(),
+        )
+        .expect("a bound player must constrain a Many-cardinality role");
+    assert_eq!(
+        rows,
+        vec![vec![Value::from_i64(5)]],
+        "only relation B has witness id 7 among its players"
     );
 }

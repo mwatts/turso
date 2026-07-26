@@ -1554,10 +1554,14 @@ fn lower_relation_scan(
 }
 
 /// Joins one named role of an already-scanned relation out to its player.
-/// `Bound` folds to an identity equality (mirrors `RoleExpand.bound_target`);
-/// `Fresh` joins the role's physical node table. Composing `n` of these onto
-/// a `RelationScan` reads a relation with `n` named roles with no arity
-/// branch — each role resolves independently by `RoleId`.
+/// `Bound` folds to an identity equality for a `One` role, or a spill-table
+/// membership test for a `Many` role (mirrors the merge-key predicate
+/// `mutation.rs` builds for a `Many` role); `Fresh` joins the role's physical
+/// node table, through the spill table first when the role is `Many` so `n`
+/// players produce `n` rows. Composing `n` of these onto a `RelationScan`
+/// reads a relation with `n` named roles with no arity branch — each role
+/// resolves independently by `RoleId`, and a role is `Many` exactly when its
+/// layout carries a `spill_table`, never by name, position, or arity.
 fn lower_role_join(
     join: &ir::RoleJoin,
     catalog: &dyn RelationalCatalogSnapshot,
@@ -1573,27 +1577,30 @@ fn lower_role_join(
             relation: relationship.table.clone(),
             role: join.role,
         })?;
-    if role.cardinality != ir::RoleCardinality::One {
-        // A `Many` role's players live in a spill table, not an endpoint
-        // column; joining through one is Task 14b's concern (hopping
-        // through a `Many` role in depth), not this task's. The binder
-        // rejects this before a plan ever reaches lowering; this is a
-        // defense against that guard being bypassed, not the primary check.
-        return Err(LowerError::UnsupportedOperator(
-            "MATCH role pattern join through a Many-cardinality role",
-        ));
-    }
-    let role_column = role_column_ref(join.relationship, join.role);
+    let relation_column = binding_column(join.relationship);
     let mut bindings = input.bindings;
     match &join.player {
-        ir::RolePlayer::Bound(binding) => Ok(Lowered {
-            sql: format!(
-                "SELECT q.* FROM ({}) AS q WHERE q.{role_column} = q.{}",
-                input.sql,
-                binding_column(*binding)
-            ),
-            bindings,
-        }),
+        ir::RolePlayer::Bound(binding) => {
+            let predicate = match &role.spill_table {
+                // A `Many` role has no role column to equate against; test
+                // membership in its spill table instead.
+                Some(spill_table) => format!(
+                    "EXISTS (SELECT 1 FROM {} AS s WHERE s.relation_id = q.{relation_column} \
+                     AND s.node_id = q.{})",
+                    quote_identifier(spill_table),
+                    binding_column(*binding),
+                ),
+                None => format!(
+                    "q.{} = q.{}",
+                    role_column_ref(join.relationship, join.role),
+                    binding_column(*binding),
+                ),
+            };
+            Ok(Lowered {
+                sql: format!("SELECT q.* FROM ({}) AS q WHERE {predicate}", input.sql),
+                bindings,
+            })
+        }
         ir::RolePlayer::Fresh {
             binding,
             node_source,
@@ -1618,17 +1625,34 @@ fn lower_role_join(
                 MaterializationContext::default(),
             );
             bindings.insert(binding.id(), binding_layout);
+            // A `One` role's player is the relation's endpoint column,
+            // joined directly to the target table. A `Many` role's players
+            // live in a spill table, so a fresh player needs an extra join
+            // through it, one row per spilled player — the difference from
+            // the `One` arm is one extra join, not a different shape.
+            let join_clause = match &role.spill_table {
+                Some(spill_table) => format!(
+                    "JOIN {} AS s ON s.relation_id = q.{relation_column} \
+                     JOIN {} AS {alias} ON {alias}.{} = s.node_id",
+                    quote_identifier(spill_table),
+                    quote_identifier(&target.table),
+                    quote_identifier(&target.identity_column),
+                ),
+                None => format!(
+                    "JOIN {} AS {alias} ON {alias}.{} = q.{}",
+                    quote_identifier(&target.table),
+                    quote_identifier(&target.identity_column),
+                    role_column_ref(join.relationship, join.role),
+                ),
+            };
             Ok(Lowered {
                 sql: format!(
-                    "SELECT q.*, {alias}.{} AS {}, {} AS {}{extra} \
-                     FROM ({}) AS q JOIN {} AS {alias} ON {alias}.{} = q.{role_column}",
+                    "SELECT q.*, {alias}.{} AS {}, {} AS {}{extra} FROM ({}) AS q {join_clause}",
                     quote_identifier(&target.identity_column),
                     binding_column(binding.id()),
                     node_source.get(),
                     source_column_ref(binding.id()),
                     input.sql,
-                    quote_identifier(&target.table),
-                    quote_identifier(&target.identity_column),
                 ),
                 bindings,
             })

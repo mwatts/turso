@@ -2831,10 +2831,8 @@ impl<'a> Binder<'a> {
     /// Unlike CREATE, a MATCH role pattern does not require every declared
     /// role to be named -- naming a subset is a real, tested query shape
     /// (`bind_create_role_pattern`'s `MissingRequiredRole` check has no
-    /// analogue here). A `Many`-cardinality role argument is rejected: its
-    /// players live in a spill table, and reading through one changes the
-    /// row-multiplication semantics of the surrounding pattern in a way left
-    /// to a later task.
+    /// analogue here). Naming a `Many`-cardinality role argument joins
+    /// through its spill table (`lower_role_join`), one row per player.
     fn bind_match_role_pattern(&mut self, pattern: &cypher::RolePattern) -> Result<(), BindError> {
         if pattern.types.len() != 1 {
             return Err(at_unsupported(
@@ -2900,16 +2898,8 @@ impl<'a> Binder<'a> {
             }
             // A `Many` role's players live in a spill table
             // (`<relation_table>__<role>`), identified structurally -- never
-            // by name or position -- via cardinality. Joining through one
-            // changes the row-multiplication semantics of the pattern;
-            // that hop is a later task's job, so it is rejected here rather
-            // than silently mishandled.
-            if role.cardinality == ir::RoleCardinality::Many {
-                return Err(at_unsupported(
-                    argument.span,
-                    "a Many-cardinality role in a MATCH role pattern",
-                ));
-            }
+            // by name or position -- via cardinality. `lower_role_join`
+            // joins through it, one row per player (Task 14b).
 
             let cypher::Expression::Variable(name) = &argument.player.value else {
                 return Err(at_unsupported(
@@ -3822,16 +3812,10 @@ impl<'a> Binder<'a> {
                 span_end: name.span.end,
             });
         }
-        // A `Many` role's players live in a spill table; hopping through one
-        // changes the row-multiplication semantics of the pattern, the same
-        // reason `bind_match_role_pattern` refuses it for the standalone
-        // role form. That is a later task's (14b) job, not this sugar's.
-        if role.cardinality == ir::RoleCardinality::Many {
-            return Err(at_unsupported(
-                relationship.span,
-                "a role arrow over a Many-cardinality role",
-            ));
-        }
+        // A `Many` role's players live in a spill table; this sugar delegates
+        // to the same `RoleJoin` machinery `bind_match_role_pattern` uses, so
+        // hopping through one joins through the spill table exactly as the
+        // standalone role form does (Task 14b).
         let source = self
             .catalog
             .relationship_source_for_type(self.graph, relationship_type)
