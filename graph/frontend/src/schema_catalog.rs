@@ -1517,7 +1517,7 @@ mod tests {
     /// identities off a semantic snapshot the way schema'd mode does. It
     /// must still report the relation's roles, carrying the physical
     /// `RoleId`s straight from the registration: the binder writes exactly
-    /// this list into `CreateRelationship.roles`, and an empty response
+    /// this list into `CreateRelation.roles`, and an empty response
     /// here (the pre-fix behavior) silently drops every role binding at
     /// bind time for every schemaless relationship create/merge.
     ///

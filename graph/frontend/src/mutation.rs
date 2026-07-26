@@ -1229,7 +1229,7 @@ fn execute_operation(
                 )?;
             }
         }
-        ir::Mutation::CreateRelationship(create) => {
+        ir::Mutation::CreateRelation(create) => {
             let (identity, _) = insert_relationship(
                 connection,
                 catalog,
@@ -1254,7 +1254,7 @@ fn execute_operation(
                 (create.source, MutationEntityKind::Relationship),
             );
         }
-        ir::Mutation::MergeRelationship(merge) => {
+        ir::Mutation::MergeRelation(merge) => {
             let (identity, created) = insert_relationship(
                 connection,
                 catalog,
@@ -1837,7 +1837,7 @@ pub(crate) fn insert_relationship(
     connection: &Arc<Connection>,
     catalog: &dyn GraphCompilationCatalog,
     input: &LoweredMutationInput,
-    create: &ir::CreateRelationship,
+    create: &ir::CreateRelation,
     parameters: &Parameters,
     values: &HashMap<ir::BindingId, Value>,
     entity_layouts: &HashMap<ir::BindingId, (ir::SourceTableId, MutationEntityKind)>,
@@ -3075,7 +3075,7 @@ mod tests {
         )
     }
 
-    /// Builds a `CreateRelationship` for `TernaryCatalog`'s `Transcription`
+    /// Builds a `CreateRelation` for `TernaryCatalog`'s `Transcription`
     /// source with `roles` bound to `(scribe, text, folio)` player values
     /// given in that order, but placed on the IR in (folio, scribe, text)
     /// order -- yet a third permutation from both the layout's declaration
@@ -3084,7 +3084,7 @@ mod tests {
         scribe: i64,
         text: i64,
         folio: i64,
-    ) -> (ir::CreateRelationship, HashMap<ir::BindingId, Value>) {
+    ) -> (ir::CreateRelation, HashMap<ir::BindingId, Value>) {
         let folio_binding = ir::BindingId::new(1).unwrap();
         let scribe_binding = ir::BindingId::new(2).unwrap();
         let text_binding = ir::BindingId::new(3).unwrap();
@@ -3095,7 +3095,7 @@ mod tests {
         values.insert(scribe_binding, Value::from_i64(scribe));
         values.insert(text_binding, Value::from_i64(text));
 
-        let create = ir::CreateRelationship {
+        let create = ir::CreateRelation {
             binding: ir::Binding::new(
                 relation_binding,
                 "t",
@@ -3104,10 +3104,6 @@ mod tests {
             )
             .unwrap(),
             source: ir::SourceTableId::new(2).unwrap(),
-            // Unused by the role-model write path; any binding id is fine.
-            from: folio_binding,
-            to: folio_binding,
-            direction: ir::CreateRelationship::default_direction(),
             relationship_types: vec![ir::RelationshipTypeId::new(1).unwrap()],
             properties: vec![],
             roles: vec![

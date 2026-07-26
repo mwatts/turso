@@ -1661,12 +1661,9 @@ impl<'a> Binder<'a> {
                     span_end: relationship.span.end,
                 })?
                 .role;
-            let create = ir::CreateRelationship {
+            let create = ir::CreateRelation {
                 binding,
                 source,
-                from: relationship_from,
-                to: relationship_to,
-                direction: ir::CreateRelationship::default_direction(),
                 relationship_types,
                 properties,
                 roles: vec![
@@ -1681,13 +1678,13 @@ impl<'a> Binder<'a> {
                 ],
             };
             operations.push(if merge {
-                ir::Mutation::MergeRelationship(ir::MergeRelationship {
+                ir::Mutation::MergeRelation(ir::MergeRelation {
                     create,
                     on_create: Vec::new(),
                     on_match: Vec::new(),
                 })
             } else {
-                ir::Mutation::CreateRelationship(create)
+                ir::Mutation::CreateRelation(create)
             });
             from = next_from;
         }
@@ -1731,7 +1728,7 @@ impl<'a> Binder<'a> {
                     merge.on_match = on_match;
                     return Ok(());
                 }
-                ir::Mutation::MergeRelationship(merge) => {
+                ir::Mutation::MergeRelation(merge) => {
                     merge.on_create = on_create;
                     merge.on_match = on_match;
                     return Ok(());
@@ -7224,16 +7221,31 @@ mod tests {
         let ir::Mutation::CreateNode(first) = &bound.request.operations[0] else {
             panic!("expected first node creation")
         };
-        let ir::Mutation::CreateRelationship(relationship) = &bound.request.operations[2] else {
+        let ir::Mutation::CreateRelation(relationship) = &bound.request.operations[2] else {
             panic!("expected relationship creation")
         };
         assert_eq!(first.source, ir::SourceTableId::new(10).unwrap());
         assert_eq!(relationship.source, ir::SourceTableId::new(11).unwrap());
-        assert_eq!(relationship.from, first.binding.id());
         let ir::Mutation::CreateNode(second) = &bound.request.operations[1] else {
             panic!("expected second node creation")
         };
-        assert_eq!(relationship.to, second.binding.id());
+        // `from`/`to` are gone; roles are the only statement of who
+        // participates. The fixture catalog's `relationship_source_roles`
+        // registers `start` as `RoleId(1)` and `end` as `RoleId(2)` (see the
+        // sibling test below for the full pairing check).
+        assert_eq!(
+            relationship.roles,
+            vec![
+                ir::RoleBinding {
+                    role: ir::RoleId::new(1).expect("non-zero"),
+                    value: first.binding.id(),
+                },
+                ir::RoleBinding {
+                    role: ir::RoleId::new(2).expect("non-zero"),
+                    value: second.binding.id(),
+                },
+            ]
+        );
     }
 
     /// Regression test for role/value mispairing, the recurring defect class
@@ -7259,7 +7271,7 @@ mod tests {
         let ir::Mutation::CreateNode(second) = &bound.request.operations[1] else {
             panic!("expected second node creation")
         };
-        let ir::Mutation::CreateRelationship(relationship) = &bound.request.operations[2] else {
+        let ir::Mutation::CreateRelation(relationship) = &bound.request.operations[2] else {
             panic!("expected relationship creation")
         };
         assert_eq!(

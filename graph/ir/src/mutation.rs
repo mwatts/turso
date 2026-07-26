@@ -1,6 +1,6 @@
 use crate::{
-    Binding, BindingId, Direction, GraphId, LabelId, Plan, PropertyId, RelationshipTypeId,
-    RoleBinding, SourceTableId, TypedExpression,
+    Binding, BindingId, GraphId, LabelId, Plan, PropertyId, RelationshipTypeId, RoleBinding,
+    SourceTableId, TypedExpression,
 };
 
 /// A bound graph mutation whose names and storage sources have been resolved.
@@ -14,7 +14,7 @@ pub struct MutationRequest {
 #[derive(Clone, Debug, PartialEq)]
 pub enum Mutation {
     CreateNode(CreateNode),
-    CreateRelationship(CreateRelationship),
+    CreateRelation(CreateRelation),
     SetProperty(SetProperty),
     SetLabels(SetLabels),
     ReplaceProperties(ReplaceProperties),
@@ -22,7 +22,7 @@ pub enum Mutation {
     RemoveProperty(RemoveProperty),
     Delete(DeleteEntity),
     MergeNode(MergeNode),
-    MergeRelationship(MergeRelationship),
+    MergeRelation(MergeRelation),
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -42,29 +42,14 @@ pub struct CreateNode {
 }
 
 #[derive(Clone, Debug, PartialEq)]
-pub struct CreateRelationship {
+pub struct CreateRelation {
     pub binding: Binding,
     pub source: SourceTableId,
-    pub from: BindingId,
-    pub to: BindingId,
-    pub direction: Direction,
     pub relationship_types: Vec<RelationshipTypeId>,
     pub properties: Vec<PropertyValue>,
     /// One entry per filled role, in the relation type's declaration order.
     /// A repeated player is legal; nothing here assumes distinct values.
     pub roles: Vec<RoleBinding>,
-}
-
-impl CreateRelationship {
-    /// The binder always creates an edge that points `from -> to`, so
-    /// `direction` here is really just a hardcoded "outgoing". Naming it
-    /// through this accessor instead of `Direction::Outgoing` directly
-    /// means the frontend never has to name the `Direction` type at all.
-    /// Task 11 deletes `direction` from this struct once CREATE planning
-    /// becomes role-shaped, and this accessor goes with it.
-    pub fn default_direction() -> Direction {
-        Direction::Outgoing
-    }
 }
 
 /// Resolves the physical source for a mutation target.
@@ -147,8 +132,8 @@ pub struct MergeNode {
 }
 
 #[derive(Clone, Debug, PartialEq)]
-pub struct MergeRelationship {
-    pub create: CreateRelationship,
+pub struct MergeRelation {
+    pub create: CreateRelation,
     /// Applied only when the merge created the entity.
     pub on_create: Vec<Mutation>,
     /// Applied only when the merge matched an existing entity.
@@ -160,10 +145,11 @@ mod tests {
     use super::*;
     use crate::{Nullability, RoleId, ValueType};
 
-    fn sample_create_relationship() -> CreateRelationship {
-        let from = BindingId::new(1).unwrap();
-        let to = BindingId::new(2).unwrap();
-        CreateRelationship {
+    fn sample_create_relation() -> CreateRelation {
+        let first = BindingId::new(1).unwrap();
+        let second = BindingId::new(2).unwrap();
+        let third = BindingId::new(4).unwrap();
+        CreateRelation {
             binding: Binding::new(
                 BindingId::new(3).unwrap(),
                 "r",
@@ -172,27 +158,28 @@ mod tests {
             )
             .unwrap(),
             source: SourceTableId::new(1).unwrap(),
-            from,
-            to,
-            direction: CreateRelationship::default_direction(),
             relationship_types: vec![RelationshipTypeId::new(1).unwrap()],
             properties: Vec::new(),
             roles: vec![
                 RoleBinding {
                     role: RoleId::new(1).unwrap(),
-                    value: from,
+                    value: first,
                 },
                 RoleBinding {
                     role: RoleId::new(2).unwrap(),
-                    value: to,
+                    value: second,
+                },
+                RoleBinding {
+                    role: RoleId::new(3).unwrap(),
+                    value: third,
                 },
             ],
         }
     }
 
     #[test]
-    fn a_created_relationship_lists_its_role_bindings_in_declaration_order() {
-        let create = sample_create_relationship();
+    fn a_created_relation_lists_its_role_bindings_in_declaration_order() {
+        let create = sample_create_relation();
         assert_eq!(
             create.roles,
             vec![
@@ -203,6 +190,39 @@ mod tests {
                 RoleBinding {
                     role: RoleId::new(2).unwrap(),
                     value: BindingId::new(2).unwrap()
+                },
+                RoleBinding {
+                    role: RoleId::new(3).unwrap(),
+                    value: BindingId::new(4).unwrap()
+                },
+            ]
+        );
+    }
+
+    #[test]
+    fn a_create_relation_names_only_roles() {
+        // Two ways to say who participates is one way too many: a writer that
+        // read `from` while the binder filled `roles` would silently ignore
+        // every role past the second.
+        let create = sample_create_relation();
+        assert_eq!(create.roles.len(), 3);
+        // A length check alone survives a bug that fills the right number of
+        // roles with the wrong players (the recurring defect class of this
+        // plan) -- pin the exact (role, value) pairs too.
+        assert_eq!(
+            create.roles,
+            vec![
+                RoleBinding {
+                    role: RoleId::new(1).unwrap(),
+                    value: BindingId::new(1).unwrap()
+                },
+                RoleBinding {
+                    role: RoleId::new(2).unwrap(),
+                    value: BindingId::new(2).unwrap()
+                },
+                RoleBinding {
+                    role: RoleId::new(3).unwrap(),
+                    value: BindingId::new(4).unwrap()
                 },
             ]
         );

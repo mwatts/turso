@@ -25,9 +25,9 @@ pub use identity::{
     SourceTableId,
 };
 pub use mutation::{
-    CreateNode, CreateRelationship, DeleteEntity, MergeNode, MergeRelationship, Mutation,
-    MutationRequest, MutationSource, PropertyValue, RemoveProperty, ReplaceProperties,
-    ReplacePropertiesDynamic, SetLabels, SetProperty,
+    CreateNode, CreateRelation, DeleteEntity, MergeNode, MergeRelation, Mutation, MutationRequest,
+    MutationSource, PropertyValue, RemoveProperty, ReplaceProperties, ReplacePropertiesDynamic,
+    SetLabels, SetProperty,
 };
 pub use plan::{
     Aggregate, AggregateFunction, Aggregation, Distinct, Filter, GraphExpand, Grouping, Join,
