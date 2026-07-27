@@ -1,0 +1,923 @@
+# Review package: 008b8caf86b51ead188e13c3eaeec088e6ab2a10..4905a4fd4054e3b43aac5a8c477d4b9b2e0ce0a0
+
+## Commits
+4905a4fd4 graph/frontend: make the relationship layout role-shaped
+
+## Files changed
+ graph/frontend/src/compiler.rs                 | 23 +++++--
+ graph/frontend/src/graph_expand.rs             | 23 +++++--
+ graph/frontend/src/lib.rs                      |  2 +-
+ graph/frontend/src/lowering.rs                 | 92 ++++++++++++++++++++------
+ graph/frontend/src/mutation.rs                 | 44 ++++++++----
+ graph/frontend/src/schema_catalog.rs           | 90 ++++++++++++++++++++++---
+ graph/frontend/src/session.rs                  | 20 +++++-
+ graph/frontend/tests/fixed_pattern_fixtures.rs | 25 +++++--
+ 8 files changed, 260 insertions(+), 59 deletions(-)
+
+## Diff
+diff --git a/graph/frontend/src/compiler.rs b/graph/frontend/src/compiler.rs
+index 9bcb5e509..b8849983b 100644
+--- a/graph/frontend/src/compiler.rs
++++ b/graph/frontend/src/compiler.rs
+@@ -199,24 +199,25 @@ pub(crate) fn query_needs_traversal_snapshot(query: &turso_graph_cypher::Query)
+             .unions
+             .iter()
+             .any(|branch| branch.clauses.iter().any(clause_needs))
+ }
+ 
+ #[cfg(test)]
+ mod tests {
+     use super::*;
+     use crate::{
+         CatalogEntity, GraphCatalogSnapshot, NodeTableLayout, RelationalCatalogSnapshot,
+-        RelationshipTableLayout, ResolvedProperty,
++        RelationshipRoleLayout, RelationshipTableLayout, ResolvedProperty,
+     };
+     use turso_graph_ir::{
+-        GraphId, LabelId, Nullability, PropertyId, RelationshipTypeId, SourceTableId, ValueType,
++        GraphId, LabelId, Nullability, PropertyId, RelationshipTypeId, RoleCardinality, RoleId,
++        SourceTableId, ValueType,
+     };
+ 
+     struct Catalog;
+ 
+     impl GraphCatalogSnapshot for Catalog {
+         fn node_source(&self, _graph: GraphId) -> Option<SourceTableId> {
+             SourceTableId::new(1).ok()
+         }
+ 
+         fn relationship_source(&self, _graph: GraphId) -> Option<SourceTableId> {
+@@ -255,22 +256,36 @@ mod tests {
+             (source.get() == 1).then(|| NodeTableLayout {
+                 table: "people".to_owned(),
+                 identity_column: "id".to_owned(),
+             })
+         }
+ 
+         fn relationship_layout(&self, source: SourceTableId) -> Option<RelationshipTableLayout> {
+             (source.get() == 2).then(|| RelationshipTableLayout {
+                 table: "relationships".to_owned(),
+                 identity_column: "id".to_owned(),
+-                start_column: "src".to_owned(),
+-                end_column: "dst".to_owned(),
++                roles: vec![
++                    RelationshipRoleLayout {
++                        role: RoleId::new(1).unwrap(),
++                        name: "start".to_owned(),
++                        column: "src".to_owned(),
++                        cardinality: RoleCardinality::One,
++                        spill_table: None,
++                    },
++                    RelationshipRoleLayout {
++                        role: RoleId::new(2).unwrap(),
++                        name: "end".to_owned(),
++                        column: "dst".to_owned(),
++                        cardinality: RoleCardinality::One,
++                        spill_table: None,
++                    },
++                ],
+             })
+         }
+ 
+         fn property_column(&self, _source: SourceTableId, property: PropertyId) -> Option<String> {
+             match property.get() {
+                 1 => Some("id".to_owned()),
+                 2 => Some("name".to_owned()),
+                 _ => None,
+             }
+         }
+diff --git a/graph/frontend/src/graph_expand.rs b/graph/frontend/src/graph_expand.rs
+index fe47d3f7b..ae37a6d91 100644
+--- a/graph/frontend/src/graph_expand.rs
++++ b/graph/frontend/src/graph_expand.rs
+@@ -574,24 +574,25 @@ fn runtime_error(error: turso_graph_runtime::RuntimeError) -> LimboError {
+     }
+ }
+ 
+ #[cfg(test)]
+ mod tests {
+     use super::*;
+     use crate::{
+         graph_frontend_id, load_registered_graph, register_graph, CatalogEntity,
+         GraphCatalogSnapshot, GraphCompiler, GraphRegistration, NodeSourceRegistration,
+         NodeTableLayout, ParameterTypes, PublishOutcome, RelationalCatalogSnapshot,
+-        RelationshipSourceRegistration, RelationshipTableLayout, ResolvedProperty,
++        RelationshipRoleLayout, RelationshipSourceRegistration, RelationshipTableLayout,
++        ResolvedProperty,
+     };
+     use turso_core::{Database, MemoryIO, SqliteDialect};
+-    use turso_graph_ir::{LabelId, Nullability, PropertyId, ValueType};
++    use turso_graph_ir::{LabelId, Nullability, PropertyId, RoleCardinality, RoleId, ValueType};
+     use turso_graph_runtime::{BuildLimits, NeverCancelled};
+ 
+     fn setup() -> (Arc<Connection>, Arc<SnapshotStore>, GraphId) {
+         setup_with_fanout(0)
+     }
+ 
+     fn setup_with_fanout(fanout: u32) -> (Arc<Connection>, Arc<SnapshotStore>, GraphId) {
+         let io = Arc::new(MemoryIO::new());
+         let connection = Database::open_file(io, ":memory:graph-expand", Arc::new(SqliteDialect))
+             .unwrap()
+@@ -767,22 +768,36 @@ mod tests {
+             (source == self.node_source).then(|| NodeTableLayout {
+                 table: "people".to_owned(),
+                 identity_column: "id".to_owned(),
+             })
+         }
+ 
+         fn relationship_layout(&self, source: SourceTableId) -> Option<RelationshipTableLayout> {
+             (source == self.relationship_source).then(|| RelationshipTableLayout {
+                 table: "relationships".to_owned(),
+                 identity_column: "id".to_owned(),
+-                start_column: "src".to_owned(),
+-                end_column: "dst".to_owned(),
++                roles: vec![
++                    RelationshipRoleLayout {
++                        role: RoleId::new(1).unwrap(),
++                        name: "start".to_owned(),
++                        column: "src".to_owned(),
++                        cardinality: RoleCardinality::One,
++                        spill_table: None,
++                    },
++                    RelationshipRoleLayout {
++                        role: RoleId::new(2).unwrap(),
++                        name: "end".to_owned(),
++                        column: "dst".to_owned(),
++                        cardinality: RoleCardinality::One,
++                        spill_table: None,
++                    },
++                ],
+             })
+         }
+ 
+         fn property_column(&self, source: SourceTableId, property: PropertyId) -> Option<String> {
+             (source == self.node_source && property.get() == 1).then(|| "name".to_owned())
+         }
+     }
+ 
+     #[test]
+     fn bounded_cypher_expansion_lowers_through_the_normal_planner_and_vdbe() {
+diff --git a/graph/frontend/src/lib.rs b/graph/frontend/src/lib.rs
+index e831ce747..ace303dcf 100644
+--- a/graph/frontend/src/lib.rs
++++ b/graph/frontend/src/lib.rs
+@@ -42,21 +42,21 @@ pub use catalog::{
+ pub use compiler::{graph_frontend_id, GraphCompilationCatalog, GraphCompiler};
+ pub use dialect::{GraphDialect, GRAPH_DIALECT_NAME};
+ #[cfg(feature = "fts")]
+ pub use fts::{
+     GraphFtsEntityKind, GraphFtsError, GraphFtsIndex, GraphFtsIndexSpec, GraphFtsPropertyWeight,
+     GraphFtsTokenizer, MAX_GRAPH_FTS_INDEX_NAME_BYTES, MAX_GRAPH_FTS_PROPERTIES,
+ };
+ pub use graph_expand::{install_graph_catalog, register_graph_catalog, GRAPH_EXPAND_TABLE_NAME};
+ pub use lowering::{
+     lower_relational, LowerError, NodeTableLayout, RelationalCatalogSnapshot,
+-    RelationshipTableLayout,
++    RelationshipRoleLayout, RelationshipTableLayout,
+ };
+ pub use mutation::{
+     execute_cypher_mutation, take_closed_create_fast_path_hit, MutationError, MutationSummary,
+     Parameters, CLOSED_CREATE_FAST_PATH_HITS,
+ };
+ pub use schema_catalog::SchemaCatalog;
+ pub use semantic::{
+     load_semantic_snapshot, register_semantic_constraints, register_semantic_schema,
+     register_semantic_schema_with_fragments, EndpointConstraint, OwnedProperty,
+     SemanticCatalogError, SemanticFragment, SemanticFragmentInfo, SemanticFragmentMember,
+diff --git a/graph/frontend/src/lowering.rs b/graph/frontend/src/lowering.rs
+index 4584eb19b..3f1a91521 100644
+--- a/graph/frontend/src/lowering.rs
++++ b/graph/frontend/src/lowering.rs
+@@ -3,26 +3,55 @@ use std::collections::{BTreeSet, HashMap};
+ use thiserror::Error;
+ use turso_graph_ir as ir;
+ use turso_parser::ast;
+ 
+ #[derive(Clone, Debug, Eq, PartialEq)]
+ pub struct NodeTableLayout {
+     pub table: String,
+     pub identity_column: String,
+ }
+ 
++#[derive(Clone, Debug, Eq, PartialEq)]
++pub struct RelationshipRoleLayout {
++    pub role: ir::RoleId,
++    pub name: String,
++    /// Endpoint column on the relation table. Empty for `Many` roles.
++    pub column: String,
++    pub cardinality: ir::RoleCardinality,
++    /// Set for `Many` roles: `<table>__<role>(relation_id, node_id)`.
++    pub spill_table: Option<String>,
++}
++
+ #[derive(Clone, Debug, Eq, PartialEq)]
+ pub struct RelationshipTableLayout {
+     pub table: String,
+     pub identity_column: String,
+-    pub start_column: String,
+-    pub end_column: String,
++    /// Declaration order. A two-role relation is `[start, end]`.
++    pub roles: Vec<RelationshipRoleLayout>,
++}
++
++impl RelationshipTableLayout {
++    pub fn role(&self, role: ir::RoleId) -> Option<&RelationshipRoleLayout> {
++        self.roles.iter().find(|entry| entry.role == role)
++    }
++
++    /// Columns that carry participation rather than payload.
++    pub fn structural_columns(&self) -> Vec<String> {
++        let mut columns = vec![self.identity_column.clone()];
++        columns.extend(
++            self.roles
++                .iter()
++                .filter(|role| role.cardinality == ir::RoleCardinality::One)
++                .map(|role| role.column.clone()),
++        );
++        columns
++    }
+ }
+ 
+ /// Physical relational names resolved from stable graph catalog identities.
+ pub trait RelationalCatalogSnapshot {
+     fn registered_node_sources(&self) -> Vec<ir::SourceTableId> {
+         Vec::new()
+     }
+     fn registered_relationship_sources(&self) -> Vec<ir::SourceTableId> {
+         Vec::new()
+     }
+@@ -1418,94 +1447,99 @@ fn lower_fixed_expand(
+             input.sql,
+             source_column_ref(expand.from),
+             expand.from_node_source.get()
+         )
+     } else {
+         input.sql.clone()
+     };
+     let relationship = catalog
+         .relationship_layout(expand.relationship_source)
+         .ok_or(LowerError::MissingSource(expand.relationship_source))?;
++    // `Expand` is a Cypher `-[r]->` hop: always exactly two roles, in
++    // declaration order, regardless of how many roles the relation carries
++    // in total.
++    let start_column = &relationship.roles[0].column;
++    let end_column = &relationship.roles[1].column;
+     let target = catalog
+         .node_layout(expand.target_node_source)
+         .ok_or(LowerError::MissingSource(expand.target_node_source))?;
+     let join = if optional { "LEFT JOIN" } else { "JOIN" };
+     let from = format!("q.{}", binding_column(expand.from));
+     let relationship_alias = "r";
+     let target_alias = "n";
+     // A cycle-closing target equates to an existing binding: both endpoint
+     // conditions go on the relationship join (composite endpoint indexes
+     // apply) and the node table is not re-joined.
+     let bound_reference = expand
+         .bound_target
+         .map(|binding| format!("q.{}", binding_column(binding)));
+     let (relationship_on, mut node_on) = match (&bound_reference, expand.direction) {
+         (Some(bound), ir::Direction::Outgoing) => (
+             format!(
+                 "{relationship_alias}.{} = {from} AND {relationship_alias}.{} = {bound}",
+-                quote_identifier(&relationship.start_column),
+-                quote_identifier(&relationship.end_column)
++                quote_identifier(start_column),
++                quote_identifier(end_column)
+             ),
+             String::new(),
+         ),
+         (Some(bound), ir::Direction::Incoming) => (
+             format!(
+                 "{relationship_alias}.{} = {from} AND {relationship_alias}.{} = {bound}",
+-                quote_identifier(&relationship.end_column),
+-                quote_identifier(&relationship.start_column)
++                quote_identifier(end_column),
++                quote_identifier(start_column)
+             ),
+             String::new(),
+         ),
+         (Some(bound), ir::Direction::Both) => (
+             format!(
+                 "(({relationship_alias}.{start} = {from} AND {relationship_alias}.{end} = {bound})                  OR ({relationship_alias}.{end} = {from} AND {relationship_alias}.{start} = {bound}))",
+-                start = quote_identifier(&relationship.start_column),
+-                end = quote_identifier(&relationship.end_column)
++                start = quote_identifier(start_column),
++                end = quote_identifier(end_column)
+             ),
+             String::new(),
+         ),
+         (None, _) => match expand.direction {
+         ir::Direction::Outgoing => (
+             format!(
+                 "{relationship_alias}.{} = {from}",
+-                quote_identifier(&relationship.start_column)
++                quote_identifier(start_column)
+             ),
+             format!(
+                 "{target_alias}.{} = {relationship_alias}.{}",
+                 quote_identifier(&target.identity_column),
+-                quote_identifier(&relationship.end_column)
++                quote_identifier(end_column)
+             ),
+         ),
+         ir::Direction::Incoming => (
+             format!(
+                 "{relationship_alias}.{} = {from}",
+-                quote_identifier(&relationship.end_column)
++                quote_identifier(end_column)
+             ),
+             format!(
+                 "{target_alias}.{} = {relationship_alias}.{}",
+                 quote_identifier(&target.identity_column),
+-                quote_identifier(&relationship.start_column)
++                quote_identifier(start_column)
+             ),
+         ),
+         ir::Direction::Both => (
+             format!(
+                 "({relationship_alias}.{} = {from} OR {relationship_alias}.{} = {from})",
+-                quote_identifier(&relationship.start_column),
+-                quote_identifier(&relationship.end_column)
++                quote_identifier(start_column),
++                quote_identifier(end_column)
+             ),
+             format!(
+                 "{target_alias}.{} = CASE WHEN {relationship_alias}.{} = {from} \
+                  THEN {relationship_alias}.{} ELSE {relationship_alias}.{} END",
+                 quote_identifier(&target.identity_column),
+-                quote_identifier(&relationship.start_column),
+-                quote_identifier(&relationship.end_column),
+-                quote_identifier(&relationship.start_column)
++                quote_identifier(start_column),
++                quote_identifier(end_column),
++                quote_identifier(start_column)
+             ),
+         ),
+         },
+     };
+     // Filter typed hops through the relationship-type junction; recorded
+     // types are authoritative, untyped rows only match untyped patterns.
+     let mut relationship_on = if expand.relationship_types.is_empty() {
+         relationship_on
+     } else if let Some(types_table) = catalog.relationship_types_table() {
+         let names = expand
+@@ -2421,24 +2455,26 @@ fn lower_expression_with_references(
+                     bindings,
+                     catalog,
+                     input_alias,
+                     references,
+                 )?;
+                 let mut branches = Vec::new();
+                 for source in &layout.sources {
+                     let relationship = catalog
+                         .relationship_layout(*source)
+                         .ok_or(LowerError::MissingSource(*source))?;
++                    // startNode()/endNode() only ever address the two-role
++                    // pattern-hop relationship, in declaration order.
+                     let endpoint = if function.as_str() == "__cypher_start_node" {
+-                        relationship.start_column
++                        relationship.roles[0].column.clone()
+                     } else {
+-                        relationship.end_column
++                        relationship.roles[1].column.clone()
+                     };
+                     branches.push((
+                         *source,
+                         format!(
+                             "(SELECT ep.{} FROM {} AS ep WHERE ep.{} = ({}))",
+                             quote_identifier(&endpoint),
+                             quote_identifier(&relationship.table),
+                             quote_identifier(&relationship.identity_column),
+                             identity_value,
+                         ),
+@@ -2951,22 +2987,36 @@ mod tests {
+             None
+         }
+ 
+         fn relationship_layout(
+             &self,
+             _source: ir::SourceTableId,
+         ) -> Option<RelationshipTableLayout> {
+             Some(RelationshipTableLayout {
+                 table: "relationship table".to_owned(),
+                 identity_column: "relationship id".to_owned(),
+-                start_column: "start node".to_owned(),
+-                end_column: "end node".to_owned(),
++                roles: vec![
++                    RelationshipRoleLayout {
++                        role: ir::RoleId::new(1).unwrap(),
++                        name: "start".to_owned(),
++                        column: "start node".to_owned(),
++                        cardinality: ir::RoleCardinality::One,
++                        spill_table: None,
++                    },
++                    RelationshipRoleLayout {
++                        role: ir::RoleId::new(2).unwrap(),
++                        name: "end".to_owned(),
++                        column: "end node".to_owned(),
++                        cardinality: ir::RoleCardinality::One,
++                        spill_table: None,
++                    },
++                ],
+             })
+         }
+ 
+         fn property_column(
+             &self,
+             _source: ir::SourceTableId,
+             _property: ir::PropertyId,
+         ) -> Option<String> {
+             None
+         }
+diff --git a/graph/frontend/src/mutation.rs b/graph/frontend/src/mutation.rs
+index e49f654ce..8651715b5 100644
+--- a/graph/frontend/src/mutation.rs
++++ b/graph/frontend/src/mutation.rs
+@@ -1412,25 +1412,26 @@ fn execute_operation(
+                     catalog,
+                     source,
+                     &replace.semantic_types,
+                 ) {
+                     for (_, _, _, column) in properties {
+                         if !assigned_columns.contains(&column) {
+                             assignments.push(format!("{} = NULL", quoted_identifier(&column)));
+                         }
+                     }
+                 } else {
+-                    let mut structural = vec![layout.identity.clone()];
+-                    if let Some(relationship) = catalog.relationship_layout(source) {
+-                        structural.push(relationship.start_column);
+-                        structural.push(relationship.end_column);
+-                    }
++                    let structural = if let Some(relationship) = catalog.relationship_layout(source)
++                    {
++                        relationship.structural_columns()
++                    } else {
++                        vec![layout.identity.clone()]
++                    };
+                     let escaped = layout.table.replace('\'', "''");
+                     let columns = run_rows(
+                         connection,
+                         &format!("SELECT name FROM pragma_table_info('{escaped}')"),
+                         parameters,
+                         &HashMap::new(),
+                     )?;
+                     for row in columns {
+                         let Some(Value::Text(name)) = row.first() else {
+                             continue;
+@@ -1866,23 +1867,26 @@ fn insert_relationship(
+         input,
+         &layout.table,
+         &layout.identity_column,
+         create.source,
+         &create.properties,
+         parameters,
+         values,
+         entity_layouts,
+         merge,
+         "relationship",
++        // `CREATE (a)-[r]->(b)` is always a two-role pattern hop, in
++        // declaration order, regardless of how many roles the relation
++        // carries in total.
+         &[
+-            (layout.start_column, from.clone()),
+-            (layout.end_column, to.clone()),
++            (layout.roles[0].column.clone(), from.clone()),
++            (layout.roles[1].column.clone(), to.clone()),
+         ],
+         &merge_predicates,
+     )
+ }
+ 
+ #[allow(clippy::too_many_arguments)]
+ fn insert_entity(
+     connection: &Arc<Connection>,
+     catalog: &dyn GraphCompilationCatalog,
+     input: &LoweredMutationInput,
+@@ -2016,30 +2020,32 @@ fn delete_entity(
+             let relationship = catalog
+                 .relationship_layout(relationship_source)
+                 .ok_or(LowerError::MissingSource(relationship_source))?;
+             let Some((start_source, end_source)) =
+                 catalog.relationship_endpoint_sources(graph, relationship_source)
+             else {
+                 continue;
+             };
+             let parameter = identity_parameter(delete.entity);
+             let mut predicates = Vec::new();
++            // `relationship_endpoint_sources` only resolves for the two-role
++            // pattern-hop shape, so the role pair is always [start, end].
+             if start_source == source {
+                 predicates.push(format!(
+                     "{} = ${parameter}",
+-                    quoted_identifier(&relationship.start_column)
++                    quoted_identifier(&relationship.roles[0].column)
+                 ));
+             }
+             if end_source == source {
+                 predicates.push(format!(
+                     "{} = ${parameter}",
+-                    quoted_identifier(&relationship.end_column)
++                    quoted_identifier(&relationship.roles[1].column)
+                 ));
+             }
+             if predicates.is_empty() {
+                 continue;
+             }
+             let predicate = predicates.join(" OR ");
+             if delete.detach {
+                 run_ignore(
+                     connection,
+                     &format!(
+@@ -2284,21 +2290,21 @@ fn parameter_types(parameters: &Parameters) -> ParameterTypes {
+             (name.clone(), (value_type, nullability))
+         })
+         .collect()
+ }
+ 
+ #[cfg(test)]
+ mod tests {
+     use super::*;
+     use crate::{
+         CatalogEntity, GraphCatalogSnapshot, NodeTableLayout, RelationalCatalogSnapshot,
+-        RelationshipTableLayout, ResolvedProperty,
++        RelationshipRoleLayout, RelationshipTableLayout, ResolvedProperty,
+     };
+     use turso_core::{Database, MemoryIO, SqliteDialect};
+ 
+     struct Catalog {
+         node_source: ir::SourceTableId,
+         relationship_source: ir::SourceTableId,
+         relationship_types: &'static [(u32, &'static str)],
+         types_table: Option<&'static str>,
+     }
+ 
+@@ -2360,22 +2366,36 @@ mod tests {
+             })
+         }
+ 
+         fn relationship_layout(
+             &self,
+             source: ir::SourceTableId,
+         ) -> Option<RelationshipTableLayout> {
+             (source == self.relationship_source).then(|| RelationshipTableLayout {
+                 table: "relationships".to_owned(),
+                 identity_column: "id".to_owned(),
+-                start_column: "src".to_owned(),
+-                end_column: "dst".to_owned(),
++                roles: vec![
++                    RelationshipRoleLayout {
++                        role: ir::RoleId::new(1).unwrap(),
++                        name: "start".to_owned(),
++                        column: "src".to_owned(),
++                        cardinality: ir::RoleCardinality::One,
++                        spill_table: None,
++                    },
++                    RelationshipRoleLayout {
++                        role: ir::RoleId::new(2).unwrap(),
++                        name: "end".to_owned(),
++                        column: "dst".to_owned(),
++                        cardinality: ir::RoleCardinality::One,
++                        spill_table: None,
++                    },
++                ],
+             })
+         }
+ 
+         fn property_column(
+             &self,
+             source: ir::SourceTableId,
+             property: ir::PropertyId,
+         ) -> Option<String> {
+             match (source, property.get()) {
+                 (source, 1) if source == self.node_source => Some("id".to_owned()),
+diff --git a/graph/frontend/src/schema_catalog.rs b/graph/frontend/src/schema_catalog.rs
+index 12a9143db..65a561b9a 100644
+--- a/graph/frontend/src/schema_catalog.rs
++++ b/graph/frontend/src/schema_catalog.rs
+@@ -3,21 +3,23 @@ use std::{collections::BTreeMap, sync::Arc};
+ use turso_core::{
+     schema::{Column, Schema, Table},
+     Connection,
+ };
+ use turso_graph_ir as ir;
+ 
+ use crate::binder::{
+     CatalogEntity, GraphCatalogSnapshot, PropertyResolution, ResolvedNodeType, ResolvedProperty,
+ };
+ use crate::catalog::{RegisteredGraph, RegisteredNodeSource, RegisteredRelationshipSource};
+-use crate::lowering::{NodeTableLayout, RelationalCatalogSnapshot, RelationshipTableLayout};
++use crate::lowering::{
++    NodeTableLayout, RelationalCatalogSnapshot, RelationshipRoleLayout, RelationshipTableLayout,
++};
+ use crate::semantic::{OwnedProperty, SemanticSnapshot, SemanticTypeInfo};
+ 
+ /// Production catalog snapshot backed directly by `core::Schema` — no PRAGMA
+ /// string-parsing, no parallel type model. Column classification reuses
+ /// `Schema::classify_column` (`core/schema.rs`), the same function
+ /// `Statement::get_column_type_info` uses for SQL result columns.
+ pub struct SchemaCatalog {
+     connection: Arc<Connection>,
+     graph: RegisteredGraph,
+     semantic: Option<Arc<SemanticSnapshot>>,
+@@ -756,27 +758,37 @@ impl RelationalCatalogSnapshot for SchemaCatalog {
+     fn node_layout(&self, source: ir::SourceTableId) -> Option<NodeTableLayout> {
+         let entry = self.node_source_entry(source)?;
+         Some(NodeTableLayout {
+             table: entry.table.clone(),
+             identity_column: entry.identity_column.clone(),
+         })
+     }
+ 
+     fn relationship_layout(&self, source: ir::SourceTableId) -> Option<RelationshipTableLayout> {
+         let entry = self.relationship_source_entry(source)?;
+-        let start = entry.role_by_name("start")?;
+-        let end = entry.role_by_name("end")?;
+         Some(RelationshipTableLayout {
+             table: entry.table.clone(),
+             identity_column: entry.identity_column.clone(),
+-            start_column: start.column.clone(),
+-            end_column: end.column.clone(),
++            roles: entry
++                .roles
++                .iter()
++                .map(|role| RelationshipRoleLayout {
++                    role: role.role,
++                    name: role.name.clone(),
++                    column: role.column.clone(),
++                    cardinality: role.cardinality,
++                    spill_table: match role.cardinality {
++                        ir::RoleCardinality::One => None,
++                        ir::RoleCardinality::Many => Some(entry.spill_table(role)),
++                    },
++                })
++                .collect(),
+         })
+     }
+ 
+     fn property_column(
+         &self,
+         source: ir::SourceTableId,
+         property: ir::PropertyId,
+     ) -> Option<String> {
+         if let Some(semantic) = &self.semantic {
+             let mut columns = semantic
+@@ -825,24 +837,22 @@ impl RelationalCatalogSnapshot for SchemaCatalog {
+         };
+         table
+             .get_column_by_name(&column_name)
+             .map(|(_, column)| column)
+             .is_some_and(|column| column.ty_str.eq_ignore_ascii_case("JSONB"))
+     }
+ 
+     fn payload_columns(&self, source: ir::SourceTableId) -> Option<Vec<(String, String)>> {
+         let (table_name, structural) = if let Some(entry) = self.node_source_entry(source) {
+             (entry.table.clone(), vec![entry.identity_column.clone()])
+-        } else if let Some(entry) = self.relationship_source_entry(source) {
+-            let mut structural = vec![entry.identity_column.clone()];
+-            structural.extend(entry.single_valued_roles().map(|role| role.column.clone()));
+-            (entry.table.clone(), structural)
++        } else if let Some(layout) = self.relationship_layout(source) {
++            (layout.table.clone(), layout.structural_columns())
+         } else {
+             return None;
+         };
+         let table = self.connection.current_schema().get_table(&table_name)?;
+         let mut columns = Vec::new();
+         for index in 0.. {
+             let Some(column) = table.get_column_at(index) else {
+                 break;
+             };
+             let Some(name) = column.name.clone() else {
+@@ -1019,20 +1029,53 @@ mod tests {
+                     "src",
+                     "dst",
+                     "Person",
+                     "Person",
+                 )],
+             },
+         )
+         .expect("register graph")
+     }
+ 
++    fn binary_relationship_catalog() -> (SchemaCatalog, ir::SourceTableId) {
++        let connection = connect(false);
++        connection
++            .execute(
++                "CREATE TABLE people(id INTEGER PRIMARY KEY, name TEXT); \
++                 CREATE TABLE friendships(id INTEGER PRIMARY KEY, src INTEGER, dst INTEGER);",
++            )
++            .expect("create sources");
++        let graph = crate::catalog::register_graph(
++            &connection,
++            &GraphRegistration {
++                name: "friends".to_owned(),
++                node_sources: vec![NodeSourceRegistration {
++                    name: "Person".to_owned(),
++                    table: "people".to_owned(),
++                    identity_column: "id".to_owned(),
++                }],
++                relationship_sources: vec![RelationshipSourceRegistration::binary(
++                    "KNOWS",
++                    "friendships",
++                    "id",
++                    "src",
++                    "dst",
++                    "Person",
++                    "Person",
++                )],
++            },
++        )
++        .expect("register graph");
++        let source = graph.relationship_sources[0].id;
++        (SchemaCatalog::new(connection, graph), source)
++    }
++
+     #[test]
+     fn resolves_id_name_age_matching_testkit_stub_identities() {
+         let connection = connect(false);
+         let graph = registered_social_graph(&connection);
+         let graph_id = graph.id;
+         let catalog = SchemaCatalog::new(connection, graph);
+ 
+         let id = catalog
+             .property(graph_id, CatalogEntity::Node, "id")
+             .expect("id resolves");
+@@ -1324,11 +1367,40 @@ mod tests {
+             .expect("reach resolves");
+         assert_eq!(
+             reach.value_type,
+             ir::ValueType::Union(vec![
+                 ("email".to_owned(), ir::ValueType::Text),
+                 ("phone".to_owned(), ir::ValueType::Text),
+             ]),
+             "bare-primitive UNION variants must resolve to their scalar type, not Any"
+         );
+     }
++
++    #[test]
++    fn a_relationship_layout_exposes_roles_and_excludes_them_from_payload() {
++        // Payload columns are everything that is not structural. A role column
++        // that leaked into the payload would be readable as a property and
++        // writable by SET, which would corrupt the relation's participation.
++        let (catalog, source) = binary_relationship_catalog();
++        let layout = catalog
++            .relationship_layout(source)
++            .expect("relationship layout");
++        assert_eq!(layout.roles.len(), 2);
++        assert_eq!(layout.roles[0].name, "start");
++        assert_eq!(layout.roles[0].column, "src");
++        assert!(layout.roles[0].spill_table.is_none());
++        assert_eq!(
++            layout
++                .role(layout.roles[1].role)
++                .map(|role| role.column.as_str()),
++            Some("dst")
++        );
++
++        let payload = catalog.payload_columns(source).expect("payload columns");
++        assert!(
++            payload
++                .iter()
++                .all(|(logical, _)| logical != "src" && logical != "dst"),
++            "role columns must not appear as payload properties: {payload:?}"
++        );
++    }
+ }
+diff --git a/graph/frontend/src/session.rs b/graph/frontend/src/session.rs
+index 22cbfaa32..516fcfa61 100644
+--- a/graph/frontend/src/session.rs
++++ b/graph/frontend/src/session.rs
+@@ -472,21 +472,21 @@ fn bind_query_parameters(
+         }
+     }
+     Ok(())
+ }
+ 
+ #[cfg(test)]
+ mod tests {
+     use super::*;
+     use crate::{
+         register_graph, CatalogEntity, GraphCatalogSnapshot, GraphRegistration,
+-        NodeSourceRegistration, NodeTableLayout, RelationalCatalogSnapshot,
++        NodeSourceRegistration, NodeTableLayout, RelationalCatalogSnapshot, RelationshipRoleLayout,
+         RelationshipSourceRegistration, RelationshipTableLayout, ResolvedProperty, SnapshotStatus,
+     };
+     use turso_core::{Database, MemoryIO, SqliteDialect};
+     use turso_graph_ir as ir;
+ 
+     struct Catalog {
+         node_source: ir::SourceTableId,
+         relationship_source: ir::SourceTableId,
+     }
+ 
+@@ -538,22 +538,36 @@ mod tests {
+             })
+         }
+ 
+         fn relationship_layout(
+             &self,
+             source: ir::SourceTableId,
+         ) -> Option<RelationshipTableLayout> {
+             (source == self.relationship_source).then(|| RelationshipTableLayout {
+                 table: "relationships".to_owned(),
+                 identity_column: "id".to_owned(),
+-                start_column: "src".to_owned(),
+-                end_column: "dst".to_owned(),
++                roles: vec![
++                    RelationshipRoleLayout {
++                        role: ir::RoleId::new(1).unwrap(),
++                        name: "start".to_owned(),
++                        column: "src".to_owned(),
++                        cardinality: ir::RoleCardinality::One,
++                        spill_table: None,
++                    },
++                    RelationshipRoleLayout {
++                        role: ir::RoleId::new(2).unwrap(),
++                        name: "end".to_owned(),
++                        column: "dst".to_owned(),
++                        cardinality: ir::RoleCardinality::One,
++                        spill_table: None,
++                    },
++                ],
+             })
+         }
+ 
+         fn property_column(
+             &self,
+             source: ir::SourceTableId,
+             property: ir::PropertyId,
+         ) -> Option<String> {
+             match (source, property.get()) {
+                 (source, 1) if source == self.node_source => Some("id".to_owned()),
+diff --git a/graph/frontend/tests/fixed_pattern_fixtures.rs b/graph/frontend/tests/fixed_pattern_fixtures.rs
+index 2464a48e2..8d52b519f 100644
+--- a/graph/frontend/tests/fixed_pattern_fixtures.rs
++++ b/graph/frontend/tests/fixed_pattern_fixtures.rs
+@@ -1,23 +1,24 @@
+ use std::collections::{HashMap, HashSet};
+ use std::sync::Arc;
+ 
+ use serde::Deserialize;
+ use turso_core::{Database, MemoryIO, SqliteDialect, Value};
+ use turso_graph_cypher::parse;
+ use turso_graph_frontend::{
+     bind, graph_frontend_id, lower_relational, CatalogEntity, GraphCatalogSnapshot, GraphCompiler,
+-    NodeTableLayout, ParameterTypes, RelationalCatalogSnapshot, RelationshipTableLayout,
+-    ResolvedProperty,
++    NodeTableLayout, ParameterTypes, RelationalCatalogSnapshot, RelationshipRoleLayout,
++    RelationshipTableLayout, ResolvedProperty,
+ };
+ use turso_graph_ir::{
+-    GraphId, LabelId, Nullability, PropertyId, RelationshipTypeId, SourceTableId, ValueType,
++    GraphId, LabelId, Nullability, PropertyId, RelationshipTypeId, RoleCardinality, RoleId,
++    SourceTableId, ValueType,
+ };
+ 
+ const MANIFEST: &str = include_str!("../../testdata/fixed-patterns/manifest.toml");
+ 
+ #[derive(Deserialize)]
+ struct Manifest {
+     version: u32,
+     purpose: String,
+     fixture: Vec<Fixture>,
+ }
+@@ -85,22 +86,36 @@ impl RelationalCatalogSnapshot for Catalog {
+         (source.get() == 1).then(|| NodeTableLayout {
+             table: "people".to_owned(),
+             identity_column: "id".to_owned(),
+         })
+     }
+ 
+     fn relationship_layout(&self, source: SourceTableId) -> Option<RelationshipTableLayout> {
+         (source.get() == 2).then(|| RelationshipTableLayout {
+             table: "relationships".to_owned(),
+             identity_column: "id".to_owned(),
+-            start_column: "src".to_owned(),
+-            end_column: "dst".to_owned(),
++            roles: vec![
++                RelationshipRoleLayout {
++                    role: RoleId::new(1).unwrap(),
++                    name: "start".to_owned(),
++                    column: "src".to_owned(),
++                    cardinality: RoleCardinality::One,
++                    spill_table: None,
++                },
++                RelationshipRoleLayout {
++                    role: RoleId::new(2).unwrap(),
++                    name: "end".to_owned(),
++                    column: "dst".to_owned(),
++                    cardinality: RoleCardinality::One,
++                    spill_table: None,
++                },
++            ],
+         })
+     }
+ 
+     fn property_column(&self, _source: SourceTableId, property: PropertyId) -> Option<String> {
+         match property.get() {
+             1 => Some("name".to_owned()),
+             2 => Some("age".to_owned()),
+             3 => Some("val".to_owned()),
+             _ => None,
+         }

@@ -1,5 +1,5 @@
 use serde::Deserialize;
-use turso_graph_ir::{Direction, NodeId, RelationshipId, RelationshipTypeId};
+use turso_graph_ir::{NodeId, RelationshipId, RelationshipTypeId, RoleId};
 use turso_graph_runtime::{
     shortest_path, traverse, weighted_shortest_path, BuildLimits, EdgeInput, Graph, NeverCancelled,
     ShortestPathRequest, TraversalLimits, TraversalOrder, TraversalRequest, Uniqueness,
@@ -45,15 +45,42 @@ fn node(value: u64) -> NodeId {
     NodeId::new(value).expect("fixture node id must be non-zero")
 }
 
+/// Role 1 ("start") to role 2 ("end") is the synthetic pair every fixture
+/// edge is normalized under.
+fn role(value: u32) -> RoleId {
+    RoleId::new(value).expect("non-zero role")
+}
+
 fn graph(fixture: &Fixture) -> Graph {
     Graph::build(
         fixture.nodes.iter().copied().map(node),
-        fixture.edges.iter().map(|edge| EdgeInput {
-            relationship: RelationshipId::new(edge.id).expect("relationship id"),
-            source: node(edge.source),
-            target: node(edge.target),
-            relationship_type: RelationshipTypeId::new(edge.kind).expect("relationship type"),
-            weight: Some(edge.weight),
+        // pgGraph's donor `Graph::build` stored every edge in both a forward
+        // and a reverse CSR unconditionally; a role-pair-keyed graph only
+        // stores what it is given, so both ordered pairs are supplied here
+        // to keep the "incoming" fixtures answerable exactly as they were.
+        fixture.edges.iter().flat_map(|edge| {
+            let relationship = RelationshipId::new(edge.id).expect("relationship id");
+            let relationship_type = RelationshipTypeId::new(edge.kind).expect("relationship type");
+            [
+                EdgeInput {
+                    relationship,
+                    from_role: role(1),
+                    to_role: role(2),
+                    source: node(edge.source),
+                    target: node(edge.target),
+                    relationship_type,
+                    weight: Some(edge.weight),
+                },
+                EdgeInput {
+                    relationship,
+                    from_role: role(2),
+                    to_role: role(1),
+                    source: node(edge.target),
+                    target: node(edge.source),
+                    relationship_type,
+                    weight: Some(edge.weight),
+                },
+            ]
         }),
         BuildLimits::default(),
     )
@@ -75,9 +102,9 @@ fn normalized_cases_match_the_pinned_pggraph_behavior() {
         let graph = graph(&fixture);
         let (mut observed, weight) = match fixture.algorithm.as_str() {
             "incoming" => {
+                let pairs = graph.resolve_pairs(&[], role(2), role(1), false);
                 let paths: Vec<Vec<u64>> = graph
-                    .neighbors(node(fixture.start), Direction::Incoming, &[])
-                    .expect("incoming neighbors")
+                    .neighbors(node(fixture.start), &pairs)
                     .into_iter()
                     .map(|neighbor| vec![fixture.start, neighbor.node.get()])
                     .collect();
@@ -88,7 +115,9 @@ fn normalized_cases_match_the_pinned_pggraph_behavior() {
                     &graph,
                     &TraversalRequest {
                         start: node(fixture.start),
-                        direction: Direction::Outgoing,
+                        from_role: role(1),
+                        to_role: role(2),
+                        symmetric: false,
                         relationship_types: vec![],
                         min_hops: 1,
                         max_hops: fixture.max_hops,
@@ -109,7 +138,9 @@ fn normalized_cases_match_the_pinned_pggraph_behavior() {
                 let request = ShortestPathRequest {
                     source: node(fixture.start),
                     target: node(fixture.target.expect("shortest target")),
-                    direction: Direction::Outgoing,
+                    from_role: role(1),
+                    to_role: role(2),
+                    symmetric: false,
                     relationship_types: vec![],
                     max_hops: fixture.max_hops,
                 };

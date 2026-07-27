@@ -97,6 +97,17 @@ fn a_write_in_a_union_branch_still_writes() {
 }
 
 #[test]
+fn a_create_with_a_role_pattern_writes_without_rows() {
+    // `clauses_write` classifies by clause kind alone, never by pattern
+    // shape, so a role-pattern CREATE (`[x:T](role: player, ...)`) needs no
+    // extra classification rule: it is a `Clause::Create` like any other.
+    assert_eq!(
+        classify("CREATE (p:Person), [x:KNOWS](start: p, end: p)"),
+        StatementKind::WriteWithoutRows
+    );
+}
+
+#[test]
 fn read_only_never_writes() {
     assert!(!StatementKind::ReadOnly.writes());
     assert!(StatementKind::WriteReturningRows.writes());

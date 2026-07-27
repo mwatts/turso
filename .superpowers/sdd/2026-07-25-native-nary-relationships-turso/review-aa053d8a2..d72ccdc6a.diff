@@ -1,0 +1,3584 @@
+# Review package: aa053d8a26066f9930b61bf3d147b6b8b5e93c0e..d72ccdc6a
+
+## Commits
+d72ccdc6a graph/runtime: key traversal adjacency by role pairs, not direction
+
+## Files changed
+ graph/frontend/src/catalog.rs              |   2 +-
+ graph/frontend/src/graph_expand.rs         | 105 +----
+ graph/frontend/src/lowering.rs             |  20 +-
+ graph/frontend/src/snapshot.rs             | 215 +++++++---
+ graph/frontend/tests/fixture.rs            |  17 +-
+ graph/ir/src/lib.rs                        |   2 +-
+ graph/ir/src/scope.rs                      |   7 -
+ graph/ir/src/semantics.rs                  |  12 +-
+ graph/ir/tests/semantic_profile_pin.rs     |   4 +-
+ graph/runtime/benches/graph_shapes.rs      |   8 +-
+ graph/runtime/examples/cursor_gate.rs      |  12 +-
+ graph/runtime/src/csr.rs                   | 623 ++++++++++++++++++++---------
+ graph/runtime/src/error.rs                 |  10 +-
+ graph/runtime/src/path_policy.rs           | 180 ++++++++-
+ graph/runtime/src/shortest.rs              |  63 ++-
+ graph/runtime/src/traversal.rs             | 194 ++++++---
+ graph/runtime/tests/benchmark_shapes.rs    |   4 +-
+ graph/runtime/tests/pggraph_equivalence.rs |  53 ++-
+ 18 files changed, 1087 insertions(+), 444 deletions(-)
+
+## Diff
+diff --git a/graph/frontend/src/catalog.rs b/graph/frontend/src/catalog.rs
+index 19e2c7f03..b20f58b82 100644
+--- a/graph/frontend/src/catalog.rs
++++ b/graph/frontend/src/catalog.rs
+@@ -14,21 +14,21 @@ use turso_core::{
+ use turso_graph_ir::{self as ir, GraphId, RoleCardinality, SourceTableId};
+ 
+ const RESERVED_PREFIX: &str = "__turso_";
+ pub(crate) const GRAPHS_TABLE: &str = "__turso_internal_graph_graphs";
+ pub(crate) const GENERATIONS_TABLE: &str = TURSO_GRAPH_GENERATIONS_TABLE_NAME;
+ pub(crate) const SOURCES_TABLE: &str = "__turso_internal_graph_sources";
+ pub(crate) const NODE_SOURCES_TABLE: &str = "__turso_internal_graph_node_sources";
+ pub(crate) const RELATIONSHIP_SOURCES_TABLE: &str = "__turso_internal_graph_relationship_sources";
+ pub(crate) const RELATIONSHIP_ROLES_TABLE: &str = "__turso_internal_graph_relationship_roles";
+ 
+-pub const GRAPH_CATALOG_VERSION: u64 = 3;
++pub const GRAPH_CATALOG_VERSION: u64 = 4;
+ 
+ #[derive(Clone, Debug, Eq, PartialEq)]
+ pub struct NodeSourceRegistration {
+     pub name: String,
+     pub table: String,
+     pub identity_column: String,
+ }
+ 
+ /// One named role of a relationship source and the physical column that
+ /// stores its player.
+diff --git a/graph/frontend/src/graph_expand.rs b/graph/frontend/src/graph_expand.rs
+index ceafa6dfb..2d84ecfbb 100644
+--- a/graph/frontend/src/graph_expand.rs
++++ b/graph/frontend/src/graph_expand.rs
+@@ -1,21 +1,21 @@
+ use std::sync::Arc;
+ 
+ use parking_lot::RwLock;
+ use turso_core::{
+     schema::Schema, Connection, InternalVirtualTable, InternalVirtualTableCursor,
+     InternalVirtualTableStep, LimboError, Numeric, Value,
+ };
+ use turso_ext::{
+     ConstraintInfo, ConstraintOp, ConstraintUsage, IndexInfo, OrderByInfo, ResultCode,
+ };
+-use turso_graph_ir::{Direction, GraphId, RelationshipTypeId, SourceTableId};
++use turso_graph_ir::{GraphId, RelationshipTypeId, RoleId, SourceTableId};
+ use turso_graph_runtime::{
+     Cancellation, Path, TraversalCursor, TraversalLimits, TraversalOrder, TraversalRequest,
+     TraversalStep, Uniqueness,
+ };
+ 
+ use crate::{SnapshotStore, SourceIdentity, TraversalSnapshot};
+ 
+ pub const GRAPH_EXPAND_TABLE_NAME: &str = "__turso_graph_expand";
+ 
+ const OUTPUT_COLUMN_COUNT: usize = 11;
+@@ -141,22 +141,22 @@ impl InternalVirtualTable for GraphExpandTable {
+                 node_identity ANY,
+                 relationship_id INTEGER,
+                 relationship_source_id INTEGER,
+                 relationship_identity ANY,
+                 relationship_type INTEGER,
+                 depth INTEGER,
+                 is_terminal INTEGER,
+                 graph_id INTEGER HIDDEN,
+                 start_node_source_id INTEGER HIDDEN,
+                 start_node_identity ANY HIDDEN,
+-                from_role TEXT HIDDEN,
+-                to_role TEXT HIDDEN,
++                from_role INTEGER HIDDEN,
++                to_role INTEGER HIDDEN,
+                 symmetric INTEGER HIDDEN,
+                 relationship_types TEXT HIDDEN,
+                 min_hops INTEGER HIDDEN,
+                 max_hops INTEGER HIDDEN,
+                 error_at_max_hops INTEGER HIDDEN,
+                 uniqueness TEXT HIDDEN,
+                 max_node_visits INTEGER HIDDEN,
+                 max_edge_visits INTEGER HIDDEN,
+                 max_paths INTEGER HIDDEN,
+                 max_work INTEGER HIDDEN,
+@@ -225,24 +225,23 @@ impl GraphExpandCursor {
+ 
+     fn initialize_filter(&mut self, args: &[Value], idx_num: i32) -> turso_core::Result<()> {
+         if idx_num != INPUT_COLUMN_COUNT as i32 || args.len() != INPUT_COLUMN_COUNT {
+             return Err(LimboError::InvalidArgument(format!(
+                 "{GRAPH_EXPAND_TABLE_NAME} requires {INPUT_COLUMN_COUNT} arguments"
+             )));
+         }
+         let graph_id = graph_id(&args[0])?;
+         let start_source = source_table_id(&args[1], "start_node_source_id")?;
+         let start_identity = source_identity(&args[2], "start_node_identity")?;
+-        let from_role = role_name(&args[3], "from_role")?;
+-        let to_role = role_name(&args[4], "to_role")?;
++        let from_role = role_id(&args[3], "from_role")?;
++        let to_role = role_id(&args[4], "to_role")?;
+         let symmetric = boolean(&args[5], "symmetric")?;
+-        let direction = role_pair_to_direction(&from_role, &to_role, symmetric)?;
+         let relationship_types = relationship_types(&args[6])?;
+         let min_hops = nonnegative_u32(&args[7], "min_hops")?;
+         let max_hops = nonnegative_u32(&args[8], "max_hops")?;
+         let error_at_max_hops = nonnegative_u32(&args[9], "error_at_max_hops")? != 0;
+         let uniqueness = uniqueness(&args[10])?;
+         let limits = TraversalLimits {
+             max_node_visits: nonnegative_u64(&args[11], "max_node_visits")?,
+             max_edge_visits: nonnegative_u64(&args[12], "max_edge_visits")?,
+             max_paths: nonnegative_u64(&args[13], "max_paths")?,
+             max_hops,
+@@ -258,21 +257,23 @@ impl GraphExpandCursor {
+             })?;
+         let start = snapshot
+             .node_id(start_source, &start_identity)
+             .ok_or_else(|| {
+                 LimboError::InvalidArgument(format!(
+                     "start node {start_source}:{start_identity:?} is not present in graph {graph_id}"
+                 ))
+             })?;
+         let request = TraversalRequest {
+             start,
+-            direction,
++            from_role,
++            to_role,
++            symmetric,
+             relationship_types,
+             min_hops,
+             max_hops,
+             error_at_max_hops,
+             uniqueness,
+             order: TraversalOrder::BreadthFirst,
+         };
+         let traversal =
+             TraversalCursor::new(snapshot.graph(), request, limits).map_err(runtime_error)?;
+ 
+@@ -462,66 +463,29 @@ fn source_identity(value: &Value, name: &str) -> turso_core::Result<SourceIdenti
+         Value::Numeric(Numeric::Integer(value)) => Ok(SourceIdentity::Integer(*value)),
+         Value::Numeric(Numeric::Float(value)) => Ok(SourceIdentity::real(f64::from(*value))),
+         Value::Text(value) => Ok(SourceIdentity::Text(value.as_str().to_owned())),
+         Value::Blob(value) => Ok(SourceIdentity::Blob(value.to_vec())),
+         Value::Null => Err(LimboError::InvalidArgument(format!(
+             "{name} must not be NULL"
+         ))),
+     }
+ }
+ 
+-fn role_name(value: &Value, name: &str) -> turso_core::Result<String> {
+-    text(value, name).map(|value| value.to_owned())
++fn role_id(value: &Value, name: &str) -> turso_core::Result<RoleId> {
++    RoleId::new(nonnegative_u32(value, name)?)
++        .map_err(|error| LimboError::InvalidArgument(error.to_string()))
+ }
+ 
+ fn boolean(value: &Value, name: &str) -> turso_core::Result<bool> {
+     Ok(nonnegative_u32(value, name)? != 0)
+ }
+ 
+-/// Named, temporary adapter: the variable-length expand vtab is backed by a
+-/// physical BFS over a binary CSR snapshot that only knows `Direction`
+-/// (`Outgoing` / `Incoming` / `Both`), not role names -- the runtime side of
+-/// this boundary is role-oblivious until Task 17. Lowering, by contrast, is
+-/// already role-name-agnostic (see `lower_graph_expand` in `lowering.rs`,
+-/// which resolves `from_role`/`to_role` through the generic
+-/// `RelationshipTableLayout::role` accessor with no outgoing/incoming/both
+-/// judgment of its own) and only ever names the two roles the binder
+-/// resolved. Because `GraphExpand` today is only reachable for binary
+-/// relationships registered via `RelationshipSourceRegistration::binary`,
+-/// whose two roles are always literally named `"start"`/`"end"`, this
+-/// adapter can safely translate that specific role pair (plus `symmetric`)
+-/// back into the `Direction` the runtime still requires, and must error
+-/// loudly rather than guess for anything else. Task 17 deletes this function
+-/// along with `Direction` itself once the traversal runtime becomes
+-/// role-aware.
+-fn role_pair_to_direction(
+-    from_role: &str,
+-    to_role: &str,
+-    symmetric: bool,
+-) -> turso_core::Result<Direction> {
+-    // The role pair is validated first, in every branch: `symmetric=true`
+-    // does not, by itself, make an arbitrary role pair representable. Only
+-    // the binary `start`/`end` convention is -- `symmetric` just picks
+-    // which `Direction` that convention maps to.
+-    match (from_role, to_role) {
+-        ("start", "end") if symmetric => Ok(Direction::Both),
+-        ("start", "end") => Ok(Direction::Outgoing),
+-        ("end", "start") if !symmetric => Ok(Direction::Incoming),
+-        (from, to) => Err(LimboError::InvalidArgument(format!(
+-            "unsupported role pair ('{from}', '{to}', symmetric={symmetric}) for \
+-             {GRAPH_EXPAND_TABLE_NAME}: only the binary 'start'/'end' role convention is \
+-             supported until the traversal runtime \
+-             becomes role-aware"
+-        ))),
+-    }
+-}
+-
+ fn uniqueness(value: &Value) -> turso_core::Result<Uniqueness> {
+     match text(value, "uniqueness")?.to_ascii_lowercase().as_str() {
+         "walk" => Ok(Uniqueness::Walk),
+         "trail" => Ok(Uniqueness::Trail),
+         "path" => Ok(Uniqueness::Path),
+         value => Err(LimboError::InvalidArgument(format!(
+             "invalid graph uniqueness `{value}`"
+         ))),
+     }
+ }
+@@ -618,21 +582,21 @@ fn runtime_error(error: turso_graph_runtime::RuntimeError) -> LimboError {
+ mod tests {
+     use super::*;
+     use crate::{
+         graph_frontend_id, load_registered_graph, register_graph, CatalogEntity,
+         GraphCatalogSnapshot, GraphCompiler, GraphRegistration, NodeSourceRegistration,
+         NodeTableLayout, ParameterTypes, PublishOutcome, RelationalCatalogSnapshot,
+         RelationshipRoleLayout, RelationshipSourceRegistration, RelationshipTableLayout,
+         ResolvedProperty,
+     };
+     use turso_core::{Database, MemoryIO, SqliteDialect};
+-    use turso_graph_ir::{LabelId, Nullability, PropertyId, RoleCardinality, RoleId, ValueType};
++    use turso_graph_ir::{LabelId, Nullability, PropertyId, RoleCardinality, ValueType};
+     use turso_graph_runtime::{BuildLimits, NeverCancelled};
+ 
+     fn setup() -> (Arc<Connection>, Arc<SnapshotStore>, GraphId) {
+         setup_with_fanout(0)
+     }
+ 
+     fn setup_with_fanout(fanout: u32) -> (Arc<Connection>, Arc<SnapshotStore>, GraphId) {
+         let io = Arc::new(MemoryIO::new());
+         let connection = Database::open_file(io, ":memory:graph-expand", Arc::new(SqliteDialect))
+             .unwrap()
+@@ -697,21 +661,21 @@ mod tests {
+                 replaced: false,
+                 ..
+             }
+         ));
+         install_graph_catalog(&connection, snapshots.clone()).unwrap();
+         (connection, snapshots, registered.id)
+     }
+ 
+     fn invocation(graph_id: GraphId) -> String {
+         format!(
+-            "{GRAPH_EXPAND_TABLE_NAME}({}, 1, 10, 'start', 'end', 0, '1', 1, 2, 0, 'trail', \
++            "{GRAPH_EXPAND_TABLE_NAME}({}, 1, 10, 1, 2, 0, '1', 1, 2, 0, 'trail', \
+              100, 100, 100, 1000, 1048576)",
+             graph_id.get()
+         )
+     }
+ 
+     #[test]
+     fn table_valued_scan_resumes_paths_and_exposes_hydration_coordinates() {
+         let (connection, _snapshots, graph_id) = setup();
+         let mut statement = connection
+             .prepare(format!(
+@@ -897,48 +861,48 @@ mod tests {
+         install_graph_catalog(&connection, empty_store).unwrap();
+         assert!(connection
+             .prepare(format!("SELECT * FROM {}", invocation(graph_id)))
+             .unwrap()
+             .run_collect_rows()
+             .is_err());
+ 
+         install_graph_catalog(&connection, snapshots).unwrap();
+         assert!(connection
+             .prepare(format!(
+-                "SELECT * FROM {GRAPH_EXPAND_TABLE_NAME}({}, 1, 10, 'start')",
++                "SELECT * FROM {GRAPH_EXPAND_TABLE_NAME}({}, 1, 10, 1)",
+                 graph_id.get()
+             ))
+             .is_err());
+     }
+ 
+     #[test]
+     fn scan_propagates_resource_exhaustion() {
+         let (connection, _snapshots, graph_id) = setup();
+         let sql = format!(
+-            "SELECT * FROM {GRAPH_EXPAND_TABLE_NAME}({}, 1, 10, 'start', 'end', 0, '1', 1, 2, 0, \
++            "SELECT * FROM {GRAPH_EXPAND_TABLE_NAME}({}, 1, 10, 1, 2, 0, '1', 1, 2, 0, \
+              'trail', 100, 100, 100, 1, 1048576)",
+             graph_id.get()
+         );
+         let error = connection
+             .prepare(sql)
+             .unwrap()
+             .run_collect_rows()
+             .unwrap_err();
+         assert!(error.to_string().contains("Work resource limit exceeded"));
+     }
+ 
+     #[test]
+     fn high_fanout_filter_yields_resumes_and_can_be_abandoned() {
+         let (connection, _snapshots, graph_id) = setup_with_fanout(300);
+         let sql = format!(
+             "SELECT path_id, node_identity FROM {GRAPH_EXPAND_TABLE_NAME}(
+-                {}, 1, 10, 'start', 'end', 0, '1', 2, 2, 0, 'trail',
++                {}, 1, 10, 1, 2, 0, '1', 2, 2, 0, 'trail',
+                 10000, 10000, 10000, 100000, 16777216
+             )",
+             graph_id.get()
+         );
+ 
+         let mut abandoned = connection.prepare(&sql).unwrap();
+         assert!(matches!(
+             abandoned.step().unwrap(),
+             turso_core::StepResult::Yield
+         ));
+@@ -961,21 +925,21 @@ mod tests {
+         assert!(yields >= 1);
+         assert_eq!(rows, 3);
+     }
+ 
+     #[test]
+     fn connection_interrupt_is_observed_at_the_next_graph_quantum() {
+         let (connection, _snapshots, graph_id) = setup_with_fanout(300);
+         let mut statement = connection
+             .prepare(format!(
+                 "SELECT path_id FROM {GRAPH_EXPAND_TABLE_NAME}(
+-                    {}, 1, 10, 'start', 'end', 0, '1', 2, 2, 0, 'trail',
++                    {}, 1, 10, 1, 2, 0, '1', 2, 2, 0, 'trail',
+                     10000, 10000, 10000, 100000, 16777216
+                 )",
+                 graph_id.get()
+             ))
+             .unwrap();
+         assert!(matches!(
+             statement.step().unwrap(),
+             turso_core::StepResult::Yield
+         ));
+         connection.interrupt();
+@@ -984,68 +948,37 @@ mod tests {
+             turso_core::StepResult::Interrupt
+         ));
+     }
+ 
+     /// Regression net for the `from_role`/`to_role`/`symmetric` argument
+     /// shift: replacing the single `direction` argument with three
+     /// arguments moves every later argument (`relationship_types` onward)
+     /// two slots to the right. A wrong index here is silent at compile
+     /// time -- it either misparses a value (caught below by `.unwrap()`)
+     /// or, worse, parses successfully into the wrong meaning. Requesting
+-    /// the *reversed* role pair (`'end', 'start'`) from the traversal
++    /// the *reversed* role pair (role `2`, role `1`) from the traversal
+     /// runtime's terminal node C, over an exact 2-hop expansion (so only
+     /// one path length is ever terminal, keeping the row unambiguous), must
+     /// walk the KNOWS edges backward to A, the opposite of the fixture's
+     /// forward A->B->C edges. That only happens if `from_role`/`to_role`/
+     /// `symmetric` land in the vtab's role/symmetric columns (not, say,
+     /// `min_hops`/`max_hops`) and `min_hops`/`max_hops` still land on their
+     /// own (shifted) slots -- an index slip either misparses a value
+     /// (caught by `.unwrap()`) or silently produces the forward path's
+     /// terminal node (20 at depth 1) or no rows at all instead.
+     #[test]
+     fn variable_length_expand_reads_role_and_hop_arguments_at_their_shifted_index() {
+         let (connection, _snapshots, graph_id) = setup();
+         let rows = connection
+             .prepare(format!(
+                 "SELECT e.depth, e.node_identity FROM {GRAPH_EXPAND_TABLE_NAME}(
+-                    {}, 1, 30, 'end', 'start', 0, '1', 2, 2, 0, 'trail',
++                    {}, 1, 30, 2, 1, 0, '1', 2, 2, 0, 'trail',
+                     100, 100, 100, 1000, 1048576
+                 ) AS e WHERE e.is_terminal = 1 ORDER BY e.depth LIMIT 1",
+                 graph_id.get()
+             ))
+             .unwrap()
+             .run_collect_rows()
+             .unwrap();
+         assert_eq!(rows, vec![vec![Value::from_i64(2), Value::from_i64(10)]]);
+     }
+-
+-    /// `role_pair_to_direction` is the one place left where a role pair is
+-    /// translated into a binary `Direction` -- its entire justification is
+-    /// that it errors loudly on any pair it cannot faithfully represent,
+-    /// rather than silently guessing. These four cases are the complete set
+-    /// this adapter is documented to handle: two directed orientations, the
+-    /// symmetric case, and a genuine n-ary role pair that must be rejected
+-    /// even when `symmetric` is set (a pair the caller cannot claim is
+-    /// mutually reachable in both directions just because it *asked* for
+-    /// `Both` -- only the binary `start`/`end` convention is representable
+-    /// at all).
+-    #[test]
+-    fn role_pair_to_direction_resolves_the_four_documented_cases() {
+-        assert_eq!(
+-            role_pair_to_direction("start", "end", false).unwrap(),
+-            Direction::Outgoing
+-        );
+-        assert_eq!(
+-            role_pair_to_direction("end", "start", false).unwrap(),
+-            Direction::Incoming
+-        );
+-        assert_eq!(
+-            role_pair_to_direction("start", "end", true).unwrap(),
+-            Direction::Both
+-        );
+-        let error = role_pair_to_direction("author", "book", true).unwrap_err();
+-        assert!(
+-            error.to_string().contains("unsupported role pair"),
+-            "expected a typed 'unsupported role pair' error, got: {error}"
+-        );
+-    }
+ }
+diff --git a/graph/frontend/src/lowering.rs b/graph/frontend/src/lowering.rs
+index 8814bed70..d47989dbf 100644
+--- a/graph/frontend/src/lowering.rs
++++ b/graph/frontend/src/lowering.rs
+@@ -961,24 +961,24 @@ fn lower_graph_expand(
+         .unwrap_or_default();
+     let relationship = catalog
+         .relationship_layout(expand.relationship_source)
+         .ok_or(LowerError::MissingSource(expand.relationship_source))?;
+     let target = catalog
+         .node_layout(expand.target_node_source)
+         .ok_or(LowerError::MissingSource(expand.target_node_source))?;
+     // Lowering only names the two roles here -- exactly what the fixed hop
+     // already does via `relationship.role(id)` -- and makes no
+     // outgoing/incoming/both judgment of its own. The variable-length
+-    // expand vtab still runs a physical BFS over a binary CSR snapshot
+-    // (role-oblivious until Task 17), so *it* is where the remaining
+-    // role-pair-to-direction reasoning lives now (see the adapter in
+-    // graph_expand.rs), not here.
++    // expand vtab and the traversal runtime it drives are role-pair-keyed
++    // (Task 17), so the numeric role ordinals resolved below pass straight
++    // through as `from_role`/`to_role` arguments with no direction
++    // translation anywhere in this path.
+     let from_role = relationship
+         .role(expand.from_role)
+         .ok_or_else(|| LowerError::UnknownRole {
+             relation: relationship.table.clone(),
+             role: expand.from_role,
+         })?;
+     let to_role = relationship
+         .role(expand.to_role)
+         .ok_or_else(|| LowerError::UnknownRole {
+             relation: relationship.table.clone(),
+@@ -1070,39 +1070,39 @@ fn lower_graph_expand(
+             ));
+         }
+         let aggregates = aggregates.join(", ");
+         return Ok(Lowered {
+             sql: format!(
+                 "SELECT g.*, r.{} AS {}, {} AS {}, n.{} AS {}, {} AS {} \
+                  FROM (SELECT {}{aggregates}, \
+                  max(CASE WHEN gx.is_terminal = 1 THEN gx.node_identity END) AS __gx_node, \
+                  max(CASE WHEN gx.is_terminal = 1 THEN gx.relationship_identity END) AS __gx_rel \
+                  FROM ({}) AS q \
+-                 JOIN __turso_graph_expand({}, {}, q.{}, '{}', '{}', {}, '{}', {}, {}, {}, '{}', {}, {}, {}, {}, {}) AS gx{source_join} \
++                 JOIN __turso_graph_expand({}, {}, q.{}, {}, {}, {}, '{}', {}, {}, {}, '{}', {}, {}, {}, {}, {}) AS gx{source_join} \
+                  GROUP BY {}gx.path_id) AS g \
+                  JOIN {} AS n ON n.{} = g.__gx_node \
+                  LEFT JOIN {} AS r ON r.{} = g.__gx_rel",
+                 quote_identifier(&relationship.identity_column),
+                 binding_column(expand.relationship.id()),
+                 expand.relationship_source.get(),
+                 source_column_ref(expand.relationship.id()),
+                 quote_identifier(&target.identity_column),
+                 binding_column(expand.to.id()),
+                 expand.target_node_source.get(),
+                 source_column_ref(expand.to.id()),
+                 inner_select,
+                 input.sql,
+                 expand.graph.get(),
+                 expand.from_node_source.get(),
+                 binding_column(expand.from),
+-                from_role.name,
+-                to_role.name,
++                from_role.role.get(),
++                to_role.role.get(),
+                 u8::from(expand.symmetric),
+                 relationship_types,
+                 expand.min_hops,
+                 expand.max_hops,
+                 u8::from(expand.unbounded),
+                 uniqueness,
+                 limits.max_node_visits,
+                 limits.max_edge_visits,
+                 limits.max_paths,
+                 limits.max_work,
+@@ -1113,37 +1113,37 @@ fn lower_graph_expand(
+                 quote_identifier(&relationship.table),
+                 quote_identifier(&relationship.identity_column),
+             ),
+             bindings,
+         });
+     }
+     Ok(Lowered {
+         sql: format!(
+             "SELECT q.*, r.{} AS {}, {} AS {}, n.{} AS {}, {} AS {} \
+              FROM ({}) AS q \
+-             JOIN __turso_graph_expand({}, {}, q.{}, '{}', '{}', {}, '{}', {}, {}, {}, '{}', {}, {}, {}, {}, {}) AS gx{source_join} \
++             JOIN __turso_graph_expand({}, {}, q.{}, {}, {}, {}, '{}', {}, {}, {}, '{}', {}, {}, {}, {}, {}) AS gx{source_join} \
+              JOIN {} AS n ON gx.is_terminal = 1 AND gx.node_source_id = {} AND n.{} = gx.node_identity \
+              LEFT JOIN {} AS r ON gx.relationship_source_id = {} AND r.{} = gx.relationship_identity",
+             quote_identifier(&relationship.identity_column),
+             binding_column(expand.relationship.id()),
+             expand.relationship_source.get(),
+             source_column_ref(expand.relationship.id()),
+             quote_identifier(&target.identity_column),
+             binding_column(expand.to.id()),
+             expand.target_node_source.get(),
+             source_column_ref(expand.to.id()),
+             input.sql,
+             expand.graph.get(),
+             expand.from_node_source.get(),
+             binding_column(expand.from),
+-            from_role.name,
+-            to_role.name,
++            from_role.role.get(),
++            to_role.role.get(),
+             u8::from(expand.symmetric),
+             relationship_types,
+             expand.min_hops,
+             expand.max_hops,
+             u8::from(expand.unbounded),
+             uniqueness,
+             limits.max_node_visits,
+             limits.max_edge_visits,
+             limits.max_paths,
+             limits.max_work,
+diff --git a/graph/frontend/src/snapshot.rs b/graph/frontend/src/snapshot.rs
+index 4b884bfab..0b2d59ecc 100644
+--- a/graph/frontend/src/snapshot.rs
++++ b/graph/frontend/src/snapshot.rs
+@@ -1,18 +1,20 @@
+ use std::collections::HashMap;
+ use std::mem::size_of;
+ use std::sync::{Arc, RwLock, Weak};
+ use std::time::{Duration, Instant};
+ 
+ use thiserror::Error;
+ use turso_core::{Connection, Numeric, Value};
+-use turso_graph_ir::{GraphId, NodeId, RelationshipId, RelationshipTypeId, SourceTableId};
++use turso_graph_ir::{
++    GraphId, NodeId, RelationshipId, RelationshipTypeId, RoleCardinality, SourceTableId,
++};
+ use turso_graph_runtime::{BuildLimits, Cancellation, EdgeInput, Graph, RuntimeError};
+ 
+ use crate::{
+     load_registered_graph, load_semantic_snapshot, CatalogError, SemanticCatalogError,
+     GRAPH_CATALOG_VERSION,
+ };
+ 
+ const VISIBLE_SNAPSHOT_SAVEPOINT: &str = "__turso_graph_visible_snapshot";
+ 
+ #[derive(Clone, Debug, Eq, Hash, PartialEq)]
+@@ -201,24 +203,32 @@ pub enum SnapshotError {
+         kind: &'static str,
+         source_id: SourceTableId,
+         identity: SourceIdentity,
+     },
+     #[error(
+         "relationship {relationship:?} in source {relationship_source} references missing {role} identity {identity:?} in node source {node_source}"
+     )]
+     MissingEndpoint {
+         relationship_source: SourceTableId,
+         relationship: SourceIdentity,
+-        role: &'static str,
++        role: String,
+         node_source: SourceTableId,
+         identity: SourceIdentity,
+     },
++    #[error(
++        "spill table for role `{role}` in relationship source {relationship_source} references relationship identity {identity:?}, which is not a relationship in that source"
++    )]
++    OrphanSpillRow {
++        relationship_source: SourceTableId,
++        role: String,
++        identity: SourceIdentity,
++    },
+     #[error("snapshot contains too many {0} identities")]
+     TooManyIdentities(&'static str),
+     #[error("snapshot build database operation failed: {0}")]
+     Database(#[from] turso_core::LimboError),
+     #[error("snapshot build failed and rollback also failed: {cause}; rollback: {rollback}")]
+     RollbackFailed {
+         cause: Box<SnapshotError>,
+         rollback: turso_core::LimboError,
+     },
+     #[error("snapshot store lock is poisoned")]
+@@ -605,118 +615,191 @@ fn build_in_transaction(
+     let mut relationship_ids = HashMap::new();
+     let mut edges = Vec::new();
+     let relationship_types_table = crate::catalog::relationship_types_table_name(registered.id);
+     let source_qualified_types = connection
+         .current_schema()
+         .get_table(&relationship_types_table)
+         .is_some_and(|table| table.get_column_by_name("source_id").is_some());
+     for (type_index, source) in registered.relationship_sources.iter().enumerate() {
+         check_cancelled(cancellation)?;
+         let default_relationship_type = next_relationship_type(type_index)?;
+-        // Traversal snapshots are binary today: every relationship source
+-        // consumed here is registered with `start`/`end` roles (n-ary
+-        // traversal is a later task).
+-        let start_role = source
+-            .role_by_name("start")
+-            .expect("traversal snapshot source has a start role");
+-        let end_role = source
+-            .role_by_name("end")
+-            .expect("traversal snapshot source has an end role");
++        // A relation's roles fall into two storage shapes: `One` roles are
++        // endpoint columns on the relationship row itself, `Many` roles
++        // spill into a per-role side table. Every ordered pair of `One`
++        // roles gets an edge straight from this row (for two roles that is
++        // exactly the old `start`/`end` forward-and-reverse pair); a `Many`
++        // role additionally pairs with every `One` role, fanning out over
++        // its spill rows. `Many`-`Many` pairs are not produced here.
++        let single_valued_roles = source.single_valued_roles().collect::<Vec<_>>();
+         // Resolve each relationship's Cypher type through the junction and
+         // registry so traversal filters see the identities the binder uses;
+         // rows without a recorded type keep the source-index identity.
+         let source_predicate = if source_qualified_types {
+             format!("jt.source_id = {} AND ", source.id.get())
+         } else {
+             String::new()
+         };
++        let role_columns = single_valued_roles
++            .iter()
++            .map(|role| format!(", r.{}", quote_identifier(&role.column)))
++            .collect::<String>();
+         let rows = query_rows_cancellable(
+             connection,
+             &format!(
+-                "SELECT r.{}, r.{}, r.{}, reg.id, jt.type FROM {} AS r \
++                "SELECT r.{}{role_columns}, reg.id, jt.type FROM {} AS r \
+                  LEFT JOIN \"{}\" AS jt ON {source_predicate}jt.relationship_id = r.{} \
+                  LEFT JOIN \"{}\" AS reg ON reg.name = jt.type \
+                  ORDER BY r.{}",
+                 quote_identifier(&source.identity_column),
+-                quote_identifier(&start_role.column),
+-                quote_identifier(&end_role.column),
+                 quote_identifier(&source.table),
+                 relationship_types_table,
+                 quote_identifier(&source.identity_column),
+                 crate::catalog::relationship_type_registry_table_name(registered.id),
+                 quote_identifier(&source.identity_column)
+             ),
+             cancellation,
+         )?;
++        // Row layout: identity, one column per single-valued role in
++        // declaration order, then the legacy and semantic type columns.
++        let type_column = 1 + single_valued_roles.len();
++        let mut relationships_by_identity = HashMap::new();
+         for row in rows {
+-            let semantic_relationship_type = row.get(4).and_then(|value| match value {
+-                turso_core::Value::Text(name) => semantic
+-                    .as_ref()
+-                    .and_then(|snapshot| snapshot.relationship_type(name.as_str()))
+-                    .and_then(|type_info| RelationshipTypeId::new(type_info.type_id).ok()),
+-                _ => None,
+-            });
+-            let legacy_relationship_type = row.get(3).and_then(|value| match value {
++            let semantic_relationship_type =
++                row.get(type_column + 1).and_then(|value| match value {
++                    turso_core::Value::Text(name) => semantic
++                        .as_ref()
++                        .and_then(|snapshot| snapshot.relationship_type(name.as_str()))
++                        .and_then(|type_info| RelationshipTypeId::new(type_info.type_id).ok()),
++                    _ => None,
++                });
++            let legacy_relationship_type = row.get(type_column).and_then(|value| match value {
+                 turso_core::Value::Numeric(turso_core::Numeric::Integer(id)) => u32::try_from(*id)
+                     .ok()
+                     .and_then(|id| RelationshipTypeId::new(id).ok()),
+                 _ => None,
+             });
+             let relationship_type = semantic_relationship_type
+                 .or(legacy_relationship_type)
+                 .unwrap_or(default_relationship_type);
+             let identity = source_identity(row.first(), "relationship", source.id)?;
+             let relationship = next_relationship_id(relationship_coordinates.len())?;
+             if relationship_ids
+                 .insert((source.id, identity.clone()), relationship)
+                 .is_some()
+             {
+                 return Err(SnapshotError::DuplicateSourceIdentity {
+                     kind: "relationship",
+                     source_id: source.id,
+                     identity,
+                 });
+             }
+-            let start_identity = source_identity(row.get(1), "endpoint", start_role.node_source)?;
+-            let end_identity = source_identity(row.get(2), "endpoint", end_role.node_source)?;
+-            let start = node_ids
+-                .get(&(start_role.node_source, start_identity.clone()))
+-                .copied()
+-                .ok_or_else(|| SnapshotError::MissingEndpoint {
+-                    relationship_source: source.id,
+-                    relationship: identity.clone(),
+-                    role: "start",
+-                    node_source: start_role.node_source,
+-                    identity: start_identity,
+-                })?;
+-            let end = node_ids
+-                .get(&(end_role.node_source, end_identity.clone()))
+-                .copied()
+-                .ok_or_else(|| SnapshotError::MissingEndpoint {
+-                    relationship_source: source.id,
+-                    relationship: identity.clone(),
+-                    role: "end",
+-                    node_source: end_role.node_source,
+-                    identity: end_identity,
+-                })?;
++            let mut role_nodes = Vec::with_capacity(single_valued_roles.len());
++            for (index, role) in single_valued_roles.iter().enumerate() {
++                let player_identity =
++                    source_identity(row.get(1 + index), "endpoint", role.node_source)?;
++                let node = node_ids
++                    .get(&(role.node_source, player_identity.clone()))
++                    .copied()
++                    .ok_or_else(|| SnapshotError::MissingEndpoint {
++                        relationship_source: source.id,
++                        relationship: identity.clone(),
++                        role: role.name.clone(),
++                        node_source: role.node_source,
++                        identity: player_identity,
++                    })?;
++                role_nodes.push(node);
++            }
++            for (from_index, from_role) in single_valued_roles.iter().enumerate() {
++                for (to_index, to_role) in single_valued_roles.iter().enumerate() {
++                    if from_index == to_index {
++                        continue;
++                    }
++                    edges.push(EdgeInput {
++                        relationship,
++                        from_role: from_role.role,
++                        to_role: to_role.role,
++                        source: role_nodes[from_index],
++                        target: role_nodes[to_index],
++                        relationship_type,
++                        weight: None,
++                    });
++                }
++            }
+             relationship_coordinates.push(RelationshipCoordinate {
+                 source: source.id,
+-                identity,
+-                relationship_type,
+-            });
+-            edges.push(EdgeInput {
+-                relationship,
+-                source: start,
+-                target: end,
++                identity: identity.clone(),
+                 relationship_type,
+-                weight: None,
+             });
++            relationships_by_identity
++                .insert(identity, (relationship, relationship_type, role_nodes));
++        }
++
++        for many_role in source
++            .roles
++            .iter()
++            .filter(|role| role.cardinality == RoleCardinality::Many)
++        {
++            check_cancelled(cancellation)?;
++            let spill_table = source.spill_table(many_role);
++            let spill_rows = query_rows_cancellable(
++                connection,
++                &format!(
++                    "SELECT relation_id, node_id FROM {} ORDER BY relation_id",
++                    quote_identifier(&spill_table)
++                ),
++                cancellation,
++            )?;
++            for row in spill_rows {
++                let relationship_identity =
++                    source_identity(row.first(), "relationship", source.id)?;
++                let player_identity =
++                    source_identity(row.get(1), "endpoint", many_role.node_source)?;
++                let (relationship, relationship_type, role_nodes) = relationships_by_identity
++                    .get(&relationship_identity)
++                    .ok_or_else(|| SnapshotError::OrphanSpillRow {
++                        relationship_source: source.id,
++                        role: many_role.name.clone(),
++                        identity: relationship_identity.clone(),
++                    })?;
++                let player = node_ids
++                    .get(&(many_role.node_source, player_identity.clone()))
++                    .copied()
++                    .ok_or_else(|| SnapshotError::MissingEndpoint {
++                        relationship_source: source.id,
++                        relationship: relationship_identity.clone(),
++                        role: many_role.name.clone(),
++                        node_source: many_role.node_source,
++                        identity: player_identity,
++                    })?;
++                for (one_role, one_node) in
++                    single_valued_roles.iter().zip(role_nodes.iter().copied())
++                {
++                    edges.push(EdgeInput {
++                        relationship: *relationship,
++                        from_role: one_role.role,
++                        to_role: many_role.role,
++                        source: one_node,
++                        target: player,
++                        relationship_type: *relationship_type,
++                        weight: None,
++                    });
++                    edges.push(EdgeInput {
++                        relationship: *relationship,
++                        from_role: many_role.role,
++                        to_role: one_role.role,
++                        source: player,
++                        target: one_node,
++                        relationship_type: *relationship_type,
++                        weight: None,
++                    });
++                }
++            }
+         }
+     }
+ 
+     check_cancelled(cancellation)?;
+     let graph_node_ids = (0..node_coordinates.len())
+         .map(next_node_id)
+         .collect::<Result<Vec<_>, _>>()?;
+     let graph = Graph::build_cancellable(graph_node_ids, edges, limits, cancellation)?;
+     let node_lookup = node_coordinates
+         .iter()
+@@ -885,24 +968,29 @@ fn quote_identifier(identifier: &str) -> String {
+ }
+ 
+ #[cfg(test)]
+ mod tests {
+     use super::*;
+     use crate::{
+         register_graph, GraphRegistration, NodeSourceRegistration, RegisteredGraph,
+         RelationshipSourceRegistration,
+     };
+     use turso_core::{Database, MemoryIO, SqliteDialect};
++    use turso_graph_ir::RoleId;
+     use turso_graph_runtime::{
+         traverse, LimitKind, TraversalLimits, TraversalOrder, TraversalRequest, Uniqueness,
+     };
+ 
++    fn role(value: u32) -> RoleId {
++        RoleId::new(value).expect("non-zero role")
++    }
++
+     fn connection(name: &str) -> Arc<Connection> {
+         let io = Arc::new(MemoryIO::new());
+         Database::open_file(io, name, Arc::new(SqliteDialect))
+             .unwrap()
+             .connect()
+             .unwrap()
+     }
+ 
+     fn register(connection: &Arc<Connection>) -> RegisteredGraph {
+         connection
+@@ -1075,29 +1163,32 @@ mod tests {
+             snapshot.relationship(RelationshipId::new(2).unwrap()),
+             Some(&RelationshipCoordinate {
+                 source: registered.relationship_sources[0].id,
+                 identity: SourceIdentity::Integer(200),
+                 relationship_type: RelationshipTypeId::new(1).unwrap(),
+             })
+         );
+ 
+         let paths = traverse(
+             snapshot.graph(),
+-            &TraversalRequest::outgoing(
+-                NodeId::new(1).unwrap(),
+-                vec![RelationshipTypeId::new(1).unwrap()],
+-                2,
+-                2,
+-                false,
+-                Uniqueness::Trail,
+-                TraversalOrder::BreadthFirst,
+-            ),
++            &TraversalRequest {
++                start: NodeId::new(1).unwrap(),
++                from_role: role(1),
++                to_role: role(2),
++                symmetric: false,
++                relationship_types: vec![RelationshipTypeId::new(1).unwrap()],
++                min_hops: 2,
++                max_hops: 2,
++                error_at_max_hops: false,
++                uniqueness: Uniqueness::Trail,
++                order: TraversalOrder::BreadthFirst,
++            },
+             TraversalLimits::default(),
+             &turso_graph_runtime::NeverCancelled,
+         )
+         .unwrap();
+         assert_eq!(paths.len(), 1);
+         assert_eq!(
+             paths[0].nodes,
+             vec![
+                 NodeId::new(1).unwrap(),
+                 NodeId::new(2).unwrap(),
+@@ -1148,21 +1239,21 @@ mod tests {
+         connection
+             .execute("INSERT INTO relationships VALUES (10, 1, 999)")
+             .unwrap();
+         assert!(matches!(
+             build_traversal_snapshot(
+                 &connection,
+                 "social",
+                 BuildLimits::default(),
+                 &turso_graph_runtime::NeverCancelled,
+             ),
+-            Err(SnapshotError::MissingEndpoint { role: "end", .. })
++            Err(SnapshotError::MissingEndpoint { ref role, .. }) if role == "end"
+         ));
+ 
+         connection.execute("DELETE FROM relationships").unwrap();
+         connection
+             .execute("CREATE TABLE aliases(id TEXT NOT NULL); CREATE UNIQUE INDEX aliases_id ON aliases(id)")
+             .unwrap();
+         register_graph(
+             &connection,
+             &GraphRegistration {
+                 name: "duplicates".to_owned(),
+diff --git a/graph/frontend/tests/fixture.rs b/graph/frontend/tests/fixture.rs
+index 33ec1fb7b..e4553f1ff 100644
+--- a/graph/frontend/tests/fixture.rs
++++ b/graph/frontend/tests/fixture.rs
+@@ -185,24 +185,26 @@ pub fn ternary_session() -> (Arc<Database>, GraphConnection) {
+                         cardinality: RoleCardinality::One,
+                     },
+                 ],
+             }],
+         },
+     )
+     .expect("register graph");
+     let catalog: Arc<dyn GraphCompilationCatalog> =
+         Arc::new(SchemaCatalog::new(connection.clone(), registered.clone()));
+     // Unlike `social_graph_connection`, this does not eagerly build a
+-    // traversal snapshot: today's snapshot builder is binary-only (it looks
+-    // up `start`/`end` roles on every relationship source), and none of this
+-    // fixture's tests run a Cypher traversal that would need one. The store
+-    // builds lazily on demand for whichever caller actually needs it.
++    // traversal snapshot: none of this fixture's tests run a Cypher
++    // traversal that would need one, so the store builds lazily on demand
++    // for whichever caller actually needs it. (The snapshot builder itself
++    // is no longer binary-only -- it derives edges from every ordered pair
++    // of single-valued roles, plus each single-valued/`Many` pair -- this is
++    // just this fixture not exercising that path.)
+     let shared_snapshots = Arc::new(SnapshotStore::default());
+     let session = GraphConnection::install(
+         connection,
+         &registered,
+         catalog,
+         ParameterTypes::new(),
+         shared_snapshots,
+         BuildLimits::default(),
+     )
+     .expect("install graph session");
+@@ -217,23 +219,24 @@ pub fn ternary_session() -> (Arc<Database>, GraphConnection) {
+ ///
+ /// Binary-plus-`Many` is deliberate: it is the only role shape that lets a
+ /// relation be both created through the standalone role pattern (Task 13a,
+ /// `CREATE [x:KNOWS](start: a, end: b, witness: w)`) and bound for deletion
+ /// through today's arrow syntax (`MATCH (a:Person)-[r:KNOWS]->(b:Person)
+ /// DELETE r`), with no dependency on the standalone role pattern in `MATCH`
+ /// (Task 13b, not yet implemented). A ternary relation can be created but not
+ /// bound for deletion until then.
+ ///
+ /// Modeled on `ternary_session`, not `social_graph_connection`: no eager
+-/// `SnapshotStore::refresh`, since today's snapshot builder assumes every
+-/// relationship source is binary and this task's tests never run a
+-/// variable-length traversal that would need one. Unlike `ternary_session`,
++/// `SnapshotStore::refresh`, since this task's tests never run a
++/// variable-length traversal that would need one -- the snapshot builder
++/// itself supports `One`/`Many` role pairs like `witness` fine. Unlike
++/// `ternary_session`,
+ /// this graph has exactly one node source, so `SchemaCatalog` can resolve
+ /// node properties and tests may seed through Cypher `CREATE (:Person {id:
+ /// ..})` directly, the same way `social_graph_connection` does.
+ #[allow(dead_code)] // This file is also compiled as its own integration-test crate.
+ pub fn witnessed_session() -> (Arc<Database>, GraphConnection) {
+     let io = Arc::new(MemoryIO::new());
+     let database = Database::open(
+         io,
+         ":memory:fixture-witnessed",
+         OpenOptions::new(Arc::new(SqliteDialect)),
+diff --git a/graph/ir/src/lib.rs b/graph/ir/src/lib.rs
+index 35c3eb639..c268388fe 100644
+--- a/graph/ir/src/lib.rs
++++ b/graph/ir/src/lib.rs
+@@ -28,15 +28,15 @@ pub use mutation::{
+     CreateNode, CreateRelation, DeleteEntity, MergeNode, MergeRelation, Mutation, MutationRequest,
+     MutationSource, PropertyValue, RemoveProperty, ReplaceProperties, ReplacePropertiesDynamic,
+     SetLabels, SetProperty, SetRoles,
+ };
+ pub use plan::{
+     Aggregate, AggregateFunction, Aggregation, Distinct, Filter, GraphExpand, Grouping, Join,
+     LeftApply, Limit, NodeScan, PathUniqueness, Plan, PlanKind, ProcedureCall, ProcedureIdentity,
+     ProcedureOutput, Project, Projection, RoleExpand, Skip, Sort, SortKey, Union, Unit, Unwind,
+ };
+ pub use role::{RoleBinding, RoleCardinality, RoleDef, RoleTarget};
+-pub use scope::{Binding, Direction, Nullability, ResultColumn, ResultShape, Scope};
++pub use scope::{Binding, Nullability, ResultColumn, ResultShape, Scope};
+ pub use semantics::{
+     semantic_profile_digest, Duplicates, LabelListOrder, NullComparison, NullSort, RowOrder,
+     SemanticProfile, WriteClassification, SEMANTIC_PROFILE, SEMANTIC_PROFILE_VERSION,
+ };
+diff --git a/graph/ir/src/scope.rs b/graph/ir/src/scope.rs
+index 398a5d0f2..d01933cde 100644
+--- a/graph/ir/src/scope.rs
++++ b/graph/ir/src/scope.rs
+@@ -1,27 +1,20 @@
+ use std::collections::HashSet;
+ 
+ use crate::{BindingId, PlanError, ValueType};
+ 
+ #[derive(Clone, Copy, Debug, Eq, PartialEq)]
+ pub enum Nullability {
+     NonNull,
+     Nullable,
+ }
+ 
+-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+-pub enum Direction {
+-    Outgoing,
+-    Incoming,
+-    Both,
+-}
+-
+ /// A named value visible at a point in a bound graph plan.
+ #[derive(Clone, Debug, Eq, PartialEq)]
+ pub struct Binding {
+     id: BindingId,
+     name: String,
+     value_type: ValueType,
+     nullability: Nullability,
+ }
+ 
+ impl Binding {
+diff --git a/graph/ir/src/semantics.rs b/graph/ir/src/semantics.rs
+index 61668e108..6961f767b 100644
+--- a/graph/ir/src/semantics.rs
++++ b/graph/ir/src/semantics.rs
+@@ -5,21 +5,21 @@
+ //! decide the pass/fail verdict of the corpus, so they are versioned data here
+ //! rather than prose in a Markdown file. Every recorded test run stamps
+ //! `SEMANTIC_PROFILE_VERSION`, which makes a pass-count move attributable: the
+ //! code changed, or the rules changed, never ambiguously both.
+ 
+ use std::fmt::Write as _;
+ 
+ /// Bump on any change to a `SemanticProfile` field value. Never bump for
+ /// formatting or comments. A new field still changes the digest, so it still
+ /// requires a bump even when its value restates existing behavior.
+-pub const SEMANTIC_PROFILE_VERSION: u32 = 2;
++pub const SEMANTIC_PROFILE_VERSION: u32 = 3;
+ 
+ /// Is the row order of a result defined?
+ #[derive(Clone, Copy, Debug, Eq, PartialEq)]
+ pub enum RowOrder {
+     /// Defined only when the outermost RETURN carries ORDER BY. Every other
+     /// result is a multiset: comparing it as a sequence is a false failure.
+     OrderedOnlyUnderExplicitOrderBy,
+ }
+ 
+ /// Do duplicate rows survive?
+@@ -73,50 +73,58 @@ pub struct SemanticProfile {
+     pub null_sort: NullSort,
+     pub label_list_order: LabelListOrder,
+     pub write_classification: WriteClassification,
+     /// Version of the path algorithm legality table. Owned by
+     /// `turso_graph_runtime::path_policy`; mirrored here so one number
+     /// identifies the whole semantic contract. Mirrored rather than imported
+     /// because this crate is the dependency root and must not depend on the
+     /// runtime. `graph/runtime/src/path_policy.rs` pins the two together, from
+     /// the side that can see both crates.
+     pub path_policy_version: u32,
++    /// How a relationship's arity is modeled. Stated here so the contract is
++    /// explicit rather than assumed from the absence of a field: a relation
++    /// declares named roles, and two roles is a layout of that, not a
++    /// separate binary kind with its own rules.
++    pub relationship_arity: &'static str,
+ }
+ 
+ pub const SEMANTIC_PROFILE: SemanticProfile = SemanticProfile {
+     version: SEMANTIC_PROFILE_VERSION,
+     row_order: RowOrder::OrderedOnlyUnderExplicitOrderBy,
+     duplicates: Duplicates::RetainedUnlessDistinct,
+     null_comparison: NullComparison::ThreeValuedNull,
+     null_sort: NullSort::NumbersTextBlobsThenNullLast,
+     label_list_order: LabelListOrder::LabelTableInsertion,
+     write_classification: WriteClassification::SyntacticNeverResultDependent,
+-    path_policy_version: 1,
++    path_policy_version: 2,
++    relationship_arity: "native n-ary: a relation declares named roles; \
++                          binary is the two-role layout, not a separate kind",
+ };
+ 
+ impl SemanticProfile {
+     /// Stable `key=value` rendering of the choices, excluding `version`. The
+     /// digest is taken over this, so the version can be bumped without the
+     /// digest moving, and a choice cannot move without the digest moving.
+     pub fn render(&self) -> String {
+         let mut rendered = String::new();
+         let _ = writeln!(rendered, "row_order={:?}", self.row_order);
+         let _ = writeln!(rendered, "duplicates={:?}", self.duplicates);
+         let _ = writeln!(rendered, "null_comparison={:?}", self.null_comparison);
+         let _ = writeln!(rendered, "null_sort={:?}", self.null_sort);
+         let _ = writeln!(rendered, "label_list_order={:?}", self.label_list_order);
+         let _ = writeln!(
+             rendered,
+             "write_classification={:?}",
+             self.write_classification
+         );
+         let _ = writeln!(rendered, "path_policy={}", self.path_policy_version);
++        let _ = writeln!(rendered, "relationship_arity={}", self.relationship_arity);
+         rendered
+     }
+ }
+ 
+ /// FNV-1a 64 over `SEMANTIC_PROFILE.render()`, matching the history digest
+ /// format so both can be read the same way.
+ pub fn semantic_profile_digest() -> String {
+     let mut hash = 0xcbf29ce484222325_u64;
+     for byte in SEMANTIC_PROFILE.render().as_bytes() {
+         hash ^= u64::from(*byte);
+diff --git a/graph/ir/tests/semantic_profile_pin.rs b/graph/ir/tests/semantic_profile_pin.rs
+index 1c8494597..44f878088 100644
+--- a/graph/ir/tests/semantic_profile_pin.rs
++++ b/graph/ir/tests/semantic_profile_pin.rs
+@@ -1,19 +1,19 @@
+ //! The semantic profile is a contract, not documentation. Any change to a
+ //! recorded choice must move `SEMANTIC_PROFILE_VERSION`, because every row in
+ //! `graph/test-results/history.jsonl` is interpreted against that number. This
+ //! test fails loudly on an unversioned edit and prints the digest to paste.
+ 
+ use turso_graph_ir::{semantic_profile_digest, SEMANTIC_PROFILE, SEMANTIC_PROFILE_VERSION};
+ 
+-/// Digest of `SEMANTIC_PROFILE.render()` at version 2.
+-const PINNED_DIGEST: &str = "fnv1a64:ad3c7f2313ac0e5d";
++/// Digest of `SEMANTIC_PROFILE.render()` at version 3.
++const PINNED_DIGEST: &str = "fnv1a64:d064f72078704012";
+ 
+ #[test]
+ fn semantic_profile_digest_is_pinned_to_its_version() {
+     assert_eq!(
+         semantic_profile_digest(),
+         PINNED_DIGEST,
+         "a semantic choice changed: bump SEMANTIC_PROFILE_VERSION (now {SEMANTIC_PROFILE_VERSION}) \
+          and set PINNED_DIGEST to the observed digest above"
+     );
+ }
+diff --git a/graph/runtime/benches/graph_shapes.rs b/graph/runtime/benches/graph_shapes.rs
+index bc67d1f21..08ddad39b 100644
+--- a/graph/runtime/benches/graph_shapes.rs
++++ b/graph/runtime/benches/graph_shapes.rs
+@@ -1,12 +1,12 @@
+ use divan::{black_box, Bencher};
+-use turso_graph_ir::{NodeId, RelationshipId, RelationshipTypeId};
++use turso_graph_ir::{NodeId, RelationshipId, RelationshipTypeId, RoleId};
+ use turso_graph_runtime::{BuildLimits, EdgeInput, Graph};
+ 
+ fn main() {
+     divan::main();
+ }
+ 
+ #[derive(Clone, Copy)]
+ enum Shape {
+     Sparse,
+     Dense,
+@@ -34,33 +34,39 @@ fn fixture(shape: Shape, node_count: u64) -> (Vec<NodeId>, Vec<EdgeInput>) {
+         Shape::Cyclic => (1..=node_count)
+             .map(|source| (source, source % node_count + 1))
+             .collect(),
+         Shape::HighDegree => (2..=node_count).map(|target| (1, target)).collect(),
+     };
+     let edges = pairs
+         .into_iter()
+         .enumerate()
+         .map(|(index, (source, target))| EdgeInput {
+             relationship: RelationshipId::new(index as u64 + 1).unwrap(),
++            from_role: role(1),
++            to_role: role(2),
+             source: node(source),
+             target: node(target),
+             relationship_type: RelationshipTypeId::new(1).unwrap(),
+             weight: None,
+         })
+         .collect();
+     (nodes, edges)
+ }
+ 
+ fn node(value: u64) -> NodeId {
+     NodeId::new(value).unwrap()
+ }
+ 
++fn role(value: u32) -> RoleId {
++    RoleId::new(value).unwrap()
++}
++
+ fn bench_build(bencher: Bencher, shape: Shape, node_count: u64) {
+     let (nodes, edges) = fixture(shape, node_count);
+     bencher.bench_local(|| {
+         black_box(
+             Graph::build(
+                 nodes.iter().copied(),
+                 edges.iter().copied(),
+                 BuildLimits::default(),
+             )
+             .unwrap(),
+diff --git a/graph/runtime/examples/cursor_gate.rs b/graph/runtime/examples/cursor_gate.rs
+index 53abe4fd1..6a095ef0a 100644
+--- a/graph/runtime/examples/cursor_gate.rs
++++ b/graph/runtime/examples/cursor_gate.rs
+@@ -1,36 +1,40 @@
+ use std::time::{Duration, Instant};
+ 
+-use turso_graph_ir::{Direction, NodeId, RelationshipId, RelationshipTypeId};
++use turso_graph_ir::{NodeId, RelationshipId, RelationshipTypeId, RoleId};
+ use turso_graph_runtime::{
+     BuildLimits, EdgeInput, Graph, NeverCancelled, TraversalCursor, TraversalLimits,
+     TraversalOrder, TraversalRequest, TraversalStep, Uniqueness,
+ };
+ 
+ const FANOUT: u64 = 100_000;
+ const WORK_QUANTUM: u64 = 256;
+ 
+ fn main() {
+     let nodes = (1..=FANOUT + 1).map(node).collect::<Vec<_>>();
+     let edges = (2..=FANOUT + 1)
+         .map(|target| EdgeInput {
+             relationship: relationship(target - 1),
++            from_role: role(1),
++            to_role: role(2),
+             source: node(1),
+             target: node(target),
+             relationship_type: relationship_type(1),
+             weight: None,
+         })
+         .collect::<Vec<_>>();
+     let graph = Graph::build(nodes, edges, BuildLimits::default()).expect("build benchmark graph");
+     let request = TraversalRequest {
+         start: node(1),
+-        direction: Direction::Outgoing,
++        from_role: role(1),
++        to_role: role(2),
++        symmetric: false,
+         relationship_types: Vec::new(),
+         min_hops: 2,
+         max_hops: 2,
+         error_at_max_hops: false,
+         uniqueness: Uniqueness::Trail,
+         order: TraversalOrder::BreadthFirst,
+     };
+     let mut cursor = TraversalCursor::new(&graph, request, TraversalLimits::default())
+         .expect("create traversal cursor");
+ 
+@@ -62,10 +66,14 @@ fn node(value: u64) -> NodeId {
+     NodeId::new(value).expect("non-zero node")
+ }
+ 
+ fn relationship(value: u64) -> RelationshipId {
+     RelationshipId::new(value).expect("non-zero relationship")
+ }
+ 
+ fn relationship_type(value: u32) -> RelationshipTypeId {
+     RelationshipTypeId::new(value).expect("non-zero relationship type")
+ }
++
++fn role(value: u32) -> RoleId {
++    RoleId::new(value).expect("non-zero role")
++}
+diff --git a/graph/runtime/src/csr.rs b/graph/runtime/src/csr.rs
+index 8a8d69258..59aa9ea97 100644
+--- a/graph/runtime/src/csr.rs
++++ b/graph/runtime/src/csr.rs
+@@ -1,75 +1,77 @@
+ // Source: https://github.com/Evokoa/pgGraph
+ // Revision: d689bcf2b3b52d7f878f61718be69ebcb953affc
+ // Path: graph/src/edge_store.rs
+ // License: Apache-2.0
+ // Adaptation: structural-adaptation
+-// Changes: Replaced mmap/PostgreSQL-index storage with safe owned forward and
+-// reverse CSR arrays keyed by Turso graph-IR identities.
++// Changes: Replaced mmap/PostgreSQL-index storage with safe owned CSR arrays
++// keyed by Turso graph-IR identities, one per ordered role pair traversed
++// rather than a single forward/reverse pair.
+ 
+ use std::collections::{HashMap, HashSet};
+ use std::mem::size_of;
+ 
+-use turso_graph_ir::{Direction, NodeId, RelationshipId, RelationshipTypeId};
++use turso_graph_ir::{NodeId, RelationshipId, RelationshipTypeId, RoleId};
+ 
+ use crate::{BuildLimits, Cancellation, LimitKind, NeverCancelled, RuntimeError, RuntimeResult};
+ 
+ #[derive(Clone, Copy, Debug, Eq, PartialEq)]
+ pub struct EdgeInput {
+     pub relationship: RelationshipId,
++    pub from_role: RoleId,
++    pub to_role: RoleId,
+     pub source: NodeId,
+     pub target: NodeId,
+     pub relationship_type: RelationshipTypeId,
+     pub weight: Option<u64>,
+ }
+ 
+ #[derive(Clone, Copy, Debug, Eq, PartialEq)]
+ pub struct Neighbor {
+     pub node: NodeId,
+     pub relationship: RelationshipId,
+     pub relationship_type: RelationshipTypeId,
++    pub from_role: RoleId,
++    pub to_role: RoleId,
+     pub weight: u64,
+ }
+ 
+-pub struct NeighborCursor {
+-    direction: Direction,
+-    forward_position: usize,
+-    forward_end: usize,
+-    reverse_position: usize,
+-    reverse_end: usize,
+-}
+-
+-pub(crate) enum NeighborCursorStep {
+-    Neighbor(Neighbor),
+-    Filtered,
+-    Done,
+-}
+-
+ #[derive(Clone, Copy)]
+ struct CsrEdge {
+     node_index: u32,
+     relationship: RelationshipId,
+-    relationship_type: RelationshipTypeId,
+     weight: u64,
+ }
+ 
++/// One node's adjacency for a single ordered `(relationship_type, from_role,
++/// to_role)` triple.
+ #[derive(Default)]
+ struct Csr {
+     offsets: Vec<usize>,
+     edges: Vec<CsrEdge>,
+ }
+ 
++/// Adjacency keyed by the ordered role pair it traverses.
++///
++/// A relation with k roles exposes k*(k-1) directed pairs. For k = 2 that is
++/// exactly the forward and reverse CSR this replaced, so a binary graph
++/// builds the same two structures it always did; `neighbor_cursor` merges
++/// however many pairs a caller names (a single directed hop, or a pair plus
++/// its reverse for a symmetric one, or several relationship types) with the
++/// same self-loop dedup a two-lane forward/reverse merge always needed.
+ pub struct Graph {
+     nodes: Vec<NodeId>,
+-    node_indexes: HashMap<NodeId, u32>,
+-    forward: Csr,
+-    reverse: Csr,
++    node_indexes: HashMap<NodeId, usize>,
++    adjacency: HashMap<(RelationshipTypeId, RoleId, RoleId), Csr>,
++    /// Count of distinct physical relationships, independent of how many
++    /// role-pair buckets each one contributed an edge to.
++    relationship_count: usize,
+ }
+ 
+ impl Graph {
+     pub fn build(
+         nodes: impl IntoIterator<Item = NodeId>,
+         edges: impl IntoIterator<Item = EdgeInput>,
+         limits: BuildLimits,
+     ) -> RuntimeResult<Self> {
+         Self::build_cancellable(nodes, edges, limits, &NeverCancelled)
+     }
+@@ -85,264 +87,350 @@ impl Graph {
+         for node in nodes {
+             if cancellation.is_cancelled() {
+                 return Err(RuntimeError::Cancelled);
+             }
+             if node_values.len() as u64 >= limits.max_nodes {
+                 return Err(RuntimeError::LimitExceeded {
+                     kind: LimitKind::Nodes,
+                     limit: limits.max_nodes,
+                 });
+             }
++            // CsrEdge stores node_index as u32 for compactness, so the index
++            // must fit even though the public map is keyed by usize.
+             let index =
+                 u32::try_from(node_values.len()).map_err(|_| RuntimeError::LimitExceeded {
+                     kind: LimitKind::Nodes,
+                     limit: u64::from(u32::MAX),
+                 })?;
+-            if node_indexes.insert(node, index).is_some() {
++            if node_indexes.insert(node, index as usize).is_some() {
+                 return Err(RuntimeError::DuplicateNode(node));
+             }
+             node_values.push(node);
+         }
+ 
+         let mut edge_values = Vec::new();
++        let mut pair_ids = HashSet::new();
+         let mut relationship_ids = HashSet::new();
+         for edge in edges {
+             if cancellation.is_cancelled() {
+                 return Err(RuntimeError::Cancelled);
+             }
+             if edge_values.len() as u64 >= limits.max_edges {
+                 return Err(RuntimeError::LimitExceeded {
+                     kind: LimitKind::Edges,
+                     limit: limits.max_edges,
+                 });
+             }
+-            if !relationship_ids.insert(edge.relationship) {
++            // One physical relationship legitimately contributes one edge per
++            // ordered role pair it participates in (k*(k-1) of them for a
++            // k-role relation), so the same relationship id recurring is
++            // expected; the same (relationship, from_role, to_role) triple
++            // recurring is not.
++            if !pair_ids.insert((edge.relationship, edge.from_role, edge.to_role)) {
+                 return Err(RuntimeError::DuplicateRelationship(edge.relationship));
+             }
++            relationship_ids.insert(edge.relationship);
+             if !node_indexes.contains_key(&edge.source) {
+                 return Err(RuntimeError::UnknownEndpoint {
+                     relationship: edge.relationship,
+                     endpoint: "source",
+                     node: edge.source,
+                 });
+             }
+             if !node_indexes.contains_key(&edge.target) {
+                 return Err(RuntimeError::UnknownEndpoint {
+                     relationship: edge.relationship,
+                     endpoint: "target",
+                     node: edge.target,
+                 });
+             }
+             edge_values.push(edge);
+         }
+ 
+-        let estimated_bytes = estimated_graph_bytes(node_values.len(), edge_values.len());
++        let adjacency = build_adjacency(&node_indexes, &edge_values, cancellation)?;
++        let total_edges = adjacency.values().map(|csr| csr.edges.len()).sum();
++        let estimated_bytes =
++            estimated_graph_bytes(node_values.len(), adjacency.len(), total_edges);
+         if estimated_bytes > limits.max_memory_bytes {
+             return Err(RuntimeError::LimitExceeded {
+                 kind: LimitKind::Memory,
+                 limit: limits.max_memory_bytes,
+             });
+         }
+-        let forward = build_csr(&node_indexes, &edge_values, false, cancellation)?;
+-        let reverse = build_csr(&node_indexes, &edge_values, true, cancellation)?;
+         Ok(Self {
+             nodes: node_values,
+             node_indexes,
+-            forward,
+-            reverse,
++            adjacency,
++            relationship_count: relationship_ids.len(),
+         })
+     }
+ 
+     pub fn node_count(&self) -> usize {
+         self.nodes.len()
+     }
+ 
++    /// Count of distinct physical relationships. Not the number of stored
++    /// adjacency rows: a binary relation stores two rows (one per direction)
++    /// per relationship, and an n-ary one stores more, but each relationship
++    /// counts once here regardless.
+     pub fn edge_count(&self) -> usize {
+-        self.forward.edges.len()
++        self.relationship_count
+     }
+ 
+     pub fn contains_node(&self, node: NodeId) -> bool {
+         self.node_indexes.contains_key(&node)
+     }
+ 
+     pub fn estimated_heap_bytes(&self) -> u64 {
+-        estimated_graph_bytes(self.node_count(), self.edge_count())
++        let total_edges = self.adjacency.values().map(|csr| csr.edges.len()).sum();
++        estimated_graph_bytes(self.node_count(), self.adjacency.len(), total_edges)
+     }
+ 
+-    pub fn neighbors(
++    /// Every relationship type for which some relationship in this graph
++    /// traverses the given ordered role pair. Used to resolve "any
++    /// relationship type" traversal requests against role-pair-keyed
++    /// adjacency, where the type is now part of the bucket key rather than a
++    /// post-hoc filter over one shared CSR.
++    pub(crate) fn relationship_types_for_pair(
++        &self,
++        from_role: RoleId,
++        to_role: RoleId,
++    ) -> impl Iterator<Item = RelationshipTypeId> + '_ {
++        self.adjacency
++            .keys()
++            .filter(move |&&(_, from, to)| from == from_role && to == to_role)
++            .map(|&(relationship_type, _, _)| relationship_type)
++    }
++
++    /// Resolve a traversal or shortest-path request's relationship-type
++    /// filter and role pair into the concrete `(type, from_role, to_role)`
++    /// triples [`neighbor_cursor`](Self::neighbor_cursor) reads. An empty
++    /// `relationship_types` means "any type stored under this pair";
++    /// `symmetric` additionally includes the reverse pair, unioning both
++    /// directions the way `Direction::Both` used to.
++    pub fn resolve_pairs(
+         &self,
+-        node: NodeId,
+-        direction: Direction,
+         relationship_types: &[RelationshipTypeId],
+-    ) -> RuntimeResult<Vec<Neighbor>> {
+-        let mut cursor = self.neighbor_cursor(node, direction)?;
+-        let mut neighbors = Vec::new();
+-        loop {
+-            match cursor.step(self, relationship_types) {
+-                NeighborCursorStep::Neighbor(neighbor) => neighbors.push(neighbor),
+-                NeighborCursorStep::Filtered => {}
+-                NeighborCursorStep::Done => break,
+-            }
++        from_role: RoleId,
++        to_role: RoleId,
++        symmetric: bool,
++    ) -> Vec<(RelationshipTypeId, RoleId, RoleId)> {
++        let mut role_pairs = vec![(from_role, to_role)];
++        if symmetric {
++            role_pairs.push((to_role, from_role));
+         }
+-        Ok(neighbors)
++        role_pairs
++            .into_iter()
++            .flat_map(|(from, to)| {
++                if relationship_types.is_empty() {
++                    self.relationship_types_for_pair(from, to)
++                        .map(|relationship_type| (relationship_type, from, to))
++                        .collect::<Vec<_>>()
++                } else {
++                    relationship_types
++                        .iter()
++                        .map(|&relationship_type| (relationship_type, from, to))
++                        .collect::<Vec<_>>()
++                }
++            })
++            .collect()
+     }
+ 
+-    pub fn neighbor_cursor(
++    /// Materialize every neighbor reachable from `node` over the given
++    /// ordered `(relationship_type, from_role, to_role)` triples, merged and
++    /// deduplicated as [`neighbor_cursor`](Self::neighbor_cursor) would
++    /// stream them.
++    pub fn neighbors(
+         &self,
+         node: NodeId,
+-        direction: Direction,
+-    ) -> RuntimeResult<NeighborCursor> {
+-        let index = *self
+-            .node_indexes
+-            .get(&node)
+-            .ok_or(RuntimeError::UnknownNode(node))? as usize;
+-        Ok(NeighborCursor {
+-            direction,
+-            forward_position: self.forward.offsets[index],
+-            forward_end: self.forward.offsets[index + 1],
+-            reverse_position: self.reverse.offsets[index],
+-            reverse_end: self.reverse.offsets[index + 1],
+-        })
++        pairs: &[(RelationshipTypeId, RoleId, RoleId)],
++    ) -> Vec<Neighbor> {
++        self.neighbor_cursor(node, pairs).collect()
+     }
+-}
+ 
+-impl NeighborCursor {
+-    /// The caller supplies `relationship_types` on every step so the cursor
+-    /// never has to copy the filter; per-node cursors share the traversal's
+-    /// one filter allocation.
+-    pub(crate) fn step(
+-        &mut self,
+-        graph: &Graph,
+-        relationship_types: &[RelationshipTypeId],
+-    ) -> NeighborCursorStep {
+-        let edge = match self.direction {
+-            Direction::Outgoing => {
+-                take_edge(&graph.forward, &mut self.forward_position, self.forward_end)
+-            }
+-            Direction::Incoming => {
+-                take_edge(&graph.reverse, &mut self.reverse_position, self.reverse_end)
+-            }
+-            Direction::Both => self.take_both(graph),
+-        };
+-        let Some(edge) = edge else {
+-            return NeighborCursorStep::Done;
++    /// A streaming cursor over every neighbor reachable from `node` across
++    /// the given ordered role-pair triples. A triple absent from the graph
++    /// (unknown type, unknown role pair, or an unknown node) contributes an
++    /// empty lane rather than an error: the traversal engines that drive
++    /// this validate the start node once, up front, and only ever step from
++    /// nodes already known to exist.
++    ///
++    /// Each lane resolves and copies its slice of adjacency up front rather
++    /// than borrowing from `self`: callers persist a cursor alongside the
++    /// snapshot it was built from (the same struct holds both), which a
++    /// borrow of one from the other cannot express safely. The copy is
++    /// bounded by `node`'s out-degree for the requested pairs, not by graph
++    /// size, so it does not reintroduce a query-time edge scan.
++    pub fn neighbor_cursor(
++        &self,
++        node: NodeId,
++        pairs: &[(RelationshipTypeId, RoleId, RoleId)],
++    ) -> NeighborCursor {
++        let Some(index) = self.node_indexes.get(&node).copied() else {
++            return NeighborCursor { lanes: Vec::new() };
+         };
+-        if !relationship_types.is_empty() && !relationship_types.contains(&edge.relationship_type) {
+-            return NeighborCursorStep::Filtered;
+-        }
+-        NeighborCursorStep::Neighbor(Neighbor {
+-            node: graph.nodes[edge.node_index as usize],
+-            relationship: edge.relationship,
+-            relationship_type: edge.relationship_type,
+-            weight: edge.weight,
+-        })
++        let lanes = pairs
++            .iter()
++            .filter_map(|&(relationship_type, from_role, to_role)| {
++                let csr = self
++                    .adjacency
++                    .get(&(relationship_type, from_role, to_role))?;
++                let start = csr.offsets.get(index).copied().unwrap_or(0);
++                let end = csr.offsets.get(index + 1).copied().unwrap_or(start);
++                let edges = csr.edges[start..end]
++                    .iter()
++                    .map(|edge| ResolvedEdge {
++                        node: self.nodes[edge.node_index as usize],
++                        node_index: edge.node_index,
++                        relationship: edge.relationship,
++                        weight: edge.weight,
++                    })
++                    .collect();
++                Some(Lane {
++                    edges,
++                    position: 0,
++                    relationship_type,
++                    from_role,
++                    to_role,
++                })
++            })
++            .collect();
++        NeighborCursor { lanes }
+     }
++}
+ 
+-    fn take_both(&mut self, graph: &Graph) -> Option<CsrEdge> {
+-        let forward = graph.forward.edges.get(self.forward_position).copied();
+-        let reverse = graph.reverse.edges.get(self.reverse_position).copied();
+-        match (
+-            forward.filter(|_| self.forward_position < self.forward_end),
+-            reverse.filter(|_| self.reverse_position < self.reverse_end),
+-        ) {
+-            (Some(forward), Some(reverse)) => {
+-                let forward_key = edge_key(forward);
+-                let reverse_key = edge_key(reverse);
+-                if forward_key <= reverse_key {
+-                    self.forward_position += 1;
+-                    if forward.relationship == reverse.relationship {
+-                        self.reverse_position += 1;
+-                    }
+-                    Some(forward)
+-                } else {
+-                    self.reverse_position += 1;
+-                    Some(reverse)
+-                }
++#[derive(Clone, Copy)]
++struct ResolvedEdge {
++    node: NodeId,
++    node_index: u32,
++    relationship: RelationshipId,
++    weight: u64,
++}
++
++struct Lane {
++    edges: Vec<ResolvedEdge>,
++    position: usize,
++    relationship_type: RelationshipTypeId,
++    from_role: RoleId,
++    to_role: RoleId,
++}
++
++/// Streams neighbors from one or more role-pair lanes in `node_index` order,
++/// generalizing the old two-lane forward/reverse merge to however many
++/// lanes a caller names. Lanes tied on the exact same `(node_index,
++/// relationship)` are a self-loop under a pair traversed alongside its
++/// reverse (or the same relationship visible through more than one
++/// requested pair): every tied lane advances, but exactly one [`Neighbor`]
++/// is emitted, matching the old merge's self-loop dedup.
++pub struct NeighborCursor {
++    lanes: Vec<Lane>,
++}
++
++impl Iterator for NeighborCursor {
++    type Item = Neighbor;
++
++    fn next(&mut self) -> Option<Neighbor> {
++        let mut min_key: Option<(u32, RelationshipId)> = None;
++        for lane in &self.lanes {
++            let Some(edge) = lane.edges.get(lane.position) else {
++                continue;
++            };
++            let key = (edge.node_index, edge.relationship);
++            let take = match min_key {
++                None => true,
++                Some(current) => key < current,
++            };
++            if take {
++                min_key = Some(key);
+             }
+-            (Some(forward), None) => {
+-                self.forward_position += 1;
+-                Some(forward)
++        }
++        let (node_index, relationship) = min_key?;
++        let mut result = None;
++        for lane in &mut self.lanes {
++            let Some(edge) = lane.edges.get(lane.position).copied() else {
++                continue;
++            };
++            if edge.node_index != node_index || edge.relationship != relationship {
++                continue;
+             }
+-            (None, Some(reverse)) => {
+-                self.reverse_position += 1;
+-                Some(reverse)
++            if result.is_none() {
++                result = Some(Neighbor {
++                    node: edge.node,
++                    relationship: edge.relationship,
++                    relationship_type: lane.relationship_type,
++                    from_role: lane.from_role,
++                    to_role: lane.to_role,
++                    weight: edge.weight,
++                });
+             }
+-            (None, None) => None,
++            lane.position += 1;
+         }
++        result
+     }
+ }
+ 
+-fn take_edge(csr: &Csr, position: &mut usize, end: usize) -> Option<CsrEdge> {
+-    if *position >= end {
+-        return None;
+-    }
+-    let edge = csr.edges[*position];
+-    *position += 1;
+-    Some(edge)
+-}
+-
+-fn edge_key(edge: CsrEdge) -> (u32, RelationshipId, RelationshipTypeId) {
+-    (edge.node_index, edge.relationship, edge.relationship_type)
+-}
+-
+-fn build_csr(
+-    indexes: &HashMap<NodeId, u32>,
++fn build_adjacency(
++    indexes: &HashMap<NodeId, usize>,
+     edges: &[EdgeInput],
+-    reverse: bool,
+     cancellation: &dyn Cancellation,
+-) -> RuntimeResult<Csr> {
+-    let mut rows = vec![Vec::new(); indexes.len()];
++) -> RuntimeResult<HashMap<(RelationshipTypeId, RoleId, RoleId), Csr>> {
++    let mut rows_by_pair: HashMap<(RelationshipTypeId, RoleId, RoleId), Vec<Vec<CsrEdge>>> =
++        HashMap::new();
+     for edge in edges {
+         if cancellation.is_cancelled() {
+             return Err(RuntimeError::Cancelled);
+         }
+-        let (row_node, adjacent_node) = if reverse {
+-            (edge.target, edge.source)
+-        } else {
+-            (edge.source, edge.target)
+-        };
+-        rows[indexes[&row_node] as usize].push(CsrEdge {
+-            node_index: indexes[&adjacent_node],
++        let key = (edge.relationship_type, edge.from_role, edge.to_role);
++        let rows = rows_by_pair
++            .entry(key)
++            .or_insert_with(|| vec![Vec::new(); indexes.len()]);
++        rows[indexes[&edge.source]].push(CsrEdge {
++            node_index: indexes[&edge.target] as u32,
+             relationship: edge.relationship,
+-            relationship_type: edge.relationship_type,
+             weight: edge.weight.unwrap_or(1),
+         });
+     }
+-    let mut offsets = Vec::with_capacity(rows.len() + 1);
+-    let mut values = Vec::with_capacity(edges.len());
+-    offsets.push(0);
+-    for row in &mut rows {
++
++    let mut adjacency = HashMap::with_capacity(rows_by_pair.len());
++    for (key, mut rows) in rows_by_pair {
+         if cancellation.is_cancelled() {
+             return Err(RuntimeError::Cancelled);
+         }
+-        row.sort_unstable_by_key(|edge| {
+-            (edge.node_index, edge.relationship, edge.relationship_type)
+-        });
+-        values.append(row);
+-        offsets.push(values.len());
++        let mut offsets = Vec::with_capacity(rows.len() + 1);
++        let mut values = Vec::new();
++        offsets.push(0);
++        for row in &mut rows {
++            if cancellation.is_cancelled() {
++                return Err(RuntimeError::Cancelled);
++            }
++            row.sort_unstable_by_key(|edge| (edge.node_index, edge.relationship));
++            values.append(row);
++            offsets.push(values.len());
++        }
++        adjacency.insert(
++            key,
++            Csr {
++                offsets,
++                edges: values,
++            },
++        );
+     }
+-    Ok(Csr {
+-        offsets,
+-        edges: values,
+-    })
++    Ok(adjacency)
+ }
+ 
+-fn estimated_graph_bytes(node_count: usize, edge_count: usize) -> u64 {
++fn estimated_graph_bytes(node_count: usize, bucket_count: usize, edge_count: usize) -> u64 {
+     let nodes = node_count.saturating_mul(size_of::<NodeId>());
+-    let indexes = node_count.saturating_mul(size_of::<(NodeId, u32)>() * 2);
+-    let offsets = node_count
+-        .saturating_add(1)
+-        .saturating_mul(size_of::<usize>())
+-        .saturating_mul(2);
+-    let edges = edge_count
+-        .saturating_mul(size_of::<CsrEdge>())
+-        .saturating_mul(2);
++    let indexes = node_count.saturating_mul(size_of::<(NodeId, usize)>());
++    let offsets = bucket_count
++        .saturating_mul(node_count.saturating_add(1))
++        .saturating_mul(size_of::<usize>());
++    let edges = edge_count.saturating_mul(size_of::<CsrEdge>());
+     nodes
+         .saturating_add(indexes)
+         .saturating_add(offsets)
+         .saturating_add(edges) as u64
+ }
+ 
+ #[cfg(test)]
+ mod tests {
+     use super::*;
+ 
+@@ -351,89 +439,256 @@ mod tests {
+     }
+ 
+     fn relationship(value: u64) -> RelationshipId {
+         RelationshipId::new(value).unwrap()
+     }
+ 
+     fn relationship_type(value: u32) -> RelationshipTypeId {
+         RelationshipTypeId::new(value).unwrap()
+     }
+ 
+-    #[test]
+-    fn builds_forward_and_reverse_csr_without_query_time_edge_scans() {
+-        let graph = Graph::build(
+-            [node(1), node(2), node(3)],
++    fn role(value: u32) -> RoleId {
++        RoleId::new(value).unwrap()
++    }
++
++    /// A binary "KNOWS"-shaped graph: one relationship, roles 1 ("start")
++    /// and 2 ("end"), stored as both directed pairs (the same two rows the
++    /// old forward/reverse CSR always built).
++    fn binary_graph() -> Graph {
++        Graph::build(
++            [node(1), node(2)],
+             [
+                 EdgeInput {
+                     relationship: relationship(10),
++                    from_role: role(1),
++                    to_role: role(2),
+                     source: node(1),
+                     target: node(2),
+                     relationship_type: relationship_type(1),
+                     weight: None,
+                 },
+                 EdgeInput {
+-                    relationship: relationship(11),
+-                    source: node(3),
+-                    target: node(2),
+-                    relationship_type: relationship_type(2),
+-                    weight: Some(7),
++                    relationship: relationship(10),
++                    from_role: role(2),
++                    to_role: role(1),
++                    source: node(2),
++                    target: node(1),
++                    relationship_type: relationship_type(1),
++                    weight: None,
+                 },
+             ],
+             BuildLimits::default(),
+         )
+-        .unwrap();
++        .unwrap()
++    }
+ 
++    /// A ternary relationship over three roles (1 = scribe, 2 = text, 3 =
++    /// folio), stored as all six ordered pairs the way a snapshot builder
++    /// would emit them.
++    fn ternary_graph() -> Graph {
++        let pairs = [(1, 2), (1, 3), (2, 1), (2, 3), (3, 1), (3, 2)];
++        let edges = pairs.map(|(from, to)| EdgeInput {
++            relationship: relationship(1),
++            from_role: role(from),
++            to_role: role(to),
++            source: node(from as u64),
++            target: node(to as u64),
++            relationship_type: relationship_type(1),
++            weight: None,
++        });
++        Graph::build([node(1), node(2), node(3)], edges, BuildLimits::default()).unwrap()
++    }
++
++    #[test]
++    fn adjacency_is_keyed_by_the_role_pair_it_was_built_from() {
++        // A single forward/reverse pair cannot hold a ternary relation's six
++        // directed pairs; merging them would let a scribe->text hop return a
++        // folio.
++        let graph = ternary_graph();
++        let scribe_to_text = graph
++            .neighbors(node(1), &[(relationship_type(1), role(1), role(2))])
++            .into_iter()
++            .map(|neighbor| neighbor.node)
++            .collect::<Vec<_>>();
++        assert_eq!(scribe_to_text, vec![node(2)]);
++        let scribe_to_folio = graph
++            .neighbors(node(1), &[(relationship_type(1), role(1), role(3))])
++            .into_iter()
++            .map(|neighbor| neighbor.node)
++            .collect::<Vec<_>>();
++        assert_eq!(scribe_to_folio, vec![node(3)]);
++    }
++
++    #[test]
++    fn a_two_role_graph_has_exactly_the_two_pairs_it_had_as_forward_and_reverse() {
++        let graph = binary_graph();
++        assert_eq!(graph.adjacency.len(), 2, "one per direction, as before");
++    }
++
++    #[test]
++    fn neighbors_carry_the_role_pair_the_hop_traversed() {
++        let graph = binary_graph();
++        let neighbors = graph.neighbors(node(1), &[(relationship_type(1), role(1), role(2))]);
+         assert_eq!(
+-            graph.neighbors(node(2), Direction::Incoming, &[]).unwrap(),
+-            vec![
+-                Neighbor {
+-                    node: node(1),
+-                    relationship: relationship(10),
++            neighbors,
++            vec![Neighbor {
++                node: node(2),
++                relationship: relationship(10),
++                relationship_type: relationship_type(1),
++                from_role: role(1),
++                to_role: role(2),
++                weight: 1,
++            }]
++        );
++    }
++
++    #[test]
++    fn merging_a_pair_with_its_reverse_dedups_a_self_loop_but_not_distinct_relationships() {
++        // A symmetric traversal merges (from, to) with (to, from). A
++        // relationship whose source and target are the same node then ties
++        // in both lanes on the exact same (node_index, relationship) key and
++        // must be emitted once, exactly as the old take_both merge did. A
++        // distinct relationship stored in only one of the two lanes is not a
++        // tie and must still be kept, once.
++        let graph = Graph::build(
++            [node(1), node(2)],
++            [
++                // A self-loop on node 1: both directions of the pair land on
++                // the same node, so the two lanes tie.
++                EdgeInput {
++                    relationship: relationship(20),
++                    from_role: role(1),
++                    to_role: role(2),
++                    source: node(1),
++                    target: node(1),
+                     relationship_type: relationship_type(1),
+-                    weight: 1,
++                    weight: None,
+                 },
+-                Neighbor {
+-                    node: node(3),
+-                    relationship: relationship(11),
+-                    relationship_type: relationship_type(2),
+-                    weight: 7,
++                EdgeInput {
++                    relationship: relationship(20),
++                    from_role: role(2),
++                    to_role: role(1),
++                    source: node(1),
++                    target: node(1),
++                    relationship_type: relationship_type(1),
++                    weight: None,
+                 },
+-            ]
++                // A distinct, non-looping relationship stored in only the
++                // forward lane: nothing to tie against, so it must survive.
++                EdgeInput {
++                    relationship: relationship(21),
++                    from_role: role(1),
++                    to_role: role(2),
++                    source: node(1),
++                    target: node(2),
++                    relationship_type: relationship_type(1),
++                    weight: None,
++                },
++            ],
++            BuildLimits::default(),
++        )
++        .unwrap();
++        let neighbors = graph.neighbors(
++            node(1),
++            &[
++                (relationship_type(1), role(1), role(2)),
++                (relationship_type(1), role(2), role(1)),
++            ],
++        );
++        let mut relationships = neighbors
++            .iter()
++            .map(|neighbor| neighbor.relationship)
++            .collect::<Vec<_>>();
++        relationships.sort();
++        assert_eq!(
++            relationships,
++            vec![relationship(20), relationship(21)],
++            "the self-loop is emitted exactly once despite tying in both lanes; \
++             the distinct relationship is unaffected"
+         );
+     }
+ 
++    #[test]
++    fn an_unknown_node_yields_an_empty_cursor_rather_than_an_error() {
++        // The traversal and shortest-path engines validate the start node
++        // once, up front, and only ever step from nodes already known to
++        // exist; a missing lane is therefore a normal "nothing here", not a
++        // fault.
++        let graph = binary_graph();
++        assert!(graph
++            .neighbors(node(99), &[(relationship_type(1), role(1), role(2))])
++            .is_empty());
++    }
++
+     #[test]
+     fn rejects_invalid_endpoints_duplicates_and_build_limits() {
+         let edge = EdgeInput {
+             relationship: relationship(10),
++            from_role: role(1),
++            to_role: role(2),
+             source: node(1),
+             target: node(2),
+             relationship_type: relationship_type(1),
+             weight: None,
+         };
+         assert!(matches!(
+             Graph::build([node(1)], [edge], BuildLimits::default()),
+             Err(RuntimeError::UnknownEndpoint {
+                 endpoint: "target",
+                 ..
+             })
+         ));
+         assert!(matches!(
+             Graph::build([node(1), node(1)], [], BuildLimits::default()),
+             Err(RuntimeError::DuplicateNode(_))
+         ));
++        assert!(matches!(
++            Graph::build([node(1), node(2)], [edge, edge], BuildLimits::default()),
++            Err(RuntimeError::DuplicateRelationship(_))
++        ));
+         assert!(matches!(
+             Graph::build(
+                 [node(1), node(2)],
+                 [edge],
+                 BuildLimits {
+                     max_edges: 0,
+                     ..BuildLimits::default()
+                 }
+             ),
+             Err(RuntimeError::LimitExceeded {
+                 kind: LimitKind::Edges,
+                 ..
+             })
+         ));
+     }
++
++    #[test]
++    fn resolve_pairs_defaults_to_every_type_stored_under_the_pair_and_symmetric_adds_the_reverse() {
++        let graph = binary_graph();
++        assert_eq!(
++            graph.resolve_pairs(&[], role(1), role(2), false),
++            vec![(relationship_type(1), role(1), role(2))]
++        );
++        let mut symmetric = graph.resolve_pairs(&[], role(1), role(2), true);
++        symmetric.sort();
++        assert_eq!(
++            symmetric,
++            vec![
++                (relationship_type(1), role(1), role(2)),
++                (relationship_type(1), role(2), role(1)),
++            ]
++        );
++        assert_eq!(
++            graph.resolve_pairs(&[relationship_type(9)], role(1), role(2), false),
++            vec![(relationship_type(9), role(1), role(2))],
++            "an explicit type list is used as-is, even if the pair does not exist"
++        );
++    }
++
++    #[test]
++    fn edge_count_is_the_physical_relationship_count_not_the_stored_row_count() {
++        // A binary relationship stores two rows (one per direction) but is
++        // one relationship; a ternary one stores six but is still one.
++        assert_eq!(binary_graph().edge_count(), 1);
++        assert_eq!(ternary_graph().edge_count(), 1);
++    }
+ }
+diff --git a/graph/runtime/src/error.rs b/graph/runtime/src/error.rs
+index 81a613a68..58ad54b1b 100644
+--- a/graph/runtime/src/error.rs
++++ b/graph/runtime/src/error.rs
+@@ -30,20 +30,26 @@ pub enum RuntimeError {
+     #[error("{kind:?} resource limit exceeded: limit {limit}")]
+     LimitExceeded { kind: LimitKind, limit: u64 },
+     #[error("graph operation was cancelled")]
+     Cancelled,
+     #[error("path cost overflowed u64")]
+     CostOverflow,
+     #[error("unsupported path combination: {reason}")]
+     UnsupportedPathCombination { reason: &'static str },
+     #[error("path algorithm {algorithm} is sound but not implemented")]
+     PathAlgorithmNotImplemented { algorithm: &'static str },
++    #[error("variable-length traversal over a relation with {arity} roles must name a role pair")]
++    RolePairRequired { arity: usize },
+ }
+ 
+ impl From<crate::PathPolicyError> for RuntimeError {
+     fn from(error: crate::PathPolicyError) -> Self {
+-        let crate::PathPolicyError::Unsupported { reason, .. } = error;
+-        Self::UnsupportedPathCombination { reason }
++        match error {
++            crate::PathPolicyError::Unsupported { reason, .. } => {
++                Self::UnsupportedPathCombination { reason }
++            }
++            crate::PathPolicyError::RolePairRequired { arity } => Self::RolePairRequired { arity },
++        }
+     }
+ }
+ 
+ pub type RuntimeResult<T> = Result<T, RuntimeError>;
+diff --git a/graph/runtime/src/path_policy.rs b/graph/runtime/src/path_policy.rs
+index ba1dc7d13..88632011e 100644
+--- a/graph/runtime/src/path_policy.rs
++++ b/graph/runtime/src/path_policy.rs
+@@ -8,25 +8,25 @@
+ //! cycle, and shortest simple path with negative weights is NP-hard. The table
+ //! is written before the syntax so nobody has to make those calls under
+ //! pressure, and `resolve_path_algorithm` is total: every combination has a
+ //! verdict, and no combination falls through to a default.
+ //!
+ //! Weights are `u64` today (`EdgeInput.weight`, `Path.total_weight`), so
+ //! `WeightClass::Negative` is unreachable from the current type. The rows exist
+ //! so that widening the weight type trips a policy error instead of quietly
+ //! feeding negative edges to Dijkstra.
+ 
+-use turso_graph_ir::PathUniqueness;
++use turso_graph_ir::{PathUniqueness, RoleId};
+ 
+ /// Bump on any change to the table below, and mirror into
+ /// `turso_graph_ir::SEMANTIC_PROFILE.path_policy_version`.
+-pub const PATH_POLICY_VERSION: u32 = 1;
++pub const PATH_POLICY_VERSION: u32 = 2;
+ 
+ /// How many of the matching paths the caller wants.
+ #[derive(Clone, Copy, Debug, Eq, PartialEq)]
+ pub enum PathSelector {
+     /// Every matching path.
+     All,
+     /// Any one matching path; the caller does not care which.
+     Any,
+     /// One path of minimum cost.
+     Shortest,
+@@ -90,27 +90,57 @@ impl PathAlgorithm {
+ 
+ #[derive(Clone, Copy, Debug, Eq, PartialEq, thiserror::Error)]
+ pub enum PathPolicyError {
+     #[error("{uniqueness:?}/{selector:?} with {weights:?} weights is not supported: {reason}")]
+     Unsupported {
+         uniqueness: PathUniqueness,
+         selector: PathSelector,
+         weights: WeightClass,
+         reason: &'static str,
+     },
++    /// A relation with `arity` roles exposes `arity * (arity - 1)` directed
++    /// pairs. Past arity 2 there is more than one, so picking one silently
++    /// would answer a question the author did not ask.
++    #[error(
++        "variable-length traversal over a relation with {arity} roles must name a role pair: \
++         it exposes {} directed pairs",
++        arity * (arity - 1)
++    )]
++    RolePairRequired { arity: usize },
+ }
+ 
+ /// The legality table. Total over every combination.
++///
++/// `arity` is the number of roles the relation declares; `role_pair` is the
++/// ordered pair of roles the caller picked to traverse. Arity 2 has exactly
++/// one directed pair per direction, so it needs no `role_pair` and falls
++/// through to [`resolve_selector`] unchanged: binary is a layout, not a kind.
+ pub fn resolve_path_algorithm(
+     uniqueness: PathUniqueness,
+     selector: PathSelector,
+     weights: WeightClass,
++    arity: usize,
++    role_pair: Option<(RoleId, RoleId)>,
++) -> Result<PathAlgorithm, PathPolicyError> {
++    if arity > 2 && role_pair.is_none() {
++        return Err(PathPolicyError::RolePairRequired { arity });
++    }
++    resolve_selector(uniqueness, selector, weights)
++}
++
++/// The arity-blind legality table: which algorithm answers a given
++/// uniqueness/selector/weight combination once a role pair (or arity 2,
++/// which needs none) has already been settled.
++fn resolve_selector(
++    uniqueness: PathUniqueness,
++    selector: PathSelector,
++    weights: WeightClass,
+ ) -> Result<PathAlgorithm, PathPolicyError> {
+     let refuse = |reason| {
+         Err(PathPolicyError::Unsupported {
+             uniqueness,
+             selector,
+             weights,
+             reason,
+         })
+     };
+ 
+@@ -186,40 +216,48 @@ mod tests {
+     #[test]
+     fn unweighted_shortest_is_breadth_first_under_every_uniqueness() {
+         // In an unweighted graph a shortest walk never repeats a node, so BFS
+         // is correct for Walk, Trail, and Path alike.
+         for uniqueness in [
+             PathUniqueness::Walk,
+             PathUniqueness::Trail,
+             PathUniqueness::Path,
+         ] {
+             assert_eq!(
+-                resolve_path_algorithm(uniqueness, PathSelector::Shortest, WeightClass::Unweighted),
++                resolve_path_algorithm(
++                    uniqueness,
++                    PathSelector::Shortest,
++                    WeightClass::Unweighted,
++                    2,
++                    None
++                ),
+                 Ok(PathAlgorithm::BreadthFirst)
+             );
+         }
+     }
+ 
+     #[test]
+     fn non_negative_weighted_shortest_is_dijkstra_under_every_uniqueness() {
+         // With non-negative weights a shortest walk is again always simple, so
+         // the trail and acyclic constraints cost nothing.
+         for uniqueness in [
+             PathUniqueness::Walk,
+             PathUniqueness::Trail,
+             PathUniqueness::Path,
+         ] {
+             assert_eq!(
+                 resolve_path_algorithm(
+                     uniqueness,
+                     PathSelector::Shortest,
+-                    WeightClass::NonNegative
++                    WeightClass::NonNegative,
++                    2,
++                    None
+                 ),
+                 Ok(PathAlgorithm::Dijkstra)
+             );
+         }
+     }
+ 
+     #[test]
+     fn negative_weights_have_no_shortest_path_answer_we_will_give() {
+         // Dijkstra is silently wrong with negative weights; a negative cycle
+         // makes a shortest walk undefined; and shortest simple path with
+@@ -228,78 +266,83 @@ mod tests {
+             PathUniqueness::Walk,
+             PathUniqueness::Trail,
+             PathUniqueness::Path,
+         ] {
+             for selector in [
+                 PathSelector::Shortest,
+                 PathSelector::AllShortest,
+                 PathSelector::ShortestK(2),
+             ] {
+                 assert!(
+-                    resolve_path_algorithm(uniqueness, selector, WeightClass::Negative).is_err(),
++                    resolve_path_algorithm(uniqueness, selector, WeightClass::Negative, 2, None)
++                        .is_err(),
+                     "{uniqueness:?}/{selector:?} must refuse negative weights"
+                 );
+             }
+         }
+     }
+ 
+     #[test]
+     fn any_path_is_breadth_first_and_weight_blind() {
+         for weights in [
+             WeightClass::Unweighted,
+             WeightClass::NonNegative,
+             WeightClass::Negative,
+         ] {
+             assert_eq!(
+-                resolve_path_algorithm(PathUniqueness::Trail, PathSelector::Any, weights),
++                resolve_path_algorithm(PathUniqueness::Trail, PathSelector::Any, weights, 2, None),
+                 Ok(PathAlgorithm::BreadthFirst),
+                 "ANY asks for existence, which no weight sign changes"
+             );
+         }
+     }
+ 
+     #[test]
+     fn all_paths_enumerate_and_do_not_care_about_weight_sign() {
+         for weights in [
+             WeightClass::Unweighted,
+             WeightClass::NonNegative,
+             WeightClass::Negative,
+         ] {
+             assert_eq!(
+-                resolve_path_algorithm(PathUniqueness::Trail, PathSelector::All, weights),
++                resolve_path_algorithm(PathUniqueness::Trail, PathSelector::All, weights, 2, None),
+                 Ok(PathAlgorithm::DepthFirstEnumeration)
+             );
+         }
+     }
+ 
+     #[test]
+     fn all_paths_over_walks_are_refused_because_a_cycle_makes_them_infinite() {
+         assert!(matches!(
+             resolve_path_algorithm(
+                 PathUniqueness::Walk,
+                 PathSelector::All,
+-                WeightClass::Unweighted
++                WeightClass::Unweighted,
++                2,
++                None
+             ),
+             Err(PathPolicyError::Unsupported { .. })
+         ));
+     }
+ 
+     #[test]
+     fn k_shortest_is_declared_sound_but_not_built() {
+         // Soundness and availability are different questions. Answering them
+         // with one error would let "we have not built it" read as "it cannot
+         // be done", and the next person would design around a wrong table.
+         assert_eq!(
+             resolve_path_algorithm(
+                 PathUniqueness::Path,
+                 PathSelector::ShortestK(3),
+-                WeightClass::NonNegative
++                WeightClass::NonNegative,
++                2,
++                None
+             ),
+             Ok(PathAlgorithm::YenKShortest)
+         );
+         assert!(
+             !PathAlgorithm::YenKShortest.is_implemented(),
+             "Yen is sound and unbuilt; saying otherwise would promise a search that does not exist"
+         );
+         assert!(PathAlgorithm::BreadthFirst.is_implemented());
+         assert!(PathAlgorithm::Dijkstra.is_implemented());
+     }
+@@ -318,30 +361,147 @@ mod tests {
+                 PathSelector::Any,
+                 PathSelector::Shortest,
+                 PathSelector::AllShortest,
+                 PathSelector::ShortestK(2),
+             ] {
+                 for weights in [
+                     WeightClass::Unweighted,
+                     WeightClass::NonNegative,
+                     WeightClass::Negative,
+                 ] {
+-                    let verdict = resolve_path_algorithm(uniqueness, selector, weights);
++                    // arity/role_pair held at the arity-2/no-pair case: this test's
++                    // job is the uniqueness/selector/weight space, not arity, which
++                    // has its own tests below.
++                    let verdict = resolve_path_algorithm(uniqueness, selector, weights, 2, None);
+                     assert!(
+                         verdict.is_ok() || verdict.is_err(),
+                         "unreachable, but the call must not panic"
+                     );
+                 }
+             }
+         }
+     }
+ 
++    #[test]
++    fn a_relation_with_more_than_two_roles_requires_an_explicit_role_pair() {
++        // A k-role relation exposes k*(k-1) directed pairs. Picking one is a
++        // guess about which traversal the author meant, and the wrong guess
++        // returns a plausible, wrong path.
++        assert!(matches!(
++            resolve_path_algorithm(
++                PathUniqueness::Trail,
++                PathSelector::Shortest,
++                WeightClass::Unweighted,
++                3,
++                None,
++            ),
++            Err(PathPolicyError::RolePairRequired { arity: 3 })
++        ));
++    }
++
++    #[test]
++    fn a_two_role_relation_needs_no_explicit_pair_because_there_is_only_one() {
++        // Arity 2 has exactly one ordered pair per direction, so there is
++        // nothing to guess and every existing query keeps working.
++        assert_eq!(
++            resolve_path_algorithm(
++                PathUniqueness::Trail,
++                PathSelector::Shortest,
++                WeightClass::Unweighted,
++                2,
++                None,
++            ),
++            Ok(PathAlgorithm::BreadthFirst)
++        );
++    }
++
++    #[test]
++    fn an_explicit_pair_over_a_ternary_relation_resolves_normally() {
++        assert_eq!(
++            resolve_path_algorithm(
++                PathUniqueness::Trail,
++                PathSelector::Shortest,
++                WeightClass::Unweighted,
++                3,
++                Some((RoleId::new(1).unwrap(), RoleId::new(2).unwrap())),
++            ),
++            Ok(PathAlgorithm::BreadthFirst)
++        );
++    }
++
++    #[test]
++    fn arity_three_with_no_pair_is_refused_over_every_uniqueness_selector_and_weight() {
++        // The arity guard sits in front of the selector match, so it must
++        // refuse every combination the same way, not just the one case above.
++        for uniqueness in [
++            PathUniqueness::Walk,
++            PathUniqueness::Trail,
++            PathUniqueness::Path,
++        ] {
++            for selector in [
++                PathSelector::All,
++                PathSelector::Any,
++                PathSelector::Shortest,
++                PathSelector::AllShortest,
++                PathSelector::ShortestK(2),
++            ] {
++                for weights in [
++                    WeightClass::Unweighted,
++                    WeightClass::NonNegative,
++                    WeightClass::Negative,
++                ] {
++                    assert!(
++                        matches!(
++                            resolve_path_algorithm(uniqueness, selector, weights, 3, None),
++                            Err(PathPolicyError::RolePairRequired { arity: 3 })
++                        ),
++                        "{uniqueness:?}/{selector:?}/{weights:?} at arity 3 with no role pair \
++                         must be refused, not guessed"
++                    );
++                }
++            }
++        }
++    }
++
++    #[test]
++    fn arity_two_with_no_pair_matches_the_arity_blind_table_exactly() {
++        // Binary is a layout, not a kind: a two-role relation with no role
++        // pair must fall through to exactly the verdict the table gave
++        // before arity existed. A future special case for binary here would
++        // make this comparison fail.
++        for uniqueness in [
++            PathUniqueness::Walk,
++            PathUniqueness::Trail,
++            PathUniqueness::Path,
++        ] {
++            for selector in [
++                PathSelector::All,
++                PathSelector::Any,
++                PathSelector::Shortest,
++                PathSelector::AllShortest,
++                PathSelector::ShortestK(2),
++            ] {
++                for weights in [
++                    WeightClass::Unweighted,
++                    WeightClass::NonNegative,
++                    WeightClass::Negative,
++                ] {
++                    assert_eq!(
++                        resolve_path_algorithm(uniqueness, selector, weights, 2, None),
++                        resolve_selector(uniqueness, selector, weights),
++                        "{uniqueness:?}/{selector:?}/{weights:?} diverged from the arity-blind table"
++                    );
++                }
++            }
++        }
++    }
++
+     #[test]
+     fn the_semantic_profile_mirrors_this_policy_version() {
+         // The IR crate cannot depend on the runtime, so the mirror is checked
+         // from the side that can see both.
+         assert_eq!(
+             turso_graph_ir::SEMANTIC_PROFILE.path_policy_version,
+             PATH_POLICY_VERSION,
+             "bump SEMANTIC_PROFILE_VERSION and its pinned digest alongside PATH_POLICY_VERSION"
+         );
+     }
+diff --git a/graph/runtime/src/shortest.rs b/graph/runtime/src/shortest.rs
+index c3e88edb5..aaa441b90 100644
+--- a/graph/runtime/src/shortest.rs
++++ b/graph/runtime/src/shortest.rs
+@@ -5,98 +5,117 @@
+ // Adaptation: structural-adaptation
+ // Changes: Replaced pgGraph node stores and projection neighbors with Turso
+ // graph identities and owned CSR access; added shared cancellation and resource
+ // accounting to unweighted BFS and weighted Dijkstra traversal; added path-policy
+ // resolution.
+ 
+ use std::cmp::Ordering;
+ use std::collections::{BinaryHeap, HashMap, HashSet, VecDeque};
+ use std::mem::size_of;
+ 
+-use turso_graph_ir::{Direction, NodeId, PathUniqueness, RelationshipTypeId};
++use turso_graph_ir::{NodeId, PathUniqueness, RelationshipTypeId, RoleId};
+ 
+ use crate::{
+     limits::Budget, resolve_path_algorithm, Cancellation, Graph, Path, PathAlgorithm, PathSelector,
+     RuntimeError, RuntimeResult, TraversalLimits, WeightClass,
+ };
+ 
+ #[derive(Clone, Debug, Eq, PartialEq)]
+ pub struct ShortestPathRequest {
+     pub source: NodeId,
+     pub target: NodeId,
+-    pub direction: Direction,
++    /// The role the path departs by at every hop.
++    pub from_role: RoleId,
++    /// The role the path arrives by at every hop.
++    pub to_role: RoleId,
++    /// When true, also traverse the reverse `(to_role, from_role)` pair,
++    /// unioning both directions the way `Direction::Both` used to.
++    pub symmetric: bool,
++    /// Empty means "every relationship type stored under this role pair".
+     pub relationship_types: Vec<RelationshipTypeId>,
+     pub max_hops: u32,
+ }
+ 
+ pub fn shortest_path(
+     graph: &Graph,
+     request: &ShortestPathRequest,
+     limits: TraversalLimits,
+     cancellation: &dyn Cancellation,
+ ) -> RuntimeResult<Option<Path>> {
+     validate_request(graph, request)?;
+     // Unweighted single shortest path over walks. Stated rather than assumed,
+     // so a future caller cannot reach this BFS with a combination the table
+     // refuses.
+     debug_assert_eq!(
+         resolve_path_algorithm(
+             PathUniqueness::Walk,
+             PathSelector::Shortest,
+-            WeightClass::Unweighted
++            WeightClass::Unweighted,
++            2,
++            None
+         ),
+         Ok(PathAlgorithm::BreadthFirst)
+     );
+     let mut budget = Budget::new(limits)?;
+     budget.require_hops(request.max_hops)?;
+     let initial = Path {
+         nodes: vec![request.source],
+         relationships: Vec::new(),
+         relationship_types: Vec::new(),
++        from_roles: Vec::new(),
++        to_roles: Vec::new(),
+         total_weight: 0,
+     };
+     budget.node()?;
+     budget.retain_memory(path_memory(&initial))?;
+     let mut frontier = VecDeque::from([initial]);
+     let mut visited = HashSet::from([request.source]);
+     budget.retain_memory(size_of::<NodeId>())?;
++    let pairs = graph.resolve_pairs(
++        &request.relationship_types,
++        request.from_role,
++        request.to_role,
++        request.symmetric,
++    );
+ 
+     while let Some(path) = frontier.pop_front() {
+         if cancellation.is_cancelled() {
+             return Err(RuntimeError::Cancelled);
+         }
+         budget.work()?;
+         budget.release_memory(path_memory(&path));
+         let current = *path.nodes.last().expect("shortest path always has a node");
+         if current == request.target {
+             budget.path()?;
+             budget.retain_memory(path_memory(&path))?;
+             return Ok(Some(path));
+         }
+         if path.relationships.len() as u32 == request.max_hops {
+             continue;
+         }
+-        for neighbor in graph.neighbors(current, request.direction, &request.relationship_types)? {
++        for neighbor in graph.neighbors(current, &pairs) {
+             if cancellation.is_cancelled() {
+                 return Err(RuntimeError::Cancelled);
+             }
+             budget.work()?;
+             budget.edge()?;
+             if !visited.insert(neighbor.node) {
+                 continue;
+             }
+             budget.node()?;
+             budget.retain_memory(size_of::<NodeId>())?;
+             let mut child = path.clone();
+             child.nodes.push(neighbor.node);
+             child.relationships.push(neighbor.relationship);
+             child.relationship_types.push(neighbor.relationship_type);
++            child.from_roles.push(neighbor.from_role);
++            child.to_roles.push(neighbor.to_role);
+             child.total_weight = child
+                 .total_weight
+                 .checked_add(neighbor.weight)
+                 .ok_or(RuntimeError::CostOverflow)?;
+             budget.retain_memory(path_memory(&child))?;
+             frontier.push_back(child);
+         }
+     }
+     Ok(None)
+ }
+@@ -137,43 +156,53 @@ pub fn weighted_shortest_path(
+     cancellation: &dyn Cancellation,
+ ) -> RuntimeResult<Option<Path>> {
+     validate_request(graph, request)?;
+     // Non-negative weighted single shortest path over walks. Weights are `u64`,
+     // so the negative row the table refuses is unreachable from this type; the
+     // assertion is what makes that dependency explicit.
+     debug_assert_eq!(
+         resolve_path_algorithm(
+             PathUniqueness::Walk,
+             PathSelector::Shortest,
+-            WeightClass::NonNegative
++            WeightClass::NonNegative,
++            2,
++            None
+         ),
+         Ok(PathAlgorithm::Dijkstra)
+     );
+     let mut budget = Budget::new(limits)?;
+     budget.require_hops(request.max_hops)?;
+     let initial = Path {
+         nodes: vec![request.source],
+         relationships: Vec::new(),
+         relationship_types: Vec::new(),
++        from_roles: Vec::new(),
++        to_roles: Vec::new(),
+         total_weight: 0,
+     };
+     let mut heap = BinaryHeap::new();
+     budget.node()?;
+     budget.retain_memory(path_memory(&initial))?;
+     heap.push(WeightedState {
+         cost: 0,
+         serial: 0,
+         path: initial,
+     });
+     let mut distances = HashMap::from([((request.source, 0), 0)]);
+     budget.retain_memory(size_of::<((NodeId, u32), u64)>())?;
+     let mut serial = 1u64;
++    let pairs = graph.resolve_pairs(
++        &request.relationship_types,
++        request.from_role,
++        request.to_role,
++        request.symmetric,
++    );
+ 
+     while let Some(state) = heap.pop() {
+         if cancellation.is_cancelled() {
+             return Err(RuntimeError::Cancelled);
+         }
+         budget.work()?;
+         budget.release_memory(path_memory(&state.path));
+         let current = *state
+             .path
+             .nodes
+@@ -184,21 +213,21 @@ pub fn weighted_shortest_path(
+             continue;
+         }
+         if current == request.target {
+             budget.path()?;
+             budget.retain_memory(path_memory(&state.path))?;
+             return Ok(Some(state.path));
+         }
+         if hops == request.max_hops {
+             continue;
+         }
+-        for neighbor in graph.neighbors(current, request.direction, &request.relationship_types)? {
++        for neighbor in graph.neighbors(current, &pairs) {
+             if cancellation.is_cancelled() {
+                 return Err(RuntimeError::Cancelled);
+             }
+             budget.work()?;
+             budget.edge()?;
+             let cost = state
+                 .cost
+                 .checked_add(neighbor.weight)
+                 .ok_or(RuntimeError::CostOverflow)?;
+             let key = (neighbor.node, hops + 1);
+@@ -206,20 +235,22 @@ pub fn weighted_shortest_path(
+                 continue;
+             }
+             if distances.insert(key, cost).is_none() {
+                 budget.retain_memory(size_of::<((NodeId, u32), u64)>())?;
+             }
+             budget.node()?;
+             let mut path = state.path.clone();
+             path.nodes.push(neighbor.node);
+             path.relationships.push(neighbor.relationship);
+             path.relationship_types.push(neighbor.relationship_type);
++            path.from_roles.push(neighbor.from_role);
++            path.to_roles.push(neighbor.to_role);
+             path.total_weight = cost;
+             budget.retain_memory(path_memory(&path))?;
+             heap.push(WeightedState { cost, serial, path });
+             serial = serial.checked_add(1).ok_or(RuntimeError::CostOverflow)?;
+         }
+     }
+     Ok(None)
+ }
+ 
+ fn validate_request(graph: &Graph, request: &ShortestPathRequest) -> RuntimeResult<()> {
+@@ -258,35 +289,43 @@ mod tests {
+     }
+ 
+     fn relationship(value: u64) -> RelationshipId {
+         RelationshipId::new(value).unwrap()
+     }
+ 
+     fn kind(value: u32) -> RelationshipTypeId {
+         RelationshipTypeId::new(value).unwrap()
+     }
+ 
++    fn role(value: u32) -> RoleId {
++        RoleId::new(value).unwrap()
++    }
++
+     fn edge(id: u64, source: u64, target: u64, weight: u64) -> EdgeInput {
+         EdgeInput {
+             relationship: relationship(id),
++            from_role: role(1),
++            to_role: role(2),
+             source: node(source),
+             target: node(target),
+             relationship_type: kind(1),
+             weight: Some(weight),
+         }
+     }
+ 
+     fn request(source: u64, target: u64) -> ShortestPathRequest {
+         ShortestPathRequest {
+             source: node(source),
+             target: node(target),
+-            direction: Direction::Outgoing,
++            from_role: role(1),
++            to_role: role(2),
++            symmetric: false,
+             relationship_types: vec![],
+             max_hops: 8,
+         }
+     }
+ 
+     #[test]
+     fn shortest_path_terminates_on_cycles_and_chooses_direct_route() {
+         let graph = Graph::build(
+             [node(1), node(2), node(3), node(4)],
+             [
+@@ -366,44 +405,50 @@ mod tests {
+         // The table is only protection if the code consults it. These two
+         // entry points are the whole weighted/unweighted surface today; when a
+         // third arrives it must appear here.
+         use crate::{resolve_path_algorithm, PathAlgorithm, PathSelector, WeightClass};
+         use turso_graph_ir::PathUniqueness;
+ 
+         assert_eq!(
+             resolve_path_algorithm(
+                 PathUniqueness::Walk,
+                 PathSelector::Shortest,
+-                WeightClass::Unweighted
++                WeightClass::Unweighted,
++                2,
++                None
+             ),
+             Ok(PathAlgorithm::BreadthFirst),
+             "shortest_path is a BFS and must resolve to one"
+         );
+         assert_eq!(
+             resolve_path_algorithm(
+                 PathUniqueness::Walk,
+                 PathSelector::Shortest,
+-                WeightClass::NonNegative
++                WeightClass::NonNegative,
++                2,
++                None
+             ),
+             Ok(PathAlgorithm::Dijkstra),
+             "weighted_shortest_path is a Dijkstra and must resolve to one"
+         );
+     }
+ 
+     #[test]
+     fn an_unsupported_combination_becomes_a_runtime_error() {
+         use crate::{resolve_path_algorithm, PathSelector, RuntimeError, WeightClass};
+         use turso_graph_ir::PathUniqueness;
+ 
+         let refusal = resolve_path_algorithm(
+             PathUniqueness::Walk,
+             PathSelector::Shortest,
+             WeightClass::Negative,
++            2,
++            None,
+         )
+         .expect_err("negative-weight walks are refused");
+         let error = RuntimeError::from(refusal);
+         assert!(
+             matches!(error, RuntimeError::UnsupportedPathCombination { .. }),
+             "unexpected error: {error}"
+         );
+     }
+ }
+diff --git a/graph/runtime/src/traversal.rs b/graph/runtime/src/traversal.rs
+index 9f9b77706..20ff402e0 100644
+--- a/graph/runtime/src/traversal.rs
++++ b/graph/runtime/src/traversal.rs
+@@ -3,21 +3,21 @@
+ // Path: graph/src/bfs.rs
+ // License: Apache-2.0
+ // Adaptation: structural-adaptation
+ // Changes: Replaced pgGraph node stores, roaring bitmaps, overlays, tenants,
+ // and GUC circuit breakers with typed paths over Turso identities, explicit
+ // per-call budgets, cancellation, and walk/trail/node-simple uniqueness.
+ 
+ use std::collections::VecDeque;
+ use std::mem::size_of;
+ 
+-use turso_graph_ir::{Direction, NodeId, RelationshipId, RelationshipTypeId};
++use turso_graph_ir::{NodeId, RelationshipId, RelationshipTypeId, RoleId};
+ 
+ use crate::{
+     limits::Budget, Cancellation, Graph, NeighborCursor, RuntimeError, RuntimeResult,
+     TraversalLimits,
+ };
+ 
+ #[derive(Clone, Copy, Debug, Eq, PartialEq)]
+ pub enum TraversalOrder {
+     BreadthFirst,
+     DepthFirst,
+@@ -26,64 +26,52 @@ pub enum TraversalOrder {
+ #[derive(Clone, Copy, Debug, Eq, PartialEq)]
+ pub enum Uniqueness {
+     Walk,
+     Trail,
+     Path,
+ }
+ 
+ #[derive(Clone, Debug, Eq, PartialEq)]
+ pub struct TraversalRequest {
+     pub start: NodeId,
+-    pub direction: Direction,
++    /// The role the path departs by at every hop.
++    pub from_role: RoleId,
++    /// The role the path arrives by at every hop.
++    pub to_role: RoleId,
++    /// When true, also traverse the reverse `(to_role, from_role)` pair,
++    /// unioning both directions the way `Direction::Both` used to.
++    pub symmetric: bool,
++    /// Empty means "every relationship type stored under this role pair".
+     pub relationship_types: Vec<RelationshipTypeId>,
+     pub min_hops: u32,
+     pub max_hops: u32,
+     /// When true, `max_hops` is a resource cap on an unbounded pattern
+     /// (`[*]`), not part of the query's meaning: reaching it while a longer
+     /// admissible path exists is an error rather than silent truncation.
+     pub error_at_max_hops: bool,
+     pub uniqueness: Uniqueness,
+     pub order: TraversalOrder,
+ }
+ 
+-impl TraversalRequest {
+-    /// Convenience constructor for the common outgoing-BFS request shape,
+-    /// so callers that only ever want "outgoing" don't have to name
+-    /// `Direction` themselves. Goes away with `direction` once Task 17
+-    /// makes traversal requests role-shaped.
+-    pub fn outgoing(
+-        start: NodeId,
+-        relationship_types: Vec<RelationshipTypeId>,
+-        min_hops: u32,
+-        max_hops: u32,
+-        error_at_max_hops: bool,
+-        uniqueness: Uniqueness,
+-        order: TraversalOrder,
+-    ) -> Self {
+-        Self {
+-            start,
+-            direction: Direction::Outgoing,
+-            relationship_types,
+-            min_hops,
+-            max_hops,
+-            error_at_max_hops,
+-            uniqueness,
+-            order,
+-        }
+-    }
+-}
+-
+ #[derive(Clone, Debug, Eq, PartialEq)]
+ pub struct Path {
+     pub nodes: Vec<NodeId>,
+     pub relationships: Vec<RelationshipId>,
+     pub relationship_types: Vec<RelationshipTypeId>,
++    /// The role each hop's relationship was entered by, parallel to
++    /// `relationships`. A relation can appear in more than one role pair, so
++    /// a path element cannot be read back without recording which one this
++    /// hop used.
++    pub from_roles: Vec<RoleId>,
++    /// The role each hop's relationship was left by, parallel to
++    /// `relationships`.
++    pub to_roles: Vec<RoleId>,
+     pub total_weight: u64,
+ }
+ 
+ /// Resumable traversal state used by execution adapters that cannot
+ /// materialize every matching path before returning the first row.
+ pub struct TraversalCursor {
+     request: TraversalRequest,
+     budget: Budget,
+     frontier: Frontier,
+     active: Option<ActivePath>,
+@@ -174,53 +162,56 @@ impl TraversalCursor {
+                 work += 1;
+                 self.budget.release_memory(state.memory_bytes());
+                 let hops = u32::try_from(state.relationships.len()).map_err(|_| {
+                     RuntimeError::LimitExceeded {
+                         kind: crate::LimitKind::Hops,
+                         limit: u64::from(self.request.max_hops),
+                     }
+                 })?;
+                 let at_cap = hops >= self.request.max_hops;
+                 let expand = !at_cap || self.request.error_at_max_hops;
+-                let neighbors = expand
+-                    .then(|| {
+-                        graph.neighbor_cursor(
+-                            *state.nodes.last().expect("path state always has a node"),
+-                            self.request.direction,
+-                        )
+-                    })
+-                    .transpose()?;
++                let neighbors = expand.then(|| {
++                    let pairs = graph.resolve_pairs(
++                        &self.request.relationship_types,
++                        self.request.from_role,
++                        self.request.to_role,
++                        self.request.symmetric,
++                    );
++                    graph.neighbor_cursor(
++                        *state.nodes.last().expect("path state always has a node"),
++                        &pairs,
++                    )
++                });
+                 self.active = Some(ActivePath {
+                     state,
+                     neighbors,
+                     emit: hops >= self.request.min_hops,
+                     at_cap,
+                 });
+             }
+ 
+             let active = self.active.as_mut().expect("active path was initialized");
+             if let Some(neighbors) = &mut active.neighbors {
+                 if work >= work_quantum {
+                     return Ok(TraversalStep::Pending);
+                 }
+                 if cancellation.is_cancelled() {
+                     return Err(RuntimeError::Cancelled);
+                 }
+                 self.budget.work()?;
+                 work += 1;
+-                match neighbors.step(graph, &self.request.relationship_types) {
+-                    crate::csr::NeighborCursorStep::Filtered => continue,
+-                    crate::csr::NeighborCursorStep::Done => {
++                match neighbors.next() {
++                    None => {
+                         active.neighbors = None;
+                         continue;
+                     }
+-                    crate::csr::NeighborCursorStep::Neighbor(neighbor) => {
++                    Some(neighbor) => {
+                         self.budget.edge()?;
+                         if !allows(
+                             self.request.uniqueness,
+                             &active.state,
+                             neighbor.node,
+                             neighbor.relationship,
+                         ) {
+                             continue;
+                         }
+                         if active.at_cap {
+@@ -228,20 +219,22 @@ impl TraversalCursor {
+                             // results would be silently incomplete.
+                             return Err(RuntimeError::LimitExceeded {
+                                 kind: crate::LimitKind::Hops,
+                                 limit: u64::from(self.request.max_hops),
+                             });
+                         }
+                         let mut child = active.state.clone();
+                         child.nodes.push(neighbor.node);
+                         child.relationships.push(neighbor.relationship);
+                         child.relationship_types.push(neighbor.relationship_type);
++                        child.from_roles.push(neighbor.from_role);
++                        child.to_roles.push(neighbor.to_role);
+                         child.total_weight = child
+                             .total_weight
+                             .checked_add(neighbor.weight)
+                             .ok_or(RuntimeError::CostOverflow)?;
+                         self.budget.node()?;
+                         self.budget.retain_memory(child.memory_bytes())?;
+                         self.frontier.push(child);
+                         continue;
+                     }
+                 }
+@@ -266,61 +259,71 @@ impl Path {
+             .saturating_add(
+                 self.relationships
+                     .len()
+                     .saturating_mul(size_of::<RelationshipId>()),
+             )
+             .saturating_add(
+                 self.relationship_types
+                     .len()
+                     .saturating_mul(size_of::<RelationshipTypeId>()),
+             )
++            .saturating_add(self.from_roles.len().saturating_mul(size_of::<RoleId>()))
++            .saturating_add(self.to_roles.len().saturating_mul(size_of::<RoleId>()))
+     }
+ }
+ 
+ #[derive(Clone)]
+ struct PathState {
+     nodes: Vec<NodeId>,
+     relationships: Vec<RelationshipId>,
+     relationship_types: Vec<RelationshipTypeId>,
++    from_roles: Vec<RoleId>,
++    to_roles: Vec<RoleId>,
+     total_weight: u64,
+ }
+ 
+ impl PathState {
+     fn start(node: NodeId) -> Self {
+         Self {
+             nodes: vec![node],
+             relationships: Vec::new(),
+             relationship_types: Vec::new(),
++            from_roles: Vec::new(),
++            to_roles: Vec::new(),
+             total_weight: 0,
+         }
+     }
+ 
+     fn memory_bytes(&self) -> usize {
+         size_of::<Self>()
+             .saturating_add(self.nodes.len().saturating_mul(size_of::<NodeId>()))
+             .saturating_add(
+                 self.relationships
+                     .len()
+                     .saturating_mul(size_of::<RelationshipId>()),
+             )
+             .saturating_add(
+                 self.relationship_types
+                     .len()
+                     .saturating_mul(size_of::<RelationshipTypeId>()),
+             )
++            .saturating_add(self.from_roles.len().saturating_mul(size_of::<RoleId>()))
++            .saturating_add(self.to_roles.len().saturating_mul(size_of::<RoleId>()))
+     }
+ 
+     fn into_path(self) -> Path {
+         Path {
+             nodes: self.nodes,
+             relationships: self.relationships,
+             relationship_types: self.relationship_types,
++            from_roles: self.from_roles,
++            to_roles: self.to_roles,
+             total_weight: self.total_weight,
+         }
+     }
+ }
+ 
+ enum Frontier {
+     BreadthFirst(VecDeque<PathState>),
+     DepthFirst(Vec<PathState>),
+ }
+ 
+@@ -404,49 +407,59 @@ mod tests {
+     }
+ 
+     fn relationship(value: u64) -> RelationshipId {
+         RelationshipId::new(value).unwrap()
+     }
+ 
+     fn relationship_type(value: u32) -> RelationshipTypeId {
+         RelationshipTypeId::new(value).unwrap()
+     }
+ 
++    fn role(value: u32) -> RoleId {
++        RoleId::new(value).unwrap()
++    }
++
+     fn graph() -> Graph {
+         Graph::build(
+             [node(1), node(2), node(3), node(4), node(5)],
+             [
+                 edge(10, 1, 2, 1),
+                 edge(11, 2, 3, 1),
+                 edge(12, 3, 1, 1),
+                 edge(13, 1, 4, 2),
+                 edge(14, 4, 5, 2),
+             ],
+             BuildLimits::default(),
+         )
+         .unwrap()
+     }
+ 
++    /// One directed role pair (role 1 -> role 2), the shape a `direction:
++    /// Outgoing` request used to read.
+     fn edge(id: u64, source: u64, target: u64, kind: u32) -> EdgeInput {
+         EdgeInput {
+             relationship: relationship(id),
++            from_role: role(1),
++            to_role: role(2),
+             source: node(source),
+             target: node(target),
+             relationship_type: relationship_type(kind),
+             weight: None,
+         }
+     }
+ 
+     fn request(order: TraversalOrder, uniqueness: Uniqueness) -> TraversalRequest {
+         TraversalRequest {
+             start: node(1),
+-            direction: Direction::Outgoing,
++            from_role: role(1),
++            to_role: role(2),
++            symmetric: false,
+             relationship_types: vec![],
+             min_hops: 1,
+             max_hops: 2,
+             error_at_max_hops: false,
+             uniqueness,
+             order,
+         }
+     }
+ 
+     #[test]
+@@ -539,21 +552,23 @@ mod tests {
+ 
+     #[test]
+     fn work_quantum_bounds_no_result_progress_and_resumes_exactly() {
+         let nodes = (1..=102).map(node).collect::<Vec<_>>();
+         let edges = (2..=102)
+             .map(|target| edge(target + 100, 1, target, 1))
+             .collect::<Vec<_>>();
+         let graph = Graph::build(nodes, edges, BuildLimits::default()).unwrap();
+         let request = TraversalRequest {
+             start: node(1),
+-            direction: Direction::Outgoing,
++            from_role: role(1),
++            to_role: role(2),
++            symmetric: false,
+             relationship_types: vec![],
+             min_hops: 2,
+             max_hops: 2,
+             error_at_max_hops: false,
+             uniqueness: Uniqueness::Trail,
+             order: TraversalOrder::BreadthFirst,
+         };
+         let mut cursor = TraversalCursor::new(&graph, request, TraversalLimits::default()).unwrap();
+         let mut pending = 0;
+         loop {
+@@ -594,31 +609,116 @@ mod tests {
+         assert!(traverse(
+             &graph,
+             &trail,
+             TraversalLimits::default(),
+             &crate::NeverCancelled,
+         )
+         .unwrap()
+         .is_empty());
+     }
+ 
++    #[test]
++    fn a_path_records_the_role_pair_each_hop_traversed() {
++        // A relation with more than one role pair cannot be read back from a
++        // path unless each hop remembers which pair it took: a hop to node 2
++        // and a hop to node 3 share nothing but their source node and must
++        // not be confused for each other on the resulting path.
++        let graph = Graph::build(
++            [node(1), node(2), node(3)],
++            [
++                EdgeInput {
++                    relationship: relationship(1),
++                    from_role: role(1),
++                    to_role: role(2),
++                    source: node(1),
++                    target: node(2),
++                    relationship_type: relationship_type(1),
++                    weight: None,
++                },
++                EdgeInput {
++                    relationship: relationship(2),
++                    from_role: role(1),
++                    to_role: role(3),
++                    source: node(1),
++                    target: node(3),
++                    relationship_type: relationship_type(1),
++                    weight: None,
++                },
++            ],
++            BuildLimits::default(),
++        )
++        .unwrap();
++
++        let mut request = TraversalRequest {
++            start: node(1),
++            from_role: role(1),
++            to_role: role(2),
++            symmetric: false,
++            relationship_types: vec![],
++            min_hops: 1,
++            max_hops: 1,
++            error_at_max_hops: false,
++            uniqueness: Uniqueness::Trail,
++            order: TraversalOrder::BreadthFirst,
++        };
++        let paths = traverse(
++            &graph,
++            &request,
++            TraversalLimits::default(),
++            &crate::NeverCancelled,
++        )
++        .unwrap();
++        assert_eq!(paths.len(), 1);
++        assert_eq!(paths[0].from_roles, vec![role(1)]);
++        assert_eq!(paths[0].to_roles, vec![role(2)]);
++
++        request.to_role = role(3);
++        let paths = traverse(
++            &graph,
++            &request,
++            TraversalLimits::default(),
++            &crate::NeverCancelled,
++        )
++        .unwrap();
++        assert_eq!(paths.len(), 1);
++        assert_eq!(paths[0].from_roles, vec![role(1)]);
++        assert_eq!(paths[0].to_roles, vec![role(3)]);
++    }
++
+     #[test]
+     fn walk_can_repeat_a_relationship_that_trail_rejects() {
++        // A symmetric request over role pair (1, 2) merges it with its
++        // reverse, so both directions of the one physical relationship must
++        // be present: `Direction::Both` used to read one shared reverse CSR,
++        // which a role-pair-keyed graph no longer builds implicitly.
+         let graph = Graph::build(
+             [node(1), node(2)],
+-            [edge(10, 1, 2, 1)],
++            [
++                edge(10, 1, 2, 1),
++                EdgeInput {
++                    relationship: relationship(10),
++                    from_role: role(2),
++                    to_role: role(1),
++                    source: node(2),
++                    target: node(1),
++                    relationship_type: relationship_type(1),
++                    weight: None,
++                },
++            ],
+             BuildLimits::default(),
+         )
+         .unwrap();
+         let mut request = TraversalRequest {
+             start: node(1),
+-            direction: Direction::Both,
++            from_role: role(1),
++            to_role: role(2),
++            symmetric: true,
+             relationship_types: vec![],
+             min_hops: 2,
+             max_hops: 2,
+             error_at_max_hops: false,
+             uniqueness: Uniqueness::Walk,
+             order: TraversalOrder::BreadthFirst,
+         };
+         let paths = traverse(
+             &graph,
+             &request,
+@@ -639,21 +739,23 @@ mod tests {
+         )
+         .unwrap()
+         .is_empty());
+     }
+ 
+     #[test]
+     fn zero_hop_range_returns_only_the_seed_without_reading_edges() {
+         let graph = graph();
+         let request = TraversalRequest {
+             start: node(1),
+-            direction: Direction::Outgoing,
++            from_role: role(1),
++            to_role: role(2),
++            symmetric: false,
+             relationship_types: vec![],
+             min_hops: 0,
+             max_hops: 0,
+             error_at_max_hops: false,
+             uniqueness: Uniqueness::Trail,
+             order: TraversalOrder::BreadthFirst,
+         };
+         let paths = traverse(
+             &graph,
+             &request,
+diff --git a/graph/runtime/tests/benchmark_shapes.rs b/graph/runtime/tests/benchmark_shapes.rs
+index 6600f6430..0ef419fd9 100644
+--- a/graph/runtime/tests/benchmark_shapes.rs
++++ b/graph/runtime/tests/benchmark_shapes.rs
+@@ -1,14 +1,14 @@
+ use std::collections::HashSet;
+ 
+ use serde::Deserialize;
+-use turso_graph_ir::{NodeId, RelationshipId, RelationshipTypeId};
++use turso_graph_ir::{NodeId, RelationshipId, RelationshipTypeId, RoleId};
+ use turso_graph_runtime::{BuildLimits, EdgeInput, Graph, LimitKind, RuntimeError};
+ 
+ const MANIFEST: &str = include_str!("../../testdata/benchmarks/manifest.toml");
+ 
+ #[derive(Deserialize)]
+ struct Manifest {
+     version: u32,
+     purpose: String,
+     shape: Vec<ShapeFixture>,
+ }
+@@ -41,20 +41,22 @@ fn fixture(shape: &str, node_count: u64) -> (Vec<NodeId>, Vec<EdgeInput>) {
+             .map(|source| (source, source % node_count + 1))
+             .collect(),
+         "high-degree" => (2..=node_count).map(|target| (1, target)).collect(),
+         shape => panic!("unknown benchmark shape {shape}"),
+     };
+     let edges = pairs
+         .into_iter()
+         .enumerate()
+         .map(|(index, (source, target))| EdgeInput {
+             relationship: RelationshipId::new(index as u64 + 1).unwrap(),
++            from_role: RoleId::new(1).unwrap(),
++            to_role: RoleId::new(2).unwrap(),
+             source: node(source),
+             target: node(target),
+             relationship_type: RelationshipTypeId::new(1).unwrap(),
+             weight: None,
+         })
+         .collect();
+     (nodes, edges)
+ }
+ 
+ fn node(value: u64) -> NodeId {
+diff --git a/graph/runtime/tests/pggraph_equivalence.rs b/graph/runtime/tests/pggraph_equivalence.rs
+index 14699e70e..6f9ba24c7 100644
+--- a/graph/runtime/tests/pggraph_equivalence.rs
++++ b/graph/runtime/tests/pggraph_equivalence.rs
+@@ -1,12 +1,12 @@
+ use serde::Deserialize;
+-use turso_graph_ir::{Direction, NodeId, RelationshipId, RelationshipTypeId};
++use turso_graph_ir::{NodeId, RelationshipId, RelationshipTypeId, RoleId};
+ use turso_graph_runtime::{
+     shortest_path, traverse, weighted_shortest_path, BuildLimits, EdgeInput, Graph, NeverCancelled,
+     ShortestPathRequest, TraversalLimits, TraversalOrder, TraversalRequest, Uniqueness,
+ };
+ 
+ const MANIFEST: &str = include_str!("../../testdata/pggraph-runtime/manifest.toml");
+ const REVISION: &str = "d689bcf2b3b52d7f878f61718be69ebcb953affc";
+ 
+ #[derive(Deserialize)]
+ struct Manifest {
+@@ -38,29 +38,56 @@ struct EdgeFixture {
+     source: u64,
+     target: u64,
+     kind: u32,
+     weight: u64,
+ }
+ 
+ fn node(value: u64) -> NodeId {
+     NodeId::new(value).expect("fixture node id must be non-zero")
+ }
+ 
++/// Role 1 ("start") to role 2 ("end") is the synthetic pair every fixture
++/// edge is normalized under.
++fn role(value: u32) -> RoleId {
++    RoleId::new(value).expect("non-zero role")
++}
++
+ fn graph(fixture: &Fixture) -> Graph {
+     Graph::build(
+         fixture.nodes.iter().copied().map(node),
+-        fixture.edges.iter().map(|edge| EdgeInput {
+-            relationship: RelationshipId::new(edge.id).expect("relationship id"),
+-            source: node(edge.source),
+-            target: node(edge.target),
+-            relationship_type: RelationshipTypeId::new(edge.kind).expect("relationship type"),
+-            weight: Some(edge.weight),
++        // pgGraph's donor `Graph::build` stored every edge in both a forward
++        // and a reverse CSR unconditionally; a role-pair-keyed graph only
++        // stores what it is given, so both ordered pairs are supplied here
++        // to keep the "incoming" fixtures answerable exactly as they were.
++        fixture.edges.iter().flat_map(|edge| {
++            let relationship = RelationshipId::new(edge.id).expect("relationship id");
++            let relationship_type = RelationshipTypeId::new(edge.kind).expect("relationship type");
++            [
++                EdgeInput {
++                    relationship,
++                    from_role: role(1),
++                    to_role: role(2),
++                    source: node(edge.source),
++                    target: node(edge.target),
++                    relationship_type,
++                    weight: Some(edge.weight),
++                },
++                EdgeInput {
++                    relationship,
++                    from_role: role(2),
++                    to_role: role(1),
++                    source: node(edge.target),
++                    target: node(edge.source),
++                    relationship_type,
++                    weight: Some(edge.weight),
++                },
++            ]
+         }),
+         BuildLimits::default(),
+     )
+     .expect("fixture graph must build")
+ }
+ 
+ #[test]
+ fn normalized_cases_match_the_pinned_pggraph_behavior() {
+     let manifest: Manifest = toml::from_str(MANIFEST).expect("runtime manifest must parse");
+     assert_eq!(manifest.version, 1);
+@@ -68,55 +95,59 @@ fn normalized_cases_match_the_pinned_pggraph_behavior() {
+     assert!(!manifest.fixture.is_empty());
+ 
+     for fixture in manifest.fixture {
+         assert_eq!(fixture.revision, REVISION, "{} revision", fixture.id);
+         assert_eq!(fixture.license, "Apache-2.0", "{} license", fixture.id);
+         assert!(fixture.source_path.starts_with("graph/src/"));
+         assert!(!fixture.source_case.is_empty());
+         let graph = graph(&fixture);
+         let (mut observed, weight) = match fixture.algorithm.as_str() {
+             "incoming" => {
++                let pairs = graph.resolve_pairs(&[], role(2), role(1), false);
+                 let paths: Vec<Vec<u64>> = graph
+-                    .neighbors(node(fixture.start), Direction::Incoming, &[])
+-                    .expect("incoming neighbors")
++                    .neighbors(node(fixture.start), &pairs)
+                     .into_iter()
+                     .map(|neighbor| vec![fixture.start, neighbor.node.get()])
+                     .collect();
+                 (paths, None)
+             }
+             "traverse" => {
+                 let paths = traverse(
+                     &graph,
+                     &TraversalRequest {
+                         start: node(fixture.start),
+-                        direction: Direction::Outgoing,
++                        from_role: role(1),
++                        to_role: role(2),
++                        symmetric: false,
+                         relationship_types: vec![],
+                         min_hops: 1,
+                         max_hops: fixture.max_hops,
+                         error_at_max_hops: false,
+                         uniqueness: Uniqueness::Trail,
+                         order: TraversalOrder::BreadthFirst,
+                     },
+                     TraversalLimits::default(),
+                     &NeverCancelled,
+                 )
+                 .expect("bounded traversal")
+                 .into_iter()
+                 .map(|path| path.nodes.into_iter().map(NodeId::get).collect())
+                 .collect();
+                 (paths, None)
+             }
+             "shortest" | "weighted" => {
+                 let request = ShortestPathRequest {
+                     source: node(fixture.start),
+                     target: node(fixture.target.expect("shortest target")),
+-                    direction: Direction::Outgoing,
++                    from_role: role(1),
++                    to_role: role(2),
++                    symmetric: false,
+                     relationship_types: vec![],
+                     max_hops: fixture.max_hops,
+                 };
+                 let path = if fixture.algorithm == "shortest" {
+                     shortest_path(
+                         &graph,
+                         &request,
+                         TraversalLimits::default(),
+                         &NeverCancelled,
+                     )

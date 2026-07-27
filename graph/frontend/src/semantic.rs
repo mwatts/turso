@@ -26,7 +26,7 @@ use crate::semantic_constraints::{
 pub(crate) const SEMANTIC_TYPES_TABLE: &str = "__turso_internal_graph_semantic_types";
 pub(crate) const SEMANTIC_PROPERTIES_TABLE: &str = "__turso_internal_graph_semantic_properties";
 pub(crate) const SEMANTIC_OWNERSHIP_TABLE: &str = "__turso_internal_graph_semantic_ownership";
-pub(crate) const SEMANTIC_ENDPOINTS_TABLE: &str = "__turso_internal_graph_semantic_endpoints";
+pub(crate) const SEMANTIC_ROLE_TABLE: &str = "__turso_internal_graph_semantic_roles";
 pub(crate) const SEMANTIC_FRAGMENTS_TABLE: &str = "__turso_internal_graph_semantic_fragments";
 pub(crate) const SEMANTIC_FRAGMENT_MEMBERS_TABLE: &str =
     "__turso_internal_graph_semantic_fragment_members";
@@ -46,7 +46,6 @@ pub struct SemanticSnapshot {
     relationship_types: HashMap<u32, SemanticTypeInfo>,
     fragment_names: HashMap<String, u32>,
     fragments: HashMap<u32, SemanticFragmentInfo>,
-    endpoints: HashMap<u32, EndpointConstraint>,
     constraints: SemanticConstraintSnapshot,
 }
 
@@ -76,6 +75,9 @@ pub struct SemanticTypeInfo {
     pub type_id: u32,
     /// Physical source mapped to this conceptual type.
     pub source: ir::SourceTableId,
+    /// Roles declared for a relationship type, in physical declaration
+    /// order. Empty for node types.
+    pub roles: Vec<SemanticRole>,
     properties: HashMap<String, OwnedProperty>,
 }
 
@@ -91,6 +93,18 @@ impl SemanticTypeInfo {
 
     pub(crate) fn property_values(&self) -> impl Iterator<Item = &OwnedProperty> {
         self.properties.values()
+    }
+
+    /// Resolve a declared role by name, case-insensitively.
+    pub fn role(&self, name: &str) -> Option<&SemanticRole> {
+        self.roles
+            .iter()
+            .find(|role| role.name.eq_ignore_ascii_case(name))
+    }
+
+    /// Roles that must be filled: not marked optional.
+    pub fn required_roles(&self) -> impl Iterator<Item = &SemanticRole> {
+        self.roles.iter().filter(|role| !role.optional)
     }
 }
 
@@ -110,13 +124,41 @@ pub struct OwnedProperty {
     pub column: String,
 }
 
-/// Allowed semantic node types for a relationship's stored endpoints.
-#[derive(Debug, Default)]
-pub struct EndpointConstraint {
-    /// Permitted start endpoint type IDs; empty means unconstrained.
-    pub start: Vec<u32>,
-    /// Permitted end endpoint type IDs; empty means unconstrained.
-    pub end: Vec<u32>,
+/// A named role on a relationship type: what its player may be, whether it
+/// must be filled, and how many players it may hold.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct SemanticRole {
+    /// Persisted role identity, shared with the physical registration's
+    /// `RegisteredRelationshipRole::role` for the same role.
+    pub role: ir::RoleId,
+    /// Preserved conceptual spelling.
+    pub name: String,
+    /// What a player may be. Empty means unconstrained. Node labels and
+    /// relationship types are kept in distinct kinds so a role can target a
+    /// relationship type (relation-as-player) without colliding with a node
+    /// label that happens to share its persisted number.
+    pub targets: Vec<ir::RoleTarget>,
+    /// Whether the role may be left unfilled.
+    pub optional: bool,
+    /// How many players the role may hold.
+    pub cardinality: ir::RoleCardinality,
+}
+
+impl From<crate::lowering::RelationshipRoleLayout> for SemanticRole {
+    /// Projects a physical role registration into the schema-free view used
+    /// by schemaless catalogs: the `RoleId` is reused directly (never
+    /// re-derived), there is no target-type constraint (schemaless imposes
+    /// none), and the role is never optional (a physical registration
+    /// requires every declared role to be filled).
+    fn from(role: crate::lowering::RelationshipRoleLayout) -> Self {
+        SemanticRole {
+            role: role.role,
+            name: role.name,
+            targets: Vec::new(),
+            optional: false,
+            cardinality: role.cardinality,
+        }
+    }
 }
 
 impl SemanticSnapshot {
@@ -174,11 +216,6 @@ impl SemanticSnapshot {
     /// Resolve a semantic relationship type by persisted identity.
     pub fn relationship_type_by_id(&self, id: ir::RelationshipTypeId) -> Option<&SemanticTypeInfo> {
         self.relationship_types.get(&id.get())
-    }
-
-    /// Return stored endpoint constraints for a semantic relationship type.
-    pub fn endpoints(&self, relationship: ir::RelationshipTypeId) -> Option<&EndpointConstraint> {
-        self.endpoints.get(&relationship.get())
     }
 
     pub(crate) fn node_type_values(&self) -> impl Iterator<Item = &SemanticTypeInfo> {
@@ -253,12 +290,103 @@ pub struct SemanticRelationshipType {
     pub name: String,
     /// Name of a registered relationship source.
     pub source: String,
-    /// Semantic node types permitted at the stored start endpoint.
-    pub start: Vec<String>,
-    /// Semantic node types permitted at the stored end endpoint.
-    pub end: Vec<String>,
+    /// Declared roles, in the order a role's targets are persisted. Must
+    /// name every role the physical relationship source declares; a role
+    /// with no entry here is recovered from the physical registration with
+    /// an unconstrained target list.
+    pub roles: Vec<SemanticRoleRegistration>,
     /// Properties owned by this semantic type.
     pub properties: Vec<SemanticProperty>,
+}
+
+impl SemanticRelationshipType {
+    /// A binary relationship type: two required, single-valued roles named
+    /// `start`/`end`, each constrained to `start`/`end`'s node types. This
+    /// is a layout of the general role model, not a separate kind.
+    pub fn binary(
+        name: impl Into<String>,
+        source: impl Into<String>,
+        start: Vec<String>,
+        end: Vec<String>,
+        properties: Vec<SemanticProperty>,
+    ) -> Self {
+        Self {
+            name: name.into(),
+            source: source.into(),
+            roles: vec![
+                SemanticRoleRegistration {
+                    name: "start".to_owned(),
+                    targets: start,
+                    optional: false,
+                    cardinality: SemanticRoleCardinality::One,
+                },
+                SemanticRoleRegistration {
+                    name: "end".to_owned(),
+                    targets: end,
+                    optional: false,
+                    cardinality: SemanticRoleCardinality::One,
+                },
+            ],
+            properties,
+        }
+    }
+
+    /// Resolve a declared role registration by name, case-insensitively.
+    pub fn role(&self, name: &str) -> Option<&SemanticRoleRegistration> {
+        self.roles
+            .iter()
+            .find(|role| role.name.eq_ignore_ascii_case(name))
+    }
+}
+
+/// A role declared on a `SemanticRelationshipType` registration.
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+pub struct SemanticRoleRegistration {
+    /// Role name, matched case-insensitively against the physical
+    /// registration's role of the same name.
+    pub name: String,
+    /// Semantic node or relationship type names permitted as a player.
+    /// Empty means unconstrained.
+    pub targets: Vec<String>,
+    /// Whether the role may be left unfilled.
+    pub optional: bool,
+    /// How many players the role may hold.
+    pub cardinality: SemanticRoleCardinality,
+}
+
+/// Serializable mirror of `ir::RoleCardinality` for registration payloads
+/// (`ir::RoleCardinality` does not derive `Serialize`/`Deserialize`).
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
+pub enum SemanticRoleCardinality {
+    One,
+    Many,
+}
+
+impl SemanticRoleCardinality {
+    fn as_str(self) -> &'static str {
+        match self {
+            Self::One => "one",
+            Self::Many => "many",
+        }
+    }
+}
+
+impl From<SemanticRoleCardinality> for ir::RoleCardinality {
+    fn from(value: SemanticRoleCardinality) -> Self {
+        match value {
+            SemanticRoleCardinality::One => ir::RoleCardinality::One,
+            SemanticRoleCardinality::Many => ir::RoleCardinality::Many,
+        }
+    }
+}
+
+impl From<ir::RoleCardinality> for SemanticRoleCardinality {
+    fn from(value: ir::RoleCardinality) -> Self {
+        match value {
+            ir::RoleCardinality::One => Self::One,
+            ir::RoleCardinality::Many => Self::Many,
+        }
+    }
 }
 
 /// A conceptual property and its physical column mapping.
@@ -359,33 +487,46 @@ pub enum SemanticCatalogError {
         /// Duplicated property name.
         property: String,
     },
-    /// An endpoint references a node type absent from this registration.
+    /// A role references a type absent from this registration.
     #[error(
-        "relationship type `{relationship_type}` {endpoint} endpoint references unknown semantic node type `{node_type}`"
+        "role `{role}` of relationship type `{relationship_type}` references unknown semantic type `{node_type}`"
     )]
-    UnknownEndpointType {
-        /// Relationship whose endpoint is invalid.
+    UnknownRoleTargetType {
+        /// Relationship whose role is invalid.
         relationship_type: String,
-        /// Stored endpoint kind.
-        endpoint: &'static str,
-        /// Unknown semantic node type.
+        /// Declared role name.
+        role: String,
+        /// Unknown semantic node or relationship type.
         node_type: String,
     },
-    /// A semantic endpoint type maps to a different physical node source than
-    /// the relationship source stores at that endpoint.
+    /// A semantic role names no role declared on its relationship's
+    /// physical source.
     #[error(
-        "relationship type `{relationship_type}` {endpoint} endpoint type `{node_type}` maps to source `{actual_source}`, but relationship source `{relationship_source}` requires `{required_source}`"
+        "role `{role}` of relationship type `{relationship_type}` has no matching physical role on source `{source_name}`"
     )]
-    EndpointSourceMismatch {
+    UnknownPhysicalRole {
+        /// Semantic relationship type.
+        relationship_type: String,
+        /// Declared role name absent from the physical source.
+        role: String,
+        /// Physical relationship source consulted.
+        source_name: String,
+    },
+    /// A semantic role target maps to a different physical node source than
+    /// the relationship source stores for that role.
+    #[error(
+        "role `{role}` of relationship type `{relationship_type}` target `{node_type}` maps to source `{actual_source}`, but relationship source `{relationship_source}` requires `{required_source}`"
+    )]
+    RoleSourceMismatch {
         /// Semantic relationship type.
         relationship_type: Box<str>,
-        /// Stored endpoint kind.
-        endpoint: &'static str,
-        /// Semantic node type used by the constraint.
+        /// Stored role name.
+        role: Box<str>,
+        /// Semantic type used by the target.
         node_type: Box<str>,
         /// Node source mapped by that semantic type.
         actual_source: Box<str>,
-        /// Relationship source carrying the endpoints.
+        /// Relationship source carrying the role.
         relationship_source: Box<str>,
         /// Node source required by the physical relationship layout.
         required_source: Box<str>,
@@ -565,6 +706,14 @@ fn validate_registration_shape_with_fragments(
         }
         validate_fragment_shape(fragment, &node_type_names)?;
     }
+    // Relationship types may target each other regardless of declaration
+    // order, so every relationship type name is known before any role's
+    // targets are checked.
+    let relationship_type_names = registration
+        .relationship_types
+        .iter()
+        .map(|relationship| fold(&relationship.name))
+        .collect::<HashSet<_>>();
     for relationship in &registration.relationship_types {
         require_name("semantic type", &relationship.name)?;
         require_name("source", &relationship.source)?;
@@ -579,14 +728,18 @@ fn validate_registration_shape_with_fragments(
             });
         }
         validate_properties(&relationship.name, &relationship.properties)?;
-        for (endpoint, allowed) in [("start", &relationship.start), ("end", &relationship.end)] {
-            for node_type in allowed {
-                let folded = fold(node_type);
-                if !node_type_names.contains(&folded) && !fragment_names.contains(&folded) {
-                    return Err(SemanticCatalogError::UnknownEndpointType {
+        for role in &relationship.roles {
+            require_name("semantic role", &role.name)?;
+            for target in &role.targets {
+                let folded = fold(target);
+                if !node_type_names.contains(&folded)
+                    && !fragment_names.contains(&folded)
+                    && !relationship_type_names.contains(&folded)
+                {
+                    return Err(SemanticCatalogError::UnknownRoleTargetType {
                         relationship_type: relationship.name.clone(),
-                        endpoint,
-                        node_type: node_type.clone(),
+                        role: role.name.clone(),
+                        node_type: target.clone(),
                     });
                 }
             }
@@ -893,6 +1046,11 @@ fn validate_against_graph(
         }
     }
 
+    let relationship_type_names = registration
+        .relationship_types
+        .iter()
+        .map(|relationship| fold(&relationship.name))
+        .collect::<HashSet<_>>();
     for relationship in &registration.relationship_types {
         let source = graph
             .relationship_sources
@@ -903,41 +1061,54 @@ fn validate_against_graph(
                 kind: "relationship",
                 referenced_source: relationship.source.clone(),
             })?;
+        let mut structural = vec![source.identity_column.as_str()];
+        structural.extend(
+            source
+                .single_valued_roles()
+                .map(|role| role.column.as_str()),
+        );
         check_owned_columns(
             connection,
             &relationship.name,
             &relationship.properties,
             &source.table,
-            &[
-                source.identity_column.as_str(),
-                source.start_column.as_str(),
-                source.end_column.as_str(),
-            ],
+            &structural,
             &mut property_types,
         )?;
-        for (endpoint, allowed, required_source) in [
-            ("start", &relationship.start, source.start_node_source),
-            ("end", &relationship.end, source.end_node_source),
-        ] {
+        for role in &relationship.roles {
+            let physical_role = source.role_by_name(&role.name).ok_or_else(|| {
+                SemanticCatalogError::UnknownPhysicalRole {
+                    relationship_type: relationship.name.clone(),
+                    role: role.name.clone(),
+                    source_name: source.name.clone(),
+                }
+            })?;
             let required = graph
                 .node_sources
                 .iter()
-                .find(|node_source| node_source.id == required_source)
-                .expect("registered relationship endpoint source exists");
-            for node_type in expand_endpoint_names(allowed, fragments) {
+                .find(|node_source| node_source.id == physical_role.node_source)
+                .expect("registered relationship role source exists");
+            for target_name in expand_endpoint_names(&role.targets, fragments) {
+                if relationship_type_names.contains(&fold(target_name)) {
+                    // Relation-as-player: the physical role holds a
+                    // placeholder node source (Task 2 does not yet resolve
+                    // a role's physical player against a relationship
+                    // source), so there is no physical mapping to compare.
+                    continue;
+                }
                 let actual_name = node_sources
-                    .get(&fold(node_type))
-                    .expect("registration shape validated endpoint type");
+                    .get(&fold(target_name))
+                    .expect("registration shape validated role target type");
                 let actual = graph
                     .node_sources
                     .iter()
                     .find(|node_source| node_source.name.eq_ignore_ascii_case(actual_name))
                     .expect("semantic node source validated above");
                 if actual.id != required.id {
-                    return Err(SemanticCatalogError::EndpointSourceMismatch {
+                    return Err(SemanticCatalogError::RoleSourceMismatch {
                         relationship_type: relationship.name.clone().into_boxed_str(),
-                        endpoint,
-                        node_type: node_type.to_owned().into_boxed_str(),
+                        role: role.name.clone().into_boxed_str(),
+                        node_type: target_name.to_owned().into_boxed_str(),
                         actual_source: actual.name.clone().into_boxed_str(),
                         relationship_source: source.name.clone().into_boxed_str(),
                         required_source: required.name.clone().into_boxed_str(),
@@ -970,6 +1141,25 @@ fn expand_endpoint_names<'a>(
                 .unwrap_or_else(|| vec![name.as_str()])
         })
         .collect()
+}
+
+/// Resolve a role target's persisted `(target_kind, target_id)`. Node and
+/// relationship type numbers are independently sequential and only
+/// unambiguous together with `target_kind`, so this never merges the two
+/// spaces.
+fn resolve_target_id(
+    node_ids: &HashMap<String, u64>,
+    relationship_ids: &HashMap<String, u64>,
+    name: &str,
+) -> (&'static str, u64) {
+    let folded = fold(name);
+    if let Some(id) = node_ids.get(&folded) {
+        return ("node", *id);
+    }
+    if let Some(id) = relationship_ids.get(&folded) {
+        return ("relation", *id);
+    }
+    unreachable!("registration shape validated role target type")
 }
 
 fn check_owned_columns(
@@ -1029,12 +1219,16 @@ fn check_owned_columns(
     Ok(())
 }
 
+/// One row per (role, target): `(type_id, role_id, name, optional,
+/// cardinality, target_kind, target_id)`. A role with an empty target list
+/// gets no rows; it is recovered from the physical registration's role list
+/// when loading.
 #[derive(Clone, Debug, Eq, PartialEq)]
 struct CatalogRows {
     types: Vec<(String, u64, String, u64)>,
     properties: Vec<(u64, String)>,
     ownership: Vec<(String, u64, u64, u64, String)>,
-    endpoints: Vec<(u64, String, u64)>,
+    roles: Vec<(u64, u64, String, bool, String, String, u64)>,
     fragments: Vec<(u64, String)>,
     fragment_members: Vec<(u64, u64)>,
     fragment_properties: Vec<(u64, u64)>,
@@ -1053,7 +1247,7 @@ fn register_semantic_in_transaction(
     let has_existing = !existing.types.is_empty()
         || !existing.properties.is_empty()
         || !existing.ownership.is_empty()
-        || !existing.endpoints.is_empty()
+        || !existing.roles.is_empty()
         || !existing.fragments.is_empty()
         || !existing.fragment_members.is_empty()
         || !existing.fragment_properties.is_empty()
@@ -1071,7 +1265,7 @@ fn register_semantic_in_transaction(
         }
         if !fragments.fragments.is_empty()
             && existing.fragments.is_empty()
-            && !endpoints_reference_fragments(registration, fragments)
+            && !roles_reference_fragments(registration, fragments)
         {
             let base = catalog_rows_for_registration(
                 graph,
@@ -1093,7 +1287,7 @@ fn register_semantic_in_transaction(
                         .filter(|(property_id, _)| !base_property_ids.contains(property_id))
                         .collect(),
                     ownership: Vec::new(),
-                    endpoints: Vec::new(),
+                    roles: Vec::new(),
                     fragments: expected.fragments,
                     fragment_members: expected.fragment_members,
                     fragment_properties: expected.fragment_properties,
@@ -1112,21 +1306,19 @@ fn register_semantic_in_transaction(
     Ok(())
 }
 
-fn endpoints_reference_fragments(
+fn roles_reference_fragments(
     registration: &SemanticSchemaRegistration,
     fragments: &SemanticFragmentRegistration,
 ) -> bool {
     registration.relationship_types.iter().any(|relationship| {
-        relationship
-            .start
-            .iter()
-            .chain(&relationship.end)
-            .any(|endpoint| {
+        relationship.roles.iter().any(|role| {
+            role.targets.iter().any(|target| {
                 fragments
                     .fragments
                     .iter()
-                    .any(|fragment| fragment.name.eq_ignore_ascii_case(endpoint))
+                    .any(|fragment| fragment.name.eq_ignore_ascii_case(target))
             })
+        })
     })
 }
 
@@ -1181,12 +1373,16 @@ fn create_semantic_catalog(
             )"
         ),
         format!(
-            "CREATE TABLE IF NOT EXISTS {SEMANTIC_ENDPOINTS_TABLE}(\
+            "CREATE TABLE IF NOT EXISTS {SEMANTIC_ROLE_TABLE}(\
                 graph_id INTEGER NOT NULL, \
-                relationship_type_id INTEGER NOT NULL, \
-                endpoint TEXT NOT NULL CHECK(endpoint IN ('start', 'end')), \
-                node_type_id INTEGER NOT NULL, \
-                PRIMARY KEY(graph_id, relationship_type_id, endpoint, node_type_id)\
+                type_id INTEGER NOT NULL, \
+                role_id INTEGER NOT NULL, \
+                name TEXT NOT NULL COLLATE NOCASE, \
+                optional INTEGER NOT NULL CHECK(optional IN (0, 1)), \
+                cardinality TEXT NOT NULL CHECK(cardinality IN ('one', 'many')), \
+                target_kind TEXT NOT NULL CHECK(target_kind IN ('node', 'relation')), \
+                target_id INTEGER NOT NULL, \
+                PRIMARY KEY(graph_id, type_id, role_id, target_kind, target_id)\
             )"
         ),
     ] {
@@ -1246,7 +1442,7 @@ fn catalog_rows_for_registration(
     let mut types = Vec::new();
     let mut properties = Vec::new();
     let mut ownership = Vec::new();
-    let mut endpoints = Vec::new();
+    let mut roles = Vec::new();
     let mut fragments = Vec::new();
     let mut fragment_members = Vec::new();
     let mut fragment_properties = Vec::new();
@@ -1256,6 +1452,16 @@ fn catalog_rows_for_registration(
         .iter()
         .enumerate()
         .map(|(index, node_type)| (fold(&node_type.name), (index + 1) as u64))
+        .collect::<HashMap<_, _>>();
+    // A relationship type's persisted number shares its value range with
+    // node types (both start at 1); `target_kind` on each role row keeps
+    // the two identity spaces distinct so a role target is never confused
+    // between a node label and a relationship type of the same number.
+    let relationship_ids = registration
+        .relationship_types
+        .iter()
+        .enumerate()
+        .map(|(index, relationship)| (fold(&relationship.name), (index + 1) as u64))
         .collect::<HashMap<_, _>>();
     let mut property_ids = HashMap::<String, u64>::new();
 
@@ -1304,9 +1510,24 @@ fn catalog_rows_for_registration(
             &mut properties,
             &mut ownership,
         );
-        for (endpoint, allowed) in [("start", &relationship.start), ("end", &relationship.end)] {
-            for node_type in expand_endpoint_names(allowed, fragment_registration) {
-                endpoints.push((type_id, endpoint.to_owned(), node_ids[&fold(node_type)]));
+        for role in &relationship.roles {
+            let physical_role = source
+                .role_by_name(&role.name)
+                .expect("registration was physically validated");
+            let role_id = u64::from(physical_role.role.get());
+            let cardinality = role.cardinality.as_str().to_owned();
+            for target_name in expand_endpoint_names(&role.targets, fragment_registration) {
+                let (target_kind, target_id) =
+                    resolve_target_id(&node_ids, &relationship_ids, target_name);
+                roles.push((
+                    type_id,
+                    role_id,
+                    role.name.clone(),
+                    role.optional,
+                    cardinality.clone(),
+                    target_kind.to_owned(),
+                    target_id,
+                ));
             }
         }
     }
@@ -1347,13 +1568,13 @@ fn catalog_rows_for_registration(
             }
         }
     }
-    endpoints.sort();
-    endpoints.dedup();
+    roles.sort();
+    roles.dedup();
     let mut rows = CatalogRows {
         types,
         properties,
         ownership,
-        endpoints,
+        roles,
         fragments,
         fragment_members,
         fragment_properties,
@@ -1455,24 +1676,25 @@ fn load_catalog_rows(
         ))
     })
     .collect::<Result<Vec<_>, SemanticCatalogError>>()?;
-    let mut endpoints = query_rows(
+    let mut roles = query_rows(
         connection,
         &format!(
-            "SELECT relationship_type_id, endpoint, node_type_id \
-             FROM {SEMANTIC_ENDPOINTS_TABLE} WHERE graph_id = {graph_id}"
+            "SELECT type_id, role_id, name, optional, cardinality, target_kind, target_id \
+             FROM {SEMANTIC_ROLE_TABLE} WHERE graph_id = {graph_id}"
         ),
     )?
     .iter()
     .map(|row| {
         Ok((
+            positive_u64(integer(row, 0, "semantic role type")?, "semantic role type")?,
+            positive_u64(integer(row, 1, "semantic role id")?, "semantic role id")?,
+            text(row, 2, "semantic role name")?.to_owned(),
+            integer(row, 3, "semantic role optional")? != 0,
+            text(row, 4, "semantic role cardinality")?.to_owned(),
+            text(row, 5, "semantic role target kind")?.to_owned(),
             positive_u64(
-                integer(row, 0, "semantic relationship type")?,
-                "semantic relationship type",
-            )?,
-            text(row, 1, "semantic endpoint")?.to_owned(),
-            positive_u64(
-                integer(row, 2, "semantic endpoint node type")?,
-                "semantic endpoint node type",
+                integer(row, 6, "semantic role target id")?,
+                "semantic role target id",
             )?,
         ))
     })
@@ -1491,7 +1713,7 @@ fn load_catalog_rows(
         types: std::mem::take(&mut types),
         properties: std::mem::take(&mut properties),
         ownership: std::mem::take(&mut ownership),
-        endpoints: std::mem::take(&mut endpoints),
+        roles: std::mem::take(&mut roles),
         fragments: std::mem::take(&mut fragments),
         fragment_members: std::mem::take(&mut fragment_members),
         fragment_properties: std::mem::take(&mut fragment_properties),
@@ -1616,7 +1838,7 @@ fn sort_catalog_rows(rows: &mut CatalogRows) {
     rows.types.sort();
     rows.properties.sort();
     rows.ownership.sort();
-    rows.endpoints.sort();
+    rows.roles.sort();
     rows.fragments.sort();
     rows.fragment_members.sort_unstable();
     rows.fragment_properties.sort_unstable();
@@ -1648,6 +1870,9 @@ impl CatalogRows {
         }
         for (_, _, _, _, column) in &mut self.ownership {
             *column = fold(column);
+        }
+        for (_, _, name, _, _, _, _) in &mut self.roles {
+            *name = fold(name);
         }
         for (_, name) in &mut self.fragments {
             *name = fold(name);
@@ -1698,14 +1923,20 @@ fn insert_catalog_rows(
             ),
         )?;
     }
-    for (relationship_type, endpoint, node_type) in &rows.endpoints {
+    for (type_id, role_id, name, optional, cardinality, target_kind, target_id) in &rows.roles {
         execute_internal(
             connection,
             format!(
-                "INSERT INTO {SEMANTIC_ENDPOINTS_TABLE}(\
-                    graph_id, relationship_type_id, endpoint, node_type_id\
-                 ) VALUES ({graph_id}, {relationship_type}, {}, {node_type})",
-                sql_string(endpoint)
+                "INSERT INTO {SEMANTIC_ROLE_TABLE}(\
+                    graph_id, type_id, role_id, name, optional, cardinality, \
+                    target_kind, target_id\
+                 ) VALUES (\
+                    {graph_id}, {type_id}, {role_id}, {}, {}, {}, {}, {target_id}\
+                 )",
+                sql_string(name),
+                i32::from(*optional),
+                sql_string(cardinality),
+                sql_string(target_kind)
             ),
         )?;
     }
@@ -1792,7 +2023,6 @@ pub fn load_semantic_snapshot(
         relationship_types: HashMap::new(),
         fragment_names: HashMap::new(),
         fragments: HashMap::new(),
-        endpoints: HashMap::new(),
         constraints: SemanticConstraintSnapshot::default(),
     };
     for row in &type_rows {
@@ -1808,6 +2038,7 @@ pub fn load_semantic_snapshot(
             name: name.clone(),
             type_id,
             source,
+            roles: Vec::new(),
             properties: HashMap::new(),
         };
         let (names, types) = match kind {
@@ -2162,51 +2393,151 @@ pub fn load_semantic_snapshot(
         }
     }
 
-    let endpoint_rows = query_rows(
+    load_roles(connection, graph, &mut snapshot)?;
+    snapshot.constraints = load_constraint_snapshot(connection, graph, &snapshot)?;
+    Ok(Some(snapshot))
+}
+
+/// Grouped, still-unattached role rows for one (relationship type, role).
+struct RoleGroup {
+    name: String,
+    optional: bool,
+    cardinality: ir::RoleCardinality,
+    targets: Vec<ir::RoleTarget>,
+}
+
+/// Load declared roles and attach them to `snapshot`'s relationship types.
+///
+/// Rows are grouped by `(type_id, role_id)` first because a role with an
+/// empty target list has no rows at all; the physical relationship
+/// source's role list is joined as the left side so every physical role
+/// gets a `SemanticRole` even when the semantic registration left it
+/// unconstrained.
+fn load_roles(
+    connection: &Arc<Connection>,
+    graph: &RegisteredGraph,
+    snapshot: &mut SemanticSnapshot,
+) -> Result<(), SemanticCatalogError> {
+    let role_rows = query_rows(
         connection,
         &format!(
-            "SELECT relationship_type_id, endpoint, node_type_id \
-             FROM {SEMANTIC_ENDPOINTS_TABLE} WHERE graph_id = {}",
+            "SELECT type_id, role_id, name, optional, cardinality, target_kind, target_id \
+             FROM {SEMANTIC_ROLE_TABLE} WHERE graph_id = {}",
             graph.id.get()
         ),
     )?;
-    for row in &endpoint_rows {
-        let relationship_type = positive_u32(
-            integer(row, 0, "semantic endpoint relationship")?,
-            "semantic endpoint relationship",
-        )?;
-        if !snapshot.relationship_types.contains_key(&relationship_type) {
+    let mut grouped = HashMap::<(u32, u32), RoleGroup>::new();
+    for row in &role_rows {
+        let type_id = positive_u32(integer(row, 0, "semantic role type")?, "semantic role type")?;
+        if !snapshot.relationship_types.contains_key(&type_id) {
             return Err(SemanticCatalogError::InvalidCatalogValue(
-                "semantic endpoint relationship",
+                "semantic role type",
             ));
         }
-        let endpoint = text(row, 1, "semantic endpoint kind")?;
-        let node_type = positive_u32(
-            integer(row, 2, "semantic endpoint node")?,
-            "semantic endpoint node",
-        )?;
-        if !snapshot.node_types.contains_key(&node_type) {
-            return Err(SemanticCatalogError::InvalidCatalogValue(
-                "semantic endpoint node",
-            ));
-        }
-        let constraints = snapshot.endpoints.entry(relationship_type).or_default();
-        match endpoint {
-            "start" => constraints.start.push(node_type),
-            "end" => constraints.end.push(node_type),
+        let role_id = positive_u32(integer(row, 1, "semantic role id")?, "semantic role id")?;
+        let name = text(row, 2, "semantic role name")?.to_owned();
+        let optional = integer(row, 3, "semantic role optional")? != 0;
+        let cardinality = match text(row, 4, "semantic role cardinality")? {
+            "one" => ir::RoleCardinality::One,
+            "many" => ir::RoleCardinality::Many,
             _ => {
                 return Err(SemanticCatalogError::InvalidCatalogValue(
-                    "semantic endpoint kind",
+                    "semantic role cardinality",
                 ));
+            }
+        };
+        let target_id = positive_u32(
+            integer(row, 6, "semantic role target id")?,
+            "semantic role target id",
+        )?;
+        let target = match text(row, 5, "semantic role target kind")? {
+            "node" => {
+                if !snapshot.node_types.contains_key(&target_id) {
+                    return Err(SemanticCatalogError::InvalidCatalogValue(
+                        "semantic role target",
+                    ));
+                }
+                let label = ir::LabelId::new(target_id).map_err(|_| {
+                    SemanticCatalogError::InvalidCatalogValue("semantic role target")
+                })?;
+                ir::RoleTarget::Node(label)
+            }
+            "relation" => {
+                if !snapshot.relationship_types.contains_key(&target_id) {
+                    return Err(SemanticCatalogError::InvalidCatalogValue(
+                        "semantic role target",
+                    ));
+                }
+                let relationship_type = ir::RelationshipTypeId::new(target_id).map_err(|_| {
+                    SemanticCatalogError::InvalidCatalogValue("semantic role target")
+                })?;
+                ir::RoleTarget::Relation(relationship_type)
+            }
+            _ => {
+                return Err(SemanticCatalogError::InvalidCatalogValue(
+                    "semantic role target kind",
+                ));
+            }
+        };
+        match grouped.entry((type_id, role_id)) {
+            std::collections::hash_map::Entry::Vacant(entry) => {
+                entry.insert(RoleGroup {
+                    name,
+                    optional,
+                    cardinality,
+                    targets: vec![target],
+                });
+            }
+            std::collections::hash_map::Entry::Occupied(mut entry) => {
+                let group = entry.get_mut();
+                if group.name != name
+                    || group.optional != optional
+                    || group.cardinality != cardinality
+                {
+                    return Err(SemanticCatalogError::InvalidCatalogValue(
+                        "semantic role row",
+                    ));
+                }
+                group.targets.push(target);
             }
         }
     }
-    for constraints in snapshot.endpoints.values_mut() {
-        constraints.start.sort_unstable();
-        constraints.end.sort_unstable();
+
+    for (&type_id, info) in snapshot.relationship_types.iter_mut() {
+        let source = graph
+            .relationship_sources
+            .iter()
+            .find(|source| source.id == info.source)
+            .ok_or(SemanticCatalogError::InvalidCatalogValue(
+                "semantic owner source",
+            ))?;
+        for physical_role in &source.roles {
+            let role_id = physical_role.role.get();
+            let role = match grouped.remove(&(type_id, role_id)) {
+                Some(group) => SemanticRole {
+                    role: physical_role.role,
+                    name: group.name,
+                    targets: group.targets,
+                    optional: group.optional,
+                    cardinality: group.cardinality,
+                },
+                None => SemanticRole {
+                    role: physical_role.role,
+                    name: physical_role.name.clone(),
+                    targets: Vec::new(),
+                    optional: false,
+                    cardinality: physical_role.cardinality,
+                },
+            };
+            info.roles.push(role);
+        }
     }
-    snapshot.constraints = load_constraint_snapshot(connection, graph, &snapshot)?;
-    Ok(Some(snapshot))
+    if !grouped.is_empty() {
+        return Err(SemanticCatalogError::InvalidCatalogValue(
+            "semantic role references unknown physical role",
+        ));
+    }
+    Ok(())
 }
 
 fn semantic_owner_and_table<'a>(
@@ -2325,17 +2656,17 @@ mod tests {
         let mut registration = person_registration();
         registration
             .relationship_types
-            .push(SemanticRelationshipType {
-                name: "OWNS".to_owned(),
-                source: "KNOWS".to_owned(),
-                start: vec!["Customer".to_owned()],
-                end: vec!["Ghost".to_owned()],
-                properties: vec![],
-            });
+            .push(SemanticRelationshipType::binary(
+                "OWNS",
+                "KNOWS",
+                vec!["Customer".to_owned()],
+                vec!["Ghost".to_owned()],
+                vec![],
+            ));
 
         assert!(matches!(
             validate_registration_shape(&registration),
-            Err(SemanticCatalogError::UnknownEndpointType { node_type, .. })
+            Err(SemanticCatalogError::UnknownRoleTargetType { node_type, .. })
                 if node_type == "Ghost"
         ));
     }
@@ -2370,5 +2701,662 @@ mod tests {
             .expect("deserialize fragments");
 
         assert_eq!(registration, decoded);
+    }
+
+    // --- Role fixtures -----------------------------------------------------
+    //
+    // `Schema` is built entirely from `&'static` fields so a fixture can be a
+    // plain `const`, matched to a fresh in-memory database by
+    // `install_semantic_schema`.
+
+    struct NodeSourceSpec {
+        name: &'static str,
+        table: &'static str,
+        identity_column: &'static str,
+    }
+
+    struct RoleSourceSpec {
+        name: &'static str,
+        column: &'static str,
+        node_source: &'static str,
+        cardinality: ir::RoleCardinality,
+    }
+
+    struct RelationshipSourceSpec {
+        name: &'static str,
+        table: &'static str,
+        identity_column: &'static str,
+        roles: &'static [RoleSourceSpec],
+    }
+
+    struct PropertySpec {
+        name: &'static str,
+        column: &'static str,
+    }
+
+    struct NodeTypeSpec {
+        name: &'static str,
+        source: &'static str,
+        properties: &'static [PropertySpec],
+    }
+
+    struct RoleSpec {
+        name: &'static str,
+        targets: &'static [&'static str],
+        optional: bool,
+        cardinality: SemanticRoleCardinality,
+    }
+
+    struct RelationshipTypeSpec {
+        name: &'static str,
+        source: &'static str,
+        roles: &'static [RoleSpec],
+        properties: &'static [PropertySpec],
+    }
+
+    struct Schema {
+        graph_name: &'static str,
+        create_tables_sql: &'static str,
+        node_sources: &'static [NodeSourceSpec],
+        relationship_sources: &'static [RelationshipSourceSpec],
+        node_types: &'static [NodeTypeSpec],
+        relationship_types: &'static [RelationshipTypeSpec],
+    }
+
+    /// A ternary relationship type: `scribe`/`folio` are required and
+    /// single-valued, `witness` is optional and many-valued.
+    const TERNARY_SCHEMA: Schema = Schema {
+        graph_name: "scriptorium",
+        create_tables_sql: "\
+            CREATE TABLE people(id INTEGER PRIMARY KEY, name TEXT); \
+            CREATE TABLE folios(id INTEGER PRIMARY KEY, label TEXT); \
+            CREATE TABLE transcriptions(\
+                id INTEGER PRIMARY KEY, \
+                scribe_id INTEGER, \
+                folio_id INTEGER\
+            );",
+        node_sources: &[
+            NodeSourceSpec {
+                name: "people_src",
+                table: "people",
+                identity_column: "id",
+            },
+            NodeSourceSpec {
+                name: "folios_src",
+                table: "folios",
+                identity_column: "id",
+            },
+        ],
+        relationship_sources: &[RelationshipSourceSpec {
+            name: "transcriptions_src",
+            table: "transcriptions",
+            identity_column: "id",
+            roles: &[
+                RoleSourceSpec {
+                    name: "scribe",
+                    column: "scribe_id",
+                    node_source: "people_src",
+                    cardinality: ir::RoleCardinality::One,
+                },
+                RoleSourceSpec {
+                    name: "folio",
+                    column: "folio_id",
+                    node_source: "folios_src",
+                    cardinality: ir::RoleCardinality::One,
+                },
+                RoleSourceSpec {
+                    name: "witness",
+                    column: "",
+                    node_source: "people_src",
+                    cardinality: ir::RoleCardinality::Many,
+                },
+            ],
+        }],
+        node_types: &[
+            NodeTypeSpec {
+                name: "Person",
+                source: "people_src",
+                properties: &[],
+            },
+            NodeTypeSpec {
+                name: "Folio",
+                source: "folios_src",
+                properties: &[],
+            },
+        ],
+        relationship_types: &[RelationshipTypeSpec {
+            name: "Transcription",
+            source: "transcriptions_src",
+            roles: &[
+                RoleSpec {
+                    name: "scribe",
+                    targets: &["Person"],
+                    optional: false,
+                    cardinality: SemanticRoleCardinality::One,
+                },
+                RoleSpec {
+                    name: "folio",
+                    targets: &["Folio"],
+                    optional: false,
+                    cardinality: SemanticRoleCardinality::One,
+                },
+                RoleSpec {
+                    name: "witness",
+                    targets: &["Person"],
+                    optional: true,
+                    cardinality: SemanticRoleCardinality::Many,
+                },
+            ],
+            properties: &[],
+        }],
+    };
+
+    /// Same physical shape as `TERNARY_SCHEMA`, but the semantic registration
+    /// omits `witness` entirely: no `RoleSpec` names it, so zero rows are
+    /// ever persisted for it in `SEMANTIC_ROLE_TABLE`. `load_roles` must
+    /// still recover it from the physical registration by left-joining
+    /// physical roles against persisted semantic rows; an inner join would
+    /// silently drop it.
+    const UNCONSTRAINED_ROLE_SCHEMA: Schema = Schema {
+        graph_name: "scriptorium",
+        create_tables_sql: "\
+            CREATE TABLE people(id INTEGER PRIMARY KEY, name TEXT); \
+            CREATE TABLE folios(id INTEGER PRIMARY KEY, label TEXT); \
+            CREATE TABLE transcriptions(\
+                id INTEGER PRIMARY KEY, \
+                scribe_id INTEGER, \
+                folio_id INTEGER\
+            );",
+        node_sources: &[
+            NodeSourceSpec {
+                name: "people_src",
+                table: "people",
+                identity_column: "id",
+            },
+            NodeSourceSpec {
+                name: "folios_src",
+                table: "folios",
+                identity_column: "id",
+            },
+        ],
+        relationship_sources: &[RelationshipSourceSpec {
+            name: "transcriptions_src",
+            table: "transcriptions",
+            identity_column: "id",
+            roles: &[
+                RoleSourceSpec {
+                    name: "scribe",
+                    column: "scribe_id",
+                    node_source: "people_src",
+                    cardinality: ir::RoleCardinality::One,
+                },
+                RoleSourceSpec {
+                    name: "folio",
+                    column: "folio_id",
+                    node_source: "folios_src",
+                    cardinality: ir::RoleCardinality::One,
+                },
+                RoleSourceSpec {
+                    name: "witness",
+                    column: "",
+                    node_source: "people_src",
+                    cardinality: ir::RoleCardinality::Many,
+                },
+            ],
+        }],
+        node_types: &[
+            NodeTypeSpec {
+                name: "Person",
+                source: "people_src",
+                properties: &[],
+            },
+            NodeTypeSpec {
+                name: "Folio",
+                source: "folios_src",
+                properties: &[],
+            },
+        ],
+        relationship_types: &[RelationshipTypeSpec {
+            name: "Transcription",
+            source: "transcriptions_src",
+            // `witness` intentionally has no entry here.
+            roles: &[
+                RoleSpec {
+                    name: "scribe",
+                    targets: &["Person"],
+                    optional: false,
+                    cardinality: SemanticRoleCardinality::One,
+                },
+                RoleSpec {
+                    name: "folio",
+                    targets: &["Folio"],
+                    optional: false,
+                    cardinality: SemanticRoleCardinality::One,
+                },
+            ],
+            properties: &[],
+        }],
+    };
+
+    /// Relation-as-player: `Citation.cited` targets `Transcription`, itself a
+    /// relationship type. The physical `cited` role uses a placeholder node
+    /// source since the physical layer cannot yet resolve a role's player
+    /// against a relationship source.
+    const CITATION_SCHEMA: Schema = Schema {
+        graph_name: "scriptorium",
+        create_tables_sql: "\
+            CREATE TABLE people(id INTEGER PRIMARY KEY, name TEXT); \
+            CREATE TABLE transcriptions(\
+                id INTEGER PRIMARY KEY, \
+                start_id INTEGER, \
+                end_id INTEGER\
+            ); \
+            CREATE TABLE citations(id INTEGER PRIMARY KEY, cited_id INTEGER);",
+        node_sources: &[NodeSourceSpec {
+            name: "people_src",
+            table: "people",
+            identity_column: "id",
+        }],
+        relationship_sources: &[
+            RelationshipSourceSpec {
+                name: "transcriptions_src",
+                table: "transcriptions",
+                identity_column: "id",
+                roles: &[
+                    RoleSourceSpec {
+                        name: "start",
+                        column: "start_id",
+                        node_source: "people_src",
+                        cardinality: ir::RoleCardinality::One,
+                    },
+                    RoleSourceSpec {
+                        name: "end",
+                        column: "end_id",
+                        node_source: "people_src",
+                        cardinality: ir::RoleCardinality::One,
+                    },
+                ],
+            },
+            RelationshipSourceSpec {
+                name: "citations_src",
+                table: "citations",
+                identity_column: "id",
+                roles: &[RoleSourceSpec {
+                    name: "cited",
+                    column: "cited_id",
+                    node_source: "people_src",
+                    cardinality: ir::RoleCardinality::One,
+                }],
+            },
+        ],
+        node_types: &[NodeTypeSpec {
+            name: "Person",
+            source: "people_src",
+            properties: &[],
+        }],
+        relationship_types: &[
+            RelationshipTypeSpec {
+                name: "Transcription",
+                source: "transcriptions_src",
+                roles: &[
+                    RoleSpec {
+                        name: "start",
+                        targets: &["Person"],
+                        optional: false,
+                        cardinality: SemanticRoleCardinality::One,
+                    },
+                    RoleSpec {
+                        name: "end",
+                        targets: &["Person"],
+                        optional: false,
+                        cardinality: SemanticRoleCardinality::One,
+                    },
+                ],
+                properties: &[],
+            },
+            RelationshipTypeSpec {
+                name: "Citation",
+                source: "citations_src",
+                roles: &[RoleSpec {
+                    name: "cited",
+                    targets: &["Transcription"],
+                    optional: false,
+                    cardinality: SemanticRoleCardinality::One,
+                }],
+                properties: &[],
+            },
+        ],
+    };
+
+    fn connection() -> Arc<Connection> {
+        use turso_core::{Database, MemoryIO, SqliteDialect};
+        Database::open_file(
+            Arc::new(MemoryIO::new()),
+            ":memory:semantic-roles",
+            Arc::new(SqliteDialect),
+        )
+        .expect("open database")
+        .connect()
+        .expect("connect")
+    }
+
+    fn install_semantic_schema(
+        connection: &Arc<Connection>,
+        schema: Schema,
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        use crate::catalog::{
+            register_graph, GraphRegistration, NodeSourceRegistration,
+            RelationshipSourceRegistration, RoleSourceRegistration,
+        };
+
+        connection.execute(schema.create_tables_sql)?;
+        let graph_registration = GraphRegistration {
+            name: schema.graph_name.to_owned(),
+            node_sources: schema
+                .node_sources
+                .iter()
+                .map(|source| NodeSourceRegistration {
+                    name: source.name.to_owned(),
+                    table: source.table.to_owned(),
+                    identity_column: source.identity_column.to_owned(),
+                })
+                .collect(),
+            relationship_sources: schema
+                .relationship_sources
+                .iter()
+                .map(|source| RelationshipSourceRegistration {
+                    name: source.name.to_owned(),
+                    table: source.table.to_owned(),
+                    identity_column: source.identity_column.to_owned(),
+                    roles: source
+                        .roles
+                        .iter()
+                        .map(|role| RoleSourceRegistration {
+                            name: role.name.to_owned(),
+                            column: role.column.to_owned(),
+                            node_source: role.node_source.to_owned(),
+                            cardinality: role.cardinality,
+                        })
+                        .collect(),
+                })
+                .collect(),
+        };
+        register_graph(connection, &graph_registration)?;
+
+        let semantic_registration = SemanticSchemaRegistration {
+            node_types: schema
+                .node_types
+                .iter()
+                .map(|node_type| SemanticNodeType {
+                    name: node_type.name.to_owned(),
+                    source: node_type.source.to_owned(),
+                    properties: node_type
+                        .properties
+                        .iter()
+                        .map(|property| SemanticProperty {
+                            name: property.name.to_owned(),
+                            column: property.column.to_owned(),
+                        })
+                        .collect(),
+                })
+                .collect(),
+            relationship_types: schema
+                .relationship_types
+                .iter()
+                .map(|relationship_type| SemanticRelationshipType {
+                    name: relationship_type.name.to_owned(),
+                    source: relationship_type.source.to_owned(),
+                    roles: relationship_type
+                        .roles
+                        .iter()
+                        .map(|role| SemanticRoleRegistration {
+                            name: role.name.to_owned(),
+                            targets: role
+                                .targets
+                                .iter()
+                                .map(|target| target.to_string())
+                                .collect(),
+                            optional: role.optional,
+                            cardinality: role.cardinality,
+                        })
+                        .collect(),
+                    properties: relationship_type
+                        .properties
+                        .iter()
+                        .map(|property| SemanticProperty {
+                            name: property.name.to_owned(),
+                            column: property.column.to_owned(),
+                        })
+                        .collect(),
+                })
+                .collect(),
+        };
+        register_semantic_schema(connection, schema.graph_name, &semantic_registration)?;
+        Ok(())
+    }
+
+    fn load_semantic_catalog(
+        connection: &Arc<Connection>,
+        name: &str,
+    ) -> Result<SemanticSnapshot, Box<dyn std::error::Error>> {
+        let graph = load_registered_graph(connection, name)?;
+        let snapshot = load_semantic_snapshot(connection, &graph)?.expect("semantic schema exists");
+        Ok(snapshot)
+    }
+
+    #[test]
+    fn a_semantic_role_carries_targets_optionality_and_cardinality() {
+        let connection = connection();
+        install_semantic_schema(&connection, TERNARY_SCHEMA).expect("install schema");
+        let catalog = load_semantic_catalog(&connection, "scriptorium").expect("load catalog");
+
+        let transcription = catalog
+            .relationship_type("Transcription")
+            .expect("Transcription type");
+        assert_eq!(transcription.roles.len(), 3);
+
+        let scribe = transcription.role("scribe").expect("scribe role");
+        assert!(!scribe.optional);
+        assert_eq!(scribe.cardinality, ir::RoleCardinality::One);
+        assert_eq!(scribe.targets.len(), 1, "scribe accepts Person only");
+
+        let witnesses = transcription.role("witness").expect("witness role");
+        assert!(witnesses.optional);
+        assert_eq!(witnesses.cardinality, ir::RoleCardinality::Many);
+    }
+
+    #[test]
+    fn a_role_may_target_a_relationship_type() {
+        // Relation-as-player: a role whose player is itself a relation. A
+        // target list that could only hold node labels would make this
+        // unrepresentable.
+        let connection = connection();
+        install_semantic_schema(&connection, CITATION_SCHEMA).expect("install schema");
+        let catalog = load_semantic_catalog(&connection, "scriptorium").expect("load catalog");
+
+        let cites = catalog
+            .relationship_type("Citation")
+            .expect("Citation type");
+        let cited = cites.role("cited").expect("cited role");
+        assert!(
+            cited
+                .targets
+                .iter()
+                .any(|target| matches!(target, ir::RoleTarget::Relation(_))),
+            "cited must accept a relation player, got {:?}",
+            cited.targets
+        );
+    }
+
+    #[test]
+    fn semantic_role_id_matches_the_physical_role_id() {
+        let connection = connection();
+        install_semantic_schema(&connection, TERNARY_SCHEMA).expect("install schema");
+        let graph = load_registered_graph(&connection, "scriptorium").expect("load graph");
+        let snapshot = load_semantic_snapshot(&connection, &graph)
+            .expect("load semantic snapshot")
+            .expect("semantic schema exists");
+
+        let transcription = snapshot
+            .relationship_type("Transcription")
+            .expect("Transcription type");
+        let source = graph
+            .relationship_sources
+            .iter()
+            .find(|source| source.name.eq_ignore_ascii_case("transcriptions_src"))
+            .expect("physical relationship source");
+
+        for role in &transcription.roles {
+            let physical_role = source
+                .role_by_name(&role.name)
+                .expect("every semantic role has a matching physical role");
+            assert_eq!(
+                role.role, physical_role.role,
+                "semantic and physical RoleId must agree for role `{}`",
+                role.name
+            );
+        }
+    }
+
+    #[test]
+    fn an_unconstrained_role_survives_the_left_join() {
+        // `witness` has no `SemanticRoleRegistration` entry at all, so zero
+        // rows are ever persisted for it. `load_roles` must recover it from
+        // the physical registration rather than silently dropping it.
+        let connection = connection();
+        install_semantic_schema(&connection, UNCONSTRAINED_ROLE_SCHEMA).expect("install schema");
+        let catalog = load_semantic_catalog(&connection, "scriptorium").expect("load catalog");
+
+        let transcription = catalog
+            .relationship_type("Transcription")
+            .expect("Transcription type");
+        assert_eq!(
+            transcription.roles.len(),
+            3,
+            "witness must survive despite having no semantic entry"
+        );
+
+        let witness = transcription
+            .role("witness")
+            .expect("witness role must be present even though it was never declared");
+        assert!(
+            witness.targets.is_empty(),
+            "an omitted role is unconstrained: targets must be empty, got {:?}",
+            witness.targets
+        );
+    }
+
+    #[test]
+    fn check_owned_columns_protects_a_third_roles_structural_column() {
+        // The old hardcoded start/end-only structural-column derivation
+        // would not have protected `folio_id`: TERNARY_SCHEMA's second role
+        // is named `folio`, not `start`/`end`. `check_owned_columns` must
+        // derive its structural set from every single-valued role.
+        use crate::catalog::{
+            register_graph, GraphRegistration, NodeSourceRegistration,
+            RelationshipSourceRegistration, RoleSourceRegistration,
+        };
+
+        let connection = connection();
+        connection
+            .execute(TERNARY_SCHEMA.create_tables_sql)
+            .expect("create tables");
+        register_graph(
+            &connection,
+            &GraphRegistration {
+                name: TERNARY_SCHEMA.graph_name.to_owned(),
+                node_sources: vec![
+                    NodeSourceRegistration {
+                        name: "people_src".to_owned(),
+                        table: "people".to_owned(),
+                        identity_column: "id".to_owned(),
+                    },
+                    NodeSourceRegistration {
+                        name: "folios_src".to_owned(),
+                        table: "folios".to_owned(),
+                        identity_column: "id".to_owned(),
+                    },
+                ],
+                relationship_sources: vec![RelationshipSourceRegistration {
+                    name: "transcriptions_src".to_owned(),
+                    table: "transcriptions".to_owned(),
+                    identity_column: "id".to_owned(),
+                    roles: vec![
+                        RoleSourceRegistration {
+                            name: "scribe".to_owned(),
+                            column: "scribe_id".to_owned(),
+                            node_source: "people_src".to_owned(),
+                            cardinality: ir::RoleCardinality::One,
+                        },
+                        RoleSourceRegistration {
+                            name: "folio".to_owned(),
+                            column: "folio_id".to_owned(),
+                            node_source: "folios_src".to_owned(),
+                            cardinality: ir::RoleCardinality::One,
+                        },
+                        RoleSourceRegistration {
+                            name: "witness".to_owned(),
+                            column: String::new(),
+                            node_source: "people_src".to_owned(),
+                            cardinality: ir::RoleCardinality::Many,
+                        },
+                    ],
+                }],
+            },
+        )
+        .expect("register graph");
+
+        let registration = SemanticSchemaRegistration {
+            node_types: vec![
+                SemanticNodeType {
+                    name: "Person".to_owned(),
+                    source: "people_src".to_owned(),
+                    properties: vec![],
+                },
+                SemanticNodeType {
+                    name: "Folio".to_owned(),
+                    source: "folios_src".to_owned(),
+                    properties: vec![],
+                },
+            ],
+            relationship_types: vec![SemanticRelationshipType {
+                name: "Transcription".to_owned(),
+                source: "transcriptions_src".to_owned(),
+                roles: vec![
+                    SemanticRoleRegistration {
+                        name: "scribe".to_owned(),
+                        targets: vec!["Person".to_owned()],
+                        optional: false,
+                        cardinality: SemanticRoleCardinality::One,
+                    },
+                    SemanticRoleRegistration {
+                        name: "folio".to_owned(),
+                        targets: vec!["Folio".to_owned()],
+                        optional: false,
+                        cardinality: SemanticRoleCardinality::One,
+                    },
+                    SemanticRoleRegistration {
+                        name: "witness".to_owned(),
+                        targets: vec!["Person".to_owned()],
+                        optional: true,
+                        cardinality: SemanticRoleCardinality::Many,
+                    },
+                ],
+                // `folio_id` is the `folio` role's structural column: a
+                // third role, distinct from `start`/`end`.
+                properties: vec![SemanticProperty {
+                    name: "folioId".to_owned(),
+                    column: "folio_id".to_owned(),
+                }],
+            }],
+        };
+
+        assert!(
+            matches!(
+                register_semantic_schema(&connection, "scriptorium", &registration),
+                Err(SemanticCatalogError::StructuralColumn { .. })
+            ),
+            "folio_id is the folio role's structural column and must not be mappable as a property"
+        );
     }
 }

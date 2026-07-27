@@ -1,0 +1,582 @@
+# Review package: ae795a64c..71104578d
+
+## Commits
+71104578d graph: let MERGE take a standalone role pattern
+
+## Files changed
+ graph/cypher/src/ast.rs                |  15 ++-
+ graph/cypher/src/cypher.pest           |   2 +-
+ graph/cypher/src/parser.rs             |  41 +++++++-
+ graph/frontend/src/binder.rs           |  31 +++++-
+ graph/frontend/src/mutation.rs         |  27 ++++-
+ graph/frontend/tests/nary_relations.rs | 175 +++++++++++++++++++++++++++++++++
+ 6 files changed, 281 insertions(+), 10 deletions(-)
+
+## Diff
+diff --git a/graph/cypher/src/ast.rs b/graph/cypher/src/ast.rs
+index e46ac4b54..d41737b14 100644
+--- a/graph/cypher/src/ast.rs
++++ b/graph/cypher/src/ast.rs
+@@ -69,21 +69,25 @@ pub struct ForeachClause {
+     pub body: Vec<Spanned<Clause>>,
+ }
+ 
+ #[derive(Clone, Debug, PartialEq)]
+ pub struct CreateClause {
+     pub paths: Pattern,
+ }
+ 
+ #[derive(Clone, Debug, PartialEq)]
+ pub struct MergeClause {
+-    pub path: PathPattern,
++    /// The single pattern being merged: either the arrow form
++    /// (`PatternElement::Path`) or the standalone role form
++    /// (`PatternElement::Roles`). MERGE takes exactly one pattern, unlike
++    /// CREATE's comma-separated `Pattern`.
++    pub path: PatternElement,
+     pub on_create: Vec<SetItem>,
+     pub on_match: Vec<SetItem>,
+ }
+ 
+ #[derive(Clone, Debug, PartialEq)]
+ pub struct PropertyTarget {
+     pub variable: Spanned<String>,
+     pub property: Spanned<String>,
+ }
+ 
+@@ -196,20 +200,29 @@ pub struct RelationshipPattern {
+ /// The arrow form (`PathPattern`) and the standalone role form
+ /// (`RolePattern`) are different spellings of the same underlying relation;
+ /// the binder resolves both to role pairs. Task 12 only teaches the parser
+ /// the role spelling — binding it is a later task.
+ #[derive(Clone, Debug, PartialEq)]
+ pub enum PatternElement {
+     Path(PathPattern),
+     Roles(RolePattern),
+ }
+ 
++impl PatternElement {
++    pub fn span(&self) -> Span {
++        match self {
++            PatternElement::Path(path) => path.span,
++            PatternElement::Roles(roles) => roles.span,
++        }
++    }
++}
++
+ /// `[x:Transcription {year: 1387}](scribe: p, text: t, folio: f)`
+ #[derive(Clone, Debug, PartialEq)]
+ pub struct RolePattern {
+     pub variable: Option<Spanned<String>>,
+     pub types: Vec<Spanned<String>>,
+     pub properties: Vec<(Spanned<String>, Spanned<Expression>)>,
+     /// Source order, which is deliberately not declaration order: the
+     /// binder does not require roles to appear in the order the relation
+     /// type declared them.
+     pub roles: Vec<RoleArgument>,
+diff --git a/graph/cypher/src/cypher.pest b/graph/cypher/src/cypher.pest
+index 3f7eadf7f..b28767419 100644
+--- a/graph/cypher/src/cypher.pest
++++ b/graph/cypher/src/cypher.pest
+@@ -55,21 +55,21 @@ clause = { match_clause | create_clause | merge_clause | set_clause | remove_cla
+ call_subquery = { CALL ~ "{" ~ clause+ ~ union_branch* ~ "}" }
+ call_clause = { CALL ~ qualified_name ~ ("(" ~ expression_list? ~ ")")? ~ (YIELD ~ identifier ~ ("," ~ identifier)*)? }
+ CALL = @{ ^"call" ~ !ident_char }
+ YIELD = @{ ^"yield" ~ !ident_char }
+ qualified_name = { identifier ~ ("." ~ identifier)* }
+ foreach_clause = { FOREACH ~ "(" ~ identifier ~ in_op ~ expression ~ "|" ~ foreach_body ~ ")" }
+ FOREACH = @{ ^"foreach" ~ !ident_char }
+ foreach_body = { (create_clause | merge_clause | set_clause | remove_clause | delete_clause | foreach_clause)+ }
+ match_clause = { OPTIONAL? ~ MATCH ~ pattern ~ where_clause? }
+ create_clause = { CREATE ~ pattern }
+-merge_clause = { MERGE ~ path_pattern ~ merge_action* }
++merge_clause = { MERGE ~ pattern_element ~ merge_action* }
+ merge_action = { ON ~ (CREATE | MATCH) ~ SET ~ set_item ~ ("," ~ set_item)* }
+ ON = @{ ^"on" ~ !ident_char }
+ set_clause = { SET ~ set_item ~ ("," ~ set_item)* }
+ set_item = { set_role_item | set_property_item | set_merge_item | set_replace_item | set_label_item }
+ set_property_item = { property_target ~ "=" ~ expression }
+ set_merge_item = { identifier ~ "+=" ~ expression }
+ set_replace_item = { identifier ~ "=" ~ expression }
+ set_label_item = { identifier ~ node_labels }
+ // `SET [x](role: player, ...)` — repoints roles of an already-bound
+ // relation. No type list or property map: unlike `role_pattern` (which
+diff --git a/graph/cypher/src/parser.rs b/graph/cypher/src/parser.rs
+index 85ef4c49e..c4758517a 100644
+--- a/graph/cypher/src/parser.rs
++++ b/graph/cypher/src/parser.rs
+@@ -162,21 +162,28 @@ fn walk_create(pair: Pair<'_, Rule>) -> Result<CreateClause, ParseError> {
+     })
+ }
+ 
+ fn walk_merge(pair: Pair<'_, Rule>) -> Result<MergeClause, ParseError> {
+     let span = pair_span(&pair);
+     let mut path = None;
+     let mut on_create = Vec::new();
+     let mut on_match = Vec::new();
+     for item in pair.into_inner() {
+         match item.as_rule() {
+-            Rule::path_pattern => path = Some(walk_path(item)?),
++            Rule::pattern_element => {
++                let inner = only_child(item)?;
++                path = Some(match inner.as_rule() {
++                    Rule::role_pattern => PatternElement::Roles(walk_role_pattern(inner)?),
++                    Rule::path_pattern => PatternElement::Path(walk_path(inner)?),
++                    rule => return Err(unexpected(&inner, "merge pattern", rule)),
++                });
++            }
+             Rule::merge_action => {
+                 let mut created = false;
+                 let mut items = Vec::new();
+                 for part in item.into_inner() {
+                     match part.as_rule() {
+                         Rule::CREATE => created = true,
+                         Rule::MATCH => created = false,
+                         Rule::set_item => items.push(walk_set_item(part)?),
+                         _ => {}
+                     }
+@@ -1747,21 +1754,51 @@ mod tests {
+             panic!("expected CREATE")
+         };
+         assert_eq!(create.paths.elements.len(), 1);
+         let PatternElement::Path(path) = &create.paths.elements[0] else {
+             panic!("expected a path pattern")
+         };
+         assert_eq!(path.steps.len(), 1);
+         let Clause::Merge(merge) = &query.clauses[1].value else {
+             panic!("expected MERGE")
+         };
+-        assert_eq!(merge.path.steps.len(), 1);
++        // The arrow form must still parse to `PatternElement::Path` now that
++        // `merge_clause` accepts `pattern_element` (arrow or role form)
++        // instead of `path_pattern` directly.
++        let PatternElement::Path(merge_path) = &merge.path else {
++            panic!("expected a path pattern")
++        };
++        assert_eq!(merge_path.steps.len(), 1);
++    }
++
++    #[test]
++    fn merge_accepts_a_standalone_role_pattern() {
++        // `merge_clause` bypassed the `role_pattern | path_pattern`
++        // alternation that CREATE goes through, taking `path_pattern`
++        // directly; this is the grammar fix for Task 18b.
++        let query =
++            parse("MATCH (p), (t), (f) MERGE [x:Transcription](scribe: p, text: t, folio: f)")
++                .expect("MERGE must accept a standalone role pattern");
++        let Clause::Merge(merge) = &query.clauses[1].value else {
++            panic!("expected MERGE")
++        };
++        let PatternElement::Roles(roles) = &merge.path else {
++            panic!("expected a role pattern")
++        };
++        assert_eq!(
++            roles
++                .roles
++                .iter()
++                .map(|role| role.name.value.as_str())
++                .collect::<Vec<_>>(),
++            vec!["scribe", "text", "folio"]
++        );
+     }
+ 
+     #[test]
+     fn a_standalone_role_pattern_parses_with_its_roles_in_source_order() {
+         // `[` never begins a pattern element today, so the role form is
+         // unambiguous against every existing pattern.
+         let query =
+             parse("MATCH [x:Transcription {year: 1387}](scribe: p, text: t, folio: f) RETURN x")
+                 .expect("query should parse");
+         let PatternElement::Roles(roles) = &pattern_of(&query).elements[0] else {
+diff --git a/graph/frontend/src/binder.rs b/graph/frontend/src/binder.rs
+index a9cf61724..601e8d760 100644
+--- a/graph/frontend/src/binder.rs
++++ b/graph/frontend/src/binder.rs
+@@ -938,21 +938,21 @@ impl<'a> Binder<'a> {
+                                 let create = self.bind_create_role_pattern(pattern)?;
+                                 new_operations.push(ir::Mutation::CreateRelation(create));
+                             }
+                         }
+                     }
+                     route(&mut operations, &mut stages, new_operations);
+                 }
+                 cypher::Clause::Merge(value) => {
+                     mutation_started = true;
+                     let mut new_operations = Vec::new();
+-                    self.bind_create_path(&value.path, true, &mut new_operations)?;
++                    self.bind_merge_pattern(&value.path, &mut new_operations)?;
+                     self.attach_merge_actions(value, &mut new_operations)?;
+                     route(&mut operations, &mut stages, new_operations);
+                 }
+                 cypher::Clause::Set(value) => {
+                     mutation_started = true;
+                     let mut new_operations = Vec::new();
+                     self.bind_set(value, &mut new_operations)?;
+                     route(&mut operations, &mut stages, new_operations);
+                 }
+                 cypher::Clause::Remove(value) => {
+@@ -1154,21 +1154,21 @@ impl<'a> Binder<'a> {
+                 match &inner.value {
+                     cypher::Clause::Create(value) => {
+                         let mut operations = Vec::new();
+                         for path in only_paths(&value.paths)? {
+                             self.bind_create_path(path, false, &mut operations)?;
+                         }
+                         items.extend(operations.into_iter().map(StageItem::Operation));
+                     }
+                     cypher::Clause::Merge(value) => {
+                         let mut operations = Vec::new();
+-                        self.bind_create_path(&value.path, true, &mut operations)?;
++                        self.bind_merge_pattern(&value.path, &mut operations)?;
+                         self.attach_merge_actions(value, &mut operations)?;
+                         items.extend(operations.into_iter().map(StageItem::Operation));
+                     }
+                     cypher::Clause::Set(value) => {
+                         let mut operations = Vec::new();
+                         self.bind_set(value, &mut operations)?;
+                         items.extend(operations.into_iter().map(StageItem::Operation));
+                     }
+                     cypher::Clause::Remove(value) => {
+                         let mut operations = Vec::new();
+@@ -1724,20 +1724,45 @@ impl<'a> Binder<'a> {
+                 variable.value.clone(),
+                 PathComposition::Fixed {
+                     nodes: path_nodes,
+                     relationships: path_relationships,
+                 },
+             );
+         }
+         Ok(())
+     }
+ 
++    /// Binds a MERGE pattern (`MergeClause.path`), which is either the arrow
++    /// form or the standalone role form. The arrow form already knows how to
++    /// merge (`bind_create_path`'s `merge` flag); the role form only knows
++    /// how to create (`bind_create_role_pattern` returns `CreateRelation`),
++    /// so it is wrapped in `MergeRelation` here rather than duplicating role
++    /// resolution to produce one directly.
++    fn bind_merge_pattern(
++        &mut self,
++        pattern: &cypher::PatternElement,
++        operations: &mut Vec<ir::Mutation>,
++    ) -> Result<(), BindError> {
++        match pattern {
++            cypher::PatternElement::Path(path) => self.bind_create_path(path, true, operations),
++            cypher::PatternElement::Roles(role_pattern) => {
++                let create = self.bind_create_role_pattern(role_pattern)?;
++                operations.push(ir::Mutation::MergeRelation(ir::MergeRelation {
++                    create,
++                    on_create: Vec::new(),
++                    on_match: Vec::new(),
++                }));
++                Ok(())
++            }
++        }
++    }
++
+     /// Binds the standalone role-pattern CREATE surface
+     /// (`[x:T {props}](role: player, ...)`). Role arguments arrive in
+     /// source order, which is deliberately not declaration order; each is
+     /// resolved by NAME against the relation type's declared roles (never
+     /// by position), then written to `ir::CreateRelation.roles` in
+     /// declaration order so the writer's column derivation stays stable.
+     /// A repeated role PLAYER is legal (no cross-role uniqueness rule); a
+     /// repeated role NAME is refused rather than silently taking the last
+     /// write.
+     /// Resolves one role argument's player: it must already be a bound
+@@ -1970,21 +1995,21 @@ impl<'a> Binder<'a> {
+                 }
+                 ir::Mutation::MergeRelation(merge) => {
+                     merge.on_create = on_create;
+                     merge.on_match = on_match;
+                     return Ok(());
+                 }
+                 _ => {}
+             }
+         }
+         Err(at_unsupported(
+-            clause.path.span,
++            clause.path.span(),
+             "ON CREATE/ON MATCH without a merge operation",
+         ))
+     }
+ 
+     fn bind_created_node(
+         &mut self,
+         node: &cypher::NodePattern,
+         merge: bool,
+         operations: &mut Vec<ir::Mutation>,
+     ) -> Result<ir::BindingId, BindError> {
+diff --git a/graph/frontend/src/mutation.rs b/graph/frontend/src/mutation.rs
+index c6fe226a7..895ffe549 100644
+--- a/graph/frontend/src/mutation.rs
++++ b/graph/frontend/src/mutation.rs
+@@ -1936,21 +1936,21 @@ pub(crate) fn insert_relationship(
+     input: &LoweredMutationInput,
+     create: &ir::CreateRelation,
+     parameters: &Parameters,
+     values: &HashMap<ir::BindingId, Value>,
+     entity_layouts: &HashMap<ir::BindingId, (ir::SourceTableId, MutationEntityKind)>,
+     merge: bool,
+ ) -> Result<(Value, bool), MutationError> {
+     let layout = catalog
+         .relationship_layout(create.source)
+         .ok_or(LowerError::MissingSource(create.source))?;
+-    let merge_predicates = if merge {
++    let mut merge_predicates = if merge {
+         relationship_type_predicates(
+             catalog,
+             create.source,
+             &layout.table,
+             &layout.identity_column,
+             &create.relationship_types,
+         )
+     } else {
+         Vec::new()
+     };
+@@ -1964,22 +1964,43 @@ pub(crate) fn insert_relationship(
+         let role = layout
+             .role(binding.role)
+             .ok_or(MutationError::UnknownRole { role: binding.role })?;
+         let player = values
+             .get(&binding.value)
+             .ok_or(MutationError::MissingBinding(binding.value))?;
+         match role.cardinality {
+             ir::RoleCardinality::One => fixed.push((role.column.clone(), player.clone())),
+             // A many-valued role has no column on the relation table; its
+             // players land in the spill table after the relation row exists
+-            // and has an identity to point at.
+-            ir::RoleCardinality::Many => spilled.push((role.clone(), player.clone())),
++            // and has an identity to point at. `fixed` cannot express this,
++            // so a MERGE matches a `Many` role by membership instead: each
++            // named player must already be present in that role's spill
++            // table for the same relation. `binding.value`'s parameter is
++            // already registered in `insert_entity`'s `internal` map via
++            // `reference_parameters(values)`, so no extra plumbing is
++            // needed to reference it here.
++            ir::RoleCardinality::Many => {
++                if merge {
++                    let table = role
++                        .spill_table
++                        .as_ref()
++                        .expect("a Many role always has a spill table");
++                    let player_parameter = identity_parameter(binding.value);
++                    merge_predicates.push(format!(
++                        "EXISTS (SELECT 1 FROM {} WHERE relation_id = {}.{} AND node_id = ${player_parameter})",
++                        quoted_identifier(table),
++                        quoted_identifier(&layout.table),
++                        quoted_identifier(&layout.identity_column),
++                    ));
++                }
++                spilled.push((role.clone(), player.clone()));
++            }
+         }
+     }
+     let (identity, created) = insert_entity(
+         connection,
+         catalog,
+         input,
+         &layout.table,
+         &layout.identity_column,
+         create.source,
+         &create.properties,
+diff --git a/graph/frontend/tests/nary_relations.rs b/graph/frontend/tests/nary_relations.rs
+index c2c034bf6..b717c933d 100644
+--- a/graph/frontend/tests/nary_relations.rs
++++ b/graph/frontend/tests/nary_relations.rs
+@@ -160,20 +160,195 @@ fn role_arguments_bind_by_name_regardless_of_source_order() {
+     assert_eq!(
+         rows,
+         vec![vec![
+             Value::from_i64(10),
+             Value::from_i64(20),
+             Value::from_i64(30),
+         ]]
+     );
+ }
+ 
++// --- Task 18b: `MERGE [x:T](role: player, ...)` -- MERGE over a standalone
++// role pattern. The grammar previously accepted only the arrow form after
++// MERGE (`merge_clause` took `path_pattern` directly, bypassing the
++// `role_pattern | path_pattern` alternation CREATE goes through); binding
++// routes a role pattern under MERGE to `ir::Mutation::MergeRelation` by
++// reusing `bind_create_role_pattern`, the same single implementation CREATE
++// uses, rather than a second copy of role resolution.
++
++/// Matching on a subset would make a second MERGE with a different folio
++/// silently update the first transcription instead of creating a second
++/// one, collapsing two distinct assertions into one.
++#[test]
++fn merge_matches_on_the_full_set_of_bound_roles() {
++    let (database, session) = fixture::ternary_session();
++    let seed = fixture::second_connection(&database);
++    let graph = load_registered_graph(&seed, "scriptorium").expect("load registered graph");
++    seed_node(&seed, &graph, "Person", "people", 1);
++    seed_node(&seed, &graph, "Text", "texts", 2);
++    seed_node(&seed, &graph, "Folio", "folios", 3);
++
++    let merge_query = "MATCH (p:Person), (t:Text), (f:Folio) \
++                        MERGE [x:Transcription](scribe: p, text: t, folio: f)";
++    session
++        .execute(merge_query, &Parameters::new())
++        .expect("first merge creates the relation");
++    session
++        .execute(merge_query, &Parameters::new())
++        .expect("second, identical merge matches rather than creating");
++
++    let connection = fixture::second_connection(&database);
++    assert_eq!(
++        connection
++            .prepare("SELECT count(*) FROM transcriptions")
++            .unwrap()
++            .run_collect_rows()
++            .unwrap(),
++        vec![vec![Value::from_i64(1)]],
++        "running the same MERGE twice leaves exactly one row"
++    );
++
++    // A MERGE differing only in folio must be a different assertion, not an
++    // update of the first. `ternary_session` cannot filter an existing
++    // Folio by property (three node sources, no semantic schema -- see
++    // `fixture::ternary_session`'s doc comment), so create a second, fresh
++    // Folio in the same statement and merge through it instead of trying to
++    // MATCH a specific one.
++    session
++        .execute(
++            "MATCH (p:Person), (t:Text) CREATE (f:Folio) \
++             MERGE [x:Transcription](scribe: p, text: t, folio: f)",
++            &Parameters::new(),
++        )
++        .expect("merge with a different folio creates a second relation");
++    assert_eq!(
++        connection
++            .prepare("SELECT count(*) FROM transcriptions")
++            .unwrap()
++            .run_collect_rows()
++            .unwrap(),
++        vec![vec![Value::from_i64(2)]],
++        "a different folio is a different assertion, not an update of the first"
++    );
++}
++
++/// `mutation.rs`'s `insert_relationship` guards its spill writes with `if
++/// created` (added in Task 14a, untested until now: it can only be
++/// exercised through MERGE over a role pattern). A relation matched by
++/// MERGE already has whatever spill rows its original CREATE wrote; without
++/// the guard, a second MERGE would insert the witness a second time.
++#[test]
++fn merging_a_relation_with_a_many_valued_role_does_not_duplicate_spill_rows() {
++    let (database, session) = fixture::witnessed_session();
++    session
++        .execute(
++            "CREATE (:Person {id: 1}), (:Person {id: 2}), (:Person {id: 3})",
++            &Parameters::new(),
++        )
++        .expect("seed people");
++    let merge_query = "MATCH (a:Person {id: 1}), (b:Person {id: 2}), (w:Person {id: 3}) \
++                        MERGE [x:KNOWS](start: a, end: b, witness: w)";
++    session
++        .execute(merge_query, &Parameters::new())
++        .expect("first merge creates the relation with one witness");
++    session
++        .execute(merge_query, &Parameters::new())
++        .expect("second, identical merge matches rather than creating");
++
++    let connection = fixture::second_connection(&database);
++    assert_eq!(
++        connection
++            .prepare("SELECT count(*) FROM relationships")
++            .unwrap()
++            .run_collect_rows()
++            .unwrap(),
++        vec![vec![Value::from_i64(1)]],
++        "one relation row"
++    );
++    assert_eq!(
++        connection
++            .prepare("SELECT count(*) FROM relationships__witness")
++            .unwrap()
++            .run_collect_rows()
++            .unwrap(),
++        vec![vec![Value::from_i64(1)]],
++        "the witness is written once, not once per MERGE run"
++    );
++}
++
++/// `merge_clause` is reachable both from `clause` directly and from
++/// `foreach_body`; changing it to accept a role pattern must not disturb
++/// the `FOREACH (... | MERGE ...)` path, which routes through a separate
++/// binder branch (`bind_foreach`) from a bare top-level MERGE.
++#[test]
++fn a_role_pattern_merge_inside_foreach_still_binds() {
++    let (database, session) = fixture::ternary_session();
++    let seed = fixture::second_connection(&database);
++    let graph = load_registered_graph(&seed, "scriptorium").expect("load registered graph");
++    seed_node(&seed, &graph, "Person", "people", 1);
++    seed_node(&seed, &graph, "Text", "texts", 2);
++    seed_node(&seed, &graph, "Folio", "folios", 3);
++
++    session
++        .execute(
++            "MATCH (p:Person), (t:Text), (f:Folio) \
++             FOREACH (i IN [1] | MERGE [x:Transcription](scribe: p, text: t, folio: f))",
++            &Parameters::new(),
++        )
++        .expect("role-pattern MERGE inside FOREACH must bind");
++
++    let connection = fixture::second_connection(&database);
++    assert_eq!(
++        connection
++            .prepare("SELECT count(*) FROM transcriptions")
++            .unwrap()
++            .run_collect_rows()
++            .unwrap(),
++        vec![vec![Value::from_i64(1)]],
++        "one relation row created through FOREACH"
++    );
++}
++
++/// The arrow form must keep working inside `FOREACH` too: `bind_foreach`'s
++/// MERGE branch now calls the shared `bind_merge_pattern` helper instead of
++/// `bind_create_path` directly, and its `PatternElement::Path` arm must stay
++/// a pass-through to that same call.
++#[test]
++fn an_arrow_form_merge_inside_foreach_still_binds() {
++    let (database, session) = fixture::witnessed_session();
++    session
++        .execute(
++            "CREATE (:Person {id: 1}), (:Person {id: 2})",
++            &Parameters::new(),
++        )
++        .expect("seed people");
++
++    session
++        .execute(
++            "MATCH (a:Person {id: 1}), (b:Person {id: 2}) \
++             FOREACH (i IN [1] | MERGE (a)-[:KNOWS]->(b))",
++            &Parameters::new(),
++        )
++        .expect("arrow-form MERGE inside FOREACH must bind");
++
++    let connection = fixture::second_connection(&database);
++    assert_eq!(
++        connection
++            .prepare("SELECT count(*) FROM relationships")
++            .unwrap()
++            .run_collect_rows()
++            .unwrap(),
++        vec![vec![Value::from_i64(1)]],
++        "one relation row created through FOREACH"
++    );
++}
++
+ /// A `Many` role stores its players in a spill table rather than a column,
+ /// so creating a relation with two `witness` players is one relation row
+ /// plus two spill rows -- not two relation rows, which would double-count
+ /// the relation in any aggregate.
+ #[test]
+ fn a_many_valued_role_holds_several_players_in_one_relation() {
+     let (database, session) = fixture::witnessed_session();
+     session
+         .execute(
+             "CREATE (:Person {id: 1}), (:Person {id: 2}), \

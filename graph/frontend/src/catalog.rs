@@ -11,7 +11,7 @@ use turso_core::{
     },
     Connection, Numeric, Value,
 };
-use turso_graph_ir::{GraphId, SourceTableId};
+use turso_graph_ir::{self as ir, GraphId, RoleCardinality, SourceTableId};
 
 const RESERVED_PREFIX: &str = "__turso_";
 pub(crate) const GRAPHS_TABLE: &str = "__turso_internal_graph_graphs";
@@ -19,8 +19,9 @@ pub(crate) const GENERATIONS_TABLE: &str = TURSO_GRAPH_GENERATIONS_TABLE_NAME;
 pub(crate) const SOURCES_TABLE: &str = "__turso_internal_graph_sources";
 pub(crate) const NODE_SOURCES_TABLE: &str = "__turso_internal_graph_node_sources";
 pub(crate) const RELATIONSHIP_SOURCES_TABLE: &str = "__turso_internal_graph_relationship_sources";
+pub(crate) const RELATIONSHIP_ROLES_TABLE: &str = "__turso_internal_graph_relationship_roles";
 
-pub const GRAPH_CATALOG_VERSION: u64 = 3;
+pub const GRAPH_CATALOG_VERSION: u64 = 4;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct NodeSourceRegistration {
@@ -29,15 +30,62 @@ pub struct NodeSourceRegistration {
     pub identity_column: String,
 }
 
+/// One named role of a relationship source and the physical column that
+/// stores its player.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct RoleSourceRegistration {
+    pub name: String,
+    /// Endpoint column on the relationship table. Ignored for `Many` roles,
+    /// which store players in `<table>__<role>` instead; pass an empty string.
+    pub column: String,
+    /// Name of a registered node source.
+    pub node_source: String,
+    pub cardinality: RoleCardinality,
+}
+
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct RelationshipSourceRegistration {
     pub name: String,
     pub table: String,
     pub identity_column: String,
-    pub start_column: String,
-    pub end_column: String,
-    pub start_node_source: String,
-    pub end_node_source: String,
+    /// Declaration order is stable and becomes role ordinal order.
+    pub roles: Vec<RoleSourceRegistration>,
+}
+
+impl RelationshipSourceRegistration {
+    /// A two-endpoint table registered as a two-role relation named
+    /// `start`/`end`. This is a layout of the role model, not a separate kind:
+    /// every donor corpus source registers this way and keeps working.
+    #[allow(clippy::too_many_arguments)]
+    pub fn binary(
+        name: impl Into<String>,
+        table: impl Into<String>,
+        identity_column: impl Into<String>,
+        start_column: impl Into<String>,
+        end_column: impl Into<String>,
+        start_node_source: impl Into<String>,
+        end_node_source: impl Into<String>,
+    ) -> Self {
+        Self {
+            name: name.into(),
+            table: table.into(),
+            identity_column: identity_column.into(),
+            roles: vec![
+                RoleSourceRegistration {
+                    name: "start".to_owned(),
+                    column: start_column.into(),
+                    node_source: start_node_source.into(),
+                    cardinality: RoleCardinality::One,
+                },
+                RoleSourceRegistration {
+                    name: "end".to_owned(),
+                    column: end_column.into(),
+                    node_source: end_node_source.into(),
+                    cardinality: RoleCardinality::One,
+                },
+            ],
+        }
+    }
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -56,15 +104,45 @@ pub struct RegisteredNodeSource {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
+pub struct RegisteredRelationshipRole {
+    pub role: ir::RoleId,
+    pub name: String,
+    pub column: String,
+    pub node_source: SourceTableId,
+    pub cardinality: RoleCardinality,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct RegisteredRelationshipSource {
     pub id: SourceTableId,
     pub name: String,
     pub table: String,
     pub identity_column: String,
-    pub start_column: String,
-    pub end_column: String,
-    pub start_node_source: SourceTableId,
-    pub end_node_source: SourceTableId,
+    pub roles: Vec<RegisteredRelationshipRole>,
+}
+
+impl RegisteredRelationshipSource {
+    pub fn role_by_name(&self, name: &str) -> Option<&RegisteredRelationshipRole> {
+        self.roles
+            .iter()
+            .find(|role| role.name.eq_ignore_ascii_case(name))
+    }
+
+    pub fn role_by_id(&self, role: ir::RoleId) -> Option<&RegisteredRelationshipRole> {
+        self.roles.iter().find(|entry| entry.role == role)
+    }
+
+    /// Roles stored in an endpoint column on the relation table.
+    pub fn single_valued_roles(&self) -> impl Iterator<Item = &RegisteredRelationshipRole> {
+        self.roles
+            .iter()
+            .filter(|role| role.cardinality == RoleCardinality::One)
+    }
+
+    /// Spill table holding the players of a `Many` role.
+    pub fn spill_table(&self, role: &RegisteredRelationshipRole) -> String {
+        format!("{}__{}", self.table, role.name)
+    }
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -107,6 +185,8 @@ pub enum CatalogError {
     InvalidIdentity { kind: &'static str, value: i64 },
     #[error("catalog row has an invalid value in `{0}`")]
     InvalidCatalogValue(&'static str),
+    #[error("graph catalog predates native relationship roles ({detail}); this build reads only role-shaped catalogs and there is no migration, so the graph must be created fresh")]
+    IncompatibleGraphLayout { detail: String },
     #[error("source table `{table}` has a struct/union/custom-typed column `{column}` but this connection does not have --experimental-custom-types enabled")]
     CustomTypesDisabled { table: String, column: String },
     #[error("catalog operation failed: {0}")]
@@ -180,6 +260,19 @@ pub fn load_registered_graph(
     name: &str,
 ) -> Result<RegisteredGraph, CatalogError> {
     ensure_catalog_exists(connection)?;
+    if query_rows(
+        connection,
+        &format!(
+            "SELECT name FROM sqlite_schema WHERE type = 'table' AND name = {}",
+            sql_string(RELATIONSHIP_ROLES_TABLE)
+        ),
+    )?
+    .is_empty()
+    {
+        return Err(CatalogError::IncompatibleGraphLayout {
+            detail: format!("{RELATIONSHIP_ROLES_TABLE} is absent"),
+        });
+    }
     let graph_rows = query_rows(
         connection,
         &format!(
@@ -219,8 +312,7 @@ pub fn load_registered_graph(
     let relationship_rows = query_rows(
         connection,
         &format!(
-            "SELECT s.id, s.name, r.table_name, r.identity_column, r.start_column, r.end_column, \
-             r.start_node_source_id, r.end_node_source_id FROM {SOURCES_TABLE} s \
+            "SELECT s.id, s.name, r.table_name, r.identity_column FROM {SOURCES_TABLE} s \
              JOIN {RELATIONSHIP_SOURCES_TABLE} r ON r.source_id = s.id \
              WHERE s.graph_id = {} ORDER BY s.id",
             graph_id.get()
@@ -228,26 +320,57 @@ pub fn load_registered_graph(
     )?;
     let mut relationship_sources = Vec::with_capacity(relationship_rows.len());
     for row in relationship_rows {
-        let source = RegisteredRelationshipSource {
-            id: source_id(integer(&row, 0, "relationship source id")?)?,
-            name: text(&row, 1, "relationship source name")?.to_owned(),
-            table: text(&row, 2, "relationship source table")?.to_owned(),
-            identity_column: text(&row, 3, "relationship identity column")?.to_owned(),
-            start_column: text(&row, 4, "start column")?.to_owned(),
-            end_column: text(&row, 5, "end column")?.to_owned(),
-            start_node_source: source_id(integer(&row, 6, "start node source id")?)?,
-            end_node_source: source_id(integer(&row, 7, "end node source id")?)?,
-        };
-        require_columns(
+        let id = source_id(integer(&row, 0, "relationship source id")?)?;
+        let table = text(&row, 2, "relationship source table")?.to_owned();
+        let identity_column = text(&row, 3, "relationship identity column")?.to_owned();
+        let role_rows = query_rows(
             connection,
-            &source.table,
-            &[
-                &source.identity_column,
-                &source.start_column,
-                &source.end_column,
-            ],
+            &format!(
+                "SELECT ordinal, name, column_name, node_source_id, cardinality \
+                 FROM {RELATIONSHIP_ROLES_TABLE} WHERE source_id = {} ORDER BY ordinal",
+                id.get()
+            ),
         )?;
-        relationship_sources.push(source);
+        let mut roles = Vec::with_capacity(role_rows.len());
+        let mut required_columns = vec![identity_column.clone()];
+        for role_row in role_rows {
+            let ordinal = integer(&role_row, 0, "role ordinal")?;
+            let role = u32::try_from(ordinal)
+                .ok()
+                .and_then(|value| ir::RoleId::new(value).ok())
+                .ok_or(CatalogError::InvalidIdentity {
+                    kind: "role",
+                    value: ordinal,
+                })?;
+            let cardinality = match text(&role_row, 4, "role cardinality")? {
+                "one" => RoleCardinality::One,
+                "many" => RoleCardinality::Many,
+                _ => return Err(CatalogError::InvalidCatalogValue("role cardinality")),
+            };
+            let column = text(&role_row, 2, "role column")?.to_owned();
+            if cardinality == RoleCardinality::One {
+                required_columns.push(column.clone());
+            }
+            roles.push(RegisteredRelationshipRole {
+                role,
+                name: text(&role_row, 1, "role name")?.to_owned(),
+                column,
+                node_source: source_id(integer(&role_row, 3, "role node source id")?)?,
+                cardinality,
+            });
+        }
+        let borrowed = required_columns
+            .iter()
+            .map(String::as_str)
+            .collect::<Vec<_>>();
+        require_columns(connection, &table, &borrowed)?;
+        relationship_sources.push(RegisteredRelationshipSource {
+            id,
+            name: text(&row, 1, "relationship source name")?.to_owned(),
+            table,
+            identity_column,
+            roles,
+        });
     }
     Ok(RegisteredGraph {
         id: graph_id,
@@ -284,15 +407,15 @@ fn register_graph_in_transaction(
         require_custom_types_enabled_for_source(connection, &node.table)?;
     }
     for relationship in &registration.relationship_sources {
-        let columns = require_columns(
-            connection,
-            &relationship.table,
-            &[
-                &relationship.identity_column,
-                &relationship.start_column,
-                &relationship.end_column,
-            ],
-        )?;
+        let mut required_columns = vec![relationship.identity_column.as_str()];
+        required_columns.extend(
+            relationship
+                .roles
+                .iter()
+                .filter(|role| role.cardinality == RoleCardinality::One)
+                .map(|role| role.column.as_str()),
+        );
+        let columns = require_columns(connection, &relationship.table, &required_columns)?;
         require_custom_types_enabled_for_source(connection, &relationship.table)?;
         require_unique_identity(
             connection,
@@ -356,18 +479,6 @@ fn register_graph_in_transaction(
     }
 
     for relationship in &registration.relationship_sources {
-        let start = node_ids
-            .get(&relationship.start_node_source)
-            .ok_or_else(|| CatalogError::UnknownEndpoint {
-                relationship: relationship.name.clone(),
-                node_source: relationship.start_node_source.clone(),
-            })?;
-        let end = node_ids.get(&relationship.end_node_source).ok_or_else(|| {
-            CatalogError::UnknownEndpoint {
-                relationship: relationship.name.clone(),
-                node_source: relationship.end_node_source.clone(),
-            }
-        })?;
         execute_internal(
             connection,
             format!(
@@ -386,34 +497,46 @@ fn register_graph_in_transaction(
             "relationship source id",
         )?;
         execute_internal(connection, format!(
-            "INSERT INTO {RELATIONSHIP_SOURCES_TABLE}(source_id, table_name, identity_column, start_column, end_column, start_node_source_id, end_node_source_id) \
-             VALUES ({}, {}, {}, {}, {}, {}, {})",
+            "INSERT INTO {RELATIONSHIP_SOURCES_TABLE}(source_id, table_name, identity_column) VALUES ({}, {}, {})",
             relationship_id,
             sql_string(&relationship.table),
-            sql_string(&relationship.identity_column),
-            sql_string(&relationship.start_column),
-            sql_string(&relationship.end_column),
-            start.get(),
-            end.get()
+            sql_string(&relationship.identity_column)
         ))?;
-        install_endpoint_index(
-            connection,
-            graph_id,
-            relationship,
-            "start",
-            &relationship.start_column,
-        )?;
-        install_endpoint_index(
-            connection,
-            graph_id,
-            relationship,
-            "end",
-            &relationship.end_column,
-        )?;
-        // Co-membership patterns bind both endpoints before matching the
+        for (ordinal, role) in relationship.roles.iter().enumerate() {
+            let node_source =
+                node_ids
+                    .get(&role.node_source)
+                    .ok_or_else(|| CatalogError::UnknownEndpoint {
+                        relationship: relationship.name.clone(),
+                        node_source: role.node_source.clone(),
+                    })?;
+            execute_internal(connection, format!(
+                "INSERT INTO {RELATIONSHIP_ROLES_TABLE}(source_id, ordinal, name, column_name, node_source_id, cardinality) \
+                 VALUES ({}, {}, {}, {}, {}, {})",
+                relationship_id,
+                ordinal + 1,
+                sql_string(&role.name),
+                sql_string(&role.column),
+                node_source.get(),
+                sql_string(match role.cardinality {
+                    RoleCardinality::One => "one",
+                    RoleCardinality::Many => "many",
+                })
+            ))?;
+            match role.cardinality {
+                RoleCardinality::One => {
+                    install_role_index(connection, graph_id, relationship, role)?;
+                }
+                RoleCardinality::Many => {
+                    install_spill_table(connection, graph_id, relationship, role)?;
+                }
+            }
+        }
+        // Co-membership patterns bind two role players before matching the
         // second relationship; the composite index turns that probe from an
-        // in-degree scan into an exact lookup.
-        install_endpoint_pair_index(connection, graph_id, relationship)?;
+        // in-degree scan into an exact lookup. A two-role relation gets
+        // exactly one such index, which is today's (start, end) index.
+        install_role_pair_indexes(connection, graph_id, relationship)?;
     }
 
     let mut mapped_tables = HashSet::new();
@@ -523,7 +646,10 @@ fn create_catalog(connection: &Arc<Connection>) -> Result<(), CatalogError> {
         "CREATE TABLE IF NOT EXISTS {NODE_SOURCES_TABLE}(source_id INTEGER PRIMARY KEY, table_name TEXT NOT NULL, identity_column TEXT NOT NULL)"
     ))?;
     execute_internal(connection, format!(
-        "CREATE TABLE IF NOT EXISTS {RELATIONSHIP_SOURCES_TABLE}(source_id INTEGER PRIMARY KEY, table_name TEXT NOT NULL, identity_column TEXT NOT NULL, start_column TEXT NOT NULL, end_column TEXT NOT NULL, start_node_source_id INTEGER NOT NULL, end_node_source_id INTEGER NOT NULL)"
+        "CREATE TABLE IF NOT EXISTS {RELATIONSHIP_SOURCES_TABLE}(source_id INTEGER PRIMARY KEY, table_name TEXT NOT NULL, identity_column TEXT NOT NULL)"
+    ))?;
+    execute_internal(connection, format!(
+        "CREATE TABLE IF NOT EXISTS {RELATIONSHIP_ROLES_TABLE}(source_id INTEGER NOT NULL, ordinal INTEGER NOT NULL, name TEXT NOT NULL COLLATE NOCASE, column_name TEXT NOT NULL, node_source_id INTEGER NOT NULL, cardinality TEXT NOT NULL CHECK(cardinality IN ('one', 'many')), PRIMARY KEY(source_id, ordinal))"
     ))?;
     Ok(())
 }
@@ -569,14 +695,21 @@ fn validate_registration_names(registration: &GraphRegistration) -> Result<(), C
     }
     for source in &registration.relationship_sources {
         validate_name("relationship source", &source.name)?;
-        validate_source_identifiers(
-            &source.table,
-            &[
-                &source.identity_column,
-                &source.start_column,
-                &source.end_column,
-            ],
-        )?;
+        let mut columns = vec![source.identity_column.as_str()];
+        let mut role_names = HashSet::new();
+        for role in &source.roles {
+            validate_name("role", &role.name)?;
+            if !role_names.insert(role.name.to_ascii_lowercase()) {
+                return Err(CatalogError::DuplicateName {
+                    kind: "role",
+                    name: role.name.clone(),
+                });
+            }
+            if role.cardinality == RoleCardinality::One {
+                columns.push(role.column.as_str());
+            }
+        }
+        validate_source_identifiers(&source.table, &columns)?;
         if !source_names.insert(source.name.to_ascii_lowercase()) {
             return Err(CatalogError::DuplicateName {
                 kind: "relationship source",
@@ -742,18 +875,17 @@ fn require_custom_types_enabled_for_source(
     Ok(())
 }
 
-fn install_endpoint_index(
+fn install_role_index(
     connection: &Arc<Connection>,
     graph: GraphId,
     source: &RelationshipSourceRegistration,
-    role: &str,
-    column: &str,
+    role: &RoleSourceRegistration,
 ) -> Result<(), CatalogError> {
     let name = format!(
         "{TURSO_GRAPH_CATALOG_PREFIX}ep_{}_{}_{:016x}",
         graph.get(),
-        role,
-        stable_hash(&format!("{}:{}", source.table, column))
+        role.name.to_ascii_lowercase(),
+        stable_hash(&format!("{}:{}", source.table, role.column))
     );
     execute_internal(
         connection,
@@ -761,37 +893,83 @@ fn install_endpoint_index(
             "CREATE INDEX IF NOT EXISTS {} ON {}({})",
             quote_identifier(&name),
             quote_identifier(&source.table),
-            quote_identifier(column)
+            quote_identifier(&role.column)
         ),
     )?;
     Ok(())
 }
 
-/// Composite (start, end) index for expands whose both endpoints are
-/// already bound (co-membership patterns).
-fn install_endpoint_pair_index(
+/// One composite index per unordered pair of single-valued roles. A two-role
+/// relation therefore gets exactly the (start, end) index it has today.
+fn install_role_pair_indexes(
     connection: &Arc<Connection>,
     graph: GraphId,
     source: &RelationshipSourceRegistration,
 ) -> Result<(), CatalogError> {
-    let name = format!(
-        "{TURSO_GRAPH_CATALOG_PREFIX}ep_{}_pair_{:016x}",
-        graph.get(),
-        stable_hash(&format!(
-            "{}:{}:{}",
-            source.table, source.start_column, source.end_column
-        ))
-    );
+    let single = source
+        .roles
+        .iter()
+        .filter(|role| role.cardinality == RoleCardinality::One)
+        .collect::<Vec<_>>();
+    for (index, left) in single.iter().enumerate() {
+        for right in single.iter().skip(index + 1) {
+            let name = format!(
+                "{TURSO_GRAPH_CATALOG_PREFIX}ep_{}_pair_{:016x}",
+                graph.get(),
+                stable_hash(&format!(
+                    "{}:{}:{}",
+                    source.table, left.column, right.column
+                ))
+            );
+            execute_internal(
+                connection,
+                format!(
+                    "CREATE INDEX IF NOT EXISTS {} ON {}({}, {})",
+                    quote_identifier(&name),
+                    quote_identifier(&source.table),
+                    quote_identifier(&left.column),
+                    quote_identifier(&right.column)
+                ),
+            )?;
+        }
+    }
+    Ok(())
+}
+
+/// A `Many` role stores its players in `<table>__<role>(relation_id, node_id)`,
+/// indexed in both directions so a hop is an index probe from either side.
+fn install_spill_table(
+    connection: &Arc<Connection>,
+    graph: GraphId,
+    source: &RelationshipSourceRegistration,
+    role: &RoleSourceRegistration,
+) -> Result<(), CatalogError> {
+    let table = format!("{}__{}", source.table, role.name);
     execute_internal(
         connection,
         format!(
-            "CREATE INDEX IF NOT EXISTS {} ON {}({}, {})",
-            quote_identifier(&name),
-            quote_identifier(&source.table),
-            quote_identifier(&source.start_column),
-            quote_identifier(&source.end_column)
+            "CREATE TABLE IF NOT EXISTS {}(relation_id INTEGER NOT NULL, node_id INTEGER NOT NULL)",
+            quote_identifier(&table)
         ),
     )?;
+    for (suffix, columns) in [
+        ("fwd", "relation_id, node_id"),
+        ("rev", "node_id, relation_id"),
+    ] {
+        let name = format!(
+            "{TURSO_GRAPH_CATALOG_PREFIX}spill_{}_{suffix}_{:016x}",
+            graph.get(),
+            stable_hash(&table)
+        );
+        execute_internal(
+            connection,
+            format!(
+                "CREATE INDEX IF NOT EXISTS {} ON {}({columns})",
+                quote_identifier(&name),
+                quote_identifier(&table)
+            ),
+        )?;
+    }
     Ok(())
 }
 
@@ -915,6 +1093,7 @@ pub(crate) fn stable_hash(value: &str) -> u64 {
 mod tests {
     use super::*;
     use turso_core::{Database, DatabaseOpts, MemoryIO, OpenFlags, SqliteDialect};
+    use turso_graph_ir::RoleCardinality;
 
     fn connection() -> Arc<Connection> {
         let io = Arc::new(MemoryIO::new());
@@ -941,15 +1120,15 @@ mod tests {
                 table: "people".to_owned(),
                 identity_column: "id".to_owned(),
             }],
-            relationship_sources: vec![RelationshipSourceRegistration {
-                name: "KNOWS".to_owned(),
-                table: "friendships".to_owned(),
-                identity_column: "id".to_owned(),
-                start_column: "src".to_owned(),
-                end_column: "dst".to_owned(),
-                start_node_source: "Person".to_owned(),
-                end_node_source: "Person".to_owned(),
-            }],
+            relationship_sources: vec![RelationshipSourceRegistration::binary(
+                "KNOWS",
+                "friendships",
+                "id",
+                "src",
+                "dst",
+                "Person",
+                "Person",
+            )],
         }
     }
 
@@ -1113,24 +1292,24 @@ mod tests {
                         },
                     ],
                     relationship_sources: vec![
-                        RelationshipSourceRegistration {
-                            name: "employment".to_owned(),
-                            table: "employment".to_owned(),
-                            identity_column: "id".to_owned(),
-                            start_column: "person_id".to_owned(),
-                            end_column: "company_id".to_owned(),
-                            start_node_source: "people".to_owned(),
-                            end_node_source: "companies".to_owned(),
-                        },
-                        RelationshipSourceRegistration {
-                            name: "ownership".to_owned(),
-                            table: "ownership".to_owned(),
-                            identity_column: "id".to_owned(),
-                            start_column: "company_id".to_owned(),
-                            end_column: "person_id".to_owned(),
-                            start_node_source: "companies".to_owned(),
-                            end_node_source: "people".to_owned(),
-                        },
+                        RelationshipSourceRegistration::binary(
+                            "employment",
+                            "employment",
+                            "id",
+                            "person_id",
+                            "company_id",
+                            "people",
+                            "companies",
+                        ),
+                        RelationshipSourceRegistration::binary(
+                            "ownership",
+                            "ownership",
+                            "id",
+                            "company_id",
+                            "person_id",
+                            "companies",
+                            "people",
+                        ),
                     ],
                 },
             )
@@ -1266,14 +1445,286 @@ mod tests {
             graph_generation(&connection, "social").expect("generation"),
             4
         );
+    }
+
+    #[test]
+    fn a_two_role_registration_lands_on_todays_physical_shape() {
+        // Binary is a layout of the role model, not a separate kind. The
+        // registration that used to name start_column/end_column must produce
+        // the same two indexed columns plus the composite pair index, or every
+        // donor corpus source silently changes its access path.
+        let connection = connection();
+        create_sources(&connection);
+        let graph = register_graph(&connection, &registration("social")).expect("register graph");
+
+        let source = &graph.relationship_sources[0];
+        assert_eq!(source.roles.len(), 2);
+        assert_eq!(source.roles[0].name, "start");
+        assert_eq!(source.roles[0].column, "src");
+        assert_eq!(source.roles[0].cardinality, RoleCardinality::One);
+        assert_eq!(source.roles[1].name, "end");
+        assert_eq!(source.roles[1].column, "dst");
+        assert!(
+            source.role_by_name("START").is_some(),
+            "role lookup is case-insensitive"
+        );
 
         let indexes = query_rows(
             &connection,
-            "SELECT name FROM sqlite_schema WHERE type = 'index' AND name LIKE '__turso_internal_graph_ep_%'",
+            "SELECT name FROM sqlite_schema WHERE type = 'index' \
+             AND name LIKE '__turso_internal_graph_ep_%'",
         )
         .expect("query endpoint indexes");
-        // start, end, and the composite (start, end) pair index.
+        // One per role plus the composite pair index: exactly today's three.
         assert_eq!(indexes.len(), 3);
+    }
+
+    #[test]
+    fn a_three_role_registration_indexes_every_role_and_every_ordered_pair() {
+        let connection = connection();
+        connection
+            .execute(
+                "CREATE TABLE people(id INTEGER PRIMARY KEY); \
+                 CREATE TABLE texts(id INTEGER PRIMARY KEY); \
+                 CREATE TABLE folios(id INTEGER PRIMARY KEY); \
+                 CREATE TABLE transcriptions(\
+                     id INTEGER PRIMARY KEY, scribe INTEGER, txt INTEGER, folio INTEGER);",
+            )
+            .expect("create ternary sources");
+        let graph = register_graph(
+            &connection,
+            &GraphRegistration {
+                name: "scriptorium".to_owned(),
+                node_sources: vec![
+                    NodeSourceRegistration {
+                        name: "Person".to_owned(),
+                        table: "people".to_owned(),
+                        identity_column: "id".to_owned(),
+                    },
+                    NodeSourceRegistration {
+                        name: "Text".to_owned(),
+                        table: "texts".to_owned(),
+                        identity_column: "id".to_owned(),
+                    },
+                    NodeSourceRegistration {
+                        name: "Folio".to_owned(),
+                        table: "folios".to_owned(),
+                        identity_column: "id".to_owned(),
+                    },
+                ],
+                relationship_sources: vec![RelationshipSourceRegistration {
+                    name: "Transcription".to_owned(),
+                    table: "transcriptions".to_owned(),
+                    identity_column: "id".to_owned(),
+                    roles: vec![
+                        RoleSourceRegistration {
+                            name: "scribe".to_owned(),
+                            column: "scribe".to_owned(),
+                            node_source: "Person".to_owned(),
+                            cardinality: RoleCardinality::One,
+                        },
+                        RoleSourceRegistration {
+                            name: "text".to_owned(),
+                            column: "txt".to_owned(),
+                            node_source: "Text".to_owned(),
+                            cardinality: RoleCardinality::One,
+                        },
+                        RoleSourceRegistration {
+                            name: "folio".to_owned(),
+                            column: "folio".to_owned(),
+                            node_source: "Folio".to_owned(),
+                            cardinality: RoleCardinality::One,
+                        },
+                    ],
+                }],
+            },
+        )
+        .expect("register ternary graph");
+
+        assert_eq!(graph.relationship_sources[0].roles.len(), 3);
+        let indexes = query_rows(
+            &connection,
+            "SELECT name FROM sqlite_schema WHERE type = 'index' \
+             AND name LIKE '__turso_internal_graph_ep_%'",
+        )
+        .expect("query endpoint indexes");
+        // Three single-role indexes plus one composite per unordered role pair
+        // (scribe,text), (scribe,folio), (text,folio).
+        assert_eq!(indexes.len(), 6);
+    }
+
+    #[test]
+    fn a_many_role_spills_to_a_side_table_indexed_both_directions_and_is_excluded_from_pair_indexes(
+    ) {
+        // A Many role has no endpoint column on the relation table itself:
+        // its players live in <table>__<role>(relation_id, node_id), indexed
+        // from both directions, and it must not appear in any composite pair
+        // index (those cover single-valued roles only).
+        let connection = connection();
+        connection
+            .execute(
+                "CREATE TABLE people(id INTEGER PRIMARY KEY); \
+                 CREATE TABLE texts(id INTEGER PRIMARY KEY); \
+                 CREATE TABLE citations(\
+                     id INTEGER PRIMARY KEY, author_id INTEGER, work_id INTEGER);",
+            )
+            .expect("create sources with a many-valued role");
+        let graph = register_graph(
+            &connection,
+            &GraphRegistration {
+                name: "library".to_owned(),
+                node_sources: vec![
+                    NodeSourceRegistration {
+                        name: "Person".to_owned(),
+                        table: "people".to_owned(),
+                        identity_column: "id".to_owned(),
+                    },
+                    NodeSourceRegistration {
+                        name: "Text".to_owned(),
+                        table: "texts".to_owned(),
+                        identity_column: "id".to_owned(),
+                    },
+                ],
+                relationship_sources: vec![RelationshipSourceRegistration {
+                    name: "Citation".to_owned(),
+                    table: "citations".to_owned(),
+                    identity_column: "id".to_owned(),
+                    roles: vec![
+                        RoleSourceRegistration {
+                            name: "author".to_owned(),
+                            column: "author_id".to_owned(),
+                            node_source: "Person".to_owned(),
+                            cardinality: RoleCardinality::One,
+                        },
+                        RoleSourceRegistration {
+                            name: "work".to_owned(),
+                            column: "work_id".to_owned(),
+                            node_source: "Text".to_owned(),
+                            cardinality: RoleCardinality::One,
+                        },
+                        RoleSourceRegistration {
+                            name: "endorsers".to_owned(),
+                            column: "endorsers".to_owned(),
+                            node_source: "Person".to_owned(),
+                            cardinality: RoleCardinality::Many,
+                        },
+                    ],
+                }],
+            },
+        )
+        .expect("register graph with a many-valued role");
+
+        let source = &graph.relationship_sources[0];
+        assert_eq!(source.roles.len(), 3);
+        let endorsers = source.role_by_name("endorsers").expect("endorsers role");
+        assert_eq!(endorsers.cardinality, RoleCardinality::Many);
+
+        // No endpoint column for the Many role on the relation table itself.
+        let columns = query_rows(&connection, "PRAGMA table_info(citations)")
+            .expect("query relation table columns")
+            .into_iter()
+            .map(|row| {
+                text(&row, 1, "column name")
+                    .expect("column name")
+                    .to_owned()
+            })
+            .collect::<Vec<_>>();
+        assert_eq!(columns, vec!["id", "author_id", "work_id"]);
+
+        // The spill table exists, named <table>__<role>, with the
+        // (relation_id, node_id) shape.
+        let spill_table = source.spill_table(endorsers);
+        assert_eq!(spill_table, "citations__endorsers");
+        let spill_columns = query_rows(&connection, &format!("PRAGMA table_info({spill_table})"))
+            .expect("query spill table columns")
+            .into_iter()
+            .map(|row| {
+                text(&row, 1, "column name")
+                    .expect("column name")
+                    .to_owned()
+            })
+            .collect::<Vec<_>>();
+        assert_eq!(spill_columns, vec!["relation_id", "node_id"]);
+
+        // Indexed in both directions.
+        let spill_indexes = query_rows(
+            &connection,
+            &format!(
+                "SELECT name FROM sqlite_schema WHERE type = 'index' AND tbl_name = {}",
+                sql_string(&spill_table)
+            ),
+        )
+        .expect("query spill table indexes");
+        assert_eq!(spill_indexes.len(), 2, "indexed in both directions");
+        // Count alone can't distinguish forward-twice from forward-and-reverse;
+        // assert the actual indexed column order for each index.
+        let spill_index_columns = spill_indexes
+            .iter()
+            .map(|row| {
+                let index_name = text(row, 0, "index name").expect("index name");
+                query_rows(
+                    &connection,
+                    &format!("PRAGMA index_info({})", sql_string(index_name)),
+                )
+                .expect("query index_info")
+                .into_iter()
+                .map(|info_row| {
+                    text(&info_row, 2, "indexed column name")
+                        .expect("indexed column name")
+                        .to_owned()
+                })
+                .collect::<Vec<_>>()
+            })
+            .collect::<Vec<_>>();
+        assert!(
+            spill_index_columns.contains(&vec!["relation_id".to_owned(), "node_id".to_owned()]),
+            "expected a forward (relation_id, node_id) index, got {spill_index_columns:?}"
+        );
+        assert!(
+            spill_index_columns.contains(&vec!["node_id".to_owned(), "relation_id".to_owned()]),
+            "expected a reverse (node_id, relation_id) index, got {spill_index_columns:?}"
+        );
+
+        // The composite pair index covers the (author, work) single-valued
+        // pair only; the Many role is excluded from pairing entirely.
+        let endpoint_indexes = query_rows(
+            &connection,
+            "SELECT name FROM sqlite_schema WHERE type = 'index' \
+             AND name LIKE '__turso_internal_graph_ep_%'",
+        )
+        .expect("query endpoint indexes");
+        // One index per single-valued role (author, work) plus one composite
+        // pair index for (author, work). The Many role gets no endpoint
+        // index of any kind.
+        assert_eq!(endpoint_indexes.len(), 3);
+
+        // The registration round-trips through load_registered_graph with
+        // role name, ordinal, and cardinality intact.
+        let reloaded = load_registered_graph(&connection, "library").expect("reload graph");
+        let reloaded_source = &reloaded.relationship_sources[0];
+        assert_eq!(reloaded_source.roles.len(), 3);
+        assert_eq!(reloaded_source.roles[0].name, "author");
+        assert_eq!(reloaded_source.roles[0].role, ir::RoleId::new(1).unwrap());
+        assert_eq!(reloaded_source.roles[0].cardinality, RoleCardinality::One);
+        assert_eq!(reloaded_source.roles[1].name, "work");
+        assert_eq!(reloaded_source.roles[1].role, ir::RoleId::new(2).unwrap());
+        assert_eq!(reloaded_source.roles[1].cardinality, RoleCardinality::One);
+        assert_eq!(reloaded_source.roles[2].name, "endorsers");
+        assert_eq!(reloaded_source.roles[2].role, ir::RoleId::new(3).unwrap());
+        assert_eq!(reloaded_source.roles[2].cardinality, RoleCardinality::Many);
+    }
+
+    #[test]
+    fn a_role_must_name_a_registered_node_source() {
+        let connection = connection();
+        create_sources(&connection);
+        let mut graph = registration("bad_endpoint");
+        graph.relationship_sources[0].roles[1].node_source = "Missing".to_owned();
+        assert!(matches!(
+            register_graph(&connection, &graph),
+            Err(CatalogError::UnknownEndpoint { relationship, node_source })
+                if relationship == "KNOWS" && node_source == "Missing"
+        ));
     }
 
     #[test]
@@ -1366,19 +1817,6 @@ mod tests {
     }
 
     #[test]
-    fn relationship_endpoints_must_name_registered_node_sources() {
-        let connection = connection();
-        create_sources(&connection);
-        let mut graph = registration("bad_endpoint");
-        graph.relationship_sources[0].end_node_source = "Missing".to_owned();
-        assert!(matches!(
-            register_graph(&connection, &graph),
-            Err(CatalogError::UnknownEndpoint { relationship, node_source })
-                if relationship == "KNOWS" && node_source == "Missing"
-        ));
-    }
-
-    #[test]
     fn loading_a_graph_detects_removed_source_tables() {
         let connection = connection();
         create_sources(&connection);
@@ -1391,6 +1829,38 @@ mod tests {
             load_registered_graph(&connection, "social"),
             Err(CatalogError::SourceTableMissing(table)) if table == "people"
         ));
+    }
+
+    #[test]
+    fn a_catalog_predating_roles_fails_at_open_and_names_the_fresh_start_policy() {
+        // Fresh start: there is no legacy reader and no migration. Opening a
+        // pre-role catalog must say so rather than reporting a confusing
+        // "invalid catalog value" from a missing column.
+        let connection = connection();
+        create_sources(&connection);
+        register_graph(&connection, &registration("social")).expect("register graph");
+        // Simulate the pre-role layout: the roles table did not exist.
+        // DROP TABLE on a reserved-prefixed table is only permitted for a
+        // nested (internal) statement, and a nested statement cannot open
+        // its own write transaction, so drive it inside an explicit one.
+        connection.execute("BEGIN IMMEDIATE").expect("begin");
+        execute_internal(
+            &connection,
+            format!("DROP TABLE {RELATIONSHIP_ROLES_TABLE}"),
+        )
+        .expect("drop roles table");
+        connection.execute("COMMIT").expect("commit");
+
+        let error = load_registered_graph(&connection, "social").expect_err("pre-role catalog");
+        let message = error.to_string();
+        assert!(
+            matches!(error, CatalogError::IncompatibleGraphLayout { .. }),
+            "expected IncompatibleGraphLayout, got {message}"
+        );
+        assert!(
+            message.contains("no migration"),
+            "the error must name the fresh-start policy, got {message}"
+        );
     }
 
     #[test]

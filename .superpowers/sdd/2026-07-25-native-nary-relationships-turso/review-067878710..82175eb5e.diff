@@ -1,0 +1,2225 @@
+# Review package: 0678787100afbc4d26e0d45942fe85503820fe25..82175eb5eb4d66a404c85a9a5112b5babb206d7d
+
+## Commits
+82175eb5e graph/catalog: register relationship sources as roles
+
+## Files changed
+ graph/frontend/benches/semantic_prepare.rs  |  54 +--
+ graph/frontend/examples/snapshot_profile.rs |  12 +-
+ graph/frontend/src/catalog.rs               | 556 ++++++++++++++++++++--------
+ graph/frontend/src/dialect.rs               |  24 +-
+ graph/frontend/src/graph_expand.rs          |  18 +-
+ graph/frontend/src/lib.rs                   |   3 +-
+ graph/frontend/src/schema_catalog.rs        |  39 +-
+ graph/frontend/src/semantic.rs              |  14 +-
+ graph/frontend/src/semantic_constraints.rs  |  16 +-
+ graph/frontend/src/session.rs               |  36 +-
+ graph/frontend/src/snapshot.rs              |  43 ++-
+ graph/frontend/tests/dialect_alignment.rs   |  90 ++---
+ graph/frontend/tests/fixture.rs             |  18 +-
+ graph/frontend/tests/native_capabilities.rs |  18 +-
+ graph/frontend/tests/semantic_schema.rs     |  90 ++---
+ graph/testkit/src/runner.rs                 |  18 +-
+ tests/integration/multi_frontend_doc.rs     |  12 +-
+ 17 files changed, 671 insertions(+), 390 deletions(-)
+
+## Diff
+diff --git a/graph/frontend/benches/semantic_prepare.rs b/graph/frontend/benches/semantic_prepare.rs
+index 35d565070..eed6a3c3f 100644
+--- a/graph/frontend/benches/semantic_prepare.rs
++++ b/graph/frontend/benches/semantic_prepare.rs
+@@ -42,29 +42,29 @@ fn database(semantic: bool) -> Arc<Database> {
+         .expect("create benchmark sources");
+     register_graph(
+         &connection,
+         &GraphRegistration {
+             name: "social".to_owned(),
+             node_sources: vec![NodeSourceRegistration {
+                 name: "people_src".to_owned(),
+                 table: "people".to_owned(),
+                 identity_column: "id".to_owned(),
+             }],
+-            relationship_sources: vec![RelationshipSourceRegistration {
+-                name: "relationships_src".to_owned(),
+-                table: "relationships".to_owned(),
+-                identity_column: "id".to_owned(),
+-                start_column: "start_id".to_owned(),
+-                end_column: "end_id".to_owned(),
+-                start_node_source: "people_src".to_owned(),
+-                end_node_source: "people_src".to_owned(),
+-            }],
++            relationship_sources: vec![RelationshipSourceRegistration::binary(
++                "relationships_src",
++                "relationships",
++                "id",
++                "start_id",
++                "end_id",
++                "people_src",
++                "people_src",
++            )],
+         },
+     )
+     .expect("register benchmark graph");
+     if semantic {
+         register_semantic_schema(
+             &connection,
+             "social",
+             &SemanticSchemaRegistration {
+                 node_types: vec![SemanticNodeType {
+                     name: "Person".to_owned(),
+@@ -118,38 +118,38 @@ fn multi_source_database() -> Arc<Database> {
+                     table: "people".to_owned(),
+                     identity_column: "id".to_owned(),
+                 },
+                 NodeSourceRegistration {
+                     name: "companies_src".to_owned(),
+                     table: "companies".to_owned(),
+                     identity_column: "id".to_owned(),
+                 },
+             ],
+             relationship_sources: vec![
+-                RelationshipSourceRegistration {
+-                    name: "employment_src".to_owned(),
+-                    table: "employment".to_owned(),
+-                    identity_column: "id".to_owned(),
+-                    start_column: "person_id".to_owned(),
+-                    end_column: "company_id".to_owned(),
+-                    start_node_source: "people_src".to_owned(),
+-                    end_node_source: "companies_src".to_owned(),
+-                },
+-                RelationshipSourceRegistration {
+-                    name: "ownership_src".to_owned(),
+-                    table: "ownership".to_owned(),
+-                    identity_column: "id".to_owned(),
+-                    start_column: "company_id".to_owned(),
+-                    end_column: "person_id".to_owned(),
+-                    start_node_source: "companies_src".to_owned(),
+-                    end_node_source: "people_src".to_owned(),
+-                },
++                RelationshipSourceRegistration::binary(
++                    "employment_src",
++                    "employment",
++                    "id",
++                    "person_id",
++                    "company_id",
++                    "people_src",
++                    "companies_src",
++                ),
++                RelationshipSourceRegistration::binary(
++                    "ownership_src",
++                    "ownership",
++                    "id",
++                    "company_id",
++                    "person_id",
++                    "companies_src",
++                    "people_src",
++                ),
+             ],
+         },
+     )
+     .expect("register multi-source benchmark graph");
+     register_semantic_schema(&connection, "social", &multi_source_schema())
+         .expect("register multi-source semantic schema");
+     database
+ }
+ 
+ fn multi_source_schema() -> SemanticSchemaRegistration {
+diff --git a/graph/frontend/examples/snapshot_profile.rs b/graph/frontend/examples/snapshot_profile.rs
+index 57e60a66d..8cb9a7bc9 100644
+--- a/graph/frontend/examples/snapshot_profile.rs
++++ b/graph/frontend/examples/snapshot_profile.rs
+@@ -42,29 +42,23 @@ fn profile(nodes: u64) -> Result<(), Box<dyn std::error::Error>> {
+     insert_fixture(&connection, nodes)?;
+     let registered = register_graph(
+         &connection,
+         &GraphRegistration {
+             name: "profile".to_owned(),
+             node_sources: vec![NodeSourceRegistration {
+                 name: "Node".to_owned(),
+                 table: "nodes".to_owned(),
+                 identity_column: "id".to_owned(),
+             }],
+-            relationship_sources: vec![RelationshipSourceRegistration {
+-                name: "NEXT".to_owned(),
+-                table: "edges".to_owned(),
+-                identity_column: "id".to_owned(),
+-                start_column: "src".to_owned(),
+-                end_column: "dst".to_owned(),
+-                start_node_source: "Node".to_owned(),
+-                end_node_source: "Node".to_owned(),
+-            }],
++            relationship_sources: vec![RelationshipSourceRegistration::binary(
++                "NEXT", "edges", "id", "src", "dst", "Node", "Node",
++            )],
+         },
+     )?;
+ 
+     let startup = Instant::now();
+     let store = SnapshotStore::default();
+     let startup_ns = startup.elapsed().as_nanos();
+     store.refresh(
+         &connection,
+         "profile",
+         BuildLimits::default(),
+diff --git a/graph/frontend/src/catalog.rs b/graph/frontend/src/catalog.rs
+index df6ff18f6..1d9b71fc9 100644
+--- a/graph/frontend/src/catalog.rs
++++ b/graph/frontend/src/catalog.rs
+@@ -4,74 +4,152 @@ use std::{
+ };
+ 
+ use thiserror::Error;
+ use turso_core::{
+     schema::{
+         TURSO_GRAPH_CATALOG_PREFIX, TURSO_GRAPH_GENERATIONS_TABLE_NAME,
+         TURSO_GRAPH_GENERATION_TRIGGER_PREFIX,
+     },
+     Connection, Numeric, Value,
+ };
+-use turso_graph_ir::{GraphId, SourceTableId};
++use turso_graph_ir::{self as ir, GraphId, RoleCardinality, SourceTableId};
+ 
+ const RESERVED_PREFIX: &str = "__turso_";
+ pub(crate) const GRAPHS_TABLE: &str = "__turso_internal_graph_graphs";
+ pub(crate) const GENERATIONS_TABLE: &str = TURSO_GRAPH_GENERATIONS_TABLE_NAME;
+ pub(crate) const SOURCES_TABLE: &str = "__turso_internal_graph_sources";
+ pub(crate) const NODE_SOURCES_TABLE: &str = "__turso_internal_graph_node_sources";
+ pub(crate) const RELATIONSHIP_SOURCES_TABLE: &str = "__turso_internal_graph_relationship_sources";
++pub(crate) const RELATIONSHIP_ROLES_TABLE: &str = "__turso_internal_graph_relationship_roles";
+ 
+ pub const GRAPH_CATALOG_VERSION: u64 = 3;
+ 
+ #[derive(Clone, Debug, Eq, PartialEq)]
+ pub struct NodeSourceRegistration {
+     pub name: String,
+     pub table: String,
+     pub identity_column: String,
+ }
+ 
++/// One named role of a relationship source and the physical column that
++/// stores its player.
++#[derive(Clone, Debug, Eq, PartialEq)]
++pub struct RoleSourceRegistration {
++    pub name: String,
++    /// Endpoint column on the relationship table. Ignored for `Many` roles,
++    /// which store players in `<table>__<role>` instead; pass an empty string.
++    pub column: String,
++    /// Name of a registered node source.
++    pub node_source: String,
++    pub cardinality: RoleCardinality,
++}
++
+ #[derive(Clone, Debug, Eq, PartialEq)]
+ pub struct RelationshipSourceRegistration {
+     pub name: String,
+     pub table: String,
+     pub identity_column: String,
+-    pub start_column: String,
+-    pub end_column: String,
+-    pub start_node_source: String,
+-    pub end_node_source: String,
++    /// Declaration order is stable and becomes role ordinal order.
++    pub roles: Vec<RoleSourceRegistration>,
++}
++
++impl RelationshipSourceRegistration {
++    /// A two-endpoint table registered as a two-role relation named
++    /// `start`/`end`. This is a layout of the role model, not a separate kind:
++    /// every donor corpus source registers this way and keeps working.
++    #[allow(clippy::too_many_arguments)]
++    pub fn binary(
++        name: impl Into<String>,
++        table: impl Into<String>,
++        identity_column: impl Into<String>,
++        start_column: impl Into<String>,
++        end_column: impl Into<String>,
++        start_node_source: impl Into<String>,
++        end_node_source: impl Into<String>,
++    ) -> Self {
++        Self {
++            name: name.into(),
++            table: table.into(),
++            identity_column: identity_column.into(),
++            roles: vec![
++                RoleSourceRegistration {
++                    name: "start".to_owned(),
++                    column: start_column.into(),
++                    node_source: start_node_source.into(),
++                    cardinality: RoleCardinality::One,
++                },
++                RoleSourceRegistration {
++                    name: "end".to_owned(),
++                    column: end_column.into(),
++                    node_source: end_node_source.into(),
++                    cardinality: RoleCardinality::One,
++                },
++            ],
++        }
++    }
+ }
+ 
+ #[derive(Clone, Debug, Eq, PartialEq)]
+ pub struct GraphRegistration {
+     pub name: String,
+     pub node_sources: Vec<NodeSourceRegistration>,
+     pub relationship_sources: Vec<RelationshipSourceRegistration>,
+ }
+ 
+ #[derive(Clone, Debug, Eq, PartialEq)]
+ pub struct RegisteredNodeSource {
+     pub id: SourceTableId,
+     pub name: String,
+     pub table: String,
+     pub identity_column: String,
+ }
+ 
++#[derive(Clone, Debug, Eq, PartialEq)]
++pub struct RegisteredRelationshipRole {
++    pub role: ir::RoleId,
++    pub name: String,
++    pub column: String,
++    pub node_source: SourceTableId,
++    pub cardinality: RoleCardinality,
++}
++
+ #[derive(Clone, Debug, Eq, PartialEq)]
+ pub struct RegisteredRelationshipSource {
+     pub id: SourceTableId,
+     pub name: String,
+     pub table: String,
+     pub identity_column: String,
+-    pub start_column: String,
+-    pub end_column: String,
+-    pub start_node_source: SourceTableId,
+-    pub end_node_source: SourceTableId,
++    pub roles: Vec<RegisteredRelationshipRole>,
++}
++
++impl RegisteredRelationshipSource {
++    pub fn role_by_name(&self, name: &str) -> Option<&RegisteredRelationshipRole> {
++        self.roles
++            .iter()
++            .find(|role| role.name.eq_ignore_ascii_case(name))
++    }
++
++    pub fn role_by_id(&self, role: ir::RoleId) -> Option<&RegisteredRelationshipRole> {
++        self.roles.iter().find(|entry| entry.role == role)
++    }
++
++    /// Roles stored in an endpoint column on the relation table.
++    pub fn single_valued_roles(&self) -> impl Iterator<Item = &RegisteredRelationshipRole> {
++        self.roles
++            .iter()
++            .filter(|role| role.cardinality == RoleCardinality::One)
++    }
++
++    /// Spill table holding the players of a `Many` role.
++    pub fn spill_table(&self, role: &RegisteredRelationshipRole) -> String {
++        format!("{}__{}", self.table, role.name)
++    }
+ }
+ 
+ #[derive(Clone, Debug, Eq, PartialEq)]
+ pub struct RegisteredGraph {
+     pub id: GraphId,
+     pub name: String,
+     pub generation: u64,
+     pub node_sources: Vec<RegisteredNodeSource>,
+     pub relationship_sources: Vec<RegisteredRelationshipSource>,
+ }
+@@ -212,49 +290,79 @@ pub fn load_registered_graph(
+             table: text(&row, 2, "node source table")?.to_owned(),
+             identity_column: text(&row, 3, "identity column")?.to_owned(),
+         };
+         require_columns(connection, &source.table, &[&source.identity_column])?;
+         node_sources.push(source);
+     }
+ 
+     let relationship_rows = query_rows(
+         connection,
+         &format!(
+-            "SELECT s.id, s.name, r.table_name, r.identity_column, r.start_column, r.end_column, \
+-             r.start_node_source_id, r.end_node_source_id FROM {SOURCES_TABLE} s \
++            "SELECT s.id, s.name, r.table_name, r.identity_column FROM {SOURCES_TABLE} s \
+              JOIN {RELATIONSHIP_SOURCES_TABLE} r ON r.source_id = s.id \
+              WHERE s.graph_id = {} ORDER BY s.id",
+             graph_id.get()
+         ),
+     )?;
+     let mut relationship_sources = Vec::with_capacity(relationship_rows.len());
+     for row in relationship_rows {
+-        let source = RegisteredRelationshipSource {
+-            id: source_id(integer(&row, 0, "relationship source id")?)?,
+-            name: text(&row, 1, "relationship source name")?.to_owned(),
+-            table: text(&row, 2, "relationship source table")?.to_owned(),
+-            identity_column: text(&row, 3, "relationship identity column")?.to_owned(),
+-            start_column: text(&row, 4, "start column")?.to_owned(),
+-            end_column: text(&row, 5, "end column")?.to_owned(),
+-            start_node_source: source_id(integer(&row, 6, "start node source id")?)?,
+-            end_node_source: source_id(integer(&row, 7, "end node source id")?)?,
+-        };
+-        require_columns(
++        let id = source_id(integer(&row, 0, "relationship source id")?)?;
++        let table = text(&row, 2, "relationship source table")?.to_owned();
++        let identity_column = text(&row, 3, "relationship identity column")?.to_owned();
++        let role_rows = query_rows(
+             connection,
+-            &source.table,
+-            &[
+-                &source.identity_column,
+-                &source.start_column,
+-                &source.end_column,
+-            ],
++            &format!(
++                "SELECT ordinal, name, column_name, node_source_id, cardinality \
++                 FROM {RELATIONSHIP_ROLES_TABLE} WHERE source_id = {} ORDER BY ordinal",
++                id.get()
++            ),
+         )?;
+-        relationship_sources.push(source);
++        let mut roles = Vec::with_capacity(role_rows.len());
++        let mut required_columns = vec![identity_column.clone()];
++        for role_row in role_rows {
++            let ordinal = integer(&role_row, 0, "role ordinal")?;
++            let role = u32::try_from(ordinal)
++                .ok()
++                .and_then(|value| ir::RoleId::new(value).ok())
++                .ok_or(CatalogError::InvalidIdentity {
++                    kind: "role",
++                    value: ordinal,
++                })?;
++            let cardinality = match text(&role_row, 4, "role cardinality")? {
++                "one" => RoleCardinality::One,
++                "many" => RoleCardinality::Many,
++                _ => return Err(CatalogError::InvalidCatalogValue("role cardinality")),
++            };
++            let column = text(&role_row, 2, "role column")?.to_owned();
++            if cardinality == RoleCardinality::One {
++                required_columns.push(column.clone());
++            }
++            roles.push(RegisteredRelationshipRole {
++                role,
++                name: text(&role_row, 1, "role name")?.to_owned(),
++                column,
++                node_source: source_id(integer(&role_row, 3, "role node source id")?)?,
++                cardinality,
++            });
++        }
++        let borrowed = required_columns
++            .iter()
++            .map(String::as_str)
++            .collect::<Vec<_>>();
++        require_columns(connection, &table, &borrowed)?;
++        relationship_sources.push(RegisteredRelationshipSource {
++            id,
++            name: text(&row, 1, "relationship source name")?.to_owned(),
++            table,
++            identity_column,
++            roles,
++        });
+     }
+     Ok(RegisteredGraph {
+         id: graph_id,
+         name: graph_name,
+         generation,
+         node_sources,
+         relationship_sources,
+     })
+ }
+ 
+@@ -277,29 +385,29 @@ fn register_graph_in_transaction(
+     .is_empty()
+     {
+         return Err(CatalogError::GraphAlreadyExists(registration.name.clone()));
+     }
+     for node in &registration.node_sources {
+         let columns = require_columns(connection, &node.table, &[&node.identity_column])?;
+         require_unique_identity(connection, &node.table, &node.identity_column, &columns)?;
+         require_custom_types_enabled_for_source(connection, &node.table)?;
+     }
+     for relationship in &registration.relationship_sources {
+-        let columns = require_columns(
+-            connection,
+-            &relationship.table,
+-            &[
+-                &relationship.identity_column,
+-                &relationship.start_column,
+-                &relationship.end_column,
+-            ],
+-        )?;
++        let mut required_columns = vec![relationship.identity_column.as_str()];
++        required_columns.extend(
++            relationship
++                .roles
++                .iter()
++                .filter(|role| role.cardinality == RoleCardinality::One)
++                .map(|role| role.column.as_str()),
++        );
++        let columns = require_columns(connection, &relationship.table, &required_columns)?;
+         require_custom_types_enabled_for_source(connection, &relationship.table)?;
+         require_unique_identity(
+             connection,
+             &relationship.table,
+             &relationship.identity_column,
+             &columns,
+         )?;
+     }
+ 
+     execute_internal(
+@@ -349,78 +457,78 @@ fn register_graph_in_transaction(
+         execute_internal(connection, format!(
+             "INSERT INTO {NODE_SOURCES_TABLE}(source_id, table_name, identity_column) VALUES ({}, {}, {})",
+             id.get(),
+             sql_string(&node.table),
+             sql_string(&node.identity_column)
+         ))?;
+         node_ids.insert(node.name.clone(), id);
+     }
+ 
+     for relationship in &registration.relationship_sources {
+-        let start = node_ids
+-            .get(&relationship.start_node_source)
+-            .ok_or_else(|| CatalogError::UnknownEndpoint {
+-                relationship: relationship.name.clone(),
+-                node_source: relationship.start_node_source.clone(),
+-            })?;
+-        let end = node_ids.get(&relationship.end_node_source).ok_or_else(|| {
+-            CatalogError::UnknownEndpoint {
+-                relationship: relationship.name.clone(),
+-                node_source: relationship.end_node_source.clone(),
+-            }
+-        })?;
+         execute_internal(
+             connection,
+             format!(
+                 "INSERT INTO {SOURCES_TABLE}(graph_id, name, kind) VALUES ({}, {}, 'relationship')",
+                 graph_id.get(),
+                 sql_string(&relationship.name)
+             ),
+         )?;
+         let relationship_id = scalar_integer(
+             connection,
+             &format!(
+                 "SELECT id FROM {SOURCES_TABLE} WHERE graph_id = {} AND name = {}",
+                 graph_id.get(),
+                 sql_string(&relationship.name)
+             ),
+             "relationship source id",
+         )?;
+         execute_internal(connection, format!(
+-            "INSERT INTO {RELATIONSHIP_SOURCES_TABLE}(source_id, table_name, identity_column, start_column, end_column, start_node_source_id, end_node_source_id) \
+-             VALUES ({}, {}, {}, {}, {}, {}, {})",
++            "INSERT INTO {RELATIONSHIP_SOURCES_TABLE}(source_id, table_name, identity_column) VALUES ({}, {}, {})",
+             relationship_id,
+             sql_string(&relationship.table),
+-            sql_string(&relationship.identity_column),
+-            sql_string(&relationship.start_column),
+-            sql_string(&relationship.end_column),
+-            start.get(),
+-            end.get()
++            sql_string(&relationship.identity_column)
+         ))?;
+-        install_endpoint_index(
+-            connection,
+-            graph_id,
+-            relationship,
+-            "start",
+-            &relationship.start_column,
+-        )?;
+-        install_endpoint_index(
+-            connection,
+-            graph_id,
+-            relationship,
+-            "end",
+-            &relationship.end_column,
+-        )?;
+-        // Co-membership patterns bind both endpoints before matching the
++        for (ordinal, role) in relationship.roles.iter().enumerate() {
++            let node_source =
++                node_ids
++                    .get(&role.node_source)
++                    .ok_or_else(|| CatalogError::UnknownEndpoint {
++                        relationship: relationship.name.clone(),
++                        node_source: role.node_source.clone(),
++                    })?;
++            execute_internal(connection, format!(
++                "INSERT INTO {RELATIONSHIP_ROLES_TABLE}(source_id, ordinal, name, column_name, node_source_id, cardinality) \
++                 VALUES ({}, {}, {}, {}, {}, {})",
++                relationship_id,
++                ordinal + 1,
++                sql_string(&role.name),
++                sql_string(&role.column),
++                node_source.get(),
++                sql_string(match role.cardinality {
++                    RoleCardinality::One => "one",
++                    RoleCardinality::Many => "many",
++                })
++            ))?;
++            match role.cardinality {
++                RoleCardinality::One => {
++                    install_role_index(connection, graph_id, relationship, role)?;
++                }
++                RoleCardinality::Many => {
++                    install_spill_table(connection, graph_id, relationship, role)?;
++                }
++            }
++        }
++        // Co-membership patterns bind two role players before matching the
+         // second relationship; the composite index turns that probe from an
+-        // in-degree scan into an exact lookup.
+-        install_endpoint_pair_index(connection, graph_id, relationship)?;
++        // in-degree scan into an exact lookup. A two-role relation gets
++        // exactly one such index, which is today's (start, end) index.
++        install_role_pair_indexes(connection, graph_id, relationship)?;
+     }
+ 
+     let mut mapped_tables = HashSet::new();
+     mapped_tables.extend(
+         registration
+             .node_sources
+             .iter()
+             .map(|source| source.table.as_str()),
+     );
+     mapped_tables.extend(
+@@ -516,21 +624,24 @@ fn create_catalog(connection: &Arc<Connection>) -> Result<(), CatalogError> {
+     execute_internal(connection, format!(
+         "CREATE TABLE IF NOT EXISTS {GENERATIONS_TABLE}(graph_id INTEGER PRIMARY KEY, generation INTEGER NOT NULL CHECK(generation >= 0))"
+     ))?;
+     execute_internal(connection, format!(
+         "CREATE TABLE IF NOT EXISTS {SOURCES_TABLE}(id INTEGER PRIMARY KEY, graph_id INTEGER NOT NULL, name TEXT NOT NULL COLLATE NOCASE, kind TEXT NOT NULL CHECK(kind IN ('node', 'relationship')), UNIQUE(graph_id, name))"
+     ))?;
+     execute_internal(connection, format!(
+         "CREATE TABLE IF NOT EXISTS {NODE_SOURCES_TABLE}(source_id INTEGER PRIMARY KEY, table_name TEXT NOT NULL, identity_column TEXT NOT NULL)"
+     ))?;
+     execute_internal(connection, format!(
+-        "CREATE TABLE IF NOT EXISTS {RELATIONSHIP_SOURCES_TABLE}(source_id INTEGER PRIMARY KEY, table_name TEXT NOT NULL, identity_column TEXT NOT NULL, start_column TEXT NOT NULL, end_column TEXT NOT NULL, start_node_source_id INTEGER NOT NULL, end_node_source_id INTEGER NOT NULL)"
++        "CREATE TABLE IF NOT EXISTS {RELATIONSHIP_SOURCES_TABLE}(source_id INTEGER PRIMARY KEY, table_name TEXT NOT NULL, identity_column TEXT NOT NULL)"
++    ))?;
++    execute_internal(connection, format!(
++        "CREATE TABLE IF NOT EXISTS {RELATIONSHIP_ROLES_TABLE}(source_id INTEGER NOT NULL, ordinal INTEGER NOT NULL, name TEXT NOT NULL COLLATE NOCASE, column_name TEXT NOT NULL, node_source_id INTEGER NOT NULL, cardinality TEXT NOT NULL CHECK(cardinality IN ('one', 'many')), PRIMARY KEY(source_id, ordinal))"
+     ))?;
+     Ok(())
+ }
+ 
+ fn ensure_catalog_exists(connection: &Arc<Connection>) -> Result<(), CatalogError> {
+     let rows = query_rows(
+         connection,
+         &format!(
+             "SELECT name FROM sqlite_schema WHERE type = 'table' AND name = {}",
+             sql_string(GRAPHS_TABLE)
+@@ -562,28 +673,35 @@ fn validate_registration_names(registration: &GraphRegistration) -> Result<(), C
+         validate_source_identifiers(&source.table, &[&source.identity_column])?;
+         if !source_names.insert(source.name.to_ascii_lowercase()) {
+             return Err(CatalogError::DuplicateName {
+                 kind: "node source",
+                 name: source.name.clone(),
+             });
+         }
+     }
+     for source in &registration.relationship_sources {
+         validate_name("relationship source", &source.name)?;
+-        validate_source_identifiers(
+-            &source.table,
+-            &[
+-                &source.identity_column,
+-                &source.start_column,
+-                &source.end_column,
+-            ],
+-        )?;
++        let mut columns = vec![source.identity_column.as_str()];
++        let mut role_names = HashSet::new();
++        for role in &source.roles {
++            validate_name("role", &role.name)?;
++            if !role_names.insert(role.name.to_ascii_lowercase()) {
++                return Err(CatalogError::DuplicateName {
++                    kind: "role",
++                    name: role.name.clone(),
++                });
++            }
++            if role.cardinality == RoleCardinality::One {
++                columns.push(role.column.as_str());
++            }
++        }
++        validate_source_identifiers(&source.table, &columns)?;
+         if !source_names.insert(source.name.to_ascii_lowercase()) {
+             return Err(CatalogError::DuplicateName {
+                 kind: "relationship source",
+                 name: source.name.clone(),
+             });
+         }
+     }
+     Ok(())
+ }
+ 
+@@ -735,70 +853,115 @@ fn require_custom_types_enabled_for_source(
+         if !is_builtin {
+             return Err(CatalogError::CustomTypesDisabled {
+                 table: table_name.to_owned(),
+                 column: name.clone(),
+             });
+         }
+     }
+     Ok(())
+ }
+ 
+-fn install_endpoint_index(
++fn install_role_index(
+     connection: &Arc<Connection>,
+     graph: GraphId,
+     source: &RelationshipSourceRegistration,
+-    role: &str,
+-    column: &str,
++    role: &RoleSourceRegistration,
+ ) -> Result<(), CatalogError> {
+     let name = format!(
+         "{TURSO_GRAPH_CATALOG_PREFIX}ep_{}_{}_{:016x}",
+         graph.get(),
+-        role,
+-        stable_hash(&format!("{}:{}", source.table, column))
++        role.name.to_ascii_lowercase(),
++        stable_hash(&format!("{}:{}", source.table, role.column))
+     );
+     execute_internal(
+         connection,
+         format!(
+             "CREATE INDEX IF NOT EXISTS {} ON {}({})",
+             quote_identifier(&name),
+             quote_identifier(&source.table),
+-            quote_identifier(column)
++            quote_identifier(&role.column)
+         ),
+     )?;
+     Ok(())
+ }
+ 
+-/// Composite (start, end) index for expands whose both endpoints are
+-/// already bound (co-membership patterns).
+-fn install_endpoint_pair_index(
++/// One composite index per unordered pair of single-valued roles. A two-role
++/// relation therefore gets exactly the (start, end) index it has today.
++fn install_role_pair_indexes(
+     connection: &Arc<Connection>,
+     graph: GraphId,
+     source: &RelationshipSourceRegistration,
+ ) -> Result<(), CatalogError> {
+-    let name = format!(
+-        "{TURSO_GRAPH_CATALOG_PREFIX}ep_{}_pair_{:016x}",
+-        graph.get(),
+-        stable_hash(&format!(
+-            "{}:{}:{}",
+-            source.table, source.start_column, source.end_column
+-        ))
+-    );
++    let single = source
++        .roles
++        .iter()
++        .filter(|role| role.cardinality == RoleCardinality::One)
++        .collect::<Vec<_>>();
++    for (index, left) in single.iter().enumerate() {
++        for right in single.iter().skip(index + 1) {
++            let name = format!(
++                "{TURSO_GRAPH_CATALOG_PREFIX}ep_{}_pair_{:016x}",
++                graph.get(),
++                stable_hash(&format!(
++                    "{}:{}:{}",
++                    source.table, left.column, right.column
++                ))
++            );
++            execute_internal(
++                connection,
++                format!(
++                    "CREATE INDEX IF NOT EXISTS {} ON {}({}, {})",
++                    quote_identifier(&name),
++                    quote_identifier(&source.table),
++                    quote_identifier(&left.column),
++                    quote_identifier(&right.column)
++                ),
++            )?;
++        }
++    }
++    Ok(())
++}
++
++/// A `Many` role stores its players in `<table>__<role>(relation_id, node_id)`,
++/// indexed in both directions so a hop is an index probe from either side.
++fn install_spill_table(
++    connection: &Arc<Connection>,
++    graph: GraphId,
++    source: &RelationshipSourceRegistration,
++    role: &RoleSourceRegistration,
++) -> Result<(), CatalogError> {
++    let table = format!("{}__{}", source.table, role.name);
+     execute_internal(
+         connection,
+         format!(
+-            "CREATE INDEX IF NOT EXISTS {} ON {}({}, {})",
+-            quote_identifier(&name),
+-            quote_identifier(&source.table),
+-            quote_identifier(&source.start_column),
+-            quote_identifier(&source.end_column)
++            "CREATE TABLE IF NOT EXISTS {}(relation_id INTEGER NOT NULL, node_id INTEGER NOT NULL)",
++            quote_identifier(&table)
+         ),
+     )?;
++    for (suffix, columns) in [
++        ("fwd", "relation_id, node_id"),
++        ("rev", "node_id, relation_id"),
++    ] {
++        let name = format!(
++            "{TURSO_GRAPH_CATALOG_PREFIX}spill_{}_{suffix}_{:016x}",
++            graph.get(),
++            stable_hash(&table)
++        );
++        execute_internal(
++            connection,
++            format!(
++                "CREATE INDEX IF NOT EXISTS {} ON {}({columns})",
++                quote_identifier(&name),
++                quote_identifier(&table)
++            ),
++        )?;
++    }
+     Ok(())
+ }
+ 
+ fn install_generation_triggers(
+     connection: &Arc<Connection>,
+     graph: GraphId,
+     table: &str,
+ ) -> Result<(), CatalogError> {
+     for event in ["INSERT", "UPDATE", "DELETE"] {
+         let name = format!(
+@@ -908,20 +1071,21 @@ pub(crate) fn stable_hash(value: &str) -> u64 {
+         .iter()
+         .fold(0xcbf29ce484222325, |hash, byte| {
+             (hash ^ u64::from(*byte)).wrapping_mul(0x100000001b3)
+         })
+ }
+ 
+ #[cfg(test)]
+ mod tests {
+     use super::*;
+     use turso_core::{Database, DatabaseOpts, MemoryIO, OpenFlags, SqliteDialect};
++    use turso_graph_ir::RoleCardinality;
+ 
+     fn connection() -> Arc<Connection> {
+         let io = Arc::new(MemoryIO::new());
+         Database::open_file(io, ":memory:graph-catalog", Arc::new(SqliteDialect))
+             .expect("open database")
+             .connect()
+             .expect("connect")
+     }
+ 
+     fn create_sources(connection: &Arc<Connection>) {
+@@ -934,29 +1098,29 @@ mod tests {
+     }
+ 
+     fn registration(name: &str) -> GraphRegistration {
+         GraphRegistration {
+             name: name.to_owned(),
+             node_sources: vec![NodeSourceRegistration {
+                 name: "Person".to_owned(),
+                 table: "people".to_owned(),
+                 identity_column: "id".to_owned(),
+             }],
+-            relationship_sources: vec![RelationshipSourceRegistration {
+-                name: "KNOWS".to_owned(),
+-                table: "friendships".to_owned(),
+-                identity_column: "id".to_owned(),
+-                start_column: "src".to_owned(),
+-                end_column: "dst".to_owned(),
+-                start_node_source: "Person".to_owned(),
+-                end_node_source: "Person".to_owned(),
+-            }],
++            relationship_sources: vec![RelationshipSourceRegistration::binary(
++                "KNOWS",
++                "friendships",
++                "id",
++                "src",
++                "dst",
++                "Person",
++                "Person",
++            )],
+         }
+     }
+ 
+     fn connection_with_custom_types() -> Arc<Connection> {
+         let io = Arc::new(MemoryIO::new());
+         Database::open_file_with_flags(
+             io,
+             ":memory:graph-catalog-custom-types",
+             OpenFlags::default(),
+             DatabaseOpts::new().with_custom_types(true),
+@@ -1106,38 +1270,38 @@ mod tests {
+                             table: "people".to_owned(),
+                             identity_column: "id".to_owned(),
+                         },
+                         NodeSourceRegistration {
+                             name: "companies".to_owned(),
+                             table: "companies".to_owned(),
+                             identity_column: "id".to_owned(),
+                         },
+                     ],
+                     relationship_sources: vec![
+-                        RelationshipSourceRegistration {
+-                            name: "employment".to_owned(),
+-                            table: "employment".to_owned(),
+-                            identity_column: "id".to_owned(),
+-                            start_column: "person_id".to_owned(),
+-                            end_column: "company_id".to_owned(),
+-                            start_node_source: "people".to_owned(),
+-                            end_node_source: "companies".to_owned(),
+-                        },
+-                        RelationshipSourceRegistration {
+-                            name: "ownership".to_owned(),
+-                            table: "ownership".to_owned(),
+-                            identity_column: "id".to_owned(),
+-                            start_column: "company_id".to_owned(),
+-                            end_column: "person_id".to_owned(),
+-                            start_node_source: "companies".to_owned(),
+-                            end_node_source: "people".to_owned(),
+-                        },
++                        RelationshipSourceRegistration::binary(
++                            "employment",
++                            "employment",
++                            "id",
++                            "person_id",
++                            "company_id",
++                            "people",
++                            "companies",
++                        ),
++                        RelationshipSourceRegistration::binary(
++                            "ownership",
++                            "ownership",
++                            "id",
++                            "company_id",
++                            "person_id",
++                            "companies",
++                            "people",
++                        ),
+                     ],
+                 },
+             )
+             .expect("register multi-source graph");
+             connection.close().expect("close connection");
+             registered
+         };
+ 
+         let (_io, database) =
+             crate::open_database(path, None, OpenFlags::default(), DatabaseOpts::new())
+@@ -1259,30 +1423,141 @@ mod tests {
+             graph_generation(&connection, "social").expect("generation"),
+             3
+         );
+         connection
+             .execute("DELETE FROM friendships WHERE id = 1")
+             .expect("delete edge");
+         assert_eq!(
+             graph_generation(&connection, "social").expect("generation"),
+             4
+         );
++    }
++
++    #[test]
++    fn a_two_role_registration_lands_on_todays_physical_shape() {
++        // Binary is a layout of the role model, not a separate kind. The
++        // registration that used to name start_column/end_column must produce
++        // the same two indexed columns plus the composite pair index, or every
++        // donor corpus source silently changes its access path.
++        let connection = connection();
++        create_sources(&connection);
++        let graph = register_graph(&connection, &registration("social")).expect("register graph");
++
++        let source = &graph.relationship_sources[0];
++        assert_eq!(source.roles.len(), 2);
++        assert_eq!(source.roles[0].name, "start");
++        assert_eq!(source.roles[0].column, "src");
++        assert_eq!(source.roles[0].cardinality, RoleCardinality::One);
++        assert_eq!(source.roles[1].name, "end");
++        assert_eq!(source.roles[1].column, "dst");
++        assert!(
++            source.role_by_name("START").is_some(),
++            "role lookup is case-insensitive"
++        );
+ 
+         let indexes = query_rows(
+             &connection,
+-            "SELECT name FROM sqlite_schema WHERE type = 'index' AND name LIKE '__turso_internal_graph_ep_%'",
++            "SELECT name FROM sqlite_schema WHERE type = 'index' \
++             AND name LIKE '__turso_internal_graph_ep_%'",
+         )
+         .expect("query endpoint indexes");
+-        // start, end, and the composite (start, end) pair index.
++        // One per role plus the composite pair index: exactly today's three.
+         assert_eq!(indexes.len(), 3);
+     }
+ 
++    #[test]
++    fn a_three_role_registration_indexes_every_role_and_every_ordered_pair() {
++        let connection = connection();
++        connection
++            .execute(
++                "CREATE TABLE people(id INTEGER PRIMARY KEY); \
++                 CREATE TABLE texts(id INTEGER PRIMARY KEY); \
++                 CREATE TABLE folios(id INTEGER PRIMARY KEY); \
++                 CREATE TABLE transcriptions(\
++                     id INTEGER PRIMARY KEY, scribe INTEGER, txt INTEGER, folio INTEGER);",
++            )
++            .expect("create ternary sources");
++        let graph = register_graph(
++            &connection,
++            &GraphRegistration {
++                name: "scriptorium".to_owned(),
++                node_sources: vec![
++                    NodeSourceRegistration {
++                        name: "Person".to_owned(),
++                        table: "people".to_owned(),
++                        identity_column: "id".to_owned(),
++                    },
++                    NodeSourceRegistration {
++                        name: "Text".to_owned(),
++                        table: "texts".to_owned(),
++                        identity_column: "id".to_owned(),
++                    },
++                    NodeSourceRegistration {
++                        name: "Folio".to_owned(),
++                        table: "folios".to_owned(),
++                        identity_column: "id".to_owned(),
++                    },
++                ],
++                relationship_sources: vec![RelationshipSourceRegistration {
++                    name: "Transcription".to_owned(),
++                    table: "transcriptions".to_owned(),
++                    identity_column: "id".to_owned(),
++                    roles: vec![
++                        RoleSourceRegistration {
++                            name: "scribe".to_owned(),
++                            column: "scribe".to_owned(),
++                            node_source: "Person".to_owned(),
++                            cardinality: RoleCardinality::One,
++                        },
++                        RoleSourceRegistration {
++                            name: "text".to_owned(),
++                            column: "txt".to_owned(),
++                            node_source: "Text".to_owned(),
++                            cardinality: RoleCardinality::One,
++                        },
++                        RoleSourceRegistration {
++                            name: "folio".to_owned(),
++                            column: "folio".to_owned(),
++                            node_source: "Folio".to_owned(),
++                            cardinality: RoleCardinality::One,
++                        },
++                    ],
++                }],
++            },
++        )
++        .expect("register ternary graph");
++
++        assert_eq!(graph.relationship_sources[0].roles.len(), 3);
++        let indexes = query_rows(
++            &connection,
++            "SELECT name FROM sqlite_schema WHERE type = 'index' \
++             AND name LIKE '__turso_internal_graph_ep_%'",
++        )
++        .expect("query endpoint indexes");
++        // Three single-role indexes plus one composite per unordered role pair
++        // (scribe,text), (scribe,folio), (text,folio).
++        assert_eq!(indexes.len(), 6);
++    }
++
++    #[test]
++    fn a_role_must_name_a_registered_node_source() {
++        let connection = connection();
++        create_sources(&connection);
++        let mut graph = registration("bad_endpoint");
++        graph.relationship_sources[0].roles[1].node_source = "Missing".to_owned();
++        assert!(matches!(
++            register_graph(&connection, &graph),
++            Err(CatalogError::UnknownEndpoint { relationship, node_source })
++                if relationship == "KNOWS" && node_source == "Missing"
++        ));
++    }
++
+     #[test]
+     fn source_write_rollback_restores_the_generation() {
+         let connection = connection();
+         create_sources(&connection);
+         register_graph(&connection, &registration("social")).expect("register graph");
+ 
+         connection.execute("BEGIN").expect("begin");
+         connection
+             .execute("INSERT INTO people VALUES (1, 'Ada')")
+             .expect("insert node");
+@@ -1358,33 +1633,20 @@ mod tests {
+             }],
+             relationship_sources: Vec::new(),
+         };
+         assert!(matches!(
+             register_graph(&connection, &nullable),
+             Err(CatalogError::IdentityNotUnique { table, column })
+                 if table == "nullable_nodes" && column == "id"
+         ));
+     }
+ 
+-    #[test]
+-    fn relationship_endpoints_must_name_registered_node_sources() {
+-        let connection = connection();
+-        create_sources(&connection);
+-        let mut graph = registration("bad_endpoint");
+-        graph.relationship_sources[0].end_node_source = "Missing".to_owned();
+-        assert!(matches!(
+-            register_graph(&connection, &graph),
+-            Err(CatalogError::UnknownEndpoint { relationship, node_source })
+-                if relationship == "KNOWS" && node_source == "Missing"
+-        ));
+-    }
+-
+     #[test]
+     fn loading_a_graph_detects_removed_source_tables() {
+         let connection = connection();
+         create_sources(&connection);
+         register_graph(&connection, &registration("social")).expect("register graph");
+         connection
+             .execute("DROP TABLE people")
+             .expect("drop source");
+ 
+         assert!(matches!(
+diff --git a/graph/frontend/src/dialect.rs b/graph/frontend/src/dialect.rs
+index aa9573830..73eef698e 100644
+--- a/graph/frontend/src/dialect.rs
++++ b/graph/frontend/src/dialect.rs
+@@ -84,32 +84,36 @@ impl TursoGraphsCursor {
+             crate::catalog::GRAPHS_TABLE
+         ))?;
+         if probe.run_collect_rows()?.is_empty() {
+             self.rows = Vec::new();
+             return Ok(());
+         }
+         let sql = format!(
+             "SELECT g.id, g.name, COALESCE(gen.generation, 0), s.kind, s.name, \
+                     COALESCE(ns.table_name, rs.table_name), \
+                     COALESCE(ns.identity_column, rs.identity_column), \
+-                    rs.start_column, rs.end_column \
++                    (SELECT column_name FROM {relationship_roles} rr \
++                     WHERE rr.source_id = s.id AND rr.name = 'start'), \
++                    (SELECT column_name FROM {relationship_roles} rr \
++                     WHERE rr.source_id = s.id AND rr.name = 'end') \
+              FROM {graphs} g \
+              LEFT JOIN {generations} gen ON gen.graph_id = g.id \
+              JOIN {sources} s ON s.graph_id = g.id \
+              LEFT JOIN {node_sources} ns ON ns.source_id = s.id \
+              LEFT JOIN {relationship_sources} rs ON rs.source_id = s.id \
+              ORDER BY g.id, s.id",
+             graphs = crate::catalog::GRAPHS_TABLE,
+             generations = crate::catalog::GENERATIONS_TABLE,
+             sources = crate::catalog::SOURCES_TABLE,
+             node_sources = crate::catalog::NODE_SOURCES_TABLE,
+             relationship_sources = crate::catalog::RELATIONSHIP_SOURCES_TABLE,
++            relationship_roles = crate::catalog::RELATIONSHIP_ROLES_TABLE,
+         );
+         let mut stmt = self.conn.prepare_internal(&sql)?;
+         self.rows = stmt.run_collect_rows()?;
+         Ok(())
+     }
+ }
+ 
+ impl turso_core::InternalVirtualTableCursor for TursoGraphsCursor {
+     fn filter(
+         &mut self,
+@@ -404,29 +408,29 @@ mod tests {
+         .unwrap();
+         crate::register_graph(
+             &conn,
+             &crate::GraphRegistration {
+                 name: "social".to_owned(),
+                 node_sources: vec![crate::NodeSourceRegistration {
+                     name: "Person".to_owned(),
+                     table: "people".to_owned(),
+                     identity_column: "id".to_owned(),
+                 }],
+-                relationship_sources: vec![crate::RelationshipSourceRegistration {
+-                    name: "KNOWS".to_owned(),
+-                    table: "relationships".to_owned(),
+-                    identity_column: "id".to_owned(),
+-                    start_column: "src".to_owned(),
+-                    end_column: "dst".to_owned(),
+-                    start_node_source: "Person".to_owned(),
+-                    end_node_source: "Person".to_owned(),
+-                }],
++                relationship_sources: vec![crate::RelationshipSourceRegistration::binary(
++                    "KNOWS",
++                    "relationships",
++                    "id",
++                    "src",
++                    "dst",
++                    "Person",
++                    "Person",
++                )],
+             },
+         )
+         .unwrap();
+ 
+         let rows = conn
+             .prepare(
+                 "SELECT graph_name, kind, source_name, table_name \
+                  FROM turso_graphs ORDER BY kind, source_name",
+             )
+             .unwrap()
+diff --git a/graph/frontend/src/graph_expand.rs b/graph/frontend/src/graph_expand.rs
+index 5e8251db6..fe47d3f7b 100644
+--- a/graph/frontend/src/graph_expand.rs
++++ b/graph/frontend/src/graph_expand.rs
+@@ -623,29 +623,29 @@ mod tests {
+         }
+         let registered = register_graph(
+             &connection,
+             &GraphRegistration {
+                 name: "social".to_owned(),
+                 node_sources: vec![NodeSourceRegistration {
+                     name: "Person".to_owned(),
+                     table: "people".to_owned(),
+                     identity_column: "id".to_owned(),
+                 }],
+-                relationship_sources: vec![RelationshipSourceRegistration {
+-                    name: "KNOWS".to_owned(),
+-                    table: "relationships".to_owned(),
+-                    identity_column: "id".to_owned(),
+-                    start_column: "src".to_owned(),
+-                    end_column: "dst".to_owned(),
+-                    start_node_source: "Person".to_owned(),
+-                    end_node_source: "Person".to_owned(),
+-                }],
++                relationship_sources: vec![RelationshipSourceRegistration::binary(
++                    "KNOWS",
++                    "relationships",
++                    "id",
++                    "src",
++                    "dst",
++                    "Person",
++                    "Person",
++                )],
+             },
+         )
+         .unwrap();
+         let snapshots = Arc::new(SnapshotStore::default());
+         assert!(matches!(
+             snapshots
+                 .refresh(
+                     &connection,
+                     "social",
+                     BuildLimits::default(),
+diff --git a/graph/frontend/src/lib.rs b/graph/frontend/src/lib.rs
+index 35ee15aef..e831ce747 100644
+--- a/graph/frontend/src/lib.rs
++++ b/graph/frontend/src/lib.rs
+@@ -29,21 +29,22 @@ mod statement;
+ 
+ pub use binder::{
+     bind, bind_mutation, classify_statement, BindError, BoundMutation, BoundQuery, CatalogEntity,
+     GraphCatalogSnapshot, ParameterTypes, PropertyResolution, ResolvedNodeType, ResolvedProperty,
+     StatementKind,
+ };
+ pub use catalog::{
+     graph_generation, labels_table_name, load_registered_graph, register_graph,
+     relationship_type_registry_table_name, relationship_types_table_name, CatalogError,
+     GraphRegistration, NodeSourceRegistration, RegisteredGraph, RegisteredNodeSource,
+-    RegisteredRelationshipSource, RelationshipSourceRegistration, GRAPH_CATALOG_VERSION,
++    RegisteredRelationshipRole, RegisteredRelationshipSource, RelationshipSourceRegistration,
++    RoleSourceRegistration, GRAPH_CATALOG_VERSION,
+ };
+ pub use compiler::{graph_frontend_id, GraphCompilationCatalog, GraphCompiler};
+ pub use dialect::{GraphDialect, GRAPH_DIALECT_NAME};
+ #[cfg(feature = "fts")]
+ pub use fts::{
+     GraphFtsEntityKind, GraphFtsError, GraphFtsIndex, GraphFtsIndexSpec, GraphFtsPropertyWeight,
+     GraphFtsTokenizer, MAX_GRAPH_FTS_INDEX_NAME_BYTES, MAX_GRAPH_FTS_PROPERTIES,
+ };
+ pub use graph_expand::{install_graph_catalog, register_graph_catalog, GRAPH_EXPAND_TABLE_NAME};
+ pub use lowering::{
+diff --git a/graph/frontend/src/schema_catalog.rs b/graph/frontend/src/schema_catalog.rs
+index b37cfcf11..12a9143db 100644
+--- a/graph/frontend/src/schema_catalog.rs
++++ b/graph/frontend/src/schema_catalog.rs
+@@ -451,21 +451,23 @@ impl GraphCatalogSnapshot for SchemaCatalog {
+ 
+     fn relationship_endpoint_sources(
+         &self,
+         graph: ir::GraphId,
+         relationship_source: ir::SourceTableId,
+     ) -> Option<(ir::SourceTableId, ir::SourceTableId)> {
+         if graph != self.graph.id {
+             return None;
+         }
+         let source = self.relationship_source_entry(relationship_source)?;
+-        Some((source.start_node_source, source.end_node_source))
++        let start = source.role_by_name("start")?;
++        let end = source.role_by_name("end")?;
++        Some((start.node_source, end.node_source))
+     }
+ 
+     fn label(&self, graph: ir::GraphId, name: &str) -> Option<ir::LabelId> {
+         if graph != self.graph.id {
+             return None;
+         }
+         if let Some(semantic) = &self.semantic {
+             return semantic
+                 .node_type(name)
+                 .map(|type_info| type_info.type_id)
+@@ -754,25 +756,27 @@ impl RelationalCatalogSnapshot for SchemaCatalog {
+     fn node_layout(&self, source: ir::SourceTableId) -> Option<NodeTableLayout> {
+         let entry = self.node_source_entry(source)?;
+         Some(NodeTableLayout {
+             table: entry.table.clone(),
+             identity_column: entry.identity_column.clone(),
+         })
+     }
+ 
+     fn relationship_layout(&self, source: ir::SourceTableId) -> Option<RelationshipTableLayout> {
+         let entry = self.relationship_source_entry(source)?;
++        let start = entry.role_by_name("start")?;
++        let end = entry.role_by_name("end")?;
+         Some(RelationshipTableLayout {
+             table: entry.table.clone(),
+             identity_column: entry.identity_column.clone(),
+-            start_column: entry.start_column.clone(),
+-            end_column: entry.end_column.clone(),
++            start_column: start.column.clone(),
++            end_column: end.column.clone(),
+         })
+     }
+ 
+     fn property_column(
+         &self,
+         source: ir::SourceTableId,
+         property: ir::PropertyId,
+     ) -> Option<String> {
+         if let Some(semantic) = &self.semantic {
+             let mut columns = semantic
+@@ -822,28 +826,23 @@ impl RelationalCatalogSnapshot for SchemaCatalog {
+         table
+             .get_column_by_name(&column_name)
+             .map(|(_, column)| column)
+             .is_some_and(|column| column.ty_str.eq_ignore_ascii_case("JSONB"))
+     }
+ 
+     fn payload_columns(&self, source: ir::SourceTableId) -> Option<Vec<(String, String)>> {
+         let (table_name, structural) = if let Some(entry) = self.node_source_entry(source) {
+             (entry.table.clone(), vec![entry.identity_column.clone()])
+         } else if let Some(entry) = self.relationship_source_entry(source) {
+-            (
+-                entry.table.clone(),
+-                vec![
+-                    entry.identity_column.clone(),
+-                    entry.start_column.clone(),
+-                    entry.end_column.clone(),
+-                ],
+-            )
++            let mut structural = vec![entry.identity_column.clone()];
++            structural.extend(entry.single_valued_roles().map(|role| role.column.clone()));
++            (entry.table.clone(), structural)
+         } else {
+             return None;
+         };
+         let table = self.connection.current_schema().get_table(&table_name)?;
+         let mut columns = Vec::new();
+         for index in 0.. {
+             let Some(column) = table.get_column_at(index) else {
+                 break;
+             };
+             let Some(name) = column.name.clone() else {
+@@ -1006,29 +1005,29 @@ mod tests {
+             .expect("create sources");
+         crate::catalog::register_graph(
+             connection,
+             &GraphRegistration {
+                 name: "social".to_owned(),
+                 node_sources: vec![NodeSourceRegistration {
+                     name: "Person".to_owned(),
+                     table: "people".to_owned(),
+                     identity_column: "id".to_owned(),
+                 }],
+-                relationship_sources: vec![RelationshipSourceRegistration {
+-                    name: "KNOWS".to_owned(),
+-                    table: "relationships".to_owned(),
+-                    identity_column: "id".to_owned(),
+-                    start_column: "src".to_owned(),
+-                    end_column: "dst".to_owned(),
+-                    start_node_source: "Person".to_owned(),
+-                    end_node_source: "Person".to_owned(),
+-                }],
++                relationship_sources: vec![RelationshipSourceRegistration::binary(
++                    "KNOWS",
++                    "relationships",
++                    "id",
++                    "src",
++                    "dst",
++                    "Person",
++                    "Person",
++                )],
+             },
+         )
+         .expect("register graph")
+     }
+ 
+     #[test]
+     fn resolves_id_name_age_matching_testkit_stub_identities() {
+         let connection = connect(false);
+         let graph = registered_social_graph(&connection);
+         let graph_id = graph.id;
+diff --git a/graph/frontend/src/semantic.rs b/graph/frontend/src/semantic.rs
+index 904e13bde..377953553 100644
+--- a/graph/frontend/src/semantic.rs
++++ b/graph/frontend/src/semantic.rs
+@@ -896,35 +896,41 @@ fn validate_against_graph(
+     for relationship in &registration.relationship_types {
+         let source = graph
+             .relationship_sources
+             .iter()
+             .find(|source| source.name.eq_ignore_ascii_case(&relationship.source))
+             .ok_or_else(|| SemanticCatalogError::UnknownSource {
+                 semantic_type: relationship.name.clone(),
+                 kind: "relationship",
+                 referenced_source: relationship.source.clone(),
+             })?;
++        let start_role = source
++            .role_by_name("start")
++            .expect("binary relationship source has a start role");
++        let end_role = source
++            .role_by_name("end")
++            .expect("binary relationship source has an end role");
+         check_owned_columns(
+             connection,
+             &relationship.name,
+             &relationship.properties,
+             &source.table,
+             &[
+                 source.identity_column.as_str(),
+-                source.start_column.as_str(),
+-                source.end_column.as_str(),
++                start_role.column.as_str(),
++                end_role.column.as_str(),
+             ],
+             &mut property_types,
+         )?;
+         for (endpoint, allowed, required_source) in [
+-            ("start", &relationship.start, source.start_node_source),
+-            ("end", &relationship.end, source.end_node_source),
++            ("start", &relationship.start, start_role.node_source),
++            ("end", &relationship.end, end_role.node_source),
+         ] {
+             let required = graph
+                 .node_sources
+                 .iter()
+                 .find(|node_source| node_source.id == required_source)
+                 .expect("registered relationship endpoint source exists");
+             for node_type in expand_endpoint_names(allowed, fragments) {
+                 let actual_name = node_sources
+                     .get(&fold(node_type))
+                     .expect("registration shape validated endpoint type");
+diff --git a/graph/frontend/src/semantic_constraints.rs b/graph/frontend/src/semantic_constraints.rs
+index 22432ff58..d68885b37 100644
+--- a/graph/frontend/src/semantic_constraints.rs
++++ b/graph/frontend/src/semantic_constraints.rs
+@@ -1468,22 +1468,34 @@ pub(crate) fn load_constraint_snapshot(
+                 identity_column: source.identity_column.clone(),
+             });
+         }
+         snapshot.cardinalities.push(ResolvedCardinalityConstraint {
+             relationship_name: relationship.name.clone(),
+             relationship_source: relationship.source,
+             relationship_table: relationship_source.table.clone(),
+             relationship_identity: relationship_source.identity_column.clone(),
+             endpoint,
+             endpoint_column: match endpoint {
+-                SemanticEndpoint::Start => relationship_source.start_column.clone(),
+-                SemanticEndpoint::End => relationship_source.end_column.clone(),
++                SemanticEndpoint::Start => relationship_source
++                    .role_by_name("start")
++                    .ok_or(SemanticCatalogError::InvalidCatalogValue(
++                        "cardinality endpoint column",
++                    ))?
++                    .column
++                    .clone(),
++                SemanticEndpoint::End => relationship_source
++                    .role_by_name("end")
++                    .ok_or(SemanticCatalogError::InvalidCatalogValue(
++                        "cardinality endpoint column",
++                    ))?
++                    .column
++                    .clone(),
+             },
+             minimum: row.minimum,
+             maximum: row.maximum,
+             node_owners,
+         });
+     }
+     Ok(snapshot)
+ }
+ 
+ fn owner_by_id(
+diff --git a/graph/frontend/src/session.rs b/graph/frontend/src/session.rs
+index b4df473c9..22cbfaa32 100644
+--- a/graph/frontend/src/session.rs
++++ b/graph/frontend/src/session.rs
+@@ -591,29 +591,29 @@ mod tests {
+             .unwrap();
+         let registered = register_graph(
+             &writer,
+             &GraphRegistration {
+                 name: "social".to_owned(),
+                 node_sources: vec![NodeSourceRegistration {
+                     name: "Person".to_owned(),
+                     table: "people".to_owned(),
+                     identity_column: "id".to_owned(),
+                 }],
+-                relationship_sources: vec![RelationshipSourceRegistration {
+-                    name: "KNOWS".to_owned(),
+-                    table: "relationships".to_owned(),
+-                    identity_column: "id".to_owned(),
+-                    start_column: "src".to_owned(),
+-                    end_column: "dst".to_owned(),
+-                    start_node_source: "Person".to_owned(),
+-                    end_node_source: "Person".to_owned(),
+-                }],
++                relationship_sources: vec![RelationshipSourceRegistration::binary(
++                    "KNOWS",
++                    "relationships",
++                    "id",
++                    "src",
++                    "dst",
++                    "Person",
++                    "Person",
++                )],
+             },
+         )
+         .unwrap();
+         let catalog = Arc::new(Catalog {
+             node_source: registered.node_sources[0].id,
+             relationship_source: registered.relationship_sources[0].id,
+         });
+         let shared = Arc::new(SnapshotStore::default());
+         shared
+             .refresh(&writer, "social", BuildLimits::default(), &NeverCancelled)
+@@ -1189,29 +1189,29 @@ mod tests {
+     }
+ 
+     fn social_registration() -> GraphRegistration {
+         GraphRegistration {
+             name: "social".to_owned(),
+             node_sources: vec![NodeSourceRegistration {
+                 name: "Person".to_owned(),
+                 table: "people".to_owned(),
+                 identity_column: "id".to_owned(),
+             }],
+-            relationship_sources: vec![RelationshipSourceRegistration {
+-                name: "KNOWS".to_owned(),
+-                table: "relationships".to_owned(),
+-                identity_column: "id".to_owned(),
+-                start_column: "src".to_owned(),
+-                end_column: "dst".to_owned(),
+-                start_node_source: "Person".to_owned(),
+-                end_node_source: "Person".to_owned(),
+-            }],
++            relationship_sources: vec![RelationshipSourceRegistration::binary(
++                "KNOWS",
++                "relationships",
++                "id",
++                "src",
++                "dst",
++                "Person",
++                "Person",
++            )],
+         }
+     }
+ 
+     #[test]
+     fn a_mutation_over_a_variable_length_pattern_builds_its_own_snapshot() {
+         // graph_expand reads the session snapshot, and a mutation is the only
+         // entry point that never prepares through the compiler. Before this,
+         // the snapshot existed only because a failed read attempt happened to
+         // refresh it before its bind error; a caller that goes straight to
+         // execute got "graph snapshot 1 is not built".
+diff --git a/graph/frontend/src/snapshot.rs b/graph/frontend/src/snapshot.rs
+index b61c72b89..ecc82a3d6 100644
+--- a/graph/frontend/src/snapshot.rs
++++ b/graph/frontend/src/snapshot.rs
+@@ -605,38 +605,47 @@ fn build_in_transaction(
+     let mut relationship_ids = HashMap::new();
+     let mut edges = Vec::new();
+     let relationship_types_table = crate::catalog::relationship_types_table_name(registered.id);
+     let source_qualified_types = connection
+         .current_schema()
+         .get_table(&relationship_types_table)
+         .is_some_and(|table| table.get_column_by_name("source_id").is_some());
+     for (type_index, source) in registered.relationship_sources.iter().enumerate() {
+         check_cancelled(cancellation)?;
+         let default_relationship_type = next_relationship_type(type_index)?;
++        // Traversal snapshots are binary today: every relationship source
++        // consumed here is registered with `start`/`end` roles (n-ary
++        // traversal is a later task).
++        let start_role = source
++            .role_by_name("start")
++            .expect("traversal snapshot source has a start role");
++        let end_role = source
++            .role_by_name("end")
++            .expect("traversal snapshot source has an end role");
+         // Resolve each relationship's Cypher type through the junction and
+         // registry so traversal filters see the identities the binder uses;
+         // rows without a recorded type keep the source-index identity.
+         let source_predicate = if source_qualified_types {
+             format!("jt.source_id = {} AND ", source.id.get())
+         } else {
+             String::new()
+         };
+         let rows = query_rows_cancellable(
+             connection,
+             &format!(
+                 "SELECT r.{}, r.{}, r.{}, reg.id, jt.type FROM {} AS r \
+                  LEFT JOIN \"{}\" AS jt ON {source_predicate}jt.relationship_id = r.{} \
+                  LEFT JOIN \"{}\" AS reg ON reg.name = jt.type \
+                  ORDER BY r.{}",
+                 quote_identifier(&source.identity_column),
+-                quote_identifier(&source.start_column),
+-                quote_identifier(&source.end_column),
++                quote_identifier(&start_role.column),
++                quote_identifier(&end_role.column),
+                 quote_identifier(&source.table),
+                 relationship_types_table,
+                 quote_identifier(&source.identity_column),
+                 crate::catalog::relationship_type_registry_table_name(registered.id),
+                 quote_identifier(&source.identity_column)
+             ),
+             cancellation,
+         )?;
+         for row in rows {
+             let semantic_relationship_type = row.get(4).and_then(|value| match value {
+@@ -660,40 +669,40 @@ fn build_in_transaction(
+             if relationship_ids
+                 .insert((source.id, identity.clone()), relationship)
+                 .is_some()
+             {
+                 return Err(SnapshotError::DuplicateSourceIdentity {
+                     kind: "relationship",
+                     source_id: source.id,
+                     identity,
+                 });
+             }
+-            let start_identity = source_identity(row.get(1), "endpoint", source.start_node_source)?;
+-            let end_identity = source_identity(row.get(2), "endpoint", source.end_node_source)?;
++            let start_identity = source_identity(row.get(1), "endpoint", start_role.node_source)?;
++            let end_identity = source_identity(row.get(2), "endpoint", end_role.node_source)?;
+             let start = node_ids
+-                .get(&(source.start_node_source, start_identity.clone()))
++                .get(&(start_role.node_source, start_identity.clone()))
+                 .copied()
+                 .ok_or_else(|| SnapshotError::MissingEndpoint {
+                     relationship_source: source.id,
+                     relationship: identity.clone(),
+                     role: "start",
+-                    node_source: source.start_node_source,
++                    node_source: start_role.node_source,
+                     identity: start_identity,
+                 })?;
+             let end = node_ids
+-                .get(&(source.end_node_source, end_identity.clone()))
++                .get(&(end_role.node_source, end_identity.clone()))
+                 .copied()
+                 .ok_or_else(|| SnapshotError::MissingEndpoint {
+                     relationship_source: source.id,
+                     relationship: identity.clone(),
+                     role: "end",
+-                    node_source: source.end_node_source,
++                    node_source: end_role.node_source,
+                     identity: end_identity,
+                 })?;
+             relationship_coordinates.push(RelationshipCoordinate {
+                 source: source.id,
+                 identity,
+                 relationship_type,
+             });
+             edges.push(EdgeInput {
+                 relationship,
+                 source: start,
+@@ -905,29 +914,29 @@ mod tests {
+             .unwrap();
+         register_graph(
+             connection,
+             &GraphRegistration {
+                 name: "social".to_owned(),
+                 node_sources: vec![NodeSourceRegistration {
+                     name: "Person".to_owned(),
+                     table: "people".to_owned(),
+                     identity_column: "id".to_owned(),
+                 }],
+-                relationship_sources: vec![RelationshipSourceRegistration {
+-                    name: "KNOWS".to_owned(),
+-                    table: "relationships".to_owned(),
+-                    identity_column: "id".to_owned(),
+-                    start_column: "src".to_owned(),
+-                    end_column: "dst".to_owned(),
+-                    start_node_source: "Person".to_owned(),
+-                    end_node_source: "Person".to_owned(),
+-                }],
++                relationship_sources: vec![RelationshipSourceRegistration::binary(
++                    "KNOWS",
++                    "relationships",
++                    "id",
++                    "src",
++                    "dst",
++                    "Person",
++                    "Person",
++                )],
+             },
+         )
+         .unwrap()
+     }
+ 
+     #[test]
+     fn real_identity_encoding_is_total_and_canonical() {
+         // Hash-key encoding must not split one logical identity into many:
+         // +0.0/-0.0 collapse, and every NaN payload maps to one canonical
+         // key (duplicate NaN identities then fail loudly as duplicates
+diff --git a/graph/frontend/tests/dialect_alignment.rs b/graph/frontend/tests/dialect_alignment.rs
+index 8326375c9..104e3096b 100644
+--- a/graph/frontend/tests/dialect_alignment.rs
++++ b/graph/frontend/tests/dialect_alignment.rs
+@@ -80,29 +80,29 @@ fn dialect_pinned_open_installs_temporal_extension_and_runs_duration() {
+         .expect("create sources");
+     register_graph(
+         &connection,
+         &GraphRegistration {
+             name: "social".to_owned(),
+             node_sources: vec![NodeSourceRegistration {
+                 name: "Person".to_owned(),
+                 table: "people".to_owned(),
+                 identity_column: "id".to_owned(),
+             }],
+-            relationship_sources: vec![RelationshipSourceRegistration {
+-                name: "KNOWS".to_owned(),
+-                table: "relationships".to_owned(),
+-                identity_column: "id".to_owned(),
+-                start_column: "src".to_owned(),
+-                end_column: "dst".to_owned(),
+-                start_node_source: "Person".to_owned(),
+-                end_node_source: "Person".to_owned(),
+-            }],
++            relationship_sources: vec![RelationshipSourceRegistration::binary(
++                "KNOWS",
++                "relationships",
++                "id",
++                "src",
++                "dst",
++                "Person",
++                "Person",
++            )],
+         },
+     )
+     .expect("register graph");
+ 
+     let session = GraphConnection::open(connection, "social").expect("open session");
+     assert_eq!(session.host_mode(), GraphHostMode::DialectPinned);
+     let after_open = turso_graph_temporal::INSTALL_COUNT.load(Ordering::SeqCst);
+     assert!(
+         after_open - before >= 1,
+         "dialect-pinned GraphConnection::open must still install_temporal_extension for InternalHelper symbols (delta={})",
+@@ -138,29 +138,29 @@ fn dialect_pinned_mutation_in_predicate_needs_temporal_extension() {
+         .expect("create sources");
+     register_graph(
+         &connection,
+         &GraphRegistration {
+             name: "social".to_owned(),
+             node_sources: vec![NodeSourceRegistration {
+                 name: "Person".to_owned(),
+                 table: "people".to_owned(),
+                 identity_column: "id".to_owned(),
+             }],
+-            relationship_sources: vec![RelationshipSourceRegistration {
+-                name: "KNOWS".to_owned(),
+-                table: "relationships".to_owned(),
+-                identity_column: "id".to_owned(),
+-                start_column: "src".to_owned(),
+-                end_column: "dst".to_owned(),
+-                start_node_source: "Person".to_owned(),
+-                end_node_source: "Person".to_owned(),
+-            }],
++            relationship_sources: vec![RelationshipSourceRegistration::binary(
++                "KNOWS",
++                "relationships",
++                "id",
++                "src",
++                "dst",
++                "Person",
++                "Person",
++            )],
+         },
+     )
+     .expect("register graph");
+ 
+     let session = GraphConnection::open(connection, "social").expect("open session");
+     assert_eq!(session.host_mode(), GraphHostMode::DialectPinned);
+ 
+     session
+         .execute(
+             "CREATE (:Person {id: 1, name: 'Ada', age: 36})",
+@@ -242,29 +242,29 @@ fn simple_create_mutation_commits_under_graph_dialect() {
+         .expect("create sources");
+     register_graph(
+         &connection,
+         &GraphRegistration {
+             name: "social".to_owned(),
+             node_sources: vec![NodeSourceRegistration {
+                 name: "Person".to_owned(),
+                 table: "people".to_owned(),
+                 identity_column: "id".to_owned(),
+             }],
+-            relationship_sources: vec![RelationshipSourceRegistration {
+-                name: "KNOWS".to_owned(),
+-                table: "relationships".to_owned(),
+-                identity_column: "id".to_owned(),
+-                start_column: "src".to_owned(),
+-                end_column: "dst".to_owned(),
+-                start_node_source: "Person".to_owned(),
+-                end_node_source: "Person".to_owned(),
+-            }],
++            relationship_sources: vec![RelationshipSourceRegistration::binary(
++                "KNOWS",
++                "relationships",
++                "id",
++                "src",
++                "dst",
++                "Person",
++                "Person",
++            )],
+         },
+     )
+     .expect("register graph");
+ 
+     let session = GraphConnection::open(connection, "social").expect("open session");
+     assert_eq!(session.host_mode(), GraphHostMode::DialectPinned);
+ 
+     let summary = session
+         .execute(
+             "CREATE (:Person {id: 1, name: 'Ada', age: 36})",
+@@ -308,29 +308,29 @@ fn single_create_node_uses_closed_create_fast_path() {
+         .expect("create sources");
+     register_graph(
+         &connection,
+         &GraphRegistration {
+             name: "social".to_owned(),
+             node_sources: vec![NodeSourceRegistration {
+                 name: "Person".to_owned(),
+                 table: "people".to_owned(),
+                 identity_column: "id".to_owned(),
+             }],
+-            relationship_sources: vec![RelationshipSourceRegistration {
+-                name: "KNOWS".to_owned(),
+-                table: "relationships".to_owned(),
+-                identity_column: "id".to_owned(),
+-                start_column: "src".to_owned(),
+-                end_column: "dst".to_owned(),
+-                start_node_source: "Person".to_owned(),
+-                end_node_source: "Person".to_owned(),
+-            }],
++            relationship_sources: vec![RelationshipSourceRegistration::binary(
++                "KNOWS",
++                "relationships",
++                "id",
++                "src",
++                "dst",
++                "Person",
++                "Person",
++            )],
+         },
+     )
+     .expect("register graph");
+ 
+     let session = GraphConnection::open(connection, "social").expect("open session");
+     session
+         .execute(
+             "CREATE (:Person {id: 42, name: 'Grace'})",
+             &Parameters::new(),
+         )
+@@ -369,29 +369,29 @@ fn multi_stage_mutation_still_uses_savepoint_path() {
+         .expect("create sources");
+     register_graph(
+         &connection,
+         &GraphRegistration {
+             name: "social".to_owned(),
+             node_sources: vec![NodeSourceRegistration {
+                 name: "Person".to_owned(),
+                 table: "people".to_owned(),
+                 identity_column: "id".to_owned(),
+             }],
+-            relationship_sources: vec![RelationshipSourceRegistration {
+-                name: "KNOWS".to_owned(),
+-                table: "relationships".to_owned(),
+-                identity_column: "id".to_owned(),
+-                start_column: "src".to_owned(),
+-                end_column: "dst".to_owned(),
+-                start_node_source: "Person".to_owned(),
+-                end_node_source: "Person".to_owned(),
+-            }],
++            relationship_sources: vec![RelationshipSourceRegistration::binary(
++                "KNOWS",
++                "relationships",
++                "id",
++                "src",
++                "dst",
++                "Person",
++                "Person",
++            )],
+         },
+     )
+     .expect("register graph");
+ 
+     let session = GraphConnection::open(connection, "social").expect("open session");
+     let summary = session
+         .execute(
+             "CREATE (:Person {id: 1, name: 'Ada'}) WITH 1 AS x RETURN x",
+             &Parameters::new(),
+         )
+diff --git a/graph/frontend/tests/fixture.rs b/graph/frontend/tests/fixture.rs
+index 46e2ca510..a10a6ebdf 100644
+--- a/graph/frontend/tests/fixture.rs
++++ b/graph/frontend/tests/fixture.rs
+@@ -47,29 +47,29 @@ fn social_graph_connection_with_options(opts: DatabaseOpts) -> (Arc<Database>, G
+         .expect("create sources");
+     let registered = register_graph(
+         &connection,
+         &GraphRegistration {
+             name: "social".to_owned(),
+             node_sources: vec![NodeSourceRegistration {
+                 name: "Person".to_owned(),
+                 table: "people".to_owned(),
+                 identity_column: "id".to_owned(),
+             }],
+-            relationship_sources: vec![RelationshipSourceRegistration {
+-                name: "KNOWS".to_owned(),
+-                table: "relationships".to_owned(),
+-                identity_column: "id".to_owned(),
+-                start_column: "src".to_owned(),
+-                end_column: "dst".to_owned(),
+-                start_node_source: "Person".to_owned(),
+-                end_node_source: "Person".to_owned(),
+-            }],
++            relationship_sources: vec![RelationshipSourceRegistration::binary(
++                "KNOWS",
++                "relationships",
++                "id",
++                "src",
++                "dst",
++                "Person",
++                "Person",
++            )],
+         },
+     )
+     .expect("register graph");
+     let catalog: Arc<dyn GraphCompilationCatalog> =
+         Arc::new(SchemaCatalog::new(connection.clone(), registered.clone()));
+     let shared_snapshots = Arc::new(SnapshotStore::default());
+     shared_snapshots
+         .refresh(
+             &connection,
+             &registered.name,
+diff --git a/graph/frontend/tests/native_capabilities.rs b/graph/frontend/tests/native_capabilities.rs
+index 10b1f89f7..e01ac91f3 100644
+--- a/graph/frontend/tests/native_capabilities.rs
++++ b/graph/frontend/tests/native_capabilities.rs
+@@ -883,29 +883,29 @@ fn property_keys_enumerates_declared_logical_payloads_across_sources() {
+                     name: "Person".to_owned(),
+                     table: "people".to_owned(),
+                     identity_column: "id".to_owned(),
+                 },
+                 NodeSourceRegistration {
+                     name: "Place".to_owned(),
+                     table: "places".to_owned(),
+                     identity_column: "id".to_owned(),
+                 },
+             ],
+-            relationship_sources: vec![RelationshipSourceRegistration {
+-                name: "KNOWS".to_owned(),
+-                table: "relationships".to_owned(),
+-                identity_column: "id".to_owned(),
+-                start_column: "src".to_owned(),
+-                end_column: "dst".to_owned(),
+-                start_node_source: "Person".to_owned(),
+-                end_node_source: "Person".to_owned(),
+-            }],
++            relationship_sources: vec![RelationshipSourceRegistration::binary(
++                "KNOWS",
++                "relationships",
++                "id",
++                "src",
++                "dst",
++                "Person",
++                "Person",
++            )],
+         },
+     )
+     .expect("register graph");
+     let session = GraphConnection::open(connection, "catalog").expect("open graph session");
+ 
+     let rows = session
+         .query(
+             "CALL db.propertyKeys() YIELD propertyKey \
+              RETURN propertyKey ORDER BY propertyKey",
+             &Parameters::new(),
+diff --git a/graph/frontend/tests/semantic_schema.rs b/graph/frontend/tests/semantic_schema.rs
+index 2109077bc..52e46148a 100644
+--- a/graph/frontend/tests/semantic_schema.rs
++++ b/graph/frontend/tests/semantic_schema.rs
+@@ -44,29 +44,29 @@ fn registered_graph(connection: &Arc<turso_graph_frontend::core::Connection>) {
+         .expect("create sources");
+     register_graph(
+         connection,
+         &GraphRegistration {
+             name: "social".to_owned(),
+             node_sources: vec![NodeSourceRegistration {
+                 name: "people_src".to_owned(),
+                 table: "tbl_people".to_owned(),
+                 identity_column: "pk".to_owned(),
+             }],
+-            relationship_sources: vec![RelationshipSourceRegistration {
+-                name: "edges_src".to_owned(),
+-                table: "tbl_edges".to_owned(),
+-                identity_column: "pk".to_owned(),
+-                start_column: "a".to_owned(),
+-                end_column: "b".to_owned(),
+-                start_node_source: "people_src".to_owned(),
+-                end_node_source: "people_src".to_owned(),
+-            }],
++            relationship_sources: vec![RelationshipSourceRegistration::binary(
++                "edges_src",
++                "tbl_edges",
++                "pk",
++                "a",
++                "b",
++                "people_src",
++                "people_src",
++            )],
+         },
+     )
+     .expect("register graph");
+ }
+ 
+ fn semantic_registration() -> SemanticSchemaRegistration {
+     SemanticSchemaRegistration {
+         node_types: vec![
+             SemanticNodeType {
+                 name: "Customer".to_owned(),
+@@ -207,38 +207,38 @@ fn multi_source_session() -> turso_graph_frontend::Connection {
+                     table: "people".to_owned(),
+                     identity_column: "id".to_owned(),
+                 },
+                 NodeSourceRegistration {
+                     name: "companies_src".to_owned(),
+                     table: "companies".to_owned(),
+                     identity_column: "id".to_owned(),
+                 },
+             ],
+             relationship_sources: vec![
+-                RelationshipSourceRegistration {
+-                    name: "employment_src".to_owned(),
+-                    table: "employment".to_owned(),
+-                    identity_column: "id".to_owned(),
+-                    start_column: "person_id".to_owned(),
+-                    end_column: "company_id".to_owned(),
+-                    start_node_source: "people_src".to_owned(),
+-                    end_node_source: "companies_src".to_owned(),
+-                },
+-                RelationshipSourceRegistration {
+-                    name: "ownership_src".to_owned(),
+-                    table: "ownership".to_owned(),
+-                    identity_column: "id".to_owned(),
+-                    start_column: "company_id".to_owned(),
+-                    end_column: "person_id".to_owned(),
+-                    start_node_source: "companies_src".to_owned(),
+-                    end_node_source: "people_src".to_owned(),
+-                },
++                RelationshipSourceRegistration::binary(
++                    "employment_src",
++                    "employment",
++                    "id",
++                    "person_id",
++                    "company_id",
++                    "people_src",
++                    "companies_src",
++                ),
++                RelationshipSourceRegistration::binary(
++                    "ownership_src",
++                    "ownership",
++                    "id",
++                    "company_id",
++                    "person_id",
++                    "companies_src",
++                    "people_src",
++                ),
+             ],
+         },
+     )
+     .expect("register multi-source graph");
+     register_semantic_schema(
+         &connection,
+         "multi",
+         &SemanticSchemaRegistration {
+             node_types: vec![
+                 SemanticNodeType {
+@@ -610,29 +610,29 @@ fn semantic_endpoints_must_match_relationship_source_layouts() {
+                     name: "people".to_owned(),
+                     table: "people".to_owned(),
+                     identity_column: "id".to_owned(),
+                 },
+                 NodeSourceRegistration {
+                     name: "companies".to_owned(),
+                     table: "companies".to_owned(),
+                     identity_column: "id".to_owned(),
+                 },
+             ],
+-            relationship_sources: vec![RelationshipSourceRegistration {
+-                name: "employment".to_owned(),
+-                table: "employment".to_owned(),
+-                identity_column: "id".to_owned(),
+-                start_column: "person_id".to_owned(),
+-                end_column: "company_id".to_owned(),
+-                start_node_source: "people".to_owned(),
+-                end_node_source: "companies".to_owned(),
+-            }],
++            relationship_sources: vec![RelationshipSourceRegistration::binary(
++                "employment",
++                "employment",
++                "id",
++                "person_id",
++                "company_id",
++                "people",
++                "companies",
++            )],
+         },
+     )
+     .expect("register endpoint graph");
+ 
+     let error = register_semantic_schema(
+         &connection,
+         "endpoints",
+         &SemanticSchemaRegistration {
+             node_types: vec![
+                 SemanticNodeType {
+@@ -2103,29 +2103,29 @@ fn register_fragment_graph(connection: &Arc<turso_graph_frontend::core::Connecti
+                     name: "people_src".to_owned(),
+                     table: "people".to_owned(),
+                     identity_column: "id".to_owned(),
+                 },
+                 NodeSourceRegistration {
+                     name: "companies_src".to_owned(),
+                     table: "companies".to_owned(),
+                     identity_column: "id".to_owned(),
+                 },
+             ],
+-            relationship_sources: vec![RelationshipSourceRegistration {
+-                name: "employment_src".to_owned(),
+-                table: "employment".to_owned(),
+-                identity_column: "id".to_owned(),
+-                start_column: "person_id".to_owned(),
+-                end_column: "company_id".to_owned(),
+-                start_node_source: "people_src".to_owned(),
+-                end_node_source: "companies_src".to_owned(),
+-            }],
++            relationship_sources: vec![RelationshipSourceRegistration::binary(
++                "employment_src",
++                "employment",
++                "id",
++                "person_id",
++                "company_id",
++                "people_src",
++                "companies_src",
++            )],
+         },
+     )
+     .expect("register fragment graph");
+ }
+ 
+ fn fragment_connection() -> Arc<turso_graph_frontend::core::Connection> {
+     let connection = connection();
+     register_fragment_graph(&connection);
+     register_semantic_schema_with_fragments(
+         &connection,
+diff --git a/graph/testkit/src/runner.rs b/graph/testkit/src/runner.rs
+index 8f93d537b..ea174360e 100644
+--- a/graph/testkit/src/runner.rs
++++ b/graph/testkit/src/runner.rs
+@@ -201,29 +201,29 @@ fn build_fixture_with_io(
+     // data, so it can run before seeding.
+     let registered = register_graph(
+         &connection,
+         &GraphRegistration {
+             name: "social".to_owned(),
+             node_sources: vec![NodeSourceRegistration {
+                 name: "Person".to_owned(),
+                 table: "people".to_owned(),
+                 identity_column: "id".to_owned(),
+             }],
+-            relationship_sources: vec![RelationshipSourceRegistration {
+-                name: "KNOWS".to_owned(),
+-                table: "relationships".to_owned(),
+-                identity_column: "id".to_owned(),
+-                start_column: "src".to_owned(),
+-                end_column: "dst".to_owned(),
+-                start_node_source: "Person".to_owned(),
+-                end_node_source: "Person".to_owned(),
+-            }],
++            relationship_sources: vec![RelationshipSourceRegistration::binary(
++                "KNOWS",
++                "relationships",
++                "id",
++                "src",
++                "dst",
++                "Person",
++                "Person",
++            )],
+         },
+     )
+     .map_err(|error| RunnerError::Fixture(error.to_string()))?;
+     let catalog: Arc<dyn GraphCompilationCatalog> =
+         Arc::new(crate::dynamic_catalog::DynamicCatalog::new(
+             connection.clone(),
+             registered.clone(),
+             "people".to_owned(),
+             "relationships".to_owned(),
+         ));
+diff --git a/tests/integration/multi_frontend_doc.rs b/tests/integration/multi_frontend_doc.rs
+index 995a04cfb..ee57566c4 100644
+--- a/tests/integration/multi_frontend_doc.rs
++++ b/tests/integration/multi_frontend_doc.rs
+@@ -220,29 +220,23 @@ fn postgres_and_graph_frontends_share_one_connection_transaction() {
+     .unwrap();
+     register_graph(
+         &conn,
+         &GraphRegistration {
+             name: "social".to_owned(),
+             node_sources: vec![NodeSourceRegistration {
+                 name: "Person".to_owned(),
+                 table: "people".to_owned(),
+                 identity_column: "id".to_owned(),
+             }],
+-            relationship_sources: vec![RelationshipSourceRegistration {
+-                name: "KNOWS".to_owned(),
+-                table: "knows".to_owned(),
+-                identity_column: "id".to_owned(),
+-                start_column: "src".to_owned(),
+-                end_column: "dst".to_owned(),
+-                start_node_source: "Person".to_owned(),
+-                end_node_source: "Person".to_owned(),
+-            }],
++            relationship_sources: vec![RelationshipSourceRegistration::binary(
++                "KNOWS", "knows", "id", "src", "dst", "Person", "Person",
++            )],
+         },
+     )
+     .unwrap();
+ 
+     let postgres = turso_pg::PgConnection::new(conn.clone());
+     let graph = GraphConnection::open(conn.clone(), "social").unwrap();
+ 
+     conn.execute("BEGIN IMMEDIATE").unwrap();
+     graph
+         .execute("CREATE (:Person {name: 'Ada'})", &Default::default())

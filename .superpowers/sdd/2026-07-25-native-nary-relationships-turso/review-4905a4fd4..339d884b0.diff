@@ -1,0 +1,521 @@
+# Review package: 4905a4fd4054e3b43aac5a8c477d4b9b2e0ce0a0..339d884b02df5bfc9ce34dac107e6dbe953deb30
+
+## Commits
+339d884b0 graph/frontend: resolve relationship start/end roles by name
+
+## Files changed
+ graph/frontend/src/lowering.rs       | 150 ++++++++++++++++++++++++++++++++---
+ graph/frontend/src/mutation.rs       |  38 +++++++--
+ graph/frontend/src/schema_catalog.rs |  97 ++++++++++++++++++++++
+ 3 files changed, 268 insertions(+), 17 deletions(-)
+
+## Diff
+diff --git a/graph/frontend/src/lowering.rs b/graph/frontend/src/lowering.rs
+index 3f1a91521..a3334022d 100644
+--- a/graph/frontend/src/lowering.rs
++++ b/graph/frontend/src/lowering.rs
+@@ -27,20 +27,39 @@ pub struct RelationshipTableLayout {
+     pub identity_column: String,
+     /// Declaration order. A two-role relation is `[start, end]`.
+     pub roles: Vec<RelationshipRoleLayout>,
+ }
+ 
+ impl RelationshipTableLayout {
+     pub fn role(&self, role: ir::RoleId) -> Option<&RelationshipRoleLayout> {
+         self.roles.iter().find(|entry| entry.role == role)
+     }
+ 
++    fn role_by_name(&self, name: &str) -> Option<&RelationshipRoleLayout> {
++        self.roles
++            .iter()
++            .find(|role| role.name.eq_ignore_ascii_case(name))
++    }
++
++    /// The `start` role of a two-role pattern-hop relationship, resolved by
++    /// name rather than declaration order: role declaration order is not
++    /// guaranteed to put `start` before `end`.
++    pub fn start_role(&self) -> Option<&RelationshipRoleLayout> {
++        self.role_by_name("start")
++    }
++
++    /// The `end` role of a two-role pattern-hop relationship, resolved by
++    /// name rather than declaration order.
++    pub fn end_role(&self) -> Option<&RelationshipRoleLayout> {
++        self.role_by_name("end")
++    }
++
+     /// Columns that carry participation rather than payload.
+     pub fn structural_columns(&self) -> Vec<String> {
+         let mut columns = vec![self.identity_column.clone()];
+         columns.extend(
+             self.roles
+                 .iter()
+                 .filter(|role| role.cardinality == ir::RoleCardinality::One)
+                 .map(|role| role.column.clone()),
+         );
+         columns
+@@ -1447,25 +1466,31 @@ fn lower_fixed_expand(
+             input.sql,
+             source_column_ref(expand.from),
+             expand.from_node_source.get()
+         )
+     } else {
+         input.sql.clone()
+     };
+     let relationship = catalog
+         .relationship_layout(expand.relationship_source)
+         .ok_or(LowerError::MissingSource(expand.relationship_source))?;
+-    // `Expand` is a Cypher `-[r]->` hop: always exactly two roles, in
+-    // declaration order, regardless of how many roles the relation carries
+-    // in total.
+-    let start_column = &relationship.roles[0].column;
+-    let end_column = &relationship.roles[1].column;
++    // `Expand` is a Cypher `-[r]->` hop: always exactly two roles, named
++    // `start`/`end`. Resolve by name, not declaration order -- role order is
++    // not guaranteed to put `start` before `end`.
++    let start_column = &relationship
++        .start_role()
++        .ok_or(LowerError::MissingSource(expand.relationship_source))?
++        .column;
++    let end_column = &relationship
++        .end_role()
++        .ok_or(LowerError::MissingSource(expand.relationship_source))?
++        .column;
+     let target = catalog
+         .node_layout(expand.target_node_source)
+         .ok_or(LowerError::MissingSource(expand.target_node_source))?;
+     let join = if optional { "LEFT JOIN" } else { "JOIN" };
+     let from = format!("q.{}", binding_column(expand.from));
+     let relationship_alias = "r";
+     let target_alias = "n";
+     // A cycle-closing target equates to an existing binding: both endpoint
+     // conditions go on the relationship join (composite endpoint indexes
+     // apply) and the node table is not re-joined.
+@@ -2456,26 +2481,32 @@ fn lower_expression_with_references(
+                     catalog,
+                     input_alias,
+                     references,
+                 )?;
+                 let mut branches = Vec::new();
+                 for source in &layout.sources {
+                     let relationship = catalog
+                         .relationship_layout(*source)
+                         .ok_or(LowerError::MissingSource(*source))?;
+                     // startNode()/endNode() only ever address the two-role
+-                    // pattern-hop relationship, in declaration order.
+-                    let endpoint = if function.as_str() == "__cypher_start_node" {
+-                        relationship.roles[0].column.clone()
++                    // pattern-hop relationship. Resolve by name, not
++                    // declaration order -- role order is not guaranteed to
++                    // put `start` before `end`.
++                    let role = if function.as_str() == "__cypher_start_node" {
++                        relationship.start_role()
+                     } else {
+-                        relationship.roles[1].column.clone()
++                        relationship.end_role()
+                     };
++                    let endpoint = role
++                        .ok_or(LowerError::MissingSource(*source))?
++                        .column
++                        .clone();
+                     branches.push((
+                         *source,
+                         format!(
+                             "(SELECT ep.{} FROM {} AS ep WHERE ep.{} = ({}))",
+                             quote_identifier(&endpoint),
+                             quote_identifier(&relationship.table),
+                             quote_identifier(&relationship.identity_column),
+                             identity_value,
+                         ),
+                     ));
+@@ -3015,20 +3046,66 @@ mod tests {
+ 
+         fn property_column(
+             &self,
+             _source: ir::SourceTableId,
+             _property: ir::PropertyId,
+         ) -> Option<String> {
+             None
+         }
+     }
+ 
++    /// Same layout as `EndpointCatalog`, but with `end` declared BEFORE
++    /// `start`. Declaration order is not guaranteed to put `start` first, so
++    /// a consumer that indexes `roles[0]`/`roles[1]` positionally instead of
++    /// resolving by name would silently swap start/end here.
++    struct ReversedEndpointCatalog;
++
++    impl RelationalCatalogSnapshot for ReversedEndpointCatalog {
++        fn node_layout(&self, _source: ir::SourceTableId) -> Option<NodeTableLayout> {
++            None
++        }
++
++        fn relationship_layout(
++            &self,
++            _source: ir::SourceTableId,
++        ) -> Option<RelationshipTableLayout> {
++            Some(RelationshipTableLayout {
++                table: "relationship table".to_owned(),
++                identity_column: "relationship id".to_owned(),
++                roles: vec![
++                    RelationshipRoleLayout {
++                        role: ir::RoleId::new(2).unwrap(),
++                        name: "end".to_owned(),
++                        column: "end node".to_owned(),
++                        cardinality: ir::RoleCardinality::One,
++                        spill_table: None,
++                    },
++                    RelationshipRoleLayout {
++                        role: ir::RoleId::new(1).unwrap(),
++                        name: "start".to_owned(),
++                        column: "start node".to_owned(),
++                        cardinality: ir::RoleCardinality::One,
++                        spill_table: None,
++                    },
++                ],
++            })
++        }
++
++        fn property_column(
++            &self,
++            _source: ir::SourceTableId,
++            _property: ir::PropertyId,
++        ) -> Option<String> {
++            None
++        }
++    }
++
+     impl RelationalCatalogSnapshot for Catalog {
+         fn node_layout(&self, _source: ir::SourceTableId) -> Option<NodeTableLayout> {
+             Some(NodeTableLayout {
+                 table: "people".to_owned(),
+                 identity_column: "id".to_owned(),
+             })
+         }
+ 
+         fn relationship_layout(
+             &self,
+@@ -3216,20 +3293,75 @@ mod tests {
+             )
+             .unwrap(),
+             "(SELECT ep.\"start node\" FROM \"relationship table\" AS ep WHERE ep.\"relationship id\" = (q.b3))"
+         );
+         assert!(matches!(
+             lower_expression(&endpoint("__cypher_end_node"), &bindings, &Catalog, "q"),
+             Err(LowerError::MissingSource(missing)) if missing == source
+         ));
+     }
+ 
++    /// Regression test: `startNode()`/`endNode()` must resolve the relevant
++    /// role column by NAME, not by position in `RelationshipTableLayout::roles`.
++    /// A positional `roles[0]`/`roles[1]` reader would swap these two
++    /// assertions relative to `endpoint_functions_use_quoted_relationship_layout_columns`
++    /// above, because `ReversedEndpointCatalog` declares `end` first.
++    #[test]
++    fn start_end_role_lookup_is_name_based_not_positional() {
++        let source = ir::SourceTableId::new(7).unwrap();
++        let relationship = ir::BindingId::new(3).unwrap();
++        let bindings = HashMap::from([(
++            relationship,
++            BindingLayout {
++                source,
++                sources: [source].into_iter().collect(),
++                kind: EntityKind::Relationship,
++                properties: Default::default(),
++            },
++        )]);
++        let endpoint = |function: &str| ir::TypedExpression {
++            expression: ir::Expression::Function {
++                function: ir::FunctionName::new(function).unwrap(),
++                arguments: vec![ir::TypedExpression {
++                    expression: ir::Expression::Binding(relationship),
++                    value_type: ir::ValueType::Relationship,
++                    nullability: ir::Nullability::NonNull,
++                }],
++            },
++            value_type: ir::ValueType::Node,
++            nullability: ir::Nullability::NonNull,
++        };
++
++        assert_eq!(
++            lower_expression(
++                &endpoint("__cypher_start_node"),
++                &bindings,
++                &ReversedEndpointCatalog,
++                "q"
++            )
++            .unwrap(),
++            "(SELECT ep.\"start node\" FROM \"relationship table\" AS ep WHERE ep.\"relationship id\" = (q.b3))",
++            "startNode() must resolve the `start` role's column even though it is declared second"
++        );
++        assert_eq!(
++            lower_expression(
++                &endpoint("__cypher_end_node"),
++                &bindings,
++                &ReversedEndpointCatalog,
++                "q"
++            )
++            .unwrap(),
++            "(SELECT ep.\"end node\" FROM \"relationship table\" AS ep WHERE ep.\"relationship id\" = (q.b3))",
++            "endNode() must resolve the `end` role's column even though it is declared first"
++        );
++    }
++
+     #[test]
+     fn lowers_nested_property_field_chain_inside_correlated_subquery() {
+         let catalog = Catalog;
+         let source = ir::SourceTableId::new(1).unwrap();
+         let entity = ir::BindingId::new(1).unwrap();
+         let mut bindings = HashMap::new();
+         bindings.insert(
+             entity,
+             BindingLayout {
+                 source,
+diff --git a/graph/frontend/src/mutation.rs b/graph/frontend/src/mutation.rs
+index 8651715b5..b86daec8d 100644
+--- a/graph/frontend/src/mutation.rs
++++ b/graph/frontend/src/mutation.rs
+@@ -1867,26 +1867,40 @@ fn insert_relationship(
+         input,
+         &layout.table,
+         &layout.identity_column,
+         create.source,
+         &create.properties,
+         parameters,
+         values,
+         entity_layouts,
+         merge,
+         "relationship",
+-        // `CREATE (a)-[r]->(b)` is always a two-role pattern hop, in
+-        // declaration order, regardless of how many roles the relation
+-        // carries in total.
++        // `CREATE (a)-[r]->(b)` is always a two-role pattern hop. Resolve
++        // the roles by name, not declaration order -- role order is not
++        // guaranteed to put `start` before `end`.
+         &[
+-            (layout.roles[0].column.clone(), from.clone()),
+-            (layout.roles[1].column.clone(), to.clone()),
++            (
++                layout
++                    .start_role()
++                    .ok_or(LowerError::MissingSource(create.source))?
++                    .column
++                    .clone(),
++                from.clone(),
++            ),
++            (
++                layout
++                    .end_role()
++                    .ok_or(LowerError::MissingSource(create.source))?
++                    .column
++                    .clone(),
++                to.clone(),
++            ),
+         ],
+         &merge_predicates,
+     )
+ }
+ 
+ #[allow(clippy::too_many_arguments)]
+ fn insert_entity(
+     connection: &Arc<Connection>,
+     catalog: &dyn GraphCompilationCatalog,
+     input: &LoweredMutationInput,
+@@ -2021,31 +2035,39 @@ fn delete_entity(
+                 .relationship_layout(relationship_source)
+                 .ok_or(LowerError::MissingSource(relationship_source))?;
+             let Some((start_source, end_source)) =
+                 catalog.relationship_endpoint_sources(graph, relationship_source)
+             else {
+                 continue;
+             };
+             let parameter = identity_parameter(delete.entity);
+             let mut predicates = Vec::new();
+             // `relationship_endpoint_sources` only resolves for the two-role
+-            // pattern-hop shape, so the role pair is always [start, end].
++            // pattern-hop shape. Resolve the roles by name, not declaration
++            // order -- role order is not guaranteed to put `start` before
++            // `end`.
+             if start_source == source {
++                let role = relationship
++                    .start_role()
++                    .ok_or(LowerError::MissingSource(relationship_source))?;
+                 predicates.push(format!(
+                     "{} = ${parameter}",
+-                    quoted_identifier(&relationship.roles[0].column)
++                    quoted_identifier(&role.column)
+                 ));
+             }
+             if end_source == source {
++                let role = relationship
++                    .end_role()
++                    .ok_or(LowerError::MissingSource(relationship_source))?;
+                 predicates.push(format!(
+                     "{} = ${parameter}",
+-                    quoted_identifier(&relationship.roles[1].column)
++                    quoted_identifier(&role.column)
+                 ));
+             }
+             if predicates.is_empty() {
+                 continue;
+             }
+             let predicate = predicates.join(" OR ");
+             if delete.detach {
+                 run_ignore(
+                     connection,
+                     &format!(
+diff --git a/graph/frontend/src/schema_catalog.rs b/graph/frontend/src/schema_catalog.rs
+index 65a561b9a..e64445256 100644
+--- a/graph/frontend/src/schema_catalog.rs
++++ b/graph/frontend/src/schema_catalog.rs
+@@ -973,20 +973,21 @@ impl RelationalCatalogSnapshot for SchemaCatalog {
+         properties.sort_by_key(|(_, name, _, _)| name.to_lowercase());
+         Some(properties)
+     }
+ }
+ 
+ #[cfg(test)]
+ mod tests {
+     use super::*;
+     use crate::catalog::{
+         GraphRegistration, NodeSourceRegistration, RelationshipSourceRegistration,
++        RoleSourceRegistration,
+     };
+     use crate::semantic::{
+         SemanticFragment, SemanticFragmentMember, SemanticFragmentRegistration, SemanticNodeType,
+         SemanticProperty, SemanticSchemaRegistration, SEMANTIC_ENDPOINTS_TABLE,
+         SEMANTIC_FRAGMENTS_TABLE, SEMANTIC_FRAGMENT_MEMBERS_TABLE,
+         SEMANTIC_FRAGMENT_OWNERSHIP_TABLE, SEMANTIC_FRAGMENT_PROPERTIES_TABLE,
+         SEMANTIC_OWNERSHIP_TABLE, SEMANTIC_PROPERTIES_TABLE, SEMANTIC_TYPES_TABLE,
+     };
+     use std::sync::Arc;
+     use turso_core::{Database, DatabaseOpts, MemoryIO, OpenFlags, SqliteDialect};
+@@ -1062,20 +1063,71 @@ mod tests {
+                     "Person",
+                     "Person",
+                 )],
+             },
+         )
+         .expect("register graph");
+         let source = graph.relationship_sources[0].id;
+         (SchemaCatalog::new(connection, graph), source)
+     }
+ 
++    /// Same shape as `binary_relationship_catalog`, but the `end` role is
++    /// declared BEFORE the `start` role. `RelationshipSourceRegistration::binary`
++    /// always declares `start` first, so building the registration by hand is
++    /// the only way to exercise declaration order other than start-then-end;
++    /// nothing in `validate_registration_names` requires `start` to precede
++    /// `end`, so a name-position-blind consumer must not care which one this
++    /// is.
++    fn reversed_binary_relationship_catalog() -> (SchemaCatalog, ir::SourceTableId, ir::GraphId) {
++        let connection = connect(false);
++        connection
++            .execute(
++                "CREATE TABLE people(id INTEGER PRIMARY KEY, name TEXT); \
++                 CREATE TABLE acquaintances(id INTEGER PRIMARY KEY, person_a INTEGER, person_b INTEGER);",
++            )
++            .expect("create sources");
++        let graph = crate::catalog::register_graph(
++            &connection,
++            &GraphRegistration {
++                name: "acquainted".to_owned(),
++                node_sources: vec![NodeSourceRegistration {
++                    name: "Person".to_owned(),
++                    table: "people".to_owned(),
++                    identity_column: "id".to_owned(),
++                }],
++                relationship_sources: vec![RelationshipSourceRegistration {
++                    name: "KNOWS".to_owned(),
++                    table: "acquaintances".to_owned(),
++                    identity_column: "id".to_owned(),
++                    roles: vec![
++                        RoleSourceRegistration {
++                            name: "end".to_owned(),
++                            column: "person_a".to_owned(),
++                            node_source: "Person".to_owned(),
++                            cardinality: ir::RoleCardinality::One,
++                        },
++                        RoleSourceRegistration {
++                            name: "start".to_owned(),
++                            column: "person_b".to_owned(),
++                            node_source: "Person".to_owned(),
++                            cardinality: ir::RoleCardinality::One,
++                        },
++                    ],
++                }],
++            },
++        )
++        .expect("register graph");
++        let source = graph.relationship_sources[0].id;
++        let graph_id = graph.id;
++        (SchemaCatalog::new(connection, graph), source, graph_id)
++    }
++
+     #[test]
+     fn resolves_id_name_age_matching_testkit_stub_identities() {
+         let connection = connect(false);
+         let graph = registered_social_graph(&connection);
+         let graph_id = graph.id;
+         let catalog = SchemaCatalog::new(connection, graph);
+ 
+         let id = catalog
+             .property(graph_id, CatalogEntity::Node, "id")
+             .expect("id resolves");
+@@ -1396,11 +1448,56 @@ mod tests {
+         );
+ 
+         let payload = catalog.payload_columns(source).expect("payload columns");
+         assert!(
+             payload
+                 .iter()
+                 .all(|(logical, _)| logical != "src" && logical != "dst"),
+             "role columns must not appear as payload properties: {payload:?}"
+         );
+     }
++
++    /// Regression test: a role-shaped `RelationshipTableLayout` must resolve
++    /// `start`/`end` by NAME, not by position in the `roles` vec. Declaration
++    /// order is not guaranteed to put `start` before `end` (nothing in
++    /// `validate_registration_names` requires it, and it would make binary a
++    /// validated special case rather than a layout). A positional
++    /// `roles[0]`/`roles[1]` reader silently inverts the hop the moment a
++    /// relation is registered with `end` declared first, with no compile
++    /// error and no panic -- just backwards SQL.
++    #[test]
++    fn a_relationship_with_end_declared_before_start_resolves_endpoints_by_name() {
++        let (catalog, source, graph_id) = reversed_binary_relationship_catalog();
++        let layout = catalog
++            .relationship_layout(source)
++            .expect("relationship layout");
++
++        // Declaration order really is [end, start] here; a positional reader
++        // would get this backwards.
++        assert_eq!(layout.roles[0].name, "end");
++        assert_eq!(layout.roles[1].name, "start");
++
++        assert_eq!(
++            layout.start_role().map(|role| role.column.as_str()),
++            Some("person_b"),
++            "start_role() must resolve by name even though `start` is declared second"
++        );
++        assert_eq!(
++            layout.end_role().map(|role| role.column.as_str()),
++            Some("person_a"),
++            "end_role() must resolve by name even though `end` is declared first"
++        );
++
++        // Exercise a real query against the reversed-order catalog: a
++        // `-[:KNOWS]->` hop must bind and lower without error even when
++        // `end` precedes `start` in the roles vec. `lowering.rs` carries the
++        // dedicated test that inspects the generated join SQL directly
++        // (`start_end_role_lookup_is_name_based_not_positional`); this just
++        // confirms the production `bind` + `lower_relational` pipeline is
++        // unaffected by declaration order end-to-end.
++        let query = turso_graph_cypher::parse("MATCH (a:Person)-[:KNOWS]->(b:Person) RETURN a.id")
++            .expect("parse hop query");
++        let bound =
++            crate::bind(&query, graph_id, &catalog, &Default::default()).expect("bind hop query");
++        crate::lower_relational(&bound.plan, &catalog).expect("lower hop query");
++    }
+ }

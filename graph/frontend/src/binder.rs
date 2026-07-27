@@ -69,6 +69,34 @@ pub trait GraphCatalogSnapshot {
         let source = self.node_source(graph)?;
         Some((source, source))
     }
+    /// The physical node table a named role's player is drawn from. A
+    /// standalone role pattern has no label-annotation syntax on its role
+    /// arguments (`RoleArgument.player` is a bare expression), so a *fresh*
+    /// player's physical table cannot be inferred from the pattern text the
+    /// way `(p:Person)` infers it for an arrow-form node — it must come from
+    /// the relation's own role registration. This generalizes
+    /// `relationship_endpoint_sources` (which hard-codes the `start`/`end`
+    /// pair) to any named role; the default mirrors that method's own
+    /// single-node-source fallback.
+    fn relationship_role_node_source(
+        &self,
+        graph: ir::GraphId,
+        _relationship_source: ir::SourceTableId,
+        _role: ir::RoleId,
+    ) -> Option<ir::SourceTableId> {
+        self.node_source(graph)
+    }
+    /// The relationship source's declared roles, as a name-resolvable
+    /// layout. The binder reads `start`/`end` off it by name (never by
+    /// declaration position: a relation's roles are not guaranteed to be
+    /// declared start-then-end) to derive `(from_role, to_role, symmetric)`
+    /// alongside the `direction` it already computes.
+    fn relationship_source_roles(
+        &self,
+        _source: ir::SourceTableId,
+    ) -> Option<crate::lowering::RelationshipTableLayout> {
+        None
+    }
     fn label(&self, graph: ir::GraphId, name: &str) -> Option<ir::LabelId>;
     fn relationship_type(&self, graph: ir::GraphId, name: &str) -> Option<ir::RelationshipTypeId>;
     fn property(
@@ -122,12 +150,40 @@ pub trait GraphCatalogSnapshot {
             .map(PropertyResolution::Resolved)
     }
 
-    fn relationship_endpoints(
+    /// Roles of a relationship type in declaration order. Empty when the
+    /// type is unknown. A catalog with no semantic schema has no role
+    /// registrations to report here, so the default projects the physical
+    /// role layout instead (same `RoleId`s, no target-type constraint,
+    /// never optional) rather than returning nothing: binary is a two-role
+    /// layout, not a hard-coded kind, and every catalog already exposes
+    /// that layout via `relationship_source_for_type`/
+    /// `relationship_source_roles` for the read-side role lookup.
+    fn relationship_roles(
         &self,
-        _graph: ir::GraphId,
-        _relationship_type: ir::RelationshipTypeId,
-    ) -> Option<(Vec<ir::LabelId>, Vec<ir::LabelId>)> {
-        None
+        graph: ir::GraphId,
+        ty: ir::RelationshipTypeId,
+    ) -> Vec<crate::semantic::SemanticRole> {
+        self.relationship_source_for_type(graph, ty)
+            .and_then(|source| self.relationship_source_roles(source))
+            .map(|layout| {
+                layout
+                    .roles
+                    .into_iter()
+                    .map(crate::semantic::SemanticRole::from)
+                    .collect()
+            })
+            .unwrap_or_default()
+    }
+
+    fn relationship_role(
+        &self,
+        graph: ir::GraphId,
+        ty: ir::RelationshipTypeId,
+        name: &str,
+    ) -> Option<crate::semantic::SemanticRole> {
+        self.relationship_roles(graph, ty)
+            .into_iter()
+            .find(|role| role.name.eq_ignore_ascii_case(name))
     }
 
     fn semantic_constraints(
@@ -310,12 +366,12 @@ pub enum BindError {
         span_end: usize,
     },
     #[error(
-        "semantic type(s) {node_types:?} are not allowed as the {endpoint} endpoint of `{relationship_type}` at byte {span_start}..{span_end}"
+        "role `{role}` of relationship type `{relationship_type}` does not accept {found} at byte {span_start}..{span_end}"
     )]
-    InvalidEndpointType {
+    RoleTargetTypeViolation {
         relationship_type: String,
-        endpoint: &'static str,
-        node_types: Vec<String>,
+        role: String,
+        found: String,
         span_start: usize,
         span_end: usize,
     },
@@ -410,6 +466,41 @@ pub enum BindError {
     InvalidRelationshipRange {
         min: u32,
         max: u32,
+        span_start: usize,
+        span_end: usize,
+    },
+    #[error("relationship source has no `{role}` role at byte {span_start}..{span_end}")]
+    MissingRelationshipRole {
+        role: &'static str,
+        span_start: usize,
+        span_end: usize,
+    },
+    #[error("relationship type `{relationship_type}` has no role `{role}`; its roles are {known}")]
+    UnknownRole {
+        relationship_type: String,
+        role: String,
+        known: String,
+        span_start: usize,
+        span_end: usize,
+    },
+    #[error("relationship type `{relationship_type}` requires role `{role}`")]
+    MissingRequiredRole {
+        relationship_type: String,
+        role: String,
+        span_start: usize,
+        span_end: usize,
+    },
+    #[error("role `{role}` of `{relationship_type}` is named more than once")]
+    DuplicateRoleArgument {
+        relationship_type: String,
+        role: String,
+        span_start: usize,
+        span_end: usize,
+    },
+    #[error("`{name}` is both a role of `{relationship_type}` and a relationship type; write the role form `[x:{relationship_type}]({name}: target)` or qualify the type")]
+    AmbiguousRoleName {
+        name: String,
+        relationship_type: String,
         span_start: usize,
         span_end: usize,
     },
@@ -862,15 +953,23 @@ impl<'a> Binder<'a> {
                 cypher::Clause::Create(value) => {
                     mutation_started = true;
                     let mut new_operations = Vec::new();
-                    for path in &value.paths {
-                        self.bind_create_path(path, false, &mut new_operations)?;
+                    for element in &value.paths.elements {
+                        match element {
+                            cypher::PatternElement::Path(path) => {
+                                self.bind_create_path(path, false, &mut new_operations)?;
+                            }
+                            cypher::PatternElement::Roles(pattern) => {
+                                let create = self.bind_create_role_pattern(pattern)?;
+                                new_operations.push(ir::Mutation::CreateRelation(create));
+                            }
+                        }
                     }
                     route(&mut operations, &mut stages, new_operations);
                 }
                 cypher::Clause::Merge(value) => {
                     mutation_started = true;
                     let mut new_operations = Vec::new();
-                    self.bind_create_path(&value.path, true, &mut new_operations)?;
+                    self.bind_merge_pattern(&value.path, &mut new_operations)?;
                     self.attach_merge_actions(value, &mut new_operations)?;
                     route(&mut operations, &mut stages, new_operations);
                 }
@@ -1079,14 +1178,14 @@ impl<'a> Binder<'a> {
                 match &inner.value {
                     cypher::Clause::Create(value) => {
                         let mut operations = Vec::new();
-                        for path in &value.paths {
+                        for path in only_paths(&value.paths)? {
                             self.bind_create_path(path, false, &mut operations)?;
                         }
                         items.extend(operations.into_iter().map(StageItem::Operation));
                     }
                     cypher::Clause::Merge(value) => {
                         let mut operations = Vec::new();
-                        self.bind_create_path(&value.path, true, &mut operations)?;
+                        self.bind_merge_pattern(&value.path, &mut operations)?;
                         self.attach_merge_actions(value, &mut operations)?;
                         items.extend(operations.into_iter().map(StageItem::Operation));
                     }
@@ -1144,7 +1243,8 @@ impl<'a> Binder<'a> {
         clause: &cypher::MatchClause,
         span: cypher::Span,
     ) -> Result<StageItem, BindError> {
-        for path in &clause.paths {
+        let paths = only_paths(&clause.paths)?;
+        for path in &paths {
             if path.variable.is_some() {
                 return Err(at_unsupported(
                     span,
@@ -1154,7 +1254,7 @@ impl<'a> Binder<'a> {
         }
         // Correlated variables: pattern variables already bound in scope.
         let mut correlated: Vec<(String, ir::BindingId)> = Vec::new();
-        for path in &clause.paths {
+        for path in &paths {
             let mut variables = Vec::new();
             if let Some(variable) = &path.start.variable {
                 variables.push(variable);
@@ -1550,56 +1650,96 @@ impl<'a> Binder<'a> {
                 } else {
                     (from, to)
                 };
-            if let Some((start_allowed, end_allowed)) = self
-                .catalog
-                .relationship_endpoints(self.graph, relationship_types[0])
+            for (role_name, binding_id) in [("start", relationship_from), ("end", relationship_to)]
             {
-                for (endpoint, binding_id, allowed) in [
-                    ("start", relationship_from, &start_allowed),
-                    ("end", relationship_to, &end_allowed),
-                ] {
-                    if allowed.is_empty() {
-                        continue;
-                    }
-                    let names = self
-                        .entities
-                        .get(&binding_id)
-                        .map(|entity| entity.names.clone())
-                        .unwrap_or_default();
-                    let all_allowed = !names.is_empty()
-                        && names.iter().all(|name| {
-                            self.catalog
-                                .label(self.graph, name)
-                                .is_some_and(|label| allowed.contains(&label))
-                        });
-                    if !all_allowed {
-                        return Err(BindError::InvalidEndpointType {
-                            relationship_type: relationship.types[0].value.clone(),
-                            endpoint,
-                            node_types: names,
-                            span_start: relationship.span.start,
-                            span_end: relationship.span.end,
-                        });
-                    }
+                let Some(role) =
+                    self.catalog
+                        .relationship_role(self.graph, relationship_types[0], role_name)
+                else {
+                    continue;
+                };
+                let allowed = role
+                    .targets
+                    .iter()
+                    .filter_map(|target| match target {
+                        ir::RoleTarget::Node(label) => Some(*label),
+                        ir::RoleTarget::Relation(_) => None,
+                    })
+                    .collect::<Vec<_>>();
+                if allowed.is_empty() {
+                    continue;
+                }
+                let names = self
+                    .entities
+                    .get(&binding_id)
+                    .map(|entity| entity.names.clone())
+                    .unwrap_or_default();
+                let all_allowed = !names.is_empty()
+                    && names.iter().all(|name| {
+                        self.catalog
+                            .label(self.graph, name)
+                            .is_some_and(|label| allowed.contains(&label))
+                    });
+                if !all_allowed {
+                    let found = if names.is_empty() {
+                        "an unlabeled binding".to_owned()
+                    } else {
+                        names.join(", ")
+                    };
+                    return Err(BindError::RoleTargetTypeViolation {
+                        relationship_type: relationship.types[0].value.clone(),
+                        role: role.name,
+                        found,
+                        span_start: relationship.span.start,
+                        span_end: relationship.span.end,
+                    });
                 }
             }
-            let create = ir::CreateRelationship {
+            // Roles are resolved by NAME, not by declaration position: a
+            // relation's roles are not guaranteed to be declared
+            // start-then-end (see the read-side expand above).
+            let start_role = self
+                .catalog
+                .relationship_role(self.graph, relationship_types[0], "start")
+                .ok_or(BindError::MissingRelationshipRole {
+                    role: "start",
+                    span_start: relationship.span.start,
+                    span_end: relationship.span.end,
+                })?
+                .role;
+            let end_role = self
+                .catalog
+                .relationship_role(self.graph, relationship_types[0], "end")
+                .ok_or(BindError::MissingRelationshipRole {
+                    role: "end",
+                    span_start: relationship.span.start,
+                    span_end: relationship.span.end,
+                })?
+                .role;
+            let create = ir::CreateRelation {
                 binding,
                 source,
-                from: relationship_from,
-                to: relationship_to,
-                direction: ir::Direction::Outgoing,
                 relationship_types,
                 properties,
+                roles: vec![
+                    ir::RoleBinding {
+                        role: start_role,
+                        value: relationship_from,
+                    },
+                    ir::RoleBinding {
+                        role: end_role,
+                        value: relationship_to,
+                    },
+                ],
             };
             operations.push(if merge {
-                ir::Mutation::MergeRelationship(ir::MergeRelationship {
+                ir::Mutation::MergeRelation(ir::MergeRelation {
                     create,
                     on_create: Vec::new(),
                     on_match: Vec::new(),
                 })
             } else {
-                ir::Mutation::CreateRelationship(create)
+                ir::Mutation::CreateRelation(create)
             });
             from = next_from;
         }
@@ -1613,6 +1753,267 @@ impl<'a> Binder<'a> {
             );
         }
         Ok(())
+    }
+
+    /// Binds a MERGE pattern (`MergeClause.path`), which is either the arrow
+    /// form or the standalone role form. The arrow form already knows how to
+    /// merge (`bind_create_path`'s `merge` flag); the role form only knows
+    /// how to create (`bind_create_role_pattern` returns `CreateRelation`),
+    /// so it is wrapped in `MergeRelation` here rather than duplicating role
+    /// resolution to produce one directly.
+    fn bind_merge_pattern(
+        &mut self,
+        pattern: &cypher::PatternElement,
+        operations: &mut Vec<ir::Mutation>,
+    ) -> Result<(), BindError> {
+        match pattern {
+            cypher::PatternElement::Path(path) => self.bind_create_path(path, true, operations),
+            cypher::PatternElement::Roles(role_pattern) => {
+                let create = self.bind_create_role_pattern(role_pattern)?;
+                operations.push(ir::Mutation::MergeRelation(ir::MergeRelation {
+                    create,
+                    on_create: Vec::new(),
+                    on_match: Vec::new(),
+                }));
+                Ok(())
+            }
+        }
+    }
+
+    /// Binds the standalone role-pattern CREATE surface
+    /// (`[x:T {props}](role: player, ...)`). Role arguments arrive in
+    /// source order, which is deliberately not declaration order; each is
+    /// resolved by NAME against the relation type's declared roles (never
+    /// by position), then written to `ir::CreateRelation.roles` in
+    /// declaration order so the writer's column derivation stays stable.
+    /// A repeated role PLAYER is legal (no cross-role uniqueness rule); a
+    /// repeated role NAME is refused rather than silently taking the last
+    /// write.
+    /// Resolves one role argument's player: it must already be a bound
+    /// variable, and the player's bound entity type must be a legal target
+    /// for `role`. Shared by relation creation (`bind_create_role_pattern`)
+    /// and relation role updates (`SET [x](role: player)`), so both surfaces
+    /// refuse the same shapes for the same reason.
+    ///
+    /// A literal `null` player gets its own refusal (`RoleTargetTypeViolation`,
+    /// naming the role) rather than the generic "not a bound variable"
+    /// `Unsupported`: `SET [x](start: null)` is not a feature that might be
+    /// supported later, it can never mean anything, because SET has no
+    /// syntax to represent "clear this role" -- a `One` role must always
+    /// have a player and a `Many` role's absence is spelled by omitting the
+    /// role entirely, not by naming it with a null player.
+    fn bind_role_player(
+        &self,
+        relationship_type: &str,
+        role: &crate::semantic::SemanticRole,
+        argument: &cypher::RoleArgument,
+    ) -> Result<ir::BindingId, BindError> {
+        let cypher::Expression::Variable(name) = &argument.player.value else {
+            if matches!(
+                argument.player.value,
+                cypher::Expression::Literal(cypher::Literal::Null)
+            ) {
+                return Err(BindError::RoleTargetTypeViolation {
+                    relationship_type: relationship_type.to_owned(),
+                    role: role.name.clone(),
+                    found: "a null player -- there is no way to clear a role via SET".to_owned(),
+                    span_start: argument.player.span.start,
+                    span_end: argument.player.span.end,
+                });
+            }
+            return Err(at_unsupported(
+                argument.player.span,
+                "a role player that is not a bound variable",
+            ));
+        };
+        let value = self.resolve_binding(name, argument.player.span)?.id();
+
+        // A player is checked against the target kind it actually is: a node
+        // binding's names are labels, checked through `catalog.label`; a
+        // relationship binding's names are relationship types, checked
+        // through `catalog.relationship_type`. The two id spaces are kept
+        // separate (`ir::RoleTarget::Node` vs `ir::RoleTarget::Relation`) so
+        // a role that names only relation targets refuses every node
+        // outright, and a role that names only node targets refuses every
+        // relation outright, rather than a relationship type name silently
+        // failing to resolve as a label and letting an unconstrained-looking
+        // empty label list through.
+        if !role.targets.is_empty() {
+            let allowed_labels = role
+                .targets
+                .iter()
+                .filter_map(|target| match target {
+                    ir::RoleTarget::Node(label) => Some(*label),
+                    ir::RoleTarget::Relation(_) => None,
+                })
+                .collect::<Vec<_>>();
+            let allowed_relations = role
+                .targets
+                .iter()
+                .filter_map(|target| match target {
+                    ir::RoleTarget::Relation(relationship_type) => Some(*relationship_type),
+                    ir::RoleTarget::Node(_) => None,
+                })
+                .collect::<Vec<_>>();
+            let binding = self.entities.get(&value);
+            let names = binding
+                .map(|entity| entity.names.clone())
+                .unwrap_or_default();
+            let all_allowed = !names.is_empty()
+                && match binding.map(|entity| entity.kind) {
+                    Some(CatalogEntity::Node) => names.iter().all(|name| {
+                        self.catalog
+                            .label(self.graph, name)
+                            .is_some_and(|label| allowed_labels.contains(&label))
+                    }),
+                    Some(CatalogEntity::Relationship) => names.iter().all(|name| {
+                        self.catalog
+                            .relationship_type(self.graph, name)
+                            .is_some_and(|relationship_type| {
+                                allowed_relations.contains(&relationship_type)
+                            })
+                    }),
+                    None => false,
+                };
+            if !all_allowed {
+                let found = if names.is_empty() {
+                    "an unlabeled binding".to_owned()
+                } else {
+                    names.join(", ")
+                };
+                return Err(BindError::RoleTargetTypeViolation {
+                    relationship_type: relationship_type.to_owned(),
+                    role: role.name.clone(),
+                    found,
+                    span_start: argument.span.start,
+                    span_end: argument.span.end,
+                });
+            }
+        }
+        Ok(value)
+    }
+
+    fn bind_create_role_pattern(
+        &mut self,
+        pattern: &cypher::RolePattern,
+    ) -> Result<ir::CreateRelation, BindError> {
+        if pattern.types.len() != 1 {
+            return Err(at_unsupported(
+                pattern.span,
+                "role pattern creation without exactly one relationship type",
+            ));
+        }
+        let type_name = &pattern.types[0];
+        let relationship_type = self
+            .catalog
+            .relationship_type(self.graph, &type_name.value)
+            .ok_or_else(|| BindError::UnknownRelationshipType {
+                name: type_name.value.clone(),
+                span_start: type_name.span.start,
+                span_end: type_name.span.end,
+            })?;
+        let declared = self
+            .catalog
+            .relationship_roles(self.graph, relationship_type);
+        let source = self
+            .catalog
+            .relationship_source_for_type(self.graph, relationship_type)
+            .ok_or(BindError::MissingSource {
+                entity: "relationship",
+                span_start: pattern.span.start,
+                span_end: pattern.span.end,
+            })?;
+
+        let mut fills: Vec<(ir::RoleId, ir::BindingId)> = Vec::with_capacity(pattern.roles.len());
+        let mut seen: std::collections::HashSet<ir::RoleId> = std::collections::HashSet::new();
+        for argument in &pattern.roles {
+            let role = declared
+                .iter()
+                .find(|role| role.name.eq_ignore_ascii_case(&argument.name.value))
+                .ok_or_else(|| BindError::UnknownRole {
+                    relationship_type: type_name.value.clone(),
+                    role: argument.name.value.clone(),
+                    known: declared
+                        .iter()
+                        .map(|role| role.name.as_str())
+                        .collect::<Vec<_>>()
+                        .join(", "),
+                    span_start: argument.name.span.start,
+                    span_end: argument.name.span.end,
+                })?;
+            // A repeated role NAME is only a refusal for a `One` role: it can
+            // hold exactly one player, so a second argument naming it is a
+            // mistake rather than a second player. A `Many` role legitimately
+            // takes one argument per player, so its repeats are not
+            // duplicates. Either way the role counts as seen, so the
+            // required-role check below does not also complain about it.
+            let repeated = !seen.insert(role.role);
+            if repeated && role.cardinality == ir::RoleCardinality::One {
+                return Err(BindError::DuplicateRoleArgument {
+                    relationship_type: type_name.value.clone(),
+                    role: role.name.clone(),
+                    span_start: argument.span.start,
+                    span_end: argument.span.end,
+                });
+            }
+            let value = self.bind_role_player(&type_name.value, role, argument)?;
+
+            fills.push((role.role, value));
+        }
+
+        for role in declared.iter().filter(|role| !role.optional) {
+            if !seen.contains(&role.role) {
+                return Err(BindError::MissingRequiredRole {
+                    relationship_type: type_name.value.clone(),
+                    role: role.name.clone(),
+                    span_start: pattern.span.start,
+                    span_end: pattern.span.end,
+                });
+            }
+        }
+
+        // Declaration order, not source order, so the writer's column
+        // derivation (by `RoleId`) is stable regardless of how the query
+        // spelled its role arguments. A `Many` role can have been filled by
+        // more than one argument, so every matching fill is kept (not just
+        // the first) -- otherwise a second, third, ... player would be
+        // silently dropped.
+        let roles = declared
+            .iter()
+            .flat_map(|role| {
+                fills
+                    .iter()
+                    .filter(move |(role_id, _)| *role_id == role.role)
+                    .map(|(role_id, value)| ir::RoleBinding {
+                        role: *role_id,
+                        value: *value,
+                    })
+            })
+            .collect();
+
+        let type_names = vec![type_name.value.clone()];
+        let binding = self.new_entity_binding(
+            pattern.variable.as_ref(),
+            "_relationship",
+            ir::ValueType::Relationship,
+            ir::Nullability::NonNull,
+            CatalogEntity::Relationship,
+            type_names.clone(),
+            pattern.span,
+        )?;
+        let properties = self.bind_mutation_properties(
+            CatalogEntity::Relationship,
+            &type_names,
+            &pattern.properties,
+        )?;
+
+        Ok(ir::CreateRelation {
+            binding,
+            source,
+            relationship_types: vec![relationship_type],
+            properties,
+            roles,
+        })
     }
 
     /// Binds ON CREATE / ON MATCH SET actions and attaches them to the
@@ -1643,7 +2044,7 @@ impl<'a> Binder<'a> {
                     merge.on_match = on_match;
                     return Ok(());
                 }
-                ir::Mutation::MergeRelationship(merge) => {
+                ir::Mutation::MergeRelation(merge) => {
                     merge.on_create = on_create;
                     merge.on_match = on_match;
                     return Ok(());
@@ -1652,7 +2053,7 @@ impl<'a> Binder<'a> {
             }
         }
         Err(at_unsupported(
-            clause.path.span,
+            clause.path.span(),
             "ON CREATE/ON MATCH without a merge operation",
         ))
     }
@@ -1911,7 +2312,121 @@ impl<'a> Binder<'a> {
                     },
                 ))
             }
+            cypher::SetItem::Roles {
+                relation,
+                roles,
+                span,
+            } => self.bind_set_roles(relation, roles, *span),
         }
+    }
+
+    /// Binds `SET [x](role: player, ...)`: repoints a subset of `x`'s roles.
+    /// Role arguments resolve by NAME against the relation type's declared
+    /// roles (never by position), exactly like `bind_create_role_pattern`.
+    /// Unlike creation, this does not require every declared role to be
+    /// named -- a role update names only the roles it wants to change, so
+    /// the required-role check from creation does not apply here. The
+    /// duplicate-role rule still applies: a repeated `One` role argument is
+    /// refused, a repeated `Many` role argument is not (one argument per
+    /// player is the normal shape for a many-valued role).
+    fn bind_set_roles(
+        &mut self,
+        relation: &cypher::Spanned<String>,
+        roles: &[cypher::RoleArgument],
+        span: cypher::Span,
+    ) -> Result<ir::Mutation, BindError> {
+        let (binding, kind) = self.resolve_set_variable(relation)?;
+        if kind != CatalogEntity::Relationship {
+            return Err(at_unsupported(
+                relation.span,
+                "a role update on a non-relationship entity",
+            ));
+        }
+        let type_names = self.entity_type_names(binding, relation.span)?;
+        let [type_name] = type_names.as_slice() else {
+            return Err(at_unsupported(
+                relation.span,
+                "a role update on a relation without exactly one relationship type",
+            ));
+        };
+        let relationship_type = self
+            .catalog
+            .relationship_type(self.graph, type_name)
+            .ok_or_else(|| BindError::UnknownRelationshipType {
+                name: type_name.clone(),
+                span_start: relation.span.start,
+                span_end: relation.span.end,
+            })?;
+        let declared = self
+            .catalog
+            .relationship_roles(self.graph, relationship_type);
+        let source = self
+            .catalog
+            .relationship_source_for_type(self.graph, relationship_type)
+            .ok_or(BindError::MissingSource {
+                entity: "relationship",
+                span_start: span.start,
+                span_end: span.end,
+            })?;
+
+        let mut fills: Vec<(ir::RoleId, ir::BindingId)> = Vec::with_capacity(roles.len());
+        let mut seen: std::collections::HashSet<ir::RoleId> = std::collections::HashSet::new();
+        for argument in roles {
+            let role = declared
+                .iter()
+                .find(|role| role.name.eq_ignore_ascii_case(&argument.name.value))
+                .ok_or_else(|| BindError::UnknownRole {
+                    relationship_type: type_name.clone(),
+                    role: argument.name.value.clone(),
+                    known: declared
+                        .iter()
+                        .map(|role| role.name.as_str())
+                        .collect::<Vec<_>>()
+                        .join(", "),
+                    span_start: argument.name.span.start,
+                    span_end: argument.name.span.end,
+                })?;
+            // Same rule as creation: a repeated `One` role argument is a
+            // mistake (it can hold exactly one player); a repeated `Many`
+            // role argument is one argument per player and is not.
+            let repeated = !seen.insert(role.role);
+            if repeated && role.cardinality == ir::RoleCardinality::One {
+                return Err(BindError::DuplicateRoleArgument {
+                    relationship_type: type_name.clone(),
+                    role: role.name.clone(),
+                    span_start: argument.span.start,
+                    span_end: argument.span.end,
+                });
+            }
+            let value = self.bind_role_player(type_name, role, argument)?;
+            fills.push((role.role, value));
+        }
+        // No required-role check here: a role update names a subset of
+        // roles by design, unlike creation which must cover every
+        // non-optional role.
+
+        // Declaration order, not source order, so a `Many` role's players
+        // stay grouped by `RoleId` regardless of how the query spelled its
+        // role arguments -- the executor purges and rewrites one role's
+        // spill rows at a time.
+        let roles = declared
+            .iter()
+            .flat_map(|role| {
+                fills
+                    .iter()
+                    .filter(move |(role_id, _)| *role_id == role.role)
+                    .map(|(role_id, value)| ir::RoleBinding {
+                        role: *role_id,
+                        value: *value,
+                    })
+            })
+            .collect();
+
+        Ok(ir::Mutation::SetRoles(ir::SetRoles {
+            relation: binding,
+            source,
+            roles,
+        }))
     }
 
     fn resolve_set_variable(
@@ -2272,15 +2787,238 @@ impl<'a> Binder<'a> {
         }
     }
 
+    /// Builds the `RelationScan` anchor shared by both spellings of a
+    /// relation-anchored pattern: the standalone role form
+    /// (`bind_match_role_pattern`) and the arrow-sugar anchor Rule A gives a
+    /// bare `(x:KNOWS)` (`bind_relation_anchor`). Registers the relation
+    /// binding and starts (or cartesian-joins into) the scan; role-specific
+    /// work happens in each caller afterward, so the two spellings share
+    /// this one code path instead of drifting.
+    fn bind_relation_scan_anchor(
+        &mut self,
+        variable: Option<&cypher::Spanned<String>>,
+        relationship_type: ir::RelationshipTypeId,
+        type_name: String,
+        span: cypher::Span,
+    ) -> Result<ir::Binding, BindError> {
+        let source = self
+            .catalog
+            .relationship_source_for_type(self.graph, relationship_type)
+            .ok_or(BindError::MissingSource {
+                entity: "relationship",
+                span_start: span.start,
+                span_end: span.end,
+            })?;
+        let relation = self.new_entity_binding(
+            variable,
+            "_relationship",
+            ir::ValueType::Relationship,
+            ir::Nullability::NonNull,
+            CatalogEntity::Relationship,
+            vec![type_name],
+            span,
+        )?;
+
+        // The relation is the anchor: a relation-anchored pattern reads
+        // relation rows and joins each named role out to its player, unlike
+        // a node-anchored arrow. A fresh anchor combines with any existing
+        // plan as a cartesian product, mirroring `bind_start_node`.
+        let scope = ir::Scope::new(self.scope.clone())?;
+        let scan = ir::Plan::new(
+            ir::PlanKind::RelationScan(ir::RelationScan {
+                graph: self.graph,
+                source,
+                binding: relation.id(),
+                relationship_types: vec![relationship_type],
+            }),
+            scope.clone(),
+            ir::ResultShape::default(),
+        )?;
+        self.plan = Some(match self.plan.take() {
+            None => scan,
+            Some(existing) => ir::Plan::new(
+                ir::PlanKind::Join(ir::Join {
+                    left: Box::new(existing),
+                    right: Box::new(scan),
+                }),
+                scope,
+                ir::ResultShape::default(),
+            )?,
+        });
+        Ok(relation)
+    }
+
+    /// Binds a standalone role pattern (`[x:Transcription](scribe: s, folio:
+    /// g)`) appearing directly in a MATCH pattern -- the read-side
+    /// counterpart of `bind_create_role_pattern`. The relation is the
+    /// anchor: this scans relation rows (`RelationScan`) and joins each
+    /// named role argument out to its player (`RoleJoin`), one role at a
+    /// time, so the plan composes to any arity with no arity branch.
+    ///
+    /// Unlike CREATE, a MATCH role pattern does not require every declared
+    /// role to be named -- naming a subset is a real, tested query shape
+    /// (`bind_create_role_pattern`'s `MissingRequiredRole` check has no
+    /// analogue here). Naming a `Many`-cardinality role argument joins
+    /// through its spill table (`lower_role_join`), one row per player.
+    fn bind_match_role_pattern(&mut self, pattern: &cypher::RolePattern) -> Result<(), BindError> {
+        if pattern.types.len() != 1 {
+            return Err(at_unsupported(
+                pattern.span,
+                "a MATCH role pattern without exactly one relationship type",
+            ));
+        }
+        let type_name = &pattern.types[0];
+        let relationship_type = self
+            .catalog
+            .relationship_type(self.graph, &type_name.value)
+            .ok_or_else(|| BindError::UnknownRelationshipType {
+                name: type_name.value.clone(),
+                span_start: type_name.span.start,
+                span_end: type_name.span.end,
+            })?;
+        let declared = self
+            .catalog
+            .relationship_roles(self.graph, relationship_type);
+        let source = self
+            .catalog
+            .relationship_source_for_type(self.graph, relationship_type)
+            .ok_or(BindError::MissingSource {
+                entity: "relationship",
+                span_start: pattern.span.start,
+                span_end: pattern.span.end,
+            })?;
+        let relation = self.bind_relation_scan_anchor(
+            pattern.variable.as_ref(),
+            relationship_type,
+            type_name.value.clone(),
+            pattern.span,
+        )?;
+
+        let mut seen: std::collections::HashSet<ir::RoleId> = std::collections::HashSet::new();
+        for argument in &pattern.roles {
+            let role = declared
+                .iter()
+                .find(|role| role.name.eq_ignore_ascii_case(&argument.name.value))
+                .ok_or_else(|| BindError::UnknownRole {
+                    relationship_type: type_name.value.clone(),
+                    role: argument.name.value.clone(),
+                    known: declared
+                        .iter()
+                        .map(|role| role.name.as_str())
+                        .collect::<Vec<_>>()
+                        .join(", "),
+                    span_start: argument.name.span.start,
+                    span_end: argument.name.span.end,
+                })?;
+            // A repeated role name is only a refusal for a `One` role,
+            // mirroring `bind_create_role_pattern`: it can hold exactly one
+            // player, so naming it twice is a mistake rather than a second
+            // player.
+            let repeated = !seen.insert(role.role);
+            if repeated && role.cardinality == ir::RoleCardinality::One {
+                return Err(BindError::DuplicateRoleArgument {
+                    relationship_type: type_name.value.clone(),
+                    role: role.name.clone(),
+                    span_start: argument.span.start,
+                    span_end: argument.span.end,
+                });
+            }
+            // A `Many` role's players live in a spill table
+            // (`<relation_table>__<role>`), identified structurally -- never
+            // by name or position -- via cardinality. `lower_role_join`
+            // joins through it, one row per player (Task 14b).
+
+            let cypher::Expression::Variable(name) = &argument.player.value else {
+                return Err(at_unsupported(
+                    argument.player.span,
+                    "a role player that is not a bound variable",
+                ));
+            };
+            let existing = self
+                .scope
+                .iter()
+                .find(|binding| binding.name() == *name)
+                .cloned();
+            let player = if let Some(existing) = existing {
+                ir::RolePlayer::Bound(existing.id())
+            } else {
+                let node_source = self
+                    .catalog
+                    .relationship_role_node_source(self.graph, source, role.role)
+                    .ok_or(BindError::MissingSource {
+                        entity: "role player",
+                        span_start: argument.player.span.start,
+                        span_end: argument.player.span.end,
+                    })?;
+                let variable = cypher::Spanned::new(name.clone(), argument.player.span);
+                let binding = self.new_entity_binding(
+                    Some(&variable),
+                    "_role_player",
+                    ir::ValueType::Node,
+                    ir::Nullability::NonNull,
+                    CatalogEntity::Node,
+                    Vec::new(),
+                    argument.player.span,
+                )?;
+                // `new_entity_binding`'s empty-`names` fallback resolves to
+                // every node source in the graph, which is right for a bare
+                // `(n)` pattern but wrong here: a role argument carries no
+                // label syntax, so its source is not inferred from the
+                // pattern text at all -- it comes from the role's own
+                // registration, which names exactly one source.
+                if let Some(entity) = self.entities.get_mut(&binding.id()) {
+                    entity.sources = vec![node_source];
+                }
+                ir::RolePlayer::Fresh {
+                    binding,
+                    node_source,
+                }
+            };
+
+            let input = self.plan.take().ok_or(BindError::EmptyQuery)?;
+            self.wrap_plan(ir::PlanKind::RoleJoin(ir::RoleJoin {
+                input: Box::new(input),
+                relationship: relation.id(),
+                relationship_source: source,
+                role: role.role,
+                player,
+            }))?;
+        }
+
+        self.bind_properties(&relation, CatalogEntity::Relationship, &pattern.properties)?;
+        Ok(())
+    }
+
     fn bind_match(
         &mut self,
         clause: &cypher::MatchClause,
         fallback: cypher::Span,
     ) -> Result<(), BindError> {
-        if clause.optional && clause.paths.len() != 1 {
+        if clause.optional && clause.paths.elements.len() != 1 {
             return Err(at_unsupported(fallback, "multiple OPTIONAL MATCH paths"));
         }
-        for path in &clause.paths {
+        if clause.optional
+            && clause
+                .paths
+                .elements
+                .iter()
+                .any(|element| matches!(element, cypher::PatternElement::Roles(_)))
+        {
+            return Err(at_unsupported(
+                fallback,
+                "OPTIONAL MATCH over a role pattern",
+            ));
+        }
+        let paths: Vec<&cypher::PathPattern> = clause
+            .paths
+            .elements
+            .iter()
+            .filter_map(|element| match element {
+                cypher::PatternElement::Path(path) => Some(path),
+                cypher::PatternElement::Roles(_) => None,
+            })
+            .collect();
+        for path in paths.iter().copied() {
             if let Some(variable) = &path.variable {
                 // A path variable cannot rebind a name already in scope
                 // (openCypher VariableTypeConflict).
@@ -2318,25 +3056,38 @@ impl<'a> Binder<'a> {
         }
         let left = self.plan.clone();
         let old_ids: Vec<_> = self.scope.iter().map(ir::Binding::id).collect();
-        for path in &clause.paths {
-            let path_binding = path.variable.as_ref().and_then(|variable| {
-                self.scope
-                    .iter()
-                    .find(|binding| binding.name() == variable.value)
-                    .cloned()
-            });
-            // Anchor the join at whichever end is more selective: a scan
-            // that starts from a constant-property lookup is far cheaper
-            // than one that starts from a bare label scan and only applies
-            // the selective filter after every hop.
-            let reversed = self
-                .should_reverse_path(path)
-                .then(|| Self::reverse_path(path));
-            let bound_path = reversed.as_ref().unwrap_or(path);
-            let composition = self.bind_path(bound_path, path_binding.as_ref(), old_ids.len())?;
-            if let Some(variable) = &path.variable {
-                self.path_compositions
-                    .insert(variable.value.clone(), composition);
+        // Dispatch each pattern element in the order it was written: a role
+        // pattern may bind a variable a later path element reuses, and vice
+        // versa, so the arrow and role forms cannot be handled as two
+        // separate passes.
+        for element in &clause.paths.elements {
+            match element {
+                cypher::PatternElement::Path(path) => {
+                    let path_binding = path.variable.as_ref().and_then(|variable| {
+                        self.scope
+                            .iter()
+                            .find(|binding| binding.name() == variable.value)
+                            .cloned()
+                    });
+                    // Anchor the join at whichever end is more selective: a
+                    // scan that starts from a constant-property lookup is
+                    // far cheaper than one that starts from a bare label
+                    // scan and only applies the selective filter after
+                    // every hop.
+                    let reversed = self
+                        .should_reverse_path(path)
+                        .then(|| Self::reverse_path(path));
+                    let bound_path = reversed.as_ref().unwrap_or(path);
+                    let composition =
+                        self.bind_path(bound_path, path_binding.as_ref(), old_ids.len())?;
+                    if let Some(variable) = &path.variable {
+                        self.path_compositions
+                            .insert(variable.value.clone(), composition);
+                    }
+                }
+                cypher::PatternElement::Roles(pattern) => {
+                    self.bind_match_role_pattern(pattern)?;
+                }
             }
         }
         if let Some(predicate) = &clause.predicate {
@@ -2498,6 +3249,21 @@ impl<'a> Binder<'a> {
         let mut from = start;
         let mut list_equality: Option<(ir::Binding, ir::Binding)> = None;
         for (relationship, node) in &path.steps {
+            // Rule B: once `from` is bound as a relation (Rule A's anchor,
+            // or a role's player -- a node -- from an earlier iteration of
+            // this same check), the bracketed name is a role of that
+            // relation, never a relationship type. A relation can only ever
+            // be a path *anchor* in this IR: every expansion operator
+            // (`GraphExpand`/`RoleExpand`) below always produces a `Node`
+            // target, so `from` can only be a relation on the first
+            // iteration, straight out of `bind_start_node`.
+            if self.entities.get(&from).map(|entity| entity.kind)
+                == Some(CatalogEntity::Relationship)
+            {
+                from = self.bind_role_read_step(from, relationship, node)?;
+                nodes.push(from);
+                continue;
+            }
             let mut relationship_list = None;
             if relationship.range.is_some() {
                 variable_length = true;
@@ -2706,23 +3472,23 @@ impl<'a> Binder<'a> {
                         relationship_source,
                         start,
                         end,
-                        ir::Direction::Outgoing,
+                        cypher::Direction::Outgoing,
                     )),
                     cypher::Direction::Incoming if incoming => expansion_sources.push((
                         relationship_source,
                         end,
                         start,
-                        ir::Direction::Incoming,
+                        cypher::Direction::Incoming,
                     )),
                     cypher::Direction::Both if start == end && outgoing => expansion_sources
-                        .push((relationship_source, start, end, ir::Direction::Both)),
+                        .push((relationship_source, start, end, cypher::Direction::Both)),
                     cypher::Direction::Both => {
                         if outgoing {
                             expansion_sources.push((
                                 relationship_source,
                                 start,
                                 end,
-                                ir::Direction::Outgoing,
+                                cypher::Direction::Outgoing,
                             ));
                         }
                         if incoming {
@@ -2730,7 +3496,7 @@ impl<'a> Binder<'a> {
                                 relationship_source,
                                 end,
                                 start,
-                                ir::Direction::Incoming,
+                                cypher::Direction::Incoming,
                             ));
                         }
                     }
@@ -2777,6 +3543,37 @@ impl<'a> Binder<'a> {
                 .into_iter()
                 .map(
                     |(relationship_source, from_node_source, target_node_source, direction)| {
+                        // Roles are resolved by NAME, not by declaration
+                        // position: nothing guarantees a relation's roles
+                        // are declared start-then-end.
+                        let roles = self.catalog.relationship_source_roles(relationship_source);
+                        let start_role = roles
+                            .as_ref()
+                            .and_then(|layout| layout.start_role())
+                            .map(|role| role.role)
+                            .ok_or(BindError::MissingRelationshipRole {
+                                role: "start",
+                                span_start: relationship.span.start,
+                                span_end: relationship.span.end,
+                            })?;
+                        let end_role = roles
+                            .as_ref()
+                            .and_then(|layout| layout.end_role())
+                            .map(|role| role.role)
+                            .ok_or(BindError::MissingRelationshipRole {
+                                role: "end",
+                                span_start: relationship.span.start,
+                                span_end: relationship.span.end,
+                            })?;
+                        let (from_role, to_role, symmetric) = match direction {
+                            cypher::Direction::Outgoing => (start_role, end_role, false),
+                            cypher::Direction::Incoming => (end_role, start_role, false),
+                            // Undirected only stays one expand when both roles
+                            // target the same node source; otherwise the
+                            // caller has already split it into a union of two
+                            // directed branches above.
+                            cypher::Direction::Both => (start_role, end_role, true),
+                        };
                         let kind = if let Some((min_hops, max_hops, unbounded)) = range {
                             ir::PlanKind::GraphExpand(ir::GraphExpand {
                                 input: Box::new(input.clone()),
@@ -2787,7 +3584,9 @@ impl<'a> Binder<'a> {
                                 from,
                                 relationship: relationship_binding.clone(),
                                 to: to.clone(),
-                                direction,
+                                from_role,
+                                to_role,
+                                symmetric,
                                 relationship_types: relationship_types.clone(),
                                 min_hops,
                                 max_hops,
@@ -2797,7 +3596,7 @@ impl<'a> Binder<'a> {
                                 relationship_list_output: relationship_list.clone(),
                             })
                         } else {
-                            ir::PlanKind::FixedExpand(ir::FixedExpand {
+                            ir::PlanKind::RoleExpand(ir::RoleExpand {
                                 input: Box::new(input.clone()),
                                 from_node_source,
                                 relationship_source,
@@ -2805,15 +3604,21 @@ impl<'a> Binder<'a> {
                                 from,
                                 relationship: relationship_binding.clone(),
                                 to: to.clone(),
-                                direction,
+                                from_role,
+                                to_role,
+                                symmetric,
                                 relationship_types: relationship_types.clone(),
                                 bound_target,
                             })
                         };
-                        ir::Plan::new(kind, scope.clone(), ir::ResultShape::default())
+                        Ok(ir::Plan::new(
+                            kind,
+                            scope.clone(),
+                            ir::ResultShape::default(),
+                        )?)
                     },
                 )
-                .collect::<Result<Vec<_>, _>>()?;
+                .collect::<Result<Vec<_>, BindError>>()?;
             self.plan = Some(if branches.len() == 1 {
                 branches.pop().expect("one expansion branch")
             } else {
@@ -2928,6 +3733,190 @@ impl<'a> Binder<'a> {
         })
     }
 
+    /// Binds one step of a path whose `from` binding is already a relation
+    /// (Rule B, `bind_path`): `-[:name]->` names a role of that relation,
+    /// not a relationship type, and the sugar delegates to the same
+    /// `RoleJoin` machinery `bind_match_role_pattern` uses for `MATCH
+    /// [x:T](role: player)` -- role resolution, ambiguity, and player
+    /// binding are not reimplemented here. Returns the bound player's
+    /// binding id, which becomes `from` for the next step.
+    ///
+    /// Restricted to the shape the underlying role machinery actually
+    /// supports: a single, plain `-[:role]->` (no variable-length range, no
+    /// name on the bracket itself, no bracket properties -- a role read has
+    /// no separate edge entity to hang those on), and, for a fresh player, a
+    /// bare `(var)` with no labels or properties (mirroring the standalone
+    /// role pattern's own restriction to a bare-variable player, since a
+    /// role argument's physical node source comes from the role's
+    /// registration, not from label text). A reused variable may still
+    /// carry labels/properties, exactly as `bind_start_node` allows when
+    /// reusing an already-bound node.
+    fn bind_role_read_step(
+        &mut self,
+        relation: ir::BindingId,
+        relationship: &cypher::RelationshipPattern,
+        node: &cypher::NodePattern,
+    ) -> Result<ir::BindingId, BindError> {
+        if relationship.direction != cypher::Direction::Outgoing {
+            return Err(at_unsupported(
+                relationship.span,
+                "a role arrow in a direction other than `->`",
+            ));
+        }
+        if relationship.range.is_some() {
+            return Err(at_unsupported(
+                relationship.span,
+                "a variable-length role arrow",
+            ));
+        }
+        if relationship.variable.is_some() {
+            return Err(at_unsupported(
+                relationship.span,
+                "naming the edge of a role arrow",
+            ));
+        }
+        if !relationship.properties.is_empty() {
+            return Err(at_unsupported(
+                relationship.span,
+                "properties on a role arrow",
+            ));
+        }
+        let [name] = relationship.types.as_slice() else {
+            return Err(at_unsupported(
+                relationship.span,
+                "a role arrow without exactly one name",
+            ));
+        };
+
+        let type_names = self.entity_type_names(relation, relationship.span)?;
+        let [type_name] = type_names.as_slice() else {
+            return Err(at_unsupported(
+                relationship.span,
+                "a role arrow from a relation without exactly one relationship type",
+            ));
+        };
+        let relationship_type = self
+            .catalog
+            .relationship_type(self.graph, type_name)
+            .ok_or_else(|| BindError::UnknownRelationshipType {
+                name: type_name.clone(),
+                span_start: relationship.span.start,
+                span_end: relationship.span.end,
+            })?;
+        let declared = self
+            .catalog
+            .relationship_roles(self.graph, relationship_type);
+        let role = declared
+            .iter()
+            .find(|role| role.name.eq_ignore_ascii_case(&name.value))
+            .ok_or_else(|| BindError::UnknownRole {
+                relationship_type: type_name.clone(),
+                role: name.value.clone(),
+                known: declared
+                    .iter()
+                    .map(|role| role.name.as_str())
+                    .collect::<Vec<_>>()
+                    .join(", "),
+                span_start: name.span.start,
+                span_end: name.span.end,
+            })?;
+        // Ambiguity must use the same case rule as the role match above
+        // (`eq_ignore_ascii_case`): checking the *canonical* role name
+        // (`role.name`, the spelling `declared` carries) against
+        // `relationship_type`, rather than the user's raw-cased `name`,
+        // means a differently-cased arrow (`-[:Witness]->`) that matched
+        // the role case-insensitively cannot dodge this check just because
+        // its exact spelling happens not to match a registered type.
+        if self
+            .catalog
+            .relationship_type(self.graph, &role.name)
+            .is_some()
+        {
+            return Err(BindError::AmbiguousRoleName {
+                name: name.value.clone(),
+                relationship_type: type_name.clone(),
+                span_start: name.span.start,
+                span_end: name.span.end,
+            });
+        }
+        // A `Many` role's players live in a spill table; this sugar delegates
+        // to the same `RoleJoin` machinery `bind_match_role_pattern` uses, so
+        // hopping through one joins through the spill table exactly as the
+        // standalone role form does (Task 14b).
+        let source = self
+            .catalog
+            .relationship_source_for_type(self.graph, relationship_type)
+            .ok_or(BindError::MissingSource {
+                entity: "relationship",
+                span_start: relationship.span.start,
+                span_end: relationship.span.end,
+            })?;
+
+        let existing = node.variable.as_ref().and_then(|variable| {
+            self.scope
+                .iter()
+                .find(|binding| binding.name() == variable.value)
+                .cloned()
+        });
+        let (player_binding, player) = if let Some(existing) = existing {
+            if self.entities.get(&existing.id()).map(|entity| entity.kind)
+                != Some(CatalogEntity::Node)
+            {
+                return Err(at_unsupported(
+                    node.span,
+                    "reusing a non-node variable in a role arrow",
+                ));
+            }
+            self.enforce_labels(existing.id(), node)?;
+            self.bind_properties(&existing, CatalogEntity::Node, &node.properties)?;
+            (existing.id(), ir::RolePlayer::Bound(existing.id()))
+        } else {
+            if !node.labels.is_empty() || !node.properties.is_empty() {
+                return Err(at_unsupported(
+                    node.span,
+                    "a labeled or propertied fresh target in a role arrow",
+                ));
+            }
+            let node_source = self
+                .catalog
+                .relationship_role_node_source(self.graph, source, role.role)
+                .ok_or(BindError::MissingSource {
+                    entity: "role player",
+                    span_start: node.span.start,
+                    span_end: node.span.end,
+                })?;
+            let binding = self.new_entity_binding(
+                node.variable.as_ref(),
+                "_role_player",
+                ir::ValueType::Node,
+                ir::Nullability::NonNull,
+                CatalogEntity::Node,
+                Vec::new(),
+                node.span,
+            )?;
+            if let Some(entity) = self.entities.get_mut(&binding.id()) {
+                entity.sources = vec![node_source];
+            }
+            (
+                binding.id(),
+                ir::RolePlayer::Fresh {
+                    binding,
+                    node_source,
+                },
+            )
+        };
+
+        let input = self.plan.take().ok_or(BindError::EmptyQuery)?;
+        self.wrap_plan(ir::PlanKind::RoleJoin(ir::RoleJoin {
+            input: Box::new(input),
+            relationship: relation,
+            relationship_source: source,
+            role: role.role,
+            player,
+        }))?;
+        Ok(player_binding)
+    }
+
     fn bind_start_node(&mut self, node: &cypher::NodePattern) -> Result<ir::BindingId, BindError> {
         if let Some(variable) = &node.variable {
             if let Some(existing) = self
@@ -2949,6 +3938,25 @@ impl<'a> Binder<'a> {
                 self.enforce_labels(existing.id(), node)?;
                 self.bind_properties(&existing, CatalogEntity::Node, &node.properties)?;
                 return Ok(existing.id());
+            }
+        }
+        // Rule A: `Name` resolves as a node label whenever `catalog.label`
+        // returns `Some` -- unchanged, first, always. Adding a relationship
+        // type must never change what an existing node query means, so only
+        // when a single label name is *not* a node label, but *is* a
+        // relationship type, does `(x:Name)` become a relation anchor
+        // instead of a node. Multiple labels (`(x:A:B)`) never take this
+        // path: a relation has exactly one type, so ambiguity between "one
+        // failed node label" and "a relation anchor" cannot arise there --
+        // it falls through to `resolve_labels` below and reports whichever
+        // label is unknown, same as today.
+        if let [label] = node.labels.as_slice() {
+            if self.catalog.label(self.graph, &label.value).is_none() {
+                if let Some(relationship_type) =
+                    self.catalog.relationship_type(self.graph, &label.value)
+                {
+                    return self.bind_relation_anchor(node, relationship_type, &label.value);
+                }
             }
         }
         let labels = self.resolve_labels(node)?;
@@ -3045,6 +4053,27 @@ impl<'a> Binder<'a> {
         });
         self.bind_properties(&binding, CatalogEntity::Node, &node.properties)?;
         Ok(binding.id())
+    }
+
+    /// Binds `(x:Name)` as a relation anchor once Rule A (in
+    /// `bind_start_node`) has already established that `Name` is not a node
+    /// label but is a relationship type -- the arrow-sugar counterpart of
+    /// `bind_match_role_pattern`'s anchor, built through the same
+    /// `bind_relation_scan_anchor` so the two spellings cannot drift.
+    fn bind_relation_anchor(
+        &mut self,
+        node: &cypher::NodePattern,
+        relationship_type: ir::RelationshipTypeId,
+        type_name: &str,
+    ) -> Result<ir::BindingId, BindError> {
+        let relation = self.bind_relation_scan_anchor(
+            node.variable.as_ref(),
+            relationship_type,
+            type_name.to_owned(),
+            node.span,
+        )?;
+        self.bind_properties(&relation, CatalogEntity::Relationship, &node.properties)?;
+        Ok(relation.id())
     }
 
     /// Enforces a node pattern's labels on an already-produced binding by
@@ -3945,7 +4974,7 @@ impl<'a> Binder<'a> {
         sub.bind_match(clause, span)?;
         let plan = sub.plan.ok_or(BindError::EmptyQuery)?;
         let mut correlations: Vec<(ir::BindingId, ir::BindingId)> = Vec::new();
-        for path in &clause.paths {
+        for path in only_paths(&clause.paths)? {
             let mut names: Vec<&str> = Vec::new();
             if let Some(variable) = &path.variable {
                 names.push(&variable.value);
@@ -4304,18 +5333,21 @@ impl<'a> Binder<'a> {
                 }
                 let clause = cypher::MatchClause {
                     optional: false,
-                    paths: vec![cypher::PathPattern {
-                        variable: None,
-                        start: cypher::NodePattern {
-                            variable: Some(cypher::Spanned::new(name.clone(), operand.span)),
-                            labels: labels.clone(),
-                            properties: Vec::new(),
-                            has_property_map: false,
+                    paths: cypher::Pattern {
+                        elements: vec![cypher::PatternElement::Path(cypher::PathPattern {
+                            variable: None,
+                            start: cypher::NodePattern {
+                                variable: Some(cypher::Spanned::new(name.clone(), operand.span)),
+                                labels: labels.clone(),
+                                properties: Vec::new(),
+                                has_property_map: false,
+                                span: expression.span,
+                            },
+                            steps: Vec::new(),
                             span: expression.span,
-                        },
-                        steps: Vec::new(),
+                        })],
                         span: expression.span,
-                    }],
+                    },
                     predicate: None,
                 };
                 self.bind_pattern_subquery(false, &clause, expression.span)?
@@ -4344,7 +5376,10 @@ impl<'a> Binder<'a> {
                 }
                 let clause = cypher::MatchClause {
                     optional: false,
-                    paths: vec![path.as_ref().clone()],
+                    paths: cypher::Pattern {
+                        elements: vec![cypher::PatternElement::Path(path.as_ref().clone())],
+                        span: path.span,
+                    },
                     predicate: None,
                 };
                 self.bind_pattern_subquery(false, &clause, expression.span)?
@@ -6224,32 +7259,49 @@ fn rename_match_clause(
     };
     cypher::MatchClause {
         optional: clause.optional,
-        paths: clause
-            .paths
-            .iter()
-            .map(|path| cypher::PathPattern {
-                variable: path.variable.clone(),
-                start: rename_node(&path.start),
-                steps: path
-                    .steps
-                    .iter()
-                    .map(|(relationship, node)| {
-                        (
-                            cypher::RelationshipPattern {
-                                variable: relationship.variable.as_ref().map(rename_name),
-                                types: relationship.types.clone(),
-                                direction: relationship.direction,
-                                range: relationship.range.clone(),
-                                properties: rename_properties(&relationship.properties),
-                                span: relationship.span,
-                            },
-                            rename_node(node),
-                        )
-                    })
-                    .collect(),
-                span: path.span,
-            })
-            .collect(),
+        paths: cypher::Pattern {
+            elements: clause
+                .paths
+                .elements
+                .iter()
+                .map(|element| match element {
+                    cypher::PatternElement::Path(path) => {
+                        cypher::PatternElement::Path(cypher::PathPattern {
+                            variable: path.variable.clone(),
+                            start: rename_node(&path.start),
+                            steps: path
+                                .steps
+                                .iter()
+                                .map(|(relationship, node)| {
+                                    (
+                                        cypher::RelationshipPattern {
+                                            variable: relationship
+                                                .variable
+                                                .as_ref()
+                                                .map(rename_name),
+                                            types: relationship.types.clone(),
+                                            direction: relationship.direction,
+                                            range: relationship.range.clone(),
+                                            properties: rename_properties(&relationship.properties),
+                                            span: relationship.span,
+                                        },
+                                        rename_node(node),
+                                    )
+                                })
+                                .collect(),
+                            span: path.span,
+                        })
+                    }
+                    // Every caller validates via `only_paths` before renaming,
+                    // so a `Roles` element is unreachable in practice here;
+                    // pass it through unchanged rather than drop or panic.
+                    cypher::PatternElement::Roles(roles) => {
+                        cypher::PatternElement::Roles(roles.clone())
+                    }
+                })
+                .collect(),
+            span: clause.paths.span,
+        },
         predicate: clause
             .predicate
             .as_ref()
@@ -6960,6 +8012,26 @@ fn at_unsupported(span: cypher::Span, feature: &'static str) -> BindError {
     }
 }
 
+/// The parser accepts the standalone role pattern (`[x:T](role: player,
+/// ...)`) as of Task 12, but binding it is Task 13's job. Every call site
+/// that used to walk a bare `Vec<PathPattern>` must reject a `Roles`
+/// element here rather than silently drop it — a `.filter_map` that quietly
+/// skipped role elements would let `MATCH [x:T](a: n) RETURN x` return an
+/// empty result instead of failing.
+fn only_paths(pattern: &cypher::Pattern) -> Result<Vec<&cypher::PathPattern>, BindError> {
+    pattern
+        .elements
+        .iter()
+        .map(|element| match element {
+            cypher::PatternElement::Path(path) => Ok(path),
+            cypher::PatternElement::Roles(roles) => Err(at_unsupported(
+                roles.span,
+                "role patterns are not supported yet",
+            )),
+        })
+        .collect()
+}
+
 /// Binds a SKIP/LIMIT expression that must be a non-negative integer
 /// literal: mutation pipelines execute row counts in Rust rather than
 /// lowering them into a SQL plan, so a runtime-only bound (a parameter or
@@ -7038,6 +8110,32 @@ mod tests {
                 nullability,
             })
         }
+
+        fn relationship_source_roles(
+            &self,
+            _source: ir::SourceTableId,
+        ) -> Option<crate::lowering::RelationshipTableLayout> {
+            Some(crate::lowering::RelationshipTableLayout {
+                table: "relationships".to_owned(),
+                identity_column: "id".to_owned(),
+                roles: vec![
+                    crate::lowering::RelationshipRoleLayout {
+                        role: ir::RoleId::new(1).expect("non-zero"),
+                        name: "start".to_owned(),
+                        column: "src".to_owned(),
+                        cardinality: ir::RoleCardinality::One,
+                        spill_table: None,
+                    },
+                    crate::lowering::RelationshipRoleLayout {
+                        role: ir::RoleId::new(2).expect("non-zero"),
+                        name: "end".to_owned(),
+                        column: "dst".to_owned(),
+                        cardinality: ir::RoleCardinality::One,
+                        spill_table: None,
+                    },
+                ],
+            })
+        }
     }
 
     fn bind_text(source: &str, parameters: ParameterTypes) -> Result<BoundQuery, BindError> {
@@ -7071,16 +8169,72 @@ mod tests {
         let ir::Mutation::CreateNode(first) = &bound.request.operations[0] else {
             panic!("expected first node creation")
         };
-        let ir::Mutation::CreateRelationship(relationship) = &bound.request.operations[2] else {
+        let ir::Mutation::CreateRelation(relationship) = &bound.request.operations[2] else {
             panic!("expected relationship creation")
         };
         assert_eq!(first.source, ir::SourceTableId::new(10).unwrap());
         assert_eq!(relationship.source, ir::SourceTableId::new(11).unwrap());
-        assert_eq!(relationship.from, first.binding.id());
         let ir::Mutation::CreateNode(second) = &bound.request.operations[1] else {
             panic!("expected second node creation")
         };
-        assert_eq!(relationship.to, second.binding.id());
+        // `from`/`to` are gone; roles are the only statement of who
+        // participates. The fixture catalog's `relationship_source_roles`
+        // registers `start` as `RoleId(1)` and `end` as `RoleId(2)` (see the
+        // sibling test below for the full pairing check).
+        assert_eq!(
+            relationship.roles,
+            vec![
+                ir::RoleBinding {
+                    role: ir::RoleId::new(1).expect("non-zero"),
+                    value: first.binding.id(),
+                },
+                ir::RoleBinding {
+                    role: ir::RoleId::new(2).expect("non-zero"),
+                    value: second.binding.id(),
+                },
+            ]
+        );
+    }
+
+    /// Regression test for role/value mispairing, the recurring defect class
+    /// on this plan (already caught at Tasks 4, 5, 6, 7). The fixture
+    /// `Catalog::relationship_source_roles` above registers `start` as
+    /// `RoleId(1)` and `end` as `RoleId(2)`; a binder that swapped which
+    /// value each role binds to, or dropped `roles` entirely, would leave
+    /// every other test in this module (including
+    /// `binds_created_path_to_stable_sources_and_endpoints`, which only
+    /// checks `from`/`to`) unaffected. Asserting the exact `(role, value)`
+    /// pairs -- not just their count or their set -- is what actually
+    /// exercises the binder's use of the catalog projection Task 9 depends
+    /// on.
+    #[test]
+    fn binds_created_path_role_bindings_pair_the_physical_role_with_its_resolved_value() {
+        let bound = bind_mutation_text(
+            "CREATE (a:Person {id: 1, name: 'Ada'})-[r:KNOWS {since: 2020}]->(b:Person {id: 2})",
+        )
+        .expect("mutation should bind");
+        let ir::Mutation::CreateNode(first) = &bound.request.operations[0] else {
+            panic!("expected first node creation")
+        };
+        let ir::Mutation::CreateNode(second) = &bound.request.operations[1] else {
+            panic!("expected second node creation")
+        };
+        let ir::Mutation::CreateRelation(relationship) = &bound.request.operations[2] else {
+            panic!("expected relationship creation")
+        };
+        assert_eq!(
+            relationship.roles,
+            vec![
+                ir::RoleBinding {
+                    role: ir::RoleId::new(1).expect("non-zero"),
+                    value: first.binding.id(),
+                },
+                ir::RoleBinding {
+                    role: ir::RoleId::new(2).expect("non-zero"),
+                    value: second.binding.id(),
+                },
+            ]
+        );
     }
 
     #[test]
@@ -7168,6 +8322,31 @@ mod tests {
         let output = bound.plan.scope().resolve("name").expect("projected name");
         assert_eq!(output.value_type(), &ir::ValueType::Text);
         assert_eq!(output.nullability(), ir::Nullability::Nullable);
+    }
+
+    #[test]
+    fn a_standalone_role_pattern_binds_to_a_relation_scan_and_role_joins() {
+        // Task 12 only taught the parser `[x:T](role: player, ...)`; Task
+        // 13b binds it. This flips the prior "not supported yet" assertion
+        // (see git history) to a success case: one `RoleJoin` per named
+        // role argument, wrapping a `RelationScan` anchor -- the same
+        // decomposition regardless of how many roles are named, so this
+        // shape check doubles as evidence no arity branch crept in.
+        let bound = bind_text(
+            "MATCH [x:KNOWS](start: a, end: b) RETURN x",
+            ParameterTypes::new(),
+        )
+        .expect("standalone role pattern should bind");
+        let ir::PlanKind::Project(project) = bound.plan.kind() else {
+            panic!("expected projection");
+        };
+        let ir::PlanKind::RoleJoin(outer) = project.input.kind() else {
+            panic!("expected outer RoleJoin");
+        };
+        let ir::PlanKind::RoleJoin(inner) = outer.input.kind() else {
+            panic!("expected inner RoleJoin");
+        };
+        assert!(matches!(inner.input.kind(), ir::PlanKind::RelationScan(_)));
     }
 
     #[test]
@@ -7324,7 +8503,7 @@ mod tests {
     fn innermost_node_scan_binding(plan: &ir::Plan) -> ir::BindingId {
         match plan.kind() {
             ir::PlanKind::NodeScan(scan) => scan.binding,
-            ir::PlanKind::FixedExpand(expand) => innermost_node_scan_binding(&expand.input),
+            ir::PlanKind::RoleExpand(expand) => innermost_node_scan_binding(&expand.input),
             ir::PlanKind::GraphExpand(expand) => innermost_node_scan_binding(&expand.input),
             ir::PlanKind::Filter(filter) => innermost_node_scan_binding(&filter.input),
             ir::PlanKind::Project(project) => innermost_node_scan_binding(&project.input),

@@ -12,7 +12,7 @@ use std::cmp::Ordering;
 use std::collections::{BinaryHeap, HashMap, HashSet, VecDeque};
 use std::mem::size_of;
 
-use turso_graph_ir::{Direction, NodeId, PathUniqueness, RelationshipTypeId};
+use turso_graph_ir::{NodeId, PathUniqueness, RelationshipTypeId, RoleId};
 
 use crate::{
     limits::Budget, resolve_path_algorithm, Cancellation, Graph, Path, PathAlgorithm, PathSelector,
@@ -23,7 +23,14 @@ use crate::{
 pub struct ShortestPathRequest {
     pub source: NodeId,
     pub target: NodeId,
-    pub direction: Direction,
+    /// The role the path departs by at every hop.
+    pub from_role: RoleId,
+    /// The role the path arrives by at every hop.
+    pub to_role: RoleId,
+    /// When true, also traverse the reverse `(to_role, from_role)` pair,
+    /// unioning both directions the way `Direction::Both` used to.
+    pub symmetric: bool,
+    /// Empty means "every relationship type stored under this role pair".
     pub relationship_types: Vec<RelationshipTypeId>,
     pub max_hops: u32,
 }
@@ -42,7 +49,9 @@ pub fn shortest_path(
         resolve_path_algorithm(
             PathUniqueness::Walk,
             PathSelector::Shortest,
-            WeightClass::Unweighted
+            WeightClass::Unweighted,
+            2,
+            None
         ),
         Ok(PathAlgorithm::BreadthFirst)
     );
@@ -52,6 +61,8 @@ pub fn shortest_path(
         nodes: vec![request.source],
         relationships: Vec::new(),
         relationship_types: Vec::new(),
+        from_roles: Vec::new(),
+        to_roles: Vec::new(),
         total_weight: 0,
     };
     budget.node()?;
@@ -59,6 +70,12 @@ pub fn shortest_path(
     let mut frontier = VecDeque::from([initial]);
     let mut visited = HashSet::from([request.source]);
     budget.retain_memory(size_of::<NodeId>())?;
+    let pairs = graph.resolve_pairs(
+        &request.relationship_types,
+        request.from_role,
+        request.to_role,
+        request.symmetric,
+    );
 
     while let Some(path) = frontier.pop_front() {
         if cancellation.is_cancelled() {
@@ -75,7 +92,7 @@ pub fn shortest_path(
         if path.relationships.len() as u32 == request.max_hops {
             continue;
         }
-        for neighbor in graph.neighbors(current, request.direction, &request.relationship_types)? {
+        for neighbor in graph.neighbors(current, &pairs) {
             if cancellation.is_cancelled() {
                 return Err(RuntimeError::Cancelled);
             }
@@ -90,6 +107,8 @@ pub fn shortest_path(
             child.nodes.push(neighbor.node);
             child.relationships.push(neighbor.relationship);
             child.relationship_types.push(neighbor.relationship_type);
+            child.from_roles.push(neighbor.from_role);
+            child.to_roles.push(neighbor.to_role);
             child.total_weight = child
                 .total_weight
                 .checked_add(neighbor.weight)
@@ -144,7 +163,9 @@ pub fn weighted_shortest_path(
         resolve_path_algorithm(
             PathUniqueness::Walk,
             PathSelector::Shortest,
-            WeightClass::NonNegative
+            WeightClass::NonNegative,
+            2,
+            None
         ),
         Ok(PathAlgorithm::Dijkstra)
     );
@@ -154,6 +175,8 @@ pub fn weighted_shortest_path(
         nodes: vec![request.source],
         relationships: Vec::new(),
         relationship_types: Vec::new(),
+        from_roles: Vec::new(),
+        to_roles: Vec::new(),
         total_weight: 0,
     };
     let mut heap = BinaryHeap::new();
@@ -167,6 +190,12 @@ pub fn weighted_shortest_path(
     let mut distances = HashMap::from([((request.source, 0), 0)]);
     budget.retain_memory(size_of::<((NodeId, u32), u64)>())?;
     let mut serial = 1u64;
+    let pairs = graph.resolve_pairs(
+        &request.relationship_types,
+        request.from_role,
+        request.to_role,
+        request.symmetric,
+    );
 
     while let Some(state) = heap.pop() {
         if cancellation.is_cancelled() {
@@ -191,7 +220,7 @@ pub fn weighted_shortest_path(
         if hops == request.max_hops {
             continue;
         }
-        for neighbor in graph.neighbors(current, request.direction, &request.relationship_types)? {
+        for neighbor in graph.neighbors(current, &pairs) {
             if cancellation.is_cancelled() {
                 return Err(RuntimeError::Cancelled);
             }
@@ -213,6 +242,8 @@ pub fn weighted_shortest_path(
             path.nodes.push(neighbor.node);
             path.relationships.push(neighbor.relationship);
             path.relationship_types.push(neighbor.relationship_type);
+            path.from_roles.push(neighbor.from_role);
+            path.to_roles.push(neighbor.to_role);
             path.total_weight = cost;
             budget.retain_memory(path_memory(&path))?;
             heap.push(WeightedState { cost, serial, path });
@@ -265,9 +296,15 @@ mod tests {
         RelationshipTypeId::new(value).unwrap()
     }
 
+    fn role(value: u32) -> RoleId {
+        RoleId::new(value).unwrap()
+    }
+
     fn edge(id: u64, source: u64, target: u64, weight: u64) -> EdgeInput {
         EdgeInput {
             relationship: relationship(id),
+            from_role: role(1),
+            to_role: role(2),
             source: node(source),
             target: node(target),
             relationship_type: kind(1),
@@ -279,7 +316,9 @@ mod tests {
         ShortestPathRequest {
             source: node(source),
             target: node(target),
-            direction: Direction::Outgoing,
+            from_role: role(1),
+            to_role: role(2),
+            symmetric: false,
             relationship_types: vec![],
             max_hops: 8,
         }
@@ -373,7 +412,9 @@ mod tests {
             resolve_path_algorithm(
                 PathUniqueness::Walk,
                 PathSelector::Shortest,
-                WeightClass::Unweighted
+                WeightClass::Unweighted,
+                2,
+                None
             ),
             Ok(PathAlgorithm::BreadthFirst),
             "shortest_path is a BFS and must resolve to one"
@@ -382,7 +423,9 @@ mod tests {
             resolve_path_algorithm(
                 PathUniqueness::Walk,
                 PathSelector::Shortest,
-                WeightClass::NonNegative
+                WeightClass::NonNegative,
+                2,
+                None
             ),
             Ok(PathAlgorithm::Dijkstra),
             "weighted_shortest_path is a Dijkstra and must resolve to one"
@@ -398,6 +441,8 @@ mod tests {
             PathUniqueness::Walk,
             PathSelector::Shortest,
             WeightClass::Negative,
+            2,
+            None,
         )
         .expect_err("negative-weight walks are refused");
         let error = RuntimeError::from(refusal);

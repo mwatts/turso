@@ -36,7 +36,8 @@ pub use catalog::{
     graph_generation, labels_table_name, load_registered_graph, register_graph,
     relationship_type_registry_table_name, relationship_types_table_name, CatalogError,
     GraphRegistration, NodeSourceRegistration, RegisteredGraph, RegisteredNodeSource,
-    RegisteredRelationshipSource, RelationshipSourceRegistration, GRAPH_CATALOG_VERSION,
+    RegisteredRelationshipRole, RegisteredRelationshipSource, RelationshipSourceRegistration,
+    RoleSourceRegistration, GRAPH_CATALOG_VERSION,
 };
 pub use compiler::{graph_frontend_id, GraphCompilationCatalog, GraphCompiler};
 pub use dialect::{GraphDialect, GRAPH_DIALECT_NAME};
@@ -48,7 +49,7 @@ pub use fts::{
 pub use graph_expand::{install_graph_catalog, register_graph_catalog, GRAPH_EXPAND_TABLE_NAME};
 pub use lowering::{
     lower_relational, LowerError, NodeTableLayout, RelationalCatalogSnapshot,
-    RelationshipTableLayout,
+    RelationshipRoleLayout, RelationshipTableLayout,
 };
 pub use mutation::{
     execute_cypher_mutation, take_closed_create_fast_path_hit, MutationError, MutationSummary,
@@ -57,10 +58,10 @@ pub use mutation::{
 pub use schema_catalog::SchemaCatalog;
 pub use semantic::{
     load_semantic_snapshot, register_semantic_constraints, register_semantic_schema,
-    register_semantic_schema_with_fragments, EndpointConstraint, OwnedProperty,
-    SemanticCatalogError, SemanticFragment, SemanticFragmentInfo, SemanticFragmentMember,
-    SemanticFragmentRegistration, SemanticNodeType, SemanticProperty, SemanticRelationshipType,
-    SemanticSchemaRegistration, SemanticSnapshot, SemanticTypeInfo,
+    register_semantic_schema_with_fragments, OwnedProperty, SemanticCatalogError, SemanticFragment,
+    SemanticFragmentInfo, SemanticFragmentMember, SemanticFragmentRegistration, SemanticNodeType,
+    SemanticProperty, SemanticRelationshipType, SemanticRole, SemanticRoleCardinality,
+    SemanticRoleRegistration, SemanticSchemaRegistration, SemanticSnapshot, SemanticTypeInfo,
 };
 pub use semantic_constraints::{
     SemanticConstraintRegistration, SemanticEndpoint, SemanticKeyConstraint,

@@ -1,0 +1,441 @@
+# Review package: 37c4829d7..a976f2fd5
+
+## Commits
+a976f2fd5 graph/ir: carry role bindings on relationship creates
+
+## Files changed
+ graph/frontend/src/binder.rs         | 63 +++++++++++++++++++++++++----
+ graph/frontend/src/schema_catalog.rs | 74 +++++++++++++++++++++++++++++++---
+ graph/frontend/src/semantic.rs       | 17 ++++++++
+ graph/ir/src/mutation.rs             | 78 +++++++++++++++++++++++++++++++++++-
+ 4 files changed, 218 insertions(+), 14 deletions(-)
+
+## Diff
+diff --git a/graph/frontend/src/binder.rs b/graph/frontend/src/binder.rs
+index d1428eb21..e1b2865b4 100644
+--- a/graph/frontend/src/binder.rs
++++ b/graph/frontend/src/binder.rs
+@@ -127,35 +127,51 @@ pub trait GraphCatalogSnapshot {
+         entity: CatalogEntity,
+         type_names: &[String],
+         name: &str,
+     ) -> Option<PropertyResolution> {
+         let _ = type_names;
+         self.property(graph, entity, name)
+             .map(PropertyResolution::Resolved)
+     }
+ 
+     /// Roles of a relationship type in declaration order. Empty when the
+-    /// type is unknown or the catalog has no semantic schema (schemaless
+-    /// mode places no target-type constraint on `start`/`end`).
++    /// type is unknown. A catalog with no semantic schema has no role
++    /// registrations to report here, so the default projects the physical
++    /// role layout instead (same `RoleId`s, no target-type constraint,
++    /// never optional) rather than returning nothing: binary is a two-role
++    /// layout, not a hard-coded kind, and every catalog already exposes
++    /// that layout via `relationship_source_for_type`/
++    /// `relationship_source_roles` for the read-side role lookup.
+     fn relationship_roles(
+         &self,
+-        _ty: ir::RelationshipTypeId,
++        graph: ir::GraphId,
++        ty: ir::RelationshipTypeId,
+     ) -> Vec<crate::semantic::SemanticRole> {
+-        Vec::new()
++        self.relationship_source_for_type(graph, ty)
++            .and_then(|source| self.relationship_source_roles(source))
++            .map(|layout| {
++                layout
++                    .roles
++                    .into_iter()
++                    .map(crate::semantic::SemanticRole::from)
++                    .collect()
++            })
++            .unwrap_or_default()
+     }
+ 
+     fn relationship_role(
+         &self,
++        graph: ir::GraphId,
+         ty: ir::RelationshipTypeId,
+         name: &str,
+     ) -> Option<crate::semantic::SemanticRole> {
+-        self.relationship_roles(ty)
++        self.relationship_roles(graph, ty)
+             .into_iter()
+             .find(|role| role.name.eq_ignore_ascii_case(name))
+     }
+ 
+     fn semantic_constraints(
+         &self,
+     ) -> Option<&crate::semantic_constraints::SemanticConstraintSnapshot> {
+         None
+     }
+ }
+@@ -1574,23 +1590,23 @@ impl<'a> Binder<'a> {
+             )?;
+             let next_from = to;
+             let (relationship_from, relationship_to) =
+                 if relationship.direction == cypher::Direction::Incoming {
+                     (to, from)
+                 } else {
+                     (from, to)
+                 };
+             for (role_name, binding_id) in [("start", relationship_from), ("end", relationship_to)]
+             {
+-                let Some(role) = self
+-                    .catalog
+-                    .relationship_role(relationship_types[0], role_name)
++                let Some(role) =
++                    self.catalog
++                        .relationship_role(self.graph, relationship_types[0], role_name)
+                 else {
+                     continue;
+                 };
+                 let allowed = role
+                     .targets
+                     .iter()
+                     .filter_map(|target| match target {
+                         ir::RoleTarget::Node(label) => Some(*label),
+                         ir::RoleTarget::Relation(_) => None,
+                     })
+@@ -1617,28 +1633,59 @@ impl<'a> Binder<'a> {
+                     };
+                     return Err(BindError::RoleTargetTypeViolation {
+                         relationship_type: relationship.types[0].value.clone(),
+                         role: role.name,
+                         found,
+                         span_start: relationship.span.start,
+                         span_end: relationship.span.end,
+                     });
+                 }
+             }
++            // Roles are resolved by NAME, not by declaration position: a
++            // relation's roles are not guaranteed to be declared
++            // start-then-end (see the read-side expand above).
++            let start_role = self
++                .catalog
++                .relationship_role(self.graph, relationship_types[0], "start")
++                .ok_or(BindError::MissingRelationshipRole {
++                    role: "start",
++                    span_start: relationship.span.start,
++                    span_end: relationship.span.end,
++                })?
++                .role;
++            let end_role = self
++                .catalog
++                .relationship_role(self.graph, relationship_types[0], "end")
++                .ok_or(BindError::MissingRelationshipRole {
++                    role: "end",
++                    span_start: relationship.span.start,
++                    span_end: relationship.span.end,
++                })?
++                .role;
+             let create = ir::CreateRelationship {
+                 binding,
+                 source,
+                 from: relationship_from,
+                 to: relationship_to,
+                 direction: ir::CreateRelationship::default_direction(),
+                 relationship_types,
+                 properties,
++                roles: vec![
++                    ir::RoleBinding {
++                        role: start_role,
++                        value: relationship_from,
++                    },
++                    ir::RoleBinding {
++                        role: end_role,
++                        value: relationship_to,
++                    },
++                ],
+             };
+             operations.push(if merge {
+                 ir::Mutation::MergeRelationship(ir::MergeRelationship {
+                     create,
+                     on_create: Vec::new(),
+                     on_match: Vec::new(),
+                 })
+             } else {
+                 ir::Mutation::CreateRelationship(create)
+             });
+diff --git a/graph/frontend/src/schema_catalog.rs b/graph/frontend/src/schema_catalog.rs
+index 100a5263a..8b3b50516 100644
+--- a/graph/frontend/src/schema_catalog.rs
++++ b/graph/frontend/src/schema_catalog.rs
+@@ -624,25 +624,43 @@ impl GraphCatalogSnapshot for SchemaCatalog {
+         if graph != self.graph.id {
+             return None;
+         }
+         self.semantic_property_resolution(entity, type_names, name)
+             .or_else(|| {
+                 self.property(graph, entity, name)
+                     .map(PropertyResolution::Resolved)
+             })
+     }
+ 
+-    fn relationship_roles(&self, ty: ir::RelationshipTypeId) -> Vec<SemanticRole> {
+-        self.semantic
+-            .as_ref()
+-            .and_then(|semantic| semantic.relationship_type_by_id(ty))
+-            .map(|info| info.roles.clone())
++    fn relationship_roles(
++        &self,
++        graph: ir::GraphId,
++        ty: ir::RelationshipTypeId,
++    ) -> Vec<SemanticRole> {
++        if graph != self.graph.id {
++            return Vec::new();
++        }
++        if let Some(semantic) = &self.semantic {
++            return semantic
++                .relationship_type_by_id(ty)
++                .map(|info| info.roles.clone())
++                .unwrap_or_default();
++        }
++        // Schemaless mode has no semantic role registration to report;
++        // project the physical role layout instead so the roles carry the
++        // real, physically-registered `RoleId`s. This is the same
++        // projection the trait default applies, kept explicit here so it
++        // runs whenever `self.semantic` is `None` rather than only for
++        // catalogs that don't override this method at all.
++        self.relationship_source_for_type(graph, ty)
++            .and_then(|source| self.relationship_source_roles(source))
++            .map(|layout| layout.roles.into_iter().map(SemanticRole::from).collect())
+             .unwrap_or_default()
+     }
+ 
+     fn semantic_constraints(
+         &self,
+     ) -> Option<&crate::semantic_constraints::SemanticConstraintSnapshot> {
+         self.semantic.as_deref().map(SemanticSnapshot::constraints)
+     }
+ }
+ 
+@@ -1486,11 +1504,57 @@ mod tests {
+         // dedicated test that inspects the generated join SQL directly
+         // (`start_end_role_lookup_is_name_based_not_positional`); this just
+         // confirms the production `bind` + `lower_relational` pipeline is
+         // unaffected by declaration order end-to-end.
+         let query = turso_graph_cypher::parse("MATCH (a:Person)-[:KNOWS]->(b:Person) RETURN a.id")
+             .expect("parse hop query");
+         let bound =
+             crate::bind(&query, graph_id, &catalog, &Default::default()).expect("bind hop query");
+         crate::lower_relational(&bound.plan, &catalog).expect("lower hop query");
+     }
++
++    /// A schemaless catalog has no semantic role registration at all
++    /// (`self.semantic` is `None`), so `relationship_roles` cannot read role
++    /// identities off a semantic snapshot the way schema'd mode does. It
++    /// must still report the relation's roles, carrying the physical
++    /// `RoleId`s straight from the registration: the binder writes exactly
++    /// this list into `CreateRelationship.roles`, and an empty response
++    /// here (the pre-fix behavior) silently drops every role binding at
++    /// bind time for every schemaless relationship create/merge.
++    ///
++    /// Uses the end-before-start registration deliberately: reusing
++    /// `layout.roles[0]`/`[1]` positionally instead of the real `RoleId`
++    /// would still pass a start-then-end fixture by coincidence.
++    #[test]
++    fn schemaless_relationship_roles_project_the_physical_role_layout() {
++        let (catalog, source, graph_id) = reversed_binary_relationship_catalog();
++        let layout = catalog
++            .relationship_layout(source)
++            .expect("relationship layout");
++        let ty = catalog
++            .relationship_type(graph_id, "KNOWS")
++            .expect("relationship type resolves");
++
++        let roles = catalog.relationship_roles(graph_id, ty);
++        assert_eq!(roles.len(), 2, "schemaless mode must not report zero roles");
++
++        let physical_start = layout.start_role().expect("physical start role");
++        let physical_end = layout.end_role().expect("physical end role");
++        let projected_start = roles
++            .iter()
++            .find(|role| role.name == "start")
++            .expect("start role projected");
++        let projected_end = roles
++            .iter()
++            .find(|role| role.name == "end")
++            .expect("end role projected");
++
++        assert_eq!(projected_start.role, physical_start.role);
++        assert_eq!(projected_end.role, physical_end.role);
++        assert_eq!(projected_start.cardinality, ir::RoleCardinality::One);
++        assert!(
++            projected_start.targets.is_empty(),
++            "schemaless mode imposes no target-type constraint"
++        );
++        assert!(!projected_start.optional);
++    }
+ }
+diff --git a/graph/frontend/src/semantic.rs b/graph/frontend/src/semantic.rs
+index a7b73b6ee..1235c8e17 100644
+--- a/graph/frontend/src/semantic.rs
++++ b/graph/frontend/src/semantic.rs
+@@ -137,20 +137,37 @@ pub struct SemanticRole {
+     /// relationship types are kept in distinct kinds so a role can target a
+     /// relationship type (relation-as-player) without colliding with a node
+     /// label that happens to share its persisted number.
+     pub targets: Vec<ir::RoleTarget>,
+     /// Whether the role may be left unfilled.
+     pub optional: bool,
+     /// How many players the role may hold.
+     pub cardinality: ir::RoleCardinality,
+ }
+ 
++impl From<crate::lowering::RelationshipRoleLayout> for SemanticRole {
++    /// Projects a physical role registration into the schema-free view used
++    /// by schemaless catalogs: the `RoleId` is reused directly (never
++    /// re-derived), there is no target-type constraint (schemaless imposes
++    /// none), and the role is never optional (a physical registration
++    /// requires every declared role to be filled).
++    fn from(role: crate::lowering::RelationshipRoleLayout) -> Self {
++        SemanticRole {
++            role: role.role,
++            name: role.name,
++            targets: Vec::new(),
++            optional: false,
++            cardinality: role.cardinality,
++        }
++    }
++}
++
+ impl SemanticSnapshot {
+     /// Resolve a semantic node type by conceptual name.
+     pub fn node_type(&self, name: &str) -> Option<&SemanticTypeInfo> {
+         self.node_names
+             .get(&fold(name))
+             .and_then(|id| self.node_types.get(id))
+     }
+ 
+     /// Resolve a semantic relationship type by conceptual name.
+     pub fn relationship_type(&self, name: &str) -> Option<&SemanticTypeInfo> {
+diff --git a/graph/ir/src/mutation.rs b/graph/ir/src/mutation.rs
+index 2365b3cde..82c26c506 100644
+--- a/graph/ir/src/mutation.rs
++++ b/graph/ir/src/mutation.rs
+@@ -1,13 +1,13 @@
+ use crate::{
+     Binding, BindingId, Direction, GraphId, LabelId, Plan, PropertyId, RelationshipTypeId,
+-    SourceTableId, TypedExpression,
++    RoleBinding, SourceTableId, TypedExpression,
+ };
+ 
+ /// A bound graph mutation whose names and storage sources have been resolved.
+ #[derive(Clone, Debug, PartialEq)]
+ pub struct MutationRequest {
+     pub graph: GraphId,
+     pub input: Option<Plan>,
+     pub operations: Vec<Mutation>,
+ }
+ 
+@@ -43,20 +43,23 @@ pub struct CreateNode {
+ 
+ #[derive(Clone, Debug, PartialEq)]
+ pub struct CreateRelationship {
+     pub binding: Binding,
+     pub source: SourceTableId,
+     pub from: BindingId,
+     pub to: BindingId,
+     pub direction: Direction,
+     pub relationship_types: Vec<RelationshipTypeId>,
+     pub properties: Vec<PropertyValue>,
++    /// One entry per filled role, in the relation type's declaration order.
++    /// A repeated player is legal; nothing here assumes distinct values.
++    pub roles: Vec<RoleBinding>,
+ }
+ 
+ impl CreateRelationship {
+     /// The binder always creates an edge that points `from -> to`, so
+     /// `direction` here is really just a hardcoded "outgoing". Naming it
+     /// through this accessor instead of `Direction::Outgoing` directly
+     /// means the frontend never has to name the `Direction` type at all.
+     /// Task 11 deletes `direction` from this struct once CREATE planning
+     /// becomes role-shaped, and this accessor goes with it.
+     pub fn default_direction() -> Direction {
+@@ -144,10 +147,83 @@ pub struct MergeNode {
+ }
+ 
+ #[derive(Clone, Debug, PartialEq)]
+ pub struct MergeRelationship {
+     pub create: CreateRelationship,
+     /// Applied only when the merge created the entity.
+     pub on_create: Vec<Mutation>,
+     /// Applied only when the merge matched an existing entity.
+     pub on_match: Vec<Mutation>,
+ }
++
++#[cfg(test)]
++mod tests {
++    use super::*;
++    use crate::{Nullability, RoleId, ValueType};
++
++    fn sample_create_relationship() -> CreateRelationship {
++        let from = BindingId::new(1).unwrap();
++        let to = BindingId::new(2).unwrap();
++        CreateRelationship {
++            binding: Binding::new(
++                BindingId::new(3).unwrap(),
++                "r",
++                ValueType::Relationship,
++                Nullability::NonNull,
++            )
++            .unwrap(),
++            source: SourceTableId::new(1).unwrap(),
++            from,
++            to,
++            direction: CreateRelationship::default_direction(),
++            relationship_types: vec![RelationshipTypeId::new(1).unwrap()],
++            properties: Vec::new(),
++            roles: vec![
++                RoleBinding {
++                    role: RoleId::new(1).unwrap(),
++                    value: from,
++                },
++                RoleBinding {
++                    role: RoleId::new(2).unwrap(),
++                    value: to,
++                },
++            ],
++        }
++    }
++
++    #[test]
++    fn a_created_relationship_lists_its_role_bindings_in_declaration_order() {
++        let create = sample_create_relationship();
++        assert_eq!(
++            create.roles,
++            vec![
++                RoleBinding {
++                    role: RoleId::new(1).unwrap(),
++                    value: BindingId::new(1).unwrap()
++                },
++                RoleBinding {
++                    role: RoleId::new(2).unwrap(),
++                    value: BindingId::new(2).unwrap()
++                },
++            ]
++        );
++    }
++
++    #[test]
++    fn a_role_binding_list_permits_the_same_player_twice() {
++        // Repeated players are legal: a Match with the same team in the home
++        // and away roles is a real thing to record, and nothing downstream may
++        // assume role players are distinct.
++        let player = BindingId::new(1).unwrap();
++        let roles = [
++            RoleBinding {
++                role: RoleId::new(1).unwrap(),
++                value: player,
++            },
++            RoleBinding {
++                role: RoleId::new(2).unwrap(),
++                value: player,
++            },
++        ];
++        assert_eq!(roles.iter().filter(|role| role.value == player).count(), 2);
++    }
++}

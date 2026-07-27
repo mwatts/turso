@@ -1,0 +1,1117 @@
+# Review package: fb1efd408..1e2c16b16
+
+## Commits
+1e2c16b16 cypher: parse standalone role pattern syntax
+
+## Files changed
+ graph/cypher/src/ast.rs        |  45 ++++++-
+ graph/cypher/src/cypher.pest   |  13 +-
+ graph/cypher/src/lib.rs        |   8 +-
+ graph/cypher/src/parser.rs     | 268 +++++++++++++++++++++++++++++++++--------
+ graph/frontend/src/binder.rs   | 154 ++++++++++++++++-------
+ graph/frontend/src/compiler.rs |  18 ++-
+ 6 files changed, 397 insertions(+), 109 deletions(-)
+
+## Diff
+diff --git a/graph/cypher/src/ast.rs b/graph/cypher/src/ast.rs
+index d36a6718a..1a1f32086 100644
+--- a/graph/cypher/src/ast.rs
++++ b/graph/cypher/src/ast.rs
+@@ -64,21 +64,21 @@ pub struct CallClause {
+ 
+ #[derive(Clone, Debug, PartialEq)]
+ pub struct ForeachClause {
+     pub variable: Spanned<String>,
+     pub list: Spanned<Expression>,
+     pub body: Vec<Spanned<Clause>>,
+ }
+ 
+ #[derive(Clone, Debug, PartialEq)]
+ pub struct CreateClause {
+-    pub paths: Vec<PathPattern>,
++    pub paths: Pattern,
+ }
+ 
+ #[derive(Clone, Debug, PartialEq)]
+ pub struct MergeClause {
+     pub path: PathPattern,
+     pub on_create: Vec<SetItem>,
+     pub on_match: Vec<SetItem>,
+ }
+ 
+ #[derive(Clone, Debug, PartialEq)]
+@@ -129,21 +129,21 @@ pub struct DeleteClause {
+ 
+ #[derive(Clone, Debug, PartialEq)]
+ pub struct UnwindClause {
+     pub expression: Spanned<Expression>,
+     pub alias: Spanned<String>,
+ }
+ 
+ #[derive(Clone, Debug, PartialEq)]
+ pub struct MatchClause {
+     pub optional: bool,
+-    pub paths: Vec<PathPattern>,
++    pub paths: Pattern,
+     pub predicate: Option<Spanned<Expression>>,
+ }
+ 
+ #[derive(Clone, Debug, PartialEq)]
+ pub struct PathPattern {
+     pub variable: Option<Spanned<String>>,
+     pub start: NodePattern,
+     pub steps: Vec<(RelationshipPattern, NodePattern)>,
+     pub span: Span,
+ }
+@@ -175,20 +175,59 @@ pub struct RelationshipRange {
+ #[derive(Clone, Debug, PartialEq)]
+ pub struct RelationshipPattern {
+     pub variable: Option<Spanned<String>>,
+     pub types: Vec<Spanned<String>>,
+     pub direction: Direction,
+     pub range: Option<Spanned<RelationshipRange>>,
+     pub properties: Vec<(Spanned<String>, Spanned<Expression>)>,
+     pub span: Span,
+ }
+ 
++/// One comma-separated element of a MATCH or CREATE pattern.
++///
++/// The arrow form (`PathPattern`) and the standalone role form
++/// (`RolePattern`) are different spellings of the same underlying relation;
++/// the binder resolves both to role pairs. Task 12 only teaches the parser
++/// the role spelling — binding it is a later task.
++#[derive(Clone, Debug, PartialEq)]
++pub enum PatternElement {
++    Path(PathPattern),
++    Roles(RolePattern),
++}
++
++/// `[x:Transcription {year: 1387}](scribe: p, text: t, folio: f)`
++#[derive(Clone, Debug, PartialEq)]
++pub struct RolePattern {
++    pub variable: Option<Spanned<String>>,
++    pub types: Vec<Spanned<String>>,
++    pub properties: Vec<(Spanned<String>, Spanned<Expression>)>,
++    /// Source order, which is deliberately not declaration order: the
++    /// binder does not require roles to appear in the order the relation
++    /// type declared them.
++    pub roles: Vec<RoleArgument>,
++    pub span: Span,
++}
++
++#[derive(Clone, Debug, PartialEq)]
++pub struct RoleArgument {
++    pub name: Spanned<String>,
++    pub player: Spanned<Expression>,
++    pub span: Span,
++}
++
++/// A MATCH/CREATE pattern: a comma-separated list of path or role elements.
++#[derive(Clone, Debug, PartialEq)]
++pub struct Pattern {
++    pub elements: Vec<PatternElement>,
++    pub span: Span,
++}
++
+ #[derive(Clone, Debug, PartialEq)]
+ pub struct ProjectionClause {
+     pub distinct: bool,
+     pub items: Vec<ProjectionItem>,
+     pub predicate: Option<Spanned<Expression>>,
+     pub order_by: Vec<SortItem>,
+     pub skip: Option<Spanned<Expression>>,
+     pub limit: Option<Spanned<Expression>>,
+ }
+ 
+@@ -312,21 +351,21 @@ pub enum Expression {
+     /// `reduce(acc = init, x IN list | expr)` — a left fold over a list.
+     Reduce {
+         accumulator: Spanned<String>,
+         initial: Box<Spanned<Expression>>,
+         variable: Spanned<String>,
+         list: Box<Spanned<Expression>>,
+         expression: Box<Spanned<Expression>>,
+     },
+     PatternSubquery {
+         count: bool,
+-        paths: Vec<PathPattern>,
++        paths: Pattern,
+         predicate: Option<Box<Spanned<Expression>>>,
+     },
+     PatternPredicate {
+         path: Box<PathPattern>,
+     },
+     HasLabels {
+         operand: Box<Spanned<Expression>>,
+         labels: Vec<Spanned<String>>,
+     },
+     Index {
+diff --git a/graph/cypher/src/cypher.pest b/graph/cypher/src/cypher.pest
+index 6d04fa5d3..b9a19fa78 100644
+--- a/graph/cypher/src/cypher.pest
++++ b/graph/cypher/src/cypher.pest
+@@ -77,21 +77,32 @@ delete_clause = { DETACH? ~ DELETE ~ identifier ~ ("," ~ identifier)* }
+ unwind_clause = { UNWIND ~ expression ~ AS ~ alias_identifier }
+ with_clause = { WITH ~ DISTINCT? ~ projection_items ~ where_clause? ~ projection_tail }
+ return_clause = { RETURN ~ DISTINCT? ~ projection_items ~ projection_tail }
+ where_clause = { WHERE ~ expression }
+ projection_tail = { order_by_clause? ~ skip_clause? ~ limit_clause? }
+ order_by_clause = { ORDER ~ BY ~ sort_item ~ ("," ~ sort_item)* }
+ sort_item = { expression ~ (ASC | DESC)? }
+ skip_clause = { SKIP ~ expression }
+ limit_clause = { LIMIT ~ expression }
+ 
+-pattern = { path_pattern ~ ("," ~ path_pattern)* }
++// `pattern_element` is an ordered choice with `role_pattern` first: `[` never
++// begins a `path_pattern`, so a leading `[` commits unambiguously to the role
++// form and every existing arrow/path query keeps parsing through the second
++// branch.
++pattern = { pattern_element ~ ("," ~ pattern_element)* }
++pattern_element = { role_pattern | path_pattern }
++// `[x:Transcription {year: 1387}](scribe: p, text: t, folio: f)`. The
++// argument list is one-or-more so `[x:T]()` is a parse error rather than a
++// silently accepted relation with no participants.
++role_pattern = { relationship_body ~ role_arguments }
++role_arguments = { "(" ~ role_argument ~ ("," ~ role_argument)* ~ ")" }
++role_argument = { identifier ~ ":" ~ expression }
+ path_pattern = { (identifier ~ "=")? ~ node_pattern ~ (relationship_pattern ~ node_pattern)* }
+ node_pattern = { "(" ~ identifier? ~ node_labels? ~ map_literal? ~ ")" }
+ node_labels = { (":" ~ identifier)+ }
+ 
+ relationship_pattern = { incoming_relationship | outgoing_relationship | undirected_relationship }
+ incoming_relationship = { "<-" ~ relationship_body? ~ "-" }
+ outgoing_relationship = { "-" ~ relationship_body? ~ "->" }
+ undirected_relationship = { "-" ~ relationship_body? ~ "-" }
+ relationship_body = { "[" ~ identifier? ~ relationship_types? ~ range_literal? ~ map_literal? ~ "]" }
+ relationship_types = { ":" ~ identifier ~ ("|" ~ ":"? ~ identifier)* }
+diff --git a/graph/cypher/src/lib.rs b/graph/cypher/src/lib.rs
+index 0aedcb130..1492d4057 100644
+--- a/graph/cypher/src/lib.rs
++++ b/graph/cypher/src/lib.rs
+@@ -3,16 +3,16 @@
+ //! Parser-specific and adapted donor types stay inside this crate. Consumers
+ //! cross the boundary through Turso-owned graph IR contracts.
+ 
+ #![forbid(unsafe_code)]
+ 
+ mod ast;
+ mod parser;
+ 
+ pub use ast::{
+     BinaryOperator, CallClause, Clause, CreateClause, DeleteClause, Direction, Expression,
+-    ForeachClause, Literal, MatchClause, MergeClause, NodePattern, PathPattern, ProjectionClause,
+-    ProjectionItem, PropertyTarget, QuantifierKind, Query, RelationshipPattern, RelationshipRange,
+-    RemoveClause, SetClause, SetItem, SortItem, Span, Spanned, UnaryOperator, UnionBranch,
+-    UnwindClause,
++    ForeachClause, Literal, MatchClause, MergeClause, NodePattern, PathPattern, Pattern,
++    PatternElement, ProjectionClause, ProjectionItem, PropertyTarget, QuantifierKind, Query,
++    RelationshipPattern, RelationshipRange, RemoveClause, RoleArgument, RolePattern, SetClause,
++    SetItem, SortItem, Span, Spanned, UnaryOperator, UnionBranch, UnwindClause,
+ };
+ pub use parser::{parse, ParseError};
+diff --git a/graph/cypher/src/parser.rs b/graph/cypher/src/parser.rs
+index 136e218ff..9878d69ec 100644
+--- a/graph/cypher/src/parser.rs
++++ b/graph/cypher/src/parser.rs
+@@ -7,24 +7,24 @@
+ //! Adaptation: structural-adaptation
+ //! Changes: Replaced Uni AST and error types, reduced the supported syntax,
+ //! and retained only a source-AST walker with byte-span diagnostics.
+ 
+ use pest::{error::InputLocation, iterators::Pair, Parser};
+ use pest_derive::Parser;
+ use thiserror::Error;
+ 
+ use crate::{
+     BinaryOperator, CallClause, Clause, CreateClause, DeleteClause, Direction, Expression,
+-    ForeachClause, Literal, MatchClause, MergeClause, NodePattern, PathPattern, ProjectionClause,
+-    ProjectionItem, PropertyTarget, QuantifierKind, Query, RelationshipPattern, RelationshipRange,
+-    RemoveClause, SetClause, SetItem, SortItem, Span, Spanned, UnaryOperator, UnionBranch,
+-    UnwindClause,
++    ForeachClause, Literal, MatchClause, MergeClause, NodePattern, PathPattern, Pattern,
++    PatternElement, ProjectionClause, ProjectionItem, PropertyTarget, QuantifierKind, Query,
++    RelationshipPattern, RelationshipRange, RemoveClause, RoleArgument, RolePattern, SetClause,
++    SetItem, SortItem, Span, Spanned, UnaryOperator, UnionBranch, UnwindClause,
+ };
+ 
+ #[derive(Parser)]
+ #[grammar = "cypher.pest"]
+ struct CypherParser;
+ 
+ type ParsedProperties = Vec<(Spanned<String>, Spanned<Expression>)>;
+ 
+ #[derive(Clone, Debug, Error, Eq, PartialEq)]
+ #[error("{message} at byte {span_start}..{span_end}")]
+@@ -150,26 +150,23 @@ fn walk_clause(pair: Pair<'_, Rule>) -> Result<Spanned<Clause>, ParseError> {
+     };
+     Ok(Spanned::new(clause, span))
+ }
+ 
+ fn walk_create(pair: Pair<'_, Rule>) -> Result<CreateClause, ParseError> {
+     let span = pair_span(&pair);
+     let pattern = pair
+         .into_inner()
+         .find(|item| item.as_rule() == Rule::pattern)
+         .ok_or_else(|| ParseError::at(span, "CREATE has no pattern"))?;
+-    let paths = pattern
+-        .into_inner()
+-        .filter(|item| item.as_rule() == Rule::path_pattern)
+-        .map(walk_path)
+-        .collect::<Result<Vec<_>, _>>()?;
+-    Ok(CreateClause { paths })
++    Ok(CreateClause {
++        paths: walk_pattern(pattern)?,
++    })
+ }
+ 
+ fn walk_merge(pair: Pair<'_, Rule>) -> Result<MergeClause, ParseError> {
+     let span = pair_span(&pair);
+     let mut path = None;
+     let mut on_create = Vec::new();
+     let mut on_match = Vec::new();
+     for item in pair.into_inner() {
+         match item.as_rule() {
+             Rule::path_pattern => path = Some(walk_path(item)?),
+@@ -377,42 +374,37 @@ fn walk_foreach(pair: Pair<'_, Rule>) -> Result<ForeachClause, ParseError> {
+         }
+     }
+     Ok(ForeachClause {
+         variable: variable.ok_or_else(|| ParseError::at(span, "FOREACH has no variable"))?,
+         list: list.ok_or_else(|| ParseError::at(span, "FOREACH has no list"))?,
+         body,
+     })
+ }
+ 
+ fn walk_match(pair: Pair<'_, Rule>) -> Result<MatchClause, ParseError> {
++    let span = pair_span(&pair);
+     let optional = pair
+         .clone()
+         .into_inner()
+         .any(|child| child.as_rule() == Rule::OPTIONAL);
+-    let mut paths = Vec::new();
++    let mut paths = None;
+     let mut predicate = None;
+     for child in pair.into_inner() {
+         match child.as_rule() {
+-            Rule::pattern => {
+-                paths = child
+-                    .into_inner()
+-                    .filter(|item| item.as_rule() == Rule::path_pattern)
+-                    .map(walk_path)
+-                    .collect::<Result<Vec<_>, _>>()?;
+-            }
++            Rule::pattern => paths = Some(walk_pattern(child)?),
+             Rule::where_clause => predicate = Some(walk_where(child)?),
+             _ => {}
+         }
+     }
+     Ok(MatchClause {
+         optional,
+-        paths,
++        paths: paths.ok_or_else(|| ParseError::at(span, "MATCH has no pattern"))?,
+         predicate,
+     })
+ }
+ 
+ fn walk_path(pair: Pair<'_, Rule>) -> Result<PathPattern, ParseError> {
+     let span = pair_span(&pair);
+     let mut inner = pair.into_inner().peekable();
+     let variable = if inner
+         .peek()
+         .is_some_and(|pair| pair.as_rule() == Rule::identifier)
+@@ -479,48 +471,131 @@ fn walk_relationship(pair: Pair<'_, Rule>) -> Result<RelationshipPattern, ParseE
+         rule => return Err(unexpected(&child, "relationship", rule)),
+     };
+     let mut variable = None;
+     let mut types = Vec::new();
+     let mut range = None;
+     let mut properties = Vec::new();
+     for body in child.into_inner() {
+         if body.as_rule() != Rule::relationship_body {
+             continue;
+         }
+-        for item in body.into_inner() {
+-            match item.as_rule() {
+-                Rule::identifier => variable = Some(walk_identifier(item)),
+-                Rule::relationship_types => {
+-                    types.extend(item.into_inner().map(walk_identifier));
+-                }
+-                Rule::range_literal => {
+-                    let item_span = pair_span(&item);
+-                    range = Some(Spanned::new(
+-                        parse_range(item.as_str(), item_span)?,
+-                        item_span,
+-                    ));
+-                }
+-                Rule::map_literal => properties = walk_map(item)?,
+-                rule => return Err(unexpected(&item, "relationship component", rule)),
+-            }
+-        }
++        (variable, types, range, properties) = walk_relationship_body(body)?;
+     }
+     Ok(RelationshipPattern {
+         variable,
+         types,
+         direction,
+         range,
+         properties,
+         span,
+     })
+ }
+ 
++/// Shared by `walk_relationship` (which wraps this in a direction) and
++/// `walk_role_pattern` (which has no direction to wrap it in).
++type RelationshipBodyParts = (
++    Option<Spanned<String>>,
++    Vec<Spanned<String>>,
++    Option<Spanned<RelationshipRange>>,
++    ParsedProperties,
++);
++
++fn walk_relationship_body(body: Pair<'_, Rule>) -> Result<RelationshipBodyParts, ParseError> {
++    let mut variable = None;
++    let mut types = Vec::new();
++    let mut range = None;
++    let mut properties = Vec::new();
++    for item in body.into_inner() {
++        match item.as_rule() {
++            Rule::identifier => variable = Some(walk_identifier(item)),
++            Rule::relationship_types => {
++                types.extend(item.into_inner().map(walk_identifier));
++            }
++            Rule::range_literal => {
++                let item_span = pair_span(&item);
++                range = Some(Spanned::new(
++                    parse_range(item.as_str(), item_span)?,
++                    item_span,
++                ));
++            }
++            Rule::map_literal => properties = walk_map(item)?,
++            rule => return Err(unexpected(&item, "relationship component", rule)),
++        }
++    }
++    Ok((variable, types, range, properties))
++}
++
++fn walk_pattern(pair: Pair<'_, Rule>) -> Result<Pattern, ParseError> {
++    let span = pair_span(&pair);
++    let elements = pair
++        .into_inner()
++        .filter(|item| item.as_rule() == Rule::pattern_element)
++        .map(|element| {
++            let inner = only_child(element)?;
++            Ok(match inner.as_rule() {
++                Rule::role_pattern => PatternElement::Roles(walk_role_pattern(inner)?),
++                Rule::path_pattern => PatternElement::Path(walk_path(inner)?),
++                rule => return Err(unexpected(&inner, "pattern element", rule)),
++            })
++        })
++        .collect::<Result<Vec<_>, _>>()?;
++    Ok(Pattern { elements, span })
++}
++
++fn walk_role_pattern(pair: Pair<'_, Rule>) -> Result<RolePattern, ParseError> {
++    let span = pair_span(&pair);
++    let mut inner = pair.into_inner();
++    let body = inner
++        .next()
++        .ok_or_else(|| ParseError::at(span, "role pattern has no relationship body"))?;
++    let (variable, types, range, properties) = walk_relationship_body(body)?;
++    if let Some(range) = range {
++        // A hop range names a repetition of one relationship. It has no
++        // meaning on a role list, and accepting it silently would let
++        // `[r:T*1..3](start: a)` look supported.
++        return Err(ParseError::at(
++            range.span,
++            "a hop range has no meaning on a role pattern",
++        ));
++    }
++    let arguments = inner
++        .next()
++        .ok_or_else(|| ParseError::at(span, "role pattern has no role arguments"))?;
++    let roles = arguments
++        .into_inner()
++        .map(walk_role_argument)
++        .collect::<Result<Vec<_>, _>>()?;
++    Ok(RolePattern {
++        variable,
++        types,
++        properties,
++        roles,
++        span,
++    })
++}
++
++fn walk_role_argument(pair: Pair<'_, Rule>) -> Result<RoleArgument, ParseError> {
++    let span = pair_span(&pair);
++    let mut inner = pair.into_inner();
++    let name = inner
++        .next()
++        .ok_or_else(|| ParseError::at(span, "role argument has no name"))?;
++    let player = inner
++        .next()
++        .ok_or_else(|| ParseError::at(span, "role argument has no player"))?;
++    Ok(RoleArgument {
++        name: walk_identifier(name),
++        player: walk_expression(player)?,
++        span,
++    })
++}
++
+ fn parse_range(text: &str, span: Span) -> Result<RelationshipRange, ParseError> {
+     let body = text
+         .strip_prefix('*')
+         .ok_or_else(|| ParseError::at(span, "invalid range"))?;
+     if let Some((minimum, maximum)) = body.split_once("..") {
+         return Ok(RelationshipRange {
+             min: parse_optional_u32(minimum, span)?,
+             max: parse_optional_u32(maximum, span)?,
+         });
+     }
+@@ -866,44 +941,35 @@ fn walk_not(pair: Pair<'_, Rule>) -> Result<Expression, ParseError> {
+             },
+             span,
+         );
+     }
+     Ok(expression.value)
+ }
+ 
+ fn walk_pattern_subquery(pair: Pair<'_, Rule>) -> Result<Expression, ParseError> {
+     let span = pair_span(&pair);
+     let mut count = false;
+-    let mut paths = Vec::new();
++    let mut paths = None;
+     let mut predicate = None;
+     for child in pair.into_inner() {
+         match child.as_rule() {
+             Rule::subquery_kind => {
+                 count = child.as_str().eq_ignore_ascii_case("count");
+             }
+-            Rule::pattern => {
+-                paths = child
+-                    .into_inner()
+-                    .filter(|item| item.as_rule() == Rule::path_pattern)
+-                    .map(walk_path)
+-                    .collect::<Result<Vec<_>, _>>()?;
+-            }
++            Rule::pattern => paths = Some(walk_pattern(child)?),
+             Rule::where_clause => predicate = Some(Box::new(walk_where(child)?)),
+             _ => {}
+         }
+     }
+-    if paths.is_empty() {
+-        return Err(ParseError::at(span, "pattern subquery has no pattern"));
+-    }
+     Ok(Expression::PatternSubquery {
+         count,
+-        paths,
++        paths: paths.ok_or_else(|| ParseError::at(span, "pattern subquery has no pattern"))?,
+         predicate,
+     })
+ }
+ 
+ fn walk_pattern_predicate(pair: Pair<'_, Rule>) -> Result<Expression, ParseError> {
+     let span = pair_span(&pair);
+     let mut nodes = Vec::new();
+     let mut relationships = Vec::new();
+     for child in pair.into_inner() {
+         match child.as_rule() {
+@@ -1534,21 +1600,33 @@ mod tests {
+                 ..
+             }
+         ));
+     }
+ 
+     fn relationship(query: &str) -> RelationshipPattern {
+         let query = parse(query).expect("query should parse");
+         let Clause::Match(clause) = &query.clauses[0].value else {
+             panic!("expected MATCH")
+         };
+-        clause.paths[0].steps[0].0.clone()
++        let PatternElement::Path(path) = &clause.paths.elements[0] else {
++            panic!("expected a path pattern")
++        };
++        path.steps[0].0.clone()
++    }
++
++    /// Reaches the `Pattern` of a MATCH clause's pattern, for tests that
++    /// assert on `PatternElement` shape directly.
++    fn pattern_of(query: &Query) -> &Pattern {
++        let Clause::Match(clause) = &query.clauses[0].value else {
++            panic!("expected MATCH")
++        };
++        &clause.paths
+     }
+ 
+     #[test]
+     fn preserves_fixed_directions_and_bounded_range() {
+         let relationship = relationship("MATCH (a:Person)-[r:KNOWS*2..5]->(b) RETURN a");
+         assert_eq!(relationship.direction, Direction::Outgoing);
+         assert_eq!(
+             relationship.range.expect("range").value,
+             RelationshipRange {
+                 min: Some(2),
+@@ -1643,28 +1721,116 @@ mod tests {
+ 
+     #[test]
+     fn parses_create_and_merge_patterns() {
+         let query = parse(
+             "CREATE (a:Person {name: 'Ada'})-[:KNOWS]->(b:Person) MERGE (b)-[:KNOWS]->(c:Person {name: 'Grace'})",
+         )
+         .expect("mutation query");
+         let Clause::Create(create) = &query.clauses[0].value else {
+             panic!("expected CREATE")
+         };
+-        assert_eq!(create.paths.len(), 1);
+-        assert_eq!(create.paths[0].steps.len(), 1);
++        assert_eq!(create.paths.elements.len(), 1);
++        let PatternElement::Path(path) = &create.paths.elements[0] else {
++            panic!("expected a path pattern")
++        };
++        assert_eq!(path.steps.len(), 1);
+         let Clause::Merge(merge) = &query.clauses[1].value else {
+             panic!("expected MERGE")
+         };
+         assert_eq!(merge.path.steps.len(), 1);
+     }
+ 
++    #[test]
++    fn a_standalone_role_pattern_parses_with_its_roles_in_source_order() {
++        // `[` never begins a pattern element today, so the role form is
++        // unambiguous against every existing pattern.
++        let query =
++            parse("MATCH [x:Transcription {year: 1387}](scribe: p, text: t, folio: f) RETURN x")
++                .expect("query should parse");
++        let PatternElement::Roles(roles) = &pattern_of(&query).elements[0] else {
++            panic!("expected a role pattern");
++        };
++        assert_eq!(
++            roles
++                .variable
++                .as_ref()
++                .map(|variable| variable.value.as_str()),
++            Some("x")
++        );
++        assert_eq!(
++            roles
++                .types
++                .iter()
++                .map(|type_| type_.value.as_str())
++                .collect::<Vec<_>>(),
++            vec!["Transcription"]
++        );
++        assert_eq!(
++            roles
++                .roles
++                .iter()
++                .map(|role| role.name.value.as_str())
++                .collect::<Vec<_>>(),
++            vec!["scribe", "text", "folio"]
++        );
++    }
++
++    #[test]
++    fn a_role_pattern_permits_a_repeated_role_player() {
++        // `(scribe: p, text: t, folio: p)` is a legal query: nothing about
++        // parsing a role list may assume role players are pairwise distinct.
++        let query = parse("MATCH [x:Transcription](scribe: p, text: t, folio: p) RETURN x")
++            .expect("query should parse");
++        let PatternElement::Roles(roles) = &pattern_of(&query).elements[0] else {
++            panic!("expected a role pattern");
++        };
++        let players: Vec<&str> = roles
++            .roles
++            .iter()
++            .map(|role| match &role.player.value {
++                Expression::Variable(name) => name.as_str(),
++                other => panic!("expected a variable player, got {other:?}"),
++            })
++            .collect();
++        assert_eq!(players, vec!["p", "t", "p"]);
++    }
++
++    #[test]
++    fn a_role_pattern_and_a_path_pattern_may_appear_in_one_comma_list() {
++        let query = parse("MATCH (a:Person), [x:Transcription](scribe: a) RETURN x")
++            .expect("query should parse");
++        let elements = &pattern_of(&query).elements;
++        assert!(matches!(elements[0], PatternElement::Path(_)));
++        assert!(matches!(elements[1], PatternElement::Roles(_)));
++    }
++
++    #[test]
++    fn a_role_pattern_with_no_roles_is_a_parse_error_not_an_empty_relation() {
++        // `[x:T]()` would otherwise read as a relation with no participants,
++        // which the binder would then have to reject with a worse message.
++        assert!(parse("MATCH [x:Transcription]() RETURN x").is_err());
++    }
++
++    #[test]
++    fn a_hop_range_on_a_role_pattern_is_a_parse_error() {
++        assert!(parse("MATCH [r:T*1..3](start: a) RETURN r").is_err());
++    }
++
++    #[test]
++    fn an_arrow_pattern_still_parses_unchanged() {
++        let query = parse("MATCH (a)-[r:KNOWS]->(b) RETURN b").expect("query should parse");
++        assert!(matches!(
++            pattern_of(&query).elements[0],
++            PatternElement::Path(_)
++        ));
++    }
++
+     #[test]
+     fn parses_property_updates_and_deletes_with_source_spans() {
+         let source = "MATCH (n:Person) SET n.name = 'Ada', n.age = 37 REMOVE n.old DETACH DELETE n";
+         let query = parse(source).expect("mutation query");
+         let Clause::Set(set) = &query.clauses[1].value else {
+             panic!("expected SET")
+         };
+         assert_eq!(set.items.len(), 2);
+         let SetItem::Property { target, .. } = &set.items[0] else {
+             panic!("expected a property SET item")
+diff --git a/graph/frontend/src/binder.rs b/graph/frontend/src/binder.rs
+index ddfb563d3..c5fbeed2b 100644
+--- a/graph/frontend/src/binder.rs
++++ b/graph/frontend/src/binder.rs
+@@ -900,21 +900,21 @@ impl<'a> Binder<'a> {
+                             .expect("stage pushed above")
+                             .items
+                             .push(item);
+                     } else {
+                         self.bind_match(value, clause.span)?;
+                     }
+                 }
+                 cypher::Clause::Create(value) => {
+                     mutation_started = true;
+                     let mut new_operations = Vec::new();
+-                    for path in &value.paths {
++                    for path in only_paths(&value.paths)? {
+                         self.bind_create_path(path, false, &mut new_operations)?;
+                     }
+                     route(&mut operations, &mut stages, new_operations);
+                 }
+                 cypher::Clause::Merge(value) => {
+                     mutation_started = true;
+                     let mut new_operations = Vec::new();
+                     self.bind_create_path(&value.path, true, &mut new_operations)?;
+                     self.attach_merge_actions(value, &mut new_operations)?;
+                     route(&mut operations, &mut stages, new_operations);
+@@ -1117,21 +1117,21 @@ impl<'a> Binder<'a> {
+             ir::Nullability::Nullable,
+         )?;
+         let scope_before = self.scope.len();
+         self.scope.push(output.clone());
+         let mut items = Vec::new();
+         let bound = (|| {
+             for inner in &clause.body {
+                 match &inner.value {
+                     cypher::Clause::Create(value) => {
+                         let mut operations = Vec::new();
+-                        for path in &value.paths {
++                        for path in only_paths(&value.paths)? {
+                             self.bind_create_path(path, false, &mut operations)?;
+                         }
+                         items.extend(operations.into_iter().map(StageItem::Operation));
+                     }
+                     cypher::Clause::Merge(value) => {
+                         let mut operations = Vec::new();
+                         self.bind_create_path(&value.path, true, &mut operations)?;
+                         self.attach_merge_actions(value, &mut operations)?;
+                         items.extend(operations.into_iter().map(StageItem::Operation));
+                     }
+@@ -1182,31 +1182,32 @@ impl<'a> Binder<'a> {
+     /// Binds a MATCH that follows a mutation clause as a staged join: the
+     /// pattern binds into a standalone plan run against each current row.
+     /// Variables already in scope correlate by identity: their pattern
+     /// occurrences rebind under fresh names filtered against internal
+     /// reference parameters the executor supplies per row.
+     fn bind_staged_match(
+         &mut self,
+         clause: &cypher::MatchClause,
+         span: cypher::Span,
+     ) -> Result<StageItem, BindError> {
+-        for path in &clause.paths {
++        let paths = only_paths(&clause.paths)?;
++        for path in &paths {
+             if path.variable.is_some() {
+                 return Err(at_unsupported(
+                     span,
+                     "named paths in MATCH after a mutation clause",
+                 ));
+             }
+         }
+         // Correlated variables: pattern variables already bound in scope.
+         let mut correlated: Vec<(String, ir::BindingId)> = Vec::new();
+-        for path in &clause.paths {
++        for path in &paths {
+             let mut variables = Vec::new();
+             if let Some(variable) = &path.start.variable {
+                 variables.push(variable);
+             }
+             for (relationship, node) in &path.steps {
+                 if let Some(variable) = &relationship.variable {
+                     variables.push(variable);
+                 }
+                 if let Some(variable) = &node.variable {
+                     variables.push(variable);
+@@ -2355,24 +2356,25 @@ impl<'a> Binder<'a> {
+             steps: new_steps,
+             span: path.span,
+         }
+     }
+ 
+     fn bind_match(
+         &mut self,
+         clause: &cypher::MatchClause,
+         fallback: cypher::Span,
+     ) -> Result<(), BindError> {
+-        if clause.optional && clause.paths.len() != 1 {
++        let paths = only_paths(&clause.paths)?;
++        if clause.optional && paths.len() != 1 {
+             return Err(at_unsupported(fallback, "multiple OPTIONAL MATCH paths"));
+         }
+-        for path in &clause.paths {
++        for path in paths.iter().copied() {
+             if let Some(variable) = &path.variable {
+                 // A path variable cannot rebind a name already in scope
+                 // (openCypher VariableTypeConflict).
+                 if self
+                     .scope
+                     .iter()
+                     .any(|binding| binding.name() == variable.value)
+                 {
+                     return Err(BindError::DuplicateVariable {
+                         name: variable.value.clone(),
+@@ -2396,21 +2398,21 @@ impl<'a> Binder<'a> {
+                     .any(|(relationship, _)| relationship.range.is_some())
+             {
+                 return Err(at_unsupported(
+                     path.span,
+                     "optional variable-length relationships",
+                 ));
+             }
+         }
+         let left = self.plan.clone();
+         let old_ids: Vec<_> = self.scope.iter().map(ir::Binding::id).collect();
+-        for path in &clause.paths {
++        for path in paths.iter().copied() {
+             let path_binding = path.variable.as_ref().and_then(|variable| {
+                 self.scope
+                     .iter()
+                     .find(|binding| binding.name() == variable.value)
+                     .cloned()
+             });
+             // Anchor the join at whichever end is more selective: a scan
+             // that starts from a constant-property lookup is far cheaper
+             // than one that starts from a bare label scan and only applies
+             // the selective filter after every hop.
+@@ -4062,21 +4064,21 @@ impl<'a> Binder<'a> {
+     fn bind_pattern_subquery(
+         &self,
+         count: bool,
+         clause: &cypher::MatchClause,
+         span: cypher::Span,
+     ) -> Result<(ir::Expression, ir::ValueType, ir::Nullability), BindError> {
+         let mut sub = Binder::new(self.graph, self.catalog, self.parameters);
+         sub.bind_match(clause, span)?;
+         let plan = sub.plan.ok_or(BindError::EmptyQuery)?;
+         let mut correlations: Vec<(ir::BindingId, ir::BindingId)> = Vec::new();
+-        for path in &clause.paths {
++        for path in only_paths(&clause.paths)? {
+             let mut names: Vec<&str> = Vec::new();
+             if let Some(variable) = &path.variable {
+                 names.push(&variable.value);
+             }
+             if let Some(variable) = &path.start.variable {
+                 names.push(&variable.value);
+             }
+             for (relationship, node) in &path.steps {
+                 if let Some(variable) = &relationship.variable {
+                     names.push(&variable.value);
+@@ -4421,32 +4423,35 @@ impl<'a> Binder<'a> {
+                 }
+                 if !self.scope.iter().any(|binding| binding.name() == *name) {
+                     return Err(BindError::UnknownVariable {
+                         name: name.clone(),
+                         span_start: operand.span.start,
+                         span_end: operand.span.end,
+                     });
+                 }
+                 let clause = cypher::MatchClause {
+                     optional: false,
+-                    paths: vec![cypher::PathPattern {
+-                        variable: None,
+-                        start: cypher::NodePattern {
+-                            variable: Some(cypher::Spanned::new(name.clone(), operand.span)),
+-                            labels: labels.clone(),
+-                            properties: Vec::new(),
+-                            has_property_map: false,
++                    paths: cypher::Pattern {
++                        elements: vec![cypher::PatternElement::Path(cypher::PathPattern {
++                            variable: None,
++                            start: cypher::NodePattern {
++                                variable: Some(cypher::Spanned::new(name.clone(), operand.span)),
++                                labels: labels.clone(),
++                                properties: Vec::new(),
++                                has_property_map: false,
++                                span: expression.span,
++                            },
++                            steps: Vec::new(),
+                             span: expression.span,
+-                        },
+-                        steps: Vec::new(),
++                        })],
+                         span: expression.span,
+-                    }],
++                    },
+                     predicate: None,
+                 };
+                 self.bind_pattern_subquery(false, &clause, expression.span)?
+             }
+             cypher::Expression::PatternPredicate { path } => {
+                 // openCypher: a bare pattern predicate may only use already
+                 // bound variables (TCK Pattern1 [10]).
+                 let mut variables: Vec<&cypher::Spanned<String>> = Vec::new();
+                 variables.extend(&path.start.variable);
+                 for (relationship, node) in &path.steps {
+@@ -4461,21 +4466,24 @@ impl<'a> Binder<'a> {
+                     {
+                         return Err(BindError::UnknownVariable {
+                             name: variable.value.clone(),
+                             span_start: variable.span.start,
+                             span_end: variable.span.end,
+                         });
+                     }
+                 }
+                 let clause = cypher::MatchClause {
+                     optional: false,
+-                    paths: vec![path.as_ref().clone()],
++                    paths: cypher::Pattern {
++                        elements: vec![cypher::PatternElement::Path(path.as_ref().clone())],
++                        span: path.span,
++                    },
+                     predicate: None,
+                 };
+                 self.bind_pattern_subquery(false, &clause, expression.span)?
+             }
+             cypher::Expression::Index { base, index } => {
+                 let base_span = base.span;
+                 let base = self.bind_expression(base)?;
+                 let index = self.bind_expression(index)?;
+                 let element_type = match (&base.value_type, &index.value_type) {
+                     (ir::ValueType::List(element), _) if numeric_compatible(&index.value_type) => {
+@@ -6341,46 +6349,63 @@ fn rename_match_clause(
+         };
+     let rename_node = |node: &cypher::NodePattern| cypher::NodePattern {
+         variable: node.variable.as_ref().map(rename_name),
+         labels: node.labels.clone(),
+         properties: rename_properties(&node.properties),
+         has_property_map: node.has_property_map,
+         span: node.span,
+     };
+     cypher::MatchClause {
+         optional: clause.optional,
+-        paths: clause
+-            .paths
+-            .iter()
+-            .map(|path| cypher::PathPattern {
+-                variable: path.variable.clone(),
+-                start: rename_node(&path.start),
+-                steps: path
+-                    .steps
+-                    .iter()
+-                    .map(|(relationship, node)| {
+-                        (
+-                            cypher::RelationshipPattern {
+-                                variable: relationship.variable.as_ref().map(rename_name),
+-                                types: relationship.types.clone(),
+-                                direction: relationship.direction,
+-                                range: relationship.range.clone(),
+-                                properties: rename_properties(&relationship.properties),
+-                                span: relationship.span,
+-                            },
+-                            rename_node(node),
+-                        )
+-                    })
+-                    .collect(),
+-                span: path.span,
+-            })
+-            .collect(),
++        paths: cypher::Pattern {
++            elements: clause
++                .paths
++                .elements
++                .iter()
++                .map(|element| match element {
++                    cypher::PatternElement::Path(path) => {
++                        cypher::PatternElement::Path(cypher::PathPattern {
++                            variable: path.variable.clone(),
++                            start: rename_node(&path.start),
++                            steps: path
++                                .steps
++                                .iter()
++                                .map(|(relationship, node)| {
++                                    (
++                                        cypher::RelationshipPattern {
++                                            variable: relationship
++                                                .variable
++                                                .as_ref()
++                                                .map(rename_name),
++                                            types: relationship.types.clone(),
++                                            direction: relationship.direction,
++                                            range: relationship.range.clone(),
++                                            properties: rename_properties(&relationship.properties),
++                                            span: relationship.span,
++                                        },
++                                        rename_node(node),
++                                    )
++                                })
++                                .collect(),
++                            span: path.span,
++                        })
++                    }
++                    // Every caller validates via `only_paths` before renaming,
++                    // so a `Roles` element is unreachable in practice here;
++                    // pass it through unchanged rather than drop or panic.
++                    cypher::PatternElement::Roles(roles) => {
++                        cypher::PatternElement::Roles(roles.clone())
++                    }
++                })
++                .collect(),
++            span: clause.paths.span,
++        },
+         predicate: clause
+             .predicate
+             .as_ref()
+             .map(|predicate| rename_expression(predicate, rename)),
+     }
+ }
+ 
+ /// Replaces bare `Variable` occurrences with their aliased source
+ /// expressions (projection aliases visible to ORDER BY/WHERE), skipping
+ /// names shadowed by quantifier or list-comprehension loop variables.
+@@ -7077,20 +7102,40 @@ fn assemble_union_branches(
+ }
+ 
+ fn at_unsupported(span: cypher::Span, feature: &'static str) -> BindError {
+     BindError::Unsupported {
+         feature,
+         span_start: span.start,
+         span_end: span.end,
+     }
+ }
+ 
++/// The parser accepts the standalone role pattern (`[x:T](role: player,
++/// ...)`) as of Task 12, but binding it is Task 13's job. Every call site
++/// that used to walk a bare `Vec<PathPattern>` must reject a `Roles`
++/// element here rather than silently drop it — a `.filter_map` that quietly
++/// skipped role elements would let `MATCH [x:T](a: n) RETURN x` return an
++/// empty result instead of failing.
++fn only_paths(pattern: &cypher::Pattern) -> Result<Vec<&cypher::PathPattern>, BindError> {
++    pattern
++        .elements
++        .iter()
++        .map(|element| match element {
++            cypher::PatternElement::Path(path) => Ok(path),
++            cypher::PatternElement::Roles(roles) => Err(at_unsupported(
++                roles.span,
++                "role patterns are not supported yet",
++            )),
++        })
++        .collect()
++}
++
+ /// Binds a SKIP/LIMIT expression that must be a non-negative integer
+ /// literal: mutation pipelines execute row counts in Rust rather than
+ /// lowering them into a SQL plan, so a runtime-only bound (a parameter or
+ /// computed expression) has nowhere to be evaluated yet.
+ fn bind_constant_count(
+     expression: Option<&cypher::Spanned<cypher::Expression>>,
+     context: &'static str,
+ ) -> Result<Option<usize>, BindError> {
+     match expression {
+         None => Ok(None),
+@@ -7369,20 +7414,39 @@ mod tests {
+             "MATCH (p:Person {id: $id})-[r:KNOWS {since: 2020}]->(friend) RETURN friend.name AS name",
+             parameters,
+         )
+         .expect("query should bind");
+         assert_eq!(bound.plan.result_shape().len(), 1);
+         let output = bound.plan.scope().resolve("name").expect("projected name");
+         assert_eq!(output.value_type(), &ir::ValueType::Text);
+         assert_eq!(output.nullability(), ir::Nullability::Nullable);
+     }
+ 
++    #[test]
++    fn a_standalone_role_pattern_binds_to_an_error_not_an_empty_plan() {
++        // Task 12 only teaches the parser `[x:T](role: player, ...)`;
++        // binding it is Task 13's job. A `.filter_map` that silently
++        // dropped the `Roles` element instead of erroring here would make
++        // this bind to an empty plan — silently wrong, not merely
++        // unsupported. Task 13 flips this assertion to a success case.
++        assert!(matches!(
++            bind_text(
++                "MATCH [x:KNOWS](start: a, end: b) RETURN x",
++                ParameterTypes::new()
++            ),
++            Err(BindError::Unsupported {
++                feature: "role patterns are not supported yet",
++                ..
++            })
++        ));
++    }
++
+     #[test]
+     fn standalone_projection_uses_a_single_unit_row() {
+         let bound = bind_text("RETURN 1 AS value", ParameterTypes::new())
+             .expect("standalone projection should bind");
+         let ir::PlanKind::Project(project) = bound.plan.kind() else {
+             panic!("expected projection")
+         };
+         assert!(matches!(project.input.kind(), ir::PlanKind::Unit(_)));
+     }
+ 
+diff --git a/graph/frontend/src/compiler.rs b/graph/frontend/src/compiler.rs
+index 8553f2b89..3188230b3 100644
+--- a/graph/frontend/src/compiler.rs
++++ b/graph/frontend/src/compiler.rs
+@@ -180,25 +180,33 @@ pub fn graph_frontend_id() -> FrontendId {
+     ID.get_or_init(|| {
+         FrontendId::new(GRAPH_FRONTEND_NAME).expect("static graph frontend id must be non-empty")
+     })
+     .clone()
+ }
+ 
+ /// Variable-length relationship expansions need a traversal snapshot.
+ pub(crate) fn query_needs_traversal_snapshot(query: &turso_graph_cypher::Query) -> bool {
+     let clause_needs =
+         |clause: &turso_graph_cypher::Spanned<turso_graph_cypher::Clause>| match &clause.value {
+-            turso_graph_cypher::Clause::Match(value) => value.paths.iter().any(|path| {
+-                path.steps
+-                    .iter()
+-                    .any(|(relationship, _)| relationship.range.is_some())
+-            }),
++            turso_graph_cypher::Clause::Match(value) => {
++                value.paths.elements.iter().any(|element| {
++                    // A role pattern's grammar has no hop range at all (Task 12
++                    // rejects one as a parse error), so it can never need a
++                    // traversal snapshot.
++                    let turso_graph_cypher::PatternElement::Path(path) = element else {
++                        return false;
++                    };
++                    path.steps
++                        .iter()
++                        .any(|(relationship, _)| relationship.range.is_some())
++                })
++            }
+             _ => false,
+         };
+     query.clauses.iter().any(clause_needs)
+         || query
+             .unions
+             .iter()
+             .any(|branch| branch.clauses.iter().any(clause_needs))
+ }
+ 
+ #[cfg(test)]

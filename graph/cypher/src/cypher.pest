@@ -62,15 +62,19 @@ FOREACH = @{ ^"foreach" ~ !ident_char }
 foreach_body = { (create_clause | merge_clause | set_clause | remove_clause | delete_clause | foreach_clause)+ }
 match_clause = { OPTIONAL? ~ MATCH ~ pattern ~ where_clause? }
 create_clause = { CREATE ~ pattern }
-merge_clause = { MERGE ~ path_pattern ~ merge_action* }
+merge_clause = { MERGE ~ pattern_element ~ merge_action* }
 merge_action = { ON ~ (CREATE | MATCH) ~ SET ~ set_item ~ ("," ~ set_item)* }
 ON = @{ ^"on" ~ !ident_char }
 set_clause = { SET ~ set_item ~ ("," ~ set_item)* }
-set_item = { set_property_item | set_merge_item | set_replace_item | set_label_item }
+set_item = { set_role_item | set_property_item | set_merge_item | set_replace_item | set_label_item }
 set_property_item = { property_target ~ "=" ~ expression }
 set_merge_item = { identifier ~ "+=" ~ expression }
 set_replace_item = { identifier ~ "=" ~ expression }
 set_label_item = { identifier ~ node_labels }
+// `SET [x](role: player, ...)` — repoints roles of an already-bound
+// relation. No type list or property map: unlike `role_pattern` (which
+// creates), this only ever targets a relation bound elsewhere.
+set_role_item = { "[" ~ identifier ~ "]" ~ role_arguments }
 remove_clause = { REMOVE ~ property_target ~ ("," ~ property_target)* }
 property_target = { identifier ~ "." ~ identifier }
 delete_clause = { DETACH? ~ DELETE ~ identifier ~ ("," ~ identifier)* }
@@ -84,7 +88,18 @@ sort_item = { expression ~ (ASC | DESC)? }
 skip_clause = { SKIP ~ expression }
 limit_clause = { LIMIT ~ expression }
 
-pattern = { path_pattern ~ ("," ~ path_pattern)* }
+// `pattern_element` is an ordered choice with `role_pattern` first: `[` never
+// begins a `path_pattern`, so a leading `[` commits unambiguously to the role
+// form and every existing arrow/path query keeps parsing through the second
+// branch.
+pattern = { pattern_element ~ ("," ~ pattern_element)* }
+pattern_element = { role_pattern | path_pattern }
+// `[x:Transcription {year: 1387}](scribe: p, text: t, folio: f)`. The
+// argument list is one-or-more so `[x:T]()` is a parse error rather than a
+// silently accepted relation with no participants.
+role_pattern = { relationship_body ~ role_arguments }
+role_arguments = { "(" ~ role_argument ~ ("," ~ role_argument)* ~ ")" }
+role_argument = { identifier ~ ":" ~ expression }
 path_pattern = { (identifier ~ "=")? ~ node_pattern ~ (relationship_pattern ~ node_pattern)* }
 node_pattern = { "(" ~ identifier? ~ node_labels? ~ map_literal? ~ ")" }
 node_labels = { (":" ~ identifier)+ }

@@ -10,7 +10,7 @@
 use std::collections::VecDeque;
 use std::mem::size_of;
 
-use turso_graph_ir::{Direction, NodeId, RelationshipId, RelationshipTypeId};
+use turso_graph_ir::{NodeId, RelationshipId, RelationshipTypeId, RoleId};
 
 use crate::{
     limits::Budget, Cancellation, Graph, NeighborCursor, RuntimeError, RuntimeResult,
@@ -33,7 +33,14 @@ pub enum Uniqueness {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct TraversalRequest {
     pub start: NodeId,
-    pub direction: Direction,
+    /// The role the path departs by at every hop.
+    pub from_role: RoleId,
+    /// The role the path arrives by at every hop.
+    pub to_role: RoleId,
+    /// When true, also traverse the reverse `(to_role, from_role)` pair,
+    /// unioning both directions the way `Direction::Both` used to.
+    pub symmetric: bool,
+    /// Empty means "every relationship type stored under this role pair".
     pub relationship_types: Vec<RelationshipTypeId>,
     pub min_hops: u32,
     pub max_hops: u32,
@@ -50,6 +57,14 @@ pub struct Path {
     pub nodes: Vec<NodeId>,
     pub relationships: Vec<RelationshipId>,
     pub relationship_types: Vec<RelationshipTypeId>,
+    /// The role each hop's relationship was entered by, parallel to
+    /// `relationships`. A relation can appear in more than one role pair, so
+    /// a path element cannot be read back without recording which one this
+    /// hop used.
+    pub from_roles: Vec<RoleId>,
+    /// The role each hop's relationship was left by, parallel to
+    /// `relationships`.
+    pub to_roles: Vec<RoleId>,
     pub total_weight: u64,
 }
 
@@ -154,14 +169,18 @@ impl TraversalCursor {
                 })?;
                 let at_cap = hops >= self.request.max_hops;
                 let expand = !at_cap || self.request.error_at_max_hops;
-                let neighbors = expand
-                    .then(|| {
-                        graph.neighbor_cursor(
-                            *state.nodes.last().expect("path state always has a node"),
-                            self.request.direction,
-                        )
-                    })
-                    .transpose()?;
+                let neighbors = expand.then(|| {
+                    let pairs = graph.resolve_pairs(
+                        &self.request.relationship_types,
+                        self.request.from_role,
+                        self.request.to_role,
+                        self.request.symmetric,
+                    );
+                    graph.neighbor_cursor(
+                        *state.nodes.last().expect("path state always has a node"),
+                        &pairs,
+                    )
+                });
                 self.active = Some(ActivePath {
                     state,
                     neighbors,
@@ -180,13 +199,12 @@ impl TraversalCursor {
                 }
                 self.budget.work()?;
                 work += 1;
-                match neighbors.step(graph, &self.request.relationship_types) {
-                    crate::csr::NeighborCursorStep::Filtered => continue,
-                    crate::csr::NeighborCursorStep::Done => {
+                match neighbors.next() {
+                    None => {
                         active.neighbors = None;
                         continue;
                     }
-                    crate::csr::NeighborCursorStep::Neighbor(neighbor) => {
+                    Some(neighbor) => {
                         self.budget.edge()?;
                         if !allows(
                             self.request.uniqueness,
@@ -208,6 +226,8 @@ impl TraversalCursor {
                         child.nodes.push(neighbor.node);
                         child.relationships.push(neighbor.relationship);
                         child.relationship_types.push(neighbor.relationship_type);
+                        child.from_roles.push(neighbor.from_role);
+                        child.to_roles.push(neighbor.to_role);
                         child.total_weight = child
                             .total_weight
                             .checked_add(neighbor.weight)
@@ -246,6 +266,8 @@ impl Path {
                     .len()
                     .saturating_mul(size_of::<RelationshipTypeId>()),
             )
+            .saturating_add(self.from_roles.len().saturating_mul(size_of::<RoleId>()))
+            .saturating_add(self.to_roles.len().saturating_mul(size_of::<RoleId>()))
     }
 }
 
@@ -254,6 +276,8 @@ struct PathState {
     nodes: Vec<NodeId>,
     relationships: Vec<RelationshipId>,
     relationship_types: Vec<RelationshipTypeId>,
+    from_roles: Vec<RoleId>,
+    to_roles: Vec<RoleId>,
     total_weight: u64,
 }
 
@@ -263,6 +287,8 @@ impl PathState {
             nodes: vec![node],
             relationships: Vec::new(),
             relationship_types: Vec::new(),
+            from_roles: Vec::new(),
+            to_roles: Vec::new(),
             total_weight: 0,
         }
     }
@@ -280,6 +306,8 @@ impl PathState {
                     .len()
                     .saturating_mul(size_of::<RelationshipTypeId>()),
             )
+            .saturating_add(self.from_roles.len().saturating_mul(size_of::<RoleId>()))
+            .saturating_add(self.to_roles.len().saturating_mul(size_of::<RoleId>()))
     }
 
     fn into_path(self) -> Path {
@@ -287,6 +315,8 @@ impl PathState {
             nodes: self.nodes,
             relationships: self.relationships,
             relationship_types: self.relationship_types,
+            from_roles: self.from_roles,
+            to_roles: self.to_roles,
             total_weight: self.total_weight,
         }
     }
@@ -384,6 +414,10 @@ mod tests {
         RelationshipTypeId::new(value).unwrap()
     }
 
+    fn role(value: u32) -> RoleId {
+        RoleId::new(value).unwrap()
+    }
+
     fn graph() -> Graph {
         Graph::build(
             [node(1), node(2), node(3), node(4), node(5)],
@@ -399,9 +433,13 @@ mod tests {
         .unwrap()
     }
 
+    /// One directed role pair (role 1 -> role 2), the shape a `direction:
+    /// Outgoing` request used to read.
     fn edge(id: u64, source: u64, target: u64, kind: u32) -> EdgeInput {
         EdgeInput {
             relationship: relationship(id),
+            from_role: role(1),
+            to_role: role(2),
             source: node(source),
             target: node(target),
             relationship_type: relationship_type(kind),
@@ -412,7 +450,9 @@ mod tests {
     fn request(order: TraversalOrder, uniqueness: Uniqueness) -> TraversalRequest {
         TraversalRequest {
             start: node(1),
-            direction: Direction::Outgoing,
+            from_role: role(1),
+            to_role: role(2),
+            symmetric: false,
             relationship_types: vec![],
             min_hops: 1,
             max_hops: 2,
@@ -519,7 +559,9 @@ mod tests {
         let graph = Graph::build(nodes, edges, BuildLimits::default()).unwrap();
         let request = TraversalRequest {
             start: node(1),
-            direction: Direction::Outgoing,
+            from_role: role(1),
+            to_role: role(2),
+            symmetric: false,
             relationship_types: vec![],
             min_hops: 2,
             max_hops: 2,
@@ -575,16 +617,101 @@ mod tests {
     }
 
     #[test]
+    fn a_path_records_the_role_pair_each_hop_traversed() {
+        // A relation with more than one role pair cannot be read back from a
+        // path unless each hop remembers which pair it took: a hop to node 2
+        // and a hop to node 3 share nothing but their source node and must
+        // not be confused for each other on the resulting path.
+        let graph = Graph::build(
+            [node(1), node(2), node(3)],
+            [
+                EdgeInput {
+                    relationship: relationship(1),
+                    from_role: role(1),
+                    to_role: role(2),
+                    source: node(1),
+                    target: node(2),
+                    relationship_type: relationship_type(1),
+                    weight: None,
+                },
+                EdgeInput {
+                    relationship: relationship(2),
+                    from_role: role(1),
+                    to_role: role(3),
+                    source: node(1),
+                    target: node(3),
+                    relationship_type: relationship_type(1),
+                    weight: None,
+                },
+            ],
+            BuildLimits::default(),
+        )
+        .unwrap();
+
+        let mut request = TraversalRequest {
+            start: node(1),
+            from_role: role(1),
+            to_role: role(2),
+            symmetric: false,
+            relationship_types: vec![],
+            min_hops: 1,
+            max_hops: 1,
+            error_at_max_hops: false,
+            uniqueness: Uniqueness::Trail,
+            order: TraversalOrder::BreadthFirst,
+        };
+        let paths = traverse(
+            &graph,
+            &request,
+            TraversalLimits::default(),
+            &crate::NeverCancelled,
+        )
+        .unwrap();
+        assert_eq!(paths.len(), 1);
+        assert_eq!(paths[0].from_roles, vec![role(1)]);
+        assert_eq!(paths[0].to_roles, vec![role(2)]);
+
+        request.to_role = role(3);
+        let paths = traverse(
+            &graph,
+            &request,
+            TraversalLimits::default(),
+            &crate::NeverCancelled,
+        )
+        .unwrap();
+        assert_eq!(paths.len(), 1);
+        assert_eq!(paths[0].from_roles, vec![role(1)]);
+        assert_eq!(paths[0].to_roles, vec![role(3)]);
+    }
+
+    #[test]
     fn walk_can_repeat_a_relationship_that_trail_rejects() {
+        // A symmetric request over role pair (1, 2) merges it with its
+        // reverse, so both directions of the one physical relationship must
+        // be present: `Direction::Both` used to read one shared reverse CSR,
+        // which a role-pair-keyed graph no longer builds implicitly.
         let graph = Graph::build(
             [node(1), node(2)],
-            [edge(10, 1, 2, 1)],
+            [
+                edge(10, 1, 2, 1),
+                EdgeInput {
+                    relationship: relationship(10),
+                    from_role: role(2),
+                    to_role: role(1),
+                    source: node(2),
+                    target: node(1),
+                    relationship_type: relationship_type(1),
+                    weight: None,
+                },
+            ],
             BuildLimits::default(),
         )
         .unwrap();
         let mut request = TraversalRequest {
             start: node(1),
-            direction: Direction::Both,
+            from_role: role(1),
+            to_role: role(2),
+            symmetric: true,
             relationship_types: vec![],
             min_hops: 2,
             max_hops: 2,
@@ -619,7 +746,9 @@ mod tests {
         let graph = graph();
         let request = TraversalRequest {
             start: node(1),
-            direction: Direction::Outgoing,
+            from_role: role(1),
+            to_role: role(2),
+            symmetric: false,
             relationship_types: vec![],
             min_hops: 0,
             max_hops: 0,

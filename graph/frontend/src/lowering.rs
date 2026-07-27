@@ -11,11 +11,59 @@ pub struct NodeTableLayout {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
+pub struct RelationshipRoleLayout {
+    pub role: ir::RoleId,
+    pub name: String,
+    /// Endpoint column on the relation table. Empty for `Many` roles.
+    pub column: String,
+    pub cardinality: ir::RoleCardinality,
+    /// Set for `Many` roles: `<table>__<role>(relation_id, node_id)`.
+    pub spill_table: Option<String>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct RelationshipTableLayout {
     pub table: String,
     pub identity_column: String,
-    pub start_column: String,
-    pub end_column: String,
+    /// Declaration order. A two-role relation is `[start, end]`.
+    pub roles: Vec<RelationshipRoleLayout>,
+}
+
+impl RelationshipTableLayout {
+    pub fn role(&self, role: ir::RoleId) -> Option<&RelationshipRoleLayout> {
+        self.roles.iter().find(|entry| entry.role == role)
+    }
+
+    fn role_by_name(&self, name: &str) -> Option<&RelationshipRoleLayout> {
+        self.roles
+            .iter()
+            .find(|role| role.name.eq_ignore_ascii_case(name))
+    }
+
+    /// The `start` role of a two-role pattern-hop relationship, resolved by
+    /// name rather than declaration order: role declaration order is not
+    /// guaranteed to put `start` before `end`.
+    pub fn start_role(&self) -> Option<&RelationshipRoleLayout> {
+        self.role_by_name("start")
+    }
+
+    /// The `end` role of a two-role pattern-hop relationship, resolved by
+    /// name rather than declaration order.
+    pub fn end_role(&self) -> Option<&RelationshipRoleLayout> {
+        self.role_by_name("end")
+    }
+
+    /// Columns that carry participation rather than payload.
+    pub fn structural_columns(&self) -> Vec<String> {
+        let mut columns = vec![self.identity_column.clone()];
+        columns.extend(
+            self.roles
+                .iter()
+                .filter(|role| role.cardinality == ir::RoleCardinality::One)
+                .map(|role| role.column.clone()),
+        );
+        columns
+    }
 }
 
 /// Physical relational names resolved from stable graph catalog identities.
@@ -132,6 +180,8 @@ pub enum LowerError {
     InvalidGeneratedSql(#[from] turso_core::LimboError),
     #[error("generated relational SQL contained no statement")]
     EmptyGeneratedSql,
+    #[error("relation {relation} has no role {role:?}")]
+    UnknownRole { relation: String, role: ir::RoleId },
 }
 
 #[derive(Clone, Copy)]
@@ -388,7 +438,7 @@ fn collect_wanted(plan: &ir::Plan, wanted: &mut WantedProperties) {
     let mut expressions: Vec<&ir::TypedExpression> = Vec::new();
     match plan.kind() {
         ir::PlanKind::Unit(_) | ir::PlanKind::NodeScan(_) => {}
-        ir::PlanKind::FixedExpand(expand) => collect_wanted(&expand.input, wanted),
+        ir::PlanKind::RoleExpand(expand) => collect_wanted(&expand.input, wanted),
         ir::PlanKind::GraphExpand(expand) => collect_wanted(&expand.input, wanted),
         ir::PlanKind::Filter(filter) => {
             expressions.push(&filter.predicate);
@@ -445,6 +495,8 @@ fn collect_wanted(plan: &ir::Plan, wanted: &mut WantedProperties) {
                 collect_wanted(input, wanted);
             }
         }
+        ir::PlanKind::RelationScan(_) => {}
+        ir::PlanKind::RoleJoin(join) => collect_wanted(&join.input, wanted),
     }
     for expression in expressions {
         collect_expression_wanted(expression, wanted);
@@ -557,8 +609,8 @@ fn lower_plan(
             bindings: HashMap::new(),
         }),
         ir::PlanKind::NodeScan(scan) => lower_node_scan(scan, catalog, wanted),
-        ir::PlanKind::FixedExpand(expand) => {
-            lower_fixed_expand(expand, catalog, optional, &[], wanted, None)
+        ir::PlanKind::RoleExpand(expand) => {
+            lower_role_expand(expand, catalog, optional, &[], wanted, None)
         }
         ir::PlanKind::GraphExpand(expand) => lower_graph_expand(expand, catalog, wanted),
         ir::PlanKind::Filter(filter) => {
@@ -780,6 +832,8 @@ fn lower_plan(
                 bindings: bindings.unwrap_or_default(),
             })
         }
+        ir::PlanKind::RelationScan(scan) => lower_relation_scan(scan, catalog, wanted),
+        ir::PlanKind::RoleJoin(join) => lower_role_join(join, catalog, wanted),
     }
 }
 
@@ -915,11 +969,25 @@ fn lower_graph_expand(
     let target = catalog
         .node_layout(expand.target_node_source)
         .ok_or(LowerError::MissingSource(expand.target_node_source))?;
-    let direction = match expand.direction {
-        ir::Direction::Outgoing => "outgoing",
-        ir::Direction::Incoming => "incoming",
-        ir::Direction::Both => "both",
-    };
+    // Lowering only names the two roles here -- exactly what the fixed hop
+    // already does via `relationship.role(id)` -- and makes no
+    // outgoing/incoming/both judgment of its own. The variable-length
+    // expand vtab and the traversal runtime it drives are role-pair-keyed
+    // (Task 17), so the numeric role ordinals resolved below pass straight
+    // through as `from_role`/`to_role` arguments with no direction
+    // translation anywhere in this path.
+    let from_role = relationship
+        .role(expand.from_role)
+        .ok_or_else(|| LowerError::UnknownRole {
+            relation: relationship.table.clone(),
+            role: expand.from_role,
+        })?;
+    let to_role = relationship
+        .role(expand.to_role)
+        .ok_or_else(|| LowerError::UnknownRole {
+            relation: relationship.table.clone(),
+            role: expand.to_role,
+        })?;
     let uniqueness = match expand.uniqueness {
         ir::PathUniqueness::Walk => "walk",
         ir::PathUniqueness::Trail => "trail",
@@ -1013,7 +1081,7 @@ fn lower_graph_expand(
                  max(CASE WHEN gx.is_terminal = 1 THEN gx.node_identity END) AS __gx_node, \
                  max(CASE WHEN gx.is_terminal = 1 THEN gx.relationship_identity END) AS __gx_rel \
                  FROM ({}) AS q \
-                 JOIN __turso_graph_expand({}, {}, q.{}, '{}', '{}', {}, {}, {}, '{}', {}, {}, {}, {}, {}) AS gx{source_join} \
+                 JOIN __turso_graph_expand({}, {}, q.{}, {}, {}, {}, '{}', {}, {}, {}, '{}', {}, {}, {}, {}, {}) AS gx{source_join} \
                  GROUP BY {}gx.path_id) AS g \
                  JOIN {} AS n ON n.{} = g.__gx_node \
                  LEFT JOIN {} AS r ON r.{} = g.__gx_rel",
@@ -1030,7 +1098,9 @@ fn lower_graph_expand(
                 expand.graph.get(),
                 expand.from_node_source.get(),
                 binding_column(expand.from),
-                direction,
+                from_role.role.get(),
+                to_role.role.get(),
+                u8::from(expand.symmetric),
                 relationship_types,
                 expand.min_hops,
                 expand.max_hops,
@@ -1054,7 +1124,7 @@ fn lower_graph_expand(
         sql: format!(
             "SELECT q.*, r.{} AS {}, {} AS {}, n.{} AS {}, {} AS {} \
              FROM ({}) AS q \
-             JOIN __turso_graph_expand({}, {}, q.{}, '{}', '{}', {}, {}, {}, '{}', {}, {}, {}, {}, {}) AS gx{source_join} \
+             JOIN __turso_graph_expand({}, {}, q.{}, {}, {}, {}, '{}', {}, {}, {}, '{}', {}, {}, {}, {}, {}) AS gx{source_join} \
              JOIN {} AS n ON gx.is_terminal = 1 AND gx.node_source_id = {} AND n.{} = gx.node_identity \
              LEFT JOIN {} AS r ON gx.relationship_source_id = {} AND r.{} = gx.relationship_identity",
             quote_identifier(&relationship.identity_column),
@@ -1069,7 +1139,9 @@ fn lower_graph_expand(
             expand.graph.get(),
             expand.from_node_source.get(),
             binding_column(expand.from),
-            direction,
+            from_role.role.get(),
+            to_role.role.get(),
+            u8::from(expand.symmetric),
             relationship_types,
             expand.min_hops,
             expand.max_hops,
@@ -1122,16 +1194,16 @@ fn lower_optional_chain(
         return lower_plan(original, catalog, false, wanted);
     }
     match current.kind() {
-        ir::PlanKind::FixedExpand(expand) => {
-            lower_fixed_expand(expand, catalog, true, &predicates, wanted, boundary)
+        ir::PlanKind::RoleExpand(expand) => {
+            lower_role_expand(expand, catalog, true, &predicates, wanted, boundary)
         }
         ir::PlanKind::Union(union) => {
             let mut parts = Vec::new();
             let mut bindings: Option<HashMap<ir::BindingId, BindingLayout>> = None;
             for branch in union.inputs() {
                 let lowered = match branch.kind() {
-                    ir::PlanKind::FixedExpand(expand) => {
-                        lower_fixed_expand(expand, catalog, true, &predicates, wanted, boundary)?
+                    ir::PlanKind::RoleExpand(expand) => {
+                        lower_role_expand(expand, catalog, true, &predicates, wanted, boundary)?
                     }
                     _ => lower_optional_chain(branch, boundary, catalog, wanted)?,
                 };
@@ -1395,8 +1467,201 @@ fn lower_node_scan(
     Ok(Lowered { sql, bindings })
 }
 
-fn lower_fixed_expand(
-    expand: &ir::FixedExpand,
+/// Synthetic column carrying a `RelationScan`'s projection of one named
+/// role's endpoint column, so a later `RoleJoin` can address it without a
+/// second lookup against the relationship table. Keyed by the relation
+/// binding (not just the role) so a query with two independently scanned
+/// relations of the same type never collides.
+fn role_column_ref(relation: ir::BindingId, role: ir::RoleId) -> String {
+    format!("{}_role{}", binding_column(relation), role.get())
+}
+
+/// Anchors a scan on a relation's own table. Every `One`-cardinality role's
+/// endpoint column is projected under a synthetic, role-keyed name so any
+/// number of `RoleJoin`s can be composed on top — the scan itself carries no
+/// knowledge of which roles a query will actually join through.
+fn lower_relation_scan(
+    scan: &ir::RelationScan,
+    catalog: &dyn RelationalCatalogSnapshot,
+    wanted: &WantedProperties,
+) -> Result<Lowered, LowerError> {
+    let layout = catalog
+        .relationship_layout(scan.source)
+        .ok_or(LowerError::MissingSource(scan.source))?;
+    let alias = "r";
+    let mut binding_layout = BindingLayout {
+        source: scan.source,
+        sources: [scan.source].into_iter().collect(),
+        kind: EntityKind::Relationship,
+        properties: Default::default(),
+    };
+    let extra = materialize_properties(
+        wanted,
+        scan.binding,
+        scan.source,
+        alias,
+        catalog,
+        &mut binding_layout,
+        MaterializationContext::default(),
+    );
+    let mut bindings = HashMap::new();
+    bindings.insert(scan.binding, binding_layout);
+    let mut role_columns = String::new();
+    for role in layout
+        .roles
+        .iter()
+        .filter(|role| role.cardinality == ir::RoleCardinality::One)
+    {
+        role_columns.push_str(&format!(
+            ", {alias}.{} AS {}",
+            quote_identifier(&role.column),
+            role_column_ref(scan.binding, role.role)
+        ));
+    }
+    let mut sql = format!(
+        "SELECT {alias}.{} AS {}, {} AS {}{role_columns}{extra} FROM {} AS {alias}",
+        quote_identifier(&layout.identity_column),
+        binding_column(scan.binding),
+        scan.source.get(),
+        source_column_ref(scan.binding),
+        quote_identifier(&layout.table)
+    );
+    if !scan.relationship_types.is_empty() {
+        if let Some(types_table) = catalog.relationship_types_table() {
+            let names = scan
+                .relationship_types
+                .iter()
+                .filter_map(|relationship_type| catalog.relationship_type_name(*relationship_type))
+                .map(|name| format!("'{}'", name.replace('\'', "''")))
+                .collect::<Vec<_>>();
+            if !names.is_empty() {
+                let source_predicate = if catalog.source_qualified_membership() {
+                    format!("jt.source_id = {} AND ", scan.source.get())
+                } else {
+                    String::new()
+                };
+                sql.push_str(&format!(
+                    " JOIN {} AS jt ON {source_predicate}jt.relationship_id = {alias}.{} \
+                     AND jt.type IN ({})",
+                    quote_identifier(&types_table),
+                    quote_identifier(&layout.identity_column),
+                    names.join(", ")
+                ));
+            }
+        }
+    }
+    Ok(Lowered { sql, bindings })
+}
+
+/// Joins one named role of an already-scanned relation out to its player.
+/// `Bound` folds to an identity equality for a `One` role, or a spill-table
+/// membership test for a `Many` role (mirrors the merge-key predicate
+/// `mutation.rs` builds for a `Many` role); `Fresh` joins the role's physical
+/// node table, through the spill table first when the role is `Many` so `n`
+/// players produce `n` rows. Composing `n` of these onto a `RelationScan`
+/// reads a relation with `n` named roles with no arity branch — each role
+/// resolves independently by `RoleId`, and a role is `Many` exactly when its
+/// layout carries a `spill_table`, never by name, position, or arity.
+fn lower_role_join(
+    join: &ir::RoleJoin,
+    catalog: &dyn RelationalCatalogSnapshot,
+    wanted: &WantedProperties,
+) -> Result<Lowered, LowerError> {
+    let input = lower_plan(&join.input, catalog, false, wanted)?;
+    let relationship = catalog
+        .relationship_layout(join.relationship_source)
+        .ok_or(LowerError::MissingSource(join.relationship_source))?;
+    let role = relationship
+        .role(join.role)
+        .ok_or_else(|| LowerError::UnknownRole {
+            relation: relationship.table.clone(),
+            role: join.role,
+        })?;
+    let relation_column = binding_column(join.relationship);
+    let mut bindings = input.bindings;
+    match &join.player {
+        ir::RolePlayer::Bound(binding) => {
+            let predicate = match &role.spill_table {
+                // A `Many` role has no role column to equate against; test
+                // membership in its spill table instead.
+                Some(spill_table) => format!(
+                    "EXISTS (SELECT 1 FROM {} AS s WHERE s.relation_id = q.{relation_column} \
+                     AND s.node_id = q.{})",
+                    quote_identifier(spill_table),
+                    binding_column(*binding),
+                ),
+                None => format!(
+                    "q.{} = q.{}",
+                    role_column_ref(join.relationship, join.role),
+                    binding_column(*binding),
+                ),
+            };
+            Ok(Lowered {
+                sql: format!("SELECT q.* FROM ({}) AS q WHERE {predicate}", input.sql),
+                bindings,
+            })
+        }
+        ir::RolePlayer::Fresh {
+            binding,
+            node_source,
+        } => {
+            let target = catalog
+                .node_layout(*node_source)
+                .ok_or(LowerError::MissingSource(*node_source))?;
+            let alias = "n";
+            let mut binding_layout = BindingLayout {
+                source: *node_source,
+                sources: [*node_source].into_iter().collect(),
+                kind: EntityKind::Node,
+                properties: Default::default(),
+            };
+            let extra = materialize_properties(
+                wanted,
+                binding.id(),
+                *node_source,
+                alias,
+                catalog,
+                &mut binding_layout,
+                MaterializationContext::default(),
+            );
+            bindings.insert(binding.id(), binding_layout);
+            // A `One` role's player is the relation's endpoint column,
+            // joined directly to the target table. A `Many` role's players
+            // live in a spill table, so a fresh player needs an extra join
+            // through it, one row per spilled player — the difference from
+            // the `One` arm is one extra join, not a different shape.
+            let join_clause = match &role.spill_table {
+                Some(spill_table) => format!(
+                    "JOIN {} AS s ON s.relation_id = q.{relation_column} \
+                     JOIN {} AS {alias} ON {alias}.{} = s.node_id",
+                    quote_identifier(spill_table),
+                    quote_identifier(&target.table),
+                    quote_identifier(&target.identity_column),
+                ),
+                None => format!(
+                    "JOIN {} AS {alias} ON {alias}.{} = q.{}",
+                    quote_identifier(&target.table),
+                    quote_identifier(&target.identity_column),
+                    role_column_ref(join.relationship, join.role),
+                ),
+            };
+            Ok(Lowered {
+                sql: format!(
+                    "SELECT q.*, {alias}.{} AS {}, {} AS {}{extra} FROM ({}) AS q {join_clause}",
+                    quote_identifier(&target.identity_column),
+                    binding_column(binding.id()),
+                    node_source.get(),
+                    source_column_ref(binding.id()),
+                    input.sql,
+                ),
+                bindings,
+            })
+        }
+    }
+}
+
+fn lower_role_expand(
+    expand: &ir::RoleExpand,
     catalog: &dyn RelationalCatalogSnapshot,
     optional: bool,
     join_predicates: &[&ir::TypedExpression],
@@ -1425,6 +1690,23 @@ fn lower_fixed_expand(
     let relationship = catalog
         .relationship_layout(expand.relationship_source)
         .ok_or(LowerError::MissingSource(expand.relationship_source))?;
+    // The role pair says which column is `from` and which is `to`; binary is
+    // a layout of the role model, not a separate kind, so this is the same
+    // resolution an n-ary relation's roles get.
+    let from_column = &relationship
+        .role(expand.from_role)
+        .ok_or_else(|| LowerError::UnknownRole {
+            relation: relationship.table.clone(),
+            role: expand.from_role,
+        })?
+        .column;
+    let to_column = &relationship
+        .role(expand.to_role)
+        .ok_or_else(|| LowerError::UnknownRole {
+            relation: relationship.table.clone(),
+            role: expand.to_role,
+        })?
+        .column;
     let target = catalog
         .node_layout(expand.target_node_source)
         .ok_or(LowerError::MissingSource(expand.target_node_source))?;
@@ -1438,70 +1720,51 @@ fn lower_fixed_expand(
     let bound_reference = expand
         .bound_target
         .map(|binding| format!("q.{}", binding_column(binding)));
-    let (relationship_on, mut node_on) = match (&bound_reference, expand.direction) {
-        (Some(bound), ir::Direction::Outgoing) => (
+    // `symmetric` -- not a `Both` direction arm -- is what an undirected
+    // pattern means: the reversed role pair also matches.
+    let (relationship_on, mut node_on) = match (&bound_reference, expand.symmetric) {
+        (Some(bound), false) => (
             format!(
                 "{relationship_alias}.{} = {from} AND {relationship_alias}.{} = {bound}",
-                quote_identifier(&relationship.start_column),
-                quote_identifier(&relationship.end_column)
+                quote_identifier(from_column),
+                quote_identifier(to_column)
             ),
             String::new(),
         ),
-        (Some(bound), ir::Direction::Incoming) => (
+        (Some(bound), true) => (
             format!(
-                "{relationship_alias}.{} = {from} AND {relationship_alias}.{} = {bound}",
-                quote_identifier(&relationship.end_column),
-                quote_identifier(&relationship.start_column)
+                "(({relationship_alias}.{from_col} = {from} AND {relationship_alias}.{to_col} = {bound})                  OR ({relationship_alias}.{to_col} = {from} AND {relationship_alias}.{from_col} = {bound}))",
+                from_col = quote_identifier(from_column),
+                to_col = quote_identifier(to_column)
             ),
             String::new(),
         ),
-        (Some(bound), ir::Direction::Both) => (
-            format!(
-                "(({relationship_alias}.{start} = {from} AND {relationship_alias}.{end} = {bound})                  OR ({relationship_alias}.{end} = {from} AND {relationship_alias}.{start} = {bound}))",
-                start = quote_identifier(&relationship.start_column),
-                end = quote_identifier(&relationship.end_column)
-            ),
-            String::new(),
-        ),
-        (None, _) => match expand.direction {
-        ir::Direction::Outgoing => (
+        (None, false) => (
             format!(
                 "{relationship_alias}.{} = {from}",
-                quote_identifier(&relationship.start_column)
+                quote_identifier(from_column)
             ),
             format!(
                 "{target_alias}.{} = {relationship_alias}.{}",
                 quote_identifier(&target.identity_column),
-                quote_identifier(&relationship.end_column)
+                quote_identifier(to_column)
             ),
         ),
-        ir::Direction::Incoming => (
-            format!(
-                "{relationship_alias}.{} = {from}",
-                quote_identifier(&relationship.end_column)
-            ),
-            format!(
-                "{target_alias}.{} = {relationship_alias}.{}",
-                quote_identifier(&target.identity_column),
-                quote_identifier(&relationship.start_column)
-            ),
-        ),
-        ir::Direction::Both => (
+        (None, true) => (
             format!(
                 "({relationship_alias}.{} = {from} OR {relationship_alias}.{} = {from})",
-                quote_identifier(&relationship.start_column),
-                quote_identifier(&relationship.end_column)
+                quote_identifier(from_column),
+                quote_identifier(to_column)
             ),
             format!(
                 "{target_alias}.{} = CASE WHEN {relationship_alias}.{} = {from} \
                  THEN {relationship_alias}.{} ELSE {relationship_alias}.{} END",
                 quote_identifier(&target.identity_column),
-                quote_identifier(&relationship.start_column),
-                quote_identifier(&relationship.end_column),
-                quote_identifier(&relationship.start_column)
+                quote_identifier(from_column),
+                quote_identifier(to_column),
+                quote_identifier(from_column)
             ),
         ),
-        },
     };
     // Filter typed hops through the relationship-type junction; recorded
     // types are authoritative, untyped rows only match untyped patterns.
@@ -2428,11 +2691,19 @@ fn lower_expression_with_references(
                     let relationship = catalog
                         .relationship_layout(*source)
                         .ok_or(LowerError::MissingSource(*source))?;
-                    let endpoint = if function.as_str() == "__cypher_start_node" {
-                        relationship.start_column
+                    // startNode()/endNode() only ever address the two-role
+                    // pattern-hop relationship. Resolve by name, not
+                    // declaration order -- role order is not guaranteed to
+                    // put `start` before `end`.
+                    let role = if function.as_str() == "__cypher_start_node" {
+                        relationship.start_role()
                     } else {
-                        relationship.end_column
+                        relationship.end_role()
                     };
+                    let endpoint = role
+                        .ok_or(LowerError::MissingSource(*source))?
+                        .column
+                        .clone();
                     branches.push((
                         *source,
                         format!(
@@ -2958,8 +3229,68 @@ mod tests {
             Some(RelationshipTableLayout {
                 table: "relationship table".to_owned(),
                 identity_column: "relationship id".to_owned(),
-                start_column: "start node".to_owned(),
-                end_column: "end node".to_owned(),
+                roles: vec![
+                    RelationshipRoleLayout {
+                        role: ir::RoleId::new(1).unwrap(),
+                        name: "start".to_owned(),
+                        column: "start node".to_owned(),
+                        cardinality: ir::RoleCardinality::One,
+                        spill_table: None,
+                    },
+                    RelationshipRoleLayout {
+                        role: ir::RoleId::new(2).unwrap(),
+                        name: "end".to_owned(),
+                        column: "end node".to_owned(),
+                        cardinality: ir::RoleCardinality::One,
+                        spill_table: None,
+                    },
+                ],
+            })
+        }
+
+        fn property_column(
+            &self,
+            _source: ir::SourceTableId,
+            _property: ir::PropertyId,
+        ) -> Option<String> {
+            None
+        }
+    }
+
+    /// Same layout as `EndpointCatalog`, but with `end` declared BEFORE
+    /// `start`. Declaration order is not guaranteed to put `start` first, so
+    /// a consumer that indexes `roles[0]`/`roles[1]` positionally instead of
+    /// resolving by name would silently swap start/end here.
+    struct ReversedEndpointCatalog;
+
+    impl RelationalCatalogSnapshot for ReversedEndpointCatalog {
+        fn node_layout(&self, _source: ir::SourceTableId) -> Option<NodeTableLayout> {
+            None
+        }
+
+        fn relationship_layout(
+            &self,
+            _source: ir::SourceTableId,
+        ) -> Option<RelationshipTableLayout> {
+            Some(RelationshipTableLayout {
+                table: "relationship table".to_owned(),
+                identity_column: "relationship id".to_owned(),
+                roles: vec![
+                    RelationshipRoleLayout {
+                        role: ir::RoleId::new(2).unwrap(),
+                        name: "end".to_owned(),
+                        column: "end node".to_owned(),
+                        cardinality: ir::RoleCardinality::One,
+                        spill_table: None,
+                    },
+                    RelationshipRoleLayout {
+                        role: ir::RoleId::new(1).unwrap(),
+                        name: "start".to_owned(),
+                        column: "start node".to_owned(),
+                        cardinality: ir::RoleCardinality::One,
+                        spill_table: None,
+                    },
+                ],
             })
         }
 
@@ -3171,6 +3502,61 @@ mod tests {
             lower_expression(&endpoint("__cypher_end_node"), &bindings, &Catalog, "q"),
             Err(LowerError::MissingSource(missing)) if missing == source
         ));
+    }
+
+    /// Regression test: `startNode()`/`endNode()` must resolve the relevant
+    /// role column by NAME, not by position in `RelationshipTableLayout::roles`.
+    /// A positional `roles[0]`/`roles[1]` reader would swap these two
+    /// assertions relative to `endpoint_functions_use_quoted_relationship_layout_columns`
+    /// above, because `ReversedEndpointCatalog` declares `end` first.
+    #[test]
+    fn start_end_role_lookup_is_name_based_not_positional() {
+        let source = ir::SourceTableId::new(7).unwrap();
+        let relationship = ir::BindingId::new(3).unwrap();
+        let bindings = HashMap::from([(
+            relationship,
+            BindingLayout {
+                source,
+                sources: [source].into_iter().collect(),
+                kind: EntityKind::Relationship,
+                properties: Default::default(),
+            },
+        )]);
+        let endpoint = |function: &str| ir::TypedExpression {
+            expression: ir::Expression::Function {
+                function: ir::FunctionName::new(function).unwrap(),
+                arguments: vec![ir::TypedExpression {
+                    expression: ir::Expression::Binding(relationship),
+                    value_type: ir::ValueType::Relationship,
+                    nullability: ir::Nullability::NonNull,
+                }],
+            },
+            value_type: ir::ValueType::Node,
+            nullability: ir::Nullability::NonNull,
+        };
+
+        assert_eq!(
+            lower_expression(
+                &endpoint("__cypher_start_node"),
+                &bindings,
+                &ReversedEndpointCatalog,
+                "q"
+            )
+            .unwrap(),
+            "(SELECT ep.\"start node\" FROM \"relationship table\" AS ep WHERE ep.\"relationship id\" = (q.b3))",
+            "startNode() must resolve the `start` role's column even though it is declared second"
+        );
+        assert_eq!(
+            lower_expression(
+                &endpoint("__cypher_end_node"),
+                &bindings,
+                &ReversedEndpointCatalog,
+                "q"
+            )
+            .unwrap(),
+            "(SELECT ep.\"end node\" FROM \"relationship table\" AS ep WHERE ep.\"relationship id\" = (q.b3))",
+            "endNode() must resolve the `end` role's column even though it is declared first"
+        );
     }
 
     #[test]

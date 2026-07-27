@@ -1,16 +1,20 @@
+mod fixture;
+
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 
+use fixture::{bind_fixture, first_role_expand};
 use serde::Deserialize;
 use turso_core::{Database, MemoryIO, SqliteDialect, Value};
 use turso_graph_cypher::parse;
 use turso_graph_frontend::{
     bind, graph_frontend_id, lower_relational, CatalogEntity, GraphCatalogSnapshot, GraphCompiler,
-    NodeTableLayout, ParameterTypes, RelationalCatalogSnapshot, RelationshipTableLayout,
-    ResolvedProperty,
+    NodeTableLayout, ParameterTypes, RelationalCatalogSnapshot, RelationshipRoleLayout,
+    RelationshipTableLayout, ResolvedProperty,
 };
 use turso_graph_ir::{
-    GraphId, LabelId, Nullability, PropertyId, RelationshipTypeId, SourceTableId, ValueType,
+    GraphId, LabelId, Nullability, PropertyId, RelationshipTypeId, RoleCardinality, RoleId,
+    SourceTableId, ValueType,
 };
 
 const MANIFEST: &str = include_str!("../../testdata/fixed-patterns/manifest.toml");
@@ -78,6 +82,10 @@ impl GraphCatalogSnapshot for Catalog {
             nullability: Nullability::Nullable,
         })
     }
+
+    fn relationship_source_roles(&self, source: SourceTableId) -> Option<RelationshipTableLayout> {
+        self.relationship_layout(source)
+    }
 }
 
 impl RelationalCatalogSnapshot for Catalog {
@@ -92,8 +100,22 @@ impl RelationalCatalogSnapshot for Catalog {
         (source.get() == 2).then(|| RelationshipTableLayout {
             table: "relationships".to_owned(),
             identity_column: "id".to_owned(),
-            start_column: "src".to_owned(),
-            end_column: "dst".to_owned(),
+            roles: vec![
+                RelationshipRoleLayout {
+                    role: RoleId::new(1).unwrap(),
+                    name: "start".to_owned(),
+                    column: "src".to_owned(),
+                    cardinality: RoleCardinality::One,
+                    spill_table: None,
+                },
+                RelationshipRoleLayout {
+                    role: RoleId::new(2).unwrap(),
+                    name: "end".to_owned(),
+                    column: "dst".to_owned(),
+                    cardinality: RoleCardinality::One,
+                    spill_table: None,
+                },
+            ],
         })
     }
 
@@ -109,6 +131,10 @@ impl RelationalCatalogSnapshot for Catalog {
 
 fn manifest() -> Manifest {
     toml::from_str(MANIFEST).expect("fixed-pattern manifest must be valid TOML")
+}
+
+fn role(value: u32) -> RoleId {
+    RoleId::new(value).unwrap()
 }
 
 #[test]
@@ -280,5 +306,38 @@ fn supported_fixtures_execute_through_turso_planner_and_vdbe() {
         rows,
         vec![vec![Value::build_text("Alix"), Value::Null, Value::Null]],
         "an optional predicate must preserve the input row and null the entire unmatched pattern"
+    );
+}
+
+#[test]
+fn an_outgoing_expand_binds_the_start_to_end_role_pair() {
+    // The role pair must agree with the direction it is replacing, or the
+    // contract half of this migration silently reverses every traversal.
+    let plan = bind_fixture("MATCH (a:Person)-[r:KNOWS]->(b:Person) RETURN b");
+    let expand = first_role_expand(&plan);
+    assert_eq!(expand.from_role.get(), 1, "role 1 is `start`");
+    assert_eq!(expand.to_role.get(), 2, "role 2 is `end`");
+    assert!(!expand.symmetric);
+}
+
+#[test]
+fn an_incoming_expand_reverses_the_role_pair_rather_than_flagging_it() {
+    let plan = bind_fixture("MATCH (a:Person)<-[r:KNOWS]-(b:Person) RETURN b");
+    let expand = first_role_expand(&plan);
+    assert_eq!(expand.role_pair(), (role(2), role(1)));
+    assert!(!expand.symmetric);
+}
+
+#[test]
+fn an_undirected_same_source_expand_is_the_symmetric_pair() {
+    // Today's Direction::Both. The binder only emits it when both endpoints
+    // come from one node source; otherwise it unions two directed branches,
+    // and this test would find two expands rather than a symmetric one.
+    let plan = bind_fixture("MATCH (a:Person)-[r:KNOWS]-(b:Person) RETURN b");
+    let expand = first_role_expand(&plan);
+    assert_eq!(expand.role_pair(), (role(1), role(2)));
+    assert!(
+        expand.symmetric,
+        "an undirected pattern matches the pair in both orders"
     );
 }

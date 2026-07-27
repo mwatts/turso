@@ -1,0 +1,567 @@
+# Review package: 2329d3fd1..8f69c19f5
+
+## Commits
+8f69c19f5 graph/ir: rename CreateRelationship to CreateRelation and drop endpoints
+
+## Files changed
+ graph/frontend/src/binder.rs         | 34 +++++++++-----
+ graph/frontend/src/mutation.rs       | 16 +++----
+ graph/frontend/src/schema_catalog.rs |  2 +-
+ graph/ir/src/lib.rs                  |  6 +--
+ graph/ir/src/mutation.rs             | 86 ++++++++++++++++++++++--------------
+ 5 files changed, 86 insertions(+), 58 deletions(-)
+
+## Diff
+diff --git a/graph/frontend/src/binder.rs b/graph/frontend/src/binder.rs
+index 9970146bd..ddfb563d3 100644
+--- a/graph/frontend/src/binder.rs
++++ b/graph/frontend/src/binder.rs
+@@ -1654,47 +1654,44 @@ impl<'a> Binder<'a> {
+                 .role;
+             let end_role = self
+                 .catalog
+                 .relationship_role(self.graph, relationship_types[0], "end")
+                 .ok_or(BindError::MissingRelationshipRole {
+                     role: "end",
+                     span_start: relationship.span.start,
+                     span_end: relationship.span.end,
+                 })?
+                 .role;
+-            let create = ir::CreateRelationship {
++            let create = ir::CreateRelation {
+                 binding,
+                 source,
+-                from: relationship_from,
+-                to: relationship_to,
+-                direction: ir::CreateRelationship::default_direction(),
+                 relationship_types,
+                 properties,
+                 roles: vec![
+                     ir::RoleBinding {
+                         role: start_role,
+                         value: relationship_from,
+                     },
+                     ir::RoleBinding {
+                         role: end_role,
+                         value: relationship_to,
+                     },
+                 ],
+             };
+             operations.push(if merge {
+-                ir::Mutation::MergeRelationship(ir::MergeRelationship {
++                ir::Mutation::MergeRelation(ir::MergeRelation {
+                     create,
+                     on_create: Vec::new(),
+                     on_match: Vec::new(),
+                 })
+             } else {
+-                ir::Mutation::CreateRelationship(create)
++                ir::Mutation::CreateRelation(create)
+             });
+             from = next_from;
+         }
+         if let Some(variable) = &path.variable {
+             self.path_compositions.insert(
+                 variable.value.clone(),
+                 PathComposition::Fixed {
+                     nodes: path_nodes,
+                     relationships: path_relationships,
+                 },
+@@ -1724,21 +1721,21 @@ impl<'a> Binder<'a> {
+             .iter()
+             .map(|item| self.bind_set_item(item))
+             .collect::<Result<Vec<_>, _>>()?;
+         for operation in operations.iter_mut().rev() {
+             match operation {
+                 ir::Mutation::MergeNode(merge) => {
+                     merge.on_create = on_create;
+                     merge.on_match = on_match;
+                     return Ok(());
+                 }
+-                ir::Mutation::MergeRelationship(merge) => {
++                ir::Mutation::MergeRelation(merge) => {
+                     merge.on_create = on_create;
+                     merge.on_match = on_match;
+                     return Ok(());
+                 }
+                 _ => {}
+             }
+         }
+         Err(at_unsupported(
+             clause.path.span,
+             "ON CREATE/ON MATCH without a merge operation",
+@@ -7217,30 +7214,45 @@ mod tests {
+     fn binds_created_path_to_stable_sources_and_endpoints() {
+         let bound = bind_mutation_text(
+             "CREATE (a:Person {id: 1, name: 'Ada'})-[r:KNOWS {since: 2020}]->(b:Person {id: 2})",
+         )
+         .expect("mutation should bind");
+         assert!(bound.request.input.is_none());
+         assert_eq!(bound.request.operations.len(), 3);
+         let ir::Mutation::CreateNode(first) = &bound.request.operations[0] else {
+             panic!("expected first node creation")
+         };
+-        let ir::Mutation::CreateRelationship(relationship) = &bound.request.operations[2] else {
++        let ir::Mutation::CreateRelation(relationship) = &bound.request.operations[2] else {
+             panic!("expected relationship creation")
+         };
+         assert_eq!(first.source, ir::SourceTableId::new(10).unwrap());
+         assert_eq!(relationship.source, ir::SourceTableId::new(11).unwrap());
+-        assert_eq!(relationship.from, first.binding.id());
+         let ir::Mutation::CreateNode(second) = &bound.request.operations[1] else {
+             panic!("expected second node creation")
+         };
+-        assert_eq!(relationship.to, second.binding.id());
++        // `from`/`to` are gone; roles are the only statement of who
++        // participates. The fixture catalog's `relationship_source_roles`
++        // registers `start` as `RoleId(1)` and `end` as `RoleId(2)` (see the
++        // sibling test below for the full pairing check).
++        assert_eq!(
++            relationship.roles,
++            vec![
++                ir::RoleBinding {
++                    role: ir::RoleId::new(1).expect("non-zero"),
++                    value: first.binding.id(),
++                },
++                ir::RoleBinding {
++                    role: ir::RoleId::new(2).expect("non-zero"),
++                    value: second.binding.id(),
++                },
++            ]
++        );
+     }
+ 
+     /// Regression test for role/value mispairing, the recurring defect class
+     /// on this plan (already caught at Tasks 4, 5, 6, 7). The fixture
+     /// `Catalog::relationship_source_roles` above registers `start` as
+     /// `RoleId(1)` and `end` as `RoleId(2)`; a binder that swapped which
+     /// value each role binds to, or dropped `roles` entirely, would leave
+     /// every other test in this module (including
+     /// `binds_created_path_to_stable_sources_and_endpoints`, which only
+     /// checks `from`/`to`) unaffected. Asserting the exact `(role, value)`
+@@ -7252,21 +7264,21 @@ mod tests {
+         let bound = bind_mutation_text(
+             "CREATE (a:Person {id: 1, name: 'Ada'})-[r:KNOWS {since: 2020}]->(b:Person {id: 2})",
+         )
+         .expect("mutation should bind");
+         let ir::Mutation::CreateNode(first) = &bound.request.operations[0] else {
+             panic!("expected first node creation")
+         };
+         let ir::Mutation::CreateNode(second) = &bound.request.operations[1] else {
+             panic!("expected second node creation")
+         };
+-        let ir::Mutation::CreateRelationship(relationship) = &bound.request.operations[2] else {
++        let ir::Mutation::CreateRelation(relationship) = &bound.request.operations[2] else {
+             panic!("expected relationship creation")
+         };
+         assert_eq!(
+             relationship.roles,
+             vec![
+                 ir::RoleBinding {
+                     role: ir::RoleId::new(1).expect("non-zero"),
+                     value: first.binding.id(),
+                 },
+                 ir::RoleBinding {
+diff --git a/graph/frontend/src/mutation.rs b/graph/frontend/src/mutation.rs
+index 133b66de2..000766365 100644
+--- a/graph/frontend/src/mutation.rs
++++ b/graph/frontend/src/mutation.rs
+@@ -1222,21 +1222,21 @@ fn execute_operation(
+                     catalog,
+                     graph,
+                     input,
+                     action,
+                     parameters,
+                     values,
+                     entity_layouts,
+                 )?;
+             }
+         }
+-        ir::Mutation::CreateRelationship(create) => {
++        ir::Mutation::CreateRelation(create) => {
+             let (identity, _) = insert_relationship(
+                 connection,
+                 catalog,
+                 input,
+                 create,
+                 parameters,
+                 values,
+                 entity_layouts,
+                 false,
+             )?;
+@@ -1247,21 +1247,21 @@ fn execute_operation(
+                 &create.relationship_types,
+                 &identity,
+                 parameters,
+             )?;
+             values.insert(create.binding.id(), identity);
+             entity_layouts.insert(
+                 create.binding.id(),
+                 (create.source, MutationEntityKind::Relationship),
+             );
+         }
+-        ir::Mutation::MergeRelationship(merge) => {
++        ir::Mutation::MergeRelation(merge) => {
+             let (identity, created) = insert_relationship(
+                 connection,
+                 catalog,
+                 input,
+                 &merge.create,
+                 parameters,
+                 values,
+                 entity_layouts,
+                 true,
+             )?;
+@@ -1830,21 +1830,21 @@ fn node_label_predicates(
+             )
+         })
+         .collect()
+ }
+ 
+ #[allow(clippy::too_many_arguments)]
+ pub(crate) fn insert_relationship(
+     connection: &Arc<Connection>,
+     catalog: &dyn GraphCompilationCatalog,
+     input: &LoweredMutationInput,
+-    create: &ir::CreateRelationship,
++    create: &ir::CreateRelation,
+     parameters: &Parameters,
+     values: &HashMap<ir::BindingId, Value>,
+     entity_layouts: &HashMap<ir::BindingId, (ir::SourceTableId, MutationEntityKind)>,
+     merge: bool,
+ ) -> Result<(Value, bool), MutationError> {
+     let layout = catalog
+         .relationship_layout(create.source)
+         .ok_or(LowerError::MissingSource(create.source))?;
+     let merge_predicates = if merge {
+         relationship_type_predicates(
+@@ -3068,53 +3068,49 @@ mod tests {
+                    id INTEGER PRIMARY KEY, scribe INTEGER, txt INTEGER, folio INTEGER);",
+             )
+             .unwrap();
+         (
+             connection,
+             Arc::new(TernaryCatalog),
+             ir::GraphId::new(1).unwrap(),
+         )
+     }
+ 
+-    /// Builds a `CreateRelationship` for `TernaryCatalog`'s `Transcription`
++    /// Builds a `CreateRelation` for `TernaryCatalog`'s `Transcription`
+     /// source with `roles` bound to `(scribe, text, folio)` player values
+     /// given in that order, but placed on the IR in (folio, scribe, text)
+     /// order -- yet a third permutation from both the layout's declaration
+     /// order and RoleId order.
+     fn ternary_create(
+         scribe: i64,
+         text: i64,
+         folio: i64,
+-    ) -> (ir::CreateRelationship, HashMap<ir::BindingId, Value>) {
++    ) -> (ir::CreateRelation, HashMap<ir::BindingId, Value>) {
+         let folio_binding = ir::BindingId::new(1).unwrap();
+         let scribe_binding = ir::BindingId::new(2).unwrap();
+         let text_binding = ir::BindingId::new(3).unwrap();
+         let relation_binding = ir::BindingId::new(4).unwrap();
+ 
+         let mut values = HashMap::new();
+         values.insert(folio_binding, Value::from_i64(folio));
+         values.insert(scribe_binding, Value::from_i64(scribe));
+         values.insert(text_binding, Value::from_i64(text));
+ 
+-        let create = ir::CreateRelationship {
++        let create = ir::CreateRelation {
+             binding: ir::Binding::new(
+                 relation_binding,
+                 "t",
+                 ir::ValueType::Relationship,
+                 ir::Nullability::NonNull,
+             )
+             .unwrap(),
+             source: ir::SourceTableId::new(2).unwrap(),
+-            // Unused by the role-model write path; any binding id is fine.
+-            from: folio_binding,
+-            to: folio_binding,
+-            direction: ir::CreateRelationship::default_direction(),
+             relationship_types: vec![ir::RelationshipTypeId::new(1).unwrap()],
+             properties: vec![],
+             roles: vec![
+                 ir::RoleBinding {
+                     role: ir::RoleId::new(3).unwrap(), // folio
+                     value: folio_binding,
+                 },
+                 ir::RoleBinding {
+                     role: ir::RoleId::new(1).unwrap(), // scribe
+                     value: scribe_binding,
+diff --git a/graph/frontend/src/schema_catalog.rs b/graph/frontend/src/schema_catalog.rs
+index 8b3b50516..e065f86e3 100644
+--- a/graph/frontend/src/schema_catalog.rs
++++ b/graph/frontend/src/schema_catalog.rs
+@@ -1510,21 +1510,21 @@ mod tests {
+         let bound =
+             crate::bind(&query, graph_id, &catalog, &Default::default()).expect("bind hop query");
+         crate::lower_relational(&bound.plan, &catalog).expect("lower hop query");
+     }
+ 
+     /// A schemaless catalog has no semantic role registration at all
+     /// (`self.semantic` is `None`), so `relationship_roles` cannot read role
+     /// identities off a semantic snapshot the way schema'd mode does. It
+     /// must still report the relation's roles, carrying the physical
+     /// `RoleId`s straight from the registration: the binder writes exactly
+-    /// this list into `CreateRelationship.roles`, and an empty response
++    /// this list into `CreateRelation.roles`, and an empty response
+     /// here (the pre-fix behavior) silently drops every role binding at
+     /// bind time for every schemaless relationship create/merge.
+     ///
+     /// Uses the end-before-start registration deliberately: reusing
+     /// `layout.roles[0]`/`[1]` positionally instead of the real `RoleId`
+     /// would still pass a start-then-end fixture by coincidence.
+     #[test]
+     fn schemaless_relationship_roles_project_the_physical_role_layout() {
+         let (catalog, source, graph_id) = reversed_binary_relationship_catalog();
+         let layout = catalog
+diff --git a/graph/ir/src/lib.rs b/graph/ir/src/lib.rs
+index 353e6e30a..59b332c74 100644
+--- a/graph/ir/src/lib.rs
++++ b/graph/ir/src/lib.rs
+@@ -18,23 +18,23 @@ mod semantics;
+ pub use error::{InvalidId, PlanError};
+ pub use expression::{
+     BinaryOp, Expression, FunctionName, Literal, NullOrder, QuantifierKind, SortDirection,
+     TypedExpression, UnaryOp, ValueType, VectorKind,
+ };
+ pub use identity::{
+     BindingId, GraphId, LabelId, NodeId, PropertyId, RelationshipId, RelationshipTypeId, RoleId,
+     SourceTableId,
+ };
+ pub use mutation::{
+-    CreateNode, CreateRelationship, DeleteEntity, MergeNode, MergeRelationship, Mutation,
+-    MutationRequest, MutationSource, PropertyValue, RemoveProperty, ReplaceProperties,
+-    ReplacePropertiesDynamic, SetLabels, SetProperty,
++    CreateNode, CreateRelation, DeleteEntity, MergeNode, MergeRelation, Mutation, MutationRequest,
++    MutationSource, PropertyValue, RemoveProperty, ReplaceProperties, ReplacePropertiesDynamic,
++    SetLabels, SetProperty,
+ };
+ pub use plan::{
+     Aggregate, AggregateFunction, Aggregation, Distinct, Filter, GraphExpand, Grouping, Join,
+     LeftApply, Limit, NodeScan, PathUniqueness, Plan, PlanKind, ProcedureCall, ProcedureIdentity,
+     ProcedureOutput, Project, Projection, RoleExpand, Skip, Sort, SortKey, Union, Unit, Unwind,
+ };
+ pub use role::{RoleBinding, RoleCardinality, RoleDef, RoleTarget};
+ pub use scope::{Binding, Direction, Nullability, ResultColumn, ResultShape, Scope};
+ pub use semantics::{
+     semantic_profile_digest, Duplicates, LabelListOrder, NullComparison, NullSort, RowOrder,
+diff --git a/graph/ir/src/mutation.rs b/graph/ir/src/mutation.rs
+index 82c26c506..33883de94 100644
+--- a/graph/ir/src/mutation.rs
++++ b/graph/ir/src/mutation.rs
+@@ -1,79 +1,64 @@
+ use crate::{
+-    Binding, BindingId, Direction, GraphId, LabelId, Plan, PropertyId, RelationshipTypeId,
+-    RoleBinding, SourceTableId, TypedExpression,
++    Binding, BindingId, GraphId, LabelId, Plan, PropertyId, RelationshipTypeId, RoleBinding,
++    SourceTableId, TypedExpression,
+ };
+ 
+ /// A bound graph mutation whose names and storage sources have been resolved.
+ #[derive(Clone, Debug, PartialEq)]
+ pub struct MutationRequest {
+     pub graph: GraphId,
+     pub input: Option<Plan>,
+     pub operations: Vec<Mutation>,
+ }
+ 
+ #[derive(Clone, Debug, PartialEq)]
+ pub enum Mutation {
+     CreateNode(CreateNode),
+-    CreateRelationship(CreateRelationship),
++    CreateRelation(CreateRelation),
+     SetProperty(SetProperty),
+     SetLabels(SetLabels),
+     ReplaceProperties(ReplaceProperties),
+     ReplacePropertiesDynamic(ReplacePropertiesDynamic),
+     RemoveProperty(RemoveProperty),
+     Delete(DeleteEntity),
+     MergeNode(MergeNode),
+-    MergeRelationship(MergeRelationship),
++    MergeRelation(MergeRelation),
+ }
+ 
+ #[derive(Clone, Debug, PartialEq)]
+ pub struct PropertyValue {
+     pub property: PropertyId,
+     /// Conceptual owners used to resolve owner-specific physical mappings.
+     pub semantic_types: Vec<String>,
+     pub value: TypedExpression,
+ }
+ 
+ #[derive(Clone, Debug, PartialEq)]
+ pub struct CreateNode {
+     pub binding: Binding,
+     pub source: SourceTableId,
+     pub labels: Vec<LabelId>,
+     pub properties: Vec<PropertyValue>,
+ }
+ 
+ #[derive(Clone, Debug, PartialEq)]
+-pub struct CreateRelationship {
++pub struct CreateRelation {
+     pub binding: Binding,
+     pub source: SourceTableId,
+-    pub from: BindingId,
+-    pub to: BindingId,
+-    pub direction: Direction,
+     pub relationship_types: Vec<RelationshipTypeId>,
+     pub properties: Vec<PropertyValue>,
+     /// One entry per filled role, in the relation type's declaration order.
+     /// A repeated player is legal; nothing here assumes distinct values.
+     pub roles: Vec<RoleBinding>,
+ }
+ 
+-impl CreateRelationship {
+-    /// The binder always creates an edge that points `from -> to`, so
+-    /// `direction` here is really just a hardcoded "outgoing". Naming it
+-    /// through this accessor instead of `Direction::Outgoing` directly
+-    /// means the frontend never has to name the `Direction` type at all.
+-    /// Task 11 deletes `direction` from this struct once CREATE planning
+-    /// becomes role-shaped, and this accessor goes with it.
+-    pub fn default_direction() -> Direction {
+-        Direction::Outgoing
+-    }
+-}
+-
+ /// Resolves the physical source for a mutation target.
+ #[derive(Clone, Copy, Debug, Eq, PartialEq)]
+ pub enum MutationSource {
+     /// The binding can only originate from one physical source.
+     Static(SourceTableId),
+     /// The binding's hidden source provenance selects the physical source.
+     Binding(BindingId),
+ }
+ 
+ #[derive(Clone, Debug, PartialEq)]
+@@ -140,77 +125,112 @@ pub struct DeleteEntity {
+ #[derive(Clone, Debug, PartialEq)]
+ pub struct MergeNode {
+     pub create: CreateNode,
+     /// Applied only when the merge created the entity.
+     pub on_create: Vec<Mutation>,
+     /// Applied only when the merge matched an existing entity.
+     pub on_match: Vec<Mutation>,
+ }
+ 
+ #[derive(Clone, Debug, PartialEq)]
+-pub struct MergeRelationship {
+-    pub create: CreateRelationship,
++pub struct MergeRelation {
++    pub create: CreateRelation,
+     /// Applied only when the merge created the entity.
+     pub on_create: Vec<Mutation>,
+     /// Applied only when the merge matched an existing entity.
+     pub on_match: Vec<Mutation>,
+ }
+ 
+ #[cfg(test)]
+ mod tests {
+     use super::*;
+     use crate::{Nullability, RoleId, ValueType};
+ 
+-    fn sample_create_relationship() -> CreateRelationship {
+-        let from = BindingId::new(1).unwrap();
+-        let to = BindingId::new(2).unwrap();
+-        CreateRelationship {
++    fn sample_create_relation() -> CreateRelation {
++        let first = BindingId::new(1).unwrap();
++        let second = BindingId::new(2).unwrap();
++        let third = BindingId::new(4).unwrap();
++        CreateRelation {
+             binding: Binding::new(
+                 BindingId::new(3).unwrap(),
+                 "r",
+                 ValueType::Relationship,
+                 Nullability::NonNull,
+             )
+             .unwrap(),
+             source: SourceTableId::new(1).unwrap(),
+-            from,
+-            to,
+-            direction: CreateRelationship::default_direction(),
+             relationship_types: vec![RelationshipTypeId::new(1).unwrap()],
+             properties: Vec::new(),
+             roles: vec![
+                 RoleBinding {
+                     role: RoleId::new(1).unwrap(),
+-                    value: from,
++                    value: first,
+                 },
+                 RoleBinding {
+                     role: RoleId::new(2).unwrap(),
+-                    value: to,
++                    value: second,
++                },
++                RoleBinding {
++                    role: RoleId::new(3).unwrap(),
++                    value: third,
+                 },
+             ],
+         }
+     }
+ 
+     #[test]
+-    fn a_created_relationship_lists_its_role_bindings_in_declaration_order() {
+-        let create = sample_create_relationship();
++    fn a_created_relation_lists_its_role_bindings_in_declaration_order() {
++        let create = sample_create_relation();
+         assert_eq!(
+             create.roles,
+             vec![
+                 RoleBinding {
+                     role: RoleId::new(1).unwrap(),
+                     value: BindingId::new(1).unwrap()
+                 },
+                 RoleBinding {
+                     role: RoleId::new(2).unwrap(),
+                     value: BindingId::new(2).unwrap()
+                 },
++                RoleBinding {
++                    role: RoleId::new(3).unwrap(),
++                    value: BindingId::new(4).unwrap()
++                },
++            ]
++        );
++    }
++
++    #[test]
++    fn a_create_relation_names_only_roles() {
++        // Two ways to say who participates is one way too many: a writer that
++        // read `from` while the binder filled `roles` would silently ignore
++        // every role past the second.
++        let create = sample_create_relation();
++        assert_eq!(create.roles.len(), 3);
++        // A length check alone survives a bug that fills the right number of
++        // roles with the wrong players (the recurring defect class of this
++        // plan) -- pin the exact (role, value) pairs too.
++        assert_eq!(
++            create.roles,
++            vec![
++                RoleBinding {
++                    role: RoleId::new(1).unwrap(),
++                    value: BindingId::new(1).unwrap()
++                },
++                RoleBinding {
++                    role: RoleId::new(2).unwrap(),
++                    value: BindingId::new(2).unwrap()
++                },
++                RoleBinding {
++                    role: RoleId::new(3).unwrap(),
++                    value: BindingId::new(4).unwrap()
++                },
+             ]
+         );
+     }
+ 
+     #[test]
+     fn a_role_binding_list_permits_the_same_player_twice() {
+         // Repeated players are legal: a Match with the same team in the home
+         // and away roles is a real thing to record, and nothing downstream may
+         // assume role players are distinct.
+         let player = BindingId::new(1).unwrap();

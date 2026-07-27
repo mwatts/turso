@@ -1,0 +1,96 @@
+# Review package: 6410bbb0de321e003d0fbe7e2567fc64a2e83dc2..0f4c166ff166bc6a3290a4ae6f913b726c9467a3
+
+## Commits
+0f4c166ff graph/frontend: validate the role pair before symmetric in role_pair_to_direction
+
+## Files changed
+ graph/frontend/src/graph_expand.rs | 46 +++++++++++++++++++++++++++++++++-----
+ 1 file changed, 40 insertions(+), 6 deletions(-)
+
+## Diff
+diff --git a/graph/frontend/src/graph_expand.rs b/graph/frontend/src/graph_expand.rs
+index c77f0680e..ceafa6dfb 100644
+--- a/graph/frontend/src/graph_expand.rs
++++ b/graph/frontend/src/graph_expand.rs
+@@ -491,29 +491,32 @@ fn boolean(value: &Value, name: &str) -> turso_core::Result<bool> {
+ /// adapter can safely translate that specific role pair (plus `symmetric`)
+ /// back into the `Direction` the runtime still requires, and must error
+ /// loudly rather than guess for anything else. Task 17 deletes this function
+ /// along with `Direction` itself once the traversal runtime becomes
+ /// role-aware.
+ fn role_pair_to_direction(
+     from_role: &str,
+     to_role: &str,
+     symmetric: bool,
+ ) -> turso_core::Result<Direction> {
+-    if symmetric {
+-        return Ok(Direction::Both);
+-    }
++    // The role pair is validated first, in every branch: `symmetric=true`
++    // does not, by itself, make an arbitrary role pair representable. Only
++    // the binary `start`/`end` convention is -- `symmetric` just picks
++    // which `Direction` that convention maps to.
+     match (from_role, to_role) {
++        ("start", "end") if symmetric => Ok(Direction::Both),
+         ("start", "end") => Ok(Direction::Outgoing),
+-        ("end", "start") => Ok(Direction::Incoming),
++        ("end", "start") if !symmetric => Ok(Direction::Incoming),
+         (from, to) => Err(LimboError::InvalidArgument(format!(
+-            "unsupported role pair ('{from}', '{to}') for {GRAPH_EXPAND_TABLE_NAME}: only the \
+-             binary 'start'/'end' role convention is supported until the traversal runtime \
++            "unsupported role pair ('{from}', '{to}', symmetric={symmetric}) for \
++             {GRAPH_EXPAND_TABLE_NAME}: only the binary 'start'/'end' role convention is \
++             supported until the traversal runtime \
+              becomes role-aware"
+         ))),
+     }
+ }
+ 
+ fn uniqueness(value: &Value) -> turso_core::Result<Uniqueness> {
+     match text(value, "uniqueness")?.to_ascii_lowercase().as_str() {
+         "walk" => Ok(Uniqueness::Walk),
+         "trail" => Ok(Uniqueness::Trail),
+         "path" => Ok(Uniqueness::Path),
+@@ -1007,11 +1010,42 @@ mod tests {
+                     {}, 1, 30, 'end', 'start', 0, '1', 2, 2, 0, 'trail',
+                     100, 100, 100, 1000, 1048576
+                 ) AS e WHERE e.is_terminal = 1 ORDER BY e.depth LIMIT 1",
+                 graph_id.get()
+             ))
+             .unwrap()
+             .run_collect_rows()
+             .unwrap();
+         assert_eq!(rows, vec![vec![Value::from_i64(2), Value::from_i64(10)]]);
+     }
++
++    /// `role_pair_to_direction` is the one place left where a role pair is
++    /// translated into a binary `Direction` -- its entire justification is
++    /// that it errors loudly on any pair it cannot faithfully represent,
++    /// rather than silently guessing. These four cases are the complete set
++    /// this adapter is documented to handle: two directed orientations, the
++    /// symmetric case, and a genuine n-ary role pair that must be rejected
++    /// even when `symmetric` is set (a pair the caller cannot claim is
++    /// mutually reachable in both directions just because it *asked* for
++    /// `Both` -- only the binary `start`/`end` convention is representable
++    /// at all).
++    #[test]
++    fn role_pair_to_direction_resolves_the_four_documented_cases() {
++        assert_eq!(
++            role_pair_to_direction("start", "end", false).unwrap(),
++            Direction::Outgoing
++        );
++        assert_eq!(
++            role_pair_to_direction("end", "start", false).unwrap(),
++            Direction::Incoming
++        );
++        assert_eq!(
++            role_pair_to_direction("start", "end", true).unwrap(),
++            Direction::Both
++        );
++        let error = role_pair_to_direction("author", "book", true).unwrap_err();
++        assert!(
++            error.to_string().contains("unsupported role pair"),
++            "expected a typed 'unsupported role pair' error, got: {error}"
++        );
++    }
+ }

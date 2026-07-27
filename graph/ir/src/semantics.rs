@@ -12,7 +12,7 @@ use std::fmt::Write as _;
 /// Bump on any change to a `SemanticProfile` field value. Never bump for
 /// formatting or comments. A new field still changes the digest, so it still
 /// requires a bump even when its value restates existing behavior.
-pub const SEMANTIC_PROFILE_VERSION: u32 = 2;
+pub const SEMANTIC_PROFILE_VERSION: u32 = 3;
 
 /// Is the row order of a result defined?
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -80,6 +80,11 @@ pub struct SemanticProfile {
     /// runtime. `graph/runtime/src/path_policy.rs` pins the two together, from
     /// the side that can see both crates.
     pub path_policy_version: u32,
+    /// How a relationship's arity is modeled. Stated here so the contract is
+    /// explicit rather than assumed from the absence of a field: a relation
+    /// declares named roles, and two roles is a layout of that, not a
+    /// separate binary kind with its own rules.
+    pub relationship_arity: &'static str,
 }
 
 pub const SEMANTIC_PROFILE: SemanticProfile = SemanticProfile {
@@ -90,7 +95,9 @@ pub const SEMANTIC_PROFILE: SemanticProfile = SemanticProfile {
     null_sort: NullSort::NumbersTextBlobsThenNullLast,
     label_list_order: LabelListOrder::LabelTableInsertion,
     write_classification: WriteClassification::SyntacticNeverResultDependent,
-    path_policy_version: 1,
+    path_policy_version: 2,
+    relationship_arity: "native n-ary: a relation declares named roles; \
+                          binary is the two-role layout, not a separate kind",
 };
 
 impl SemanticProfile {
@@ -110,6 +117,7 @@ impl SemanticProfile {
             self.write_classification
         );
         let _ = writeln!(rendered, "path_policy={}", self.path_policy_version);
+        let _ = writeln!(rendered, "relationship_arity={}", self.relationship_arity);
         rendered
     }
 }

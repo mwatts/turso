@@ -71,12 +71,16 @@ pub struct ForeachClause {
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct CreateClause {
-    pub paths: Vec<PathPattern>,
+    pub paths: Pattern,
 }
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct MergeClause {
-    pub path: PathPattern,
+    /// The single pattern being merged: either the arrow form
+    /// (`PatternElement::Path`) or the standalone role form
+    /// (`PatternElement::Roles`). MERGE takes exactly one pattern, unlike
+    /// CREATE's comma-separated `Pattern`.
+    pub path: PatternElement,
     pub on_create: Vec<SetItem>,
     pub on_match: Vec<SetItem>,
 }
@@ -109,6 +113,15 @@ pub enum SetItem {
         variable: Spanned<String>,
         labels: Vec<Spanned<String>>,
     },
+    /// `SET [x](role: player, ...)` — repoints the named roles of an
+    /// already-bound relation. Unlike `RolePattern` (which creates), this
+    /// carries no type list or property map: it only ever retargets roles on
+    /// a relation bound elsewhere in the query.
+    Roles {
+        relation: Spanned<String>,
+        roles: Vec<RoleArgument>,
+        span: Span,
+    },
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -136,7 +149,7 @@ pub struct UnwindClause {
 #[derive(Clone, Debug, PartialEq)]
 pub struct MatchClause {
     pub optional: bool,
-    pub paths: Vec<PathPattern>,
+    pub paths: Pattern,
     pub predicate: Option<Spanned<Expression>>,
 }
 
@@ -179,6 +192,54 @@ pub struct RelationshipPattern {
     pub direction: Direction,
     pub range: Option<Spanned<RelationshipRange>>,
     pub properties: Vec<(Spanned<String>, Spanned<Expression>)>,
+    pub span: Span,
+}
+
+/// One comma-separated element of a MATCH or CREATE pattern.
+///
+/// The arrow form (`PathPattern`) and the standalone role form
+/// (`RolePattern`) are different spellings of the same underlying relation;
+/// the binder resolves both to role pairs. Task 12 only teaches the parser
+/// the role spelling — binding it is a later task.
+#[derive(Clone, Debug, PartialEq)]
+pub enum PatternElement {
+    Path(PathPattern),
+    Roles(RolePattern),
+}
+
+impl PatternElement {
+    pub fn span(&self) -> Span {
+        match self {
+            PatternElement::Path(path) => path.span,
+            PatternElement::Roles(roles) => roles.span,
+        }
+    }
+}
+
+/// `[x:Transcription {year: 1387}](scribe: p, text: t, folio: f)`
+#[derive(Clone, Debug, PartialEq)]
+pub struct RolePattern {
+    pub variable: Option<Spanned<String>>,
+    pub types: Vec<Spanned<String>>,
+    pub properties: Vec<(Spanned<String>, Spanned<Expression>)>,
+    /// Source order, which is deliberately not declaration order: the
+    /// binder does not require roles to appear in the order the relation
+    /// type declared them.
+    pub roles: Vec<RoleArgument>,
+    pub span: Span,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct RoleArgument {
+    pub name: Spanned<String>,
+    pub player: Spanned<Expression>,
+    pub span: Span,
+}
+
+/// A MATCH/CREATE pattern: a comma-separated list of path or role elements.
+#[derive(Clone, Debug, PartialEq)]
+pub struct Pattern {
+    pub elements: Vec<PatternElement>,
     pub span: Span,
 }
 
@@ -319,7 +380,7 @@ pub enum Expression {
     },
     PatternSubquery {
         count: bool,
-        paths: Vec<PathPattern>,
+        paths: Pattern,
         predicate: Option<Box<Spanned<Expression>>>,
     },
     PatternPredicate {

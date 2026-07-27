@@ -91,7 +91,10 @@ impl TursoGraphsCursor {
             "SELECT g.id, g.name, COALESCE(gen.generation, 0), s.kind, s.name, \
                     COALESCE(ns.table_name, rs.table_name), \
                     COALESCE(ns.identity_column, rs.identity_column), \
-                    rs.start_column, rs.end_column \
+                    (SELECT column_name FROM {relationship_roles} rr \
+                     WHERE rr.source_id = s.id AND rr.name = 'start'), \
+                    (SELECT column_name FROM {relationship_roles} rr \
+                     WHERE rr.source_id = s.id AND rr.name = 'end') \
              FROM {graphs} g \
              LEFT JOIN {generations} gen ON gen.graph_id = g.id \
              JOIN {sources} s ON s.graph_id = g.id \
@@ -103,6 +106,7 @@ impl TursoGraphsCursor {
             sources = crate::catalog::SOURCES_TABLE,
             node_sources = crate::catalog::NODE_SOURCES_TABLE,
             relationship_sources = crate::catalog::RELATIONSHIP_SOURCES_TABLE,
+            relationship_roles = crate::catalog::RELATIONSHIP_ROLES_TABLE,
         );
         let mut stmt = self.conn.prepare_internal(&sql)?;
         self.rows = stmt.run_collect_rows()?;
@@ -411,15 +415,15 @@ mod tests {
                     table: "people".to_owned(),
                     identity_column: "id".to_owned(),
                 }],
-                relationship_sources: vec![crate::RelationshipSourceRegistration {
-                    name: "KNOWS".to_owned(),
-                    table: "relationships".to_owned(),
-                    identity_column: "id".to_owned(),
-                    start_column: "src".to_owned(),
-                    end_column: "dst".to_owned(),
-                    start_node_source: "Person".to_owned(),
-                    end_node_source: "Person".to_owned(),
-                }],
+                relationship_sources: vec![crate::RelationshipSourceRegistration::binary(
+                    "KNOWS",
+                    "relationships",
+                    "id",
+                    "src",
+                    "dst",
+                    "Person",
+                    "Person",
+                )],
             },
         )
         .unwrap();

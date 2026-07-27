@@ -1,0 +1,689 @@
+# Review package: de684e6ff..4eca443ff
+
+## Commits
+4eca443ff graph/frontend: bind CREATE-side standalone role patterns
+
+## Files changed
+ graph/frontend/src/binder.rs              | 208 +++++++++++++++++++++-
+ graph/frontend/tests/desugaring_golden.rs |   4 +-
+ graph/frontend/tests/nary_relations.rs    | 277 ++++++++++++++++++++++++++++--
+ graph/frontend/tests/statement_kind.rs    |  11 ++
+ 4 files changed, 477 insertions(+), 23 deletions(-)
+
+## Diff
+diff --git a/graph/frontend/src/binder.rs b/graph/frontend/src/binder.rs
+index c5fbeed2b..8eb5c48e9 100644
+--- a/graph/frontend/src/binder.rs
++++ b/graph/frontend/src/binder.rs
+@@ -451,20 +451,42 @@ pub enum BindError {
+         max: u32,
+         span_start: usize,
+         span_end: usize,
+     },
+     #[error("relationship source has no `{role}` role at byte {span_start}..{span_end}")]
+     MissingRelationshipRole {
+         role: &'static str,
+         span_start: usize,
+         span_end: usize,
+     },
++    #[error("relationship type `{relationship_type}` has no role `{role}`; its roles are {known}")]
++    UnknownRole {
++        relationship_type: String,
++        role: String,
++        known: String,
++        span_start: usize,
++        span_end: usize,
++    },
++    #[error("relationship type `{relationship_type}` requires role `{role}`")]
++    MissingRequiredRole {
++        relationship_type: String,
++        role: String,
++        span_start: usize,
++        span_end: usize,
++    },
++    #[error("role `{role}` of `{relationship_type}` is named more than once")]
++    DuplicateRoleArgument {
++        relationship_type: String,
++        role: String,
++        span_start: usize,
++        span_end: usize,
++    },
+ }
+ 
+ /// Resource cap applied to unbounded variable-length ranges (`[*]`,
+ /// `[*min..]`). This is not query semantics: the expansion marks such ranges
+ /// `unbounded`, and the traversal errors with a hops limit-exceeded when a
+ /// longer admissible path exists instead of silently truncating results.
+ const DEFAULT_UNBOUNDED_MAX_HOPS: u32 = 64;
+ 
+ /// What a statement is allowed to do, decided from its syntax alone.
+ ///
+@@ -900,22 +922,30 @@ impl<'a> Binder<'a> {
+                             .expect("stage pushed above")
+                             .items
+                             .push(item);
+                     } else {
+                         self.bind_match(value, clause.span)?;
+                     }
+                 }
+                 cypher::Clause::Create(value) => {
+                     mutation_started = true;
+                     let mut new_operations = Vec::new();
+-                    for path in only_paths(&value.paths)? {
+-                        self.bind_create_path(path, false, &mut new_operations)?;
++                    for element in &value.paths.elements {
++                        match element {
++                            cypher::PatternElement::Path(path) => {
++                                self.bind_create_path(path, false, &mut new_operations)?;
++                            }
++                            cypher::PatternElement::Roles(pattern) => {
++                                let create = self.bind_create_role_pattern(pattern)?;
++                                new_operations.push(ir::Mutation::CreateRelation(create));
++                            }
++                        }
+                     }
+                     route(&mut operations, &mut stages, new_operations);
+                 }
+                 cypher::Clause::Merge(value) => {
+                     mutation_started = true;
+                     let mut new_operations = Vec::new();
+                     self.bind_create_path(&value.path, true, &mut new_operations)?;
+                     self.attach_merge_actions(value, &mut new_operations)?;
+                     route(&mut operations, &mut stages, new_operations);
+                 }
+@@ -1694,20 +1724,194 @@ impl<'a> Binder<'a> {
+                 variable.value.clone(),
+                 PathComposition::Fixed {
+                     nodes: path_nodes,
+                     relationships: path_relationships,
+                 },
+             );
+         }
+         Ok(())
+     }
+ 
++    /// Binds the standalone role-pattern CREATE surface
++    /// (`[x:T {props}](role: player, ...)`). Role arguments arrive in
++    /// source order, which is deliberately not declaration order; each is
++    /// resolved by NAME against the relation type's declared roles (never
++    /// by position), then written to `ir::CreateRelation.roles` in
++    /// declaration order so the writer's column derivation stays stable.
++    /// A repeated role PLAYER is legal (no cross-role uniqueness rule); a
++    /// repeated role NAME is refused rather than silently taking the last
++    /// write.
++    fn bind_create_role_pattern(
++        &mut self,
++        pattern: &cypher::RolePattern,
++    ) -> Result<ir::CreateRelation, BindError> {
++        if pattern.types.len() != 1 {
++            return Err(at_unsupported(
++                pattern.span,
++                "role pattern creation without exactly one relationship type",
++            ));
++        }
++        let type_name = &pattern.types[0];
++        let relationship_type = self
++            .catalog
++            .relationship_type(self.graph, &type_name.value)
++            .ok_or_else(|| BindError::UnknownRelationshipType {
++                name: type_name.value.clone(),
++                span_start: type_name.span.start,
++                span_end: type_name.span.end,
++            })?;
++        let declared = self
++            .catalog
++            .relationship_roles(self.graph, relationship_type);
++        let source = self
++            .catalog
++            .relationship_source_for_type(self.graph, relationship_type)
++            .ok_or(BindError::MissingSource {
++                entity: "relationship",
++                span_start: pattern.span.start,
++                span_end: pattern.span.end,
++            })?;
++
++        let mut fills: Vec<(ir::RoleId, ir::BindingId)> = Vec::with_capacity(pattern.roles.len());
++        let mut seen: std::collections::HashSet<ir::RoleId> = std::collections::HashSet::new();
++        for argument in &pattern.roles {
++            let role = declared
++                .iter()
++                .find(|role| role.name.eq_ignore_ascii_case(&argument.name.value))
++                .ok_or_else(|| BindError::UnknownRole {
++                    relationship_type: type_name.value.clone(),
++                    role: argument.name.value.clone(),
++                    known: declared
++                        .iter()
++                        .map(|role| role.name.as_str())
++                        .collect::<Vec<_>>()
++                        .join(", "),
++                    span_start: argument.name.span.start,
++                    span_end: argument.name.span.end,
++                })?;
++            if !seen.insert(role.role) {
++                return Err(BindError::DuplicateRoleArgument {
++                    relationship_type: type_name.value.clone(),
++                    role: role.name.clone(),
++                    span_start: argument.span.start,
++                    span_end: argument.span.end,
++                });
++            }
++            // Many-valued roles spill into a per-role table that this
++            // writer doesn't populate yet (Task 14); refuse here rather
++            // than let `insert_relationship` reach its `spilled.is_empty()`
++            // assertion on a query supplied by a user.
++            if role.cardinality == ir::RoleCardinality::Many {
++                return Err(at_unsupported(
++                    argument.span,
++                    "creating a many-valued role in a role pattern",
++                ));
++            }
++            let cypher::Expression::Variable(name) = &argument.player.value else {
++                return Err(at_unsupported(
++                    argument.player.span,
++                    "a role player that is not a bound variable",
++                ));
++            };
++            let value = self.resolve_binding(name, argument.player.span)?.id();
++
++            let allowed = role
++                .targets
++                .iter()
++                .filter_map(|target| match target {
++                    ir::RoleTarget::Node(label) => Some(*label),
++                    ir::RoleTarget::Relation(_) => None,
++                })
++                .collect::<Vec<_>>();
++            if !allowed.is_empty() {
++                let names = self
++                    .entities
++                    .get(&value)
++                    .map(|entity| entity.names.clone())
++                    .unwrap_or_default();
++                let all_allowed = !names.is_empty()
++                    && names.iter().all(|name| {
++                        self.catalog
++                            .label(self.graph, name)
++                            .is_some_and(|label| allowed.contains(&label))
++                    });
++                if !all_allowed {
++                    let found = if names.is_empty() {
++                        "an unlabeled binding".to_owned()
++                    } else {
++                        names.join(", ")
++                    };
++                    return Err(BindError::RoleTargetTypeViolation {
++                        relationship_type: type_name.value.clone(),
++                        role: role.name.clone(),
++                        found,
++                        span_start: argument.span.start,
++                        span_end: argument.span.end,
++                    });
++                }
++            }
++
++            fills.push((role.role, value));
++        }
++
++        for role in declared.iter().filter(|role| !role.optional) {
++            if !seen.contains(&role.role) {
++                return Err(BindError::MissingRequiredRole {
++                    relationship_type: type_name.value.clone(),
++                    role: role.name.clone(),
++                    span_start: pattern.span.start,
++                    span_end: pattern.span.end,
++                });
++            }
++        }
++
++        // Declaration order, not source order, so the writer's column
++        // derivation (by `RoleId`) is stable regardless of how the query
++        // spelled its role arguments.
++        let roles = declared
++            .iter()
++            .filter_map(|role| {
++                fills
++                    .iter()
++                    .find(|(role_id, _)| *role_id == role.role)
++                    .map(|(role_id, value)| ir::RoleBinding {
++                        role: *role_id,
++                        value: *value,
++                    })
++            })
++            .collect();
++
++        let type_names = vec![type_name.value.clone()];
++        let binding = self.new_entity_binding(
++            pattern.variable.as_ref(),
++            "_relationship",
++            ir::ValueType::Relationship,
++            ir::Nullability::NonNull,
++            CatalogEntity::Relationship,
++            type_names.clone(),
++            pattern.span,
++        )?;
++        let properties = self.bind_mutation_properties(
++            CatalogEntity::Relationship,
++            &type_names,
++            &pattern.properties,
++        )?;
++
++        Ok(ir::CreateRelation {
++            binding,
++            source,
++            relationship_types: vec![relationship_type],
++            properties,
++            roles,
++        })
++    }
++
+     /// Binds ON CREATE / ON MATCH SET actions and attaches them to the
+     /// clause's deciding merge operation (the last one: for relationship
+     /// merges, the relationship's existence decides matched-vs-created).
+     fn attach_merge_actions(
+         &mut self,
+         clause: &cypher::MergeClause,
+         operations: &mut [ir::Mutation],
+     ) -> Result<(), BindError> {
+         if clause.on_create.is_empty() && clause.on_match.is_empty() {
+             return Ok(());
+diff --git a/graph/frontend/tests/desugaring_golden.rs b/graph/frontend/tests/desugaring_golden.rs
+index 705f90442..7c7f8019d 100644
+--- a/graph/frontend/tests/desugaring_golden.rs
++++ b/graph/frontend/tests/desugaring_golden.rs
+@@ -1,23 +1,23 @@
+ //! Arrow syntax is sugar over roles. If the two forms ever bind to different
+ //! IR, then a "binary" query and its role-form equivalent can disagree at
+ //! runtime, and the claim that binary is a layout of the role model is false.
+ 
+ mod fixture;
+ 
+ use fixture::{bind_fixture, first_role_expand};
+ 
+ #[test]
+-#[ignore = "standalone role pattern lands in Task 12"]
++#[ignore = "standalone role pattern MATCH-side binding lands in Task 13b"]
+ fn arrow_and_role_forms_of_the_same_pattern_bind_identically() {
+     let arrow = bind_fixture("MATCH (a:Person)-[r:KNOWS]->(b:Person) RETURN b");
+     let roles = bind_fixture("MATCH (a:Person), (b:Person), [r:KNOWS](start: a, end: b) RETURN b");
+     assert_eq!(first_role_expand(&arrow), first_role_expand(&roles));
+ }
+ 
+ #[test]
+-#[ignore = "standalone role pattern lands in Task 12"]
++#[ignore = "standalone role pattern MATCH-side binding lands in Task 13b"]
+ fn the_reversed_arrow_is_the_reversed_role_pair() {
+     let arrow = bind_fixture("MATCH (a:Person)<-[r:KNOWS]-(b:Person) RETURN b");
+     let roles = bind_fixture("MATCH (a:Person), (b:Person), [r:KNOWS](end: a, start: b) RETURN b");
+     assert_eq!(first_role_expand(&arrow), first_role_expand(&roles));
+ }
+diff --git a/graph/frontend/tests/nary_relations.rs b/graph/frontend/tests/nary_relations.rs
+index dd9db7d9c..d814282bc 100644
+--- a/graph/frontend/tests/nary_relations.rs
++++ b/graph/frontend/tests/nary_relations.rs
+@@ -1,37 +1,87 @@
+-//! Coverage for role-shaped relationship writes: `insert_relationship`
+-//! derives its fixed column list from `create.roles` instead of a
+-//! hard-coded start/end pair (see `mutation.rs::insert_relationship`).
++//! Coverage for CREATE-side binding of the standalone role pattern
++//! (`[x:T {props}](role: player, ...)`, Task 13a): resolving role
++//! arguments by name against a relation type's declared roles, in source
++//! order, and writing them to `ir::CreateRelation.roles` in declaration
++//! order so `insert_relationship` derives its fixed column list from
++//! `create.roles` instead of a hard-coded start/end pair (see
++//! `mutation.rs::insert_relationship`).
+ //!
+-//! Both tests below describe the standalone role-pattern surface syntax
+-//! that lands in Task 12; until then there is no Cypher spelling for a
+-//! bare, unmatched three-role pattern, so they are `#[ignore]`d. The writer
+-//! itself (including the "role identity is `RoleId`, never position" and
+-//! "role players need not be distinct" invariants these tests describe) is
+-//! exercised now, directly against IR with no public API surface, by
+-//! `mutation.rs`'s own unit tests
+-//! (`role_players_are_resolved_by_role_id_not_by_position` and
++//! The two positive tests below exercise a real three-role write end to
++//! end through `ternary_session` (unconstrained, schemaless roles). The
++//! bind-time error paths (`UnknownRole`, `MissingRequiredRole`,
++//! `DuplicateRoleArgument`, a wrong-typed player, an omitted optional role)
++//! are exercised against `RoledCatalog`, a minimal hand-rolled catalog with
++//! real role target-type constraints and one optional role, via
++//! `bind_mutation` directly -- no database required, since none of these
++//! are about what gets written, only about what binds. The writer itself
++//! (including the "role identity is `RoleId`, never position" and "role
++//! players need not be distinct" invariants) is exercised separately,
++//! directly against IR with no public API surface, by `mutation.rs`'s own
++//! unit tests (`role_players_are_resolved_by_role_id_not_by_position` and
+ //! `a_repeated_player_fills_two_roles_of_one_relation`).
+ 
+ mod fixture;
+ 
+-use turso_core::Value;
+-use turso_graph_frontend::Parameters;
++use std::sync::Arc;
++
++use turso_core::{Connection, Value};
++use turso_graph_cypher::parse;
++use turso_graph_frontend::{
++    bind_mutation, labels_table_name, load_registered_graph, BindError, CatalogEntity,
++    GraphCatalogSnapshot, ParameterTypes, Parameters, RegisteredGraph, ResolvedProperty,
++    SemanticRole,
++};
++use turso_graph_ir::{
++    GraphId, LabelId, RelationshipTypeId, RoleCardinality, RoleId, RoleTarget, SourceTableId,
++};
++
++/// Inserts a node row directly (bypassing Cypher, whose property binding
++/// this schemaless three-node-source graph cannot resolve -- see
++/// `fixture::ternary_session`'s doc comment) plus the node-label junction
++/// row `MATCH` reads labeled scans through, so the row is visible to a
++/// label-only `MATCH` exactly as if `CREATE (:Label {id: ..})` had made it.
++fn seed_node(
++    connection: &Arc<Connection>,
++    graph: &RegisteredGraph,
++    label: &str,
++    table: &str,
++    id: i64,
++) {
++    let source = graph
++        .node_sources
++        .iter()
++        .find(|source| source.name == label)
++        .unwrap_or_else(|| panic!("no {label} node source registered"));
++    connection
++        .execute(format!(
++            "INSERT INTO {table}(id) VALUES ({id}); \
++             INSERT INTO \"{}\"(source_id, node_id, label) VALUES ({}, {id}, '{label}');",
++            labels_table_name(graph.id),
++            source.id.get(),
++        ))
++        .expect("seed node");
++}
+ 
+ #[test]
+-#[ignore = "surface syntax lands in Task 12"]
+ fn a_three_role_relation_writes_one_row_with_three_endpoint_columns() {
+     let (database, session) = fixture::ternary_session();
++    let seed = fixture::second_connection(&database);
++    let graph = load_registered_graph(&seed, "scriptorium").expect("load registered graph");
++    seed_node(&seed, &graph, "Person", "people", 1);
++    seed_node(&seed, &graph, "Text", "texts", 2);
++    seed_node(&seed, &graph, "Folio", "folios", 3);
++
+     session
+         .execute(
+-            "CREATE (p:Person {id: 1}), (t:Text {id: 2}), (f:Folio {id: 3}), \
+-             (Transcription {scribe: p, text: t, folio: f, year: 1387})",
++            "MATCH (p:Person), (t:Text), (f:Folio) \
++             CREATE [x:Transcription {year: 1387}](scribe: p, text: t, folio: f)",
+             &Parameters::new(),
+         )
+         .expect("create three-role relation");
+ 
+     let connection = fixture::second_connection(&database);
+     let rows = connection
+         .prepare("SELECT scribe, txt, folio, year FROM transcriptions")
+         .unwrap()
+         .run_collect_rows()
+         .unwrap();
+@@ -40,38 +90,227 @@ fn a_three_role_relation_writes_one_row_with_three_endpoint_columns() {
+         vec![vec![
+             Value::from_i64(1),
+             Value::from_i64(2),
+             Value::from_i64(3),
+             Value::from_i64(1387),
+         ]]
+     );
+ }
+ 
+ #[test]
+-#[ignore = "surface syntax lands in Task 12"]
+ fn the_same_player_may_fill_two_roles_of_one_relation() {
+     // Nothing may assume role players are distinct: a scribe transcribing
+     // their own dictation could plausibly fill two roles of one relation.
+     let (database, session) = fixture::ternary_session();
++    let seed = fixture::second_connection(&database);
++    let graph = load_registered_graph(&seed, "scriptorium").expect("load registered graph");
++    seed_node(&seed, &graph, "Person", "people", 1);
++    seed_node(&seed, &graph, "Folio", "folios", 2);
++
+     session
+         .execute(
+-            "CREATE (p:Person {id: 1}), (f:Folio {id: 2}), \
+-             (Transcription {scribe: p, text: p, folio: f, year: 1400})",
++            "MATCH (p:Person), (f:Folio) \
++             CREATE [x:Transcription {year: 1400}](scribe: p, text: p, folio: f)",
+             &Parameters::new(),
+         )
+         .expect("create relation with a repeated role player");
+ 
+     let connection = fixture::second_connection(&database);
+     let rows = connection
+         .prepare("SELECT scribe, txt, folio FROM transcriptions")
+         .unwrap()
+         .run_collect_rows()
+         .unwrap();
+     assert_eq!(
+         rows,
+         vec![vec![
+             Value::from_i64(1),
+             Value::from_i64(1),
+             Value::from_i64(2)
+         ]]
+     );
+ }
++
++#[test]
++fn role_arguments_bind_by_name_regardless_of_source_order() {
++    // Declared order is scribe, text, folio; this query names them
++    // folio, scribe, text -- a different order still -- so a bug that
++    // resolved roles positionally instead of by name would misassign
++    // every column.
++    let (database, session) = fixture::ternary_session();
++    let seed = fixture::second_connection(&database);
++    let graph = load_registered_graph(&seed, "scriptorium").expect("load registered graph");
++    seed_node(&seed, &graph, "Person", "people", 10);
++    seed_node(&seed, &graph, "Text", "texts", 20);
++    seed_node(&seed, &graph, "Folio", "folios", 30);
++
++    session
++        .execute(
++            "MATCH (p:Person), (t:Text), (f:Folio) \
++             CREATE [x:Transcription](folio: f, scribe: p, text: t)",
++            &Parameters::new(),
++        )
++        .expect("create relation with roles named out of declaration order");
++
++    let connection = fixture::second_connection(&database);
++    let rows = connection
++        .prepare("SELECT scribe, txt, folio FROM transcriptions")
++        .unwrap()
++        .run_collect_rows()
++        .unwrap();
++    assert_eq!(
++        rows,
++        vec![vec![
++            Value::from_i64(10),
++            Value::from_i64(20),
++            Value::from_i64(30),
++        ]]
++    );
++}
++
++/// A minimal, database-free `Transcription` catalog with real role
++/// target-type constraints (`scribe`/`witness` -> `Person`, `text` ->
++/// `Text`, `folio` -> `Folio`) and one optional role (`witness`), for
++/// exercising bind-time role resolution without a real database: none of
++/// the tests using it are about what gets written, only about what binds
++/// (or fails to).
++struct RoledCatalog;
++
++impl GraphCatalogSnapshot for RoledCatalog {
++    fn node_source(&self, _graph: GraphId) -> Option<SourceTableId> {
++        SourceTableId::new(1).ok()
++    }
++
++    fn relationship_source(&self, _graph: GraphId) -> Option<SourceTableId> {
++        SourceTableId::new(2).ok()
++    }
++
++    fn label(&self, _graph: GraphId, name: &str) -> Option<LabelId> {
++        match name {
++            "Person" => LabelId::new(1).ok(),
++            "Text" => LabelId::new(2).ok(),
++            "Folio" => LabelId::new(3).ok(),
++            _ => None,
++        }
++    }
++
++    fn relationship_type(&self, _graph: GraphId, name: &str) -> Option<RelationshipTypeId> {
++        (name == "Transcription").then(|| RelationshipTypeId::new(1).unwrap())
++    }
++
++    fn property(
++        &self,
++        _graph: GraphId,
++        _entity: CatalogEntity,
++        _name: &str,
++    ) -> Option<ResolvedProperty> {
++        None
++    }
++
++    fn relationship_roles(&self, _graph: GraphId, _ty: RelationshipTypeId) -> Vec<SemanticRole> {
++        vec![
++            SemanticRole {
++                role: RoleId::new(1).unwrap(),
++                name: "scribe".to_owned(),
++                targets: vec![RoleTarget::Node(LabelId::new(1).unwrap())],
++                optional: false,
++                cardinality: RoleCardinality::One,
++            },
++            SemanticRole {
++                role: RoleId::new(2).unwrap(),
++                name: "text".to_owned(),
++                targets: vec![RoleTarget::Node(LabelId::new(2).unwrap())],
++                optional: false,
++                cardinality: RoleCardinality::One,
++            },
++            SemanticRole {
++                role: RoleId::new(3).unwrap(),
++                name: "folio".to_owned(),
++                targets: vec![RoleTarget::Node(LabelId::new(3).unwrap())],
++                optional: false,
++                cardinality: RoleCardinality::One,
++            },
++            SemanticRole {
++                role: RoleId::new(4).unwrap(),
++                name: "witness".to_owned(),
++                targets: vec![RoleTarget::Node(LabelId::new(1).unwrap())],
++                optional: true,
++                cardinality: RoleCardinality::One,
++            },
++        ]
++    }
++}
++
++fn bind_role_pattern_query(query: &str) -> Result<turso_graph_frontend::BoundMutation, BindError> {
++    let parsed = parse(query).expect("query must parse");
++    bind_mutation(
++        &parsed,
++        GraphId::new(1).expect("graph id"),
++        &RoledCatalog,
++        &ParameterTypes::new(),
++    )
++}
++
++#[test]
++fn an_unknown_role_names_the_roles_that_do_exist() {
++    let error = bind_role_pattern_query(
++        "MATCH (p:Person), (t:Text), (f:Folio) \
++         CREATE [x:Transcription](scribbe: p, text: t, folio: f)",
++    )
++    .expect_err("scribbe is not a declared role");
++    let message = error.to_string();
++    assert!(message.contains("scribbe"), "{message}");
++    assert!(message.contains("scribe"), "{message}");
++}
++
++#[test]
++fn a_missing_required_role_is_refused_at_bind_time() {
++    let error = bind_role_pattern_query(
++        "MATCH (p:Person), (t:Text) CREATE [x:Transcription](scribe: p, text: t)",
++    )
++    .expect_err("folio is required and was not named");
++    let message = error.to_string();
++    assert!(message.contains("folio"), "{message}");
++}
++
++#[test]
++fn naming_one_role_twice_is_refused_rather_than_last_write_wins() {
++    let error = bind_role_pattern_query(
++        "MATCH (p:Person), (t:Text), (f:Folio) \
++         CREATE [x:Transcription](scribe: p, scribe: p, text: t, folio: f)",
++    )
++    .expect_err("scribe is named twice");
++    let message = error.to_string();
++    assert!(message.contains("scribe"), "{message}");
++}
++
++#[test]
++fn a_role_rejects_a_player_of_the_wrong_type() {
++    let error = bind_role_pattern_query(
++        "MATCH (t:Text), (f:Folio) \
++         CREATE [x:Transcription](scribe: t, text: t, folio: f)",
++    )
++    .expect_err("t is a Text, not a Person, and cannot fill scribe");
++    let message = error.to_string();
++    assert!(message.contains("scribe"), "{message}");
++    assert!(message.contains("Text"), "{message}");
++}
++
++#[test]
++fn an_optional_role_may_be_omitted() {
++    let bound = bind_role_pattern_query(
++        "MATCH (p:Person), (t:Text), (f:Folio) \
++         CREATE [x:Transcription](scribe: p, text: t, folio: f)",
++    )
++    .expect("witness is optional and may be omitted");
++    let turso_graph_ir::Mutation::CreateRelation(create) = &bound.request.operations[0] else {
++        panic!(
++            "expected a CreateRelation operation, got {:?}",
++            bound.request.operations[0]
++        );
++    };
++    assert_eq!(
++        create.roles.len(),
++        3,
++        "only the three named roles should be filled"
++    );
++}
+diff --git a/graph/frontend/tests/statement_kind.rs b/graph/frontend/tests/statement_kind.rs
+index 7d6504b4a..9028520e6 100644
+--- a/graph/frontend/tests/statement_kind.rs
++++ b/graph/frontend/tests/statement_kind.rs
+@@ -89,16 +89,27 @@ fn a_write_nested_in_a_call_subquery_still_writes() {
+ }
+ 
+ #[test]
+ fn a_write_in_a_union_branch_still_writes() {
+     assert!(
+         classify("MATCH (n) RETURN n UNION CREATE (m:Person) RETURN m").writes(),
+         "a union branch that creates a node is a write"
+     );
+ }
+ 
++#[test]
++fn a_create_with_a_role_pattern_writes_without_rows() {
++    // `clauses_write` classifies by clause kind alone, never by pattern
++    // shape, so a role-pattern CREATE (`[x:T](role: player, ...)`) needs no
++    // extra classification rule: it is a `Clause::Create` like any other.
++    assert_eq!(
++        classify("CREATE (p:Person), [x:KNOWS](start: p, end: p)"),
++        StatementKind::WriteWithoutRows
++    );
++}
++
+ #[test]
+ fn read_only_never_writes() {
+     assert!(!StatementKind::ReadOnly.writes());
+     assert!(StatementKind::WriteReturningRows.writes());
+     assert!(StatementKind::WriteWithoutRows.writes());
+ }

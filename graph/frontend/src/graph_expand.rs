@@ -8,7 +8,7 @@ use turso_core::{
 use turso_ext::{
     ConstraintInfo, ConstraintOp, ConstraintUsage, IndexInfo, OrderByInfo, ResultCode,
 };
-use turso_graph_ir::{Direction, GraphId, RelationshipTypeId, SourceTableId};
+use turso_graph_ir::{GraphId, RelationshipTypeId, RoleId, SourceTableId};
 use turso_graph_runtime::{
     Cancellation, Path, TraversalCursor, TraversalLimits, TraversalOrder, TraversalRequest,
     TraversalStep, Uniqueness,
@@ -19,9 +19,9 @@ use crate::{SnapshotStore, SourceIdentity, TraversalSnapshot};
 pub const GRAPH_EXPAND_TABLE_NAME: &str = "__turso_graph_expand";
 
 const OUTPUT_COLUMN_COUNT: usize = 11;
-const INPUT_COLUMN_COUNT: usize = 14;
+const INPUT_COLUMN_COUNT: usize = 16;
 const COL_GRAPH_ID: usize = OUTPUT_COLUMN_COUNT;
-const COL_MAX_MEMORY_BYTES: usize = COL_GRAPH_ID + 13;
+const COL_MAX_MEMORY_BYTES: usize = COL_GRAPH_ID + 15;
 const CURSOR_WORK_QUANTUM: u64 = 256;
 
 /// Install graph expand into a schema under construction.
@@ -148,7 +148,9 @@ impl InternalVirtualTable for GraphExpandTable {
                 graph_id INTEGER HIDDEN,
                 start_node_source_id INTEGER HIDDEN,
                 start_node_identity ANY HIDDEN,
-                direction TEXT HIDDEN,
+                from_role INTEGER HIDDEN,
+                to_role INTEGER HIDDEN,
+                symmetric INTEGER HIDDEN,
                 relationship_types TEXT HIDDEN,
                 min_hops INTEGER HIDDEN,
                 max_hops INTEGER HIDDEN,
@@ -230,19 +232,21 @@ impl GraphExpandCursor {
         let graph_id = graph_id(&args[0])?;
         let start_source = source_table_id(&args[1], "start_node_source_id")?;
         let start_identity = source_identity(&args[2], "start_node_identity")?;
-        let direction = direction(&args[3])?;
-        let relationship_types = relationship_types(&args[4])?;
-        let min_hops = nonnegative_u32(&args[5], "min_hops")?;
-        let max_hops = nonnegative_u32(&args[6], "max_hops")?;
-        let error_at_max_hops = nonnegative_u32(&args[7], "error_at_max_hops")? != 0;
-        let uniqueness = uniqueness(&args[8])?;
+        let from_role = role_id(&args[3], "from_role")?;
+        let to_role = role_id(&args[4], "to_role")?;
+        let symmetric = boolean(&args[5], "symmetric")?;
+        let relationship_types = relationship_types(&args[6])?;
+        let min_hops = nonnegative_u32(&args[7], "min_hops")?;
+        let max_hops = nonnegative_u32(&args[8], "max_hops")?;
+        let error_at_max_hops = nonnegative_u32(&args[9], "error_at_max_hops")? != 0;
+        let uniqueness = uniqueness(&args[10])?;
         let limits = TraversalLimits {
-            max_node_visits: nonnegative_u64(&args[9], "max_node_visits")?,
-            max_edge_visits: nonnegative_u64(&args[10], "max_edge_visits")?,
-            max_paths: nonnegative_u64(&args[11], "max_paths")?,
+            max_node_visits: nonnegative_u64(&args[11], "max_node_visits")?,
+            max_edge_visits: nonnegative_u64(&args[12], "max_edge_visits")?,
+            max_paths: nonnegative_u64(&args[13], "max_paths")?,
             max_hops,
-            max_work: nonnegative_u64(&args[12], "max_work")?,
-            max_memory_bytes: nonnegative_u64(&args[13], "max_memory_bytes")?,
+            max_work: nonnegative_u64(&args[14], "max_work")?,
+            max_memory_bytes: nonnegative_u64(&args[15], "max_memory_bytes")?,
         };
         let snapshot = self
             .snapshots
@@ -260,7 +264,9 @@ impl GraphExpandCursor {
             })?;
         let request = TraversalRequest {
             start,
-            direction,
+            from_role,
+            to_role,
+            symmetric,
             relationship_types,
             min_hops,
             max_hops,
@@ -464,15 +470,13 @@ fn source_identity(value: &Value, name: &str) -> turso_core::Result<SourceIdenti
     }
 }
 
-fn direction(value: &Value) -> turso_core::Result<Direction> {
-    match text(value, "direction")?.to_ascii_lowercase().as_str() {
-        "outgoing" => Ok(Direction::Outgoing),
-        "incoming" => Ok(Direction::Incoming),
-        "both" => Ok(Direction::Both),
-        value => Err(LimboError::InvalidArgument(format!(
-            "invalid graph direction `{value}`"
-        ))),
-    }
+fn role_id(value: &Value, name: &str) -> turso_core::Result<RoleId> {
+    RoleId::new(nonnegative_u32(value, name)?)
+        .map_err(|error| LimboError::InvalidArgument(error.to_string()))
+}
+
+fn boolean(value: &Value, name: &str) -> turso_core::Result<bool> {
+    Ok(nonnegative_u32(value, name)? != 0)
 }
 
 fn uniqueness(value: &Value) -> turso_core::Result<Uniqueness> {
@@ -581,10 +585,11 @@ mod tests {
         graph_frontend_id, load_registered_graph, register_graph, CatalogEntity,
         GraphCatalogSnapshot, GraphCompiler, GraphRegistration, NodeSourceRegistration,
         NodeTableLayout, ParameterTypes, PublishOutcome, RelationalCatalogSnapshot,
-        RelationshipSourceRegistration, RelationshipTableLayout, ResolvedProperty,
+        RelationshipRoleLayout, RelationshipSourceRegistration, RelationshipTableLayout,
+        ResolvedProperty,
     };
     use turso_core::{Database, MemoryIO, SqliteDialect};
-    use turso_graph_ir::{LabelId, Nullability, PropertyId, ValueType};
+    use turso_graph_ir::{LabelId, Nullability, PropertyId, RoleCardinality, ValueType};
     use turso_graph_runtime::{BuildLimits, NeverCancelled};
 
     fn setup() -> (Arc<Connection>, Arc<SnapshotStore>, GraphId) {
@@ -630,15 +635,15 @@ mod tests {
                     table: "people".to_owned(),
                     identity_column: "id".to_owned(),
                 }],
-                relationship_sources: vec![RelationshipSourceRegistration {
-                    name: "KNOWS".to_owned(),
-                    table: "relationships".to_owned(),
-                    identity_column: "id".to_owned(),
-                    start_column: "src".to_owned(),
-                    end_column: "dst".to_owned(),
-                    start_node_source: "Person".to_owned(),
-                    end_node_source: "Person".to_owned(),
-                }],
+                relationship_sources: vec![RelationshipSourceRegistration::binary(
+                    "KNOWS",
+                    "relationships",
+                    "id",
+                    "src",
+                    "dst",
+                    "Person",
+                    "Person",
+                )],
             },
         )
         .unwrap();
@@ -663,7 +668,7 @@ mod tests {
 
     fn invocation(graph_id: GraphId) -> String {
         format!(
-            "{GRAPH_EXPAND_TABLE_NAME}({}, 1, 10, 'outgoing', '1', 1, 2, 0, 'trail', \
+            "{GRAPH_EXPAND_TABLE_NAME}({}, 1, 10, 1, 2, 0, '1', 1, 2, 0, 'trail', \
              100, 100, 100, 1000, 1048576)",
             graph_id.get()
         )
@@ -760,6 +765,13 @@ mod tests {
                 nullability: Nullability::Nullable,
             })
         }
+
+        fn relationship_source_roles(
+            &self,
+            source: SourceTableId,
+        ) -> Option<RelationshipTableLayout> {
+            self.relationship_layout(source)
+        }
     }
 
     impl RelationalCatalogSnapshot for CompilerCatalog {
@@ -774,8 +786,22 @@ mod tests {
             (source == self.relationship_source).then(|| RelationshipTableLayout {
                 table: "relationships".to_owned(),
                 identity_column: "id".to_owned(),
-                start_column: "src".to_owned(),
-                end_column: "dst".to_owned(),
+                roles: vec![
+                    RelationshipRoleLayout {
+                        role: RoleId::new(1).unwrap(),
+                        name: "start".to_owned(),
+                        column: "src".to_owned(),
+                        cardinality: RoleCardinality::One,
+                        spill_table: None,
+                    },
+                    RelationshipRoleLayout {
+                        role: RoleId::new(2).unwrap(),
+                        name: "end".to_owned(),
+                        column: "dst".to_owned(),
+                        cardinality: RoleCardinality::One,
+                        spill_table: None,
+                    },
+                ],
             })
         }
 
@@ -842,7 +868,7 @@ mod tests {
         install_graph_catalog(&connection, snapshots).unwrap();
         assert!(connection
             .prepare(format!(
-                "SELECT * FROM {GRAPH_EXPAND_TABLE_NAME}({}, 1, 10, 'outgoing')",
+                "SELECT * FROM {GRAPH_EXPAND_TABLE_NAME}({}, 1, 10, 1)",
                 graph_id.get()
             ))
             .is_err());
@@ -852,7 +878,7 @@ mod tests {
     fn scan_propagates_resource_exhaustion() {
         let (connection, _snapshots, graph_id) = setup();
         let sql = format!(
-            "SELECT * FROM {GRAPH_EXPAND_TABLE_NAME}({}, 1, 10, 'outgoing', '1', 1, 2, 0, \
+            "SELECT * FROM {GRAPH_EXPAND_TABLE_NAME}({}, 1, 10, 1, 2, 0, '1', 1, 2, 0, \
              'trail', 100, 100, 100, 1, 1048576)",
             graph_id.get()
         );
@@ -869,7 +895,7 @@ mod tests {
         let (connection, _snapshots, graph_id) = setup_with_fanout(300);
         let sql = format!(
             "SELECT path_id, node_identity FROM {GRAPH_EXPAND_TABLE_NAME}(
-                {}, 1, 10, 'outgoing', '1', 2, 2, 0, 'trail',
+                {}, 1, 10, 1, 2, 0, '1', 2, 2, 0, 'trail',
                 10000, 10000, 10000, 100000, 16777216
             )",
             graph_id.get()
@@ -906,7 +932,7 @@ mod tests {
         let mut statement = connection
             .prepare(format!(
                 "SELECT path_id FROM {GRAPH_EXPAND_TABLE_NAME}(
-                    {}, 1, 10, 'outgoing', '1', 2, 2, 0, 'trail',
+                    {}, 1, 10, 1, 2, 0, '1', 2, 2, 0, 'trail',
                     10000, 10000, 10000, 100000, 16777216
                 )",
                 graph_id.get()
@@ -921,5 +947,38 @@ mod tests {
             statement.step().unwrap(),
             turso_core::StepResult::Interrupt
         ));
+    }
+
+    /// Regression net for the `from_role`/`to_role`/`symmetric` argument
+    /// shift: replacing the single `direction` argument with three
+    /// arguments moves every later argument (`relationship_types` onward)
+    /// two slots to the right. A wrong index here is silent at compile
+    /// time -- it either misparses a value (caught below by `.unwrap()`)
+    /// or, worse, parses successfully into the wrong meaning. Requesting
+    /// the *reversed* role pair (role `2`, role `1`) from the traversal
+    /// runtime's terminal node C, over an exact 2-hop expansion (so only
+    /// one path length is ever terminal, keeping the row unambiguous), must
+    /// walk the KNOWS edges backward to A, the opposite of the fixture's
+    /// forward A->B->C edges. That only happens if `from_role`/`to_role`/
+    /// `symmetric` land in the vtab's role/symmetric columns (not, say,
+    /// `min_hops`/`max_hops`) and `min_hops`/`max_hops` still land on their
+    /// own (shifted) slots -- an index slip either misparses a value
+    /// (caught by `.unwrap()`) or silently produces the forward path's
+    /// terminal node (20 at depth 1) or no rows at all instead.
+    #[test]
+    fn variable_length_expand_reads_role_and_hop_arguments_at_their_shifted_index() {
+        let (connection, _snapshots, graph_id) = setup();
+        let rows = connection
+            .prepare(format!(
+                "SELECT e.depth, e.node_identity FROM {GRAPH_EXPAND_TABLE_NAME}(
+                    {}, 1, 30, 2, 1, 0, '1', 2, 2, 0, 'trail',
+                    100, 100, 100, 1000, 1048576
+                ) AS e WHERE e.is_terminal = 1 ORDER BY e.depth LIMIT 1",
+                graph_id.get()
+            ))
+            .unwrap()
+            .run_collect_rows()
+            .unwrap();
+        assert_eq!(rows, vec![vec![Value::from_i64(2), Value::from_i64(10)]]);
     }
 }

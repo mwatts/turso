@@ -1,0 +1,580 @@
+# Review package: dffbc8bff..fa67a216c
+
+## Commits
+fa67a216c graph/mutation: write relations from their role bindings
+
+## Files changed
+ graph/frontend/src/mutation.rs         |  57 +++++++--------
+ graph/frontend/src/session.rs          | 122 ++++++++++++++++++++++++++++++++-
+ graph/frontend/tests/fixture.rs        | 105 +++++++++++++++++++++++++++-
+ graph/frontend/tests/nary_relations.rs | 103 ++++++++++++++++++++++++++++
+ 4 files changed, 355 insertions(+), 32 deletions(-)
+
+## Diff
+diff --git a/graph/frontend/src/mutation.rs b/graph/frontend/src/mutation.rs
+index d2ca0919b..d1de4ecc4 100644
+--- a/graph/frontend/src/mutation.rs
++++ b/graph/frontend/src/mutation.rs
+@@ -77,20 +77,22 @@ pub enum MutationError {
+     #[error("Cypher mutation lowering failed: {0}")]
+     Lower(#[from] LowerError),
+     #[error("graph mutation database operation failed: {0}")]
+     Database(#[from] turso_core::LimboError),
+     #[error("mutation parameter `${0}` uses a reserved internal name")]
+     ReservedParameter(String),
+     #[error("created {entity} did not return exactly one identity")]
+     MissingCreatedIdentity { entity: &'static str },
+     #[error("mutation references binding {0} before it has a value")]
+     MissingBinding(ir::BindingId),
++    #[error("relation has no role {role:?}")]
++    UnknownRole { role: ir::RoleId },
+     #[error("mutation binding {binding} has invalid source provenance {value:?}")]
+     InvalidSourceProvenance {
+         binding: ir::BindingId,
+         value: Value,
+     },
+     #[error("cannot delete node while relationships still reference it; use DETACH DELETE")]
+     NodeHasRelationships,
+     #[error("runtime value for property `{property}` is not assignable to {expected:?}")]
+     IncompatibleRuntimeValue {
+         property: String,
+@@ -1824,84 +1826,83 @@ fn node_label_predicates(
+                 quoted_identifier(&junction),
+                 quoted_identifier(table),
+                 quoted_identifier(identity),
+                 name.replace('\'', "''"),
+             )
+         })
+         .collect()
+ }
+ 
+ #[allow(clippy::too_many_arguments)]
+-fn insert_relationship(
++pub(crate) fn insert_relationship(
+     connection: &Arc<Connection>,
+     catalog: &dyn GraphCompilationCatalog,
+     input: &LoweredMutationInput,
+     create: &ir::CreateRelationship,
+     parameters: &Parameters,
+     values: &HashMap<ir::BindingId, Value>,
+     entity_layouts: &HashMap<ir::BindingId, (ir::SourceTableId, MutationEntityKind)>,
+     merge: bool,
+ ) -> Result<(Value, bool), MutationError> {
+     let layout = catalog
+         .relationship_layout(create.source)
+         .ok_or(LowerError::MissingSource(create.source))?;
+-    let from = values
+-        .get(&create.from)
+-        .ok_or(MutationError::MissingBinding(create.from))?;
+-    let to = values
+-        .get(&create.to)
+-        .ok_or(MutationError::MissingBinding(create.to))?;
+     let merge_predicates = if merge {
+         relationship_type_predicates(
+             catalog,
+             create.source,
+             &layout.table,
+             &layout.identity_column,
+             &create.relationship_types,
+         )
+     } else {
+         Vec::new()
+     };
++    // Resolve each role player by `RoleId`, not by declaration order or a
++    // hard-coded start/end pair: a relation may carry any number of
++    // single-valued roles, and a two-role pattern hop is just the case
++    // where that number happens to be two.
++    let mut fixed = Vec::with_capacity(create.roles.len());
++    let mut spilled = Vec::new();
++    for binding in &create.roles {
++        let role = layout
++            .role(binding.role)
++            .ok_or(MutationError::UnknownRole { role: binding.role })?;
++        let player = values
++            .get(&binding.value)
++            .ok_or(MutationError::MissingBinding(binding.value))?;
++        match role.cardinality {
++            ir::RoleCardinality::One => fixed.push((role.column.clone(), player.clone())),
++            // A many-valued role has no column on the relation table; its
++            // players land in the spill table after the relation row exists
++            // and has an identity to point at.
++            ir::RoleCardinality::Many => spilled.push((role.clone(), player.clone())),
++        }
++    }
++    assert!(
++        spilled.is_empty(),
++        "many-valued roles are written in a later step; a Many role must not reach here yet"
++    );
+     insert_entity(
+         connection,
+         catalog,
+         input,
+         &layout.table,
+         &layout.identity_column,
+         create.source,
+         &create.properties,
+         parameters,
+         values,
+         entity_layouts,
+         merge,
+         "relationship",
+-        // `CREATE (a)-[r]->(b)` is always a two-role pattern hop. Resolve
+-        // the roles by name, not declaration order -- role order is not
+-        // guaranteed to put `start` before `end`.
+-        &[
+-            (
+-                layout
+-                    .start_role()
+-                    .ok_or(LowerError::MissingSource(create.source))?
+-                    .column
+-                    .clone(),
+-                from.clone(),
+-            ),
+-            (
+-                layout
+-                    .end_role()
+-                    .ok_or(LowerError::MissingSource(create.source))?
+-                    .column
+-                    .clone(),
+-                to.clone(),
+-            ),
+-        ],
++        &fixed,
+         &merge_predicates,
+     )
+ }
+ 
+ #[allow(clippy::too_many_arguments)]
+ fn insert_entity(
+     connection: &Arc<Connection>,
+     catalog: &dyn GraphCompilationCatalog,
+     input: &LoweredMutationInput,
+     table: &str,
+diff --git a/graph/frontend/src/session.rs b/graph/frontend/src/session.rs
+index fcf98d47b..4b0f69a2c 100644
+--- a/graph/frontend/src/session.rs
++++ b/graph/frontend/src/session.rs
+@@ -1,23 +1,24 @@
+ use std::{collections::HashMap, num::NonZero, sync::Arc};
+ 
+ use parking_lot::{Mutex, RwLock};
+ use thiserror::Error;
+ use turso_core::{Connection, Value};
++use turso_graph_ir as ir;
+ use turso_graph_ir::GraphId;
+ use turso_graph_runtime::{BuildLimits, Cancellation, NeverCancelled};
+ 
+ use crate::{
+     compiler::SharedGraphCatalog, execute_cypher_mutation, graph_frontend_id,
+-    install_graph_catalog, GraphCompilationCatalog, GraphCompiler, GraphDiagnostics, MutationError,
+-    MutationSummary, ParameterTypes, Parameters, RegisteredGraph, SessionSnapshotStore,
+-    SnapshotError, SnapshotStore, GRAPH_DIALECT_NAME,
++    install_graph_catalog, CatalogEntity, GraphCompilationCatalog, GraphCompiler, GraphDiagnostics,
++    MutationError, MutationSummary, ParameterTypes, Parameters, RegisteredGraph,
++    SessionSnapshotStore, SnapshotError, SnapshotStore, GRAPH_DIALECT_NAME,
+ };
+ 
+ #[derive(Debug, Error)]
+ pub enum Error {
+     #[error(transparent)]
+     Parse(#[from] turso_graph_cypher::ParseError),
+     #[error(transparent)]
+     Bind(#[from] crate::BindError),
+     #[error(transparent)]
+     Snapshot(#[from] SnapshotError),
+@@ -393,20 +394,135 @@ impl GraphConnection {
+         if let Err(error) = &cleared {
+             // The mutation outcome must not be masked by cache state: on
+             // success a poisoned local snapshot cache is not an error, and
+             // on failure the mutation's own error takes precedence. The
+             // store surfaces its own failure on the next traversal read.
+             tracing::warn!("clearing session snapshots after mutation failed: {error}");
+         }
+         Ok(result?)
+     }
+ 
++    /// Creates one relationship directly from named role players and
++    /// integer properties, resolving both through the catalog by name and
++    /// running the write straight through [`crate::mutation::insert_relationship`],
++    /// bypassing the Cypher parser and binder entirely.
++    ///
++    /// This exists to exercise the role-shaped writer ahead of Task 12's
++    /// standalone role-pattern surface syntax, which is the only way a
++    /// relation with more than two roles can be created through Cypher
++    /// today. Unlike a real CREATE it does not record relationship-type
++    /// junction membership -- callers that need that should go through
++    /// [`GraphConnection::execute`] once the surface syntax exists.
++    pub fn execute_create_relation(
++        &self,
++        relation: &str,
++        roles: &[(&str, i64)],
++        properties: &[(&str, i64)],
++    ) -> Result<Value, Error> {
++        self.refresh_catalog_if_stale()?;
++        let catalog = self.catalog.read().clone();
++        let relationship_type = catalog
++            .relationship_type(self.graph, relation)
++            .unwrap_or_else(|| panic!("unknown relationship type {relation:?}"));
++        let source = catalog
++            .relationship_source_for_type(self.graph, relationship_type)
++            .unwrap_or_else(|| panic!("relationship type {relation:?} has no source"));
++        let layout = catalog
++            .relationship_source_roles(source)
++            .unwrap_or_else(|| panic!("relationship type {relation:?} has no role layout"));
++
++        let mut values = HashMap::new();
++        let mut role_bindings = Vec::with_capacity(roles.len());
++        for (index, (name, player)) in roles.iter().enumerate() {
++            let role = layout
++                .roles
++                .iter()
++                .find(|candidate| candidate.name.eq_ignore_ascii_case(name))
++                .unwrap_or_else(|| panic!("relationship type {relation:?} has no role {name:?}"));
++            let binding_id = ir::BindingId::new((index as u32) + 1).expect("nonzero binding id");
++            values.insert(binding_id, Value::from_i64(*player));
++            role_bindings.push(ir::RoleBinding {
++                role: role.role,
++                value: binding_id,
++            });
++        }
++
++        let mut property_values = Vec::with_capacity(properties.len());
++        for (name, value) in properties {
++            let resolved = catalog
++                .property(self.graph, CatalogEntity::Relationship, name)
++                .unwrap_or_else(|| {
++                    panic!("relationship type {relation:?} has no property {name:?}")
++                });
++            property_values.push(ir::PropertyValue {
++                property: resolved.id,
++                semantic_types: vec![relation.to_owned()],
++                value: ir::TypedExpression {
++                    expression: ir::Expression::Literal(ir::Literal::Integer(*value)),
++                    value_type: ir::ValueType::Integer,
++                    nullability: ir::Nullability::NonNull,
++                },
++            });
++        }
++
++        // The relation's own binding and the (unused, pre-role-model)
++        // from/to pair need some binding id; role_bindings is never empty in
++        // practice, but fall back to a fresh one to stay total.
++        let relation_binding_id =
++            ir::BindingId::new((roles.len() as u32) + 1).expect("nonzero binding id");
++        let binding = ir::Binding::new(
++            relation_binding_id,
++            "x",
++            ir::ValueType::Relationship,
++            ir::Nullability::NonNull,
++        )
++        .expect("valid relationship binding");
++        let placeholder = role_bindings
++            .first()
++            .map(|binding| binding.value)
++            .unwrap_or(relation_binding_id);
++        let create = ir::CreateRelationship {
++            binding,
++            source,
++            from: placeholder,
++            to: placeholder,
++            direction: ir::CreateRelationship::default_direction(),
++            relationship_types: vec![relationship_type],
++            properties: property_values,
++            roles: role_bindings,
++        };
++
++        let entity_layouts = HashMap::new();
++        let parameters = Parameters::new();
++        let input = crate::lowering::unit_mutation_input();
++        self.connection.execute("BEGIN IMMEDIATE")?;
++        match crate::mutation::insert_relationship(
++            &self.connection,
++            catalog.as_ref(),
++            &input,
++            &create,
++            &parameters,
++            &values,
++            &entity_layouts,
++            false,
++        ) {
++            Ok((identity, _)) => {
++                self.connection.execute("COMMIT")?;
++                Ok(identity)
++            }
++            Err(cause) => {
++                self.connection.execute("ROLLBACK")?;
++                Err(Error::Mutation(cause))
++            }
++        }
++    }
++
+     fn refresh_catalog_if_stale(&self) -> Result<(), Error> {
+         let Some(generation) = &self.catalog_generation else {
+             return Ok(());
+         };
+         let mut known_generation = generation.lock();
+         let graph =
+             crate::load_registered_graph(&self.connection, &self.graph_name).map_err(|error| {
+                 Error::Database(turso_core::LimboError::ParseError(error.to_string()))
+             })?;
+         if graph.generation == *known_generation {
+diff --git a/graph/frontend/tests/fixture.rs b/graph/frontend/tests/fixture.rs
+index f037bfcf2..61f728179 100644
+--- a/graph/frontend/tests/fixture.rs
++++ b/graph/frontend/tests/fixture.rs
+@@ -6,21 +6,22 @@
+ //! stub so this can run as an external integration-test crate.
+ 
+ use std::sync::Arc;
+ 
+ use turso_core::{Connection, Database, DatabaseOpts, MemoryIO, OpenOptions, SqliteDialect};
+ use turso_graph_cypher::parse;
+ use turso_graph_frontend::{
+     bind, register_graph, CatalogEntity, GraphCatalogSnapshot, GraphCompilationCatalog,
+     GraphConnection, GraphRegistration, NodeSourceRegistration, NodeTableLayout, ParameterTypes,
+     Parameters, RelationalCatalogSnapshot, RelationshipRoleLayout, RelationshipSourceRegistration,
+-    RelationshipTableLayout, ResolvedProperty, SchemaCatalog, SnapshotStore,
++    RelationshipTableLayout, ResolvedProperty, RoleSourceRegistration, SchemaCatalog,
++    SnapshotStore,
+ };
+ use turso_graph_ir::{
+     GraphId, LabelId, Nullability, Plan, PlanKind, PropertyId, RelationshipTypeId, RoleCardinality,
+     RoleExpand, RoleId, SourceTableId, ValueType,
+ };
+ use turso_graph_runtime::{BuildLimits, NeverCancelled};
+ 
+ /// Installs a `GraphConnection` over a fresh in-memory "social" graph:
+ /// `Person` nodes (`people(id, name, age)`), `KNOWS` relationships
+ /// (`relationships(id, src, dst)`), seeded with two people. Returns the
+@@ -99,20 +100,122 @@ fn social_graph_connection_with_options(opts: DatabaseOpts) -> (Arc<Database>, G
+     session
+         .execute(
+             "CREATE (:Person {id: 1, name: 'Ada', age: 36}), \
+              (:Person {id: 2, name: 'Grace', age: 85})",
+             &Parameters::new(),
+         )
+         .expect("seed people");
+     (database, session)
+ }
+ 
++/// Installs a `GraphConnection` over a fresh in-memory three-role
++/// "scriptorium" graph: `Person`/`Text`/`Folio` node sources and a
++/// `Transcription` relationship source with three single-valued roles
++/// (`scribe` -> `people`, `text` -> `texts`, `folio` -> `folios`, columns
++/// `scribe`/`txt`/`folio` on `transcriptions`), mirroring
++/// `catalog.rs`'s `a_three_role_registration_indexes_every_role_and_every_ordered_pair`
++/// fixture plus a `year` property on the relation. No rows are pre-seeded:
++/// `SchemaCatalog` without a semantic schema only resolves node properties
++/// when the graph has exactly one node source, which this graph (three node
++/// sources) does not have, so seeding through Cypher `CREATE (:Person {..})`
++/// is not available here. Relationship-property resolution still works
++/// without a semantic schema because this graph registers exactly one
++/// relationship source.
++#[allow(dead_code)] // This file is also compiled as its own integration-test crate.
++pub fn ternary_session() -> (Arc<Database>, GraphConnection) {
++    let io = Arc::new(MemoryIO::new());
++    let database = Database::open(
++        io,
++        ":memory:fixture-scriptorium",
++        OpenOptions::new(Arc::new(SqliteDialect)),
++    )
++    .expect("open database");
++    let connection = database.connect().expect("connect");
++    connection
++        .execute(
++            "CREATE TABLE people(id INTEGER PRIMARY KEY); \
++             CREATE TABLE texts(id INTEGER PRIMARY KEY); \
++             CREATE TABLE folios(id INTEGER PRIMARY KEY); \
++             CREATE TABLE transcriptions(\
++                 id INTEGER PRIMARY KEY, scribe INTEGER, txt INTEGER, folio INTEGER, \
++                 year INTEGER);",
++        )
++        .expect("create sources");
++    let registered = register_graph(
++        &connection,
++        &GraphRegistration {
++            name: "scriptorium".to_owned(),
++            node_sources: vec![
++                NodeSourceRegistration {
++                    name: "Person".to_owned(),
++                    table: "people".to_owned(),
++                    identity_column: "id".to_owned(),
++                },
++                NodeSourceRegistration {
++                    name: "Text".to_owned(),
++                    table: "texts".to_owned(),
++                    identity_column: "id".to_owned(),
++                },
++                NodeSourceRegistration {
++                    name: "Folio".to_owned(),
++                    table: "folios".to_owned(),
++                    identity_column: "id".to_owned(),
++                },
++            ],
++            relationship_sources: vec![RelationshipSourceRegistration {
++                name: "Transcription".to_owned(),
++                table: "transcriptions".to_owned(),
++                identity_column: "id".to_owned(),
++                roles: vec![
++                    RoleSourceRegistration {
++                        name: "scribe".to_owned(),
++                        column: "scribe".to_owned(),
++                        node_source: "Person".to_owned(),
++                        cardinality: RoleCardinality::One,
++                    },
++                    RoleSourceRegistration {
++                        name: "text".to_owned(),
++                        column: "txt".to_owned(),
++                        node_source: "Text".to_owned(),
++                        cardinality: RoleCardinality::One,
++                    },
++                    RoleSourceRegistration {
++                        name: "folio".to_owned(),
++                        column: "folio".to_owned(),
++                        node_source: "Folio".to_owned(),
++                        cardinality: RoleCardinality::One,
++                    },
++                ],
++            }],
++        },
++    )
++    .expect("register graph");
++    let catalog: Arc<dyn GraphCompilationCatalog> =
++        Arc::new(SchemaCatalog::new(connection.clone(), registered.clone()));
++    // Unlike `social_graph_connection`, this does not eagerly build a
++    // traversal snapshot: today's snapshot builder is binary-only (it looks
++    // up `start`/`end` roles on every relationship source), and none of this
++    // fixture's tests run a Cypher traversal that would need one. The store
++    // builds lazily on demand for whichever caller actually needs it.
++    let shared_snapshots = Arc::new(SnapshotStore::default());
++    let session = GraphConnection::install(
++        connection,
++        &registered,
++        catalog,
++        ParameterTypes::new(),
++        shared_snapshots,
++        BuildLimits::default(),
++    )
++    .expect("install graph session");
++    (database, session)
++}
++
+ /// A second connection onto the same underlying database as `database`, for
+ /// exercising session setup (like [`GraphConnection::open`]) that must not
+ /// depend on the connection that performed the original registration.
+ #[allow(dead_code)] // Shared fixture; not every integration crate calls this.
+ pub fn second_connection(database: &Arc<Database>) -> Arc<Connection> {
+     database.connect().expect("connect")
+ }
+ 
+ /// A lightweight in-process `Person`/`KNOWS` catalog (role 1 = `start`, role
+ /// 2 = `end`) for tests that bind a query directly, without a real
+diff --git a/graph/frontend/tests/nary_relations.rs b/graph/frontend/tests/nary_relations.rs
+new file mode 100644
+index 000000000..701d8bd5f
+--- /dev/null
++++ b/graph/frontend/tests/nary_relations.rs
+@@ -0,0 +1,103 @@
++//! Coverage for role-shaped relationship writes: `insert_relationship`
++//! derives its fixed column list from `create.roles` instead of a
++//! hard-coded start/end pair (see `mutation.rs::insert_relationship`).
++//!
++//! The first two tests below describe the standalone role-pattern surface
++//! syntax that lands in Task 12; until then there is no Cypher spelling for
++//! a bare, unmatched three-role pattern, so they are `#[ignore]`d. The third
++//! test drives the writer directly through
++//! [`turso_graph_frontend::GraphConnection::execute_create_relation`], which
++//! bypasses the parser precisely so this behavior can be exercised now.
++
++mod fixture;
++
++use turso_core::Value;
++use turso_graph_frontend::Parameters;
++
++#[test]
++#[ignore = "surface syntax lands in Task 12"]
++fn a_three_role_relation_writes_one_row_with_three_endpoint_columns() {
++    let (database, session) = fixture::ternary_session();
++    session
++        .execute(
++            "CREATE (p:Person {id: 1}), (t:Text {id: 2}), (f:Folio {id: 3}), \
++             (Transcription {scribe: p, text: t, folio: f, year: 1387})",
++            &Parameters::new(),
++        )
++        .expect("create three-role relation");
++
++    let connection = fixture::second_connection(&database);
++    let rows = connection
++        .prepare("SELECT scribe, txt, folio, year FROM transcriptions")
++        .unwrap()
++        .run_collect_rows()
++        .unwrap();
++    assert_eq!(
++        rows,
++        vec![vec![
++            Value::from_i64(1),
++            Value::from_i64(2),
++            Value::from_i64(3),
++            Value::from_i64(1387),
++        ]]
++    );
++}
++
++#[test]
++#[ignore = "surface syntax lands in Task 12"]
++fn the_same_player_may_fill_two_roles_of_one_relation() {
++    // Nothing may assume role players are distinct: a scribe transcribing
++    // their own dictation could plausibly fill two roles of one relation.
++    let (database, session) = fixture::ternary_session();
++    session
++        .execute(
++            "CREATE (p:Person {id: 1}), (f:Folio {id: 2}), \
++             (Transcription {scribe: p, text: p, folio: f, year: 1400})",
++            &Parameters::new(),
++        )
++        .expect("create relation with a repeated role player");
++
++    let connection = fixture::second_connection(&database);
++    let rows = connection
++        .prepare("SELECT scribe, txt, folio FROM transcriptions")
++        .unwrap()
++        .run_collect_rows()
++        .unwrap();
++    assert_eq!(
++        rows,
++        vec![vec![
++            Value::from_i64(1),
++            Value::from_i64(1),
++            Value::from_i64(2)
++        ]]
++    );
++}
++
++#[test]
++fn the_writer_places_each_role_player_in_its_own_column() {
++    let (database, session) = fixture::ternary_session();
++
++    session
++        .execute_create_relation(
++            "Transcription",
++            &[("scribe", 1), ("text", 2), ("folio", 3)],
++            &[("year", 1387)],
++        )
++        .expect("create three-role relation through the role-shaped writer");
++
++    let connection = fixture::second_connection(&database);
++    let rows = connection
++        .prepare("SELECT scribe, txt, folio, year FROM transcriptions")
++        .unwrap()
++        .run_collect_rows()
++        .unwrap();
++    assert_eq!(
++        rows,
++        vec![vec![
++            Value::from_i64(1),
++            Value::from_i64(2),
++            Value::from_i64(3),
++            Value::from_i64(1387),
++        ]]
++    );
++}

@@ -1,6 +1,6 @@
 use crate::{
-    Binding, BindingId, Direction, GraphId, LabelId, NullOrder, PlanError, RelationshipTypeId,
-    ResultShape, Scope, SortDirection, SourceTableId, TypedExpression,
+    Binding, BindingId, GraphId, LabelId, NullOrder, PlanError, RelationshipTypeId, ResultShape,
+    RoleId, Scope, SortDirection, SourceTableId, TypedExpression,
 };
 
 /// A validated bound graph plan node with explicit visible scope and output.
@@ -39,7 +39,7 @@ impl Plan {
 pub enum PlanKind {
     Unit(Unit),
     NodeScan(NodeScan),
-    FixedExpand(FixedExpand),
+    RoleExpand(RoleExpand),
     GraphExpand(GraphExpand),
     Filter(Filter),
     Project(Project),
@@ -53,6 +53,8 @@ pub enum PlanKind {
     ProcedureCall(ProcedureCall),
     Union(Union),
     Join(Join),
+    RelationScan(RelationScan),
+    RoleJoin(RoleJoin),
 }
 
 /// Cartesian product of two independent inputs; a later Filter applies any
@@ -77,7 +79,7 @@ pub struct NodeScan {
 
 /// A single relationship hop from an already-bound node.
 #[derive(Clone, Debug, PartialEq)]
-pub struct FixedExpand {
+pub struct RoleExpand {
     pub input: Box<Plan>,
     pub from_node_source: SourceTableId,
     pub relationship_source: SourceTableId,
@@ -85,13 +87,67 @@ pub struct FixedExpand {
     pub from: BindingId,
     pub relationship: Binding,
     pub to: Binding,
-    pub direction: Direction,
+    /// Role the traversal leaves the source binding through.
+    pub from_role: RoleId,
+    /// Role the traversal enters the target binding through.
+    pub to_role: RoleId,
+    /// Also match the reversed pair. This is what an undirected pattern
+    /// means when both endpoints share a node source; a plain ordered pair
+    /// cannot say it.
+    pub symmetric: bool,
     pub relationship_types: Vec<RelationshipTypeId>,
     /// When the target closes a cycle onto an already-bound node, the
     /// binding whose identity the target must equal. Lowering folds the
     /// equality into the relationship join (making composite endpoint
     /// indexes usable) instead of filtering after an extra node join.
     pub bound_target: Option<BindingId>,
+}
+
+impl RoleExpand {
+    pub fn role_pair(&self) -> (RoleId, RoleId) {
+        (self.from_role, self.to_role)
+    }
+}
+
+/// Anchors a scan on a relationship (relation) table rather than a node
+/// table. A standalone role pattern `[x:Transcription](scribe: s, folio: g)`
+/// is not a traversal from a node — it is a scan of relation rows, with each
+/// named role joined out to its player afterward (see `RoleJoin`). This is
+/// what makes the arity of the relation irrelevant to the plan shape: a
+/// ternary relation is scanned exactly like a binary one, the difference is
+/// only in how many `RoleJoin`s follow.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct RelationScan {
+    pub graph: GraphId,
+    pub source: SourceTableId,
+    pub binding: BindingId,
+    pub relationship_types: Vec<RelationshipTypeId>,
+}
+
+/// One named role's player, resolved against an already-bound relation.
+/// `Fresh` introduces a new binding and joins its physical node table;
+/// `Bound` closes onto a variable already in scope by folding to an identity
+/// equality instead of a second join (mirrors `RoleExpand.bound_target`).
+#[derive(Clone, Debug, PartialEq)]
+pub enum RolePlayer {
+    Fresh {
+        binding: Binding,
+        node_source: SourceTableId,
+    },
+    Bound(BindingId),
+}
+
+/// Joins one named role of an already-scanned relation out to its player.
+/// Composing `n` of these onto a `RelationScan` reads a relation with `n`
+/// named roles — there is no arity branch because each role is joined
+/// independently by `RoleId`, never by name or position.
+#[derive(Clone, Debug, PartialEq)]
+pub struct RoleJoin {
+    pub input: Box<Plan>,
+    pub relationship: BindingId,
+    pub relationship_source: SourceTableId,
+    pub role: RoleId,
+    pub player: RolePlayer,
 }
 
 /// A bounded variable-length expansion from an already-bound node.
@@ -105,7 +161,14 @@ pub struct GraphExpand {
     pub from: BindingId,
     pub relationship: Binding,
     pub to: Binding,
-    pub direction: Direction,
+    /// Role the traversal leaves the source binding through.
+    pub from_role: RoleId,
+    /// Role the traversal enters the target binding through.
+    pub to_role: RoleId,
+    /// Also match the reversed pair. This is what an undirected pattern
+    /// means when both endpoints share a node source; a plain ordered pair
+    /// cannot say it.
+    pub symmetric: bool,
     pub relationship_types: Vec<RelationshipTypeId>,
     pub min_hops: u32,
     pub max_hops: u32,
@@ -354,6 +417,44 @@ mod tests {
             })
         );
         assert!(Union::new(vec![scan(1, 1), scan(2, 1)], true).is_ok());
+    }
+
+    fn sample_role_expand() -> RoleExpand {
+        let from_binding = BindingId::new(1).unwrap();
+        let relationship_binding = BindingId::new(2).unwrap();
+        let to_binding = BindingId::new(3).unwrap();
+        RoleExpand {
+            input: Box::new(scan(1, 1)),
+            from_node_source: SourceTableId::new(1).unwrap(),
+            relationship_source: SourceTableId::new(2).unwrap(),
+            target_node_source: SourceTableId::new(3).unwrap(),
+            from: from_binding,
+            relationship: Binding::new(
+                relationship_binding,
+                "r",
+                ValueType::Relationship,
+                Nullability::NonNull,
+            )
+            .unwrap(),
+            to: Binding::new(to_binding, "b", ValueType::Node, Nullability::NonNull).unwrap(),
+            from_role: RoleId::new(1).unwrap(),
+            to_role: RoleId::new(2).unwrap(),
+            symmetric: false,
+            relationship_types: vec![],
+            bound_target: None,
+        }
+    }
+
+    #[test]
+    fn a_role_expand_names_its_roles_and_no_direction() {
+        // Direction is a parser spelling, not a plan concept. A plan that still
+        // carried it would give two sources of truth for which way a traversal
+        // runs.
+        let expand = sample_role_expand();
+        assert_eq!(
+            expand.role_pair(),
+            (RoleId::new(1).unwrap(), RoleId::new(2).unwrap())
+        );
     }
 
     #[test]

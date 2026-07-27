@@ -1,5 +1,5 @@
 use crate::{
-    Binding, BindingId, Direction, GraphId, LabelId, Plan, PropertyId, RelationshipTypeId,
+    Binding, BindingId, GraphId, LabelId, Plan, PropertyId, RelationshipTypeId, RoleBinding,
     SourceTableId, TypedExpression,
 };
 
@@ -14,15 +14,16 @@ pub struct MutationRequest {
 #[derive(Clone, Debug, PartialEq)]
 pub enum Mutation {
     CreateNode(CreateNode),
-    CreateRelationship(CreateRelationship),
+    CreateRelation(CreateRelation),
     SetProperty(SetProperty),
     SetLabels(SetLabels),
+    SetRoles(SetRoles),
     ReplaceProperties(ReplaceProperties),
     ReplacePropertiesDynamic(ReplacePropertiesDynamic),
     RemoveProperty(RemoveProperty),
     Delete(DeleteEntity),
     MergeNode(MergeNode),
-    MergeRelationship(MergeRelationship),
+    MergeRelation(MergeRelation),
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -42,14 +43,14 @@ pub struct CreateNode {
 }
 
 #[derive(Clone, Debug, PartialEq)]
-pub struct CreateRelationship {
+pub struct CreateRelation {
     pub binding: Binding,
     pub source: SourceTableId,
-    pub from: BindingId,
-    pub to: BindingId,
-    pub direction: Direction,
     pub relationship_types: Vec<RelationshipTypeId>,
     pub properties: Vec<PropertyValue>,
+    /// One entry per filled role, in the relation type's declaration order.
+    /// A repeated player is legal; nothing here assumes distinct values.
+    pub roles: Vec<RoleBinding>,
 }
 
 /// Resolves the physical source for a mutation target.
@@ -77,6 +78,19 @@ pub struct SetLabels {
     pub entity: BindingId,
     pub source: MutationSource,
     pub labels: Vec<LabelId>,
+}
+
+/// `SET [x](role: player, ...)` — repoints a subset of an existing relation's
+/// roles. Unlike `CreateRelation.roles`, this is not required to cover every
+/// declared role: a role update names only the roles it wants to change.
+/// Replaces (does not append) whatever players a `Many` role already holds --
+/// `SET` has no undo syntax, so appending would make running one statement
+/// twice mean something different from running it once.
+#[derive(Clone, Debug, PartialEq)]
+pub struct SetRoles {
+    pub relation: BindingId,
+    pub source: SourceTableId,
+    pub roles: Vec<RoleBinding>,
 }
 
 /// `SET n = map` / `SET n += map` over a literal component map. `clear`
@@ -132,10 +146,118 @@ pub struct MergeNode {
 }
 
 #[derive(Clone, Debug, PartialEq)]
-pub struct MergeRelationship {
-    pub create: CreateRelationship,
+pub struct MergeRelation {
+    pub create: CreateRelation,
     /// Applied only when the merge created the entity.
     pub on_create: Vec<Mutation>,
     /// Applied only when the merge matched an existing entity.
     pub on_match: Vec<Mutation>,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::{Nullability, RoleId, ValueType};
+
+    fn sample_create_relation() -> CreateRelation {
+        let first = BindingId::new(1).unwrap();
+        let second = BindingId::new(2).unwrap();
+        let third = BindingId::new(4).unwrap();
+        CreateRelation {
+            binding: Binding::new(
+                BindingId::new(3).unwrap(),
+                "r",
+                ValueType::Relationship,
+                Nullability::NonNull,
+            )
+            .unwrap(),
+            source: SourceTableId::new(1).unwrap(),
+            relationship_types: vec![RelationshipTypeId::new(1).unwrap()],
+            properties: Vec::new(),
+            roles: vec![
+                RoleBinding {
+                    role: RoleId::new(1).unwrap(),
+                    value: first,
+                },
+                RoleBinding {
+                    role: RoleId::new(2).unwrap(),
+                    value: second,
+                },
+                RoleBinding {
+                    role: RoleId::new(3).unwrap(),
+                    value: third,
+                },
+            ],
+        }
+    }
+
+    #[test]
+    fn a_created_relation_lists_its_role_bindings_in_declaration_order() {
+        let create = sample_create_relation();
+        assert_eq!(
+            create.roles,
+            vec![
+                RoleBinding {
+                    role: RoleId::new(1).unwrap(),
+                    value: BindingId::new(1).unwrap()
+                },
+                RoleBinding {
+                    role: RoleId::new(2).unwrap(),
+                    value: BindingId::new(2).unwrap()
+                },
+                RoleBinding {
+                    role: RoleId::new(3).unwrap(),
+                    value: BindingId::new(4).unwrap()
+                },
+            ]
+        );
+    }
+
+    #[test]
+    fn a_create_relation_names_only_roles() {
+        // Two ways to say who participates is one way too many: a writer that
+        // read `from` while the binder filled `roles` would silently ignore
+        // every role past the second.
+        let create = sample_create_relation();
+        assert_eq!(create.roles.len(), 3);
+        // A length check alone survives a bug that fills the right number of
+        // roles with the wrong players (the recurring defect class of this
+        // plan) -- pin the exact (role, value) pairs too.
+        assert_eq!(
+            create.roles,
+            vec![
+                RoleBinding {
+                    role: RoleId::new(1).unwrap(),
+                    value: BindingId::new(1).unwrap()
+                },
+                RoleBinding {
+                    role: RoleId::new(2).unwrap(),
+                    value: BindingId::new(2).unwrap()
+                },
+                RoleBinding {
+                    role: RoleId::new(3).unwrap(),
+                    value: BindingId::new(4).unwrap()
+                },
+            ]
+        );
+    }
+
+    #[test]
+    fn a_role_binding_list_permits_the_same_player_twice() {
+        // Repeated players are legal: a Match with the same team in the home
+        // and away roles is a real thing to record, and nothing downstream may
+        // assume role players are distinct.
+        let player = BindingId::new(1).unwrap();
+        let roles = [
+            RoleBinding {
+                role: RoleId::new(1).unwrap(),
+                value: player,
+            },
+            RoleBinding {
+                role: RoleId::new(2).unwrap(),
+                value: player,
+            },
+        ];
+        assert_eq!(roles.iter().filter(|role| role.value == player).count(), 2);
+    }
 }

@@ -1,7 +1,7 @@
 use std::collections::HashSet;
 
 use serde::Deserialize;
-use turso_graph_ir::{NodeId, RelationshipId, RelationshipTypeId};
+use turso_graph_ir::{NodeId, RelationshipId, RelationshipTypeId, RoleId};
 use turso_graph_runtime::{BuildLimits, EdgeInput, Graph, LimitKind, RuntimeError};
 
 const MANIFEST: &str = include_str!("../../testdata/benchmarks/manifest.toml");
@@ -48,6 +48,8 @@ fn fixture(shape: &str, node_count: u64) -> (Vec<NodeId>, Vec<EdgeInput>) {
         .enumerate()
         .map(|(index, (source, target))| EdgeInput {
             relationship: RelationshipId::new(index as u64 + 1).unwrap(),
+            from_role: RoleId::new(1).unwrap(),
+            to_role: RoleId::new(2).unwrap(),
             source: node(source),
             target: node(target),
             relationship_type: RelationshipTypeId::new(1).unwrap(),

@@ -1,0 +1,124 @@
+# Review package: b9029ec0960d86a167aa7e9661fd145ec7784f37..008b8caf86b51ead188e13c3eaeec088e6ab2a10
+
+## Commits
+008b8caf8 graph/catalog: reject pre-role catalogs at open
+
+## Files changed
+ graph/frontend/src/catalog.rs | 47 +++++++++++++++++++++++++++++++++++++++++++
+ 1 file changed, 47 insertions(+)
+
+## Diff
+diff --git a/graph/frontend/src/catalog.rs b/graph/frontend/src/catalog.rs
+index 189602882..19e2c7f03 100644
+--- a/graph/frontend/src/catalog.rs
++++ b/graph/frontend/src/catalog.rs
+@@ -178,20 +178,22 @@ pub enum CatalogError {
+     IdentityNotUnique { table: String, column: String },
+     #[error("relationship source `{relationship}` references unknown node source `{node_source}`")]
+     UnknownEndpoint {
+         relationship: String,
+         node_source: String,
+     },
+     #[error("catalog row contains an invalid {kind} identity: {value}")]
+     InvalidIdentity { kind: &'static str, value: i64 },
+     #[error("catalog row has an invalid value in `{0}`")]
+     InvalidCatalogValue(&'static str),
++    #[error("graph catalog predates native relationship roles ({detail}); this build reads only role-shaped catalogs and there is no migration, so the graph must be created fresh")]
++    IncompatibleGraphLayout { detail: String },
+     #[error("source table `{table}` has a struct/union/custom-typed column `{column}` but this connection does not have --experimental-custom-types enabled")]
+     CustomTypesDisabled { table: String, column: String },
+     #[error("catalog operation failed: {0}")]
+     Database(#[from] turso_core::LimboError),
+     #[error("registration failed and rollback also failed: {cause}; rollback: {rollback}")]
+     RollbackFailed {
+         cause: Box<CatalogError>,
+         rollback: turso_core::LimboError,
+     },
+ }
+@@ -251,20 +253,33 @@ pub fn register_graph(
+             }
+         }
+     }
+ }
+ 
+ pub fn load_registered_graph(
+     connection: &Arc<Connection>,
+     name: &str,
+ ) -> Result<RegisteredGraph, CatalogError> {
+     ensure_catalog_exists(connection)?;
++    if query_rows(
++        connection,
++        &format!(
++            "SELECT name FROM sqlite_schema WHERE type = 'table' AND name = {}",
++            sql_string(RELATIONSHIP_ROLES_TABLE)
++        ),
++    )?
++    .is_empty()
++    {
++        return Err(CatalogError::IncompatibleGraphLayout {
++            detail: format!("{RELATIONSHIP_ROLES_TABLE} is absent"),
++        });
++    }
+     let graph_rows = query_rows(
+         connection,
+         &format!(
+             "SELECT g.id, g.name, gen.generation FROM {GRAPHS_TABLE} g \
+              JOIN {GENERATIONS_TABLE} gen ON gen.graph_id = g.id WHERE g.name = {} COLLATE NOCASE",
+             sql_string(name)
+         ),
+     )?;
+     let row = graph_rows
+         .first()
+@@ -1809,20 +1824,52 @@ mod tests {
+         connection
+             .execute("DROP TABLE people")
+             .expect("drop source");
+ 
+         assert!(matches!(
+             load_registered_graph(&connection, "social"),
+             Err(CatalogError::SourceTableMissing(table)) if table == "people"
+         ));
+     }
+ 
++    #[test]
++    fn a_catalog_predating_roles_fails_at_open_and_names_the_fresh_start_policy() {
++        // Fresh start: there is no legacy reader and no migration. Opening a
++        // pre-role catalog must say so rather than reporting a confusing
++        // "invalid catalog value" from a missing column.
++        let connection = connection();
++        create_sources(&connection);
++        register_graph(&connection, &registration("social")).expect("register graph");
++        // Simulate the pre-role layout: the roles table did not exist.
++        // DROP TABLE on a reserved-prefixed table is only permitted for a
++        // nested (internal) statement, and a nested statement cannot open
++        // its own write transaction, so drive it inside an explicit one.
++        connection.execute("BEGIN IMMEDIATE").expect("begin");
++        execute_internal(
++            &connection,
++            format!("DROP TABLE {RELATIONSHIP_ROLES_TABLE}"),
++        )
++        .expect("drop roles table");
++        connection.execute("COMMIT").expect("commit");
++
++        let error = load_registered_graph(&connection, "social").expect_err("pre-role catalog");
++        let message = error.to_string();
++        assert!(
++            matches!(error, CatalogError::IncompatibleGraphLayout { .. }),
++            "expected IncompatibleGraphLayout, got {message}"
++        );
++        assert!(
++            message.contains("no migration"),
++            "the error must name the fresh-start policy, got {message}"
++        );
++    }
++
+     #[test]
+     fn reserved_and_duplicate_names_are_rejected_before_catalog_writes() {
+         let connection = connection();
+         create_sources(&connection);
+         let mut reserved = registration("__turso_graph_catalog");
+         assert!(matches!(
+             register_graph(&connection, &reserved),
+             Err(CatalogError::ReservedGraphName(_))
+         ));
+ 

@@ -14,10 +14,10 @@ use thiserror::Error;
 
 use crate::{
     BinaryOperator, CallClause, Clause, CreateClause, DeleteClause, Direction, Expression,
-    ForeachClause, Literal, MatchClause, MergeClause, NodePattern, PathPattern, ProjectionClause,
-    ProjectionItem, PropertyTarget, QuantifierKind, Query, RelationshipPattern, RelationshipRange,
-    RemoveClause, SetClause, SetItem, SortItem, Span, Spanned, UnaryOperator, UnionBranch,
-    UnwindClause,
+    ForeachClause, Literal, MatchClause, MergeClause, NodePattern, PathPattern, Pattern,
+    PatternElement, ProjectionClause, ProjectionItem, PropertyTarget, QuantifierKind, Query,
+    RelationshipPattern, RelationshipRange, RemoveClause, RoleArgument, RolePattern, SetClause,
+    SetItem, SortItem, Span, Spanned, UnaryOperator, UnionBranch, UnwindClause,
 };
 
 #[derive(Parser)]
@@ -157,12 +157,9 @@ fn walk_create(pair: Pair<'_, Rule>) -> Result<CreateClause, ParseError> {
         .into_inner()
         .find(|item| item.as_rule() == Rule::pattern)
         .ok_or_else(|| ParseError::at(span, "CREATE has no pattern"))?;
-    let paths = pattern
-        .into_inner()
-        .filter(|item| item.as_rule() == Rule::path_pattern)
-        .map(walk_path)
-        .collect::<Result<Vec<_>, _>>()?;
-    Ok(CreateClause { paths })
+    Ok(CreateClause {
+        paths: walk_pattern(pattern)?,
+    })
 }
 
 fn walk_merge(pair: Pair<'_, Rule>) -> Result<MergeClause, ParseError> {
@@ -172,7 +169,14 @@ fn walk_merge(pair: Pair<'_, Rule>) -> Result<MergeClause, ParseError> {
     let mut on_match = Vec::new();
     for item in pair.into_inner() {
         match item.as_rule() {
-            Rule::path_pattern => path = Some(walk_path(item)?),
+            Rule::pattern_element => {
+                let inner = only_child(item)?;
+                path = Some(match inner.as_rule() {
+                    Rule::role_pattern => PatternElement::Roles(walk_role_pattern(inner)?),
+                    Rule::path_pattern => PatternElement::Path(walk_path(inner)?),
+                    rule => return Err(unexpected(&inner, "merge pattern", rule)),
+                });
+            }
             Rule::merge_action => {
                 let mut created = false;
                 let mut items = Vec::new();
@@ -272,6 +276,24 @@ fn walk_set_item(pair: Pair<'_, Rule>) -> Result<SetItem, ParseError> {
                 .map(|label| walk_identifier(label))
                 .collect();
             Ok(SetItem::Labels { variable, labels })
+        }
+        Rule::set_role_item => {
+            let relation = inner
+                .next()
+                .ok_or_else(|| ParseError::at(span, "SET role item has no relation"))?;
+            let relation = Spanned::new(identifier_text(relation.as_str()), pair_span(&relation));
+            let arguments = inner
+                .next()
+                .ok_or_else(|| ParseError::at(span, "SET role item has no role arguments"))?;
+            let roles = arguments
+                .into_inner()
+                .map(walk_role_argument)
+                .collect::<Result<Vec<_>, _>>()?;
+            Ok(SetItem::Roles {
+                relation,
+                roles,
+                span,
+            })
         }
         _ => Err(ParseError::at(span, "unsupported SET item form")),
     }
@@ -384,28 +406,23 @@ fn walk_foreach(pair: Pair<'_, Rule>) -> Result<ForeachClause, ParseError> {
 }
 
 fn walk_match(pair: Pair<'_, Rule>) -> Result<MatchClause, ParseError> {
+    let span = pair_span(&pair);
     let optional = pair
         .clone()
         .into_inner()
         .any(|child| child.as_rule() == Rule::OPTIONAL);
-    let mut paths = Vec::new();
+    let mut paths = None;
     let mut predicate = None;
     for child in pair.into_inner() {
         match child.as_rule() {
-            Rule::pattern => {
-                paths = child
-                    .into_inner()
-                    .filter(|item| item.as_rule() == Rule::path_pattern)
-                    .map(walk_path)
-                    .collect::<Result<Vec<_>, _>>()?;
-            }
+            Rule::pattern => paths = Some(walk_pattern(child)?),
             Rule::where_clause => predicate = Some(walk_where(child)?),
             _ => {}
         }
     }
     Ok(MatchClause {
         optional,
-        paths,
+        paths: paths.ok_or_else(|| ParseError::at(span, "MATCH has no pattern"))?,
         predicate,
     })
 }
@@ -486,23 +503,7 @@ fn walk_relationship(pair: Pair<'_, Rule>) -> Result<RelationshipPattern, ParseE
         if body.as_rule() != Rule::relationship_body {
             continue;
         }
-        for item in body.into_inner() {
-            match item.as_rule() {
-                Rule::identifier => variable = Some(walk_identifier(item)),
-                Rule::relationship_types => {
-                    types.extend(item.into_inner().map(walk_identifier));
-                }
-                Rule::range_literal => {
-                    let item_span = pair_span(&item);
-                    range = Some(Spanned::new(
-                        parse_range(item.as_str(), item_span)?,
-                        item_span,
-                    ));
-                }
-                Rule::map_literal => properties = walk_map(item)?,
-                rule => return Err(unexpected(&item, "relationship component", rule)),
-            }
-        }
+        (variable, types, range, properties) = walk_relationship_body(body)?;
     }
     Ok(RelationshipPattern {
         variable,
@@ -510,6 +511,105 @@ fn walk_relationship(pair: Pair<'_, Rule>) -> Result<RelationshipPattern, ParseE
         direction,
         range,
         properties,
+        span,
+    })
+}
+
+/// Shared by `walk_relationship` (which wraps this in a direction) and
+/// `walk_role_pattern` (which has no direction to wrap it in).
+type RelationshipBodyParts = (
+    Option<Spanned<String>>,
+    Vec<Spanned<String>>,
+    Option<Spanned<RelationshipRange>>,
+    ParsedProperties,
+);
+
+fn walk_relationship_body(body: Pair<'_, Rule>) -> Result<RelationshipBodyParts, ParseError> {
+    let mut variable = None;
+    let mut types = Vec::new();
+    let mut range = None;
+    let mut properties = Vec::new();
+    for item in body.into_inner() {
+        match item.as_rule() {
+            Rule::identifier => variable = Some(walk_identifier(item)),
+            Rule::relationship_types => {
+                types.extend(item.into_inner().map(walk_identifier));
+            }
+            Rule::range_literal => {
+                let item_span = pair_span(&item);
+                range = Some(Spanned::new(
+                    parse_range(item.as_str(), item_span)?,
+                    item_span,
+                ));
+            }
+            Rule::map_literal => properties = walk_map(item)?,
+            rule => return Err(unexpected(&item, "relationship component", rule)),
+        }
+    }
+    Ok((variable, types, range, properties))
+}
+
+fn walk_pattern(pair: Pair<'_, Rule>) -> Result<Pattern, ParseError> {
+    let span = pair_span(&pair);
+    let elements = pair
+        .into_inner()
+        .filter(|item| item.as_rule() == Rule::pattern_element)
+        .map(|element| {
+            let inner = only_child(element)?;
+            Ok(match inner.as_rule() {
+                Rule::role_pattern => PatternElement::Roles(walk_role_pattern(inner)?),
+                Rule::path_pattern => PatternElement::Path(walk_path(inner)?),
+                rule => return Err(unexpected(&inner, "pattern element", rule)),
+            })
+        })
+        .collect::<Result<Vec<_>, _>>()?;
+    Ok(Pattern { elements, span })
+}
+
+fn walk_role_pattern(pair: Pair<'_, Rule>) -> Result<RolePattern, ParseError> {
+    let span = pair_span(&pair);
+    let mut inner = pair.into_inner();
+    let body = inner
+        .next()
+        .ok_or_else(|| ParseError::at(span, "role pattern has no relationship body"))?;
+    let (variable, types, range, properties) = walk_relationship_body(body)?;
+    if let Some(range) = range {
+        // A hop range names a repetition of one relationship. It has no
+        // meaning on a role list, and accepting it silently would let
+        // `[r:T*1..3](start: a)` look supported.
+        return Err(ParseError::at(
+            range.span,
+            "a hop range has no meaning on a role pattern",
+        ));
+    }
+    let arguments = inner
+        .next()
+        .ok_or_else(|| ParseError::at(span, "role pattern has no role arguments"))?;
+    let roles = arguments
+        .into_inner()
+        .map(walk_role_argument)
+        .collect::<Result<Vec<_>, _>>()?;
+    Ok(RolePattern {
+        variable,
+        types,
+        properties,
+        roles,
+        span,
+    })
+}
+
+fn walk_role_argument(pair: Pair<'_, Rule>) -> Result<RoleArgument, ParseError> {
+    let span = pair_span(&pair);
+    let mut inner = pair.into_inner();
+    let name = inner
+        .next()
+        .ok_or_else(|| ParseError::at(span, "role argument has no name"))?;
+    let player = inner
+        .next()
+        .ok_or_else(|| ParseError::at(span, "role argument has no player"))?;
+    Ok(RoleArgument {
+        name: walk_identifier(name),
+        player: walk_expression(player)?,
         span,
     })
 }
@@ -873,30 +973,21 @@ fn walk_not(pair: Pair<'_, Rule>) -> Result<Expression, ParseError> {
 fn walk_pattern_subquery(pair: Pair<'_, Rule>) -> Result<Expression, ParseError> {
     let span = pair_span(&pair);
     let mut count = false;
-    let mut paths = Vec::new();
+    let mut paths = None;
     let mut predicate = None;
     for child in pair.into_inner() {
         match child.as_rule() {
             Rule::subquery_kind => {
                 count = child.as_str().eq_ignore_ascii_case("count");
             }
-            Rule::pattern => {
-                paths = child
-                    .into_inner()
-                    .filter(|item| item.as_rule() == Rule::path_pattern)
-                    .map(walk_path)
-                    .collect::<Result<Vec<_>, _>>()?;
-            }
+            Rule::pattern => paths = Some(walk_pattern(child)?),
             Rule::where_clause => predicate = Some(Box::new(walk_where(child)?)),
             _ => {}
         }
     }
-    if paths.is_empty() {
-        return Err(ParseError::at(span, "pattern subquery has no pattern"));
-    }
     Ok(Expression::PatternSubquery {
         count,
-        paths,
+        paths: paths.ok_or_else(|| ParseError::at(span, "pattern subquery has no pattern"))?,
         predicate,
     })
 }
@@ -1541,7 +1632,19 @@ mod tests {
         let Clause::Match(clause) = &query.clauses[0].value else {
             panic!("expected MATCH")
         };
-        clause.paths[0].steps[0].0.clone()
+        let PatternElement::Path(path) = &clause.paths.elements[0] else {
+            panic!("expected a path pattern")
+        };
+        path.steps[0].0.clone()
+    }
+
+    /// Reaches the `Pattern` of a MATCH clause's pattern, for tests that
+    /// assert on `PatternElement` shape directly.
+    fn pattern_of(query: &Query) -> &Pattern {
+        let Clause::Match(clause) = &query.clauses[0].value else {
+            panic!("expected MATCH")
+        };
+        &clause.paths
     }
 
     #[test]
@@ -1650,12 +1753,130 @@ mod tests {
         let Clause::Create(create) = &query.clauses[0].value else {
             panic!("expected CREATE")
         };
-        assert_eq!(create.paths.len(), 1);
-        assert_eq!(create.paths[0].steps.len(), 1);
+        assert_eq!(create.paths.elements.len(), 1);
+        let PatternElement::Path(path) = &create.paths.elements[0] else {
+            panic!("expected a path pattern")
+        };
+        assert_eq!(path.steps.len(), 1);
         let Clause::Merge(merge) = &query.clauses[1].value else {
             panic!("expected MERGE")
         };
-        assert_eq!(merge.path.steps.len(), 1);
+        // The arrow form must still parse to `PatternElement::Path` now that
+        // `merge_clause` accepts `pattern_element` (arrow or role form)
+        // instead of `path_pattern` directly.
+        let PatternElement::Path(merge_path) = &merge.path else {
+            panic!("expected a path pattern")
+        };
+        assert_eq!(merge_path.steps.len(), 1);
+    }
+
+    #[test]
+    fn merge_accepts_a_standalone_role_pattern() {
+        // `merge_clause` bypassed the `role_pattern | path_pattern`
+        // alternation that CREATE goes through, taking `path_pattern`
+        // directly; this is the grammar fix for Task 18b.
+        let query =
+            parse("MATCH (p), (t), (f) MERGE [x:Transcription](scribe: p, text: t, folio: f)")
+                .expect("MERGE must accept a standalone role pattern");
+        let Clause::Merge(merge) = &query.clauses[1].value else {
+            panic!("expected MERGE")
+        };
+        let PatternElement::Roles(roles) = &merge.path else {
+            panic!("expected a role pattern")
+        };
+        assert_eq!(
+            roles
+                .roles
+                .iter()
+                .map(|role| role.name.value.as_str())
+                .collect::<Vec<_>>(),
+            vec!["scribe", "text", "folio"]
+        );
+    }
+
+    #[test]
+    fn a_standalone_role_pattern_parses_with_its_roles_in_source_order() {
+        // `[` never begins a pattern element today, so the role form is
+        // unambiguous against every existing pattern.
+        let query =
+            parse("MATCH [x:Transcription {year: 1387}](scribe: p, text: t, folio: f) RETURN x")
+                .expect("query should parse");
+        let PatternElement::Roles(roles) = &pattern_of(&query).elements[0] else {
+            panic!("expected a role pattern");
+        };
+        assert_eq!(
+            roles
+                .variable
+                .as_ref()
+                .map(|variable| variable.value.as_str()),
+            Some("x")
+        );
+        assert_eq!(
+            roles
+                .types
+                .iter()
+                .map(|type_| type_.value.as_str())
+                .collect::<Vec<_>>(),
+            vec!["Transcription"]
+        );
+        assert_eq!(
+            roles
+                .roles
+                .iter()
+                .map(|role| role.name.value.as_str())
+                .collect::<Vec<_>>(),
+            vec!["scribe", "text", "folio"]
+        );
+    }
+
+    #[test]
+    fn a_role_pattern_permits_a_repeated_role_player() {
+        // `(scribe: p, text: t, folio: p)` is a legal query: nothing about
+        // parsing a role list may assume role players are pairwise distinct.
+        let query = parse("MATCH [x:Transcription](scribe: p, text: t, folio: p) RETURN x")
+            .expect("query should parse");
+        let PatternElement::Roles(roles) = &pattern_of(&query).elements[0] else {
+            panic!("expected a role pattern");
+        };
+        let players: Vec<&str> = roles
+            .roles
+            .iter()
+            .map(|role| match &role.player.value {
+                Expression::Variable(name) => name.as_str(),
+                other => panic!("expected a variable player, got {other:?}"),
+            })
+            .collect();
+        assert_eq!(players, vec!["p", "t", "p"]);
+    }
+
+    #[test]
+    fn a_role_pattern_and_a_path_pattern_may_appear_in_one_comma_list() {
+        let query = parse("MATCH (a:Person), [x:Transcription](scribe: a) RETURN x")
+            .expect("query should parse");
+        let elements = &pattern_of(&query).elements;
+        assert!(matches!(elements[0], PatternElement::Path(_)));
+        assert!(matches!(elements[1], PatternElement::Roles(_)));
+    }
+
+    #[test]
+    fn a_role_pattern_with_no_roles_is_a_parse_error_not_an_empty_relation() {
+        // `[x:T]()` would otherwise read as a relation with no participants,
+        // which the binder would then have to reject with a worse message.
+        assert!(parse("MATCH [x:Transcription]() RETURN x").is_err());
+    }
+
+    #[test]
+    fn a_hop_range_on_a_role_pattern_is_a_parse_error() {
+        assert!(parse("MATCH [r:T*1..3](start: a) RETURN r").is_err());
+    }
+
+    #[test]
+    fn an_arrow_pattern_still_parses_unchanged() {
+        let query = parse("MATCH (a)-[r:KNOWS]->(b) RETURN b").expect("query should parse");
+        assert!(matches!(
+            pattern_of(&query).elements[0],
+            PatternElement::Path(_)
+        ));
     }
 
     #[test]

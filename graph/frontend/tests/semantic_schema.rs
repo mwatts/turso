@@ -15,6 +15,19 @@ use turso_graph_frontend::{
     SemanticUniqueProperty, SemanticValuePredicate, SnapshotStatus, SnapshotStore,
 };
 
+fn role_node_ids(type_info: &turso_graph_frontend::SemanticTypeInfo, role_name: &str) -> Vec<u32> {
+    type_info
+        .role(role_name)
+        .expect("role")
+        .targets
+        .iter()
+        .map(|target| match target {
+            turso_graph_ir::RoleTarget::Node(label) => label.get(),
+            turso_graph_ir::RoleTarget::Relation(_) => panic!("expected node target"),
+        })
+        .collect()
+}
+
 fn connection() -> Arc<turso_graph_frontend::core::Connection> {
     let io = Arc::new(MemoryIO::new());
     Database::open_file(io, ":memory:semantic-schema", Arc::new(SqliteDialect))
@@ -51,15 +64,15 @@ fn registered_graph(connection: &Arc<turso_graph_frontend::core::Connection>) {
                 table: "tbl_people".to_owned(),
                 identity_column: "pk".to_owned(),
             }],
-            relationship_sources: vec![RelationshipSourceRegistration {
-                name: "edges_src".to_owned(),
-                table: "tbl_edges".to_owned(),
-                identity_column: "pk".to_owned(),
-                start_column: "a".to_owned(),
-                end_column: "b".to_owned(),
-                start_node_source: "people_src".to_owned(),
-                end_node_source: "people_src".to_owned(),
-            }],
+            relationship_sources: vec![RelationshipSourceRegistration::binary(
+                "edges_src",
+                "tbl_edges",
+                "pk",
+                "a",
+                "b",
+                "people_src",
+                "people_src",
+            )],
         },
     )
     .expect("register graph");
@@ -103,16 +116,16 @@ fn semantic_registration() -> SemanticSchemaRegistration {
                 }],
             },
         ],
-        relationship_types: vec![SemanticRelationshipType {
-            name: "TRADES_WITH".to_owned(),
-            source: "edges_src".to_owned(),
-            start: vec!["Customer".to_owned()],
-            end: vec!["Supplier".to_owned()],
-            properties: vec![SemanticProperty {
+        relationship_types: vec![SemanticRelationshipType::binary(
+            "TRADES_WITH",
+            "edges_src",
+            vec!["Customer".to_owned()],
+            vec!["Supplier".to_owned()],
+            vec![SemanticProperty {
                 name: "since".to_owned(),
                 column: "since".to_owned(),
             }],
-        }],
+        )],
     }
 }
 
@@ -214,24 +227,24 @@ fn multi_source_session() -> turso_graph_frontend::Connection {
                 },
             ],
             relationship_sources: vec![
-                RelationshipSourceRegistration {
-                    name: "employment_src".to_owned(),
-                    table: "employment".to_owned(),
-                    identity_column: "id".to_owned(),
-                    start_column: "person_id".to_owned(),
-                    end_column: "company_id".to_owned(),
-                    start_node_source: "people_src".to_owned(),
-                    end_node_source: "companies_src".to_owned(),
-                },
-                RelationshipSourceRegistration {
-                    name: "ownership_src".to_owned(),
-                    table: "ownership".to_owned(),
-                    identity_column: "id".to_owned(),
-                    start_column: "company_id".to_owned(),
-                    end_column: "person_id".to_owned(),
-                    start_node_source: "companies_src".to_owned(),
-                    end_node_source: "people_src".to_owned(),
-                },
+                RelationshipSourceRegistration::binary(
+                    "employment_src",
+                    "employment",
+                    "id",
+                    "person_id",
+                    "company_id",
+                    "people_src",
+                    "companies_src",
+                ),
+                RelationshipSourceRegistration::binary(
+                    "ownership_src",
+                    "ownership",
+                    "id",
+                    "company_id",
+                    "person_id",
+                    "companies_src",
+                    "people_src",
+                ),
             ],
         },
     )
@@ -265,26 +278,26 @@ fn multi_source_session() -> turso_graph_frontend::Connection {
                 },
             ],
             relationship_types: vec![
-                SemanticRelationshipType {
-                    name: "WORKS_AT".to_owned(),
-                    source: "employment_src".to_owned(),
-                    start: vec!["Person".to_owned()],
-                    end: vec!["Company".to_owned()],
-                    properties: vec![SemanticProperty {
+                SemanticRelationshipType::binary(
+                    "WORKS_AT",
+                    "employment_src",
+                    vec!["Person".to_owned()],
+                    vec!["Company".to_owned()],
+                    vec![SemanticProperty {
                         name: "weight".to_owned(),
                         column: "since".to_owned(),
                     }],
-                },
-                SemanticRelationshipType {
-                    name: "OWNS".to_owned(),
-                    source: "ownership_src".to_owned(),
-                    start: vec!["Company".to_owned()],
-                    end: vec!["Person".to_owned()],
-                    properties: vec![SemanticProperty {
+                ),
+                SemanticRelationshipType::binary(
+                    "OWNS",
+                    "ownership_src",
+                    vec!["Company".to_owned()],
+                    vec!["Person".to_owned()],
+                    vec![SemanticProperty {
                         name: "weight".to_owned(),
                         column: "share".to_owned(),
                     }],
-                },
+                ),
             ],
         },
     )
@@ -617,15 +630,15 @@ fn semantic_endpoints_must_match_relationship_source_layouts() {
                     identity_column: "id".to_owned(),
                 },
             ],
-            relationship_sources: vec![RelationshipSourceRegistration {
-                name: "employment".to_owned(),
-                table: "employment".to_owned(),
-                identity_column: "id".to_owned(),
-                start_column: "person_id".to_owned(),
-                end_column: "company_id".to_owned(),
-                start_node_source: "people".to_owned(),
-                end_node_source: "companies".to_owned(),
-            }],
+            relationship_sources: vec![RelationshipSourceRegistration::binary(
+                "employment",
+                "employment",
+                "id",
+                "person_id",
+                "company_id",
+                "people",
+                "companies",
+            )],
         },
     )
     .expect("register endpoint graph");
@@ -646,19 +659,19 @@ fn semantic_endpoints_must_match_relationship_source_layouts() {
                     properties: Vec::new(),
                 },
             ],
-            relationship_types: vec![SemanticRelationshipType {
-                name: "WORKS_AT".to_owned(),
-                source: "employment".to_owned(),
-                start: vec!["Company".to_owned()],
-                end: vec!["Person".to_owned()],
-                properties: Vec::new(),
-            }],
+            relationship_types: vec![SemanticRelationshipType::binary(
+                "WORKS_AT",
+                "employment",
+                vec!["Company".to_owned()],
+                vec!["Person".to_owned()],
+                Vec::new(),
+            )],
         },
     )
     .expect_err("semantic endpoints conflict with physical source layout");
     assert!(matches!(
         error,
-        SemanticCatalogError::EndpointSourceMismatch { .. }
+        SemanticCatalogError::RoleSourceMismatch { .. }
     ));
 }
 
@@ -1652,7 +1665,7 @@ fn endpoint_validation_covers_both_directions() {
     assert!(
         error
             .to_string()
-            .contains("not allowed as the start endpoint"),
+            .contains("role `start` of relationship type `TRADES_WITH` does not accept"),
         "{error}"
     );
 
@@ -1664,7 +1677,7 @@ fn endpoint_validation_covers_both_directions() {
             &Default::default(),
         )
         .expect_err("incoming reversal must be checked");
-    assert!(error.to_string().contains("endpoint"), "{error}");
+    assert!(error.to_string().contains("does not accept"), "{error}");
 }
 
 #[test]
@@ -1701,12 +1714,12 @@ fn semantic_relationship_merge_enforces_types_endpoints_and_idempotency() {
         .expect_err("MERGE must enforce the relationship endpoints");
     assert!(matches!(
         error,
-        FrontendError::Mutation(MutationError::Bind(BindError::InvalidEndpointType {
+        FrontendError::Mutation(MutationError::Bind(BindError::RoleTargetTypeViolation {
             relationship_type,
-            endpoint: "start",
-            node_types,
+            role,
+            found,
             ..
-        })) if relationship_type == "TRADES_WITH" && node_types == vec!["Supplier"]
+        })) if relationship_type == "TRADES_WITH" && role == "start" && found == "Supplier"
     ));
 }
 
@@ -1786,13 +1799,14 @@ fn ambiguous_matched_bindings_cannot_create_semantic_relationship_endpoints() {
     assert!(
         matches!(
             &error,
-            FrontendError::Mutation(MutationError::Bind(BindError::InvalidEndpointType {
+            FrontendError::Mutation(MutationError::Bind(BindError::RoleTargetTypeViolation {
                 relationship_type,
-                endpoint: "start",
-                node_types,
+                role,
+                found,
                 ..
             })) if relationship_type == "TRADES_WITH"
-                && node_types == &vec!["Customer".to_owned(), "Supplier".to_owned()]
+                && role == "start"
+                && found == "Customer, Supplier"
         ),
         "{error:?}"
     );
@@ -2067,13 +2081,13 @@ fn fragment_schema() -> SemanticSchemaRegistration {
                 properties: Vec::new(),
             },
         ],
-        relationship_types: vec![SemanticRelationshipType {
-            name: "WORKS_AT".to_owned(),
-            source: "employment_src".to_owned(),
-            start: vec!["Person".to_owned()],
-            end: vec!["Company".to_owned()],
-            properties: Vec::new(),
-        }],
+        relationship_types: vec![SemanticRelationshipType::binary(
+            "WORKS_AT",
+            "employment_src",
+            vec!["Person".to_owned()],
+            vec!["Company".to_owned()],
+            Vec::new(),
+        )],
     }
 }
 
@@ -2110,15 +2124,15 @@ fn register_fragment_graph(connection: &Arc<turso_graph_frontend::core::Connecti
                     identity_column: "id".to_owned(),
                 },
             ],
-            relationship_sources: vec![RelationshipSourceRegistration {
-                name: "employment_src".to_owned(),
-                table: "employment".to_owned(),
-                identity_column: "id".to_owned(),
-                start_column: "person_id".to_owned(),
-                end_column: "company_id".to_owned(),
-                start_node_source: "people_src".to_owned(),
-                end_node_source: "companies_src".to_owned(),
-            }],
+            relationship_sources: vec![RelationshipSourceRegistration::binary(
+                "employment_src",
+                "employment",
+                "id",
+                "person_id",
+                "company_id",
+                "people_src",
+                "companies_src",
+            )],
         },
     )
     .expect("register fragment graph");
@@ -2177,7 +2191,7 @@ fn first_union_inputs(plan: &turso_graph_ir::Plan) -> Option<&[turso_graph_ir::P
 
     match plan.kind() {
         PlanKind::Union(union) => Some(union.inputs()),
-        PlanKind::FixedExpand(expand) => first_union_inputs(&expand.input),
+        PlanKind::RoleExpand(expand) => first_union_inputs(&expand.input),
         PlanKind::GraphExpand(expand) => first_union_inputs(&expand.input),
         PlanKind::Filter(filter) => first_union_inputs(&filter.input),
         PlanKind::Project(project) => first_union_inputs(&project.input),
@@ -2194,7 +2208,8 @@ fn first_union_inputs(plan: &turso_graph_ir::Plan) -> Option<&[turso_graph_ir::P
         PlanKind::Join(join) => {
             first_union_inputs(&join.left).or_else(|| first_union_inputs(&join.right))
         }
-        PlanKind::Unit(_) | PlanKind::NodeScan(_) => None,
+        PlanKind::Unit(_) | PlanKind::NodeScan(_) | PlanKind::RelationScan(_) => None,
+        PlanKind::RoleJoin(join) => first_union_inputs(&join.input),
     }
 }
 
@@ -2409,13 +2424,13 @@ fn fragment_snapshot_precomputes_members_properties_and_endpoint_expansion() {
     registered_graph(&connection);
     let schema = SemanticSchemaRegistration {
         node_types: semantic_registration().node_types,
-        relationship_types: vec![SemanticRelationshipType {
-            name: "TRADES_WITH".to_owned(),
-            source: "edges_src".to_owned(),
-            start: vec!["Party".to_owned()],
-            end: vec!["Party".to_owned()],
-            properties: Vec::new(),
-        }],
+        relationship_types: vec![SemanticRelationshipType::binary(
+            "TRADES_WITH",
+            "edges_src",
+            vec!["Party".to_owned()],
+            vec!["Party".to_owned()],
+            Vec::new(),
+        )],
     };
     let fragments = SemanticFragmentRegistration {
         fragments: vec![SemanticFragment {
@@ -2474,11 +2489,13 @@ fn fragment_snapshot_precomputes_members_properties_and_endpoint_expansion() {
         .expect("customer type")
         .property("displayName")
         .is_some());
-    let endpoints = snapshot
-        .endpoints(turso_graph_ir::RelationshipTypeId::new(1).expect("relationship type id"))
-        .expect("expanded endpoints");
-    assert_eq!(endpoints.start, vec![1, 2]);
-    assert_eq!(endpoints.end, vec![1, 2]);
+    let trades_with = snapshot
+        .relationship_type_by_id(
+            turso_graph_ir::RelationshipTypeId::new(1).expect("relationship type id"),
+        )
+        .expect("relationship type");
+    assert_eq!(role_node_ids(trades_with, "start"), vec![1, 2]);
+    assert_eq!(role_node_ids(trades_with, "end"), vec![1, 2]);
 }
 
 #[test]
@@ -2492,8 +2509,18 @@ fn fragment_reopen_preserves_noncolliding_ids_properties_memberships_and_endpoin
     let connection = database.connect().expect("first connection");
     register_fragment_graph(&connection);
     let mut schema = fragment_schema();
-    schema.relationship_types[0].start = vec!["NaturalPerson".to_owned()];
-    schema.relationship_types[0].end = vec!["Employer".to_owned()];
+    schema.relationship_types[0]
+        .roles
+        .iter_mut()
+        .find(|role| role.name == "start")
+        .expect("start role")
+        .targets = vec!["NaturalPerson".to_owned()];
+    schema.relationship_types[0]
+        .roles
+        .iter_mut()
+        .find(|role| role.name == "end")
+        .expect("end role")
+        .targets = vec!["Employer".to_owned()];
     let mut fragments = fragment_registration();
     fragments.fragments.push(SemanticFragment {
         name: "Employer".to_owned(),
@@ -2550,13 +2577,13 @@ fn fragment_reopen_preserves_noncolliding_ids_properties_memberships_and_endpoin
         .relationship_type("WORKS_AT")
         .expect("relationship type")
         .type_id;
-    let endpoints = first
-        .endpoints(
+    let works_at = first
+        .relationship_type_by_id(
             turso_graph_ir::RelationshipTypeId::new(relationship_id).expect("relationship type id"),
         )
-        .expect("expanded endpoints");
-    assert_eq!(endpoints.start, vec![concrete_ids[0]]);
-    assert_eq!(endpoints.end, vec![concrete_ids[1]]);
+        .expect("relationship type");
+    assert_eq!(role_node_ids(works_at, "start"), vec![concrete_ids[0]]);
+    assert_eq!(role_node_ids(works_at, "end"), vec![concrete_ids[1]]);
 
     drop(connection);
     let reopened = database.connect().expect("reopen connection");
@@ -2597,13 +2624,13 @@ fn fragment_reopen_preserves_noncolliding_ids_properties_memberships_and_endpoin
     assert_eq!(reopened_company_property.id, display_name_id);
     assert_eq!(reopened_person_property.column, "person_name");
     assert_eq!(reopened_company_property.column, "company_name");
-    let endpoints = second
-        .endpoints(
+    let works_at = second
+        .relationship_type_by_id(
             turso_graph_ir::RelationshipTypeId::new(relationship_id).expect("relationship type id"),
         )
-        .expect("reopened expanded endpoints");
-    assert_eq!(endpoints.start, vec![concrete_ids[0]]);
-    assert_eq!(endpoints.end, vec![concrete_ids[1]]);
+        .expect("reopened relationship type");
+    assert_eq!(role_node_ids(works_at, "start"), vec![concrete_ids[0]]);
+    assert_eq!(role_node_ids(works_at, "end"), vec![concrete_ids[1]]);
 }
 
 #[test]
@@ -2611,7 +2638,12 @@ fn fragment_endpoint_expansion_rejects_physical_source_mismatches() {
     let connection = connection();
     register_fragment_graph(&connection);
     let mut schema = fragment_schema();
-    schema.relationship_types[0].start = vec!["Nameable".to_owned()];
+    schema.relationship_types[0]
+        .roles
+        .iter_mut()
+        .find(|role| role.name == "start")
+        .expect("start role")
+        .targets = vec!["Nameable".to_owned()];
 
     let error = register_semantic_schema_with_fragments(
         &connection,
@@ -2620,21 +2652,25 @@ fn fragment_endpoint_expansion_rejects_physical_source_mismatches() {
         &fragment_registration(),
     )
     .expect_err("Nameable includes Company, which cannot occupy employment.person_id");
-    assert!(matches!(
-        error,
-        SemanticCatalogError::EndpointSourceMismatch {
-            relationship_type,
-            endpoint: "start",
-            node_type,
-            actual_source,
-            relationship_source,
-            required_source,
-        } if relationship_type.as_ref() == "WORKS_AT"
-            && node_type.as_ref() == "Company"
-            && actual_source.as_ref() == "companies_src"
-            && relationship_source.as_ref() == "employment_src"
-            && required_source.as_ref() == "people_src"
-    ));
+    assert!(
+        matches!(
+            &error,
+            SemanticCatalogError::RoleSourceMismatch {
+                relationship_type,
+                role,
+                node_type,
+                actual_source,
+                relationship_source,
+                required_source,
+            } if relationship_type.as_ref() == "WORKS_AT"
+                && role.as_ref() == "start"
+                && node_type.as_ref() == "Company"
+                && actual_source.as_ref() == "companies_src"
+                && relationship_source.as_ref() == "employment_src"
+                && required_source.as_ref() == "people_src"
+        ),
+        "{error:?}"
+    );
 }
 
 #[test]
@@ -4405,7 +4441,13 @@ fn constraint_registration_rejects_every_invalid_public_shape() {
     let endpoint_connection = connection();
     registered_graph(&endpoint_connection);
     let mut endpoint_free = semantic_registration();
-    endpoint_free.relationship_types[0].start.clear();
+    endpoint_free.relationship_types[0]
+        .roles
+        .iter_mut()
+        .find(|role| role.name == "start")
+        .expect("start role")
+        .targets
+        .clear();
     register_semantic_schema(&endpoint_connection, "social", &endpoint_free)
         .expect("register relationship without a permitted start type");
     let missing_endpoint = SemanticConstraintRegistration {
@@ -4646,7 +4688,12 @@ fn cardinality_expands_fragment_endpoints_and_handles_colliding_source_ids() {
         ],
     });
     let mut schema = fragment_schema();
-    schema.relationship_types[0].start = vec!["Worker".to_owned()];
+    schema.relationship_types[0]
+        .roles
+        .iter_mut()
+        .find(|role| role.name == "start")
+        .expect("start role")
+        .targets = vec!["Worker".to_owned()];
     register_semantic_schema_with_fragments(&connection, "fragments", &schema, &fragments)
         .expect("register fragment-expanded endpoint");
     register_semantic_constraints(

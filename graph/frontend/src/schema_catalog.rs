@@ -10,8 +10,10 @@ use crate::binder::{
     CatalogEntity, GraphCatalogSnapshot, PropertyResolution, ResolvedNodeType, ResolvedProperty,
 };
 use crate::catalog::{RegisteredGraph, RegisteredNodeSource, RegisteredRelationshipSource};
-use crate::lowering::{NodeTableLayout, RelationalCatalogSnapshot, RelationshipTableLayout};
-use crate::semantic::{OwnedProperty, SemanticSnapshot, SemanticTypeInfo};
+use crate::lowering::{
+    NodeTableLayout, RelationalCatalogSnapshot, RelationshipRoleLayout, RelationshipTableLayout,
+};
+use crate::semantic::{OwnedProperty, SemanticRole, SemanticSnapshot, SemanticTypeInfo};
 
 /// Production catalog snapshot backed directly by `core::Schema` — no PRAGMA
 /// string-parsing, no parallel type model. Column classification reuses
@@ -458,7 +460,29 @@ impl GraphCatalogSnapshot for SchemaCatalog {
             return None;
         }
         let source = self.relationship_source_entry(relationship_source)?;
-        Some((source.start_node_source, source.end_node_source))
+        let start = source.role_by_name("start")?;
+        let end = source.role_by_name("end")?;
+        Some((start.node_source, end.node_source))
+    }
+
+    fn relationship_role_node_source(
+        &self,
+        graph: ir::GraphId,
+        relationship_source: ir::SourceTableId,
+        role: ir::RoleId,
+    ) -> Option<ir::SourceTableId> {
+        if graph != self.graph.id {
+            return None;
+        }
+        let source = self.relationship_source_entry(relationship_source)?;
+        source.role_by_id(role).map(|role| role.node_source)
+    }
+
+    fn relationship_source_roles(
+        &self,
+        source: ir::SourceTableId,
+    ) -> Option<RelationshipTableLayout> {
+        self.relationship_layout(source)
     }
 
     fn label(&self, graph: ir::GraphId, name: &str) -> Option<ir::LabelId> {
@@ -620,26 +644,30 @@ impl GraphCatalogSnapshot for SchemaCatalog {
             })
     }
 
-    fn relationship_endpoints(
+    fn relationship_roles(
         &self,
         graph: ir::GraphId,
-        relationship_type: ir::RelationshipTypeId,
-    ) -> Option<(Vec<ir::LabelId>, Vec<ir::LabelId>)> {
+        ty: ir::RelationshipTypeId,
+    ) -> Vec<SemanticRole> {
         if graph != self.graph.id {
-            return None;
+            return Vec::new();
         }
-        let constraints = self.semantic.as_ref()?.endpoints(relationship_type)?;
-        let start = constraints
-            .start
-            .iter()
-            .map(|id| ir::LabelId::new(*id).ok())
-            .collect::<Option<Vec<_>>>()?;
-        let end = constraints
-            .end
-            .iter()
-            .map(|id| ir::LabelId::new(*id).ok())
-            .collect::<Option<Vec<_>>>()?;
-        Some((start, end))
+        if let Some(semantic) = &self.semantic {
+            return semantic
+                .relationship_type_by_id(ty)
+                .map(|info| info.roles.clone())
+                .unwrap_or_default();
+        }
+        // Schemaless mode has no semantic role registration to report;
+        // project the physical role layout instead so the roles carry the
+        // real, physically-registered `RoleId`s. This is the same
+        // projection the trait default applies, kept explicit here so it
+        // runs whenever `self.semantic` is `None` rather than only for
+        // catalogs that don't override this method at all.
+        self.relationship_source_for_type(graph, ty)
+            .and_then(|source| self.relationship_source_roles(source))
+            .map(|layout| layout.roles.into_iter().map(SemanticRole::from).collect())
+            .unwrap_or_default()
     }
 
     fn semantic_constraints(
@@ -764,8 +792,20 @@ impl RelationalCatalogSnapshot for SchemaCatalog {
         Some(RelationshipTableLayout {
             table: entry.table.clone(),
             identity_column: entry.identity_column.clone(),
-            start_column: entry.start_column.clone(),
-            end_column: entry.end_column.clone(),
+            roles: entry
+                .roles
+                .iter()
+                .map(|role| RelationshipRoleLayout {
+                    role: role.role,
+                    name: role.name.clone(),
+                    column: role.column.clone(),
+                    cardinality: role.cardinality,
+                    spill_table: match role.cardinality {
+                        ir::RoleCardinality::One => None,
+                        ir::RoleCardinality::Many => Some(entry.spill_table(role)),
+                    },
+                })
+                .collect(),
         })
     }
 
@@ -828,15 +868,8 @@ impl RelationalCatalogSnapshot for SchemaCatalog {
     fn payload_columns(&self, source: ir::SourceTableId) -> Option<Vec<(String, String)>> {
         let (table_name, structural) = if let Some(entry) = self.node_source_entry(source) {
             (entry.table.clone(), vec![entry.identity_column.clone()])
-        } else if let Some(entry) = self.relationship_source_entry(source) {
-            (
-                entry.table.clone(),
-                vec![
-                    entry.identity_column.clone(),
-                    entry.start_column.clone(),
-                    entry.end_column.clone(),
-                ],
-            )
+        } else if let Some(layout) = self.relationship_layout(source) {
+            (layout.table.clone(), layout.structural_columns())
         } else {
             return None;
         };
@@ -971,13 +1004,14 @@ mod tests {
     use super::*;
     use crate::catalog::{
         GraphRegistration, NodeSourceRegistration, RelationshipSourceRegistration,
+        RoleSourceRegistration,
     };
     use crate::semantic::{
         SemanticFragment, SemanticFragmentMember, SemanticFragmentRegistration, SemanticNodeType,
-        SemanticProperty, SemanticSchemaRegistration, SEMANTIC_ENDPOINTS_TABLE,
-        SEMANTIC_FRAGMENTS_TABLE, SEMANTIC_FRAGMENT_MEMBERS_TABLE,
-        SEMANTIC_FRAGMENT_OWNERSHIP_TABLE, SEMANTIC_FRAGMENT_PROPERTIES_TABLE,
-        SEMANTIC_OWNERSHIP_TABLE, SEMANTIC_PROPERTIES_TABLE, SEMANTIC_TYPES_TABLE,
+        SemanticProperty, SemanticSchemaRegistration, SEMANTIC_FRAGMENTS_TABLE,
+        SEMANTIC_FRAGMENT_MEMBERS_TABLE, SEMANTIC_FRAGMENT_OWNERSHIP_TABLE,
+        SEMANTIC_FRAGMENT_PROPERTIES_TABLE, SEMANTIC_OWNERSHIP_TABLE, SEMANTIC_PROPERTIES_TABLE,
+        SEMANTIC_ROLE_TABLE, SEMANTIC_TYPES_TABLE,
     };
     use std::sync::Arc;
     use turso_core::{Database, DatabaseOpts, MemoryIO, OpenFlags, SqliteDialect};
@@ -1013,18 +1047,102 @@ mod tests {
                     table: "people".to_owned(),
                     identity_column: "id".to_owned(),
                 }],
-                relationship_sources: vec![RelationshipSourceRegistration {
-                    name: "KNOWS".to_owned(),
-                    table: "relationships".to_owned(),
-                    identity_column: "id".to_owned(),
-                    start_column: "src".to_owned(),
-                    end_column: "dst".to_owned(),
-                    start_node_source: "Person".to_owned(),
-                    end_node_source: "Person".to_owned(),
-                }],
+                relationship_sources: vec![RelationshipSourceRegistration::binary(
+                    "KNOWS",
+                    "relationships",
+                    "id",
+                    "src",
+                    "dst",
+                    "Person",
+                    "Person",
+                )],
             },
         )
         .expect("register graph")
+    }
+
+    fn binary_relationship_catalog() -> (SchemaCatalog, ir::SourceTableId) {
+        let connection = connect(false);
+        connection
+            .execute(
+                "CREATE TABLE people(id INTEGER PRIMARY KEY, name TEXT); \
+                 CREATE TABLE friendships(id INTEGER PRIMARY KEY, src INTEGER, dst INTEGER);",
+            )
+            .expect("create sources");
+        let graph = crate::catalog::register_graph(
+            &connection,
+            &GraphRegistration {
+                name: "friends".to_owned(),
+                node_sources: vec![NodeSourceRegistration {
+                    name: "Person".to_owned(),
+                    table: "people".to_owned(),
+                    identity_column: "id".to_owned(),
+                }],
+                relationship_sources: vec![RelationshipSourceRegistration::binary(
+                    "KNOWS",
+                    "friendships",
+                    "id",
+                    "src",
+                    "dst",
+                    "Person",
+                    "Person",
+                )],
+            },
+        )
+        .expect("register graph");
+        let source = graph.relationship_sources[0].id;
+        (SchemaCatalog::new(connection, graph), source)
+    }
+
+    /// Same shape as `binary_relationship_catalog`, but the `end` role is
+    /// declared BEFORE the `start` role. `RelationshipSourceRegistration::binary`
+    /// always declares `start` first, so building the registration by hand is
+    /// the only way to exercise declaration order other than start-then-end;
+    /// nothing in `validate_registration_names` requires `start` to precede
+    /// `end`, so a name-position-blind consumer must not care which one this
+    /// is.
+    fn reversed_binary_relationship_catalog() -> (SchemaCatalog, ir::SourceTableId, ir::GraphId) {
+        let connection = connect(false);
+        connection
+            .execute(
+                "CREATE TABLE people(id INTEGER PRIMARY KEY, name TEXT); \
+                 CREATE TABLE acquaintances(id INTEGER PRIMARY KEY, person_a INTEGER, person_b INTEGER);",
+            )
+            .expect("create sources");
+        let graph = crate::catalog::register_graph(
+            &connection,
+            &GraphRegistration {
+                name: "acquainted".to_owned(),
+                node_sources: vec![NodeSourceRegistration {
+                    name: "Person".to_owned(),
+                    table: "people".to_owned(),
+                    identity_column: "id".to_owned(),
+                }],
+                relationship_sources: vec![RelationshipSourceRegistration {
+                    name: "KNOWS".to_owned(),
+                    table: "acquaintances".to_owned(),
+                    identity_column: "id".to_owned(),
+                    roles: vec![
+                        RoleSourceRegistration {
+                            name: "end".to_owned(),
+                            column: "person_a".to_owned(),
+                            node_source: "Person".to_owned(),
+                            cardinality: ir::RoleCardinality::One,
+                        },
+                        RoleSourceRegistration {
+                            name: "start".to_owned(),
+                            column: "person_b".to_owned(),
+                            node_source: "Person".to_owned(),
+                            cardinality: ir::RoleCardinality::One,
+                        },
+                    ],
+                }],
+            },
+        )
+        .expect("register graph");
+        let source = graph.relationship_sources[0].id;
+        let graph_id = graph.id;
+        (SchemaCatalog::new(connection, graph), source, graph_id)
     }
 
     #[test]
@@ -1096,7 +1214,7 @@ mod tests {
             SEMANTIC_FRAGMENT_PROPERTIES_TABLE,
             SEMANTIC_FRAGMENT_MEMBERS_TABLE,
             SEMANTIC_FRAGMENTS_TABLE,
-            SEMANTIC_ENDPOINTS_TABLE,
+            SEMANTIC_ROLE_TABLE,
             SEMANTIC_OWNERSHIP_TABLE,
             SEMANTIC_PROPERTIES_TABLE,
             SEMANTIC_TYPES_TABLE,
@@ -1331,5 +1449,125 @@ mod tests {
             ]),
             "bare-primitive UNION variants must resolve to their scalar type, not Any"
         );
+    }
+
+    #[test]
+    fn a_relationship_layout_exposes_roles_and_excludes_them_from_payload() {
+        // Payload columns are everything that is not structural. A role column
+        // that leaked into the payload would be readable as a property and
+        // writable by SET, which would corrupt the relation's participation.
+        let (catalog, source) = binary_relationship_catalog();
+        let layout = catalog
+            .relationship_layout(source)
+            .expect("relationship layout");
+        assert_eq!(layout.roles.len(), 2);
+        assert_eq!(layout.roles[0].name, "start");
+        assert_eq!(layout.roles[0].column, "src");
+        assert!(layout.roles[0].spill_table.is_none());
+        assert_eq!(
+            layout
+                .role(layout.roles[1].role)
+                .map(|role| role.column.as_str()),
+            Some("dst")
+        );
+
+        let payload = catalog.payload_columns(source).expect("payload columns");
+        assert!(
+            payload
+                .iter()
+                .all(|(logical, _)| logical != "src" && logical != "dst"),
+            "role columns must not appear as payload properties: {payload:?}"
+        );
+    }
+
+    /// Regression test: a role-shaped `RelationshipTableLayout` must resolve
+    /// `start`/`end` by NAME, not by position in the `roles` vec. Declaration
+    /// order is not guaranteed to put `start` before `end` (nothing in
+    /// `validate_registration_names` requires it, and it would make binary a
+    /// validated special case rather than a layout). A positional
+    /// `roles[0]`/`roles[1]` reader silently inverts the hop the moment a
+    /// relation is registered with `end` declared first, with no compile
+    /// error and no panic -- just backwards SQL.
+    #[test]
+    fn a_relationship_with_end_declared_before_start_resolves_endpoints_by_name() {
+        let (catalog, source, graph_id) = reversed_binary_relationship_catalog();
+        let layout = catalog
+            .relationship_layout(source)
+            .expect("relationship layout");
+
+        // Declaration order really is [end, start] here; a positional reader
+        // would get this backwards.
+        assert_eq!(layout.roles[0].name, "end");
+        assert_eq!(layout.roles[1].name, "start");
+
+        assert_eq!(
+            layout.start_role().map(|role| role.column.as_str()),
+            Some("person_b"),
+            "start_role() must resolve by name even though `start` is declared second"
+        );
+        assert_eq!(
+            layout.end_role().map(|role| role.column.as_str()),
+            Some("person_a"),
+            "end_role() must resolve by name even though `end` is declared first"
+        );
+
+        // Exercise a real query against the reversed-order catalog: a
+        // `-[:KNOWS]->` hop must bind and lower without error even when
+        // `end` precedes `start` in the roles vec. `lowering.rs` carries the
+        // dedicated test that inspects the generated join SQL directly
+        // (`start_end_role_lookup_is_name_based_not_positional`); this just
+        // confirms the production `bind` + `lower_relational` pipeline is
+        // unaffected by declaration order end-to-end.
+        let query = turso_graph_cypher::parse("MATCH (a:Person)-[:KNOWS]->(b:Person) RETURN a.id")
+            .expect("parse hop query");
+        let bound =
+            crate::bind(&query, graph_id, &catalog, &Default::default()).expect("bind hop query");
+        crate::lower_relational(&bound.plan, &catalog).expect("lower hop query");
+    }
+
+    /// A schemaless catalog has no semantic role registration at all
+    /// (`self.semantic` is `None`), so `relationship_roles` cannot read role
+    /// identities off a semantic snapshot the way schema'd mode does. It
+    /// must still report the relation's roles, carrying the physical
+    /// `RoleId`s straight from the registration: the binder writes exactly
+    /// this list into `CreateRelation.roles`, and an empty response
+    /// here (the pre-fix behavior) silently drops every role binding at
+    /// bind time for every schemaless relationship create/merge.
+    ///
+    /// Uses the end-before-start registration deliberately: reusing
+    /// `layout.roles[0]`/`[1]` positionally instead of the real `RoleId`
+    /// would still pass a start-then-end fixture by coincidence.
+    #[test]
+    fn schemaless_relationship_roles_project_the_physical_role_layout() {
+        let (catalog, source, graph_id) = reversed_binary_relationship_catalog();
+        let layout = catalog
+            .relationship_layout(source)
+            .expect("relationship layout");
+        let ty = catalog
+            .relationship_type(graph_id, "KNOWS")
+            .expect("relationship type resolves");
+
+        let roles = catalog.relationship_roles(graph_id, ty);
+        assert_eq!(roles.len(), 2, "schemaless mode must not report zero roles");
+
+        let physical_start = layout.start_role().expect("physical start role");
+        let physical_end = layout.end_role().expect("physical end role");
+        let projected_start = roles
+            .iter()
+            .find(|role| role.name == "start")
+            .expect("start role projected");
+        let projected_end = roles
+            .iter()
+            .find(|role| role.name == "end")
+            .expect("end role projected");
+
+        assert_eq!(projected_start.role, physical_start.role);
+        assert_eq!(projected_end.role, physical_end.role);
+        assert_eq!(projected_start.cardinality, ir::RoleCardinality::One);
+        assert!(
+            projected_start.targets.is_empty(),
+            "schemaless mode imposes no target-type constraint"
+        );
+        assert!(!projected_start.optional);
     }
 }

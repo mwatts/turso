@@ -9,11 +9,20 @@ format — graph metadata (labels, relationship types, generation counters)
 lives as `__turso_graph_*` tables, indexes, and triggers inside the same
 `.db` file as your SQL schema.
 
-> **Status:** experimental, source-only. The graph frontend lives on the
-> `feature/graph-frontend` branch (crates `turso_graph_cypher`,
-> `turso_graph_ir`, `turso_graph_runtime`, `turso_graph_frontend`,
-> `turso_graph_temporal`). It is deliberately decoupled from the Postgres
-> frontend — see "Composing frontends" below.
+> **Status:** experimental, source-only — no published crate, no language
+> binding. Consumers embed `turso_graph_frontend` synchronously from a
+> workspace path. The graph frontend lives on the `feature/graph-frontend`
+> branch as five crates (`turso_graph_cypher`, `turso_graph_ir`,
+> `turso_graph_runtime`, `turso_graph_frontend`, `turso_graph_temporal`),
+> deliberately decoupled from the Postgres frontend — see "Composing
+> frontends" below. Feature branches such as `feature/graph-nary` carry one
+> piece of work each and merge back into it.
+>
+> This document is the user guide: how to use it, the language it accepts,
+> what it does beyond standard Cypher, and how to test changes to it. For
+> how it works inside — the pipelines, the role model's invariants, and
+> where to change what — see
+> [`docs/graph-internals.md`](graph-internals.md).
 
 ## Quickstart
 
@@ -43,15 +52,9 @@ register_graph(
             table: "people".to_owned(),
             identity_column: "id".to_owned(),
         }],
-        relationship_sources: vec![RelationshipSourceRegistration {
-            name: "KNOWS".to_owned(),
-            table: "knows".to_owned(),
-            identity_column: "id".to_owned(),
-            start_column: "src".to_owned(),
-            end_column: "dst".to_owned(),
-            start_node_source: "Person".to_owned(),
-            end_node_source: "Person".to_owned(),
-        }],
+        relationship_sources: vec![RelationshipSourceRegistration::binary(
+            "KNOWS", "knows", "id", "src", "dst", "Person", "Person",
+        )],
     },
 )?;
 
@@ -68,9 +71,205 @@ Registration is persistent: on later runs, skip step 2 and call
 and `graph_generation` are available for introspection.
 
 Identity columns must be `PRIMARY KEY` or `UNIQUE`. A graph may register
-multiple node and relationship sources. Relationship sources name the node
-source stored at each endpoint, so identities are table-local coordinates:
-equal numeric identities in two source tables remain distinct graph entities.
+multiple node and relationship sources. `binary(...)` above is a convenience
+constructor for the common two-role case; a relationship source can instead
+declare any number of named roles directly — see "Roles" below. Either way,
+identities are table-local coordinates: equal numeric identities in two
+source tables remain distinct graph entities.
+
+## Roles
+
+Every relationship source declares one or more named **roles**. Each role has
+a list of target source names it may point at, whether it is optional, and a
+**cardinality** — `One` (a single player) or `Many` (players spill into a side
+table named `<table>__<role>`). `RelationshipSourceRegistration::binary(...)`
+used in the Quickstart above is a convenience constructor, not a separate
+code path: it registers a two-role relation with the roles named `start` and
+`end`. **Binary is a layout of the role model, not a separate kind** — there
+is no `is_binary` flag and no branching on arity anywhere in the general
+machinery. Roles resolve by declared name or `RoleId`, never by position or
+count.
+
+A relation with roles other than `start`/`end` (or with more than two roles)
+is registered and queried with the standalone role-pattern syntax. Given a
+`Transcription` relationship source with `scribe`/`text`/`folio` roles over
+plain `Person`/`Text`/`Folio` node sources:
+
+```cypher
+MATCH (p:Person), (t:Text), (f:Folio)
+CREATE [x:Transcription {year: 1387}](scribe: p, text: t, folio: f)
+
+MATCH [x:Transcription](scribe: s, text: doc, folio: f) RETURN x.year
+```
+
+(`graph/frontend/tests/nary_relations.rs::a_three_role_relation_writes_one_row_with_three_endpoint_columns`
+and `a_match_role_pattern_reads_a_three_role_relation` run the create and
+match forms end to end against exactly this schema — `fixture::ternary_session`.
+That fixture has three node sources and no semantic schema, so it cannot
+resolve a *node* player's own properties, e.g. `s.id` — reading a role
+player's properties this way needs either a semantic schema or a graph with
+one node source per property name, same as any other Cypher property read.)
+
+`[x:Type {props}](role: player, role2: player2, …)` both creates a relation
+instance and matches one: each parenthesized role list names a role and
+binds (or requires) its player(s); role arguments bind by name, not by the
+order they're written
+(`role_arguments_bind_by_name_regardless_of_source_order`). The familiar
+arrow forms — `(a)-[:KNOWS]->(b)` for CREATE and `(x:TYPE)-[:role]->(player)`
+for a read off an already-bound relation — are sugar over the same
+`RoleJoin`/`RelationScan` machinery and bind to the identical plan as the
+standalone pattern
+(`the_role_arrow_and_the_role_pattern_bind_to_the_same_plan`). Both arrow
+forms only work when the relation has roles literally named `start` and
+`end`: `RelationshipSourceRegistration::binary(...)`'s two roles, or any
+relation source that happens to declare roles by those names. A relation
+without that pair — like the ternary `Transcription` above — cannot be
+created or traversed with an arrow at all: attempting one fails at bind
+time before touching any row
+(`an_arrow_form_create_requires_a_start_and_end_role_pair`,
+`an_arrow_form_expand_requires_a_start_and_end_role_pair`) and must use the
+standalone pattern instead. This applies to `RoleExpand` (fixed-hop) and
+`GraphExpand` (variable-length, `*`/`*min..max`) traversal too — both
+discover candidate relationship sources through the same `start`/`end`
+lookup, so a relation needs that literal role pair before it can be
+traversed with an arrow in either form.
+
+Reading a role by name off an already-bound relation is also available as
+arrow-form sugar — `(x:KNOWS)-[:end]->(e)` resolves the `end` role's player,
+including through a `Many` role
+(`an_arrow_from_a_relation_reads_that_relations_role`,
+`a_many_role_hops_from_the_arrow_sugar_too`). When a name is both a role of
+the anchored relation type and a separate relationship type name, binding
+rejects the query as ambiguous rather than guessing which one was meant
+(`a_name_that_is_both_a_role_and_a_relationship_type_is_ambiguous`).
+
+`SET` on a role **replaces** rather than appends for a `Many`-cardinality
+role: `SET [r](witness: w3)` sets `r`'s entire `witness` player set to
+`{w3}`, discarding whoever was there before — it is not an add
+(`setting_a_many_valued_role_replaces_rather_than_appends`).
+
+A relation may itself fill another relation's role: whether it may depends
+entirely on that role's declared target list (a role can target node
+sources, relation sources, or both), with no separate "relation-as-player"
+code path — it is decided the same way a role's node-source targets are, by
+membership in `targets`. For example, a `Citation` relationship type whose
+`cited` role targets `Transcription` (a relation, not a node) accepts a
+transcription's own relation identity as its `cited` player
+(`a_relation_may_be_a_player_of_another_relation`, `fixture::citation_session`).
+
+`graph/frontend/tests/nary_relations.rs` is the executable reference for this
+section's exact syntax and refusal wording.
+
+## The Cypher language surface
+
+The frontend follows **openCypher/TCK-normative** semantics where donors
+disagree. The authoritative surface is the code, not this list: clauses come
+from `cypher::Clause` (`graph/cypher/src/ast.rs`), and scalar functions from the
+name match in `graph/frontend/src/binder.rs`. What follows is the shape of it.
+
+### Clauses
+
+`MATCH` · `CREATE` · `MERGE` · `SET` · `REMOVE` · `DELETE` (and `DETACH DELETE`)
+· `UNWIND` · `WITH` · `RETURN` · `FOREACH` · `CALL` · `CALL { … }` scoped
+subquery · `UNION` / `UNION ALL`.
+
+Projections carry the usual `DISTINCT`, `ORDER BY`, `SKIP`, `LIMIT`, and
+aggregation with grouping.
+
+`SET` has five forms, the last of which is not standard Cypher:
+
+| Form | Meaning |
+|---|---|
+| `SET n.prop = v` | Set one property |
+| `SET n = {…}` | Replace **every** property |
+| `SET n += {…}` | Merge properties, keeping the rest |
+| `SET n:Label1:Label2` | Add labels |
+| `SET [x](role: player, …)` | Repoint named roles of an already-bound relation |
+
+### Patterns
+
+Node patterns, arrow relationship patterns with `Outgoing` / `Incoming` /
+`Both` direction, variable-length ranges (`*`, `*min..max`), inline property
+maps, and the standalone role pattern `[x:T {props}](role: player, …)`.
+
+Direction is a *parser-level* concept only: the binder resolves it to a role
+pair, and nothing downstream reasons about incoming versus outgoing.
+
+### Expressions
+
+Variables, property access, function calls, unary and binary operators, `CASE`
+(simple and searched), list indexing and slicing, casts, list and map literals,
+parameters (`$name`), list comprehensions, and the quantified predicates
+`ALL` / `ANY` / `NONE` / `SINGLE`.
+
+### Functions
+
+Aggregates: `count`, `sum`, `avg`, `min`, `max`, `collect`.
+
+Scalars mapped by the binder include `id`, `toUpper`/`toUpperCase`,
+`toLower`/`toLowerCase`, `toString`, `toInteger`, `toFloat`, `toBoolean`,
+`toStringList`, `toIntegerList`, `toFloatList`, `toBooleanList`, `size`,
+`range`, `split`, `keys`, `head`, `last`, `tail`, `left`, `right`, `isEmpty`,
+`rand`, and `reduce`. Vector distance functions (`cosine_distance`,
+`l2_distance`, `inner_product`) are available as Cypher-level scalars.
+
+A name the binder does not map falls through to the dialect's own function
+surface (see "Beyond standard Cypher" below) and then to core. That fallthrough
+is why an unsupported name usually surfaces as a core resolution error rather
+than a Cypher-level one — with the deliberate exception of the FTS scalars,
+which fail during binding with an explicit unsupported-capability error when
+the `fts` feature is off.
+
+### Catalog procedures
+
+`db.labels()`, `db.relationshipTypes()`, `db.propertyKeys()` — read-only, typed,
+resolved case-insensitively. Unknown names, wrong arity, and unknown or
+duplicate `YIELD` columns fail during binding. See "Catalog procedures" under
+the session API for exactly what `db.propertyKeys()` counts.
+
+### Known gaps
+
+`graph/DESIGN_DECISIONS.md` carries the failure taxonomy and the reasoning
+behind each open family. Two are settled as permanent:
+
+- Runtime `TypeError`s for entity values flowing through `Any`-typed lists need
+  an error-raising SQL function; a `SELECT` cannot raise.
+- AGE jsonb operators (`?`, `@>`, `#>`), pgvector `OPERATOR(...)`, and a set of
+  expected-error adapter artifacts are donor-semantic conflicts with
+  TCK-normative behavior. These are tracked as *divergences*, not bugs, and are
+  enforced through `graph/registries/divergence.toml`.
+
+## Beyond standard Cypher
+
+Features here are Turso-specific. Portable Cypher does not have them, and
+queries using them will not run on other engines.
+
+| Feature | Surface | Section |
+|---|---|---|
+| **Native n-ary relations** | `[x:T {props}](role: player, …)` on CREATE/MERGE/MATCH/SET | [Roles](#roles) |
+| **Many-cardinality roles** | Same syntax; players spill to `<table>__<role>` | [Roles](#roles) |
+| **Relation-as-player** | A role whose `targets` name a relation source | [Roles](#roles) |
+| **Semantic schema** | `register_semantic_schema` | [Optional semantic schema](#optional-semantic-schema) |
+| **Fragment interfaces** | `register_semantic_schema_with_fragments`, `MATCH (n:Nameable)` | [Fragment interfaces](#fragment-interfaces) |
+| **Semantic constraints** | `register_semantic_constraints` | [Semantic constraints and additive evolution](#semantic-constraints-and-additive-evolution) |
+| **Full-text search** | `fts_match`, `fts_score`, `fts_highlight` + typed admin API | [Full-text search](#full-text-search) |
+| **Vector scalars** | `vector32`, `vector64`, `vector8`, `vector1bit`, `vector32_sparse`, `vector_extract`, `vector_concat`, `vector_slice`, `vector_distance_*` | — |
+| **Struct / union scalars** | `struct_pack`, `union_value`, `union_tag` | — |
+| **Traversal diagnostics** | `GraphConnection::diagnostics()` | [Traversal snapshots](#traversal-snapshots-variable-length-paths) |
+| **Statement classification** | `GraphConnection::classify()` → `StatementKind` | — |
+
+The `turso_graph_temporal` extension registers a further scalar surface that
+Cypher lowering targets: `duration_make`/`_parse`/`_get`/`_add`/`_neg`/`_between`,
+`temporal_make`/`_truncate`/`_parse`/`_get`/`_now`, `datetime_add_duration`,
+`datetime_sub_duration`, the `jsonb_*` accessors (`jsonb_get`, `jsonb_get_text`,
+`jsonb_get_path`, `jsonb_exists`, `jsonb_exists_any`, `jsonb_exists_all`,
+`jsonb_contains`), the Cypher-semantics helpers `cypher_raise`, `cypher_equals`,
+`cypher_add`, `cypher_sub`, `cypher_concat`, `cypher_div`, and `split`. The
+canonical list is `turso_graph_temporal::FUNCTION_NAMES`, which
+`GraphDialect::resolve_function` treats as the dialect-owned surface.
+
+Vendor names are intentionally **not** aliased: `spa.fulltext.queryNodes` and
+`full_text_search` are unsupported on purpose, not by oversight.
 
 ## Open modes and Core seams
 
@@ -169,15 +368,13 @@ register_semantic_schema(
                 ],
             },
         ],
-        relationship_types: vec![
-            SemanticRelationshipType {
-                name: "KNOWS".to_owned(),
-                source: "KNOWS".to_owned(),
-                start: vec!["Person".to_owned()],
-                end: vec!["Person".to_owned()],
-                properties: Vec::new(),
-            },
-        ],
+        relationship_types: vec![SemanticRelationshipType::binary(
+            "KNOWS",
+            "KNOWS",
+            vec!["Person".to_owned()],
+            vec!["Person".to_owned()],
+            Vec::new(),
+        )],
     },
 )?;
 ```
@@ -193,7 +390,9 @@ Once a graph has semantic rows, Cypher uses strict semantic mode:
 
 - node creation and merge require exactly one known semantic node type;
 - relationship creation and merge require exactly one semantic relationship
-  type and validate its start/end node types;
+  type and validate every one of its declared roles' target types — `start`
+  and `end` under the binary layout, or any other role name for an n-ary
+  type;
 - each semantic type routes reads and writes to its declared physical source;
 - unlabeled node and untyped relationship patterns union all compatible source
   branches without deduplicating table-local identities;
@@ -255,9 +454,10 @@ Fragments are interfaces, not abstract node instances: `CREATE` and `MERGE`
 still require one explicit concrete node type. A concrete label may be
 accompanied only by fragments that type carries.
 
-Relationship endpoint constraints may name a fragment. Registration expands
-that fragment to its concrete member-type set, while still checking that every
-member is compatible with the relationship source's physical endpoint.
+A role's target list may name a fragment. Registration expands that fragment
+to its concrete member-type set, while still checking that every member is
+compatible with the relationship source's physical role column (or spill
+table, for a `Many` role).
 
 The fragment-aware call can also add the first fragment definition to an
 already registered semantic schema when the supplied base schema is identical.
@@ -374,9 +574,12 @@ match.
 If all writers must preserve semantic integrity, route writes through Cypher or
 enforce the same rules with physical schema constraints under application
 control. Database-wide protection of owned backing tables,
-fragment-membership removal, non-additive constraint evolution, and native
-n-ary relationships remain deferred. This overlay does not claim TypeDB,
-TypeQL, or PERA compatibility.
+fragment-membership removal, and non-additive constraint evolution remain
+deferred. So does role cardinality constraint validation past `start`/`end` —
+the semantic overlay's own cardinality constraints (`SemanticEndpoint`) cover
+only the two-role binary layout, even though the frontend's general role
+model natively supports n-ary relationships (see "Roles" above). This overlay
+does not claim TypeDB, TypeQL, or PERA compatibility.
 
 ## The session API
 
@@ -412,9 +615,10 @@ CALL db.propertyKeys() YIELD propertyKey RETURN propertyKey ORDER BY propertyKey
 
 `db.propertyKeys()` enumerates declared logical payload columns across every
 registered node and relationship source. It does not scan graph rows, so an
-empty nullable column is still reported; identity and relationship endpoint
-columns are excluded, shared names are returned once, and reserved physical
-columns such as `cyprop_id` are reported by their logical name (`id`).
+empty nullable column is still reported; identity and relationship role
+columns (`start`/`end` under the binary layout, or any other role's column)
+are excluded, shared names are returned once, and reserved physical columns
+such as `cyprop_id` are reported by their logical name (`id`).
 
 For a graph with a semantic schema, all three procedures use semantic catalog
 names. This includes concrete and fragment labels, relationship types, and the
@@ -468,8 +672,8 @@ graph.drop_fts_index("article_search")?;
 ```
 
 Logical names and properties are validated against the registered graph
-catalog. Identity/end-point columns and statically non-text properties are
-rejected. Configuration is bounded to 128 bytes per logical index name and 16
+catalog. Identity and relationship role columns and statically non-text
+properties are rejected. Configuration is bounded to 128 bytes per logical index name and 16
 properties. Tokenizers and weights are typed values rather than SQL fragments.
 The physical index uses a stable reserved `__turso_graph_fts_*` name, while a
 versioned internal metadata row preserves the logical definition for listing,
@@ -620,11 +824,111 @@ is no cross-connection or cross-file atomic commit. The raw core connection
 also bypasses any frontend-level namespace policy, so keep it private when
 frontend isolation is a security requirement.
 
+## Testing
+
+Three layers, each answering a different question.
+
+### Rust tests — does this behavior work?
+
+```sh
+cargo test -p turso_graph_frontend -p turso_graph_cypher -p turso_graph_ir -p turso_graph_runtime
+```
+
+The behavioral record lives in `graph/frontend/tests/`:
+
+| File | Covers |
+|---|---|
+| `semantic_schema.rs` | Semantic types, fragments, constraints, strict mode |
+| `nary_relations.rs` | Roles: n-ary create/match/merge/set/delete, `Many` spill, relation-as-player, refusal wording |
+| `native_capabilities.rs` | Vector, struct/union, FTS, other native surfaces |
+| `dialect_alignment.rs` | Dialect-pinned vs attach open, function resolution |
+| `desugaring_golden.rs` | Arrow form and role pattern bind to the same plan |
+| `type_system_fixtures.rs`, `fixed_pattern_fixtures.rs` | Static result types, fixed-hop lowering |
+| `statement_kind.rs`, `api_surface.rs` | Classification and public API shape |
+| `fixture.rs` | Shared fixtures — `social_graph_connection`, `ternary_session`, `witnessed_session`, `two_many_roles_session`, `citation_session`, `ambiguous_session`, and the `bind_*`/`lower_*` helpers |
+
+Fixtures return `(Arc<Database>, GraphConnection)`. Reads go through
+`session.query(sql, &Parameters::new())`; mutations through `session.execute`.
+Using `execute` for a read yields a misleading "Cypher mutation binding failed"
+rather than a real refusal.
+
+### Conformance corpus — do we match other engines?
+
+The corpus runs 10,242 imported source identities from the openCypher TCK,
+Apache AGE, Grafeo, SparrowDB, and CQLite. LadybugDB/Kuzu is excluded because
+its suite mixes vendor-specific language and result contracts into
+standard-looking Cypher.
+
+```sh
+mise run corpus              # all five suites (release build, by design)
+mise run cypherbench-sample  # execution benchmark over seven domains
+
+cargo run -q -p turso_graph_testkit -- run smoke --no-record
+cargo run -q -p turso_graph_testkit -- corpus-stats
+cargo run -q -p turso_graph_testkit -- divergence
+cargo run -q -p turso_graph_testkit -- verify-history
+```
+
+The `mise` tasks are the documented exception to the repo's "never build with
+`--release`" rule: rows appended to `graph/test-results/history.jsonl` are only
+comparable against that history when produced by an optimized build, and each
+row records the profile it was built with.
+
+**Read the corpus gate per suite, never as a total.** `tck-deep` flakes ±2
+across identical commits, so the total moves with no code change at all:
+
+| Suite | Baseline |
+|---|---:|
+| `age-deep` | 3,042 exact |
+| `cqlite-deep` | 113 exact |
+| `grafeo-deep` | 277 exact |
+| `sparrowdb-deep` | 2,164 exact |
+| `tck-deep` | 3,329–3,332 |
+
+Two further traps worth knowing: `mise run corpus` **exits 1 even when every
+suite is at baseline**, so read the numbers rather than the exit code; and
+`divergence` is an enforced gate, not a report — it fails when an unsupported
+outcome has no registry entry, when an entry names a test the run no longer
+contains, or when a registered divergence starts passing.
+
+Omit `--no-record` on an intentional baseline run to append to
+`history.jsonl` and regenerate `graph/test-results/REPORT.md`.
+
+### Benchmarks — did it get slower?
+
+```sh
+cargo test -p turso_graph_runtime --test benchmark_shapes
+cargo bench -p turso_graph_runtime --bench graph_shapes
+cargo bench -p turso_graph_frontend --bench semantic_prepare
+cargo run -q -p turso_graph_testkit -- performance smoke --no-record
+```
+
+### Writing a test for a role-model change
+
+Positional role resolution — resolving a role by argument order instead of by
+name or `RoleId` — is the recurring defect class in this area, and it passes any
+test whose fixture declares roles in the order the query writes them. A change
+to role handling needs both of these to hold:
+
+1. Permute the role **names** in a fixture without changing their order, and
+   permute the **argument order** without changing names. Behavior must be
+   unchanged.
+2. Sabotage the resolution and watch a specific named test go red. A review
+   that only reads the code does not catch this; one that breaks the code does.
+
 ## Reference
 
+- [`docs/graph-internals.md`](graph-internals.md) — implementation map: the
+  read and write pipelines, the role model's invariants, catalog and snapshot
+  design, where to change what, and future work
 - `graph/README.md` — crate layout and quickstart
-- `graph/DESIGN_DECISIONS.md` — storage overlay, catalog, snapshot design
+- `graph/DESIGN_DECISIONS.md` — storage overlay, catalog, snapshot design, and
+  the conformance failure taxonomy
 - `graph/CONFORMANCE.md` + `graph/test-results/REPORT.md` — Cypher
   conformance corpus and current pass rates
+- `graph/PROVENANCE.md` — pinned donor sources and licenses; binding before
+  importing adapted material
+- [`docs/graph-frontend-core-alignment.md`](graph-frontend-core-alignment.md) —
+  where the graph frontend diverges from core's frontend model
 - `docs/archive/plans/2026-07-21-graph-frontend-api-alignment.md` — how
   the consumer API reached its current baseline-aligned shape
