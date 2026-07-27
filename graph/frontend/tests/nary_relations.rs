@@ -28,8 +28,8 @@ use turso_core::{Connection, Value};
 use turso_graph_cypher::parse;
 use turso_graph_frontend::{
     bind, bind_mutation, labels_table_name, load_registered_graph, BindError, CatalogEntity,
-    GraphCatalogSnapshot, GraphConnection, ParameterTypes, Parameters, RegisteredGraph,
-    ResolvedProperty, SemanticRole,
+    Error as FrontendError, GraphCatalogSnapshot, GraphConnection, MutationError, ParameterTypes,
+    Parameters, RegisteredGraph, ResolvedProperty, SemanticRole,
 };
 use turso_graph_ir::{
     GraphId, LabelId, Nullability, Plan, PlanKind, PropertyId, RelationshipTypeId, RoleCardinality,
@@ -1631,5 +1631,243 @@ fn a_duplicated_player_in_one_many_role_produces_duplicate_rows() {
          on (relation_id, node_id)), so the hop must surface both -- \
          de-duplicating here would silently discard what the write side \
          accepted by design"
+    );
+}
+
+/// Part A (Task 19): a relation row and its `Many`-role spill rows share one
+/// transaction, so a failure that runs after both are staged must leave
+/// neither behind. `Citation.label` is registered as a required property
+/// (`SemanticConstraintRegistration`), which Cypher `CREATE` does not check
+/// at bind time -- it is enforced by `constraints.validate_state`, which
+/// `run()` (`mutation.rs`) calls only *after* `execute_bound` has already
+/// inserted the relation row and its `witnesses` spill rows. Omitting
+/// `label` is therefore a create that binds and writes successfully and only
+/// then fails, with everything already on disk inside the still-open
+/// transaction.
+#[test]
+fn a_failure_partway_through_an_n_ary_create_leaves_nothing_behind() {
+    // The integrity property reified modeling cannot provide: reification
+    // needs one statement per role, so a failure between them leaves a
+    // partially stated assertion that reads as complete. Here the relation
+    // row and its spill rows share one transaction, so a failure after the
+    // spill inserts have executed still leaves BOTH tables empty.
+    let (database, session) = fixture::citation_session();
+    session
+        .execute(
+            "CREATE (:Text {title: 'main'}), (:Text {title: 'witness-one'}), \
+                    (:Text {title: 'witness-two'})",
+            &Parameters::new(),
+        )
+        .expect("seed text");
+    session
+        .execute(
+            "MATCH (t:Text {title: 'main'}) CREATE [x:Transcription](source: t)",
+            &Parameters::new(),
+        )
+        .expect("create the transcription to be cited");
+
+    let error = session
+        .execute(
+            "MATCH [x:Transcription](source: t), \
+                   (w1:Text {title: 'witness-one'}), (w2:Text {title: 'witness-two'}) \
+             CREATE [c:Citation](cited: x, witnesses: w1, witnesses: w2)",
+            &Parameters::new(),
+        )
+        .expect_err(
+            "omitting the required `label` property must fail after the insert, not before",
+        );
+    assert!(
+        matches!(
+            &error,
+            FrontendError::Mutation(MutationError::SemanticConstraintViolation(detail))
+                if detail.contains("Citation.label") && detail.contains("required")
+        ),
+        "{error:?}"
+    );
+
+    let connection = fixture::second_connection(&database);
+    assert_eq!(
+        connection
+            .prepare("SELECT count(*) FROM citations")
+            .unwrap()
+            .run_collect_rows()
+            .unwrap(),
+        vec![vec![Value::from_i64(0)]],
+        "the relation row must not survive the constraint failure"
+    );
+    assert_eq!(
+        connection
+            .prepare("SELECT count(*) FROM citations__witnesses")
+            .unwrap()
+            .run_collect_rows()
+            .unwrap(),
+        vec![vec![Value::from_i64(0)]],
+        "both spill rows, already inserted before validate_state ran, must not survive either"
+    );
+}
+
+/// Part B (Task 19): `Citation.cited` targets only `Transcription`, so the
+/// transcription created above must itself be an accepted player -- a
+/// relation identity is an identity like any other.
+#[test]
+fn a_relation_may_be_a_player_of_another_relation() {
+    // A relation identity is an identity: the role's target list carries
+    // RoleTarget::Relation, so the transcription itself fills `cited`.
+    let (_database, session) = fixture::citation_session();
+    session
+        .execute("CREATE (:Text {title: 'main'})", &Parameters::new())
+        .expect("seed text");
+    session
+        .execute(
+            "MATCH (t:Text {title: 'main'}) CREATE [x:Transcription](source: t)",
+            &Parameters::new(),
+        )
+        .expect("create the transcription that will itself be cited");
+    session
+        .execute(
+            "MATCH [x:Transcription](source: t) \
+             CREATE [c:Citation {label: 'primary'}](cited: x)",
+            &Parameters::new(),
+        )
+        .expect("a relation must be an accepted player of a role targeting only relations");
+
+    let rows = session
+        .query(
+            "MATCH [c:Citation](cited: x) RETURN c.label",
+            &Parameters::new(),
+        )
+        .expect("read the citation back");
+    assert_eq!(
+        rows,
+        vec![vec![Value::build_text("primary")]],
+        "the citation was created with the transcription as its `cited` player"
+    );
+}
+
+/// The hole this task closes: before the fix, an all-`Relation` target list
+/// made `bind_role_player`'s allowed-labels list come out empty, which the
+/// check read as "unconstrained" and skipped entirely, so a node was
+/// silently accepted into `cited`.
+#[test]
+fn a_role_that_accepts_only_relations_refuses_a_node_player() {
+    // The hole this task closes: today `allowed` comes out empty for a
+    // relation-only role and the check is skipped entirely, so a node is
+    // accepted into `cited`. It must be refused.
+    let (_database, session) = fixture::citation_session();
+    session
+        .execute("CREATE (:Text {title: 'main'})", &Parameters::new())
+        .expect("seed text");
+
+    let error = session
+        .execute(
+            "MATCH (t:Text {title: 'main'}) CREATE [c:Citation {label: 'x'}](cited: t)",
+            &Parameters::new(),
+        )
+        .expect_err("a role targeting only relations must refuse a node player");
+    assert!(
+        matches!(
+            &error,
+            FrontendError::Mutation(MutationError::Bind(BindError::RoleTargetTypeViolation {
+                relationship_type,
+                role,
+                found,
+                ..
+            })) if relationship_type == "Citation" && role == "cited" && found == "Text"
+        ),
+        "{error:?}"
+    );
+}
+
+/// `source` targets only `Text`; a `Transcription` is a relation, not a
+/// node, so it must be refused the same way a wrongly-labeled node would be.
+#[test]
+fn a_role_that_does_not_accept_relations_refuses_a_relation_player() {
+    // `source` targets Text only, so the transcription is not a legal player.
+    // Assert the actual RoleTargetTypeViolation text -- the plan's
+    // `error.contains("source")` would also pass on a syntax error that
+    // happens to echo the role name back.
+    let (_database, session) = fixture::citation_session();
+    session
+        .execute("CREATE (:Text {title: 'main'})", &Parameters::new())
+        .expect("seed text");
+    session
+        .execute(
+            "MATCH (t:Text {title: 'main'}) CREATE [x:Transcription](source: t)",
+            &Parameters::new(),
+        )
+        .expect("create a transcription to use as an illegal player");
+
+    let error = session
+        .execute(
+            "MATCH [x:Transcription](source: t) CREATE [y:Transcription](source: x)",
+            &Parameters::new(),
+        )
+        .expect_err("`source` targets Text only, so a Transcription is not a legal player");
+    assert!(
+        matches!(
+            &error,
+            FrontendError::Mutation(MutationError::Bind(BindError::RoleTargetTypeViolation {
+                relationship_type,
+                role,
+                found,
+                ..
+            })) if relationship_type == "Transcription" && role == "source" && found == "Transcription"
+        ),
+        "{error:?}"
+    );
+}
+
+/// The second hole this task closes: `reference` targets both `Text` and
+/// `Transcription`, so both a node player and a relation player must be
+/// accepted -- before the fix, a relationship type name never resolved
+/// through `catalog.label`, so the mixed role rejected every relation.
+#[test]
+fn a_role_with_both_node_and_relation_targets_accepts_either() {
+    // The second hole: with a mixed target list the current code rejects
+    // every relation player, because a relationship type name never resolves
+    // as a label.
+    let (_database, session) = fixture::citation_session();
+    session
+        .execute(
+            "CREATE (:Text {title: 'main'}), (:Text {title: 'appendix'})",
+            &Parameters::new(),
+        )
+        .expect("seed text");
+    session
+        .execute(
+            "MATCH (t:Text {title: 'main'}) CREATE [x:Transcription](source: t)",
+            &Parameters::new(),
+        )
+        .expect("create the transcription used as both `cited` and a `reference` player");
+
+    session
+        .execute(
+            "MATCH [x:Transcription](source: t), (r:Text {title: 'appendix'}) \
+             CREATE [c1:Citation {label: 'node-ref'}](cited: x, reference: r)",
+            &Parameters::new(),
+        )
+        .expect("a Text node must be an accepted `reference` player");
+    session
+        .execute(
+            "MATCH [x:Transcription](source: t) \
+             CREATE [c2:Citation {label: 'relation-ref'}](cited: x, reference: x)",
+            &Parameters::new(),
+        )
+        .expect("a Transcription relation must also be an accepted `reference` player");
+
+    let mut rows = session
+        .query(
+            "MATCH [c:Citation](cited: x) RETURN c.label",
+            &Parameters::new(),
+        )
+        .expect("read both citations back");
+    rows.sort();
+    assert_eq!(
+        rows,
+        vec![
+            vec![Value::build_text("node-ref")],
+            vec![Value::build_text("relation-ref")],
+        ],
+        "both the node reference and the relation reference must have created their citation"
     );
 }

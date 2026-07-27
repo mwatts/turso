@@ -1828,26 +1828,53 @@ impl<'a> Binder<'a> {
         };
         let value = self.resolve_binding(name, argument.player.span)?.id();
 
-        let allowed = role
-            .targets
-            .iter()
-            .filter_map(|target| match target {
-                ir::RoleTarget::Node(label) => Some(*label),
-                ir::RoleTarget::Relation(_) => None,
-            })
-            .collect::<Vec<_>>();
-        if !allowed.is_empty() {
-            let names = self
-                .entities
-                .get(&value)
+        // A player is checked against the target kind it actually is: a node
+        // binding's names are labels, checked through `catalog.label`; a
+        // relationship binding's names are relationship types, checked
+        // through `catalog.relationship_type`. The two id spaces are kept
+        // separate (`ir::RoleTarget::Node` vs `ir::RoleTarget::Relation`) so
+        // a role that names only relation targets refuses every node
+        // outright, and a role that names only node targets refuses every
+        // relation outright, rather than a relationship type name silently
+        // failing to resolve as a label and letting an unconstrained-looking
+        // empty label list through.
+        if !role.targets.is_empty() {
+            let allowed_labels = role
+                .targets
+                .iter()
+                .filter_map(|target| match target {
+                    ir::RoleTarget::Node(label) => Some(*label),
+                    ir::RoleTarget::Relation(_) => None,
+                })
+                .collect::<Vec<_>>();
+            let allowed_relations = role
+                .targets
+                .iter()
+                .filter_map(|target| match target {
+                    ir::RoleTarget::Relation(relationship_type) => Some(*relationship_type),
+                    ir::RoleTarget::Node(_) => None,
+                })
+                .collect::<Vec<_>>();
+            let binding = self.entities.get(&value);
+            let names = binding
                 .map(|entity| entity.names.clone())
                 .unwrap_or_default();
             let all_allowed = !names.is_empty()
-                && names.iter().all(|name| {
-                    self.catalog
-                        .label(self.graph, name)
-                        .is_some_and(|label| allowed.contains(&label))
-                });
+                && match binding.map(|entity| entity.kind) {
+                    Some(CatalogEntity::Node) => names.iter().all(|name| {
+                        self.catalog
+                            .label(self.graph, name)
+                            .is_some_and(|label| allowed_labels.contains(&label))
+                    }),
+                    Some(CatalogEntity::Relationship) => names.iter().all(|name| {
+                        self.catalog
+                            .relationship_type(self.graph, name)
+                            .is_some_and(|relationship_type| {
+                                allowed_relations.contains(&relationship_type)
+                            })
+                    }),
+                    None => false,
+                };
             if !all_allowed {
                 let found = if names.is_empty() {
                     "an unlabeled binding".to_owned()

@@ -10,11 +10,14 @@ use std::sync::Arc;
 use turso_core::{Connection, Database, DatabaseOpts, MemoryIO, OpenOptions, SqliteDialect};
 use turso_graph_cypher::parse;
 use turso_graph_frontend::{
-    bind, load_registered_graph, lower_relational, register_graph, CatalogEntity,
-    GraphCatalogSnapshot, GraphCompilationCatalog, GraphConnection, GraphRegistration,
-    NodeSourceRegistration, NodeTableLayout, ParameterTypes, Parameters, RelationalCatalogSnapshot,
-    RelationshipRoleLayout, RelationshipSourceRegistration, RelationshipTableLayout,
-    ResolvedProperty, RoleSourceRegistration, SchemaCatalog, SnapshotStore,
+    bind, load_registered_graph, lower_relational, register_graph, register_semantic_constraints,
+    register_semantic_schema, CatalogEntity, GraphCatalogSnapshot, GraphCompilationCatalog,
+    GraphConnection, GraphRegistration, NodeSourceRegistration, NodeTableLayout, ParameterTypes,
+    Parameters, RelationalCatalogSnapshot, RelationshipRoleLayout, RelationshipSourceRegistration,
+    RelationshipTableLayout, ResolvedProperty, RoleSourceRegistration, SchemaCatalog,
+    SemanticConstraintRegistration, SemanticNodeType, SemanticProperty, SemanticRelationshipType,
+    SemanticRequiredProperty, SemanticRoleCardinality, SemanticRoleRegistration,
+    SemanticSchemaRegistration, SnapshotStore,
 };
 use turso_graph_ir::{
     GraphId, LabelId, Nullability, Plan, PlanKind, PropertyId, RelationshipTypeId, RoleCardinality,
@@ -475,6 +478,184 @@ pub fn ambiguous_session() -> (Arc<Database>, GraphConnection) {
         BuildLimits::default(),
     )
     .expect("install graph session");
+    (database, session)
+}
+
+/// Installs a `GraphConnection` over a fresh in-memory "scriptorium" graph
+/// exercising relation-as-player (Task 19): a `Text` node source, plus two
+/// relationship types.
+///
+/// `Transcription` has one role, `source`, that targets only `Text`.
+///
+/// `Citation` has three roles, one per shape Task 19 closes a hole for:
+/// - `cited` targets only `Transcription` (relation-only). Before the fix,
+///   an all-`Relation` target list made the binder's allowed-labels list
+///   come out empty, which the check read as "unconstrained" and skipped
+///   entirely -- so a node was silently accepted here.
+/// - `reference` targets both `Text` and `Transcription` (mixed, optional).
+///   Before the fix, a relationship type name never resolved through
+///   `catalog.label`, so a mixed role rejected every relation player even
+///   though the schema named it.
+/// - `witnesses` targets `Text`, `Many`-cardinality, optional, spilling into
+///   `citations__witnesses` (`RegisteredRelationshipSource::spill_table`'s
+///   `<table>__<role>` naming). It plays no part in the relation-as-player
+///   holes; it exists only so Part A's atomicity test has a spill table to
+///   assert stays empty after a mid-create failure.
+///
+/// `Citation.label` is a required property (registered below via
+/// `SemanticConstraintRegistration`), used by Part A's atomicity test only:
+/// Cypher `CREATE` does not enforce "required" at bind time, so a create
+/// that inserts a relation row and spill rows and then omits `label` is
+/// otherwise valid until `constraints.validate_state` runs after the insert
+/// (`mutation.rs:288`) and fails on the NULL column.
+///
+/// The physical `cited`/`reference` roles point their `node_source` at
+/// `text_src` as a placeholder, mirroring `semantic.rs`'s private
+/// `CITATION_SCHEMA` test fixture: the physical layer cannot yet resolve a
+/// role's player against a relationship source, so a role that semantically
+/// targets a relationship type still needs a node-source placeholder to
+/// register at all.
+#[allow(dead_code)] // This file is also compiled as its own integration-test crate.
+pub fn citation_session() -> (Arc<Database>, GraphConnection) {
+    let io = Arc::new(MemoryIO::new());
+    let database = Database::open(
+        io,
+        ":memory:fixture-citation",
+        OpenOptions::new(Arc::new(SqliteDialect)),
+    )
+    .expect("open database");
+    let connection = database.connect().expect("connect");
+    connection
+        .execute(
+            "CREATE TABLE texts(id INTEGER PRIMARY KEY, title TEXT); \
+             CREATE TABLE transcriptions(id INTEGER PRIMARY KEY, source_id INTEGER); \
+             CREATE TABLE citations(\
+                 id INTEGER PRIMARY KEY, cited_id INTEGER, reference_id INTEGER, \
+                 label TEXT);",
+        )
+        .expect("create sources");
+    register_graph(
+        &connection,
+        &GraphRegistration {
+            name: "scriptorium".to_owned(),
+            node_sources: vec![NodeSourceRegistration {
+                name: "text_src".to_owned(),
+                table: "texts".to_owned(),
+                identity_column: "id".to_owned(),
+            }],
+            relationship_sources: vec![
+                RelationshipSourceRegistration {
+                    name: "transcription_src".to_owned(),
+                    table: "transcriptions".to_owned(),
+                    identity_column: "id".to_owned(),
+                    roles: vec![RoleSourceRegistration {
+                        name: "source".to_owned(),
+                        column: "source_id".to_owned(),
+                        node_source: "text_src".to_owned(),
+                        cardinality: RoleCardinality::One,
+                    }],
+                },
+                RelationshipSourceRegistration {
+                    name: "citation_src".to_owned(),
+                    table: "citations".to_owned(),
+                    identity_column: "id".to_owned(),
+                    roles: vec![
+                        RoleSourceRegistration {
+                            name: "cited".to_owned(),
+                            column: "cited_id".to_owned(),
+                            node_source: "text_src".to_owned(),
+                            cardinality: RoleCardinality::One,
+                        },
+                        RoleSourceRegistration {
+                            name: "reference".to_owned(),
+                            column: "reference_id".to_owned(),
+                            node_source: "text_src".to_owned(),
+                            cardinality: RoleCardinality::One,
+                        },
+                        RoleSourceRegistration {
+                            name: "witnesses".to_owned(),
+                            // Empty for `Many` roles: their players live in
+                            // the spill table, not a column on the relation
+                            // table.
+                            column: String::new(),
+                            node_source: "text_src".to_owned(),
+                            cardinality: RoleCardinality::Many,
+                        },
+                    ],
+                },
+            ],
+        },
+    )
+    .expect("register graph");
+    register_semantic_schema(
+        &connection,
+        "scriptorium",
+        &SemanticSchemaRegistration {
+            node_types: vec![SemanticNodeType {
+                name: "Text".to_owned(),
+                source: "text_src".to_owned(),
+                properties: vec![SemanticProperty {
+                    name: "title".to_owned(),
+                    column: "title".to_owned(),
+                }],
+            }],
+            relationship_types: vec![
+                SemanticRelationshipType {
+                    name: "Transcription".to_owned(),
+                    source: "transcription_src".to_owned(),
+                    roles: vec![SemanticRoleRegistration {
+                        name: "source".to_owned(),
+                        targets: vec!["Text".to_owned()],
+                        optional: false,
+                        cardinality: SemanticRoleCardinality::One,
+                    }],
+                    properties: vec![],
+                },
+                SemanticRelationshipType {
+                    name: "Citation".to_owned(),
+                    source: "citation_src".to_owned(),
+                    roles: vec![
+                        SemanticRoleRegistration {
+                            name: "cited".to_owned(),
+                            targets: vec!["Transcription".to_owned()],
+                            optional: false,
+                            cardinality: SemanticRoleCardinality::One,
+                        },
+                        SemanticRoleRegistration {
+                            name: "reference".to_owned(),
+                            targets: vec!["Text".to_owned(), "Transcription".to_owned()],
+                            optional: true,
+                            cardinality: SemanticRoleCardinality::One,
+                        },
+                        SemanticRoleRegistration {
+                            name: "witnesses".to_owned(),
+                            targets: vec!["Text".to_owned()],
+                            optional: true,
+                            cardinality: SemanticRoleCardinality::Many,
+                        },
+                    ],
+                    properties: vec![SemanticProperty {
+                        name: "label".to_owned(),
+                        column: "label".to_owned(),
+                    }],
+                },
+            ],
+        },
+    )
+    .expect("register semantic schema");
+    register_semantic_constraints(
+        &connection,
+        "scriptorium",
+        &SemanticConstraintRegistration {
+            required: vec![SemanticRequiredProperty {
+                owner: "Citation".to_owned(),
+                property: "label".to_owned(),
+            }],
+            ..SemanticConstraintRegistration::default()
+        },
+    )
+    .expect("register semantic constraints");
+    let session = GraphConnection::open(connection, "scriptorium").expect("open graph session");
     (database, session)
 }
 
