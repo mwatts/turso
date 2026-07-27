@@ -9,11 +9,18 @@ format — graph metadata (labels, relationship types, generation counters)
 lives as `__turso_graph_*` tables, indexes, and triggers inside the same
 `.db` file as your SQL schema.
 
-> **Status:** experimental, source-only. The graph frontend lives on the
-> `feature/graph-frontend` branch (crates `turso_graph_cypher`,
+> **Status:** experimental, source-only — no published crate, no language
+> binding. Consumers embed `turso_graph_frontend` synchronously from a
+> workspace path. The layer is five crates (`turso_graph_cypher`,
 > `turso_graph_ir`, `turso_graph_runtime`, `turso_graph_frontend`,
-> `turso_graph_temporal`). It is deliberately decoupled from the Postgres
+> `turso_graph_temporal`), deliberately decoupled from the Postgres
 > frontend — see "Composing frontends" below.
+>
+> This document is the user guide: how to use it, the language it accepts,
+> what it does beyond standard Cypher, and how to test changes to it. For
+> how it works inside — the pipelines, the role model's invariants, and
+> where to change what — see
+> [`docs/graph-internals.md`](graph-internals.md).
 
 ## Quickstart
 
@@ -150,6 +157,117 @@ transcription's own relation identity as its `cited` player
 
 `graph/frontend/tests/nary_relations.rs` is the executable reference for this
 section's exact syntax and refusal wording.
+
+## The Cypher language surface
+
+The frontend follows **openCypher/TCK-normative** semantics where donors
+disagree. The authoritative surface is the code, not this list: clauses come
+from `cypher::Clause` (`graph/cypher/src/ast.rs`), and scalar functions from the
+name match in `graph/frontend/src/binder.rs`. What follows is the shape of it.
+
+### Clauses
+
+`MATCH` · `CREATE` · `MERGE` · `SET` · `REMOVE` · `DELETE` (and `DETACH DELETE`)
+· `UNWIND` · `WITH` · `RETURN` · `FOREACH` · `CALL` · `CALL { … }` scoped
+subquery · `UNION` / `UNION ALL`.
+
+Projections carry the usual `DISTINCT`, `ORDER BY`, `SKIP`, `LIMIT`, and
+aggregation with grouping.
+
+`SET` has five forms, the last of which is not standard Cypher:
+
+| Form | Meaning |
+|---|---|
+| `SET n.prop = v` | Set one property |
+| `SET n = {…}` | Replace **every** property |
+| `SET n += {…}` | Merge properties, keeping the rest |
+| `SET n:Label1:Label2` | Add labels |
+| `SET [x](role: player, …)` | Repoint named roles of an already-bound relation |
+
+### Patterns
+
+Node patterns, arrow relationship patterns with `Outgoing` / `Incoming` /
+`Both` direction, variable-length ranges (`*`, `*min..max`), inline property
+maps, and the standalone role pattern `[x:T {props}](role: player, …)`.
+
+Direction is a *parser-level* concept only: the binder resolves it to a role
+pair, and nothing downstream reasons about incoming versus outgoing.
+
+### Expressions
+
+Variables, property access, function calls, unary and binary operators, `CASE`
+(simple and searched), list indexing and slicing, casts, list and map literals,
+parameters (`$name`), list comprehensions, and the quantified predicates
+`ALL` / `ANY` / `NONE` / `SINGLE`.
+
+### Functions
+
+Aggregates: `count`, `sum`, `avg`, `min`, `max`, `collect`.
+
+Scalars mapped by the binder include `id`, `toUpper`/`toUpperCase`,
+`toLower`/`toLowerCase`, `toString`, `toInteger`, `toFloat`, `toBoolean`,
+`toStringList`, `toIntegerList`, `toFloatList`, `toBooleanList`, `size`,
+`range`, `split`, `keys`, `head`, `last`, `tail`, `left`, `right`, `isEmpty`,
+`rand`, and `reduce`. Vector distance functions (`cosine_distance`,
+`l2_distance`, `inner_product`) are available as Cypher-level scalars.
+
+A name the binder does not map falls through to the dialect's own function
+surface (see "Beyond standard Cypher" below) and then to core. That fallthrough
+is why an unsupported name usually surfaces as a core resolution error rather
+than a Cypher-level one — with the deliberate exception of the FTS scalars,
+which fail during binding with an explicit unsupported-capability error when
+the `fts` feature is off.
+
+### Catalog procedures
+
+`db.labels()`, `db.relationshipTypes()`, `db.propertyKeys()` — read-only, typed,
+resolved case-insensitively. Unknown names, wrong arity, and unknown or
+duplicate `YIELD` columns fail during binding. See "Catalog procedures" under
+the session API for exactly what `db.propertyKeys()` counts.
+
+### Known gaps
+
+`graph/DESIGN_DECISIONS.md` carries the failure taxonomy and the reasoning
+behind each open family. Two are settled as permanent:
+
+- Runtime `TypeError`s for entity values flowing through `Any`-typed lists need
+  an error-raising SQL function; a `SELECT` cannot raise.
+- AGE jsonb operators (`?`, `@>`, `#>`), pgvector `OPERATOR(...)`, and a set of
+  expected-error adapter artifacts are donor-semantic conflicts with
+  TCK-normative behavior. These are tracked as *divergences*, not bugs, and are
+  enforced through `graph/registries/divergence.toml`.
+
+## Beyond standard Cypher
+
+Features here are Turso-specific. Portable Cypher does not have them, and
+queries using them will not run on other engines.
+
+| Feature | Surface | Section |
+|---|---|---|
+| **Native n-ary relations** | `[x:T {props}](role: player, …)` on CREATE/MERGE/MATCH/SET | [Roles](#roles) |
+| **Many-cardinality roles** | Same syntax; players spill to `<table>__<role>` | [Roles](#roles) |
+| **Relation-as-player** | A role whose `targets` name a relation source | [Roles](#roles) |
+| **Semantic schema** | `register_semantic_schema` | [Optional semantic schema](#optional-semantic-schema) |
+| **Fragment interfaces** | `register_semantic_schema_with_fragments`, `MATCH (n:Nameable)` | [Fragment interfaces](#fragment-interfaces) |
+| **Semantic constraints** | `register_semantic_constraints` | [Semantic constraints and additive evolution](#semantic-constraints-and-additive-evolution) |
+| **Full-text search** | `fts_match`, `fts_score`, `fts_highlight` + typed admin API | [Full-text search](#full-text-search) |
+| **Vector scalars** | `vector32`, `vector64`, `vector8`, `vector1bit`, `vector32_sparse`, `vector_extract`, `vector_concat`, `vector_slice`, `vector_distance_*` | — |
+| **Struct / union scalars** | `struct_pack`, `union_value`, `union_tag` | — |
+| **Traversal diagnostics** | `GraphConnection::diagnostics()` | [Traversal snapshots](#traversal-snapshots-variable-length-paths) |
+| **Statement classification** | `GraphConnection::classify()` → `StatementKind` | — |
+
+The `turso_graph_temporal` extension registers a further scalar surface that
+Cypher lowering targets: `duration_make`/`_parse`/`_get`/`_add`/`_neg`/`_between`,
+`temporal_make`/`_truncate`/`_parse`/`_get`/`_now`, `datetime_add_duration`,
+`datetime_sub_duration`, the `jsonb_*` accessors (`jsonb_get`, `jsonb_get_text`,
+`jsonb_get_path`, `jsonb_exists`, `jsonb_exists_any`, `jsonb_exists_all`,
+`jsonb_contains`), the Cypher-semantics helpers `cypher_raise`, `cypher_equals`,
+`cypher_add`, `cypher_sub`, `cypher_concat`, `cypher_div`, and `split`. The
+canonical list is `turso_graph_temporal::FUNCTION_NAMES`, which
+`GraphDialect::resolve_function` treats as the dialect-owned surface.
+
+Vendor names are intentionally **not** aliased: `spa.fulltext.queryNodes` and
+`full_text_search` are unsupported on purpose, not by oversight.
 
 ## Open modes and Core seams
 
@@ -704,11 +822,111 @@ is no cross-connection or cross-file atomic commit. The raw core connection
 also bypasses any frontend-level namespace policy, so keep it private when
 frontend isolation is a security requirement.
 
+## Testing
+
+Three layers, each answering a different question.
+
+### Rust tests — does this behavior work?
+
+```sh
+cargo test -p turso_graph_frontend -p turso_graph_cypher -p turso_graph_ir -p turso_graph_runtime
+```
+
+The behavioral record lives in `graph/frontend/tests/`:
+
+| File | Covers |
+|---|---|
+| `semantic_schema.rs` | Semantic types, fragments, constraints, strict mode |
+| `nary_relations.rs` | Roles: n-ary create/match/merge/set/delete, `Many` spill, relation-as-player, refusal wording |
+| `native_capabilities.rs` | Vector, struct/union, FTS, other native surfaces |
+| `dialect_alignment.rs` | Dialect-pinned vs attach open, function resolution |
+| `desugaring_golden.rs` | Arrow form and role pattern bind to the same plan |
+| `type_system_fixtures.rs`, `fixed_pattern_fixtures.rs` | Static result types, fixed-hop lowering |
+| `statement_kind.rs`, `api_surface.rs` | Classification and public API shape |
+| `fixture.rs` | Shared fixtures — `social_graph_connection`, `ternary_session`, `witnessed_session`, `two_many_roles_session`, `citation_session`, `ambiguous_session`, and the `bind_*`/`lower_*` helpers |
+
+Fixtures return `(Arc<Database>, GraphConnection)`. Reads go through
+`session.query(sql, &Parameters::new())`; mutations through `session.execute`.
+Using `execute` for a read yields a misleading "Cypher mutation binding failed"
+rather than a real refusal.
+
+### Conformance corpus — do we match other engines?
+
+The corpus runs 10,242 imported source identities from the openCypher TCK,
+Apache AGE, Grafeo, SparrowDB, and CQLite. LadybugDB/Kuzu is excluded because
+its suite mixes vendor-specific language and result contracts into
+standard-looking Cypher.
+
+```sh
+mise run corpus              # all five suites (release build, by design)
+mise run cypherbench-sample  # execution benchmark over seven domains
+
+cargo run -q -p turso_graph_testkit -- run smoke --no-record
+cargo run -q -p turso_graph_testkit -- corpus-stats
+cargo run -q -p turso_graph_testkit -- divergence
+cargo run -q -p turso_graph_testkit -- verify-history
+```
+
+The `mise` tasks are the documented exception to the repo's "never build with
+`--release`" rule: rows appended to `graph/test-results/history.jsonl` are only
+comparable against that history when produced by an optimized build, and each
+row records the profile it was built with.
+
+**Read the corpus gate per suite, never as a total.** `tck-deep` flakes ±2
+across identical commits, so the total moves with no code change at all:
+
+| Suite | Baseline |
+|---|---:|
+| `age-deep` | 3,042 exact |
+| `cqlite-deep` | 113 exact |
+| `grafeo-deep` | 277 exact |
+| `sparrowdb-deep` | 2,164 exact |
+| `tck-deep` | 3,329–3,332 |
+
+Two further traps worth knowing: `mise run corpus` **exits 1 even when every
+suite is at baseline**, so read the numbers rather than the exit code; and
+`divergence` is an enforced gate, not a report — it fails when an unsupported
+outcome has no registry entry, when an entry names a test the run no longer
+contains, or when a registered divergence starts passing.
+
+Omit `--no-record` on an intentional baseline run to append to
+`history.jsonl` and regenerate `graph/test-results/REPORT.md`.
+
+### Benchmarks — did it get slower?
+
+```sh
+cargo test -p turso_graph_runtime --test benchmark_shapes
+cargo bench -p turso_graph_runtime --bench graph_shapes
+cargo bench -p turso_graph_frontend --bench semantic_prepare
+cargo run -q -p turso_graph_testkit -- performance smoke --no-record
+```
+
+### Writing a test for a role-model change
+
+Positional role resolution — resolving a role by argument order instead of by
+name or `RoleId` — is the recurring defect class in this area, and it passes any
+test whose fixture declares roles in the order the query writes them. A change
+to role handling needs both of these to hold:
+
+1. Permute the role **names** in a fixture without changing their order, and
+   permute the **argument order** without changing names. Behavior must be
+   unchanged.
+2. Sabotage the resolution and watch a specific named test go red. A review
+   that only reads the code does not catch this; one that breaks the code does.
+
 ## Reference
 
+- [`docs/graph-internals.md`](graph-internals.md) — implementation map: the
+  read and write pipelines, the role model's invariants, catalog and snapshot
+  design, where to change what, and future work
 - `graph/README.md` — crate layout and quickstart
-- `graph/DESIGN_DECISIONS.md` — storage overlay, catalog, snapshot design
+- `graph/DESIGN_DECISIONS.md` — storage overlay, catalog, snapshot design, and
+  the conformance failure taxonomy
 - `graph/CONFORMANCE.md` + `graph/test-results/REPORT.md` — Cypher
   conformance corpus and current pass rates
+- `graph/PROVENANCE.md` — pinned donor sources and licenses; binding before
+  importing adapted material
+- [`docs/graph-frontend-core-alignment.md`](graph-frontend-core-alignment.md) —
+  where the graph frontend diverges from core's frontend model
 - `docs/archive/plans/2026-07-21-graph-frontend-api-alignment.md` — how
   the consumer API reached its current baseline-aligned shape

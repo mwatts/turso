@@ -23,12 +23,22 @@ cypher   runtime
 - `turso_graph_frontend` composes the parser, binder/IR, runtime, and core
   frontend preparation API. It never emits VDBE instructions directly.
 
-## Quickstart
+## Documentation
 
-Full consumer guide — registration, sessions, parameters, transactions,
-semantic schemas, fragment-interface polymorphism, additive semantic
-constraints, the direct-SQL integrity boundary, and traversal snapshots — lives in
-[`docs/graph.md`](../docs/graph.md).
+Two documents cover this layer; everything else in `graph/` is a contract
+(`PROVENANCE.md`, `CONFORMANCE.md`) or a record (`test-results/`).
+
+- [`docs/graph.md`](../docs/graph.md) — **user guide.** Registration, sessions,
+  parameters, transactions, roles and n-ary relations, semantic schemas,
+  fragment-interface polymorphism, additive semantic constraints, the
+  direct-SQL integrity boundary, traversal snapshots, the accepted Cypher
+  surface, what Turso adds beyond it, and how to test a change.
+- [`docs/graph-internals.md`](../docs/graph-internals.md) — **implementation
+  map.** Crate topology, the read and write pipelines, the IR vocabulary, the
+  role model's invariants, catalog and snapshot design, where to change what,
+  and future work.
+
+## Quickstart
 
 ```rust
 let (io, db) = turso_graph_frontend::open_database(
