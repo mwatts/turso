@@ -2178,46 +2178,83 @@ fn delete_entity(
             let relationship = catalog
                 .relationship_layout(relationship_source)
                 .ok_or(LowerError::MissingSource(relationship_source))?;
-            let Some((start_source, end_source)) =
-                catalog.relationship_endpoint_sources(graph, relationship_source)
-            else {
-                continue;
-            };
             let parameter = identity_parameter(delete.entity);
+            // Walk every declared role, not just `start`/`end`: a node can
+            // anchor a real reference through any role of any relation type,
+            // one-valued or many-valued alike, and a relation shape outside
+            // the two-role pattern-hop pair (ternary, all-`Many`,
+            // relation-as-player, ...) is exactly what silently skipped here
+            // before. Roles resolve by `RoleId`
+            // (`relationship_role_node_source`), never by name or position;
+            // a `Many` role is identified by `spill_table.is_some()`, never
+            // by name, position, or arity.
             let mut predicates = Vec::new();
-            // `relationship_endpoint_sources` only resolves for the two-role
-            // pattern-hop shape. Resolve the roles by name, not declaration
-            // order -- role order is not guaranteed to put `start` before
-            // `end`.
-            if start_source == source {
-                let role = relationship
-                    .start_role()
-                    .ok_or(LowerError::MissingSource(relationship_source))?;
-                predicates.push(format!(
-                    "{} = ${parameter}",
-                    quoted_identifier(&role.column)
-                ));
-            }
-            if end_source == source {
-                let role = relationship
-                    .end_role()
-                    .ok_or(LowerError::MissingSource(relationship_source))?;
-                predicates.push(format!(
-                    "{} = ${parameter}",
-                    quoted_identifier(&role.column)
-                ));
+            for role in &relationship.roles {
+                if catalog.relationship_role_node_source(graph, relationship_source, role.role)
+                    != Some(source)
+                {
+                    continue;
+                }
+                predicates.push(match &role.spill_table {
+                    // A `Many` role has no endpoint column to equate
+                    // against; test membership in its spill table instead
+                    // (mirrors the join `lower_role_join` builds for a
+                    // `Many` role).
+                    Some(table) => format!(
+                        "{} IN (SELECT relation_id FROM {} WHERE node_id = ${parameter})",
+                        quoted_identifier(&relationship.identity_column),
+                        quoted_identifier(table),
+                    ),
+                    None => format!("{} = ${parameter}", quoted_identifier(&role.column)),
+                });
             }
             if predicates.is_empty() {
                 continue;
             }
             let predicate = predicates.join(" OR ");
             if delete.detach {
-                // A many-valued role's players live in a spill table keyed by
-                // relation_id, not a column on the relation row. Purge them
-                // by the same predicate before the relation rows themselves
-                // are gone (the subquery needs the relation rows to still
-                // exist), so no dangling participant can surface as a live
-                // player on a later hop.
+                // Resolve which relation rows match *before* touching any
+                // table. The predicate above can itself depend on a `Many`
+                // role's spill table (the membership test just built), so
+                // purging that spill table first -- before the matching
+                // relation ids are captured -- would make the predicate
+                // stop matching the very rows it just identified, leaving
+                // them, and the relation row itself, undeleted by the time
+                // the final DELETE below runs. Capturing concrete ids up
+                // front makes every later step independent of earlier ones.
+                let matched_ids: Vec<Value> = run_rows(
+                    connection,
+                    &format!(
+                        "SELECT {} FROM {} WHERE {predicate}",
+                        quoted_identifier(&relationship.identity_column),
+                        quoted_identifier(&relationship.table),
+                    ),
+                    parameters,
+                    &internal,
+                )?
+                .into_iter()
+                .filter_map(|mut row| row.pop())
+                .collect();
+                if matched_ids.is_empty() {
+                    continue;
+                }
+                let mut matched_internal = internal.clone();
+                let ids = matched_ids
+                    .into_iter()
+                    .enumerate()
+                    .map(|(index, id)| {
+                        let name = format!("{INTERNAL_PARAMETER_PREFIX}detach_match_{index}");
+                        matched_internal.insert(name.clone(), id);
+                        format!("${name}")
+                    })
+                    .collect::<Vec<_>>()
+                    .join(", ");
+                // A many-valued role's players live in a spill table keyed
+                // by relation_id, not a column on the relation row; purge
+                // every `Many` role's spill rows for the matched relations
+                // before the relation rows themselves are gone, so no
+                // dangling participant can surface as a live player on a
+                // later hop.
                 for role in relationship
                     .roles
                     .iter()
@@ -2230,24 +2267,22 @@ fn delete_entity(
                     run_ignore(
                         connection,
                         &format!(
-                            "DELETE FROM {} WHERE relation_id IN \
-                             (SELECT {} FROM {} WHERE {predicate})",
+                            "DELETE FROM {} WHERE relation_id IN ({ids})",
                             quoted_identifier(table),
-                            quoted_identifier(&relationship.identity_column),
-                            quoted_identifier(&relationship.table),
                         ),
                         parameters,
-                        &internal,
+                        &matched_internal,
                     )?;
                 }
                 run_ignore(
                     connection,
                     &format!(
-                        "DELETE FROM {} WHERE {predicate}",
-                        quoted_identifier(&relationship.table)
+                        "DELETE FROM {} WHERE {} IN ({ids})",
+                        quoted_identifier(&relationship.table),
+                        quoted_identifier(&relationship.identity_column),
                     ),
                     parameters,
-                    &internal,
+                    &matched_internal,
                 )?;
             } else if !run_rows(
                 connection,

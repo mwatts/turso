@@ -569,6 +569,224 @@ fn detach_deleting_a_node_removes_its_relations_spilled_players() {
     );
 }
 
+/// A ternary relation has no `start`/`end` role at all, so `delete_entity`
+/// resolving references only through `relationship_endpoint_sources` (the
+/// two-role pattern-hop shape) would find no match here and silently skip
+/// this relation type entirely. A `scribe` that is still cited by a
+/// `Transcription` must refuse a bare `DELETE` exactly like a start/end
+/// player already does, not vanish while `transcriptions.scribe` keeps
+/// pointing at a now-nonexistent identity.
+#[test]
+fn deleting_a_ternary_relations_scribe_is_refused() {
+    let (database, session) = fixture::ternary_session();
+    let seed = fixture::second_connection(&database);
+    let graph = load_registered_graph(&seed, "scriptorium").expect("load registered graph");
+    seed_node(&seed, &graph, "Person", "people", 1);
+    seed_node(&seed, &graph, "Text", "texts", 2);
+    seed_node(&seed, &graph, "Folio", "folios", 3);
+    session
+        .execute(
+            "MATCH (p:Person), (t:Text), (f:Folio) \
+             CREATE [x:Transcription {year: 1387}](scribe: p, text: t, folio: f)",
+            &Parameters::new(),
+        )
+        .expect("create the three-role relation");
+
+    let error = session
+        .execute("MATCH (p:Person) DELETE p", &Parameters::new())
+        .expect_err("a scribe still cited by a transcription must refuse plain DELETE");
+    assert!(
+        matches!(
+            &error,
+            FrontendError::Mutation(MutationError::NodeHasRelationships)
+        ),
+        "{error:?}"
+    );
+
+    let connection = fixture::second_connection(&database);
+    assert_eq!(
+        connection
+            .prepare("SELECT count(*) FROM people")
+            .unwrap()
+            .run_collect_rows()
+            .unwrap(),
+        vec![vec![Value::from_i64(1)]],
+        "the refused delete must not remove the scribe"
+    );
+    assert_eq!(
+        connection
+            .prepare("SELECT scribe FROM transcriptions")
+            .unwrap()
+            .run_collect_rows()
+            .unwrap(),
+        vec![vec![Value::from_i64(1)]],
+        "the transcription's scribe reference must be untouched"
+    );
+}
+
+/// The `DETACH` counterpart of the refusal above: a `scribe` reference is a
+/// real participation even though `scribe` is not `start`/`end`, so
+/// `DETACH DELETE` must remove the transcription that cites it -- not leave
+/// `transcriptions.scribe` dangling at a deleted identity, which is what the
+/// two-role-only resolution silently did before this fix.
+#[test]
+fn detach_deleting_a_ternary_relations_scribe_removes_the_transcription() {
+    let (database, session) = fixture::ternary_session();
+    let seed = fixture::second_connection(&database);
+    let graph = load_registered_graph(&seed, "scriptorium").expect("load registered graph");
+    seed_node(&seed, &graph, "Person", "people", 1);
+    seed_node(&seed, &graph, "Text", "texts", 2);
+    seed_node(&seed, &graph, "Folio", "folios", 3);
+    session
+        .execute(
+            "MATCH (p:Person), (t:Text), (f:Folio) \
+             CREATE [x:Transcription {year: 1387}](scribe: p, text: t, folio: f)",
+            &Parameters::new(),
+        )
+        .expect("create the three-role relation");
+
+    session
+        .execute("MATCH (p:Person) DETACH DELETE p", &Parameters::new())
+        .expect("detach delete the scribe");
+
+    let connection = fixture::second_connection(&database);
+    assert_eq!(
+        connection
+            .prepare("SELECT count(*) FROM people")
+            .unwrap()
+            .run_collect_rows()
+            .unwrap(),
+        vec![vec![Value::from_i64(0)]],
+        "the scribe is gone"
+    );
+    assert_eq!(
+        connection
+            .prepare("SELECT count(*) FROM transcriptions")
+            .unwrap()
+            .run_collect_rows()
+            .unwrap(),
+        vec![vec![Value::from_i64(0)]],
+        "detaching the scribe must remove the transcription referencing it, \
+         not leave a dangling scribe column behind"
+    );
+}
+
+/// A `Many` role's players live only in its spill table, never a column on
+/// the relation row, so `delete_entity`'s reference check must consider
+/// spill-table membership too -- not just `start`/`end` columns -- or a
+/// witness-only player (never `start` or `end`) can be plain-`DELETE`d with
+/// no error, leaving `relationships__witness.node_id` dangling at a deleted
+/// identity.
+#[test]
+fn deleting_a_witness_only_person_is_refused() {
+    let (database, session) = fixture::witnessed_session();
+    session
+        .execute(
+            "CREATE (:Person {id: 1}), (:Person {id: 2}), (:Person {id: 3})",
+            &Parameters::new(),
+        )
+        .expect("seed people");
+    session
+        .execute(
+            "MATCH (a:Person {id: 1}), (b:Person {id: 2}), (w:Person {id: 3}) \
+             CREATE [x:KNOWS](start: a, end: b, witness: w)",
+            &Parameters::new(),
+        )
+        .expect("create relation with one witness");
+
+    let error = session
+        .execute("MATCH (w:Person {id: 3}) DELETE w", &Parameters::new())
+        .expect_err(
+            "a witness-only player still recorded in the spill table must refuse plain DELETE",
+        );
+    assert!(
+        matches!(
+            &error,
+            FrontendError::Mutation(MutationError::NodeHasRelationships)
+        ),
+        "{error:?}"
+    );
+
+    let connection = fixture::second_connection(&database);
+    assert_eq!(
+        connection
+            .prepare("SELECT count(*) FROM people WHERE id = 3")
+            .unwrap()
+            .run_collect_rows()
+            .unwrap(),
+        vec![vec![Value::from_i64(1)]],
+        "the refused delete must not remove the witness"
+    );
+    assert_eq!(
+        connection
+            .prepare("SELECT count(*) FROM relationships__witness WHERE node_id = 3")
+            .unwrap()
+            .run_collect_rows()
+            .unwrap(),
+        vec![vec![Value::from_i64(1)]],
+        "the spill row must be untouched"
+    );
+}
+
+/// The `DETACH` counterpart: a witness-only player is a real participant in
+/// the relation even though it never appears in `start`/`end`, so
+/// `DETACH DELETE` must remove the relation (and its spill row) -- exactly
+/// as it already does for a `start`/`end` player -- rather than silently
+/// leaving `relationships__witness.node_id` pointing at a deleted identity.
+#[test]
+fn detach_deleting_a_witness_only_person_removes_the_relation_and_spill_row() {
+    let (database, session) = fixture::witnessed_session();
+    session
+        .execute(
+            "CREATE (:Person {id: 1}), (:Person {id: 2}), (:Person {id: 3})",
+            &Parameters::new(),
+        )
+        .expect("seed people");
+    session
+        .execute(
+            "MATCH (a:Person {id: 1}), (b:Person {id: 2}), (w:Person {id: 3}) \
+             CREATE [x:KNOWS](start: a, end: b, witness: w)",
+            &Parameters::new(),
+        )
+        .expect("create relation with one witness");
+
+    session
+        .execute(
+            "MATCH (w:Person {id: 3}) DETACH DELETE w",
+            &Parameters::new(),
+        )
+        .expect("detach delete the witness-only player");
+
+    let connection = fixture::second_connection(&database);
+    assert_eq!(
+        connection
+            .prepare("SELECT count(*) FROM people")
+            .unwrap()
+            .run_collect_rows()
+            .unwrap(),
+        vec![vec![Value::from_i64(2)]],
+        "the witness is gone, start and end players are unaffected"
+    );
+    assert_eq!(
+        connection
+            .prepare("SELECT count(*) FROM relationships")
+            .unwrap()
+            .run_collect_rows()
+            .unwrap(),
+        vec![vec![Value::from_i64(0)]],
+        "detaching the only-witness player must remove the relation that referenced it"
+    );
+    assert_eq!(
+        connection
+            .prepare("SELECT count(*) FROM relationships__witness")
+            .unwrap()
+            .run_collect_rows()
+            .unwrap(),
+        vec![vec![Value::from_i64(0)]],
+        "its spill row must not dangle behind"
+    );
+}
+
 /// Regression guard on the pre-existing `DuplicateRoleArgument` refusal: it
 /// must keep rejecting a second player for a `One` role now that the same
 /// check lets a `Many` role repeat.
