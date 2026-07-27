@@ -1,0 +1,205 @@
+# Review package: 2b3e9362f6a46bfd32eed39970bbae4464b40ed7..HEAD
+
+## Commits
+067878710 graph/ir: add RoleId and the role definition model
+
+## Files changed
+ graph/ir/src/identity.rs |  2 +
+ graph/ir/src/lib.rs      |  4 +-
+ graph/ir/src/role.rs     | 98 ++++++++++++++++++++++++++++++++++++++++++++++++
+ 3 files changed, 103 insertions(+), 1 deletion(-)
+
+## Diff
+diff --git a/graph/ir/src/identity.rs b/graph/ir/src/identity.rs
+index 1880180db..d6d198d81 100644
+--- a/graph/ir/src/identity.rs
++++ b/graph/ir/src/identity.rs
+@@ -56,36 +56,38 @@ macro_rules! define_u32_id {
+     };
+ }
+ 
+ define_u64_id!(GraphId, "graph");
+ define_u64_id!(SourceTableId, "source table");
+ define_u64_id!(NodeId, "node");
+ define_u64_id!(RelationshipId, "relationship");
+ define_u32_id!(LabelId, "label");
+ define_u32_id!(RelationshipTypeId, "relationship type");
+ define_u32_id!(PropertyId, "property");
++define_u32_id!(RoleId, "role");
+ define_u32_id!(BindingId, "binding");
+ 
+ #[cfg(test)]
+ mod tests {
+     use super::*;
+ 
+     #[test]
+     fn all_public_identities_reject_zero() {
+         assert!(GraphId::new(0).is_err());
+         assert!(SourceTableId::new(0).is_err());
+         assert!(NodeId::new(0).is_err());
+         assert!(RelationshipId::new(0).is_err());
+         assert!(LabelId::new(0).is_err());
+         assert!(RelationshipTypeId::new(0).is_err());
+         assert!(PropertyId::new(0).is_err());
+         assert!(BindingId::new(0).is_err());
++        assert!(RoleId::new(0).is_err());
+     }
+ 
+     #[test]
+     fn identity_round_trips_without_cross_type_conversion() {
+         let graph = GraphId::new(7).unwrap();
+         let node = NodeId::new(7).unwrap();
+         assert_eq!(graph.get(), 7);
+         assert_eq!(node.get(), 7);
+         assert_eq!(graph.to_string(), "7");
+     }
+diff --git a/graph/ir/src/lib.rs b/graph/ir/src/lib.rs
+index 3a8541982..822b2dfd8 100644
+--- a/graph/ir/src/lib.rs
++++ b/graph/ir/src/lib.rs
+@@ -4,38 +4,40 @@
+ //! must not expose parser, storage-engine, PostgreSQL, or donor implementation
+ //! types.
+ 
+ #![forbid(unsafe_code)]
+ 
+ mod error;
+ mod expression;
+ mod identity;
+ mod mutation;
+ mod plan;
++mod role;
+ mod scope;
+ mod semantics;
+ 
+ pub use error::{InvalidId, PlanError};
+ pub use expression::{
+     BinaryOp, Expression, FunctionName, Literal, NullOrder, QuantifierKind, SortDirection,
+     TypedExpression, UnaryOp, ValueType, VectorKind,
+ };
+ pub use identity::{
+-    BindingId, GraphId, LabelId, NodeId, PropertyId, RelationshipId, RelationshipTypeId,
++    BindingId, GraphId, LabelId, NodeId, PropertyId, RelationshipId, RelationshipTypeId, RoleId,
+     SourceTableId,
+ };
+ pub use mutation::{
+     CreateNode, CreateRelationship, DeleteEntity, MergeNode, MergeRelationship, Mutation,
+     MutationRequest, MutationSource, PropertyValue, RemoveProperty, ReplaceProperties,
+     ReplacePropertiesDynamic, SetLabels, SetProperty,
+ };
+ pub use plan::{
+     Aggregate, AggregateFunction, Aggregation, Distinct, Filter, FixedExpand, GraphExpand,
+     Grouping, Join, LeftApply, Limit, NodeScan, PathUniqueness, Plan, PlanKind, ProcedureCall,
+     ProcedureIdentity, ProcedureOutput, Project, Projection, Skip, Sort, SortKey, Union, Unit,
+     Unwind,
+ };
++pub use role::{RoleBinding, RoleCardinality, RoleDef, RoleTarget};
+ pub use scope::{Binding, Direction, Nullability, ResultColumn, ResultShape, Scope};
+ pub use semantics::{
+     semantic_profile_digest, Duplicates, LabelListOrder, NullComparison, NullSort, RowOrder,
+     SemanticProfile, WriteClassification, SEMANTIC_PROFILE, SEMANTIC_PROFILE_VERSION,
+ };
+diff --git a/graph/ir/src/role.rs b/graph/ir/src/role.rs
+new file mode 100644
+index 000000000..ad549e0d2
+--- /dev/null
++++ b/graph/ir/src/role.rs
+@@ -0,0 +1,98 @@
++use crate::{BindingId, LabelId, RelationshipTypeId, RoleId};
++
++/// What a player of a role may be.
++///
++/// A role player is either a node of some label or a relation of some type.
++/// The two identity spaces stay distinct rather than being flattened: label 1
++/// and relationship type 1 are different things, and a role that accepts one
++/// must not accept the other.
++#[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
++pub enum RoleTarget {
++    Node(LabelId),
++    Relation(RelationshipTypeId),
++}
++
++/// How many players one role may hold in one relation.
++#[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
++pub enum RoleCardinality {
++    /// Exactly one player, stored in an indexed endpoint column on the
++    /// relation table.
++    One,
++    /// Any number of players, stored in a per-role spill table.
++    Many,
++}
++
++/// One named role of one relationship type. Roles are local to their relation
++/// type: there are no global role interfaces.
++#[derive(Clone, Debug, Eq, PartialEq)]
++pub struct RoleDef {
++    pub role: RoleId,
++    pub name: String,
++    /// What a player of this role may be. Empty means unconstrained.
++    pub target_types: Vec<RoleTarget>,
++    pub optional: bool,
++    pub cardinality: RoleCardinality,
++}
++
++impl RoleDef {
++    /// True when this role constrains nothing. Schemaless roles are always
++    /// unconstrained; a semantic role usually is not.
++    pub fn accepts_any_target(&self) -> bool {
++        self.target_types.is_empty()
++    }
++}
++
++/// One role filled by one player in a mutation.
++///
++/// Repeated players are legal: the same `value` may appear under two different
++/// `role`s of one relation, and nothing downstream assumes players are
++/// distinct.
++#[derive(Clone, Copy, Debug, Eq, PartialEq)]
++pub struct RoleBinding {
++    pub role: RoleId,
++    pub value: BindingId,
++}
++
++#[cfg(test)]
++mod tests {
++    use super::*;
++    use crate::{LabelId, RelationshipTypeId};
++
++    #[test]
++    fn a_role_target_keeps_node_and_relation_identity_spaces_distinct() {
++        // A node label and a relationship type may share the numeric value 1.
++        // Flattening them into one integer would make a role that accepts
++        // Person silently accept the relationship type numbered 1.
++        let node = RoleTarget::Node(LabelId::new(1).unwrap());
++        let relation = RoleTarget::Relation(RelationshipTypeId::new(1).unwrap());
++        assert_ne!(node, relation);
++    }
++
++    #[test]
++    fn a_role_definition_carries_optionality_cardinality_and_targets() {
++        let scribe = RoleDef {
++            role: RoleId::new(1).unwrap(),
++            name: "scribe".to_owned(),
++            target_types: vec![RoleTarget::Node(LabelId::new(7).unwrap())],
++            optional: false,
++            cardinality: RoleCardinality::One,
++        };
++        assert!(!scribe.optional);
++        assert_eq!(scribe.cardinality, RoleCardinality::One);
++        assert_eq!(scribe.target_types.len(), 1);
++    }
++
++    #[test]
++    fn empty_target_types_mean_unconstrained_not_uninhabited() {
++        // An empty list is the schemaless default. Reading it as "no player is
++        // allowed" would make every schemaless create fail.
++        let any = RoleDef {
++            role: RoleId::new(2).unwrap(),
++            name: "start".to_owned(),
++            target_types: Vec::new(),
++            optional: false,
++            cardinality: RoleCardinality::One,
++        };
++        assert!(any.accepts_any_target());
++    }
++}

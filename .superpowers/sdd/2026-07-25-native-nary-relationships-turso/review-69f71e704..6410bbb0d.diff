@@ -1,0 +1,1551 @@
+# Review package: 69f71e704..6410bbb0de321e003d0fbe7e2567fc64a2e83dc2
+
+## Commits
+6410bbb0d graph/frontend: replace direction argument with role pair in graph expand
+c0a58b4ea graph/ir: rename FixedExpand to RoleExpand, drop direction field
+
+## Files changed
+ graph/frontend/src/binder.rs                   |  28 ++---
+ graph/frontend/src/graph_expand.rs             | 122 ++++++++++++++++-----
+ graph/frontend/src/lowering.rs                 |  54 ++++++----
+ graph/frontend/src/snapshot.rs                 |  20 ++--
+ graph/frontend/tests/desugaring_golden.rs      |  23 ++++
+ graph/frontend/tests/dialect_alignment.rs      |  11 +-
+ graph/frontend/tests/fixed_pattern_fixtures.rs |  52 ++-------
+ graph/frontend/tests/fixture.rs                | 141 ++++++++++++++++++++++++-
+ graph/frontend/tests/semantic_schema.rs        |   2 +-
+ graph/ir/src/lib.rs                            |   7 +-
+ graph/ir/src/mutation.rs                       |  12 +++
+ graph/ir/src/plan.rs                           |  50 +++++++--
+ graph/runtime/src/traversal.rs                 |  27 +++++
+ 13 files changed, 416 insertions(+), 133 deletions(-)
+
+## Diff
+diff --git a/graph/frontend/src/binder.rs b/graph/frontend/src/binder.rs
+index a1a378fae..5f1ee0eae 100644
+--- a/graph/frontend/src/binder.rs
++++ b/graph/frontend/src/binder.rs
+@@ -1598,21 +1598,21 @@ impl<'a> Binder<'a> {
+                             span_end: relationship.span.end,
+                         });
+                     }
+                 }
+             }
+             let create = ir::CreateRelationship {
+                 binding,
+                 source,
+                 from: relationship_from,
+                 to: relationship_to,
+-                direction: ir::Direction::Outgoing,
++                direction: ir::CreateRelationship::default_direction(),
+                 relationship_types,
+                 properties,
+             };
+             operations.push(if merge {
+                 ir::Mutation::MergeRelationship(ir::MergeRelationship {
+                     create,
+                     on_create: Vec::new(),
+                     on_match: Vec::new(),
+                 })
+             } else {
+@@ -2716,45 +2716,45 @@ impl<'a> Binder<'a> {
+                 else {
+                     continue;
+                 };
+                 let outgoing = from_sources.contains(&start) && target_sources.contains(&end);
+                 let incoming = from_sources.contains(&end) && target_sources.contains(&start);
+                 match relationship.direction {
+                     cypher::Direction::Outgoing if outgoing => expansion_sources.push((
+                         relationship_source,
+                         start,
+                         end,
+-                        ir::Direction::Outgoing,
++                        cypher::Direction::Outgoing,
+                     )),
+                     cypher::Direction::Incoming if incoming => expansion_sources.push((
+                         relationship_source,
+                         end,
+                         start,
+-                        ir::Direction::Incoming,
++                        cypher::Direction::Incoming,
+                     )),
+                     cypher::Direction::Both if start == end && outgoing => expansion_sources
+-                        .push((relationship_source, start, end, ir::Direction::Both)),
++                        .push((relationship_source, start, end, cypher::Direction::Both)),
+                     cypher::Direction::Both => {
+                         if outgoing {
+                             expansion_sources.push((
+                                 relationship_source,
+                                 start,
+                                 end,
+-                                ir::Direction::Outgoing,
++                                cypher::Direction::Outgoing,
+                             ));
+                         }
+                         if incoming {
+                             expansion_sources.push((
+                                 relationship_source,
+                                 end,
+                                 start,
+-                                ir::Direction::Incoming,
++                                cypher::Direction::Incoming,
+                             ));
+                         }
+                     }
+                     _ => {}
+                 }
+             }
+             if expansion_sources.is_empty() {
+                 return Err(BindError::MissingSource {
+                     entity: "compatible relationship",
+                     span_start: relationship.span.start,
+@@ -2810,56 +2810,58 @@ impl<'a> Binder<'a> {
+                         let end_role = roles
+                             .as_ref()
+                             .and_then(|layout| layout.end_role())
+                             .map(|role| role.role)
+                             .ok_or(BindError::MissingRelationshipRole {
+                                 role: "end",
+                                 span_start: relationship.span.start,
+                                 span_end: relationship.span.end,
+                             })?;
+                         let (from_role, to_role, symmetric) = match direction {
+-                            ir::Direction::Outgoing => (start_role, end_role, false),
+-                            ir::Direction::Incoming => (end_role, start_role, false),
+-                            ir::Direction::Both => (start_role, end_role, true),
++                            cypher::Direction::Outgoing => (start_role, end_role, false),
++                            cypher::Direction::Incoming => (end_role, start_role, false),
++                            // Undirected only stays one expand when both roles
++                            // target the same node source; otherwise the
++                            // caller has already split it into a union of two
++                            // directed branches above.
++                            cypher::Direction::Both => (start_role, end_role, true),
+                         };
+                         let kind = if let Some((min_hops, max_hops, unbounded)) = range {
+                             ir::PlanKind::GraphExpand(ir::GraphExpand {
+                                 input: Box::new(input.clone()),
+                                 graph: self.graph,
+                                 from_node_source,
+                                 relationship_source,
+                                 target_node_source,
+                                 from,
+                                 relationship: relationship_binding.clone(),
+                                 to: to.clone(),
+-                                direction,
+                                 from_role,
+                                 to_role,
+                                 symmetric,
+                                 relationship_types: relationship_types.clone(),
+                                 min_hops,
+                                 max_hops,
+                                 unbounded,
+                                 uniqueness: ir::PathUniqueness::Trail,
+                                 path_output: expand_path.cloned(),
+                                 relationship_list_output: relationship_list.clone(),
+                             })
+                         } else {
+-                            ir::PlanKind::FixedExpand(ir::FixedExpand {
++                            ir::PlanKind::RoleExpand(ir::RoleExpand {
+                                 input: Box::new(input.clone()),
+                                 from_node_source,
+                                 relationship_source,
+                                 target_node_source,
+                                 from,
+                                 relationship: relationship_binding.clone(),
+                                 to: to.clone(),
+-                                direction,
+                                 from_role,
+                                 to_role,
+                                 symmetric,
+                                 relationship_types: relationship_types.clone(),
+                                 bound_target,
+                             })
+                         };
+                         Ok(ir::Plan::new(
+                             kind,
+                             scope.clone(),
+@@ -7397,21 +7399,21 @@ mod tests {
+         let friend = bound.plan.scope().resolve("friend").expect("friend output");
+         assert_eq!(friend.nullability(), ir::Nullability::Nullable);
+     }
+ 
+     /// Descends single-input plan nodes to the innermost `NodeScan`'s
+     /// binding, so a test can assert which variable ended up as the join
+     /// anchor without hardcoding the exact operator tree shape.
+     fn innermost_node_scan_binding(plan: &ir::Plan) -> ir::BindingId {
+         match plan.kind() {
+             ir::PlanKind::NodeScan(scan) => scan.binding,
+-            ir::PlanKind::FixedExpand(expand) => innermost_node_scan_binding(&expand.input),
++            ir::PlanKind::RoleExpand(expand) => innermost_node_scan_binding(&expand.input),
+             ir::PlanKind::GraphExpand(expand) => innermost_node_scan_binding(&expand.input),
+             ir::PlanKind::Filter(filter) => innermost_node_scan_binding(&filter.input),
+             ir::PlanKind::Project(project) => innermost_node_scan_binding(&project.input),
+             ir::PlanKind::Aggregate(aggregate) => innermost_node_scan_binding(&aggregate.input),
+             ir::PlanKind::Distinct(distinct) => innermost_node_scan_binding(&distinct.input),
+             ir::PlanKind::Sort(sort) => innermost_node_scan_binding(&sort.input),
+             ir::PlanKind::Skip(skip) => innermost_node_scan_binding(&skip.input),
+             ir::PlanKind::Limit(limit) => innermost_node_scan_binding(&limit.input),
+             ir::PlanKind::Unwind(unwind) => innermost_node_scan_binding(&unwind.input),
+             ir::PlanKind::ProcedureCall(call) => innermost_node_scan_binding(&call.input),
+diff --git a/graph/frontend/src/graph_expand.rs b/graph/frontend/src/graph_expand.rs
+index 2d360f509..c77f0680e 100644
+--- a/graph/frontend/src/graph_expand.rs
++++ b/graph/frontend/src/graph_expand.rs
+@@ -12,23 +12,23 @@ use turso_graph_ir::{Direction, GraphId, RelationshipTypeId, SourceTableId};
+ use turso_graph_runtime::{
+     Cancellation, Path, TraversalCursor, TraversalLimits, TraversalOrder, TraversalRequest,
+     TraversalStep, Uniqueness,
+ };
+ 
+ use crate::{SnapshotStore, SourceIdentity, TraversalSnapshot};
+ 
+ pub const GRAPH_EXPAND_TABLE_NAME: &str = "__turso_graph_expand";
+ 
+ const OUTPUT_COLUMN_COUNT: usize = 11;
+-const INPUT_COLUMN_COUNT: usize = 14;
++const INPUT_COLUMN_COUNT: usize = 16;
+ const COL_GRAPH_ID: usize = OUTPUT_COLUMN_COUNT;
+-const COL_MAX_MEMORY_BYTES: usize = COL_GRAPH_ID + 13;
++const COL_MAX_MEMORY_BYTES: usize = COL_GRAPH_ID + 15;
+ const CURSOR_WORK_QUANTUM: u64 = 256;
+ 
+ /// Install graph expand into a schema under construction.
+ ///
+ /// Prefer [`install_graph_catalog`] for production activation: expand needs a
+ /// connection-bound [`SnapshotStore`], which is not available when
+ /// [`crate::GraphDialect::register_catalog`] runs at schema build. This helper
+ /// remains for callers that already hold a store and own the schema lifecycle.
+ /// Safe to call more than once; later installs replace the earlier binding.
+ pub fn register_graph_catalog(
+@@ -141,21 +141,23 @@ impl InternalVirtualTable for GraphExpandTable {
+                 node_identity ANY,
+                 relationship_id INTEGER,
+                 relationship_source_id INTEGER,
+                 relationship_identity ANY,
+                 relationship_type INTEGER,
+                 depth INTEGER,
+                 is_terminal INTEGER,
+                 graph_id INTEGER HIDDEN,
+                 start_node_source_id INTEGER HIDDEN,
+                 start_node_identity ANY HIDDEN,
+-                direction TEXT HIDDEN,
++                from_role TEXT HIDDEN,
++                to_role TEXT HIDDEN,
++                symmetric INTEGER HIDDEN,
+                 relationship_types TEXT HIDDEN,
+                 min_hops INTEGER HIDDEN,
+                 max_hops INTEGER HIDDEN,
+                 error_at_max_hops INTEGER HIDDEN,
+                 uniqueness TEXT HIDDEN,
+                 max_node_visits INTEGER HIDDEN,
+                 max_edge_visits INTEGER HIDDEN,
+                 max_paths INTEGER HIDDEN,
+                 max_work INTEGER HIDDEN,
+                 max_memory_bytes INTEGER HIDDEN
+@@ -223,33 +225,36 @@ impl GraphExpandCursor {
+ 
+     fn initialize_filter(&mut self, args: &[Value], idx_num: i32) -> turso_core::Result<()> {
+         if idx_num != INPUT_COLUMN_COUNT as i32 || args.len() != INPUT_COLUMN_COUNT {
+             return Err(LimboError::InvalidArgument(format!(
+                 "{GRAPH_EXPAND_TABLE_NAME} requires {INPUT_COLUMN_COUNT} arguments"
+             )));
+         }
+         let graph_id = graph_id(&args[0])?;
+         let start_source = source_table_id(&args[1], "start_node_source_id")?;
+         let start_identity = source_identity(&args[2], "start_node_identity")?;
+-        let direction = direction(&args[3])?;
+-        let relationship_types = relationship_types(&args[4])?;
+-        let min_hops = nonnegative_u32(&args[5], "min_hops")?;
+-        let max_hops = nonnegative_u32(&args[6], "max_hops")?;
+-        let error_at_max_hops = nonnegative_u32(&args[7], "error_at_max_hops")? != 0;
+-        let uniqueness = uniqueness(&args[8])?;
++        let from_role = role_name(&args[3], "from_role")?;
++        let to_role = role_name(&args[4], "to_role")?;
++        let symmetric = boolean(&args[5], "symmetric")?;
++        let direction = role_pair_to_direction(&from_role, &to_role, symmetric)?;
++        let relationship_types = relationship_types(&args[6])?;
++        let min_hops = nonnegative_u32(&args[7], "min_hops")?;
++        let max_hops = nonnegative_u32(&args[8], "max_hops")?;
++        let error_at_max_hops = nonnegative_u32(&args[9], "error_at_max_hops")? != 0;
++        let uniqueness = uniqueness(&args[10])?;
+         let limits = TraversalLimits {
+-            max_node_visits: nonnegative_u64(&args[9], "max_node_visits")?,
+-            max_edge_visits: nonnegative_u64(&args[10], "max_edge_visits")?,
+-            max_paths: nonnegative_u64(&args[11], "max_paths")?,
++            max_node_visits: nonnegative_u64(&args[11], "max_node_visits")?,
++            max_edge_visits: nonnegative_u64(&args[12], "max_edge_visits")?,
++            max_paths: nonnegative_u64(&args[13], "max_paths")?,
+             max_hops,
+-            max_work: nonnegative_u64(&args[12], "max_work")?,
+-            max_memory_bytes: nonnegative_u64(&args[13], "max_memory_bytes")?,
++            max_work: nonnegative_u64(&args[14], "max_work")?,
++            max_memory_bytes: nonnegative_u64(&args[15], "max_memory_bytes")?,
+         };
+         let snapshot = self
+             .snapshots
+             .get_for_connection(&self.connection, graph_id)
+             .map_err(|error| LimboError::ExtensionError(error.to_string()))?
+             .ok_or_else(|| {
+                 LimboError::InvalidArgument(format!("graph snapshot {graph_id} is not built"))
+             })?;
+         let start = snapshot
+             .node_id(start_source, &start_identity)
+@@ -457,27 +462,59 @@ fn source_identity(value: &Value, name: &str) -> turso_core::Result<SourceIdenti
+         Value::Numeric(Numeric::Integer(value)) => Ok(SourceIdentity::Integer(*value)),
+         Value::Numeric(Numeric::Float(value)) => Ok(SourceIdentity::real(f64::from(*value))),
+         Value::Text(value) => Ok(SourceIdentity::Text(value.as_str().to_owned())),
+         Value::Blob(value) => Ok(SourceIdentity::Blob(value.to_vec())),
+         Value::Null => Err(LimboError::InvalidArgument(format!(
+             "{name} must not be NULL"
+         ))),
+     }
+ }
+ 
+-fn direction(value: &Value) -> turso_core::Result<Direction> {
+-    match text(value, "direction")?.to_ascii_lowercase().as_str() {
+-        "outgoing" => Ok(Direction::Outgoing),
+-        "incoming" => Ok(Direction::Incoming),
+-        "both" => Ok(Direction::Both),
+-        value => Err(LimboError::InvalidArgument(format!(
+-            "invalid graph direction `{value}`"
++fn role_name(value: &Value, name: &str) -> turso_core::Result<String> {
++    text(value, name).map(|value| value.to_owned())
++}
++
++fn boolean(value: &Value, name: &str) -> turso_core::Result<bool> {
++    Ok(nonnegative_u32(value, name)? != 0)
++}
++
++/// Named, temporary adapter: the variable-length expand vtab is backed by a
++/// physical BFS over a binary CSR snapshot that only knows `Direction`
++/// (`Outgoing` / `Incoming` / `Both`), not role names -- the runtime side of
++/// this boundary is role-oblivious until Task 17. Lowering, by contrast, is
++/// already role-name-agnostic (see `lower_graph_expand` in `lowering.rs`,
++/// which resolves `from_role`/`to_role` through the generic
++/// `RelationshipTableLayout::role` accessor with no outgoing/incoming/both
++/// judgment of its own) and only ever names the two roles the binder
++/// resolved. Because `GraphExpand` today is only reachable for binary
++/// relationships registered via `RelationshipSourceRegistration::binary`,
++/// whose two roles are always literally named `"start"`/`"end"`, this
++/// adapter can safely translate that specific role pair (plus `symmetric`)
++/// back into the `Direction` the runtime still requires, and must error
++/// loudly rather than guess for anything else. Task 17 deletes this function
++/// along with `Direction` itself once the traversal runtime becomes
++/// role-aware.
++fn role_pair_to_direction(
++    from_role: &str,
++    to_role: &str,
++    symmetric: bool,
++) -> turso_core::Result<Direction> {
++    if symmetric {
++        return Ok(Direction::Both);
++    }
++    match (from_role, to_role) {
++        ("start", "end") => Ok(Direction::Outgoing),
++        ("end", "start") => Ok(Direction::Incoming),
++        (from, to) => Err(LimboError::InvalidArgument(format!(
++            "unsupported role pair ('{from}', '{to}') for {GRAPH_EXPAND_TABLE_NAME}: only the \
++             binary 'start'/'end' role convention is supported until the traversal runtime \
++             becomes role-aware"
+         ))),
+     }
+ }
+ 
+ fn uniqueness(value: &Value) -> turso_core::Result<Uniqueness> {
+     match text(value, "uniqueness")?.to_ascii_lowercase().as_str() {
+         "walk" => Ok(Uniqueness::Walk),
+         "trail" => Ok(Uniqueness::Trail),
+         "path" => Ok(Uniqueness::Path),
+         value => Err(LimboError::InvalidArgument(format!(
+@@ -657,21 +694,21 @@ mod tests {
+                 replaced: false,
+                 ..
+             }
+         ));
+         install_graph_catalog(&connection, snapshots.clone()).unwrap();
+         (connection, snapshots, registered.id)
+     }
+ 
+     fn invocation(graph_id: GraphId) -> String {
+         format!(
+-            "{GRAPH_EXPAND_TABLE_NAME}({}, 1, 10, 'outgoing', '1', 1, 2, 0, 'trail', \
++            "{GRAPH_EXPAND_TABLE_NAME}({}, 1, 10, 'start', 'end', 0, '1', 1, 2, 0, 'trail', \
+              100, 100, 100, 1000, 1048576)",
+             graph_id.get()
+         )
+     }
+ 
+     #[test]
+     fn table_valued_scan_resumes_paths_and_exposes_hydration_coordinates() {
+         let (connection, _snapshots, graph_id) = setup();
+         let mut statement = connection
+             .prepare(format!(
+@@ -857,48 +894,48 @@ mod tests {
+         install_graph_catalog(&connection, empty_store).unwrap();
+         assert!(connection
+             .prepare(format!("SELECT * FROM {}", invocation(graph_id)))
+             .unwrap()
+             .run_collect_rows()
+             .is_err());
+ 
+         install_graph_catalog(&connection, snapshots).unwrap();
+         assert!(connection
+             .prepare(format!(
+-                "SELECT * FROM {GRAPH_EXPAND_TABLE_NAME}({}, 1, 10, 'outgoing')",
++                "SELECT * FROM {GRAPH_EXPAND_TABLE_NAME}({}, 1, 10, 'start')",
+                 graph_id.get()
+             ))
+             .is_err());
+     }
+ 
+     #[test]
+     fn scan_propagates_resource_exhaustion() {
+         let (connection, _snapshots, graph_id) = setup();
+         let sql = format!(
+-            "SELECT * FROM {GRAPH_EXPAND_TABLE_NAME}({}, 1, 10, 'outgoing', '1', 1, 2, 0, \
++            "SELECT * FROM {GRAPH_EXPAND_TABLE_NAME}({}, 1, 10, 'start', 'end', 0, '1', 1, 2, 0, \
+              'trail', 100, 100, 100, 1, 1048576)",
+             graph_id.get()
+         );
+         let error = connection
+             .prepare(sql)
+             .unwrap()
+             .run_collect_rows()
+             .unwrap_err();
+         assert!(error.to_string().contains("Work resource limit exceeded"));
+     }
+ 
+     #[test]
+     fn high_fanout_filter_yields_resumes_and_can_be_abandoned() {
+         let (connection, _snapshots, graph_id) = setup_with_fanout(300);
+         let sql = format!(
+             "SELECT path_id, node_identity FROM {GRAPH_EXPAND_TABLE_NAME}(
+-                {}, 1, 10, 'outgoing', '1', 2, 2, 0, 'trail',
++                {}, 1, 10, 'start', 'end', 0, '1', 2, 2, 0, 'trail',
+                 10000, 10000, 10000, 100000, 16777216
+             )",
+             graph_id.get()
+         );
+ 
+         let mut abandoned = connection.prepare(&sql).unwrap();
+         assert!(matches!(
+             abandoned.step().unwrap(),
+             turso_core::StepResult::Yield
+         ));
+@@ -921,27 +958,60 @@ mod tests {
+         assert!(yields >= 1);
+         assert_eq!(rows, 3);
+     }
+ 
+     #[test]
+     fn connection_interrupt_is_observed_at_the_next_graph_quantum() {
+         let (connection, _snapshots, graph_id) = setup_with_fanout(300);
+         let mut statement = connection
+             .prepare(format!(
+                 "SELECT path_id FROM {GRAPH_EXPAND_TABLE_NAME}(
+-                    {}, 1, 10, 'outgoing', '1', 2, 2, 0, 'trail',
++                    {}, 1, 10, 'start', 'end', 0, '1', 2, 2, 0, 'trail',
+                     10000, 10000, 10000, 100000, 16777216
+                 )",
+                 graph_id.get()
+             ))
+             .unwrap();
+         assert!(matches!(
+             statement.step().unwrap(),
+             turso_core::StepResult::Yield
+         ));
+         connection.interrupt();
+         assert!(matches!(
+             statement.step().unwrap(),
+             turso_core::StepResult::Interrupt
+         ));
+     }
++
++    /// Regression net for the `from_role`/`to_role`/`symmetric` argument
++    /// shift: replacing the single `direction` argument with three
++    /// arguments moves every later argument (`relationship_types` onward)
++    /// two slots to the right. A wrong index here is silent at compile
++    /// time -- it either misparses a value (caught below by `.unwrap()`)
++    /// or, worse, parses successfully into the wrong meaning. Requesting
++    /// the *reversed* role pair (`'end', 'start'`) from the traversal
++    /// runtime's terminal node C, over an exact 2-hop expansion (so only
++    /// one path length is ever terminal, keeping the row unambiguous), must
++    /// walk the KNOWS edges backward to A, the opposite of the fixture's
++    /// forward A->B->C edges. That only happens if `from_role`/`to_role`/
++    /// `symmetric` land in the vtab's role/symmetric columns (not, say,
++    /// `min_hops`/`max_hops`) and `min_hops`/`max_hops` still land on their
++    /// own (shifted) slots -- an index slip either misparses a value
++    /// (caught by `.unwrap()`) or silently produces the forward path's
++    /// terminal node (20 at depth 1) or no rows at all instead.
++    #[test]
++    fn variable_length_expand_reads_role_and_hop_arguments_at_their_shifted_index() {
++        let (connection, _snapshots, graph_id) = setup();
++        let rows = connection
++            .prepare(format!(
++                "SELECT e.depth, e.node_identity FROM {GRAPH_EXPAND_TABLE_NAME}(
++                    {}, 1, 30, 'end', 'start', 0, '1', 2, 2, 0, 'trail',
++                    100, 100, 100, 1000, 1048576
++                ) AS e WHERE e.is_terminal = 1 ORDER BY e.depth LIMIT 1",
++                graph_id.get()
++            ))
++            .unwrap()
++            .run_collect_rows()
++            .unwrap();
++        assert_eq!(rows, vec![vec![Value::from_i64(2), Value::from_i64(10)]]);
++    }
+ }
+diff --git a/graph/frontend/src/lowering.rs b/graph/frontend/src/lowering.rs
+index 13e1191b2..8814bed70 100644
+--- a/graph/frontend/src/lowering.rs
++++ b/graph/frontend/src/lowering.rs
+@@ -431,21 +431,21 @@ fn materialize_properties(
+         ));
+         layout.properties.insert(*property);
+     }
+     columns
+ }
+ 
+ fn collect_wanted(plan: &ir::Plan, wanted: &mut WantedProperties) {
+     let mut expressions: Vec<&ir::TypedExpression> = Vec::new();
+     match plan.kind() {
+         ir::PlanKind::Unit(_) | ir::PlanKind::NodeScan(_) => {}
+-        ir::PlanKind::FixedExpand(expand) => collect_wanted(&expand.input, wanted),
++        ir::PlanKind::RoleExpand(expand) => collect_wanted(&expand.input, wanted),
+         ir::PlanKind::GraphExpand(expand) => collect_wanted(&expand.input, wanted),
+         ir::PlanKind::Filter(filter) => {
+             expressions.push(&filter.predicate);
+             collect_wanted(&filter.input, wanted);
+         }
+         ir::PlanKind::Project(project) => {
+             expressions.extend(project.projections.iter().map(|p| &p.expression));
+             collect_wanted(&project.input, wanted);
+         }
+         ir::PlanKind::Aggregate(aggregate) => {
+@@ -600,22 +600,22 @@ fn lower_plan(
+     catalog: &dyn RelationalCatalogSnapshot,
+     optional: bool,
+     wanted: &WantedProperties,
+ ) -> Result<Lowered, LowerError> {
+     match plan.kind() {
+         ir::PlanKind::Unit(_) => Ok(Lowered {
+             sql: "SELECT 1 AS __unit".to_owned(),
+             bindings: HashMap::new(),
+         }),
+         ir::PlanKind::NodeScan(scan) => lower_node_scan(scan, catalog, wanted),
+-        ir::PlanKind::FixedExpand(expand) => {
+-            lower_fixed_expand(expand, catalog, optional, &[], wanted, None)
++        ir::PlanKind::RoleExpand(expand) => {
++            lower_role_expand(expand, catalog, optional, &[], wanted, None)
+         }
+         ir::PlanKind::GraphExpand(expand) => lower_graph_expand(expand, catalog, wanted),
+         ir::PlanKind::Filter(filter) => {
+             let input = lower_plan(&filter.input, catalog, optional, wanted)?;
+             let predicate = lower_expression(&filter.predicate, &input.bindings, catalog, "q")?;
+             Ok(Lowered {
+                 sql: format!("SELECT q.* FROM ({}) AS q WHERE {predicate}", input.sql),
+                 bindings: input.bindings,
+             })
+         }
+@@ -958,25 +958,39 @@ fn lower_graph_expand(
+                 expand.from_node_source.get()
+             )
+         })
+         .unwrap_or_default();
+     let relationship = catalog
+         .relationship_layout(expand.relationship_source)
+         .ok_or(LowerError::MissingSource(expand.relationship_source))?;
+     let target = catalog
+         .node_layout(expand.target_node_source)
+         .ok_or(LowerError::MissingSource(expand.target_node_source))?;
+-    let direction = match expand.direction {
+-        ir::Direction::Outgoing => "outgoing",
+-        ir::Direction::Incoming => "incoming",
+-        ir::Direction::Both => "both",
+-    };
++    // Lowering only names the two roles here -- exactly what the fixed hop
++    // already does via `relationship.role(id)` -- and makes no
++    // outgoing/incoming/both judgment of its own. The variable-length
++    // expand vtab still runs a physical BFS over a binary CSR snapshot
++    // (role-oblivious until Task 17), so *it* is where the remaining
++    // role-pair-to-direction reasoning lives now (see the adapter in
++    // graph_expand.rs), not here.
++    let from_role = relationship
++        .role(expand.from_role)
++        .ok_or_else(|| LowerError::UnknownRole {
++            relation: relationship.table.clone(),
++            role: expand.from_role,
++        })?;
++    let to_role = relationship
++        .role(expand.to_role)
++        .ok_or_else(|| LowerError::UnknownRole {
++            relation: relationship.table.clone(),
++            role: expand.to_role,
++        })?;
+     let uniqueness = match expand.uniqueness {
+         ir::PathUniqueness::Walk => "walk",
+         ir::PathUniqueness::Trail => "trail",
+         ir::PathUniqueness::Path => "path",
+     };
+     let relationship_types = expand
+         .relationship_types
+         .iter()
+         .map(|relationship_type| relationship_type.get().to_string())
+         .collect::<Vec<_>>()
+@@ -1056,38 +1070,40 @@ fn lower_graph_expand(
+             ));
+         }
+         let aggregates = aggregates.join(", ");
+         return Ok(Lowered {
+             sql: format!(
+                 "SELECT g.*, r.{} AS {}, {} AS {}, n.{} AS {}, {} AS {} \
+                  FROM (SELECT {}{aggregates}, \
+                  max(CASE WHEN gx.is_terminal = 1 THEN gx.node_identity END) AS __gx_node, \
+                  max(CASE WHEN gx.is_terminal = 1 THEN gx.relationship_identity END) AS __gx_rel \
+                  FROM ({}) AS q \
+-                 JOIN __turso_graph_expand({}, {}, q.{}, '{}', '{}', {}, {}, {}, '{}', {}, {}, {}, {}, {}) AS gx{source_join} \
++                 JOIN __turso_graph_expand({}, {}, q.{}, '{}', '{}', {}, '{}', {}, {}, {}, '{}', {}, {}, {}, {}, {}) AS gx{source_join} \
+                  GROUP BY {}gx.path_id) AS g \
+                  JOIN {} AS n ON n.{} = g.__gx_node \
+                  LEFT JOIN {} AS r ON r.{} = g.__gx_rel",
+                 quote_identifier(&relationship.identity_column),
+                 binding_column(expand.relationship.id()),
+                 expand.relationship_source.get(),
+                 source_column_ref(expand.relationship.id()),
+                 quote_identifier(&target.identity_column),
+                 binding_column(expand.to.id()),
+                 expand.target_node_source.get(),
+                 source_column_ref(expand.to.id()),
+                 inner_select,
+                 input.sql,
+                 expand.graph.get(),
+                 expand.from_node_source.get(),
+                 binding_column(expand.from),
+-                direction,
++                from_role.name,
++                to_role.name,
++                u8::from(expand.symmetric),
+                 relationship_types,
+                 expand.min_hops,
+                 expand.max_hops,
+                 u8::from(expand.unbounded),
+                 uniqueness,
+                 limits.max_node_visits,
+                 limits.max_edge_visits,
+                 limits.max_paths,
+                 limits.max_work,
+                 limits.max_memory_bytes,
+@@ -1097,36 +1113,38 @@ fn lower_graph_expand(
+                 quote_identifier(&relationship.table),
+                 quote_identifier(&relationship.identity_column),
+             ),
+             bindings,
+         });
+     }
+     Ok(Lowered {
+         sql: format!(
+             "SELECT q.*, r.{} AS {}, {} AS {}, n.{} AS {}, {} AS {} \
+              FROM ({}) AS q \
+-             JOIN __turso_graph_expand({}, {}, q.{}, '{}', '{}', {}, {}, {}, '{}', {}, {}, {}, {}, {}) AS gx{source_join} \
++             JOIN __turso_graph_expand({}, {}, q.{}, '{}', '{}', {}, '{}', {}, {}, {}, '{}', {}, {}, {}, {}, {}) AS gx{source_join} \
+              JOIN {} AS n ON gx.is_terminal = 1 AND gx.node_source_id = {} AND n.{} = gx.node_identity \
+              LEFT JOIN {} AS r ON gx.relationship_source_id = {} AND r.{} = gx.relationship_identity",
+             quote_identifier(&relationship.identity_column),
+             binding_column(expand.relationship.id()),
+             expand.relationship_source.get(),
+             source_column_ref(expand.relationship.id()),
+             quote_identifier(&target.identity_column),
+             binding_column(expand.to.id()),
+             expand.target_node_source.get(),
+             source_column_ref(expand.to.id()),
+             input.sql,
+             expand.graph.get(),
+             expand.from_node_source.get(),
+             binding_column(expand.from),
+-            direction,
++            from_role.name,
++            to_role.name,
++            u8::from(expand.symmetric),
+             relationship_types,
+             expand.min_hops,
+             expand.max_hops,
+             u8::from(expand.unbounded),
+             uniqueness,
+             limits.max_node_visits,
+             limits.max_edge_visits,
+             limits.max_paths,
+             limits.max_work,
+             limits.max_memory_bytes,
+@@ -1165,30 +1183,30 @@ fn lower_optional_chain(
+         predicates.push(&filter.predicate);
+         current = &filter.input;
+     }
+     if boundary.is_some_and(|boundary| current == boundary) {
+         // Only filters sat above the boundary: they are optional-pattern
+         // predicates over the mandatory plan; treat them as a plain filter
+         // (an optional pattern with no expansion adds no bindings).
+         return lower_plan(original, catalog, false, wanted);
+     }
+     match current.kind() {
+-        ir::PlanKind::FixedExpand(expand) => {
+-            lower_fixed_expand(expand, catalog, true, &predicates, wanted, boundary)
++        ir::PlanKind::RoleExpand(expand) => {
++            lower_role_expand(expand, catalog, true, &predicates, wanted, boundary)
+         }
+         ir::PlanKind::Union(union) => {
+             let mut parts = Vec::new();
+             let mut bindings: Option<HashMap<ir::BindingId, BindingLayout>> = None;
+             for branch in union.inputs() {
+                 let lowered = match branch.kind() {
+-                    ir::PlanKind::FixedExpand(expand) => {
+-                        lower_fixed_expand(expand, catalog, true, &predicates, wanted, boundary)?
++                    ir::PlanKind::RoleExpand(expand) => {
++                        lower_role_expand(expand, catalog, true, &predicates, wanted, boundary)?
+                     }
+                     _ => lower_optional_chain(branch, boundary, catalog, wanted)?,
+                 };
+                 parts.push(format!("SELECT q.* FROM ({}) AS q", lowered.sql));
+                 if let Some(combined) = &mut bindings {
+                     for (binding, layout) in lowered.bindings {
+                         if let Some(existing) = combined.get_mut(&binding) {
+                             existing.sources.extend(layout.sources);
+                             existing
+                                 .properties
+@@ -1438,22 +1456,22 @@ fn lower_node_scan(
+                     quote_identifier(&labels_table),
+                     quote_identifier(&layout.identity_column),
+                     name.replace('\'', "''")
+                 ));
+             }
+         }
+     }
+     Ok(Lowered { sql, bindings })
+ }
+ 
+-fn lower_fixed_expand(
+-    expand: &ir::FixedExpand,
++fn lower_role_expand(
++    expand: &ir::RoleExpand,
+     catalog: &dyn RelationalCatalogSnapshot,
+     optional: bool,
+     join_predicates: &[&ir::TypedExpression],
+     wanted: &WantedProperties,
+     boundary: Option<&ir::Plan>,
+ ) -> Result<Lowered, LowerError> {
+     let input = if optional {
+         lower_optional_chain(&expand.input, boundary, catalog, wanted)?
+     } else {
+         lower_plan(&expand.input, catalog, false, wanted)?
+diff --git a/graph/frontend/src/snapshot.rs b/graph/frontend/src/snapshot.rs
+index ecc82a3d6..4b884bfab 100644
+--- a/graph/frontend/src/snapshot.rs
++++ b/graph/frontend/src/snapshot.rs
+@@ -885,21 +885,20 @@ fn quote_identifier(identifier: &str) -> String {
+ }
+ 
+ #[cfg(test)]
+ mod tests {
+     use super::*;
+     use crate::{
+         register_graph, GraphRegistration, NodeSourceRegistration, RegisteredGraph,
+         RelationshipSourceRegistration,
+     };
+     use turso_core::{Database, MemoryIO, SqliteDialect};
+-    use turso_graph_ir::Direction;
+     use turso_graph_runtime::{
+         traverse, LimitKind, TraversalLimits, TraversalOrder, TraversalRequest, Uniqueness,
+     };
+ 
+     fn connection(name: &str) -> Arc<Connection> {
+         let io = Arc::new(MemoryIO::new());
+         Database::open_file(io, name, Arc::new(SqliteDialect))
+             .unwrap()
+             .connect()
+             .unwrap()
+@@ -1076,30 +1075,29 @@ mod tests {
+             snapshot.relationship(RelationshipId::new(2).unwrap()),
+             Some(&RelationshipCoordinate {
+                 source: registered.relationship_sources[0].id,
+                 identity: SourceIdentity::Integer(200),
+                 relationship_type: RelationshipTypeId::new(1).unwrap(),
+             })
+         );
+ 
+         let paths = traverse(
+             snapshot.graph(),
+-            &TraversalRequest {
+-                start: NodeId::new(1).unwrap(),
+-                direction: Direction::Outgoing,
+-                relationship_types: vec![RelationshipTypeId::new(1).unwrap()],
+-                min_hops: 2,
+-                max_hops: 2,
+-                error_at_max_hops: false,
+-                uniqueness: Uniqueness::Trail,
+-                order: TraversalOrder::BreadthFirst,
+-            },
++            &TraversalRequest::outgoing(
++                NodeId::new(1).unwrap(),
++                vec![RelationshipTypeId::new(1).unwrap()],
++                2,
++                2,
++                false,
++                Uniqueness::Trail,
++                TraversalOrder::BreadthFirst,
++            ),
+             TraversalLimits::default(),
+             &turso_graph_runtime::NeverCancelled,
+         )
+         .unwrap();
+         assert_eq!(paths.len(), 1);
+         assert_eq!(
+             paths[0].nodes,
+             vec![
+                 NodeId::new(1).unwrap(),
+                 NodeId::new(2).unwrap(),
+diff --git a/graph/frontend/tests/desugaring_golden.rs b/graph/frontend/tests/desugaring_golden.rs
+new file mode 100644
+index 000000000..705f90442
+--- /dev/null
++++ b/graph/frontend/tests/desugaring_golden.rs
+@@ -0,0 +1,23 @@
++//! Arrow syntax is sugar over roles. If the two forms ever bind to different
++//! IR, then a "binary" query and its role-form equivalent can disagree at
++//! runtime, and the claim that binary is a layout of the role model is false.
++
++mod fixture;
++
++use fixture::{bind_fixture, first_role_expand};
++
++#[test]
++#[ignore = "standalone role pattern lands in Task 12"]
++fn arrow_and_role_forms_of_the_same_pattern_bind_identically() {
++    let arrow = bind_fixture("MATCH (a:Person)-[r:KNOWS]->(b:Person) RETURN b");
++    let roles = bind_fixture("MATCH (a:Person), (b:Person), [r:KNOWS](start: a, end: b) RETURN b");
++    assert_eq!(first_role_expand(&arrow), first_role_expand(&roles));
++}
++
++#[test]
++#[ignore = "standalone role pattern lands in Task 12"]
++fn the_reversed_arrow_is_the_reversed_role_pair() {
++    let arrow = bind_fixture("MATCH (a:Person)<-[r:KNOWS]-(b:Person) RETURN b");
++    let roles = bind_fixture("MATCH (a:Person), (b:Person), [r:KNOWS](end: a, start: b) RETURN b");
++    assert_eq!(first_role_expand(&arrow), first_role_expand(&roles));
++}
+diff --git a/graph/frontend/tests/dialect_alignment.rs b/graph/frontend/tests/dialect_alignment.rs
+index 063e30e25..7dd65a684 100644
+--- a/graph/frontend/tests/dialect_alignment.rs
++++ b/graph/frontend/tests/dialect_alignment.rs
+@@ -7,23 +7,23 @@ use std::sync::{atomic::Ordering, Arc};
+ use turso_core::{DatabaseOpts, MemoryIO, OpenFlags};
+ use turso_graph_cypher::parse;
+ use turso_graph_frontend::{
+     bind, install_graph_catalog, lower_relational, open_database_with_io, register_graph,
+     take_closed_create_fast_path_hit, CatalogEntity, GraphCatalogSnapshot, GraphConnection,
+     GraphHostMode, GraphRegistration, NodeSourceRegistration, NodeTableLayout, ParameterTypes,
+     Parameters, RelationalCatalogSnapshot, RelationshipRoleLayout, RelationshipSourceRegistration,
+     RelationshipTableLayout, ResolvedProperty, SnapshotStore, Value, GRAPH_EXPAND_TABLE_NAME,
+ };
+ use turso_graph_ir::{
+-    Binding, BindingId, Direction, FixedExpand, GraphId, LabelId, NodeScan, Nullability, Plan,
+-    PlanKind, PropertyId, RelationshipTypeId, ResultShape, RoleCardinality, RoleId, Scope,
+-    SourceTableId, ValueType,
++    Binding, BindingId, GraphId, LabelId, NodeScan, Nullability, Plan, PlanKind, PropertyId,
++    RelationshipTypeId, ResultShape, RoleCardinality, RoleExpand, RoleId, Scope, SourceTableId,
++    ValueType,
+ };
+ 
+ #[test]
+ fn prepare_returns_cypher_result_types_for_boolean_projection() {
+     let (_database, graph) = fixture::social_graph_connection();
+     let stmt = graph
+         .prepare(
+             "MATCH (n:Person) RETURN n.name AS name, true AS flag",
+             &Parameters::new(),
+         )
+@@ -658,21 +658,21 @@ impl RelationalCatalogSnapshot for TernaryCatalog {
+                 },
+             ],
+         })
+     }
+ 
+     fn property_column(&self, _source: SourceTableId, _property: PropertyId) -> Option<String> {
+         None
+     }
+ }
+ 
+-/// Lowers a hand-built `ir::FixedExpand` over [`TernaryCatalog`]'s
++/// Lowers a hand-built `ir::RoleExpand` over [`TernaryCatalog`]'s
+ /// `scribe -> folio` role pair. `_query` documents the surface syntax this
+ /// stands in for (`[x:Transcription](scribe: s, folio: f)`, not yet parsable
+ /// -- that lands in Task 12); the plan below is built directly so this test
+ /// does not depend on that syntax landing first.
+ fn lower_ternary_to_sql(_query: &str) -> String {
+     let scribe_source = SourceTableId::new(1).unwrap();
+     let folio_source = SourceTableId::new(2).unwrap();
+     let relationship_source = SourceTableId::new(10).unwrap();
+     let scribe_role = RoleId::new(1).unwrap();
+     let folio_role = RoleId::new(2).unwrap();
+@@ -697,29 +697,28 @@ fn lower_ternary_to_sql(_query: &str) -> String {
+             source: scribe_source,
+             binding: from_binding,
+             labels: vec![],
+         }),
+         Scope::new(vec![from_var.clone()]).unwrap(),
+         ResultShape::default(),
+     )
+     .unwrap();
+ 
+     let expand = Plan::new(
+-        PlanKind::FixedExpand(FixedExpand {
++        PlanKind::RoleExpand(RoleExpand {
+             input: Box::new(scan),
+             from_node_source: scribe_source,
+             relationship_source,
+             target_node_source: folio_source,
+             from: from_binding,
+             relationship: relationship_var.clone(),
+             to: to_var.clone(),
+-            direction: Direction::Outgoing,
+             from_role: scribe_role,
+             to_role: folio_role,
+             symmetric: false,
+             relationship_types: vec![],
+             bound_target: None,
+         }),
+         Scope::new(vec![from_var, relationship_var, to_var]).unwrap(),
+         ResultShape::default(),
+     )
+     .unwrap();
+diff --git a/graph/frontend/tests/fixed_pattern_fixtures.rs b/graph/frontend/tests/fixed_pattern_fixtures.rs
+index 74ebb1c5d..2fc76693c 100644
+--- a/graph/frontend/tests/fixed_pattern_fixtures.rs
++++ b/graph/frontend/tests/fixed_pattern_fixtures.rs
+@@ -1,24 +1,27 @@
++mod fixture;
++
+ use std::collections::{HashMap, HashSet};
+ use std::sync::Arc;
+ 
++use fixture::{bind_fixture, first_role_expand};
+ use serde::Deserialize;
+ use turso_core::{Database, MemoryIO, SqliteDialect, Value};
+ use turso_graph_cypher::parse;
+ use turso_graph_frontend::{
+     bind, graph_frontend_id, lower_relational, CatalogEntity, GraphCatalogSnapshot, GraphCompiler,
+     NodeTableLayout, ParameterTypes, RelationalCatalogSnapshot, RelationshipRoleLayout,
+     RelationshipTableLayout, ResolvedProperty,
+ };
+ use turso_graph_ir::{
+-    FixedExpand, GraphId, LabelId, Nullability, Plan, PlanKind, PropertyId, RelationshipTypeId,
+-    RoleCardinality, RoleId, SourceTableId, ValueType,
++    GraphId, LabelId, Nullability, PropertyId, RelationshipTypeId, RoleCardinality, RoleId,
++    SourceTableId, ValueType,
+ };
+ 
+ const MANIFEST: &str = include_str!("../../testdata/fixed-patterns/manifest.toml");
+ 
+ #[derive(Deserialize)]
+ struct Manifest {
+     version: u32,
+     purpose: String,
+     fixture: Vec<Fixture>,
+ }
+@@ -127,59 +130,20 @@ impl RelationalCatalogSnapshot for Catalog {
+ }
+ 
+ fn manifest() -> Manifest {
+     toml::from_str(MANIFEST).expect("fixed-pattern manifest must be valid TOML")
+ }
+ 
+ fn role(value: u32) -> RoleId {
+     RoleId::new(value).unwrap()
+ }
+ 
+-fn bind_fixture(query: &str) -> Plan {
+-    let parsed = parse(query).expect("fixture query must parse");
+-    bind(
+-        &parsed,
+-        GraphId::new(1).expect("graph id"),
+-        &Catalog,
+-        &ParameterTypes::new(),
+-    )
+-    .expect("fixture query must bind")
+-    .plan
+-}
+-
+-/// Depth-first walk to the first `FixedExpand` in a plan, following every
+-/// operator that carries an input.
+-fn first_fixed_expand(plan: &Plan) -> &FixedExpand {
+-    fn walk(plan: &Plan) -> Option<&FixedExpand> {
+-        match plan.kind() {
+-            PlanKind::FixedExpand(expand) => Some(expand),
+-            PlanKind::GraphExpand(expand) => walk(&expand.input),
+-            PlanKind::Unit(_) | PlanKind::NodeScan(_) => None,
+-            PlanKind::Filter(filter) => walk(&filter.input),
+-            PlanKind::Project(project) => walk(&project.input),
+-            PlanKind::Aggregate(aggregate) => walk(&aggregate.input),
+-            PlanKind::Distinct(distinct) => walk(&distinct.input),
+-            PlanKind::Sort(sort) => walk(&sort.input),
+-            PlanKind::Skip(skip) => walk(&skip.input),
+-            PlanKind::Limit(limit) => walk(&limit.input),
+-            PlanKind::LeftApply(left_apply) => {
+-                walk(&left_apply.left).or_else(|| walk(&left_apply.right))
+-            }
+-            PlanKind::Unwind(unwind) => walk(&unwind.input),
+-            PlanKind::ProcedureCall(call) => walk(&call.input),
+-            PlanKind::Union(union) => union.inputs().iter().find_map(walk),
+-            PlanKind::Join(join) => walk(&join.left).or_else(|| walk(&join.right)),
+-        }
+-    }
+-    walk(plan).expect("plan must contain a FixedExpand")
+-}
+-
+ #[test]
+ fn fixture_manifest_has_provenance_ordering_and_explicit_support_status() {
+     let manifest = manifest();
+     assert_eq!(manifest.version, 1);
+     assert!(!manifest.purpose.is_empty());
+     assert!(manifest.fixture.len() >= 11);
+     let mut ids = HashSet::new();
+     for fixture in manifest.fixture {
+         assert!(ids.insert(fixture.id.clone()));
+         assert!(matches!(fixture.ordering.as_str(), "ordered" | "unordered"));
+@@ -343,37 +307,37 @@ fn supported_fixtures_execute_through_turso_planner_and_vdbe() {
+         vec![vec![Value::build_text("Alix"), Value::Null, Value::Null]],
+         "an optional predicate must preserve the input row and null the entire unmatched pattern"
+     );
+ }
+ 
+ #[test]
+ fn an_outgoing_expand_binds_the_start_to_end_role_pair() {
+     // The role pair must agree with the direction it is replacing, or the
+     // contract half of this migration silently reverses every traversal.
+     let plan = bind_fixture("MATCH (a:Person)-[r:KNOWS]->(b:Person) RETURN b");
+-    let expand = first_fixed_expand(&plan);
++    let expand = first_role_expand(&plan);
+     assert_eq!(expand.from_role.get(), 1, "role 1 is `start`");
+     assert_eq!(expand.to_role.get(), 2, "role 2 is `end`");
+     assert!(!expand.symmetric);
+ }
+ 
+ #[test]
+ fn an_incoming_expand_reverses_the_role_pair_rather_than_flagging_it() {
+     let plan = bind_fixture("MATCH (a:Person)<-[r:KNOWS]-(b:Person) RETURN b");
+-    let expand = first_fixed_expand(&plan);
++    let expand = first_role_expand(&plan);
+     assert_eq!(expand.role_pair(), (role(2), role(1)));
+     assert!(!expand.symmetric);
+ }
+ 
+ #[test]
+ fn an_undirected_same_source_expand_is_the_symmetric_pair() {
+     // Today's Direction::Both. The binder only emits it when both endpoints
+     // come from one node source; otherwise it unions two directed branches,
+     // and this test would find two expands rather than a symmetric one.
+     let plan = bind_fixture("MATCH (a:Person)-[r:KNOWS]-(b:Person) RETURN b");
+-    let expand = first_fixed_expand(&plan);
++    let expand = first_role_expand(&plan);
+     assert_eq!(expand.role_pair(), (role(1), role(2)));
+     assert!(
+         expand.symmetric,
+         "an undirected pattern matches the pair in both orders"
+     );
+ }
+diff --git a/graph/frontend/tests/fixture.rs b/graph/frontend/tests/fixture.rs
+index a10a6ebdf..f037bfcf2 100644
+--- a/graph/frontend/tests/fixture.rs
++++ b/graph/frontend/tests/fixture.rs
+@@ -1,32 +1,39 @@
+ //! Shared `GraphConnection` fixture for `graph_frontend` integration tests.
+ //!
+ //! Mirrors the "social" graph (`Person` nodes over `people`, `KNOWS`
+ //! relationships over `relationships`) `session.rs`'s own unit tests
+ //! install, but backed by `SchemaCatalog` rather than a private catalog
+ //! stub so this can run as an external integration-test crate.
+ 
+ use std::sync::Arc;
+ 
+ use turso_core::{Connection, Database, DatabaseOpts, MemoryIO, OpenOptions, SqliteDialect};
++use turso_graph_cypher::parse;
+ use turso_graph_frontend::{
+-    register_graph, GraphCompilationCatalog, GraphConnection, GraphRegistration,
+-    NodeSourceRegistration, ParameterTypes, Parameters, RelationshipSourceRegistration,
+-    SchemaCatalog, SnapshotStore,
++    bind, register_graph, CatalogEntity, GraphCatalogSnapshot, GraphCompilationCatalog,
++    GraphConnection, GraphRegistration, NodeSourceRegistration, NodeTableLayout, ParameterTypes,
++    Parameters, RelationalCatalogSnapshot, RelationshipRoleLayout, RelationshipSourceRegistration,
++    RelationshipTableLayout, ResolvedProperty, SchemaCatalog, SnapshotStore,
++};
++use turso_graph_ir::{
++    GraphId, LabelId, Nullability, Plan, PlanKind, PropertyId, RelationshipTypeId, RoleCardinality,
++    RoleExpand, RoleId, SourceTableId, ValueType,
+ };
+ use turso_graph_runtime::{BuildLimits, NeverCancelled};
+ 
+ /// Installs a `GraphConnection` over a fresh in-memory "social" graph:
+ /// `Person` nodes (`people(id, name, age)`), `KNOWS` relationships
+ /// (`relationships(id, src, dst)`), seeded with two people. Returns the
+ /// `Arc<Database>` alongside the session so callers can open further
+ /// connections onto the same graph (see [`second_connection`]).
++#[allow(dead_code)] // This file is also compiled as its own integration-test crate.
+ pub fn social_graph_connection() -> (Arc<Database>, GraphConnection) {
+     social_graph_connection_with_options(DatabaseOpts::default())
+ }
+ 
+ #[cfg(feature = "fts")]
+ #[allow(dead_code)] // This file is also compiled as its own integration-test crate.
+ pub fn social_graph_connection_with_fts() -> (Arc<Database>, GraphConnection) {
+     social_graph_connection_with_options(DatabaseOpts::default().with_index_method(true))
+ }
+ 
+@@ -99,10 +106,138 @@ fn social_graph_connection_with_options(opts: DatabaseOpts) -> (Arc<Database>, G
+     (database, session)
+ }
+ 
+ /// A second connection onto the same underlying database as `database`, for
+ /// exercising session setup (like [`GraphConnection::open`]) that must not
+ /// depend on the connection that performed the original registration.
+ #[allow(dead_code)] // Shared fixture; not every integration crate calls this.
+ pub fn second_connection(database: &Arc<Database>) -> Arc<Connection> {
+     database.connect().expect("connect")
+ }
++
++/// A lightweight in-process `Person`/`KNOWS` catalog (role 1 = `start`, role
++/// 2 = `end`) for tests that bind a query directly, without a real
++/// `GraphConnection`.
++#[allow(dead_code)] // Shared fixture; not every integration crate calls this.
++struct Catalog;
++
++impl GraphCatalogSnapshot for Catalog {
++    fn node_source(&self, _graph: GraphId) -> Option<SourceTableId> {
++        SourceTableId::new(1).ok()
++    }
++
++    fn relationship_source(&self, _graph: GraphId) -> Option<SourceTableId> {
++        SourceTableId::new(2).ok()
++    }
++
++    fn label(&self, _graph: GraphId, _name: &str) -> Option<LabelId> {
++        LabelId::new(1).ok()
++    }
++
++    fn relationship_type(&self, _graph: GraphId, _name: &str) -> Option<RelationshipTypeId> {
++        RelationshipTypeId::new(1).ok()
++    }
++
++    fn property(
++        &self,
++        _graph: GraphId,
++        _entity: CatalogEntity,
++        name: &str,
++    ) -> Option<ResolvedProperty> {
++        let id = if name == "name" { 1 } else { 2 };
++        Some(ResolvedProperty {
++            id: PropertyId::new(id).ok()?,
++            value_type: if name == "name" {
++                ValueType::Text
++            } else {
++                ValueType::Integer
++            },
++            nullability: Nullability::Nullable,
++        })
++    }
++
++    fn relationship_source_roles(&self, source: SourceTableId) -> Option<RelationshipTableLayout> {
++        self.relationship_layout(source)
++    }
++}
++
++impl RelationalCatalogSnapshot for Catalog {
++    fn node_layout(&self, source: SourceTableId) -> Option<NodeTableLayout> {
++        (source.get() == 1).then(|| NodeTableLayout {
++            table: "people".to_owned(),
++            identity_column: "id".to_owned(),
++        })
++    }
++
++    fn relationship_layout(&self, source: SourceTableId) -> Option<RelationshipTableLayout> {
++        (source.get() == 2).then(|| RelationshipTableLayout {
++            table: "relationships".to_owned(),
++            identity_column: "id".to_owned(),
++            roles: vec![
++                RelationshipRoleLayout {
++                    role: RoleId::new(1).unwrap(),
++                    name: "start".to_owned(),
++                    column: "src".to_owned(),
++                    cardinality: RoleCardinality::One,
++                    spill_table: None,
++                },
++                RelationshipRoleLayout {
++                    role: RoleId::new(2).unwrap(),
++                    name: "end".to_owned(),
++                    column: "dst".to_owned(),
++                    cardinality: RoleCardinality::One,
++                    spill_table: None,
++                },
++            ],
++        })
++    }
++
++    fn property_column(&self, _source: SourceTableId, property: PropertyId) -> Option<String> {
++        match property.get() {
++            1 => Some("name".to_owned()),
++            2 => Some("age".to_owned()),
++            _ => None,
++        }
++    }
++}
++
++/// Binds `query` against [`Catalog`]'s `Person`/`KNOWS` shape.
++#[allow(dead_code)] // Shared fixture; not every integration crate calls this.
++pub fn bind_fixture(query: &str) -> Plan {
++    let parsed = parse(query).expect("fixture query must parse");
++    bind(
++        &parsed,
++        GraphId::new(1).expect("graph id"),
++        &Catalog,
++        &ParameterTypes::new(),
++    )
++    .expect("fixture query must bind")
++    .plan
++}
++
++/// Depth-first walk to the first `RoleExpand` in a plan, following every
++/// operator that carries an input.
++#[allow(dead_code)] // Shared fixture; not every integration crate calls this.
++pub fn first_role_expand(plan: &Plan) -> &RoleExpand {
++    fn walk(plan: &Plan) -> Option<&RoleExpand> {
++        match plan.kind() {
++            PlanKind::RoleExpand(expand) => Some(expand),
++            PlanKind::GraphExpand(expand) => walk(&expand.input),
++            PlanKind::Unit(_) | PlanKind::NodeScan(_) => None,
++            PlanKind::Filter(filter) => walk(&filter.input),
++            PlanKind::Project(project) => walk(&project.input),
++            PlanKind::Aggregate(aggregate) => walk(&aggregate.input),
++            PlanKind::Distinct(distinct) => walk(&distinct.input),
++            PlanKind::Sort(sort) => walk(&sort.input),
++            PlanKind::Skip(skip) => walk(&skip.input),
++            PlanKind::Limit(limit) => walk(&limit.input),
++            PlanKind::LeftApply(left_apply) => {
++                walk(&left_apply.left).or_else(|| walk(&left_apply.right))
++            }
++            PlanKind::Unwind(unwind) => walk(&unwind.input),
++            PlanKind::ProcedureCall(call) => walk(&call.input),
++            PlanKind::Union(union) => union.inputs().iter().find_map(walk),
++            PlanKind::Join(join) => walk(&join.left).or_else(|| walk(&join.right)),
++        }
++    }
++    walk(plan).expect("plan must contain a RoleExpand")
++}
+diff --git a/graph/frontend/tests/semantic_schema.rs b/graph/frontend/tests/semantic_schema.rs
+index 52e46148a..3b6073186 100644
+--- a/graph/frontend/tests/semantic_schema.rs
++++ b/graph/frontend/tests/semantic_schema.rs
+@@ -2170,21 +2170,21 @@ fn catalog_procedures_include_fragment_labels_and_contributed_properties() {
+             .map(|name| vec![turso_graph_frontend::Value::build_text(name)])
+             .collect::<Vec<_>>()
+     );
+ }
+ 
+ fn first_union_inputs(plan: &turso_graph_ir::Plan) -> Option<&[turso_graph_ir::Plan]> {
+     use turso_graph_ir::PlanKind;
+ 
+     match plan.kind() {
+         PlanKind::Union(union) => Some(union.inputs()),
+-        PlanKind::FixedExpand(expand) => first_union_inputs(&expand.input),
++        PlanKind::RoleExpand(expand) => first_union_inputs(&expand.input),
+         PlanKind::GraphExpand(expand) => first_union_inputs(&expand.input),
+         PlanKind::Filter(filter) => first_union_inputs(&filter.input),
+         PlanKind::Project(project) => first_union_inputs(&project.input),
+         PlanKind::Aggregate(aggregate) => first_union_inputs(&aggregate.input),
+         PlanKind::Distinct(distinct) => first_union_inputs(&distinct.input),
+         PlanKind::Sort(sort) => first_union_inputs(&sort.input),
+         PlanKind::Skip(skip) => first_union_inputs(&skip.input),
+         PlanKind::Limit(limit) => first_union_inputs(&limit.input),
+         PlanKind::LeftApply(apply) => {
+             first_union_inputs(&apply.left).or_else(|| first_union_inputs(&apply.right))
+diff --git a/graph/ir/src/lib.rs b/graph/ir/src/lib.rs
+index 822b2dfd8..353e6e30a 100644
+--- a/graph/ir/src/lib.rs
++++ b/graph/ir/src/lib.rs
+@@ -23,21 +23,20 @@ pub use expression::{
+ pub use identity::{
+     BindingId, GraphId, LabelId, NodeId, PropertyId, RelationshipId, RelationshipTypeId, RoleId,
+     SourceTableId,
+ };
+ pub use mutation::{
+     CreateNode, CreateRelationship, DeleteEntity, MergeNode, MergeRelationship, Mutation,
+     MutationRequest, MutationSource, PropertyValue, RemoveProperty, ReplaceProperties,
+     ReplacePropertiesDynamic, SetLabels, SetProperty,
+ };
+ pub use plan::{
+-    Aggregate, AggregateFunction, Aggregation, Distinct, Filter, FixedExpand, GraphExpand,
+-    Grouping, Join, LeftApply, Limit, NodeScan, PathUniqueness, Plan, PlanKind, ProcedureCall,
+-    ProcedureIdentity, ProcedureOutput, Project, Projection, Skip, Sort, SortKey, Union, Unit,
+-    Unwind,
++    Aggregate, AggregateFunction, Aggregation, Distinct, Filter, GraphExpand, Grouping, Join,
++    LeftApply, Limit, NodeScan, PathUniqueness, Plan, PlanKind, ProcedureCall, ProcedureIdentity,
++    ProcedureOutput, Project, Projection, RoleExpand, Skip, Sort, SortKey, Union, Unit, Unwind,
+ };
+ pub use role::{RoleBinding, RoleCardinality, RoleDef, RoleTarget};
+ pub use scope::{Binding, Direction, Nullability, ResultColumn, ResultShape, Scope};
+ pub use semantics::{
+     semantic_profile_digest, Duplicates, LabelListOrder, NullComparison, NullSort, RowOrder,
+     SemanticProfile, WriteClassification, SEMANTIC_PROFILE, SEMANTIC_PROFILE_VERSION,
+ };
+diff --git a/graph/ir/src/mutation.rs b/graph/ir/src/mutation.rs
+index 7d189297c..2365b3cde 100644
+--- a/graph/ir/src/mutation.rs
++++ b/graph/ir/src/mutation.rs
+@@ -45,20 +45,32 @@ pub struct CreateNode {
+ pub struct CreateRelationship {
+     pub binding: Binding,
+     pub source: SourceTableId,
+     pub from: BindingId,
+     pub to: BindingId,
+     pub direction: Direction,
+     pub relationship_types: Vec<RelationshipTypeId>,
+     pub properties: Vec<PropertyValue>,
+ }
+ 
++impl CreateRelationship {
++    /// The binder always creates an edge that points `from -> to`, so
++    /// `direction` here is really just a hardcoded "outgoing". Naming it
++    /// through this accessor instead of `Direction::Outgoing` directly
++    /// means the frontend never has to name the `Direction` type at all.
++    /// Task 11 deletes `direction` from this struct once CREATE planning
++    /// becomes role-shaped, and this accessor goes with it.
++    pub fn default_direction() -> Direction {
++        Direction::Outgoing
++    }
++}
++
+ /// Resolves the physical source for a mutation target.
+ #[derive(Clone, Copy, Debug, Eq, PartialEq)]
+ pub enum MutationSource {
+     /// The binding can only originate from one physical source.
+     Static(SourceTableId),
+     /// The binding's hidden source provenance selects the physical source.
+     Binding(BindingId),
+ }
+ 
+ #[derive(Clone, Debug, PartialEq)]
+diff --git a/graph/ir/src/plan.rs b/graph/ir/src/plan.rs
+index d066ad7c9..ecf3504a3 100644
+--- a/graph/ir/src/plan.rs
++++ b/graph/ir/src/plan.rs
+@@ -1,13 +1,13 @@
+ use crate::{
+-    Binding, BindingId, Direction, GraphId, LabelId, NullOrder, PlanError, RelationshipTypeId,
+-    ResultShape, RoleId, Scope, SortDirection, SourceTableId, TypedExpression,
++    Binding, BindingId, GraphId, LabelId, NullOrder, PlanError, RelationshipTypeId, ResultShape,
++    RoleId, Scope, SortDirection, SourceTableId, TypedExpression,
+ };
+ 
+ /// A validated bound graph plan node with explicit visible scope and output.
+ #[derive(Clone, Debug, PartialEq)]
+ pub struct Plan {
+     kind: PlanKind,
+     scope: Scope,
+     result_shape: ResultShape,
+ }
+ 
+@@ -32,21 +32,21 @@ impl Plan {
+     pub fn result_shape(&self) -> &ResultShape {
+         &self.result_shape
+     }
+ }
+ 
+ /// First read-only operator set shared by Cypher and compatibility adapters.
+ #[derive(Clone, Debug, PartialEq)]
+ pub enum PlanKind {
+     Unit(Unit),
+     NodeScan(NodeScan),
+-    FixedExpand(FixedExpand),
++    RoleExpand(RoleExpand),
+     GraphExpand(GraphExpand),
+     Filter(Filter),
+     Project(Project),
+     Aggregate(Aggregate),
+     Distinct(Distinct),
+     Sort(Sort),
+     Skip(Skip),
+     Limit(Limit),
+     LeftApply(LeftApply),
+     Unwind(Unwind),
+@@ -70,63 +70,61 @@ pub struct Unit;
+ #[derive(Clone, Debug, Eq, PartialEq)]
+ pub struct NodeScan {
+     pub graph: GraphId,
+     pub source: SourceTableId,
+     pub binding: BindingId,
+     pub labels: Vec<LabelId>,
+ }
+ 
+ /// A single relationship hop from an already-bound node.
+ #[derive(Clone, Debug, PartialEq)]
+-pub struct FixedExpand {
++pub struct RoleExpand {
+     pub input: Box<Plan>,
+     pub from_node_source: SourceTableId,
+     pub relationship_source: SourceTableId,
+     pub target_node_source: SourceTableId,
+     pub from: BindingId,
+     pub relationship: Binding,
+     pub to: Binding,
+-    pub direction: Direction,
+     /// Role the traversal leaves the source binding through.
+     pub from_role: RoleId,
+     /// Role the traversal enters the target binding through.
+     pub to_role: RoleId,
+     /// Also match the reversed pair. This is what an undirected pattern
+     /// means when both endpoints share a node source; a plain ordered pair
+     /// cannot say it.
+     pub symmetric: bool,
+     pub relationship_types: Vec<RelationshipTypeId>,
+     /// When the target closes a cycle onto an already-bound node, the
+     /// binding whose identity the target must equal. Lowering folds the
+     /// equality into the relationship join (making composite endpoint
+     /// indexes usable) instead of filtering after an extra node join.
+     pub bound_target: Option<BindingId>,
+ }
+ 
+-impl FixedExpand {
++impl RoleExpand {
+     pub fn role_pair(&self) -> (RoleId, RoleId) {
+         (self.from_role, self.to_role)
+     }
+ }
+ 
+ /// A bounded variable-length expansion from an already-bound node.
+ #[derive(Clone, Debug, PartialEq)]
+ pub struct GraphExpand {
+     pub input: Box<Plan>,
+     pub graph: GraphId,
+     pub from_node_source: SourceTableId,
+     pub relationship_source: SourceTableId,
+     pub target_node_source: SourceTableId,
+     pub from: BindingId,
+     pub relationship: Binding,
+     pub to: Binding,
+-    pub direction: Direction,
+     /// Role the traversal leaves the source binding through.
+     pub from_role: RoleId,
+     /// Role the traversal enters the target binding through.
+     pub to_role: RoleId,
+     /// Also match the reversed pair. This is what an undirected pattern
+     /// means when both endpoints share a node source; a plain ordered pair
+     /// cannot say it.
+     pub symmetric: bool,
+     pub relationship_types: Vec<RelationshipTypeId>,
+     pub min_hops: u32,
+@@ -371,20 +369,58 @@ mod tests {
+             Union::new(vec![scan(1, 1), scan(2, 2)], false),
+             Err(PlanError::UnionShapeMismatch {
+                 input: 1,
+                 expected: 1,
+                 actual: 2,
+             })
+         );
+         assert!(Union::new(vec![scan(1, 1), scan(2, 1)], true).is_ok());
+     }
+ 
++    fn sample_role_expand() -> RoleExpand {
++        let from_binding = BindingId::new(1).unwrap();
++        let relationship_binding = BindingId::new(2).unwrap();
++        let to_binding = BindingId::new(3).unwrap();
++        RoleExpand {
++            input: Box::new(scan(1, 1)),
++            from_node_source: SourceTableId::new(1).unwrap(),
++            relationship_source: SourceTableId::new(2).unwrap(),
++            target_node_source: SourceTableId::new(3).unwrap(),
++            from: from_binding,
++            relationship: Binding::new(
++                relationship_binding,
++                "r",
++                ValueType::Relationship,
++                Nullability::NonNull,
++            )
++            .unwrap(),
++            to: Binding::new(to_binding, "b", ValueType::Node, Nullability::NonNull).unwrap(),
++            from_role: RoleId::new(1).unwrap(),
++            to_role: RoleId::new(2).unwrap(),
++            symmetric: false,
++            relationship_types: vec![],
++            bound_target: None,
++        }
++    }
++
++    #[test]
++    fn a_role_expand_names_its_roles_and_no_direction() {
++        // Direction is a parser spelling, not a plan concept. A plan that still
++        // carried it would give two sources of truth for which way a traversal
++        // runs.
++        let expand = sample_role_expand();
++        assert_eq!(
++            expand.role_pair(),
++            (RoleId::new(1).unwrap(), RoleId::new(2).unwrap())
++        );
++    }
++
+     #[test]
+     fn procedure_call_carries_closed_identity_arguments_and_selected_outputs() {
+         let input = scan(1, 1);
+         let output = Binding::new(
+             BindingId::new(2).unwrap(),
+             "propertyKey",
+             ValueType::Text,
+             Nullability::NonNull,
+         )
+         .unwrap();
+diff --git a/graph/runtime/src/traversal.rs b/graph/runtime/src/traversal.rs
+index 5d12196f8..9f9b77706 100644
+--- a/graph/runtime/src/traversal.rs
++++ b/graph/runtime/src/traversal.rs
+@@ -38,20 +38,47 @@ pub struct TraversalRequest {
+     pub min_hops: u32,
+     pub max_hops: u32,
+     /// When true, `max_hops` is a resource cap on an unbounded pattern
+     /// (`[*]`), not part of the query's meaning: reaching it while a longer
+     /// admissible path exists is an error rather than silent truncation.
+     pub error_at_max_hops: bool,
+     pub uniqueness: Uniqueness,
+     pub order: TraversalOrder,
+ }
+ 
++impl TraversalRequest {
++    /// Convenience constructor for the common outgoing-BFS request shape,
++    /// so callers that only ever want "outgoing" don't have to name
++    /// `Direction` themselves. Goes away with `direction` once Task 17
++    /// makes traversal requests role-shaped.
++    pub fn outgoing(
++        start: NodeId,
++        relationship_types: Vec<RelationshipTypeId>,
++        min_hops: u32,
++        max_hops: u32,
++        error_at_max_hops: bool,
++        uniqueness: Uniqueness,
++        order: TraversalOrder,
++    ) -> Self {
++        Self {
++            start,
++            direction: Direction::Outgoing,
++            relationship_types,
++            min_hops,
++            max_hops,
++            error_at_max_hops,
++            uniqueness,
++            order,
++        }
++    }
++}
++
+ #[derive(Clone, Debug, Eq, PartialEq)]
+ pub struct Path {
+     pub nodes: Vec<NodeId>,
+     pub relationships: Vec<RelationshipId>,
+     pub relationship_types: Vec<RelationshipTypeId>,
+     pub total_weight: u64,
+ }
+ 
+ /// Resumable traversal state used by execution adapters that cannot
+ /// materialize every matching path before returning the first row.

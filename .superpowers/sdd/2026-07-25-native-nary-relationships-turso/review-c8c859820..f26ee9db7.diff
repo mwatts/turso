@@ -1,0 +1,797 @@
+# Review package: c8c859820..f26ee9db77408607467e23b57fa181cfab23e1af
+
+## Commits
+f26ee9db7 graph/frontend: repoint a bound relation's roles with SET [x](role: player)
+
+## Files changed
+ graph/cypher/src/ast.rs                |   9 ++
+ graph/cypher/src/cypher.pest           |   6 +-
+ graph/cypher/src/parser.rs             |  18 +++
+ graph/frontend/src/binder.rs           | 235 +++++++++++++++++++++++++++------
+ graph/frontend/src/mutation.rs         |  97 ++++++++++++++
+ graph/frontend/tests/nary_relations.rs | 139 +++++++++++++++++++
+ graph/ir/src/lib.rs                    |   2 +-
+ graph/ir/src/mutation.rs               |  14 ++
+ 8 files changed, 475 insertions(+), 45 deletions(-)
+
+## Diff
+diff --git a/graph/cypher/src/ast.rs b/graph/cypher/src/ast.rs
+index 1a1f32086..e46ac4b54 100644
+--- a/graph/cypher/src/ast.rs
++++ b/graph/cypher/src/ast.rs
+@@ -102,20 +102,29 @@ pub enum SetItem {
+     /// `SET n += value` — merges properties, keeping the rest.
+     MergeEntity {
+         variable: Spanned<String>,
+         value: Spanned<Expression>,
+     },
+     /// `SET n:Label1:Label2`
+     Labels {
+         variable: Spanned<String>,
+         labels: Vec<Spanned<String>>,
+     },
++    /// `SET [x](role: player, ...)` — repoints the named roles of an
++    /// already-bound relation. Unlike `RolePattern` (which creates), this
++    /// carries no type list or property map: it only ever retargets roles on
++    /// a relation bound elsewhere in the query.
++    Roles {
++        relation: Spanned<String>,
++        roles: Vec<RoleArgument>,
++        span: Span,
++    },
+ }
+ 
+ #[derive(Clone, Debug, PartialEq)]
+ pub struct SetClause {
+     pub items: Vec<SetItem>,
+ }
+ 
+ #[derive(Clone, Debug, PartialEq)]
+ pub struct RemoveClause {
+     pub items: Vec<PropertyTarget>,
+diff --git a/graph/cypher/src/cypher.pest b/graph/cypher/src/cypher.pest
+index b9a19fa78..3f7eadf7f 100644
+--- a/graph/cypher/src/cypher.pest
++++ b/graph/cypher/src/cypher.pest
+@@ -59,25 +59,29 @@ YIELD = @{ ^"yield" ~ !ident_char }
+ qualified_name = { identifier ~ ("." ~ identifier)* }
+ foreach_clause = { FOREACH ~ "(" ~ identifier ~ in_op ~ expression ~ "|" ~ foreach_body ~ ")" }
+ FOREACH = @{ ^"foreach" ~ !ident_char }
+ foreach_body = { (create_clause | merge_clause | set_clause | remove_clause | delete_clause | foreach_clause)+ }
+ match_clause = { OPTIONAL? ~ MATCH ~ pattern ~ where_clause? }
+ create_clause = { CREATE ~ pattern }
+ merge_clause = { MERGE ~ path_pattern ~ merge_action* }
+ merge_action = { ON ~ (CREATE | MATCH) ~ SET ~ set_item ~ ("," ~ set_item)* }
+ ON = @{ ^"on" ~ !ident_char }
+ set_clause = { SET ~ set_item ~ ("," ~ set_item)* }
+-set_item = { set_property_item | set_merge_item | set_replace_item | set_label_item }
++set_item = { set_role_item | set_property_item | set_merge_item | set_replace_item | set_label_item }
+ set_property_item = { property_target ~ "=" ~ expression }
+ set_merge_item = { identifier ~ "+=" ~ expression }
+ set_replace_item = { identifier ~ "=" ~ expression }
+ set_label_item = { identifier ~ node_labels }
++// `SET [x](role: player, ...)` — repoints roles of an already-bound
++// relation. No type list or property map: unlike `role_pattern` (which
++// creates), this only ever targets a relation bound elsewhere.
++set_role_item = { "[" ~ identifier ~ "]" ~ role_arguments }
+ remove_clause = { REMOVE ~ property_target ~ ("," ~ property_target)* }
+ property_target = { identifier ~ "." ~ identifier }
+ delete_clause = { DETACH? ~ DELETE ~ identifier ~ ("," ~ identifier)* }
+ unwind_clause = { UNWIND ~ expression ~ AS ~ alias_identifier }
+ with_clause = { WITH ~ DISTINCT? ~ projection_items ~ where_clause? ~ projection_tail }
+ return_clause = { RETURN ~ DISTINCT? ~ projection_items ~ projection_tail }
+ where_clause = { WHERE ~ expression }
+ projection_tail = { order_by_clause? ~ skip_clause? ~ limit_clause? }
+ order_by_clause = { ORDER ~ BY ~ sort_item ~ ("," ~ sort_item)* }
+ sort_item = { expression ~ (ASC | DESC)? }
+diff --git a/graph/cypher/src/parser.rs b/graph/cypher/src/parser.rs
+index 9878d69ec..85ef4c49e 100644
+--- a/graph/cypher/src/parser.rs
++++ b/graph/cypher/src/parser.rs
+@@ -263,20 +263,38 @@ fn walk_set_item(pair: Pair<'_, Rule>) -> Result<SetItem, ParseError> {
+                 .next()
+                 .ok_or_else(|| ParseError::at(span, "SET item has no variable"))?;
+             let variable = Spanned::new(identifier_text(variable.as_str()), pair_span(&variable));
+             let labels = inner
+                 .flat_map(Pair::into_inner)
+                 .filter(|label| label.as_rule() == Rule::identifier)
+                 .map(|label| walk_identifier(label))
+                 .collect();
+             Ok(SetItem::Labels { variable, labels })
+         }
++        Rule::set_role_item => {
++            let relation = inner
++                .next()
++                .ok_or_else(|| ParseError::at(span, "SET role item has no relation"))?;
++            let relation = Spanned::new(identifier_text(relation.as_str()), pair_span(&relation));
++            let arguments = inner
++                .next()
++                .ok_or_else(|| ParseError::at(span, "SET role item has no role arguments"))?;
++            let roles = arguments
++                .into_inner()
++                .map(walk_role_argument)
++                .collect::<Result<Vec<_>, _>>()?;
++            Ok(SetItem::Roles {
++                relation,
++                roles,
++                span,
++            })
++        }
+         _ => Err(ParseError::at(span, "unsupported SET item form")),
+     }
+ }
+ 
+ fn walk_remove(pair: Pair<'_, Rule>) -> Result<RemoveClause, ParseError> {
+     let items = pair
+         .into_inner()
+         .filter(|item| item.as_rule() == Rule::property_target)
+         .map(walk_property_target)
+         .collect::<Result<Vec<_>, _>>()?;
+diff --git a/graph/frontend/src/binder.rs b/graph/frontend/src/binder.rs
+index 9052e471e..a9cf61724 100644
+--- a/graph/frontend/src/binder.rs
++++ b/graph/frontend/src/binder.rs
+@@ -1733,20 +1733,97 @@ impl<'a> Binder<'a> {
+ 
+     /// Binds the standalone role-pattern CREATE surface
+     /// (`[x:T {props}](role: player, ...)`). Role arguments arrive in
+     /// source order, which is deliberately not declaration order; each is
+     /// resolved by NAME against the relation type's declared roles (never
+     /// by position), then written to `ir::CreateRelation.roles` in
+     /// declaration order so the writer's column derivation stays stable.
+     /// A repeated role PLAYER is legal (no cross-role uniqueness rule); a
+     /// repeated role NAME is refused rather than silently taking the last
+     /// write.
++    /// Resolves one role argument's player: it must already be a bound
++    /// variable, and the player's bound entity type must be a legal target
++    /// for `role`. Shared by relation creation (`bind_create_role_pattern`)
++    /// and relation role updates (`SET [x](role: player)`), so both surfaces
++    /// refuse the same shapes for the same reason.
++    ///
++    /// A literal `null` player gets its own refusal (`RoleTargetTypeViolation`,
++    /// naming the role) rather than the generic "not a bound variable"
++    /// `Unsupported`: `SET [x](start: null)` is not a feature that might be
++    /// supported later, it can never mean anything, because SET has no
++    /// syntax to represent "clear this role" -- a `One` role must always
++    /// have a player and a `Many` role's absence is spelled by omitting the
++    /// role entirely, not by naming it with a null player.
++    fn bind_role_player(
++        &self,
++        relationship_type: &str,
++        role: &crate::semantic::SemanticRole,
++        argument: &cypher::RoleArgument,
++    ) -> Result<ir::BindingId, BindError> {
++        let cypher::Expression::Variable(name) = &argument.player.value else {
++            if matches!(
++                argument.player.value,
++                cypher::Expression::Literal(cypher::Literal::Null)
++            ) {
++                return Err(BindError::RoleTargetTypeViolation {
++                    relationship_type: relationship_type.to_owned(),
++                    role: role.name.clone(),
++                    found: "a null player -- there is no way to clear a role via SET".to_owned(),
++                    span_start: argument.player.span.start,
++                    span_end: argument.player.span.end,
++                });
++            }
++            return Err(at_unsupported(
++                argument.player.span,
++                "a role player that is not a bound variable",
++            ));
++        };
++        let value = self.resolve_binding(name, argument.player.span)?.id();
++
++        let allowed = role
++            .targets
++            .iter()
++            .filter_map(|target| match target {
++                ir::RoleTarget::Node(label) => Some(*label),
++                ir::RoleTarget::Relation(_) => None,
++            })
++            .collect::<Vec<_>>();
++        if !allowed.is_empty() {
++            let names = self
++                .entities
++                .get(&value)
++                .map(|entity| entity.names.clone())
++                .unwrap_or_default();
++            let all_allowed = !names.is_empty()
++                && names.iter().all(|name| {
++                    self.catalog
++                        .label(self.graph, name)
++                        .is_some_and(|label| allowed.contains(&label))
++                });
++            if !all_allowed {
++                let found = if names.is_empty() {
++                    "an unlabeled binding".to_owned()
++                } else {
++                    names.join(", ")
++                };
++                return Err(BindError::RoleTargetTypeViolation {
++                    relationship_type: relationship_type.to_owned(),
++                    role: role.name.clone(),
++                    found,
++                    span_start: argument.span.start,
++                    span_end: argument.span.end,
++                });
++            }
++        }
++        Ok(value)
++    }
++
+     fn bind_create_role_pattern(
+         &mut self,
+         pattern: &cypher::RolePattern,
+     ) -> Result<ir::CreateRelation, BindError> {
+         if pattern.types.len() != 1 {
+             return Err(at_unsupported(
+                 pattern.span,
+                 "role pattern creation without exactly one relationship type",
+             ));
+         }
+@@ -1796,63 +1873,21 @@ impl<'a> Binder<'a> {
+             // required-role check below does not also complain about it.
+             let repeated = !seen.insert(role.role);
+             if repeated && role.cardinality == ir::RoleCardinality::One {
+                 return Err(BindError::DuplicateRoleArgument {
+                     relationship_type: type_name.value.clone(),
+                     role: role.name.clone(),
+                     span_start: argument.span.start,
+                     span_end: argument.span.end,
+                 });
+             }
+-            let cypher::Expression::Variable(name) = &argument.player.value else {
+-                return Err(at_unsupported(
+-                    argument.player.span,
+-                    "a role player that is not a bound variable",
+-                ));
+-            };
+-            let value = self.resolve_binding(name, argument.player.span)?.id();
+-
+-            let allowed = role
+-                .targets
+-                .iter()
+-                .filter_map(|target| match target {
+-                    ir::RoleTarget::Node(label) => Some(*label),
+-                    ir::RoleTarget::Relation(_) => None,
+-                })
+-                .collect::<Vec<_>>();
+-            if !allowed.is_empty() {
+-                let names = self
+-                    .entities
+-                    .get(&value)
+-                    .map(|entity| entity.names.clone())
+-                    .unwrap_or_default();
+-                let all_allowed = !names.is_empty()
+-                    && names.iter().all(|name| {
+-                        self.catalog
+-                            .label(self.graph, name)
+-                            .is_some_and(|label| allowed.contains(&label))
+-                    });
+-                if !all_allowed {
+-                    let found = if names.is_empty() {
+-                        "an unlabeled binding".to_owned()
+-                    } else {
+-                        names.join(", ")
+-                    };
+-                    return Err(BindError::RoleTargetTypeViolation {
+-                        relationship_type: type_name.value.clone(),
+-                        role: role.name.clone(),
+-                        found,
+-                        span_start: argument.span.start,
+-                        span_end: argument.span.end,
+-                    });
+-                }
+-            }
++            let value = self.bind_role_player(&type_name.value, role, argument)?;
+ 
+             fills.push((role.role, value));
+         }
+ 
+         for role in declared.iter().filter(|role| !role.optional) {
+             if !seen.contains(&role.role) {
+                 return Err(BindError::MissingRequiredRole {
+                     relationship_type: type_name.value.clone(),
+                     role: role.name.clone(),
+                     span_start: pattern.span.start,
+@@ -2194,23 +2229,137 @@ impl<'a> Binder<'a> {
+                 Ok(ir::Mutation::ReplacePropertiesDynamic(
+                     ir::ReplacePropertiesDynamic {
+                         entity: binding,
+                         source,
+                         semantic_types: type_names,
+                         value: bound,
+                         clear,
+                     },
+                 ))
+             }
++            cypher::SetItem::Roles {
++                relation,
++                roles,
++                span,
++            } => self.bind_set_roles(relation, roles, *span),
+         }
+     }
+ 
++    /// Binds `SET [x](role: player, ...)`: repoints a subset of `x`'s roles.
++    /// Role arguments resolve by NAME against the relation type's declared
++    /// roles (never by position), exactly like `bind_create_role_pattern`.
++    /// Unlike creation, this does not require every declared role to be
++    /// named -- a role update names only the roles it wants to change, so
++    /// the required-role check from creation does not apply here. The
++    /// duplicate-role rule still applies: a repeated `One` role argument is
++    /// refused, a repeated `Many` role argument is not (one argument per
++    /// player is the normal shape for a many-valued role).
++    fn bind_set_roles(
++        &mut self,
++        relation: &cypher::Spanned<String>,
++        roles: &[cypher::RoleArgument],
++        span: cypher::Span,
++    ) -> Result<ir::Mutation, BindError> {
++        let (binding, kind) = self.resolve_set_variable(relation)?;
++        if kind != CatalogEntity::Relationship {
++            return Err(at_unsupported(
++                relation.span,
++                "a role update on a non-relationship entity",
++            ));
++        }
++        let type_names = self.entity_type_names(binding, relation.span)?;
++        let [type_name] = type_names.as_slice() else {
++            return Err(at_unsupported(
++                relation.span,
++                "a role update on a relation without exactly one relationship type",
++            ));
++        };
++        let relationship_type = self
++            .catalog
++            .relationship_type(self.graph, type_name)
++            .ok_or_else(|| BindError::UnknownRelationshipType {
++                name: type_name.clone(),
++                span_start: relation.span.start,
++                span_end: relation.span.end,
++            })?;
++        let declared = self
++            .catalog
++            .relationship_roles(self.graph, relationship_type);
++        let source = self
++            .catalog
++            .relationship_source_for_type(self.graph, relationship_type)
++            .ok_or(BindError::MissingSource {
++                entity: "relationship",
++                span_start: span.start,
++                span_end: span.end,
++            })?;
++
++        let mut fills: Vec<(ir::RoleId, ir::BindingId)> = Vec::with_capacity(roles.len());
++        let mut seen: std::collections::HashSet<ir::RoleId> = std::collections::HashSet::new();
++        for argument in roles {
++            let role = declared
++                .iter()
++                .find(|role| role.name.eq_ignore_ascii_case(&argument.name.value))
++                .ok_or_else(|| BindError::UnknownRole {
++                    relationship_type: type_name.clone(),
++                    role: argument.name.value.clone(),
++                    known: declared
++                        .iter()
++                        .map(|role| role.name.as_str())
++                        .collect::<Vec<_>>()
++                        .join(", "),
++                    span_start: argument.name.span.start,
++                    span_end: argument.name.span.end,
++                })?;
++            // Same rule as creation: a repeated `One` role argument is a
++            // mistake (it can hold exactly one player); a repeated `Many`
++            // role argument is one argument per player and is not.
++            let repeated = !seen.insert(role.role);
++            if repeated && role.cardinality == ir::RoleCardinality::One {
++                return Err(BindError::DuplicateRoleArgument {
++                    relationship_type: type_name.clone(),
++                    role: role.name.clone(),
++                    span_start: argument.span.start,
++                    span_end: argument.span.end,
++                });
++            }
++            let value = self.bind_role_player(type_name, role, argument)?;
++            fills.push((role.role, value));
++        }
++        // No required-role check here: a role update names a subset of
++        // roles by design, unlike creation which must cover every
++        // non-optional role.
++
++        // Declaration order, not source order, so a `Many` role's players
++        // stay grouped by `RoleId` regardless of how the query spelled its
++        // role arguments -- the executor purges and rewrites one role's
++        // spill rows at a time.
++        let roles = declared
++            .iter()
++            .flat_map(|role| {
++                fills
++                    .iter()
++                    .filter(move |(role_id, _)| *role_id == role.role)
++                    .map(|(role_id, value)| ir::RoleBinding {
++                        role: *role_id,
++                        value: *value,
++                    })
++            })
++            .collect();
++
++        Ok(ir::Mutation::SetRoles(ir::SetRoles {
++            relation: binding,
++            source,
++            roles,
++        }))
++    }
++
+     fn resolve_set_variable(
+         &self,
+         variable: &cypher::Spanned<String>,
+     ) -> Result<(ir::BindingId, CatalogEntity), BindError> {
+         let binding = self.resolve_binding(&variable.value, variable.span)?;
+         let kind = self
+             .entities
+             .get(&binding.id())
+             .ok_or(BindError::InvalidPropertyTarget {
+                 span_start: variable.span.start,
+diff --git a/graph/frontend/src/mutation.rs b/graph/frontend/src/mutation.rs
+index fd319f1fa..c6fe226a7 100644
+--- a/graph/frontend/src/mutation.rs
++++ b/graph/frontend/src/mutation.rs
+@@ -1625,20 +1625,117 @@ fn execute_operation(
+                 parameters,
+                 &internal,
+             )?;
+         }
+         ir::Mutation::Delete(delete) => {
+             let source = mutation_source(delete.source, entity_layouts)?;
+             delete_entity(
+                 connection, catalog, graph, delete, source, parameters, values,
+             )?;
+         }
++        ir::Mutation::SetRoles(update) => {
++            let layout = catalog
++                .relationship_layout(update.source)
++                .ok_or(LowerError::MissingSource(update.source))?;
++            let identity = values
++                .get(&update.relation)
++                .ok_or(MutationError::MissingBinding(update.relation))?
++                .clone();
++            let identity_param = identity_parameter(update.relation);
++            let mut internal: HashMap<String, Value> =
++                HashMap::from([(identity_param.clone(), identity)]);
++            // Group role arguments by `RoleId`: a `Many` role can be named by
++            // more than one argument (one per player), and every player in
++            // the group must land together -- grouping keeps the spill
++            // purge-then-write to one purge per role rather than one purge
++            // per argument, which would delete players an earlier argument
++            // in the same SET just inserted.
++            let mut groups: Vec<(ir::RoleId, Vec<ir::BindingId>)> = Vec::new();
++            for binding in &update.roles {
++                match groups.iter_mut().find(|(role, _)| *role == binding.role) {
++                    Some((_, players)) => players.push(binding.value),
++                    None => groups.push((binding.role, vec![binding.value])),
++                }
++            }
++            let mut assignments = Vec::new();
++            for (index, (role_id, players)) in groups.iter().enumerate() {
++                let role = layout
++                    .role(*role_id)
++                    .ok_or(MutationError::UnknownRole { role: *role_id })?;
++                match role.cardinality {
++                    ir::RoleCardinality::One => {
++                        // The binder refuses a repeated `One` role argument,
++                        // so exactly one player reaches here.
++                        let player = values
++                            .get(&players[0])
++                            .ok_or(MutationError::MissingBinding(players[0]))?;
++                        let parameter = format!("{INTERNAL_PARAMETER_PREFIX}set_role_{index}");
++                        internal.insert(parameter.clone(), player.clone());
++                        assignments.push(format!(
++                            "{} = ${parameter}",
++                            quoted_identifier(&role.column)
++                        ));
++                    }
++                    ir::RoleCardinality::Many => {
++                        let table = role
++                            .spill_table
++                            .as_ref()
++                            .expect("a Many role always has a spill table");
++                        // SET replaces the whole player set rather than
++                        // appending: there is no "unset" syntax to undo an
++                        // append, so an appending SET would make running one
++                        // statement twice mean something different from
++                        // running it once.
++                        run_ignore(
++                            connection,
++                            &format!(
++                                "DELETE FROM {} WHERE relation_id = ${identity_param}",
++                                quoted_identifier(table),
++                            ),
++                            parameters,
++                            &internal,
++                        )?;
++                        for (player_index, player_binding) in players.iter().enumerate() {
++                            let player = values
++                                .get(player_binding)
++                                .ok_or(MutationError::MissingBinding(*player_binding))?;
++                            let player_parameter = format!(
++                                "{INTERNAL_PARAMETER_PREFIX}set_role_player_{index}_{player_index}"
++                            );
++                            internal.insert(player_parameter.clone(), player.clone());
++                            run_ignore(
++                                connection,
++                                &format!(
++                                    "INSERT INTO {}(relation_id, node_id) VALUES (${identity_param}, ${player_parameter})",
++                                    quoted_identifier(table),
++                                ),
++                                parameters,
++                                &internal,
++                            )?;
++                        }
++                    }
++                }
++            }
++            if !assignments.is_empty() {
++                run_ignore(
++                    connection,
++                    &format!(
++                        "UPDATE {} SET {} WHERE {} = ${identity_param}",
++                        quoted_identifier(&layout.table),
++                        assignments.join(", "),
++                        quoted_identifier(&layout.identity_column),
++                    ),
++                    parameters,
++                    &internal,
++                )?;
++            }
++        }
+     }
+     Ok(())
+ }
+ 
+ /// Records a created or merged node's labels in the graph's junction
+ /// table; idempotent so MERGE matches do not duplicate rows.
+ fn record_node_labels(
+     connection: &Arc<Connection>,
+     catalog: &dyn GraphCompilationCatalog,
+     source: ir::SourceTableId,
+diff --git a/graph/frontend/tests/nary_relations.rs b/graph/frontend/tests/nary_relations.rs
+index f36cae752..380d812c8 100644
+--- a/graph/frontend/tests/nary_relations.rs
++++ b/graph/frontend/tests/nary_relations.rs
+@@ -470,10 +470,149 @@ fn an_optional_role_may_be_omitted() {
+             "expected a CreateRelation operation, got {:?}",
+             bound.request.operations[0]
+         );
+     };
+     assert_eq!(
+         create.roles.len(),
+         3,
+         "only the three named roles should be filled"
+     );
+ }
++
++// --- Task 15: `SET [x](role: player, ...)` -- repointing roles of an
++// already-bound relation. Task 13b (the standalone role pattern in MATCH,
++// `MATCH [x:T](role: player)`) is not implemented, so every test below binds
++// its relation with today's arrow form (`MATCH (a)-[r:KNOWS]->(b)`) instead.
++
++/// Repointing a `One` role updates that role's endpoint column and leaves
++/// every other role alone.
++#[test]
++fn a_single_valued_role_can_be_repointed_after_create() {
++    let (database, session) = fixture::witnessed_session();
++    session
++        .execute(
++            "CREATE (:Person {id: 1}), (:Person {id: 2}), (:Person {id: 3}), (:Person {id: 4})",
++            &Parameters::new(),
++        )
++        .expect("seed people");
++    session
++        .execute(
++            "MATCH (a:Person {id: 1}), (b:Person {id: 2}), (w:Person {id: 4}) \
++             CREATE [x:KNOWS](start: a, end: b, witness: w)",
++            &Parameters::new(),
++        )
++        .expect("create relation");
++    session
++        .execute(
++            "MATCH (a:Person)-[r:KNOWS]->(b:Person), (c:Person {id: 3}) \
++             SET [r](start: c)",
++            &Parameters::new(),
++        )
++        .expect("repoint start to c");
++
++    let connection = fixture::second_connection(&database);
++    let rows = connection
++        .prepare("SELECT src, dst FROM relationships")
++        .unwrap()
++        .run_collect_rows()
++        .unwrap();
++    assert_eq!(
++        rows,
++        vec![vec![Value::from_i64(3), Value::from_i64(2)]],
++        "start moved to c (3); end (2) is untouched"
++    );
++}
++
++/// `SET` on a `Many` role replaces its whole player set rather than
++/// appending to it. Append has no undo syntax -- there is no way to spell
++/// "remove this one witness" -- so an appending SET would make running the
++/// same statement twice mean something different from running it once
++/// (two witnesses after one run, four after two). Replace does not have
++/// that problem: running it twice leaves the same one witness both times.
++#[test]
++fn setting_a_many_valued_role_replaces_rather_than_appends() {
++    let (database, session) = fixture::witnessed_session();
++    session
++        .execute(
++            "CREATE (:Person {id: 1}), (:Person {id: 2}), (:Person {id: 3}), \
++                    (:Person {id: 4}), (:Person {id: 5})",
++            &Parameters::new(),
++        )
++        .expect("seed people");
++    session
++        .execute(
++            "MATCH (a:Person {id: 1}), (b:Person {id: 2}), \
++                   (w1:Person {id: 3}), (w2:Person {id: 4}) \
++             CREATE [x:KNOWS](start: a, end: b, witness: w1, witness: w2)",
++            &Parameters::new(),
++        )
++        .expect("create relation with two witnesses");
++    session
++        .execute(
++            "MATCH (a:Person)-[r:KNOWS]->(b:Person), (w3:Person {id: 5}) \
++             SET [r](witness: w3)",
++            &Parameters::new(),
++        )
++        .expect("replace the witness set with a single new witness");
++
++    let connection = fixture::second_connection(&database);
++    let rows = connection
++        .prepare("SELECT node_id FROM relationships__witness")
++        .unwrap()
++        .run_collect_rows()
++        .unwrap();
++    assert_eq!(
++        rows,
++        vec![vec![Value::from_i64(5)]],
++        "only the new witness remains -- the two old witnesses were replaced, not joined"
++    );
++}
++
++/// The target-type check on a role update reuses `bind_role_player`, the
++/// helper extracted from `bind_create_role_pattern`'s inline check (Task
++/// 13a): `witnessed_session`'s roles all target `Person`, so it cannot
++/// exercise a target-type refusal. Bind straight against `RoledCatalog`
++/// instead, combining CREATE and SET in one statement bound (not executed)
++/// through `bind_mutation`: CREATE registers `x`'s entity binding before SET
++/// resolves it, so no MATCH -- arrow-form or standalone -- is needed at all.
++#[test]
++fn a_role_update_rejects_a_player_of_the_wrong_type() {
++    let error = bind_role_pattern_query(
++        "MATCH (p:Person), (t:Text), (f:Folio) \
++         CREATE [x:Transcription](scribe: p, text: t, folio: f) \
++         SET [x](scribe: t)",
++    )
++    .expect_err("t is a Text, not a Person, and cannot fill scribe");
++    let message = error.to_string();
++    assert!(message.contains("scribe"), "{message}");
++    assert!(message.contains("Text"), "{message}");
++}
++
++/// A role update names a subset of roles by design (unlike creation, it has
++/// no required-role check), but naming a role with a null player is refused
++/// rather than treated as "clear this role": SET has no syntax for clearing
++/// a role, so a null player can only ever be a mistake.
++#[test]
++fn a_role_update_rejects_a_null_player() {
++    let (_database, session) = fixture::witnessed_session();
++    session
++        .execute(
++            "CREATE (:Person {id: 1}), (:Person {id: 2}), (:Person {id: 3})",
++            &Parameters::new(),
++        )
++        .expect("seed people");
++    session
++        .execute(
++            "MATCH (a:Person {id: 1}), (b:Person {id: 2}), (w:Person {id: 3}) \
++             CREATE [x:KNOWS](start: a, end: b, witness: w)",
++            &Parameters::new(),
++        )
++        .expect("create relation");
++    let error = session
++        .execute(
++            "MATCH (a:Person)-[r:KNOWS]->(b:Person) SET [r](start: null)",
++            &Parameters::new(),
++        )
++        .expect_err("start cannot be cleared with a null player");
++    let message = error.to_string();
++    assert!(message.contains("start"), "{message}");
++}
+diff --git a/graph/ir/src/lib.rs b/graph/ir/src/lib.rs
+index 59b332c74..35c3eb639 100644
+--- a/graph/ir/src/lib.rs
++++ b/graph/ir/src/lib.rs
+@@ -20,21 +20,21 @@ pub use expression::{
+     BinaryOp, Expression, FunctionName, Literal, NullOrder, QuantifierKind, SortDirection,
+     TypedExpression, UnaryOp, ValueType, VectorKind,
+ };
+ pub use identity::{
+     BindingId, GraphId, LabelId, NodeId, PropertyId, RelationshipId, RelationshipTypeId, RoleId,
+     SourceTableId,
+ };
+ pub use mutation::{
+     CreateNode, CreateRelation, DeleteEntity, MergeNode, MergeRelation, Mutation, MutationRequest,
+     MutationSource, PropertyValue, RemoveProperty, ReplaceProperties, ReplacePropertiesDynamic,
+-    SetLabels, SetProperty,
++    SetLabels, SetProperty, SetRoles,
+ };
+ pub use plan::{
+     Aggregate, AggregateFunction, Aggregation, Distinct, Filter, GraphExpand, Grouping, Join,
+     LeftApply, Limit, NodeScan, PathUniqueness, Plan, PlanKind, ProcedureCall, ProcedureIdentity,
+     ProcedureOutput, Project, Projection, RoleExpand, Skip, Sort, SortKey, Union, Unit, Unwind,
+ };
+ pub use role::{RoleBinding, RoleCardinality, RoleDef, RoleTarget};
+ pub use scope::{Binding, Direction, Nullability, ResultColumn, ResultShape, Scope};
+ pub use semantics::{
+     semantic_profile_digest, Duplicates, LabelListOrder, NullComparison, NullSort, RowOrder,
+diff --git a/graph/ir/src/mutation.rs b/graph/ir/src/mutation.rs
+index 33883de94..cb1d08415 100644
+--- a/graph/ir/src/mutation.rs
++++ b/graph/ir/src/mutation.rs
+@@ -10,20 +10,21 @@ pub struct MutationRequest {
+     pub input: Option<Plan>,
+     pub operations: Vec<Mutation>,
+ }
+ 
+ #[derive(Clone, Debug, PartialEq)]
+ pub enum Mutation {
+     CreateNode(CreateNode),
+     CreateRelation(CreateRelation),
+     SetProperty(SetProperty),
+     SetLabels(SetLabels),
++    SetRoles(SetRoles),
+     ReplaceProperties(ReplaceProperties),
+     ReplacePropertiesDynamic(ReplacePropertiesDynamic),
+     RemoveProperty(RemoveProperty),
+     Delete(DeleteEntity),
+     MergeNode(MergeNode),
+     MergeRelation(MergeRelation),
+ }
+ 
+ #[derive(Clone, Debug, PartialEq)]
+ pub struct PropertyValue {
+@@ -72,20 +73,33 @@ pub struct SetProperty {
+ }
+ 
+ /// `SET n:Label1:Label2` — adds labels to an existing node.
+ #[derive(Clone, Debug, Eq, PartialEq)]
+ pub struct SetLabels {
+     pub entity: BindingId,
+     pub source: MutationSource,
+     pub labels: Vec<LabelId>,
+ }
+ 
++/// `SET [x](role: player, ...)` — repoints a subset of an existing relation's
++/// roles. Unlike `CreateRelation.roles`, this is not required to cover every
++/// declared role: a role update names only the roles it wants to change.
++/// Replaces (does not append) whatever players a `Many` role already holds --
++/// `SET` has no undo syntax, so appending would make running one statement
++/// twice mean something different from running it once.
++#[derive(Clone, Debug, PartialEq)]
++pub struct SetRoles {
++    pub relation: BindingId,
++    pub source: SourceTableId,
++    pub roles: Vec<RoleBinding>,
++}
++
+ /// `SET n = map` / `SET n += map` over a literal component map. `clear`
+ /// wipes every other payload property first (the `=` form).
+ #[derive(Clone, Debug, PartialEq)]
+ pub struct ReplaceProperties {
+     pub entity: BindingId,
+     pub source: MutationSource,
+     /// Conceptual owners whose properties may be replaced or cleared.
+     pub semantic_types: Vec<String>,
+     pub entries: Vec<PropertyValue>,
+     pub clear: bool,

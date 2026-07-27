@@ -1,0 +1,168 @@
+# Review package: 6b8981a34..040434d57d27129ffb1c735fff525de021a82836
+
+## Commits
+040434d57 graph/catalog: test the Many-cardinality role spill path
+
+## Files changed
+ graph/frontend/src/catalog.rs | 133 ++++++++++++++++++++++++++++++++++++++++++
+ 1 file changed, 133 insertions(+)
+
+## Diff
+diff --git a/graph/frontend/src/catalog.rs b/graph/frontend/src/catalog.rs
+index 1d9b71fc9..4efe07bec 100644
+--- a/graph/frontend/src/catalog.rs
++++ b/graph/frontend/src/catalog.rs
+@@ -1531,20 +1531,153 @@ mod tests {
+             &connection,
+             "SELECT name FROM sqlite_schema WHERE type = 'index' \
+              AND name LIKE '__turso_internal_graph_ep_%'",
+         )
+         .expect("query endpoint indexes");
+         // Three single-role indexes plus one composite per unordered role pair
+         // (scribe,text), (scribe,folio), (text,folio).
+         assert_eq!(indexes.len(), 6);
+     }
+ 
++    #[test]
++    fn a_many_role_spills_to_a_side_table_indexed_both_directions_and_is_excluded_from_pair_indexes(
++    ) {
++        // A Many role has no endpoint column on the relation table itself:
++        // its players live in <table>__<role>(relation_id, node_id), indexed
++        // from both directions, and it must not appear in any composite pair
++        // index (those cover single-valued roles only).
++        let connection = connection();
++        connection
++            .execute(
++                "CREATE TABLE people(id INTEGER PRIMARY KEY); \
++                 CREATE TABLE texts(id INTEGER PRIMARY KEY); \
++                 CREATE TABLE citations(\
++                     id INTEGER PRIMARY KEY, author_id INTEGER, work_id INTEGER);",
++            )
++            .expect("create sources with a many-valued role");
++        let graph = register_graph(
++            &connection,
++            &GraphRegistration {
++                name: "library".to_owned(),
++                node_sources: vec![
++                    NodeSourceRegistration {
++                        name: "Person".to_owned(),
++                        table: "people".to_owned(),
++                        identity_column: "id".to_owned(),
++                    },
++                    NodeSourceRegistration {
++                        name: "Text".to_owned(),
++                        table: "texts".to_owned(),
++                        identity_column: "id".to_owned(),
++                    },
++                ],
++                relationship_sources: vec![RelationshipSourceRegistration {
++                    name: "Citation".to_owned(),
++                    table: "citations".to_owned(),
++                    identity_column: "id".to_owned(),
++                    roles: vec![
++                        RoleSourceRegistration {
++                            name: "author".to_owned(),
++                            column: "author_id".to_owned(),
++                            node_source: "Person".to_owned(),
++                            cardinality: RoleCardinality::One,
++                        },
++                        RoleSourceRegistration {
++                            name: "work".to_owned(),
++                            column: "work_id".to_owned(),
++                            node_source: "Text".to_owned(),
++                            cardinality: RoleCardinality::One,
++                        },
++                        RoleSourceRegistration {
++                            name: "endorsers".to_owned(),
++                            column: "endorsers".to_owned(),
++                            node_source: "Person".to_owned(),
++                            cardinality: RoleCardinality::Many,
++                        },
++                    ],
++                }],
++            },
++        )
++        .expect("register graph with a many-valued role");
++
++        let source = &graph.relationship_sources[0];
++        assert_eq!(source.roles.len(), 3);
++        let endorsers = source.role_by_name("endorsers").expect("endorsers role");
++        assert_eq!(endorsers.cardinality, RoleCardinality::Many);
++
++        // No endpoint column for the Many role on the relation table itself.
++        let columns = query_rows(&connection, "PRAGMA table_info(citations)")
++            .expect("query relation table columns")
++            .into_iter()
++            .map(|row| {
++                text(&row, 1, "column name")
++                    .expect("column name")
++                    .to_owned()
++            })
++            .collect::<Vec<_>>();
++        assert_eq!(columns, vec!["id", "author_id", "work_id"]);
++
++        // The spill table exists, named <table>__<role>, with the
++        // (relation_id, node_id) shape.
++        let spill_table = source.spill_table(endorsers);
++        assert_eq!(spill_table, "citations__endorsers");
++        let spill_columns = query_rows(&connection, &format!("PRAGMA table_info({spill_table})"))
++            .expect("query spill table columns")
++            .into_iter()
++            .map(|row| {
++                text(&row, 1, "column name")
++                    .expect("column name")
++                    .to_owned()
++            })
++            .collect::<Vec<_>>();
++        assert_eq!(spill_columns, vec!["relation_id", "node_id"]);
++
++        // Indexed in both directions.
++        let spill_indexes = query_rows(
++            &connection,
++            &format!(
++                "SELECT name FROM sqlite_schema WHERE type = 'index' AND tbl_name = {}",
++                sql_string(&spill_table)
++            ),
++        )
++        .expect("query spill table indexes");
++        assert_eq!(spill_indexes.len(), 2, "indexed in both directions");
++
++        // The composite pair index covers the (author, work) single-valued
++        // pair only; the Many role is excluded from pairing entirely.
++        let endpoint_indexes = query_rows(
++            &connection,
++            "SELECT name FROM sqlite_schema WHERE type = 'index' \
++             AND name LIKE '__turso_internal_graph_ep_%'",
++        )
++        .expect("query endpoint indexes");
++        // One index per single-valued role (author, work) plus one composite
++        // pair index for (author, work). The Many role gets no endpoint
++        // index of any kind.
++        assert_eq!(endpoint_indexes.len(), 3);
++
++        // The registration round-trips through load_registered_graph with
++        // role name, ordinal, and cardinality intact.
++        let reloaded = load_registered_graph(&connection, "library").expect("reload graph");
++        let reloaded_source = &reloaded.relationship_sources[0];
++        assert_eq!(reloaded_source.roles.len(), 3);
++        assert_eq!(reloaded_source.roles[0].name, "author");
++        assert_eq!(reloaded_source.roles[0].role, ir::RoleId::new(1).unwrap());
++        assert_eq!(reloaded_source.roles[0].cardinality, RoleCardinality::One);
++        assert_eq!(reloaded_source.roles[1].name, "work");
++        assert_eq!(reloaded_source.roles[1].role, ir::RoleId::new(2).unwrap());
++        assert_eq!(reloaded_source.roles[1].cardinality, RoleCardinality::One);
++        assert_eq!(reloaded_source.roles[2].name, "endorsers");
++        assert_eq!(reloaded_source.roles[2].role, ir::RoleId::new(3).unwrap());
++        assert_eq!(reloaded_source.roles[2].cardinality, RoleCardinality::Many);
++    }
++
+     #[test]
+     fn a_role_must_name_a_registered_node_source() {
+         let connection = connection();
+         create_sources(&connection);
+         let mut graph = registration("bad_endpoint");
+         graph.relationship_sources[0].roles[1].node_source = "Missing".to_owned();
+         assert!(matches!(
+             register_graph(&connection, &graph),
+             Err(CatalogError::UnknownEndpoint { relationship, node_source })
+                 if relationship == "KNOWS" && node_source == "Missing"

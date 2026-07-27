@@ -1,0 +1,572 @@
+# Review package: 754dce74d81904baf662f6da1c5ed9da31c474d9..a35a14c05cece238d48565910190c94da898791e
+
+## Commits
+a35a14c05 graph/frontend: write and delete many-valued role players
+
+## Files changed
+ graph/frontend/src/binder.rs           |  28 +++---
+ graph/frontend/src/mutation.rs         |  89 ++++++++++++++++--
+ graph/frontend/tests/fixture.rs        |  91 ++++++++++++++++++
+ graph/frontend/tests/nary_relations.rs | 163 +++++++++++++++++++++++++++++++++
+ 4 files changed, 351 insertions(+), 20 deletions(-)
+
+## Diff
+diff --git a/graph/frontend/src/binder.rs b/graph/frontend/src/binder.rs
+index 8eb5c48e9..9052e471e 100644
+--- a/graph/frontend/src/binder.rs
++++ b/graph/frontend/src/binder.rs
+@@ -1781,38 +1781,35 @@ impl<'a> Binder<'a> {
+                     relationship_type: type_name.value.clone(),
+                     role: argument.name.value.clone(),
+                     known: declared
+                         .iter()
+                         .map(|role| role.name.as_str())
+                         .collect::<Vec<_>>()
+                         .join(", "),
+                     span_start: argument.name.span.start,
+                     span_end: argument.name.span.end,
+                 })?;
+-            if !seen.insert(role.role) {
++            // A repeated role NAME is only a refusal for a `One` role: it can
++            // hold exactly one player, so a second argument naming it is a
++            // mistake rather than a second player. A `Many` role legitimately
++            // takes one argument per player, so its repeats are not
++            // duplicates. Either way the role counts as seen, so the
++            // required-role check below does not also complain about it.
++            let repeated = !seen.insert(role.role);
++            if repeated && role.cardinality == ir::RoleCardinality::One {
+                 return Err(BindError::DuplicateRoleArgument {
+                     relationship_type: type_name.value.clone(),
+                     role: role.name.clone(),
+                     span_start: argument.span.start,
+                     span_end: argument.span.end,
+                 });
+             }
+-            // Many-valued roles spill into a per-role table that this
+-            // writer doesn't populate yet (Task 14); refuse here rather
+-            // than let `insert_relationship` reach its `spilled.is_empty()`
+-            // assertion on a query supplied by a user.
+-            if role.cardinality == ir::RoleCardinality::Many {
+-                return Err(at_unsupported(
+-                    argument.span,
+-                    "creating a many-valued role in a role pattern",
+-                ));
+-            }
+             let cypher::Expression::Variable(name) = &argument.player.value else {
+                 return Err(at_unsupported(
+                     argument.player.span,
+                     "a role player that is not a bound variable",
+                 ));
+             };
+             let value = self.resolve_binding(name, argument.player.span)?.id();
+ 
+             let allowed = role
+                 .targets
+@@ -1859,27 +1856,30 @@ impl<'a> Binder<'a> {
+                     relationship_type: type_name.value.clone(),
+                     role: role.name.clone(),
+                     span_start: pattern.span.start,
+                     span_end: pattern.span.end,
+                 });
+             }
+         }
+ 
+         // Declaration order, not source order, so the writer's column
+         // derivation (by `RoleId`) is stable regardless of how the query
+-        // spelled its role arguments.
++        // spelled its role arguments. A `Many` role can have been filled by
++        // more than one argument, so every matching fill is kept (not just
++        // the first) -- otherwise a second, third, ... player would be
++        // silently dropped.
+         let roles = declared
+             .iter()
+-            .filter_map(|role| {
++            .flat_map(|role| {
+                 fills
+                     .iter()
+-                    .find(|(role_id, _)| *role_id == role.role)
++                    .filter(move |(role_id, _)| *role_id == role.role)
+                     .map(|(role_id, value)| ir::RoleBinding {
+                         role: *role_id,
+                         value: *value,
+                     })
+             })
+             .collect();
+ 
+         let type_names = vec![type_name.value.clone()];
+         let binding = self.new_entity_binding(
+             pattern.variable.as_ref(),
+diff --git a/graph/frontend/src/mutation.rs b/graph/frontend/src/mutation.rs
+index 000766365..fd319f1fa 100644
+--- a/graph/frontend/src/mutation.rs
++++ b/graph/frontend/src/mutation.rs
+@@ -1871,40 +1871,65 @@ pub(crate) fn insert_relationship(
+             .get(&binding.value)
+             .ok_or(MutationError::MissingBinding(binding.value))?;
+         match role.cardinality {
+             ir::RoleCardinality::One => fixed.push((role.column.clone(), player.clone())),
+             // A many-valued role has no column on the relation table; its
+             // players land in the spill table after the relation row exists
+             // and has an identity to point at.
+             ir::RoleCardinality::Many => spilled.push((role.clone(), player.clone())),
+         }
+     }
+-    assert!(
+-        spilled.is_empty(),
+-        "many-valued roles are written in a later step; a Many role must not reach here yet"
+-    );
+-    insert_entity(
++    let (identity, created) = insert_entity(
+         connection,
+         catalog,
+         input,
+         &layout.table,
+         &layout.identity_column,
+         create.source,
+         &create.properties,
+         parameters,
+         values,
+         entity_layouts,
+         merge,
+         "relationship",
+         &fixed,
+         &merge_predicates,
+-    )
++    )?;
++    // A relation matched by MERGE already exists with whatever spill rows its
++    // original CREATE wrote; only a freshly created relation needs its
++    // many-valued role players written. (For a plain CREATE, `created` is
++    // always true -- `insert_entity` only takes the match branch when
++    // `merge` is set.)
++    if created {
++        let relation_parameter = format!("{INTERNAL_PARAMETER_PREFIX}spill_relation");
++        for (index, (role, player)) in spilled.iter().enumerate() {
++            let table = role
++                .spill_table
++                .as_ref()
++                .expect("a Many role always has a spill table");
++            let player_parameter = format!("{INTERNAL_PARAMETER_PREFIX}spill_player_{index}");
++            let internal = HashMap::from([
++                (relation_parameter.clone(), identity.clone()),
++                (player_parameter.clone(), player.clone()),
++            ]);
++            run_ignore(
++                connection,
++                &format!(
++                    "INSERT INTO {}(relation_id, node_id) VALUES (${relation_parameter}, ${player_parameter})",
++                    quoted_identifier(table),
++                ),
++                parameters,
++                &internal,
++            )?;
++        }
++    }
++    Ok((identity, created))
+ }
+ 
+ #[allow(clippy::too_many_arguments)]
+ fn insert_entity(
+     connection: &Arc<Connection>,
+     catalog: &dyn GraphCompilationCatalog,
+     input: &LoweredMutationInput,
+     table: &str,
+     identity: &str,
+     source: ir::SourceTableId,
+@@ -2062,20 +2087,48 @@ fn delete_entity(
+                 predicates.push(format!(
+                     "{} = ${parameter}",
+                     quoted_identifier(&role.column)
+                 ));
+             }
+             if predicates.is_empty() {
+                 continue;
+             }
+             let predicate = predicates.join(" OR ");
+             if delete.detach {
++                // A many-valued role's players live in a spill table keyed by
++                // relation_id, not a column on the relation row. Purge them
++                // by the same predicate before the relation rows themselves
++                // are gone (the subquery needs the relation rows to still
++                // exist), so no dangling participant can surface as a live
++                // player on a later hop.
++                for role in relationship
++                    .roles
++                    .iter()
++                    .filter(|role| role.cardinality == ir::RoleCardinality::Many)
++                {
++                    let table = role
++                        .spill_table
++                        .as_ref()
++                        .expect("a Many role always has a spill table");
++                    run_ignore(
++                        connection,
++                        &format!(
++                            "DELETE FROM {} WHERE relation_id IN \
++                             (SELECT {} FROM {} WHERE {predicate})",
++                            quoted_identifier(table),
++                            quoted_identifier(&relationship.identity_column),
++                            quoted_identifier(&relationship.table),
++                        ),
++                        parameters,
++                        &internal,
++                    )?;
++                }
+                 run_ignore(
+                     connection,
+                     &format!(
+                         "DELETE FROM {} WHERE {predicate}",
+                         quoted_identifier(&relationship.table)
+                     ),
+                     parameters,
+                     &internal,
+                 )?;
+             } else if !run_rows(
+@@ -2134,20 +2187,44 @@ fn delete_entity(
+                 connection,
+                 &format!(
+                     "DELETE FROM \"{}\" WHERE {source_predicate}relationship_id = ${}",
+                     types_table.replace('"', "\"\""),
+                     identity_parameter(delete.entity),
+                 ),
+                 parameters,
+                 &internal,
+             )?;
+         }
++        // A many-valued role's players live in a spill table keyed by
++        // relation_id, not a column on the relation row, so deleting the
++        // relation row alone would leave dangling participants that a later
++        // hop through that role would surface as live players.
++        for role in layout
++            .roles
++            .iter()
++            .filter(|role| role.cardinality == ir::RoleCardinality::Many)
++        {
++            let table = role
++                .spill_table
++                .as_ref()
++                .expect("a Many role always has a spill table");
++            run_ignore(
++                connection,
++                &format!(
++                    "DELETE FROM {} WHERE relation_id = ${}",
++                    quoted_identifier(table),
++                    identity_parameter(delete.entity),
++                ),
++                parameters,
++                &internal,
++            )?;
++        }
+         Ok(run_ignore(
+             connection,
+             &format!(
+                 "DELETE FROM {} WHERE {} = ${}",
+                 quoted_identifier(&layout.table),
+                 quoted_identifier(&layout.identity_column),
+                 identity_parameter(delete.entity),
+             ),
+             parameters,
+             &internal,
+diff --git a/graph/frontend/tests/fixture.rs b/graph/frontend/tests/fixture.rs
+index 61f728179..33ec1fb7b 100644
+--- a/graph/frontend/tests/fixture.rs
++++ b/graph/frontend/tests/fixture.rs
+@@ -202,20 +202,111 @@ pub fn ternary_session() -> (Arc<Database>, GraphConnection) {
+         &registered,
+         catalog,
+         ParameterTypes::new(),
+         shared_snapshots,
+         BuildLimits::default(),
+     )
+     .expect("install graph session");
+     (database, session)
+ }
+ 
++/// Installs a `GraphConnection` over a fresh in-memory "witnessed" graph: a
++/// single `Person` node source (`people(id INTEGER PRIMARY KEY)`) and a
++/// `KNOWS` relationship source over `relationships(id INTEGER PRIMARY KEY,
++/// src INTEGER, dst INTEGER)` with three roles -- `start`/`end` (single-valued,
++/// the pattern-hop shape) plus `witness` (many-valued, no column of its own).
++///
++/// Binary-plus-`Many` is deliberate: it is the only role shape that lets a
++/// relation be both created through the standalone role pattern (Task 13a,
++/// `CREATE [x:KNOWS](start: a, end: b, witness: w)`) and bound for deletion
++/// through today's arrow syntax (`MATCH (a:Person)-[r:KNOWS]->(b:Person)
++/// DELETE r`), with no dependency on the standalone role pattern in `MATCH`
++/// (Task 13b, not yet implemented). A ternary relation can be created but not
++/// bound for deletion until then.
++///
++/// Modeled on `ternary_session`, not `social_graph_connection`: no eager
++/// `SnapshotStore::refresh`, since today's snapshot builder assumes every
++/// relationship source is binary and this task's tests never run a
++/// variable-length traversal that would need one. Unlike `ternary_session`,
++/// this graph has exactly one node source, so `SchemaCatalog` can resolve
++/// node properties and tests may seed through Cypher `CREATE (:Person {id:
++/// ..})` directly, the same way `social_graph_connection` does.
++#[allow(dead_code)] // This file is also compiled as its own integration-test crate.
++pub fn witnessed_session() -> (Arc<Database>, GraphConnection) {
++    let io = Arc::new(MemoryIO::new());
++    let database = Database::open(
++        io,
++        ":memory:fixture-witnessed",
++        OpenOptions::new(Arc::new(SqliteDialect)),
++    )
++    .expect("open database");
++    let connection = database.connect().expect("connect");
++    connection
++        .execute(
++            "CREATE TABLE people(id INTEGER PRIMARY KEY); \
++             CREATE TABLE relationships(id INTEGER PRIMARY KEY, src INTEGER, dst INTEGER);",
++        )
++        .expect("create sources");
++    let registered = register_graph(
++        &connection,
++        &GraphRegistration {
++            name: "witnessed".to_owned(),
++            node_sources: vec![NodeSourceRegistration {
++                name: "Person".to_owned(),
++                table: "people".to_owned(),
++                identity_column: "id".to_owned(),
++            }],
++            relationship_sources: vec![RelationshipSourceRegistration {
++                name: "KNOWS".to_owned(),
++                table: "relationships".to_owned(),
++                identity_column: "id".to_owned(),
++                roles: vec![
++                    RoleSourceRegistration {
++                        name: "start".to_owned(),
++                        column: "src".to_owned(),
++                        node_source: "Person".to_owned(),
++                        cardinality: RoleCardinality::One,
++                    },
++                    RoleSourceRegistration {
++                        name: "end".to_owned(),
++                        column: "dst".to_owned(),
++                        node_source: "Person".to_owned(),
++                        cardinality: RoleCardinality::One,
++                    },
++                    RoleSourceRegistration {
++                        name: "witness".to_owned(),
++                        // Empty for `Many` roles: their players live in the
++                        // spill table, not a column on the relation table.
++                        column: String::new(),
++                        node_source: "Person".to_owned(),
++                        cardinality: RoleCardinality::Many,
++                    },
++                ],
++            }],
++        },
++    )
++    .expect("register graph");
++    let catalog: Arc<dyn GraphCompilationCatalog> =
++        Arc::new(SchemaCatalog::new(connection.clone(), registered.clone()));
++    let shared_snapshots = Arc::new(SnapshotStore::default());
++    let session = GraphConnection::install(
++        connection,
++        &registered,
++        catalog,
++        ParameterTypes::new(),
++        shared_snapshots,
++        BuildLimits::default(),
++    )
++    .expect("install graph session");
++    (database, session)
++}
++
+ /// A second connection onto the same underlying database as `database`, for
+ /// exercising session setup (like [`GraphConnection::open`]) that must not
+ /// depend on the connection that performed the original registration.
+ #[allow(dead_code)] // Shared fixture; not every integration crate calls this.
+ pub fn second_connection(database: &Arc<Database>) -> Arc<Connection> {
+     database.connect().expect("connect")
+ }
+ 
+ /// A lightweight in-process `Person`/`KNOWS` catalog (role 1 = `start`, role
+ /// 2 = `end`) for tests that bind a query directly, without a real
+diff --git a/graph/frontend/tests/nary_relations.rs b/graph/frontend/tests/nary_relations.rs
+index d814282bc..f36cae752 100644
+--- a/graph/frontend/tests/nary_relations.rs
++++ b/graph/frontend/tests/nary_relations.rs
+@@ -160,20 +160,183 @@ fn role_arguments_bind_by_name_regardless_of_source_order() {
+     assert_eq!(
+         rows,
+         vec![vec![
+             Value::from_i64(10),
+             Value::from_i64(20),
+             Value::from_i64(30),
+         ]]
+     );
+ }
+ 
++/// A `Many` role stores its players in a spill table rather than a column,
++/// so creating a relation with two `witness` players is one relation row
++/// plus two spill rows -- not two relation rows, which would double-count
++/// the relation in any aggregate.
++#[test]
++fn a_many_valued_role_holds_several_players_in_one_relation() {
++    let (database, session) = fixture::witnessed_session();
++    session
++        .execute(
++            "CREATE (:Person {id: 1}), (:Person {id: 2}), \
++                    (:Person {id: 3}), (:Person {id: 4})",
++            &Parameters::new(),
++        )
++        .expect("seed people");
++    session
++        .execute(
++            "MATCH (a:Person {id: 1}), (b:Person {id: 2}), \
++                   (w1:Person {id: 3}), (w2:Person {id: 4}) \
++             CREATE [x:KNOWS](start: a, end: b, witness: w1, witness: w2)",
++            &Parameters::new(),
++        )
++        .expect("create relation with two witnesses");
++
++    let connection = fixture::second_connection(&database);
++    assert_eq!(
++        connection
++            .prepare("SELECT count(*) FROM relationships")
++            .unwrap()
++            .run_collect_rows()
++            .unwrap(),
++        vec![vec![Value::from_i64(1)]],
++        "one relation row"
++    );
++    assert_eq!(
++        connection
++            .prepare("SELECT count(*) FROM relationships__witness")
++            .unwrap()
++            .run_collect_rows()
++            .unwrap(),
++        vec![vec![Value::from_i64(2)]],
++        "two spilled players"
++    );
++}
++
++/// Deleting a relation must remove its spilled players too: a spill row
++/// pointing at a relation that no longer exists is a dangling participant
++/// that a later hop through that role would surface as a live player.
++#[test]
++fn deleting_a_relation_removes_its_spilled_players() {
++    let (database, session) = fixture::witnessed_session();
++    session
++        .execute(
++            "CREATE (:Person {id: 1}), (:Person {id: 2}), (:Person {id: 3})",
++            &Parameters::new(),
++        )
++        .expect("seed people");
++    session
++        .execute(
++            "MATCH (a:Person {id: 1}), (b:Person {id: 2}), (w:Person {id: 3}) \
++             CREATE [x:KNOWS](start: a, end: b, witness: w)",
++            &Parameters::new(),
++        )
++        .expect("create relation with one witness");
++    session
++        .execute(
++            "MATCH (a:Person)-[r:KNOWS]->(b:Person) DELETE r",
++            &Parameters::new(),
++        )
++        .expect("delete the relation through today's arrow syntax");
++
++    let connection = fixture::second_connection(&database);
++    assert_eq!(
++        connection
++            .prepare("SELECT count(*) FROM relationships")
++            .unwrap()
++            .run_collect_rows()
++            .unwrap(),
++        vec![vec![Value::from_i64(0)]],
++        "relation row is gone"
++    );
++    assert_eq!(
++        connection
++            .prepare("SELECT count(*) FROM relationships__witness")
++            .unwrap()
++            .run_collect_rows()
++            .unwrap(),
++        vec![vec![Value::from_i64(0)]],
++        "spill row is gone with it"
++    );
++}
++
++/// `DETACH DELETE` on a node deletes the relations that reference it through
++/// a bare `DELETE FROM <relation> WHERE ...`, which does not on its own touch
++/// a spill table. The spilled players of those relations must still be
++/// cleaned up, for the same dangling-participant reason as a direct relation
++/// delete.
++#[test]
++fn detach_deleting_a_node_removes_its_relations_spilled_players() {
++    let (database, session) = fixture::witnessed_session();
++    session
++        .execute(
++            "CREATE (:Person {id: 1}), (:Person {id: 2}), (:Person {id: 3})",
++            &Parameters::new(),
++        )
++        .expect("seed people");
++    session
++        .execute(
++            "MATCH (a:Person {id: 1}), (b:Person {id: 2}), (w:Person {id: 3}) \
++             CREATE [x:KNOWS](start: a, end: b, witness: w)",
++            &Parameters::new(),
++        )
++        .expect("create relation with one witness");
++    session
++        .execute(
++            "MATCH (a:Person {id: 1}) DETACH DELETE a",
++            &Parameters::new(),
++        )
++        .expect("detach delete the start node");
++
++    let connection = fixture::second_connection(&database);
++    assert_eq!(
++        connection
++            .prepare("SELECT count(*) FROM relationships")
++            .unwrap()
++            .run_collect_rows()
++            .unwrap(),
++        vec![vec![Value::from_i64(0)]],
++        "the relation referencing the deleted node is gone"
++    );
++    assert_eq!(
++        connection
++            .prepare("SELECT count(*) FROM relationships__witness")
++            .unwrap()
++            .run_collect_rows()
++            .unwrap(),
++        vec![vec![Value::from_i64(0)]],
++        "its spill row must not dangle behind"
++    );
++}
++
++/// Regression guard on the pre-existing `DuplicateRoleArgument` refusal: it
++/// must keep rejecting a second player for a `One` role now that the same
++/// check lets a `Many` role repeat.
++#[test]
++fn a_single_valued_role_given_two_players_is_refused() {
++    let (_database, session) = fixture::witnessed_session();
++    session
++        .execute(
++            "CREATE (:Person {id: 1}), (:Person {id: 2}), (:Person {id: 3})",
++            &Parameters::new(),
++        )
++        .expect("seed people");
++    let error = session
++        .execute(
++            "MATCH (a:Person {id: 1}), (b:Person {id: 2}), (c:Person {id: 3}) \
++             CREATE [x:KNOWS](start: a, start: c, end: b, witness: c)",
++            &Parameters::new(),
++        )
++        .expect_err("start is a One role and cannot take two players");
++    let message = error.to_string();
++    assert!(message.contains("start"), "{message}");
++}
++
+ /// A minimal, database-free `Transcription` catalog with real role
+ /// target-type constraints (`scribe`/`witness` -> `Person`, `text` ->
+ /// `Text`, `folio` -> `Folio`) and one optional role (`witness`), for
+ /// exercising bind-time role resolution without a real database: none of
+ /// the tests using it are about what gets written, only about what binds
+ /// (or fails to).
+ struct RoledCatalog;
+ 
+ impl GraphCatalogSnapshot for RoledCatalog {
+     fn node_source(&self, _graph: GraphId) -> Option<SourceTableId> {

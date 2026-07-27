@@ -11,10 +11,12 @@ lives as `__turso_graph_*` tables, indexes, and triggers inside the same
 
 > **Status:** experimental, source-only — no published crate, no language
 > binding. Consumers embed `turso_graph_frontend` synchronously from a
-> workspace path. The layer is five crates (`turso_graph_cypher`,
-> `turso_graph_ir`, `turso_graph_runtime`, `turso_graph_frontend`,
-> `turso_graph_temporal`), deliberately decoupled from the Postgres
-> frontend — see "Composing frontends" below.
+> workspace path. The graph frontend lives on the `feature/graph-frontend`
+> branch as five crates (`turso_graph_cypher`, `turso_graph_ir`,
+> `turso_graph_runtime`, `turso_graph_frontend`, `turso_graph_temporal`),
+> deliberately decoupled from the Postgres frontend — see "Composing
+> frontends" below. Feature branches such as `feature/graph-nary` carry one
+> piece of work each and merge back into it.
 >
 > This document is the user guide: how to use it, the language it accepts,
 > what it does beyond standard Cypher, and how to test changes to it. For

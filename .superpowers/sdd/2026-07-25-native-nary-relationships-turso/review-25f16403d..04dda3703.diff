@@ -1,0 +1,534 @@
+# Review package: 25f16403d..04dda3703529e07fa4c7c3ab4bfaa8a927450b56
+
+## Commits
+04dda3703 graph/lowering: join expands through role columns
+
+## Files changed
+ graph/frontend/src/lowering.rs            |  83 ++++----
+ graph/frontend/tests/dialect_alignment.rs | 318 +++++++++++++++++++++++++++++-
+ 2 files changed, 350 insertions(+), 51 deletions(-)
+
+## Diff
+diff --git a/graph/frontend/src/lowering.rs b/graph/frontend/src/lowering.rs
+index a3334022d..13e1191b2 100644
+--- a/graph/frontend/src/lowering.rs
++++ b/graph/frontend/src/lowering.rs
+@@ -173,20 +173,22 @@ pub enum LowerError {
+     #[error("binding {0} has no relational source")]
+     MissingBinding(ir::BindingId),
+     #[error("unsupported relational graph operator: {0}")]
+     UnsupportedOperator(&'static str),
+     #[error("invalid resolved function or parameter name: {0}")]
+     InvalidName(String),
+     #[error("generated relational SQL did not parse: {0}")]
+     InvalidGeneratedSql(#[from] turso_core::LimboError),
+     #[error("generated relational SQL contained no statement")]
+     EmptyGeneratedSql,
++    #[error("relation {relation} has no role {role:?}")]
++    UnknownRole { relation: String, role: ir::RoleId },
+ }
+ 
+ #[derive(Clone, Copy)]
+ enum EntityKind {
+     Node,
+     Relationship,
+ }
+ 
+ #[derive(Clone)]
+ struct BindingLayout {
+@@ -1466,108 +1468,95 @@ fn lower_fixed_expand(
+             input.sql,
+             source_column_ref(expand.from),
+             expand.from_node_source.get()
+         )
+     } else {
+         input.sql.clone()
+     };
+     let relationship = catalog
+         .relationship_layout(expand.relationship_source)
+         .ok_or(LowerError::MissingSource(expand.relationship_source))?;
+-    // `Expand` is a Cypher `-[r]->` hop: always exactly two roles, named
+-    // `start`/`end`. Resolve by name, not declaration order -- role order is
+-    // not guaranteed to put `start` before `end`.
+-    let start_column = &relationship
+-        .start_role()
+-        .ok_or(LowerError::MissingSource(expand.relationship_source))?
++    // The role pair says which column is `from` and which is `to`; binary is
++    // a layout of the role model, not a separate kind, so this is the same
++    // resolution an n-ary relation's roles get.
++    let from_column = &relationship
++        .role(expand.from_role)
++        .ok_or_else(|| LowerError::UnknownRole {
++            relation: relationship.table.clone(),
++            role: expand.from_role,
++        })?
+         .column;
+-    let end_column = &relationship
+-        .end_role()
+-        .ok_or(LowerError::MissingSource(expand.relationship_source))?
++    let to_column = &relationship
++        .role(expand.to_role)
++        .ok_or_else(|| LowerError::UnknownRole {
++            relation: relationship.table.clone(),
++            role: expand.to_role,
++        })?
+         .column;
+     let target = catalog
+         .node_layout(expand.target_node_source)
+         .ok_or(LowerError::MissingSource(expand.target_node_source))?;
+     let join = if optional { "LEFT JOIN" } else { "JOIN" };
+     let from = format!("q.{}", binding_column(expand.from));
+     let relationship_alias = "r";
+     let target_alias = "n";
+     // A cycle-closing target equates to an existing binding: both endpoint
+     // conditions go on the relationship join (composite endpoint indexes
+     // apply) and the node table is not re-joined.
+     let bound_reference = expand
+         .bound_target
+         .map(|binding| format!("q.{}", binding_column(binding)));
+-    let (relationship_on, mut node_on) = match (&bound_reference, expand.direction) {
+-        (Some(bound), ir::Direction::Outgoing) => (
++    // `symmetric` -- not a `Both` direction arm -- is what an undirected
++    // pattern means: the reversed role pair also matches.
++    let (relationship_on, mut node_on) = match (&bound_reference, expand.symmetric) {
++        (Some(bound), false) => (
+             format!(
+                 "{relationship_alias}.{} = {from} AND {relationship_alias}.{} = {bound}",
+-                quote_identifier(start_column),
+-                quote_identifier(end_column)
++                quote_identifier(from_column),
++                quote_identifier(to_column)
+             ),
+             String::new(),
+         ),
+-        (Some(bound), ir::Direction::Incoming) => (
++        (Some(bound), true) => (
+             format!(
+-                "{relationship_alias}.{} = {from} AND {relationship_alias}.{} = {bound}",
+-                quote_identifier(end_column),
+-                quote_identifier(start_column)
++                "(({relationship_alias}.{from_col} = {from} AND {relationship_alias}.{to_col} = {bound})                  OR ({relationship_alias}.{to_col} = {from} AND {relationship_alias}.{from_col} = {bound}))",
++                from_col = quote_identifier(from_column),
++                to_col = quote_identifier(to_column)
+             ),
+             String::new(),
+         ),
+-        (Some(bound), ir::Direction::Both) => (
+-            format!(
+-                "(({relationship_alias}.{start} = {from} AND {relationship_alias}.{end} = {bound})                  OR ({relationship_alias}.{end} = {from} AND {relationship_alias}.{start} = {bound}))",
+-                start = quote_identifier(start_column),
+-                end = quote_identifier(end_column)
+-            ),
+-            String::new(),
+-        ),
+-        (None, _) => match expand.direction {
+-        ir::Direction::Outgoing => (
+-            format!(
+-                "{relationship_alias}.{} = {from}",
+-                quote_identifier(start_column)
+-            ),
+-            format!(
+-                "{target_alias}.{} = {relationship_alias}.{}",
+-                quote_identifier(&target.identity_column),
+-                quote_identifier(end_column)
+-            ),
+-        ),
+-        ir::Direction::Incoming => (
++        (None, false) => (
+             format!(
+                 "{relationship_alias}.{} = {from}",
+-                quote_identifier(end_column)
++                quote_identifier(from_column)
+             ),
+             format!(
+                 "{target_alias}.{} = {relationship_alias}.{}",
+                 quote_identifier(&target.identity_column),
+-                quote_identifier(start_column)
++                quote_identifier(to_column)
+             ),
+         ),
+-        ir::Direction::Both => (
++        (None, true) => (
+             format!(
+                 "({relationship_alias}.{} = {from} OR {relationship_alias}.{} = {from})",
+-                quote_identifier(start_column),
+-                quote_identifier(end_column)
++                quote_identifier(from_column),
++                quote_identifier(to_column)
+             ),
+             format!(
+                 "{target_alias}.{} = CASE WHEN {relationship_alias}.{} = {from} \
+                  THEN {relationship_alias}.{} ELSE {relationship_alias}.{} END",
+                 quote_identifier(&target.identity_column),
+-                quote_identifier(start_column),
+-                quote_identifier(end_column),
+-                quote_identifier(start_column)
++                quote_identifier(from_column),
++                quote_identifier(to_column),
++                quote_identifier(from_column)
+             ),
+         ),
+-        },
+     };
+     // Filter typed hops through the relationship-type junction; recorded
+     // types are authoritative, untyped rows only match untyped patterns.
+     let mut relationship_on = if expand.relationship_types.is_empty() {
+         relationship_on
+     } else if let Some(types_table) = catalog.relationship_types_table() {
+         let names = expand
+             .relationship_types
+             .iter()
+             .filter_map(|relationship_type| catalog.relationship_type_name(*relationship_type))
+diff --git a/graph/frontend/tests/dialect_alignment.rs b/graph/frontend/tests/dialect_alignment.rs
+index 104e3096b..063e30e25 100644
+--- a/graph/frontend/tests/dialect_alignment.rs
++++ b/graph/frontend/tests/dialect_alignment.rs
+@@ -1,23 +1,30 @@
+ //! Alignment regressions for GraphDialect + compile seams.
+ 
+ mod fixture;
+ 
+ use std::sync::{atomic::Ordering, Arc};
+ 
+ use turso_core::{DatabaseOpts, MemoryIO, OpenFlags};
++use turso_graph_cypher::parse;
+ use turso_graph_frontend::{
+-    install_graph_catalog, open_database_with_io, register_graph, take_closed_create_fast_path_hit,
+-    GraphConnection, GraphHostMode, GraphRegistration, NodeSourceRegistration, Parameters,
+-    RelationshipSourceRegistration, SnapshotStore, Value, GRAPH_EXPAND_TABLE_NAME,
++    bind, install_graph_catalog, lower_relational, open_database_with_io, register_graph,
++    take_closed_create_fast_path_hit, CatalogEntity, GraphCatalogSnapshot, GraphConnection,
++    GraphHostMode, GraphRegistration, NodeSourceRegistration, NodeTableLayout, ParameterTypes,
++    Parameters, RelationalCatalogSnapshot, RelationshipRoleLayout, RelationshipSourceRegistration,
++    RelationshipTableLayout, ResolvedProperty, SnapshotStore, Value, GRAPH_EXPAND_TABLE_NAME,
++};
++use turso_graph_ir::{
++    Binding, BindingId, Direction, FixedExpand, GraphId, LabelId, NodeScan, Nullability, Plan,
++    PlanKind, PropertyId, RelationshipTypeId, ResultShape, RoleCardinality, RoleId, Scope,
++    SourceTableId, ValueType,
+ };
+-use turso_graph_ir::ValueType;
+ 
+ #[test]
+ fn prepare_returns_cypher_result_types_for_boolean_projection() {
+     let (_database, graph) = fixture::social_graph_connection();
+     let stmt = graph
+         .prepare(
+             "MATCH (n:Person) RETURN n.name AS name, true AS flag",
+             &Parameters::new(),
+         )
+         .expect("prepare");
+@@ -431,10 +438,313 @@ fn explain_match_returns_core_eqp_rows() {
+ 
+     // EXPLAIN reports core plan columns, not the Cypher projection types.
+     let stmt = graph
+         .prepare("EXPLAIN MATCH (n:Person) RETURN n.name", &Parameters::new())
+         .expect("prepare explain");
+     assert!(
+         stmt.result_types().is_empty(),
+         "EXPLAIN must not surface Cypher result_types"
+     );
+ }
++
++/// A two-role (`start`/`end`) relation over `people`/`relationships`, wired
++/// for both `GraphCatalogSnapshot` (binding) and `RelationalCatalogSnapshot`
++/// (lowering) exactly as production catalogs are. Used to pin the SQL a
++/// binary relation lowers to before and after role-based lowering lands.
++struct BinaryCatalog;
++
++impl GraphCatalogSnapshot for BinaryCatalog {
++    fn node_source(&self, _graph: GraphId) -> Option<SourceTableId> {
++        SourceTableId::new(1).ok()
++    }
++
++    fn relationship_source(&self, _graph: GraphId) -> Option<SourceTableId> {
++        SourceTableId::new(2).ok()
++    }
++
++    fn label(&self, _graph: GraphId, _name: &str) -> Option<LabelId> {
++        LabelId::new(1).ok()
++    }
++
++    fn relationship_type(&self, _graph: GraphId, _name: &str) -> Option<RelationshipTypeId> {
++        RelationshipTypeId::new(1).ok()
++    }
++
++    fn property(
++        &self,
++        _graph: GraphId,
++        _entity: CatalogEntity,
++        name: &str,
++    ) -> Option<ResolvedProperty> {
++        let id = match name {
++            "name" => 1,
++            "age" => 2,
++            _ => 3,
++        };
++        Some(ResolvedProperty {
++            id: PropertyId::new(id).ok()?,
++            value_type: if name == "age" {
++                ValueType::Integer
++            } else {
++                ValueType::Text
++            },
++            nullability: Nullability::Nullable,
++        })
++    }
++
++    fn relationship_source_roles(&self, source: SourceTableId) -> Option<RelationshipTableLayout> {
++        self.relationship_layout(source)
++    }
++}
++
++impl RelationalCatalogSnapshot for BinaryCatalog {
++    fn node_layout(&self, source: SourceTableId) -> Option<NodeTableLayout> {
++        (source.get() == 1).then(|| NodeTableLayout {
++            table: "people".to_owned(),
++            identity_column: "id".to_owned(),
++        })
++    }
++
++    fn relationship_layout(&self, source: SourceTableId) -> Option<RelationshipTableLayout> {
++        (source.get() == 2).then(|| RelationshipTableLayout {
++            table: "relationships".to_owned(),
++            identity_column: "id".to_owned(),
++            roles: vec![
++                RelationshipRoleLayout {
++                    role: RoleId::new(1).unwrap(),
++                    name: "start".to_owned(),
++                    column: "src".to_owned(),
++                    cardinality: RoleCardinality::One,
++                    spill_table: None,
++                },
++                RelationshipRoleLayout {
++                    role: RoleId::new(2).unwrap(),
++                    name: "end".to_owned(),
++                    column: "dst".to_owned(),
++                    cardinality: RoleCardinality::One,
++                    spill_table: None,
++                },
++            ],
++        })
++    }
++
++    fn property_column(&self, _source: SourceTableId, property: PropertyId) -> Option<String> {
++        match property.get() {
++            1 => Some("name".to_owned()),
++            2 => Some("age".to_owned()),
++            _ => None,
++        }
++    }
++}
++
++/// Parses, binds, and lowers `query` against [`BinaryCatalog`], returning the
++/// generated SQL text. Binary is a layout of the role model: the binder
++/// always resolves `start`/`end` by name (see `binder.rs`), so this exercises
++/// exactly the role-pair path role-based lowering must reproduce.
++fn lower_to_sql(query: &str) -> String {
++    let parsed = parse(query).expect("query must parse");
++    let bound = bind(
++        &parsed,
++        GraphId::new(1).expect("graph id"),
++        &BinaryCatalog,
++        &ParameterTypes::new(),
++    )
++    .expect("query must bind");
++    lower_relational(&bound.plan, &BinaryCatalog)
++        .expect("query must lower")
++        .to_string()
++}
++
++const BINARY_GOLDEN_QUERIES: [&str; 4] = [
++    "MATCH (a:Person)-[r:KNOWS]->(b:Person) RETURN b.name",
++    "MATCH (a:Person)<-[r:KNOWS]-(b:Person) RETURN b.name",
++    "MATCH (a:Person)-[r:KNOWS]-(b:Person) RETURN b.name",
++    "MATCH (a:Person)-[r:KNOWS]->(b:Person) WHERE b.age > 30 RETURN b",
++];
++
++/// Prints `lower_to_sql` output for each golden query. Run with `--nocapture`
++/// before touching `lower_fixed_expand` and paste the output into
++/// `expected_binary_sql` below. Not a red/green driver: this printer always
++/// passes, by construction.
++#[test]
++#[ignore]
++fn print_binary_sql_goldens() {
++    for query in BINARY_GOLDEN_QUERIES {
++        println!("---\n{query}\n{}\n", lower_to_sql(query));
++    }
++}
++
++/// SQL recorded by running `print_binary_sql_goldens` against the
++/// direction-based `lower_fixed_expand`, before role-based lowering
++/// replaced it. Frozen: if role-based lowering disagrees, the lowering is
++/// wrong, not this map.
++fn expected_binary_sql(query: &str) -> &'static str {
++    match query {
++        "MATCH (a:Person)-[r:KNOWS]->(b:Person) RETURN b.name" => {
++            r#"SELECT q.b4 AS "b.name" FROM (SELECT q.b3_p1 AS b4 FROM (SELECT q.* FROM (SELECT q.*, r."id" AS b2, 2 AS b2_source, n."id" AS b3, 1 AS b3_source, n."name" AS b3_p1 FROM (SELECT n."id" AS b1, 1 AS b1_source FROM "people" AS n) AS q JOIN "relationships" AS r ON r."src" = q.b1 JOIN "people" AS n ON n."id" = r."dst") AS q WHERE TRUE) AS q) AS q"#
++        }
++        "MATCH (a:Person)<-[r:KNOWS]-(b:Person) RETURN b.name" => {
++            r#"SELECT q.b4 AS "b.name" FROM (SELECT q.b3_p1 AS b4 FROM (SELECT q.* FROM (SELECT q.*, r."id" AS b2, 2 AS b2_source, n."id" AS b3, 1 AS b3_source, n."name" AS b3_p1 FROM (SELECT n."id" AS b1, 1 AS b1_source FROM "people" AS n) AS q JOIN "relationships" AS r ON r."dst" = q.b1 JOIN "people" AS n ON n."id" = r."src") AS q WHERE TRUE) AS q) AS q"#
++        }
++        "MATCH (a:Person)-[r:KNOWS]-(b:Person) RETURN b.name" => {
++            r#"SELECT q.b4 AS "b.name" FROM (SELECT q.b3_p1 AS b4 FROM (SELECT q.* FROM (SELECT q.*, r."id" AS b2, 2 AS b2_source, n."id" AS b3, 1 AS b3_source, n."name" AS b3_p1 FROM (SELECT n."id" AS b1, 1 AS b1_source FROM "people" AS n) AS q JOIN "relationships" AS r ON (r."src" = q.b1 OR r."dst" = q.b1) JOIN "people" AS n ON n."id" = CASE WHEN r."src" = q.b1 THEN r."dst" ELSE r."src" END) AS q WHERE TRUE) AS q) AS q"#
++        }
++        "MATCH (a:Person)-[r:KNOWS]->(b:Person) WHERE b.age > 30 RETURN b" => {
++            r#"SELECT q.b4 AS "b" FROM (SELECT q.b3 AS b4 FROM (SELECT q.* FROM (SELECT q.* FROM (SELECT q.*, r."id" AS b2, 2 AS b2_source, n."id" AS b3, 1 AS b3_source, n."age" AS b3_p2 FROM (SELECT n."id" AS b1, 1 AS b1_source FROM "people" AS n) AS q JOIN "relationships" AS r ON r."src" = q.b1 JOIN "people" AS n ON n."id" = r."dst") AS q WHERE TRUE) AS q WHERE (q.b3_p2) > (30)) AS q) AS q"#
++        }
++        other => panic!("no recorded golden SQL for {other}"),
++    }
++}
++
++#[test]
++fn role_lowering_emits_byte_identical_sql_for_a_two_role_relation() {
++    // Binary is a layout of the role model. If role lowering produces even a
++    // different alias or predicate order, every donor query's plan shifts and
++    // the corpus number stops meaning what it meant.
++    for query in BINARY_GOLDEN_QUERIES {
++        assert_eq!(
++            lower_to_sql(query),
++            expected_binary_sql(query),
++            "role lowering changed the SQL for {query}"
++        );
++    }
++}
++
++/// A three-role relation (`scribe`, `folio`, `txt`), all `One` cardinality,
++/// registered exactly as any relation is: through
++/// `RelationalCatalogSnapshot`, with no arity-3 special case anywhere in the
++/// fixture or in the lowering it exercises.
++struct TernaryCatalog;
++
++impl RelationalCatalogSnapshot for TernaryCatalog {
++    fn node_layout(&self, source: SourceTableId) -> Option<NodeTableLayout> {
++        match source.get() {
++            1 => Some(NodeTableLayout {
++                table: "scribes".to_owned(),
++                identity_column: "id".to_owned(),
++            }),
++            2 => Some(NodeTableLayout {
++                table: "folios".to_owned(),
++                identity_column: "id".to_owned(),
++            }),
++            _ => None,
++        }
++    }
++
++    fn relationship_layout(&self, source: SourceTableId) -> Option<RelationshipTableLayout> {
++        (source.get() == 10).then(|| RelationshipTableLayout {
++            table: "transcriptions".to_owned(),
++            identity_column: "id".to_owned(),
++            roles: vec![
++                RelationshipRoleLayout {
++                    role: RoleId::new(1).unwrap(),
++                    name: "scribe".to_owned(),
++                    column: "scribe".to_owned(),
++                    cardinality: RoleCardinality::One,
++                    spill_table: None,
++                },
++                RelationshipRoleLayout {
++                    role: RoleId::new(2).unwrap(),
++                    name: "folio".to_owned(),
++                    column: "folio".to_owned(),
++                    cardinality: RoleCardinality::One,
++                    spill_table: None,
++                },
++                RelationshipRoleLayout {
++                    role: RoleId::new(3).unwrap(),
++                    name: "txt".to_owned(),
++                    column: "txt".to_owned(),
++                    cardinality: RoleCardinality::One,
++                    spill_table: None,
++                },
++            ],
++        })
++    }
++
++    fn property_column(&self, _source: SourceTableId, _property: PropertyId) -> Option<String> {
++        None
++    }
++}
++
++/// Lowers a hand-built `ir::FixedExpand` over [`TernaryCatalog`]'s
++/// `scribe -> folio` role pair. `_query` documents the surface syntax this
++/// stands in for (`[x:Transcription](scribe: s, folio: f)`, not yet parsable
++/// -- that lands in Task 12); the plan below is built directly so this test
++/// does not depend on that syntax landing first.
++fn lower_ternary_to_sql(_query: &str) -> String {
++    let scribe_source = SourceTableId::new(1).unwrap();
++    let folio_source = SourceTableId::new(2).unwrap();
++    let relationship_source = SourceTableId::new(10).unwrap();
++    let scribe_role = RoleId::new(1).unwrap();
++    let folio_role = RoleId::new(2).unwrap();
++
++    let from_binding = BindingId::new(1).unwrap();
++    let relationship_binding = BindingId::new(2).unwrap();
++    let to_binding = BindingId::new(3).unwrap();
++
++    let from_var = Binding::new(from_binding, "s", ValueType::Node, Nullability::NonNull).unwrap();
++    let relationship_var = Binding::new(
++        relationship_binding,
++        "x",
++        ValueType::Relationship,
++        Nullability::NonNull,
++    )
++    .unwrap();
++    let to_var = Binding::new(to_binding, "f", ValueType::Node, Nullability::NonNull).unwrap();
++
++    let scan = Plan::new(
++        PlanKind::NodeScan(NodeScan {
++            graph: GraphId::new(1).unwrap(),
++            source: scribe_source,
++            binding: from_binding,
++            labels: vec![],
++        }),
++        Scope::new(vec![from_var.clone()]).unwrap(),
++        ResultShape::default(),
++    )
++    .unwrap();
++
++    let expand = Plan::new(
++        PlanKind::FixedExpand(FixedExpand {
++            input: Box::new(scan),
++            from_node_source: scribe_source,
++            relationship_source,
++            target_node_source: folio_source,
++            from: from_binding,
++            relationship: relationship_var.clone(),
++            to: to_var.clone(),
++            direction: Direction::Outgoing,
++            from_role: scribe_role,
++            to_role: folio_role,
++            symmetric: false,
++            relationship_types: vec![],
++            bound_target: None,
++        }),
++        Scope::new(vec![from_var, relationship_var, to_var]).unwrap(),
++        ResultShape::default(),
++    )
++    .unwrap();
++
++    lower_relational(&expand, &TernaryCatalog)
++        .expect("ternary hop must lower")
++        .to_string()
++}
++
++#[test]
++fn a_ternary_hop_lowers_through_the_named_role_pair() {
++    // Direction-based lowering has only start and end to name, so a
++    // scribe -> folio hop is inexpressible: it would silently lower as
++    // start -> end and return the text instead of the folio.
++    let sql = lower_ternary_to_sql("MATCH [x:Transcription](scribe: s, folio: f) RETURN f.id");
++    assert!(
++        sql.contains("scribe"),
++        "the from role must name its own column: {sql}"
++    );
++    assert!(
++        sql.contains("folio"),
++        "the to role must name its own column: {sql}"
++    );
++    assert!(
++        !sql.contains("txt"),
++        "the unnamed text role must not be joined: {sql}"
++    );
++}
