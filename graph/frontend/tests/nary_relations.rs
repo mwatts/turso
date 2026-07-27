@@ -97,6 +97,45 @@ fn a_three_role_relation_writes_one_row_with_three_endpoint_columns() {
     );
 }
 
+/// The standalone role pattern reads a relation's own properties back by
+/// role-qualified binding, proving the `MATCH` form actually matches the
+/// row `CREATE` wrote (not merely that it parses): naming all three roles
+/// resolves the relation variable `x`, whose `year` property is readable
+/// without ambiguity because this graph registers exactly one relationship
+/// source. (Reading the *node* players' own properties, e.g. `s.id`, is not
+/// available on this fixture -- see `fixture::ternary_session`'s doc
+/// comment: property resolution without a semantic schema requires exactly
+/// one node source, and this graph has three.)
+#[test]
+fn a_match_role_pattern_reads_a_three_role_relation() {
+    let (database, session) = fixture::ternary_session();
+    let seed = fixture::second_connection(&database);
+    let graph = load_registered_graph(&seed, "scriptorium").expect("load registered graph");
+    seed_node(&seed, &graph, "Person", "people", 1);
+    seed_node(&seed, &graph, "Text", "texts", 2);
+    seed_node(&seed, &graph, "Folio", "folios", 3);
+
+    session
+        .execute(
+            "MATCH (p:Person), (t:Text), (f:Folio) \
+             CREATE [x:Transcription {year: 1387}](scribe: p, text: t, folio: f)",
+            &Parameters::new(),
+        )
+        .expect("create the three-role relation");
+
+    let rows = session
+        .query(
+            "MATCH [x:Transcription](scribe: s, text: doc, folio: f) RETURN x.year",
+            &Parameters::new(),
+        )
+        .expect("read the three-role relation back by role name");
+    assert_eq!(
+        rows,
+        vec![vec![Value::from_i64(1387)]],
+        "naming all three roles must still match the one row CREATE wrote"
+    );
+}
+
 #[test]
 fn the_same_player_may_fill_two_roles_of_one_relation() {
     // Nothing may assume role players are distinct: a scribe transcribing
@@ -1272,6 +1311,58 @@ fn the_role_arrow_is_only_available_from_a_relation_binding() {
     assert!(message.contains("relationship type"), "{message}");
     assert!(message.contains("start"), "{message}");
     assert!(!message.contains("Person"), "{message}");
+}
+
+/// The arrow-form read path (fixed-hop `RoleExpand` and, when a `*` range
+/// is present, `GraphExpand`) discovers candidate relationship sources
+/// through `relationship_endpoint_sources`, which resolves a source's
+/// physical endpoints from roles literally named `start`/`end`
+/// (`schema_catalog.rs::relationship_endpoint_sources`). A type without
+/// that pair -- like `ternary_session`'s `Transcription`
+/// (`scribe`/`text`/`folio`, no `start`/`end`) -- is filtered out before
+/// the arrow form ever considers it, so it is bound exactly as if no
+/// relationship type by that name related these two node types at all:
+/// `BindError::MissingSource { entity: "compatible relationship" }`, not a
+/// role-specific error. Reaching that role pair requires the standalone
+/// role pattern instead (`[x:Transcription](scribe: s, text: t, folio: f)`).
+/// This is a schema-only check -- it fails at bind time even with no rows
+/// in the database.
+#[test]
+fn an_arrow_form_expand_requires_a_start_and_end_role_pair() {
+    let (_database, session) = fixture::ternary_session();
+
+    let error = session
+        .query(
+            "MATCH (p:Person)-[:Transcription]->(t:Text) RETURN t.id",
+            &Parameters::new(),
+        )
+        .expect_err("Transcription has no start/end role pair, so the arrow form must not bind");
+    let message = error.to_string();
+    assert!(message.contains("compatible relationship"), "{message}");
+}
+
+/// The arrow-form *write* path (`CREATE (a)-[:TYPE]->(b)`) resolves the
+/// same way, looking up roles literally named `start`/`end`
+/// (`binder.rs:1697-1717`) regardless of what roles the type actually
+/// declares. A type without that pair -- like `Transcription` -- must be
+/// created through the standalone role pattern instead.
+#[test]
+fn an_arrow_form_create_requires_a_start_and_end_role_pair() {
+    let (database, session) = fixture::ternary_session();
+    let seed = fixture::second_connection(&database);
+    let graph = load_registered_graph(&seed, "scriptorium").expect("load registered graph");
+    seed_node(&seed, &graph, "Person", "people", 1);
+    seed_node(&seed, &graph, "Text", "texts", 2);
+
+    let error = session
+        .execute(
+            "MATCH (p:Person), (t:Text) CREATE (p)-[:Transcription]->(t)",
+            &Parameters::new(),
+        )
+        .expect_err("Transcription has no start/end role pair, so the arrow form must not bind");
+    let message = error.to_string();
+    assert!(message.contains("start"), "{message}");
+    assert!(message.contains("role"), "{message}");
 }
 
 /// A minimal, database-free catalog where the name `"Ambiguous"` resolves as

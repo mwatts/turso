@@ -35,7 +35,7 @@ Implement an opt-in semantic-schema overlay for the Turso graph frontend that de
 This stream adopts useful **data semantics** associated with TypeDB, not its language or storage implementation:
 
 - conceptual entity, relation, and attribute/property types;
-- schema-defined ownership and binary endpoint participation;
+- schema-defined ownership and role participation (`start`/`end`, in this overlay's constraint system);
 - semantic validation of reads and writes;
 - later, fragment-interface polymorphism (polymorphic scans over composed
   fragment interfaces — see the amended Milestone 3) and constraints.
@@ -51,7 +51,7 @@ The smallest worthwhile delivery is Milestones 1 and 2 below. Later milestones a
 - `SchemaCatalog::property` currently resolves against the first source table for an entity kind and uses physical column ordinal + 1 as `PropertyId`.
 - `GraphCatalogSnapshot` resolves a single default node and relationship source. Although `relationship_sources` exists, binder paths still commonly call the singular methods.
 - `RelationalCatalogSnapshot` is the correct physical-layout seam: stable source/property identities become table and column names only during lowering.
-- `NodeScan`, `FixedExpand`, `CreateNode`, and `CreateRelationship` carry physical `SourceTableId`s. `CreateRelationship` and expansion IR are explicitly binary (`from`/`to`, start/end columns).
+- `NodeScan`, `FixedExpand`, `CreateNode`, and `CreateRelationship` carry physical `SourceTableId`s. `CreateRelationship` and expansion IR now resolve named roles generally (a role carries a `RoleId`, target types, and cardinality); the binary layout is two roles named `start`/`end`, not a separate code path (native n-ary relationships, resolved Decision gate B below).
 - `GraphConnection::open` constructs one `SchemaCatalog`, shared by binder and lowerer. `GraphCompiler` owns read compilation; mutation binding and execution use the same catalog boundary.
 - `DynamicCatalog` in `graph/testkit/src/dynamic_catalog.rs` intentionally provisions schemaless donor labels, relationship types, and columns. It is a compatibility adapter, not the semantic-schema implementation.
 - `GRAPH_CATALOG_VERSION` participates in traversal-snapshot compatibility. It is not presently a general catalog migration framework.
@@ -89,16 +89,26 @@ A **semantic property** is a graph-scoped stable identity and name. An ownership
 - `ValueType` and nullability MUST be derived through the existing core schema classification in `SchemaCatalog`, not duplicated in a second serialized type system.
 - If one semantic property is owned by multiple types, all mapped columns MUST resolve to compatible graph value types. Registration fails otherwise.
 - Property IDs MUST be stable catalog IDs, not column ordinals.
-- Structural identity and relationship endpoint columns MUST NOT become payload properties accidentally.
+- Structural identity and relationship role columns (or role spill tables, for many-valued roles) MUST NOT become payload properties accidentally.
 
-### Binary endpoint participation
+### Role participation (start/end scope)
 
-Milestone 2 validates the useful subset of role semantics that fits current storage:
+`SemanticRelationshipType` itself declares general named roles
+(`roles: Vec<SemanticRoleRegistration>`, with a `binary()` convenience
+constructor for the two-role `start`/`end` layout) — this is no longer
+start/end-only. What Milestone 2 actually validates is narrower: this
+overlay's own relationship-cardinality *constraint* system:
 
-- a semantic relationship type declares allowed semantic node types for its start and end endpoint;
-- the constraints lower onto the existing `start`/`end` columns and `from`/`to` IR;
-- no public claim is made that `start` and `end` are general named role interfaces;
-- arbitrary role names, repeated role players, relation-to-relation participation, and n-ary relations need no native support: they compose from Milestones 1-2 primitives by catalog-level reification (a relation node type plus one endpoint-constrained binary edge type per role — see the amended Decision Gate B). Only native single-hop n-ary storage remains deferred.
+- a semantic relationship cardinality constraint declares allowed semantic
+  node types for a `start` or `end` role (`SemanticEndpoint` in
+  `semantic_constraints.rs` has only those two variants);
+- the constraints lower onto the relationship's `start`/`end` roles
+  specifically — the two-role layout every binary relation still uses;
+- no public claim is made that this overlay's cardinality constraints reach
+  general named roles; extending `SemanticEndpoint` past `start`/`end`
+  remains a deferred limitation of this constraint system, not of the
+  underlying graph frontend (which supports native n-ary relationships —
+  see the resolved Decision gate B below).
 
 ### Compatibility modes
 
@@ -123,7 +133,7 @@ Deliver an additive semantic catalog and snapshot representation:
    - semantic type-to-source mapping;
    - semantic properties: graph, stable ID, and case-insensitive name;
    - property ownership: owner type, property, source, and physical column;
-   - binary endpoint constraints: relationship type, endpoint (`start` or `end`), allowed node type.
+   - start/end role constraints (this overlay's cardinality-constraint scope only): relationship type, role (`start` or `end`), allowed node type.
 3. Add a separate `register_semantic_schema` API. Registration is idempotent for an identical definition and atomic: validate the complete definition before publishing any rows.
 4. Materialize one immutable catalog snapshot per graph preparation context. Name resolution MUST return conceptual identity plus the physical source candidates required by current IR.
 5. Keep physical names exclusively behind `RelationalCatalogSnapshot`.
@@ -142,7 +152,7 @@ Deliver strict validation only for graphs with a registered semantic schema:
 3. On `CREATE`/`MERGE`, require exactly one known semantic type. All semantic types are concrete in every milestone; fragments (Milestone 3) are interfaces and are never instantiable, so no abstract-type state exists in the registration API at any point.
 4. On `SET`, map replacement, property removal, `ON CREATE`, `ON MATCH`, and nested mutation stages, validate ownership against the target binding's possible semantic types.
 5. Check statically known expression types in the binder. Parameters, `Any`, and dynamically produced map values MUST also be checked against the resolved property type at execution before physical SQL mutation.
-6. Validate binary relationship endpoints against start/end allowed node types. Direction reversal MUST swap endpoint checks correctly.
+6. Validate this overlay's `start`/`end` role constraints against allowed node types. Direction reversal MUST swap `start`/`end` checks correctly. (General role target-type validation for non-`start`/`end` roles is enforced by the graph frontend's own binder, independent of this overlay's constraint system.)
 7. Dynamic map replacement MUST reject unknown or unowned keys before changing any row. Multi-operation mutation validation MUST be atomic within the existing Turso transaction.
 8. Return typed errors with semantic type/property names and source spans for binder failures. Runtime failures MUST identify the property/type and abort the mutation.
 
@@ -167,7 +177,7 @@ Milestone 2 does **not** introduce required/cardinality/key/unique/value constra
 > special case, and reparenting as a future evolution hazard. Full
 > The downstream mapping and rationale are now maintained in the Foedus-owned
 > ontology-store design:
-> `foedus/docs/superpowers/specs/2026-07-23-turso-ontology-store-design.md`.
+> `foedus/docs/superpowers/specs/2026-07-25-turso-ontology-evolution-design.md`.
 
 **Entry condition: satisfied.** Milestones 1–2 were merged and measured before
 this milestone was implemented.
@@ -190,8 +200,9 @@ this milestone was implemented.
    includes all member types. Prefer composing existing per-source scans
    with `Union`; introduce a new IR operator only if an executable plan
    proves `Union` cannot preserve identity/scope semantics.
-5. Endpoint constraints may reference a fragment; this expands at
-   registration (or snapshot) time to the fragment's member-type set.
+5. This overlay's start/end role constraints may reference a fragment; this
+   expands at registration (or snapshot) time to the fragment's member-type
+   set.
 6. Fragments are never instantiable. `CREATE`/`MERGE` still requires
    exactly one concrete semantic type; a fragment label alone is a typed
    error.
@@ -242,50 +253,11 @@ Do not implement as part of Milestones 1-4. Produce an ADR before proceeding tha
 
 Approval requires a workload that benefits from querying attributes as graph objects. A catalog-only imitation without instance semantics is not sufficient.
 
-### Decision gate B — native n-ary storage (narrowed)
+### Decision gate B — resolved
 
-> **Amendment (2026-07-22).** This gate originally deferred all named
-> and n-ary relation semantics. It now covers only native single-hop
-> n-ary *storage and IR*.
->
-> **What reification means (for readers new to the term).** To reify a
-> relationship is to represent it as a node instead of an edge. An edge
-> connects exactly two nodes and nothing can point at it; a node has
-> neither limit. So a relationship that needs more than two
-> participants, optional participants, or participation in another
-> relationship becomes a node carrying the relationship's identity and
-> payload, and each participant connects to that node through one
-> binary edge named for its role. Example: a marriage fits an edge
-> (`(a)-[:MARRIED_TO]->(b)`), but a wedding — two spouses, an
-> officiant, an optional venue — becomes a `Wedding` node with one
-> role-named edge per participant. The graph engine does not change;
-> the modeling does, and plain Cypher expresses all of it.
->
-> Decision record: named roles, three or more participants, optional
-> roles, repeated role players, and relation-to-relation participation
-> all compose from Milestones 1-2 primitives this way — register the
-> relation as a node type owning the relation payload, plus one
-> endpoint-constrained binary edge type per role. This requires zero
-> new frontend code, and it is stronger than the binary surface on
-> relation-to-relation participation, which a plain edge can never
-> express. Cypher has no n-ary edge syntax, so native storage would not
-> change what users can write; it would only collapse player-to-player
-> traversal from two indexed hops to one. Full explanation, worked
-> example, and adapter rules are now maintained in the Foedus-owned
-> ontology-store design:
-> `foedus/docs/superpowers/specs/2026-07-23-turso-ontology-store-design.md`.
-
-Defer native storage. Current IR and storage are binary:
-`CreateRelationship`, `FixedExpand`, relationship layouts, and source
-registrations all have start/end endpoints.
-
-Before native storage is implemented, an ADR MUST measure a real
-workload where the reified two-hop traversal cost is unacceptable, and
-MUST define role identity, repeated roles, relation-to-relation
-participation, n-ary storage, mutation syntax, traversal semantics, and
-lowering/runtime impact. Role cardinality on reified relations is
-enforceable physically today (unique index on a role table's start
-column) and becomes semantic with Milestone 4.
+Resolved by native n-ary relationships: relationships now declare named
+roles directly (no reification, no separate binary code path), per
+`docs/superpowers/specs/2026-07-25-native-nary-relationships-design.md`.
 
 ### Decision gate C — inference and rules
 
@@ -318,7 +290,7 @@ Defer. First design reusable, typed, table-valued graph functions with recursion
 | Additive semantic catalog | `graph/frontend/src/catalog.rs` or a focused sibling module | Rust | Tables and registration API are additive, atomic, idempotent for identical input, and reject invalid mappings before writes. |
 | Semantic catalog snapshot | `graph/frontend/src/schema_catalog.rs` or focused sibling | Rust | Conceptual resolution is independent of table/source spelling; physical layouts remain behind `RelationalCatalogSnapshot`. |
 | Binder semantic typing | `graph/frontend/src/binder.rs` | Rust | Read and mutation bindings retain possible semantic type sets and emit typed span-bearing ownership/ambiguity errors. |
-| Runtime write validation | `graph/frontend/src/mutation.rs` | Rust | Dynamic values/maps and binary endpoints are validated before mutation; failures leave data unchanged. |
+| Runtime write validation | `graph/frontend/src/mutation.rs` | Rust | Dynamic values/maps and start/end role constraints (this overlay's scope) are validated before mutation; failures leave data unchanged. |
 | Public additive API | `graph/frontend/src/lib.rs` | Rust | Existing `GraphRegistration` callers compile unchanged; semantic registration has documented types and errors. |
 | Regression tests | inline tests plus `graph/frontend/tests/` | Rust | Cover catalog, binder, executor, atomicity, compatibility, and physical/conceptual name independence. |
 | User documentation | `docs/graph.md` and concise link/update in `graph/README.md` | Markdown | Explains opt-in guarantees and explicit non-goals without TypeDB compatibility claims. |
@@ -335,7 +307,7 @@ At minimum add tests for:
 6. Valid typed reads, property predicates, creates, merges, sets, removals, replacements, `ON CREATE`, and `ON MATCH`.
 7. Bind-time rejection of unowned properties, ambiguous targets, missing/unknown mutation types, and wrong statically known values.
 8. Runtime rejection for wrong parameter values and dynamic map keys/values, with zero partial writes.
-9. Relationship endpoint validation in outgoing and incoming syntax.
+9. Relationship start/end role validation in outgoing and incoming syntax.
 10. Catalog reload across a new connection and stale traversal-snapshot invalidation/rebuild if the catalog version changes.
 11. Schemaless donor adapter and existing graph frontend suites remain green.
 
@@ -359,7 +331,7 @@ At minimum add tests for:
 - Add TypeQL parsing, TypeQL syntax, or a TypeQL compatibility layer.
 - Claim TypeDB, PERA, hypergraph, role-interface, or inference compatibility.
 - Change canonical graph storage from user-owned Turso tables in Milestones 1-2.
-- Represent first-class attribute instances, multi-valued ownership, native n-ary relations, or relation-to-relation roles.
+- Represent first-class attribute instances or multi-valued ownership. (Native n-ary relations and relation-to-relation role players are now supported at the storage layer — see the resolved Decision gate B — so this MUST NOT no longer applies to them; this overlay's own cardinality-constraint system remains `start`/`end`-scoped.)
 - Add an IR operator before proving existing `Union`/filter composition is inadequate.
 - Put physical table/column names into graph IR.
 - Create a second independent primitive/custom type classifier.
@@ -449,9 +421,9 @@ Each slice is scoped to at most about 35 minutes of focused agent work. Complete
 - Cover create properties, set/remove, literal map replacement, and merge branches.
 - Add static type compatibility checks without rejecting `Any` prematurely.
 
-### Slice 2.6: validate binary endpoints
+### Slice 2.6: validate start/end role constraints
 
-- Check start/end permitted semantic types for both directions.
+- Check start/end permitted semantic types for both directions (this overlay's cardinality-constraint scope; see "Role participation (start/end scope)" above).
 - Add targeted relationship creation and merge tests.
 
 ## Phase 3 — runtime dynamic-value validation
@@ -554,7 +526,7 @@ Validation recorded on 2026-07-23:
   than a shared sparse table.
 - [x] Milestone 3 entry: Milestones 1-2 have a reviewed public API and prepare-time measurements, and multi-source support landed first.
 - [x] Milestone 4 entry: fragment-interface polymorphism semantics and the direct-SQL enforcement policy are explicit.
-- First-class attributes, n-ary relations, and inference each require their named ADR decision gate.
+- First-class attributes and inference each require their named ADR decision gate; native n-ary relationships resolved Decision gate B (see above) and no longer need one.
 
 ## Failure conditions
 
@@ -565,7 +537,7 @@ Validation recorded on 2026-07-23:
 - Multiple semantic types share a source but binder/lowering silently chooses the wrong physical mapping.
 - Endpoint checks ignore query direction.
 - Catalog changes can leave existing snapshots apparently current with incompatible IDs.
-- The implementation introduces TypeQL, attribute-instance storage, native n-ary relations, or inference.
+- The implementation introduces TypeQL, attribute-instance storage, or inference beyond what Milestones 1-4 specify. (Native n-ary relations are now supported elsewhere in the graph frontend — Decision gate B, resolved — so this failure condition no longer covers them system-wide; it still applies to this overlay's own start/end-scoped constraint system silently overclaiming coverage.)
 - Documentation implies TypeDB/PERA compatibility.
 
 # RISKS AND MITIGATIONS
@@ -580,7 +552,7 @@ Validation recorded on 2026-07-23:
 | Direct SQL bypass | Catalog promises exceed enforcement | Reuse native constraints where exact and document graph-frontend-only guarantees until ownership enforcement exists. |
 | Binder complexity | Large regressions in current Cypher support | Add semantic mode behind the catalog boundary and preserve explicit legacy resolution. |
 | Hot-path catalog queries | Prepare latency regression | Build immutable maps once and benchmark snapshot/open plus prepare. |
-| Premature hypergraph design | Large storage/IR rewrite with no proven workload | Keep binary endpoint subset; require ADR for native roles/n-ary relations. |
+| Premature hypergraph design | Large storage/IR rewrite with no proven workload | Historical mitigation (superseded): kept this overlay's constraints to `start`/`end` roles pending an ADR. Native n-ary relationships landed separately (Decision gate B, resolved); this overlay's own constraint system stays `start`/`end`-scoped. |
 
 # NOTES
 

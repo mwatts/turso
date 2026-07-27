@@ -43,15 +43,9 @@ register_graph(
             table: "people".to_owned(),
             identity_column: "id".to_owned(),
         }],
-        relationship_sources: vec![RelationshipSourceRegistration {
-            name: "KNOWS".to_owned(),
-            table: "knows".to_owned(),
-            identity_column: "id".to_owned(),
-            start_column: "src".to_owned(),
-            end_column: "dst".to_owned(),
-            start_node_source: "Person".to_owned(),
-            end_node_source: "Person".to_owned(),
-        }],
+        relationship_sources: vec![RelationshipSourceRegistration::binary(
+            "KNOWS", "knows", "id", "src", "dst", "Person", "Person",
+        )],
     },
 )?;
 
@@ -68,9 +62,94 @@ Registration is persistent: on later runs, skip step 2 and call
 and `graph_generation` are available for introspection.
 
 Identity columns must be `PRIMARY KEY` or `UNIQUE`. A graph may register
-multiple node and relationship sources. Relationship sources name the node
-source stored at each endpoint, so identities are table-local coordinates:
-equal numeric identities in two source tables remain distinct graph entities.
+multiple node and relationship sources. `binary(...)` above is a convenience
+constructor for the common two-role case; a relationship source can instead
+declare any number of named roles directly — see "Roles" below. Either way,
+identities are table-local coordinates: equal numeric identities in two
+source tables remain distinct graph entities.
+
+## Roles
+
+Every relationship source declares one or more named **roles**. Each role has
+a list of target source names it may point at, whether it is optional, and a
+**cardinality** — `One` (a single player) or `Many` (players spill into a side
+table named `<table>__<role>`). `RelationshipSourceRegistration::binary(...)`
+used in the Quickstart above is a convenience constructor, not a separate
+code path: it registers a two-role relation with the roles named `start` and
+`end`. **Binary is a layout of the role model, not a separate kind** — there
+is no `is_binary` flag and no branching on arity anywhere in the general
+machinery. Roles resolve by declared name or `RoleId`, never by position or
+count.
+
+A relation with roles other than `start`/`end` (or with more than two roles)
+is registered and queried with the standalone role-pattern syntax. Given a
+`Transcription` relationship source with `scribe`/`text`/`folio` roles over
+plain `Person`/`Text`/`Folio` node sources:
+
+```cypher
+MATCH (p:Person), (t:Text), (f:Folio)
+CREATE [x:Transcription {year: 1387}](scribe: p, text: t, folio: f)
+
+MATCH [x:Transcription](scribe: s, text: doc, folio: f) RETURN x.year
+```
+
+(`graph/frontend/tests/nary_relations.rs::a_three_role_relation_writes_one_row_with_three_endpoint_columns`
+and `a_match_role_pattern_reads_a_three_role_relation` run the create and
+match forms end to end against exactly this schema — `fixture::ternary_session`.
+That fixture has three node sources and no semantic schema, so it cannot
+resolve a *node* player's own properties, e.g. `s.id` — reading a role
+player's properties this way needs either a semantic schema or a graph with
+one node source per property name, same as any other Cypher property read.)
+
+`[x:Type {props}](role: player, role2: player2, …)` both creates a relation
+instance and matches one: each parenthesized role list names a role and
+binds (or requires) its player(s); role arguments bind by name, not by the
+order they're written
+(`role_arguments_bind_by_name_regardless_of_source_order`). The familiar
+arrow forms — `(a)-[:KNOWS]->(b)` for CREATE and `(x:TYPE)-[:role]->(player)`
+for a read off an already-bound relation — are sugar over the same
+`RoleJoin`/`RelationScan` machinery and bind to the identical plan as the
+standalone pattern
+(`the_role_arrow_and_the_role_pattern_bind_to_the_same_plan`). Both arrow
+forms only work when the relation has roles literally named `start` and
+`end`: `RelationshipSourceRegistration::binary(...)`'s two roles, or any
+relation source that happens to declare roles by those names. A relation
+without that pair — like the ternary `Transcription` above — cannot be
+created or traversed with an arrow at all: attempting one fails at bind
+time before touching any row
+(`an_arrow_form_create_requires_a_start_and_end_role_pair`,
+`an_arrow_form_expand_requires_a_start_and_end_role_pair`) and must use the
+standalone pattern instead. This applies to `RoleExpand` (fixed-hop) and
+`GraphExpand` (variable-length, `*`/`*min..max`) traversal too — both
+discover candidate relationship sources through the same `start`/`end`
+lookup, so a relation needs that literal role pair before it can be
+traversed with an arrow in either form.
+
+Reading a role by name off an already-bound relation is also available as
+arrow-form sugar — `(x:KNOWS)-[:end]->(e)` resolves the `end` role's player,
+including through a `Many` role
+(`an_arrow_from_a_relation_reads_that_relations_role`,
+`a_many_role_hops_from_the_arrow_sugar_too`). When a name is both a role of
+the anchored relation type and a separate relationship type name, binding
+rejects the query as ambiguous rather than guessing which one was meant
+(`a_name_that_is_both_a_role_and_a_relationship_type_is_ambiguous`).
+
+`SET` on a role **replaces** rather than appends for a `Many`-cardinality
+role: `SET [r](witness: w3)` sets `r`'s entire `witness` player set to
+`{w3}`, discarding whoever was there before — it is not an add
+(`setting_a_many_valued_role_replaces_rather_than_appends`).
+
+A relation may itself fill another relation's role: whether it may depends
+entirely on that role's declared target list (a role can target node
+sources, relation sources, or both), with no separate "relation-as-player"
+code path — it is decided the same way a role's node-source targets are, by
+membership in `targets`. For example, a `Citation` relationship type whose
+`cited` role targets `Transcription` (a relation, not a node) accepts a
+transcription's own relation identity as its `cited` player
+(`a_relation_may_be_a_player_of_another_relation`, `fixture::citation_session`).
+
+`graph/frontend/tests/nary_relations.rs` is the executable reference for this
+section's exact syntax and refusal wording.
 
 ## Open modes and Core seams
 
@@ -169,15 +248,13 @@ register_semantic_schema(
                 ],
             },
         ],
-        relationship_types: vec![
-            SemanticRelationshipType {
-                name: "KNOWS".to_owned(),
-                source: "KNOWS".to_owned(),
-                start: vec!["Person".to_owned()],
-                end: vec!["Person".to_owned()],
-                properties: Vec::new(),
-            },
-        ],
+        relationship_types: vec![SemanticRelationshipType::binary(
+            "KNOWS",
+            "KNOWS",
+            vec!["Person".to_owned()],
+            vec!["Person".to_owned()],
+            Vec::new(),
+        )],
     },
 )?;
 ```
@@ -193,7 +270,9 @@ Once a graph has semantic rows, Cypher uses strict semantic mode:
 
 - node creation and merge require exactly one known semantic node type;
 - relationship creation and merge require exactly one semantic relationship
-  type and validate its start/end node types;
+  type and validate every one of its declared roles' target types — `start`
+  and `end` under the binary layout, or any other role name for an n-ary
+  type;
 - each semantic type routes reads and writes to its declared physical source;
 - unlabeled node and untyped relationship patterns union all compatible source
   branches without deduplicating table-local identities;
@@ -255,9 +334,10 @@ Fragments are interfaces, not abstract node instances: `CREATE` and `MERGE`
 still require one explicit concrete node type. A concrete label may be
 accompanied only by fragments that type carries.
 
-Relationship endpoint constraints may name a fragment. Registration expands
-that fragment to its concrete member-type set, while still checking that every
-member is compatible with the relationship source's physical endpoint.
+A role's target list may name a fragment. Registration expands that fragment
+to its concrete member-type set, while still checking that every member is
+compatible with the relationship source's physical role column (or spill
+table, for a `Many` role).
 
 The fragment-aware call can also add the first fragment definition to an
 already registered semantic schema when the supplied base schema is identical.
@@ -374,9 +454,12 @@ match.
 If all writers must preserve semantic integrity, route writes through Cypher or
 enforce the same rules with physical schema constraints under application
 control. Database-wide protection of owned backing tables,
-fragment-membership removal, non-additive constraint evolution, and native
-n-ary relationships remain deferred. This overlay does not claim TypeDB,
-TypeQL, or PERA compatibility.
+fragment-membership removal, and non-additive constraint evolution remain
+deferred. So does role cardinality constraint validation past `start`/`end` —
+the semantic overlay's own cardinality constraints (`SemanticEndpoint`) cover
+only the two-role binary layout, even though the frontend's general role
+model natively supports n-ary relationships (see "Roles" above). This overlay
+does not claim TypeDB, TypeQL, or PERA compatibility.
 
 ## The session API
 
@@ -412,9 +495,10 @@ CALL db.propertyKeys() YIELD propertyKey RETURN propertyKey ORDER BY propertyKey
 
 `db.propertyKeys()` enumerates declared logical payload columns across every
 registered node and relationship source. It does not scan graph rows, so an
-empty nullable column is still reported; identity and relationship endpoint
-columns are excluded, shared names are returned once, and reserved physical
-columns such as `cyprop_id` are reported by their logical name (`id`).
+empty nullable column is still reported; identity and relationship role
+columns (`start`/`end` under the binary layout, or any other role's column)
+are excluded, shared names are returned once, and reserved physical columns
+such as `cyprop_id` are reported by their logical name (`id`).
 
 For a graph with a semantic schema, all three procedures use semantic catalog
 names. This includes concrete and fragment labels, relationship types, and the
@@ -468,8 +552,8 @@ graph.drop_fts_index("article_search")?;
 ```
 
 Logical names and properties are validated against the registered graph
-catalog. Identity/end-point columns and statically non-text properties are
-rejected. Configuration is bounded to 128 bytes per logical index name and 16
+catalog. Identity and relationship role columns and statically non-text
+properties are rejected. Configuration is bounded to 128 bytes per logical index name and 16
 properties. Tokenizers and weights are typed values rather than SQL fragments.
 The physical index uses a stable reserved `__turso_graph_fts_*` name, while a
 versioned internal metadata row preserves the logical definition for listing,

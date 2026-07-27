@@ -18,7 +18,7 @@
 
 ## Global Constraints
 
-- Spec: `.specs/graph-semantic-schema-overlay.agent-spec.md` — Milestones 1-2 ONLY. No fragment-interface polymorphism (that is the amended Milestone 3; there is no inheritance or abstract-type machinery in any milestone), no constraints beyond endpoint checks, no TypeQL, no attribute instances, no native n-ary storage (named/n-ary relation semantics arrive by adapter-side reification over these same Milestone 1-2 primitives — no plan impact).
+- Spec: `.specs/graph-semantic-schema-overlay.agent-spec.md` — Milestones 1-2 ONLY. No fragment-interface polymorphism (that is the amended Milestone 3; there is no inheritance or abstract-type machinery in any milestone), no constraints beyond `start`/`end` role checks, no TypeQL, no attribute instances. (Native n-ary relationships have since landed at the storage layer as their own effort — Decision gate B in the parent spec is resolved; this plan's Milestones 1-2 scope and its `start`/`end`-only constraint checks are historically accurate and unaffected.)
 - `GraphRegistration` and every existing public type MUST compile unchanged for existing callers (spec MUST, line 107). All API additions are new types/functions only.
 - Conceptual IDs (`LabelId`, `RelationshipTypeId`, `PropertyId`) are persisted catalog values in semantic mode — never source-list positions or column ordinals (spec failure conditions, lines 442-443). Never reuse `SourceTableId` as a conceptual identity.
 - Value types derive ONLY through `SchemaCatalog::column_value_type` → core `Schema::classify_column` (`graph/frontend/src/schema_catalog.rs:166-238`). No second type classifier (spec MUST NOT, line 263).
@@ -42,7 +42,7 @@
 
 **Scope note:** The `tessera-turso` adapter (lowering Tessera IR onto this API)
 is a separate Foedus-owned plan. See
-`foedus/docs/superpowers/specs/2026-07-23-turso-ontology-store-design.md` in
+`foedus/docs/superpowers/specs/2026-07-25-turso-ontology-evolution-design.md` in
 the sibling Foedus repository. The adapter depends on Tessera, `foedus-core`,
 and `turso_graph_frontend`; neither Turso nor Tessera depends on the adapter.
 This plan's obligation is only a stable, documented, additive public
@@ -1678,6 +1678,14 @@ Expected: all PASS; corpus results match the Task 1 baseline (donor `DynamicCata
 - [x] **Step 1: Documentation.** Add to `docs/graph.md`: a registration example (the Task 2 fixture verbatim), the strict-mode validation behaviors with example error messages, legacy-mode guarantee, and this exact boundary statement (spec Slice 4.2 + MUST NOT list):
 
 > Semantic schema is an opt-in overlay validated by the graph frontend. It is inspired by TypeDB's conceptual data model but is not TypeDB, TypeQL, or PERA compatible: no inheritance (polymorphism, when it arrives in Milestone 3, is composition over fragment interfaces, not subtyping), no attribute instances, no named roles or n-ary relations, and no inference. Integrity is enforced for graph-frontend reads and writes plus any physical SQL constraints on the backing tables; direct SQL against backing tables is not semantically validated.
+
+> **Superseded (2026-07-26).** Native n-ary relationships have since landed at
+> the graph-frontend storage layer (Decision gate B in the parent spec is
+> resolved); "no named roles or n-ary relations" is no longer true of the
+> frontend as a whole. `docs/graph.md`'s boundary statement has been updated
+> accordingly. This quoted text is retained verbatim as the historical record
+> of what Task 12 actually wrote for Milestones 1-2; this overlay's own
+> constraint system remains `start`/`end`-scoped.
 
 Link from `graph/README.md` in one sentence.
 
