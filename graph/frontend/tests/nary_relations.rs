@@ -787,6 +787,268 @@ fn detach_deleting_a_witness_only_person_removes_the_relation_and_spill_row() {
     );
 }
 
+/// `GATHERING` (`fixture::two_many_roles_session`) has no `One` role at
+/// all -- both `guest` and `witness` are `Many`, so every player lives only
+/// in a spill table, never a `start`/`end`-style column on the relation
+/// row. `delete_entity` must still refuse a plain `DELETE` of a still-cited
+/// guest here, exactly as it does for the single-`Many`-role case in
+/// `witnessed_session` -- there being no `One` role at all must not be
+/// mistaken by the general per-role walk for there being no roles.
+#[test]
+fn deleting_an_all_many_role_relations_guest_is_refused() {
+    let (database, session) = fixture::two_many_roles_session();
+    session
+        .execute(
+            "CREATE (:Person {id: 1}), (:Person {id: 2})",
+            &Parameters::new(),
+        )
+        .expect("seed people");
+    session
+        .execute(
+            "MATCH (g:Person {id: 1}), (w:Person {id: 2}) \
+             CREATE [x:GATHERING](guest: g, witness: w)",
+            &Parameters::new(),
+        )
+        .expect("create the all-Many-role gathering");
+
+    let error = session
+        .execute("MATCH (g:Person {id: 1}) DELETE g", &Parameters::new())
+        .expect_err("a guest still recorded in a spill table must refuse plain DELETE");
+    assert!(
+        matches!(
+            &error,
+            FrontendError::Mutation(MutationError::NodeHasRelationships)
+        ),
+        "{error:?}"
+    );
+
+    let connection = fixture::second_connection(&database);
+    assert_eq!(
+        connection
+            .prepare("SELECT count(*) FROM people WHERE id = 1")
+            .unwrap()
+            .run_collect_rows()
+            .unwrap(),
+        vec![vec![Value::from_i64(1)]],
+        "the refused delete must not remove the guest"
+    );
+    assert_eq!(
+        connection
+            .prepare("SELECT count(*) FROM gatherings__guest WHERE node_id = 1")
+            .unwrap()
+            .run_collect_rows()
+            .unwrap(),
+        vec![vec![Value::from_i64(1)]],
+        "the guest's spill row must be untouched"
+    );
+    assert_eq!(
+        connection
+            .prepare("SELECT count(*) FROM gatherings__witness")
+            .unwrap()
+            .run_collect_rows()
+            .unwrap(),
+        vec![vec![Value::from_i64(1)]],
+        "the witness's spill row must be untouched"
+    );
+}
+
+/// The `DETACH` counterpart: removing a guest from an all-`Many`-role
+/// relation must clean up *both* spill tables, not just the guest's own --
+/// leaving `gatherings__witness` behind would dangle a reference to a
+/// relation row that no longer exists.
+#[test]
+fn detach_deleting_an_all_many_role_relation_removes_it_and_both_spill_tables() {
+    let (database, session) = fixture::two_many_roles_session();
+    session
+        .execute(
+            "CREATE (:Person {id: 1}), (:Person {id: 2})",
+            &Parameters::new(),
+        )
+        .expect("seed people");
+    session
+        .execute(
+            "MATCH (g:Person {id: 1}), (w:Person {id: 2}) \
+             CREATE [x:GATHERING](guest: g, witness: w)",
+            &Parameters::new(),
+        )
+        .expect("create the all-Many-role gathering");
+
+    session
+        .execute(
+            "MATCH (g:Person {id: 1}) DETACH DELETE g",
+            &Parameters::new(),
+        )
+        .expect("detach delete the guest");
+
+    let connection = fixture::second_connection(&database);
+    assert_eq!(
+        connection
+            .prepare("SELECT count(*) FROM people")
+            .unwrap()
+            .run_collect_rows()
+            .unwrap(),
+        vec![vec![Value::from_i64(1)]],
+        "the guest is gone, the witness is unaffected"
+    );
+    assert_eq!(
+        connection
+            .prepare("SELECT count(*) FROM gatherings")
+            .unwrap()
+            .run_collect_rows()
+            .unwrap(),
+        vec![vec![Value::from_i64(0)]],
+        "detaching the guest must remove the gathering that referenced it"
+    );
+    assert_eq!(
+        connection
+            .prepare("SELECT count(*) FROM gatherings__guest")
+            .unwrap()
+            .run_collect_rows()
+            .unwrap(),
+        vec![vec![Value::from_i64(0)]],
+        "the guest's spill row must not dangle behind"
+    );
+    assert_eq!(
+        connection
+            .prepare("SELECT count(*) FROM gatherings__witness")
+            .unwrap()
+            .run_collect_rows()
+            .unwrap(),
+        vec![vec![Value::from_i64(0)]],
+        "the witness's spill row must be cleaned too -- it belongs to the \
+         same now-deleted relation, even though it was never named by the \
+         DETACH DELETE's own MATCH"
+    );
+}
+
+/// Same two behaviors as above, against `two_many_roles_session_reordered`
+/// (roles declared `witness` before `guest`) and deleting a `witness`
+/// rather than a `guest`, to prove neither of the two GATHERING tests above
+/// is silently passing because `guest` happens to be declared first: role
+/// resolution must be by name/`RoleId`, never registration position.
+#[test]
+fn deleting_an_all_many_role_relations_witness_is_refused_with_roles_declared_in_reverse_order() {
+    let (database, session) = fixture::two_many_roles_session_reordered();
+    session
+        .execute(
+            "CREATE (:Person {id: 1}), (:Person {id: 2})",
+            &Parameters::new(),
+        )
+        .expect("seed people");
+    session
+        .execute(
+            "MATCH (g:Person {id: 1}), (w:Person {id: 2}) \
+             CREATE [x:GATHERING](guest: g, witness: w)",
+            &Parameters::new(),
+        )
+        .expect("create the all-Many-role gathering");
+
+    let error = session
+        .execute("MATCH (w:Person {id: 2}) DELETE w", &Parameters::new())
+        .expect_err("a witness still recorded in a spill table must refuse plain DELETE");
+    assert!(
+        matches!(
+            &error,
+            FrontendError::Mutation(MutationError::NodeHasRelationships)
+        ),
+        "{error:?}"
+    );
+
+    let connection = fixture::second_connection(&database);
+    assert_eq!(
+        connection
+            .prepare("SELECT count(*) FROM people WHERE id = 2")
+            .unwrap()
+            .run_collect_rows()
+            .unwrap(),
+        vec![vec![Value::from_i64(1)]],
+        "the refused delete must not remove the witness"
+    );
+    assert_eq!(
+        connection
+            .prepare("SELECT count(*) FROM gatherings__witness WHERE node_id = 2")
+            .unwrap()
+            .run_collect_rows()
+            .unwrap(),
+        vec![vec![Value::from_i64(1)]],
+        "the witness's spill row must be untouched"
+    );
+    assert_eq!(
+        connection
+            .prepare("SELECT count(*) FROM gatherings__guest")
+            .unwrap()
+            .run_collect_rows()
+            .unwrap(),
+        vec![vec![Value::from_i64(1)]],
+        "the guest's spill row must be untouched"
+    );
+}
+
+#[test]
+fn detach_deleting_an_all_many_role_relation_removes_it_and_both_spill_tables_with_roles_declared_in_reverse_order(
+) {
+    let (database, session) = fixture::two_many_roles_session_reordered();
+    session
+        .execute(
+            "CREATE (:Person {id: 1}), (:Person {id: 2})",
+            &Parameters::new(),
+        )
+        .expect("seed people");
+    session
+        .execute(
+            "MATCH (g:Person {id: 1}), (w:Person {id: 2}) \
+             CREATE [x:GATHERING](guest: g, witness: w)",
+            &Parameters::new(),
+        )
+        .expect("create the all-Many-role gathering");
+
+    session
+        .execute(
+            "MATCH (w:Person {id: 2}) DETACH DELETE w",
+            &Parameters::new(),
+        )
+        .expect("detach delete the witness");
+
+    let connection = fixture::second_connection(&database);
+    assert_eq!(
+        connection
+            .prepare("SELECT count(*) FROM people")
+            .unwrap()
+            .run_collect_rows()
+            .unwrap(),
+        vec![vec![Value::from_i64(1)]],
+        "the witness is gone, the guest is unaffected"
+    );
+    assert_eq!(
+        connection
+            .prepare("SELECT count(*) FROM gatherings")
+            .unwrap()
+            .run_collect_rows()
+            .unwrap(),
+        vec![vec![Value::from_i64(0)]],
+        "detaching the witness must remove the gathering that referenced it"
+    );
+    assert_eq!(
+        connection
+            .prepare("SELECT count(*) FROM gatherings__witness")
+            .unwrap()
+            .run_collect_rows()
+            .unwrap(),
+        vec![vec![Value::from_i64(0)]],
+        "the witness's spill row must not dangle behind"
+    );
+    assert_eq!(
+        connection
+            .prepare("SELECT count(*) FROM gatherings__guest")
+            .unwrap()
+            .run_collect_rows()
+            .unwrap(),
+        vec![vec![Value::from_i64(0)]],
+        "the guest's spill row must be cleaned too, even with roles declared \
+         in reverse registration order"
+    );
+}
+
 /// Regression guard on the pre-existing `DuplicateRoleArgument` refusal: it
 /// must keep rejecting a second player for a `One` role now that the same
 /// check lets a `Many` role repeat.

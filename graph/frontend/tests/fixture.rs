@@ -381,6 +381,75 @@ pub fn two_many_roles_session() -> (Arc<Database>, GraphConnection) {
     (database, session)
 }
 
+/// Identical to `two_many_roles_session` except `witness` is declared
+/// before `guest` in `RelationshipSourceRegistration::roles`. Role
+/// resolution must go through `RoleId`/name, never registration position
+/// (this plan's recurring defect class), so swapping the declared order of
+/// two `Many` roles must change nothing observable: the same CREATE/DELETE/
+/// DETACH DELETE behavior that holds against `two_many_roles_session` must
+/// hold here too.
+#[allow(dead_code)] // This file is also compiled as its own integration-test crate.
+pub fn two_many_roles_session_reordered() -> (Arc<Database>, GraphConnection) {
+    let io = Arc::new(MemoryIO::new());
+    let database = Database::open(
+        io,
+        ":memory:fixture-gathering-reordered",
+        OpenOptions::new(Arc::new(SqliteDialect)),
+    )
+    .expect("open database");
+    let connection = database.connect().expect("connect");
+    connection
+        .execute(
+            "CREATE TABLE people(id INTEGER PRIMARY KEY); \
+             CREATE TABLE gatherings(id INTEGER PRIMARY KEY);",
+        )
+        .expect("create sources");
+    let registered = register_graph(
+        &connection,
+        &GraphRegistration {
+            name: "gathering".to_owned(),
+            node_sources: vec![NodeSourceRegistration {
+                name: "Person".to_owned(),
+                table: "people".to_owned(),
+                identity_column: "id".to_owned(),
+            }],
+            relationship_sources: vec![RelationshipSourceRegistration {
+                name: "GATHERING".to_owned(),
+                table: "gatherings".to_owned(),
+                identity_column: "id".to_owned(),
+                roles: vec![
+                    RoleSourceRegistration {
+                        name: "witness".to_owned(),
+                        column: String::new(),
+                        node_source: "Person".to_owned(),
+                        cardinality: RoleCardinality::Many,
+                    },
+                    RoleSourceRegistration {
+                        name: "guest".to_owned(),
+                        column: String::new(),
+                        node_source: "Person".to_owned(),
+                        cardinality: RoleCardinality::Many,
+                    },
+                ],
+            }],
+        },
+    )
+    .expect("register graph");
+    let catalog: Arc<dyn GraphCompilationCatalog> =
+        Arc::new(SchemaCatalog::new(connection.clone(), registered.clone()));
+    let shared_snapshots = Arc::new(SnapshotStore::default());
+    let session = GraphConnection::install(
+        connection,
+        &registered,
+        catalog,
+        ParameterTypes::new(),
+        shared_snapshots,
+        BuildLimits::default(),
+    )
+    .expect("install graph session");
+    (database, session)
+}
+
 /// Installs a `GraphConnection` over a `KNOWS` shape close to
 /// `witnessed_session` (`Person`/`people`; `KNOWS`/`relationships` with roles
 /// `start`/`end`/`witness`) plus a second, unrelated relationship source
