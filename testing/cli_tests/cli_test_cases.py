@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 import os
+import subprocess
 import time
 from pathlib import Path
 
@@ -380,6 +381,53 @@ def test_tables_with_attached_db():
     shell.quit()
 
 
+def test_graph_ddl():
+    # The point of CREATE GRAPH is that it is not a separate store: the graph
+    # is a view over ordinary SQL tables. So this asserts both directions —
+    # Cypher reads what Cypher wrote, and SQL reads the same row out of the
+    # table the declaration created. If the DDL ever grew its own storage, the
+    # final SELECT is what would fail.
+    #
+    # Driven as a script rather than through TestTursoShell: that helper ends
+    # every command with `SELECT 'END_OF_RESULT';` to find the end of the
+    # output, and in graph mode the shell reads that marker as Cypher and
+    # rejects it, so the helper would wait forever.
+    script = "\n".join(
+        [
+            "CREATE GRAPH social NODE Person (name TEXT) "
+            "RELATION KNOWS ROLE start -> Person ROLE end -> Person;",
+            ".graph social",
+            "CREATE (:Person {id: 1, name: 'Ada'});",
+            "MATCH (a:Person) RETURN a.name;",
+            ".graph off",
+            "SELECT name FROM Person;",
+            "",
+        ]
+    )
+    expected = [
+        'Graph social created. Use ".graph social" to query it.',
+        'Reading Cypher against graph social. Use ".graph off" for SQL.',
+        "1 matched, 1 operations",
+        "Ada",
+        "Reading SQL.",
+        "Ada",
+    ]
+    console.test("Running test: graph-ddl-round-trip")
+    exec_name = os.environ.get("SQLITE_EXEC", "./scripts/limbo-sqlite3")
+    result = subprocess.run(
+        [exec_name],
+        input=script,
+        capture_output=True,
+        text=True,
+        timeout=60,
+    )
+    actual = [line.strip() for line in result.stdout.splitlines() if line.strip()]
+    assert actual == expected, (
+        f"Test failed: graph-ddl-round-trip\n"
+        f"Expected:\n{expected}\nActual:\n{actual}\nStderr:\n{result.stderr}"
+    )
+
+
 def test_dbtotxt():
     shell = TestTursoShell(init_commands="")
     shell.run_test(
@@ -505,6 +553,7 @@ def main():
     test_parse_error()
     test_tables_with_attached_db()
     test_dbtotxt()
+    test_graph_ddl()
     console.info("All tests have passed")
 
 

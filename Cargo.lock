@@ -7335,6 +7335,7 @@ dependencies = [
  "tracing-appender",
  "tracing-subscriber",
  "turso_core",
+ "turso_graph_frontend",
  "turso_sync_engine",
  "validator",
 ]

@@ -2,7 +2,7 @@ pub mod args;
 pub mod import;
 
 use args::{
-    CwdArgs, DbConfigArgs, DbtotxtArgs, EchoArgs, ExitArgs, HeadersArgs, IndexesArgs,
+    CwdArgs, DbConfigArgs, DbtotxtArgs, EchoArgs, ExitArgs, GraphArgs, HeadersArgs, IndexesArgs,
     LoadExtensionArgs, ManualArgs, NullValueArgs, OpcodesArgs, OpenArgs, OutputModeArgs,
     ParameterArgs, ReadArgs, SchemaArgs, SetOutputArgs, StatsArgs, TablesArgs, TimerArgs,
 };
@@ -105,6 +105,9 @@ pub enum Command {
     Parameter(ParameterArgs),
     #[command(name = "dbtotxt", display_name = ".dbtotxt")]
     Dbtotxt(DbtotxtArgs),
+    /// Open a registered graph so input is read as Cypher, or `off` for SQL
+    #[command(name = "graph", display_name = ".graph")]
+    Graph(GraphArgs),
 }
 
 const _HELP_TEMPLATE: &str = "{before-help}{name}

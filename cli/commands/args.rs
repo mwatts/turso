@@ -220,3 +220,9 @@ pub struct DbtotxtArgs {
     #[clap(long = "page")]
     pub page_no: Option<i64>,
 }
+
+#[derive(Debug, Clone, Args)]
+pub struct GraphArgs {
+    /// Graph to open, or `off` to return to SQL. Omit to show the current mode.
+    pub name: Option<String>,
+}

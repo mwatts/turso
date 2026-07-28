@@ -38,6 +38,7 @@ use turso_core::{
     io_error, Connection, Database, LimboError, Numeric, OpenFlags, QueryMode, SqliteDialect,
     Statement, Value,
 };
+use turso_graph_frontend::{execute_graph_ddl, GraphConnection, MutationSummary, Parameters};
 
 #[derive(Parser, Debug)]
 #[command(name = "Turso")]
@@ -134,6 +135,10 @@ pub struct Limbo {
     config: Option<Config>,
     had_query_error: bool,
     parameter_bindings: Vec<ParameterBinding>,
+    /// Open graph session. While this is set, input is read as Cypher rather
+    /// than SQL — the two languages share `CREATE`, so the shell cannot tell
+    /// them apart by inspection and the mode has to be explicit.
+    graph: Option<GraphConnection>,
 }
 
 #[derive(Clone)]
@@ -311,6 +316,7 @@ impl Limbo {
             config: Some(config),
             had_query_error: false,
             parameter_bindings: Vec::new(),
+            graph: None,
         };
         app.first_run(has_sql, quiet)?;
         Ok((app, guard))
@@ -430,8 +436,17 @@ impl Limbo {
         Ok(())
     }
 
+    /// Prompt for a fresh statement. The graph name is in it because the mode
+    /// changes how the next line is parsed, and a silent mode is a trap.
+    fn base_prompt(&self) -> String {
+        match &self.graph {
+            Some(session) => format!("{}> ", session.graph_name()),
+            None => PROMPT.to_string(),
+        }
+    }
+
     pub fn reset_input(&mut self) {
-        self.prompt = PROMPT.to_string();
+        self.prompt = self.base_prompt();
         self.input_buff.clear();
         self.read_state = ReadState::default();
     }
@@ -468,6 +483,10 @@ impl Limbo {
     }
 
     fn open_db(&mut self, path: &str, vfs_name: Option<&str>) -> anyhow::Result<()> {
+        // The session holds the connection being closed, and its graph does not
+        // exist in the database about to be opened.
+        self.graph = None;
+        self.prompt = self.base_prompt();
         self.conn.close()?;
         let (io, db) = if let Some(vfs_name) = vfs_name {
             self.conn
@@ -548,11 +567,136 @@ impl Limbo {
     }
 
     fn run_query(&mut self, input: &str) {
-        let echo = self.opts.echo;
-        if echo {
+        if self.opts.echo {
             let _ = self.writeln(input);
         }
 
+        // `CREATE GRAPH` is not valid SQL, so claiming it here cannot shadow a
+        // SQL statement — and it has to work from SQL mode, since that is where
+        // a user is before any graph exists to open.
+        if is_create_graph(input) {
+            self.run_graph_ddl(input);
+        } else if self.graph.is_some() {
+            self.run_cypher(input);
+        } else {
+            self.run_sql(input);
+        }
+    }
+
+    fn handle_graph_command(&mut self, name: Option<&str>) {
+        match name {
+            None => {
+                let status = match &self.graph {
+                    Some(session) => {
+                        format!("Reading Cypher against graph {}.", session.graph_name())
+                    }
+                    None => "Reading SQL. Use \".graph NAME\" to open a graph.".to_string(),
+                };
+                let _ = self.writeln(status);
+            }
+            Some(name) if name.eq_ignore_ascii_case("off") => {
+                self.graph = None;
+                let _ = self.writeln("Reading SQL.");
+            }
+            Some(name) => match GraphConnection::open(self.conn.clone(), name) {
+                Ok(session) => {
+                    let opened = session.graph_name().to_string();
+                    self.graph = Some(session);
+                    let _ = self.writeln_fmt(format_args!(
+                        "Reading Cypher against graph {opened}. Use \".graph off\" for SQL."
+                    ));
+                }
+                Err(err) => self.report_query_error(err.to_string()),
+            },
+        }
+        self.prompt = self.base_prompt();
+    }
+
+    fn run_graph_ddl(&mut self, input: &str) {
+        let source = input.trim().trim_end_matches(';');
+        match execute_graph_ddl(&self.conn, source) {
+            Ok(graph) => {
+                let _ = self.writeln_fmt(format_args!(
+                    "Graph {} created. Use \".graph {}\" to query it.",
+                    graph.name, graph.name
+                ));
+            }
+            Err(err) => self.report_query_error(err.to_string()),
+        }
+    }
+
+    fn run_cypher(&mut self, input: &str) {
+        let source = input.trim().trim_end_matches(';').trim();
+        if source.is_empty() {
+            return;
+        }
+        // Reads prepare into a Core statement and reuse the SQL result
+        // printers; mutations have no statement to step, so they go through
+        // the session's own execute path.
+        let classified = match self.graph.as_ref() {
+            Some(session) => session.classify(source),
+            None => return,
+        };
+        let writes = match classified {
+            Ok(kind) => kind.writes(),
+            Err(err) => return self.report_query_error(err.to_string()),
+        };
+
+        if writes {
+            let executed = match self.graph.as_ref() {
+                Some(session) => session.execute(source, &Parameters::new()),
+                None => return,
+            };
+            match executed {
+                Ok(summary) => self.print_mutation_summary(&summary),
+                Err(err) => self.report_query_error(err.to_string()),
+            }
+            return;
+        }
+
+        let prepared = match self.graph.as_ref() {
+            Some(session) => session.prepare(source, &Parameters::new()),
+            None => return,
+        };
+        match prepared {
+            Ok(statement) => {
+                let mut output = Ok(Some(statement.into_inner()));
+                if self.print_query_result(source, &mut output, None).is_err() {
+                    self.had_query_error = true;
+                }
+            }
+            Err(err) => self.report_query_error(err.to_string()),
+        }
+    }
+
+    /// Prints a mutation's `RETURN` rows, then what it touched. The rows carry
+    /// no column names — the mutation path returns values, not a statement —
+    /// so this is list mode without headers rather than the full printers.
+    fn print_mutation_summary(&mut self, summary: &MutationSummary) {
+        let null_value = self.opts.null_value.clone();
+        for row in &summary.rows {
+            let line = row
+                .iter()
+                .map(|value| match value {
+                    Value::Null => null_value.clone(),
+                    other => other.to_string(),
+                })
+                .collect::<Vec<_>>()
+                .join("|");
+            let _ = self.writeln(line);
+        }
+        let _ = self.writeln_fmt(format_args!(
+            "{} matched, {} operations",
+            summary.matched_rows, summary.operations_executed
+        ));
+    }
+
+    fn report_query_error(&mut self, message: String) {
+        self.had_query_error = true;
+        let _ = self.writeln_fmt(format_args!("Error: {message}"));
+    }
+
+    fn run_sql(&mut self, input: &str) {
         let start = Instant::now();
         let mut stats = if self.opts.timer {
             Some(QueryStatistics {
@@ -968,6 +1112,7 @@ impl Limbo {
                         let _ = self.writeln_fmt(format_args!("ERROR:{e}"));
                     }
                 }
+                Command::Graph(args) => self.handle_graph_command(args.name.as_deref()),
             },
         }
     }
@@ -2208,6 +2353,19 @@ impl Limbo {
 
         Ok(())
     }
+}
+
+/// Whether a statement opens with the `CREATE GRAPH` keyword pair. Splitting
+/// on whitespace is enough: the graph name that follows is a separate token, so
+/// this cannot match `CREATE GRAPHS` or a table called `graph`.
+fn is_create_graph(input: &str) -> bool {
+    let mut words = input.split_whitespace();
+    words
+        .next()
+        .is_some_and(|word| word.eq_ignore_ascii_case("create"))
+        && words
+            .next()
+            .is_some_and(|word| word.eq_ignore_ascii_case("graph"))
 }
 
 fn quote_ident(s: &str) -> String {
