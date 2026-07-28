@@ -12,6 +12,7 @@ compile_error!("the graph `fts` feature is not supported on wasm targets");
 mod binder;
 mod catalog;
 mod compiler;
+mod ddl;
 mod dialect;
 #[cfg(feature = "fts")]
 mod fts;
@@ -40,6 +41,7 @@ pub use catalog::{
     RoleSourceRegistration, GRAPH_CATALOG_VERSION,
 };
 pub use compiler::{graph_frontend_id, GraphCompilationCatalog, GraphCompiler};
+pub use ddl::{execute_graph_ddl, DdlError};
 pub use dialect::{GraphDialect, GRAPH_DIALECT_NAME};
 #[cfg(feature = "fts")]
 pub use fts::{
