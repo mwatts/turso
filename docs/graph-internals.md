@@ -226,6 +226,22 @@ Identities are **table-local coordinates**: equal numeric ids in two source
 tables are distinct graph entities. Anything that compares raw identity across
 sources is wrong.
 
+### `CREATE GRAPH` is sugar over registration
+
+`graph/frontend/src/ddl.rs` lowers a `CREATE GRAPH` declaration into three
+things it already had a way to do: `CREATE TABLE IF NOT EXISTS` per declared
+node and relation, a single `register_graph` call, and a membership backfill.
+It adds no catalog state of its own — a graph declared this way is
+indistinguishable from one registered through the API, which is what makes
+`AS TABLE` / `KEY` / `VIA` overrides able to adopt tables that already exist.
+
+The backfill is the part that is easy to miss. Junction rows are written by
+Cypher `CREATE`, so rows that predate the declaration have no membership and
+would be invisible to `MATCH`. `backfill_membership` inserts one junction row
+per existing row in each adopted table, immediately after registration and
+before the graph is observable. Tables the declaration just created are empty,
+so it costs nothing for the common case.
+
 ## Runtime: snapshots and traversal
 
 Fixed-hop patterns are plain relational joins with ordinary read-your-writes
@@ -305,6 +321,7 @@ membership.
 | Read SQL generation | `graph/frontend/src/lowering.rs` |
 | Write behavior, transactions, delete | `graph/frontend/src/mutation.rs` |
 | Registration, roles, spill tables | `graph/frontend/src/catalog.rs` |
+| `CREATE GRAPH` lowering, membership backfill | `graph/frontend/src/ddl.rs` |
 | Semantic types, fragments, constraints | `semantic.rs`, `schema_catalog.rs`, `semantic_constraints.rs` |
 | Scalar function surface | `binder.rs` (mapping) + `functions.rs` (typing) |
 | Temporal / `cypher_*` scalars | `graph/temporal/src/lib.rs` |

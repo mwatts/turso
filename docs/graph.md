@@ -26,6 +26,81 @@ lives as `__turso_graph_*` tables, indexes, and triggers inside the same
 
 ## Quickstart
 
+In the shell, `CREATE GRAPH` declares a graph and the tables behind it in one
+statement, and `.graph <name>` switches input to Cypher:
+
+```text
+turso> CREATE GRAPH social
+   ...>   NODE Person (name TEXT, age INTEGER)
+   ...>   RELATION KNOWS (since INTEGER)
+   ...>     ROLE start -> Person
+   ...>     ROLE end -> Person;
+Graph social created. Use ".graph social" to query it.
+turso> .graph social
+Reading Cypher against graph social. Use ".graph off" for SQL.
+social> CREATE (:Person {id: 1, name: 'Ada', age: 36});
+social> CREATE (:Person {id: 2, name: 'Grace', age: 45});
+social> MATCH (a:Person {id: 1}), (b:Person {id: 2})
+   ...>   CREATE (a)-[:KNOWS {id: 1, since: 1952}]->(b);
+social> MATCH (a:Person)-[k:KNOWS]->(b:Person) RETURN a.name, b.name, k.since;
+Ada|Grace|1952
+social> .graph off
+Reading SQL.
+turso> SELECT name, age FROM Person;
+Ada|36
+Grace|45
+```
+
+The mode is explicit because `CREATE` belongs to both languages, so the shell
+cannot tell a Cypher statement from a SQL one by looking at it. `CREATE GRAPH`
+itself is the exception — it is not valid SQL, so it works from either mode.
+
+That last `SELECT` is the point: the graph is a view over ordinary tables, not
+a second store. `CREATE GRAPH` adds no storage model — it infers the physical
+names the statement leaves unsaid and calls the same `register_graph` a Rust
+caller would.
+
+### What gets inferred, and how to override it
+
+| Declared | Inferred | Override |
+|---|---|---|
+| `NODE Person` | table `Person` | `NODE Person AS TABLE people` |
+| `RELATION KNOWS` | table `KNOWS` | `RELATION KNOWS AS TABLE knows` |
+| identity column | `id INTEGER PRIMARY KEY` | `KEY <column>` |
+| `ROLE start -> Person` | column `start INTEGER` | `VIA <column>` |
+| `ROLE witnesses -> Text MANY` | spill table `<relation>__witnesses` | — (`VIA` is refused) |
+
+Tables are created `IF NOT EXISTS`, which is what lets one syntax both create
+and adopt. Pointed at a schema you already have, the declaration registers
+those tables instead of new ones and backfills membership for the rows already
+in them, so Cypher sees data written before the graph existed:
+
+```text
+turso> CREATE TABLE people(id INTEGER PRIMARY KEY, name TEXT);
+turso> CREATE TABLE knows(id INTEGER PRIMARY KEY, src INTEGER, dst INTEGER);
+turso> INSERT INTO people VALUES (1, 'Ada'), (2, 'Grace');
+turso> INSERT INTO knows VALUES (1, 1, 2);
+turso> CREATE GRAPH social
+   ...>   NODE Person AS TABLE people KEY id (name TEXT)
+   ...>   RELATION KNOWS AS TABLE knows KEY id
+   ...>     ROLE start -> Person VIA src
+   ...>     ROLE end -> Person VIA dst;
+```
+
+Adoption is not blind: registration verifies every named column exists and
+that the identity column is unique, so a shape mismatch surfaces as an error
+naming the exact column rather than as a graph that half-works. The whole
+statement runs in one transaction — a declaration that fails leaves neither
+tables nor catalog rows behind.
+
+`CREATE GRAPH` reaches the physical registration only. Semantic types,
+constraints, relation-as-player roles, and multi-target roles are still
+declared through the Rust API — see "Optional semantic schema" below.
+
+### From Rust
+
+The same graph, built through the API the DDL calls:
+
 ```rust
 use std::sync::Arc;
 use turso_graph_frontend::{
@@ -226,6 +301,24 @@ the `fts` feature is off.
 resolved case-insensitively. Unknown names, wrong arity, and unknown or
 duplicate `YIELD` columns fail during binding. See "Catalog procedures" under
 the session API for exactly what `db.propertyKeys()` counts.
+
+### Graph declaration
+
+`CREATE GRAPH` is Turso's own DDL, parsed by `parse_ddl` rather than the query
+grammar — a declaration is a whole statement, not a clause, so it cannot be
+combined with `MATCH` or `RETURN`:
+
+```text
+CREATE GRAPH <name>
+  ( NODE <Label> [AS TABLE <table>] [KEY <column>] [(<col> <TYPE>, …)]
+  | RELATION <Type> [AS TABLE <table>] [KEY <column>] [(<col> <TYPE>, …)]
+      ( ROLE <role> -> <Label> [VIA <column>] [MANY] )+
+  )+
+```
+
+Its keywords are not reserved: a query may still bind a variable named `node`,
+`role`, or `key`. See "Quickstart" above for what each optional clause
+overrides.
 
 ### Known gaps
 
