@@ -630,42 +630,22 @@ impl Limbo {
         if source.is_empty() {
             return;
         }
-        // Reads prepare into a Core statement and reuse the SQL result
-        // printers; mutations have no statement to step, so they go through
-        // the session's own execute path.
-        let classified = match self.graph.as_ref() {
-            Some(session) => session.classify(source),
+        // The borrow of `self.graph` has to end before anything below can take
+        // `&mut self`, so run the statement to an owned outcome first and print
+        // it afterwards.
+        let outcome = match self.graph.as_ref() {
+            Some(session) => run_graph_statement(session, source),
             None => return,
         };
-        let writes = match classified {
-            Ok(kind) => kind.writes(),
-            Err(err) => return self.report_query_error(err.to_string()),
-        };
-
-        if writes {
-            let executed = match self.graph.as_ref() {
-                Some(session) => session.execute(source, &Parameters::new()),
-                None => return,
-            };
-            match executed {
-                Ok(summary) => self.print_mutation_summary(&summary),
-                Err(err) => self.report_query_error(err.to_string()),
-            }
-            return;
-        }
-
-        let prepared = match self.graph.as_ref() {
-            Some(session) => session.prepare(source, &Parameters::new()),
-            None => return,
-        };
-        match prepared {
-            Ok(statement) => {
-                let mut output = Ok(Some(statement.into_inner()));
+        match outcome {
+            Ok(CypherOutcome::Mutation(summary)) => self.print_mutation_summary(&summary),
+            Ok(CypherOutcome::Read(statement)) => {
+                let mut output = Ok(Some(*statement));
                 if self.print_query_result(source, &mut output, None).is_err() {
                     self.had_query_error = true;
                 }
             }
-            Err(err) => self.report_query_error(err.to_string()),
+            Err(message) => self.report_query_error(message),
         }
     }
 
@@ -2352,6 +2332,38 @@ impl Limbo {
         writeln!(self, "| end {}", &metadata.filename)?;
 
         Ok(())
+    }
+}
+
+/// What a Cypher statement produced. Reads hand back a Core statement the
+/// existing SQL printers can step; mutations have no statement to step and
+/// report a summary instead.
+enum CypherOutcome {
+    Mutation(MutationSummary),
+    Read(Box<Statement>),
+}
+
+/// Runs one Cypher statement against an open graph.
+///
+/// The three fallible steps have three different error types and the shell only
+/// ever formats them, so they collapse to a message here rather than growing a
+/// CLI-local error enum.
+fn run_graph_statement(session: &GraphConnection, source: &str) -> Result<CypherOutcome, String> {
+    let parameters = Parameters::new();
+    let writes = session
+        .classify(source)
+        .map_err(|err| err.to_string())?
+        .writes();
+    if writes {
+        session
+            .execute(source, &parameters)
+            .map(CypherOutcome::Mutation)
+            .map_err(|err| err.to_string())
+    } else {
+        session
+            .prepare(source, &parameters)
+            .map(|statement| CypherOutcome::Read(Box::new(statement.into_inner())))
+            .map_err(|err| err.to_string())
     }
 }
 
