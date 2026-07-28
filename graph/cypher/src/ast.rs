@@ -419,3 +419,59 @@ pub enum Expression {
     List(Vec<Spanned<Expression>>),
     Map(Vec<(Spanned<String>, Spanned<Expression>)>),
 }
+
+/// A parsed `CREATE GRAPH` statement.
+///
+/// This is source syntax only: physical names left unspecified here are
+/// inferred during lowering, not during parsing, so a caller inspecting the
+/// AST sees exactly what was written.
+#[derive(Clone, Debug, PartialEq)]
+pub struct GraphDdl {
+    pub name: Spanned<String>,
+    pub nodes: Vec<NodeDecl>,
+    pub relations: Vec<RelationDecl>,
+    pub span: Span,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct ColumnDecl {
+    pub name: Spanned<String>,
+    /// Bare SQL type name as written (`TEXT`, `INTEGER`, ...). Emitted
+    /// verbatim into `CREATE TABLE`; not interpreted here.
+    pub column_type: Spanned<String>,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct NodeDecl {
+    pub name: Spanned<String>,
+    /// `AS TABLE <t>`. `None` means "infer from `name`".
+    pub table: Option<Spanned<String>>,
+    /// `KEY <c>`. `None` means "infer".
+    pub key: Option<Spanned<String>>,
+    pub columns: Vec<ColumnDecl>,
+    pub span: Span,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct RelationDecl {
+    pub name: Spanned<String>,
+    pub table: Option<Spanned<String>>,
+    pub key: Option<Spanned<String>>,
+    /// Property columns only. Role columns are derived from `roles`.
+    pub columns: Vec<ColumnDecl>,
+    pub roles: Vec<RoleDecl>,
+    pub span: Span,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct RoleDecl {
+    pub name: Spanned<String>,
+    /// Node declaration this role's players are drawn from.
+    pub target: Spanned<String>,
+    /// `VIA <c>` — the endpoint column. `None` means "infer from the role
+    /// name". Rejected during lowering for `MANY` roles, whose players live in
+    /// a spill table rather than a column.
+    pub via: Option<Spanned<String>>,
+    pub many: bool,
+    pub span: Span,
+}

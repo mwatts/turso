@@ -182,3 +182,31 @@ octal_integer = @{ "-"? ~ "0" ~ ^"o" ~ ASCII_OCT_DIGIT+ }
 
 map_literal = { "{" ~ (map_entry ~ ("," ~ map_entry)*)? ~ "}" }
 map_entry = { identifier ~ ":" ~ expression }
+
+// --- Graph DDL -------------------------------------------------------------
+// `CREATE GRAPH` is a separate top-level entry rule, not a `clause`. A DDL
+// statement never composes with MATCH/RETURN, so folding it into `query` would
+// admit nonsense like `CREATE GRAPH g RETURN 1`. Keeping it separate also means
+// its keywords (GRAPH, NODE, RELATION, ROLE, TABLE, KEY, VIA, MANY) stay out of
+// the reserved `keyword` set, so existing queries may still bind a variable
+// named `node` or `role`.
+graph_ddl = { SOI ~ create_graph ~ EOI }
+create_graph = { CREATE ~ GRAPH ~ identifier ~ graph_element+ }
+graph_element = { node_decl | relation_decl }
+node_decl = { NODE ~ identifier ~ table_binding? ~ key_binding? ~ column_list? }
+relation_decl = { RELATION ~ identifier ~ table_binding? ~ key_binding? ~ column_list? ~ role_decl+ }
+role_decl = { ROLE ~ identifier ~ "->" ~ identifier ~ via_binding? ~ MANY? }
+table_binding = { AS ~ TABLE ~ identifier }
+key_binding = { KEY ~ identifier }
+via_binding = { VIA ~ identifier }
+column_list = { "(" ~ column_decl ~ ("," ~ column_decl)* ~ ")" }
+column_decl = { identifier ~ column_type }
+column_type = @{ ASCII_ALPHA+ }
+GRAPH = @{ ^"graph" ~ !ident_char }
+NODE = @{ ^"node" ~ !ident_char }
+RELATION = @{ ^"relation" ~ !ident_char }
+ROLE = @{ ^"role" ~ !ident_char }
+TABLE = @{ ^"table" ~ !ident_char }
+KEY = @{ ^"key" ~ !ident_char }
+VIA = @{ ^"via" ~ !ident_char }
+MANY = @{ ^"many" ~ !ident_char }

@@ -13,11 +13,12 @@ use pest_derive::Parser;
 use thiserror::Error;
 
 use crate::{
-    BinaryOperator, CallClause, Clause, CreateClause, DeleteClause, Direction, Expression,
-    ForeachClause, Literal, MatchClause, MergeClause, NodePattern, PathPattern, Pattern,
-    PatternElement, ProjectionClause, ProjectionItem, PropertyTarget, QuantifierKind, Query,
-    RelationshipPattern, RelationshipRange, RemoveClause, RoleArgument, RolePattern, SetClause,
-    SetItem, SortItem, Span, Spanned, UnaryOperator, UnionBranch, UnwindClause,
+    BinaryOperator, CallClause, Clause, ColumnDecl, CreateClause, DeleteClause, Direction,
+    Expression, ForeachClause, GraphDdl, Literal, MatchClause, MergeClause, NodeDecl, NodePattern,
+    PathPattern, Pattern, PatternElement, ProjectionClause, ProjectionItem, PropertyTarget,
+    QuantifierKind, Query, RelationDecl, RelationshipPattern, RelationshipRange, RemoveClause,
+    RoleArgument, RoleDecl, RolePattern, SetClause, SetItem, SortItem, Span, Spanned,
+    UnaryOperator, UnionBranch, UnwindClause,
 };
 
 #[derive(Parser)]
@@ -2026,5 +2027,297 @@ mod tests {
             expression.value,
             Expression::Variable(ref name) if name == "inner"
         ));
+    }
+}
+
+/// Parse a `CREATE GRAPH` statement.
+///
+/// Separate entry point from [`parse`]: DDL is its own top-level rule, so a
+/// caller must already know which of the two it is holding. Statement
+/// classification happens above this crate.
+pub fn parse_ddl(source: &str) -> Result<GraphDdl, ParseError> {
+    let mut pairs = CypherParser::parse(Rule::graph_ddl, source).map_err(parse_error)?;
+    let ddl = pairs
+        .next()
+        .ok_or_else(|| ParseError::at(Span::new(0, 0), "empty statement"))?;
+    let create = ddl
+        .into_inner()
+        .find(|pair| pair.as_rule() == Rule::create_graph)
+        .ok_or_else(|| ParseError::at(Span::new(0, 0), "empty statement"))?;
+    walk_create_graph(create)
+}
+
+fn walk_create_graph(pair: Pair<'_, Rule>) -> Result<GraphDdl, ParseError> {
+    let span = pair_span(&pair);
+    let mut name = None;
+    let mut nodes = Vec::new();
+    let mut relations = Vec::new();
+    for child in pair.into_inner() {
+        match child.as_rule() {
+            Rule::identifier => name = Some(walk_identifier(child)),
+            Rule::graph_element => {
+                let element = child
+                    .into_inner()
+                    .next()
+                    .ok_or_else(|| ParseError::at(span, "empty graph element"))?;
+                match element.as_rule() {
+                    Rule::node_decl => nodes.push(walk_node_decl(element)?),
+                    Rule::relation_decl => relations.push(walk_relation_decl(element)?),
+                    _ => {}
+                }
+            }
+            _ => {}
+        }
+    }
+    Ok(GraphDdl {
+        name: name.ok_or_else(|| ParseError::at(span, "CREATE GRAPH has no graph name"))?,
+        nodes,
+        relations,
+        span,
+    })
+}
+
+fn walk_node_decl(pair: Pair<'_, Rule>) -> Result<NodeDecl, ParseError> {
+    let span = pair_span(&pair);
+    let mut name = None;
+    let mut table = None;
+    let mut key = None;
+    let mut columns = Vec::new();
+    for child in pair.into_inner() {
+        match child.as_rule() {
+            Rule::identifier => name = Some(walk_identifier(child)),
+            Rule::table_binding => table = walk_binding_target(child),
+            Rule::key_binding => key = walk_binding_target(child),
+            Rule::column_list => columns = walk_column_list(child)?,
+            _ => {}
+        }
+    }
+    Ok(NodeDecl {
+        name: name.ok_or_else(|| ParseError::at(span, "NODE has no name"))?,
+        table,
+        key,
+        columns,
+        span,
+    })
+}
+
+fn walk_relation_decl(pair: Pair<'_, Rule>) -> Result<RelationDecl, ParseError> {
+    let span = pair_span(&pair);
+    let mut name = None;
+    let mut table = None;
+    let mut key = None;
+    let mut columns = Vec::new();
+    let mut roles = Vec::new();
+    for child in pair.into_inner() {
+        match child.as_rule() {
+            Rule::identifier => name = Some(walk_identifier(child)),
+            Rule::table_binding => table = walk_binding_target(child),
+            Rule::key_binding => key = walk_binding_target(child),
+            Rule::column_list => columns = walk_column_list(child)?,
+            Rule::role_decl => roles.push(walk_role_decl(child)?),
+            _ => {}
+        }
+    }
+    Ok(RelationDecl {
+        name: name.ok_or_else(|| ParseError::at(span, "RELATION has no name"))?,
+        table,
+        key,
+        columns,
+        roles,
+        span,
+    })
+}
+
+fn walk_role_decl(pair: Pair<'_, Rule>) -> Result<RoleDecl, ParseError> {
+    let span = pair_span(&pair);
+    let mut identifiers = Vec::new();
+    let mut via = None;
+    let mut many = false;
+    for child in pair.into_inner() {
+        match child.as_rule() {
+            Rule::identifier => identifiers.push(walk_identifier(child)),
+            Rule::via_binding => via = walk_binding_target(child),
+            Rule::MANY => many = true,
+            _ => {}
+        }
+    }
+    let mut identifiers = identifiers.into_iter();
+    let name = identifiers
+        .next()
+        .ok_or_else(|| ParseError::at(span, "ROLE has no name"))?;
+    let target = identifiers
+        .next()
+        .ok_or_else(|| ParseError::at(span, "ROLE has no target"))?;
+    Ok(RoleDecl {
+        name,
+        target,
+        via,
+        many,
+        span,
+    })
+}
+
+/// `AS TABLE t`, `KEY c`, and `VIA c` each carry exactly one identifier.
+fn walk_binding_target(pair: Pair<'_, Rule>) -> Option<Spanned<String>> {
+    pair.into_inner()
+        .find(|inner| inner.as_rule() == Rule::identifier)
+        .map(walk_identifier)
+}
+
+fn walk_column_list(pair: Pair<'_, Rule>) -> Result<Vec<ColumnDecl>, ParseError> {
+    let mut columns = Vec::new();
+    for child in pair.into_inner() {
+        if child.as_rule() != Rule::column_decl {
+            continue;
+        }
+        let span = pair_span(&child);
+        let mut name = None;
+        let mut column_type = None;
+        for inner in child.into_inner() {
+            match inner.as_rule() {
+                Rule::identifier => name = Some(walk_identifier(inner)),
+                Rule::column_type => {
+                    column_type = Some(Spanned::new(inner.as_str().to_owned(), pair_span(&inner)));
+                }
+                _ => {}
+            }
+        }
+        columns.push(ColumnDecl {
+            name: name.ok_or_else(|| ParseError::at(span, "column has no name"))?,
+            column_type: column_type
+                .ok_or_else(|| ParseError::at(span, "column has no type name"))?,
+        });
+    }
+    Ok(columns)
+}
+
+#[cfg(test)]
+mod ddl_tests {
+    use super::*;
+
+    /// The inferred form carries no physical names at all. Parsing must leave
+    /// every override `None` rather than filling in a default, so lowering
+    /// stays the single place inference happens.
+    #[test]
+    fn parses_inferred_form() {
+        let ddl = parse_ddl(
+            "CREATE GRAPH social \
+             NODE Person (name TEXT, age INTEGER) \
+             RELATION KNOWS (since INTEGER) \
+               ROLE start -> Person \
+               ROLE end -> Person",
+        )
+        .expect("should parse");
+
+        assert_eq!(ddl.name.value, "social");
+        assert_eq!(ddl.nodes.len(), 1);
+        assert_eq!(ddl.nodes[0].name.value, "Person");
+        assert_eq!(ddl.nodes[0].table, None);
+        assert_eq!(ddl.nodes[0].key, None);
+        let column_names: Vec<_> = ddl.nodes[0]
+            .columns
+            .iter()
+            .map(|column| {
+                (
+                    column.name.value.as_str(),
+                    column.column_type.value.as_str(),
+                )
+            })
+            .collect();
+        assert_eq!(column_names, vec![("name", "TEXT"), ("age", "INTEGER")]);
+
+        assert_eq!(ddl.relations.len(), 1);
+        let relation = &ddl.relations[0];
+        assert_eq!(relation.name.value, "KNOWS");
+        assert_eq!(relation.columns.len(), 1);
+        assert_eq!(relation.roles.len(), 2);
+        assert_eq!(relation.roles[0].name.value, "start");
+        assert_eq!(relation.roles[0].target.value, "Person");
+        assert_eq!(relation.roles[0].via, None);
+        assert!(!relation.roles[0].many);
+        assert_eq!(relation.roles[1].name.value, "end");
+    }
+
+    /// Every override must survive parsing distinctly; a lowering that infers
+    /// over a written name would silently ignore an adoption request.
+    #[test]
+    fn parses_explicit_overrides() {
+        let ddl = parse_ddl(
+            "CREATE GRAPH social \
+             NODE Person AS TABLE people KEY pid (name TEXT) \
+             RELATION KNOWS AS TABLE knows KEY kid \
+               ROLE start -> Person VIA src \
+               ROLE end -> Person VIA dst",
+        )
+        .expect("should parse");
+
+        let node = &ddl.nodes[0];
+        assert_eq!(
+            node.table.as_ref().map(|t| t.value.as_str()),
+            Some("people")
+        );
+        assert_eq!(node.key.as_ref().map(|k| k.value.as_str()), Some("pid"));
+
+        let relation = &ddl.relations[0];
+        assert_eq!(
+            relation.table.as_ref().map(|t| t.value.as_str()),
+            Some("knows")
+        );
+        assert_eq!(relation.key.as_ref().map(|k| k.value.as_str()), Some("kid"));
+        assert_eq!(
+            relation.roles[0].via.as_ref().map(|v| v.value.as_str()),
+            Some("src")
+        );
+        assert!(relation.columns.is_empty());
+    }
+
+    /// `MANY` is what selects spill-table storage downstream. If the parser
+    /// dropped it, the role would silently become an endpoint column.
+    #[test]
+    fn parses_many_cardinality() {
+        let ddl = parse_ddl(
+            "CREATE GRAPH scriptorium \
+             NODE Text (title TEXT) \
+             RELATION Citation \
+               ROLE cited -> Text \
+               ROLE witnesses -> Text MANY",
+        )
+        .expect("should parse");
+
+        let roles = &ddl.relations[0].roles;
+        assert!(!roles[0].many);
+        assert!(roles[1].many);
+        assert_eq!(roles[1].name.value, "witnesses");
+    }
+
+    /// DDL is a separate entry rule precisely so it cannot compose with query
+    /// clauses. If `graph_ddl` ever admitted a trailing clause, `CREATE GRAPH`
+    /// would start accepting statements the executor has no meaning for.
+    #[test]
+    fn rejects_trailing_query_clause() {
+        let error = parse_ddl("CREATE GRAPH g NODE Person (name TEXT) RETURN 1")
+            .expect_err("DDL must not compose with query clauses");
+        assert!(error.span().end > 0);
+    }
+
+    /// A relation with no roles has no way to reach any node, so the grammar
+    /// requires at least one rather than deferring to a lowering check.
+    #[test]
+    fn rejects_relation_without_roles() {
+        parse_ddl("CREATE GRAPH g NODE Person (name TEXT) RELATION KNOWS (since INTEGER)")
+            .expect_err("RELATION requires at least one ROLE");
+    }
+
+    /// The DDL keywords must not become reserved words: existing queries bind
+    /// variables named `node`, `role`, and `key`, and reserving them here would
+    /// break those queries.
+    #[test]
+    fn ddl_keywords_stay_unreserved_in_queries() {
+        for name in [
+            "graph", "node", "relation", "role", "table", "key", "via", "many",
+        ] {
+            parse(&format!("MATCH ({name}:Person) RETURN {name}"))
+                .unwrap_or_else(|error| panic!("`{name}` must stay usable as a variable: {error}"));
+        }
     }
 }

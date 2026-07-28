@@ -9,10 +9,11 @@ mod ast;
 mod parser;
 
 pub use ast::{
-    BinaryOperator, CallClause, Clause, CreateClause, DeleteClause, Direction, Expression,
-    ForeachClause, Literal, MatchClause, MergeClause, NodePattern, PathPattern, Pattern,
-    PatternElement, ProjectionClause, ProjectionItem, PropertyTarget, QuantifierKind, Query,
-    RelationshipPattern, RelationshipRange, RemoveClause, RoleArgument, RolePattern, SetClause,
-    SetItem, SortItem, Span, Spanned, UnaryOperator, UnionBranch, UnwindClause,
+    BinaryOperator, CallClause, Clause, ColumnDecl, CreateClause, DeleteClause, Direction,
+    Expression, ForeachClause, GraphDdl, Literal, MatchClause, MergeClause, NodeDecl, NodePattern,
+    PathPattern, Pattern, PatternElement, ProjectionClause, ProjectionItem, PropertyTarget,
+    QuantifierKind, Query, RelationDecl, RelationshipPattern, RelationshipRange, RemoveClause,
+    RoleArgument, RoleDecl, RolePattern, SetClause, SetItem, SortItem, Span, Spanned,
+    UnaryOperator, UnionBranch, UnwindClause,
 };
-pub use parser::{parse, ParseError};
+pub use parser::{parse, parse_ddl, ParseError};
