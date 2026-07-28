@@ -17,7 +17,7 @@ use std::sync::Arc;
 
 use thiserror::Error;
 use turso_core::{Connection, LimboError};
-use turso_graph_cypher::{parse_ddl, GraphDdl, ParseError, RelationDecl};
+use turso_graph_cypher::{parse_ddl, ColumnDecl, GraphDdl, ParseError, RelationDecl, Spanned};
 use turso_graph_ir::RoleCardinality;
 
 use crate::catalog::{
@@ -25,6 +25,7 @@ use crate::catalog::{
     GraphRegistration, NodeSourceRegistration, RegisteredGraph, RelationshipSourceRegistration,
     RoleSourceRegistration,
 };
+use crate::transaction::{in_write_transaction, WriteTransactionError};
 
 /// Identity column used when a declaration does not say `KEY <column>`.
 const DEFAULT_IDENTITY_COLUMN: &str = "id";
@@ -61,6 +62,19 @@ pub enum DdlError {
     },
 }
 
+impl WriteTransactionError for DdlError {
+    fn requires_write_transaction() -> Self {
+        DdlError::RequiresWriteTransaction
+    }
+
+    fn rollback_failed(cause: Self, rollback: LimboError) -> Self {
+        DdlError::RollbackFailed {
+            cause: Box::new(cause),
+            rollback,
+        }
+    }
+}
+
 /// Parse and execute a `CREATE GRAPH` statement.
 ///
 /// Creates the backing tables (unless they already exist) and registers the
@@ -78,46 +92,7 @@ pub fn execute_graph_ddl(
     // over a rolled-back table cannot be opened. `register_graph` does its own
     // transaction management, and takes the savepoint branch once we are
     // already inside a write transaction here.
-    if !connection.get_auto_commit() && !connection.in_write_transaction() {
-        return Err(DdlError::RequiresWriteTransaction);
-    }
-    let (enter, commit, rollback) = if connection.get_auto_commit() {
-        (
-            "BEGIN IMMEDIATE".to_owned(),
-            "COMMIT".to_owned(),
-            "ROLLBACK".to_owned(),
-        )
-    } else {
-        (
-            format!("SAVEPOINT {DDL_SAVEPOINT}"),
-            format!("RELEASE {DDL_SAVEPOINT}"),
-            format!("ROLLBACK TO {DDL_SAVEPOINT}"),
-        )
-    };
-
-    connection.execute(enter)?;
-    let result = apply(connection, &plan).and_then(|graph| {
-        connection.execute(commit)?;
-        Ok(graph)
-    });
-    match result {
-        Ok(graph) => Ok(graph),
-        Err(cause) => match unwind(connection, &rollback) {
-            Ok(()) => Err(cause),
-            Err(rollback) => Err(DdlError::RollbackFailed {
-                cause: Box::new(cause),
-                rollback,
-            }),
-        },
-    }
-}
-
-fn unwind(connection: &Arc<Connection>, rollback: &str) -> Result<(), LimboError> {
-    connection.execute(rollback)?;
-    if rollback.starts_with("ROLLBACK TO") {
-        connection.execute(format!("RELEASE {DDL_SAVEPOINT}"))?;
-    }
-    Ok(())
+    in_write_transaction(connection, DDL_SAVEPOINT, || apply(connection, &plan))
 }
 
 fn apply(connection: &Arc<Connection>, plan: &DdlPlan) -> Result<RegisteredGraph, DdlError> {
@@ -182,21 +157,11 @@ fn lower(ddl: &GraphDdl) -> Result<DdlPlan, DdlError> {
     let mut node_sources = Vec::new();
 
     for node in &ddl.nodes {
-        let table = node
-            .table
-            .as_ref()
-            .map_or_else(|| node.name.value.clone(), |table| table.value.clone());
-        let identity = node.key.as_ref().map_or_else(
-            || DEFAULT_IDENTITY_COLUMN.to_owned(),
-            |key| key.value.clone(),
-        );
+        let table = declared_or(node.table.as_ref(), &node.name.value);
+        let identity = declared_or(node.key.as_ref(), DEFAULT_IDENTITY_COLUMN);
 
-        let mut columns = vec![format!("{} {IDENTITY_TYPE} PRIMARY KEY", quote(&identity))];
-        columns.extend(
-            node.columns.iter().map(|column| {
-                format!("{} {}", quote(&column.name.value), column.column_type.value)
-            }),
-        );
+        let mut columns = vec![identity_column(&identity)];
+        columns.extend(column_definitions(&node.columns));
         create_tables.push(create_table(&table, &columns));
 
         node_sources.push(NodeSourceRegistration {
@@ -226,16 +191,10 @@ fn lower(ddl: &GraphDdl) -> Result<DdlPlan, DdlError> {
 fn lower_relation(
     relation: &RelationDecl,
 ) -> Result<(String, RelationshipSourceRegistration), DdlError> {
-    let table = relation
-        .table
-        .as_ref()
-        .map_or_else(|| relation.name.value.clone(), |table| table.value.clone());
-    let identity = relation.key.as_ref().map_or_else(
-        || DEFAULT_IDENTITY_COLUMN.to_owned(),
-        |key| key.value.clone(),
-    );
+    let table = declared_or(relation.table.as_ref(), &relation.name.value);
+    let identity = declared_or(relation.key.as_ref(), DEFAULT_IDENTITY_COLUMN);
 
-    let mut columns = vec![format!("{} {IDENTITY_TYPE} PRIMARY KEY", quote(&identity))];
+    let mut columns = vec![identity_column(&identity)];
     let mut roles = Vec::new();
 
     for role in &relation.roles {
@@ -258,10 +217,7 @@ fn lower_relation(
             continue;
         }
 
-        let column = role
-            .via
-            .as_ref()
-            .map_or_else(|| role.name.value.clone(), |via| via.value.clone());
+        let column = declared_or(role.via.as_ref(), &role.name.value);
         columns.push(format!("{} {IDENTITY_TYPE}", quote(&column)));
         roles.push(RoleSourceRegistration {
             name: role.name.value.clone(),
@@ -271,12 +227,7 @@ fn lower_relation(
         });
     }
 
-    columns.extend(
-        relation
-            .columns
-            .iter()
-            .map(|column| format!("{} {}", quote(&column.name.value), column.column_type.value)),
-    );
+    columns.extend(column_definitions(&relation.columns));
 
     Ok((
         create_table(&table, &columns),
@@ -287,6 +238,24 @@ fn lower_relation(
             roles,
         },
     ))
+}
+
+/// The physical name a declaration chose, or the inferred one. Every override
+/// in this DDL — `AS TABLE`, `KEY`, `VIA` — resolves this way.
+fn declared_or(declared: Option<&Spanned<String>>, inferred: &str) -> String {
+    declared.map_or_else(|| inferred.to_owned(), |name| name.value.clone())
+}
+
+fn identity_column(name: &str) -> String {
+    format!("{} {IDENTITY_TYPE} PRIMARY KEY", quote(name))
+}
+
+/// Column types are emitted verbatim: the declaration writes SQL types, and
+/// this DDL does not introduce a type system of its own.
+fn column_definitions(columns: &[ColumnDecl]) -> impl Iterator<Item = String> + '_ {
+    columns
+        .iter()
+        .map(|column| format!("{} {}", quote(&column.name.value), column.column_type.value))
 }
 
 fn create_table(table: &str, columns: &[String]) -> String {

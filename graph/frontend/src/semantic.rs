@@ -11,7 +11,7 @@ use std::{
 
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
-use turso_core::Connection;
+use turso_core::{Connection, LimboError};
 use turso_graph_ir as ir;
 
 use crate::catalog::{
@@ -22,6 +22,7 @@ use crate::semantic_constraints::{
     create_constraint_catalog, insert_additive_rows, load_constraint_snapshot,
     rows_for_registration, SemanticConstraintRegistration, SemanticConstraintSnapshot,
 };
+use crate::transaction::{in_write_transaction, WriteTransactionError};
 
 pub(crate) const SEMANTIC_TYPES_TABLE: &str = "__turso_internal_graph_semantic_types";
 pub(crate) const SEMANTIC_PROPERTIES_TABLE: &str = "__turso_internal_graph_semantic_properties";
@@ -917,45 +918,18 @@ fn run_in_registration_transaction(
     connection: &Arc<Connection>,
     operation: impl FnOnce(&Arc<Connection>) -> Result<(), SemanticCatalogError>,
 ) -> Result<(), SemanticCatalogError> {
-    if !connection.get_auto_commit() && !connection.in_write_transaction() {
-        return Err(CatalogError::RequiresWriteTransaction.into());
+    in_write_transaction(connection, REGISTRATION_SAVEPOINT, || operation(connection))
+}
+
+impl WriteTransactionError for SemanticCatalogError {
+    fn requires_write_transaction() -> Self {
+        CatalogError::RequiresWriteTransaction.into()
     }
-    if connection.get_auto_commit() {
-        connection.execute("BEGIN IMMEDIATE")?;
-        let result = operation(connection).and_then(|()| {
-            connection.execute("COMMIT")?;
-            Ok(())
-        });
-        match result {
-            Ok(()) => Ok(()),
-            Err(cause) => match connection.execute("ROLLBACK") {
-                Ok(()) => Err(cause),
-                Err(rollback) => Err(SemanticCatalogError::RollbackFailed {
-                    cause: Box::new(cause),
-                    rollback,
-                }),
-            },
-        }
-    } else {
-        connection.execute(format!("SAVEPOINT {REGISTRATION_SAVEPOINT}"))?;
-        let result = operation(connection).and_then(|()| {
-            connection.execute(format!("RELEASE {REGISTRATION_SAVEPOINT}"))?;
-            Ok(())
-        });
-        match result {
-            Ok(()) => Ok(()),
-            Err(cause) => {
-                let rollback = connection
-                    .execute(format!("ROLLBACK TO {REGISTRATION_SAVEPOINT}"))
-                    .and_then(|()| connection.execute(format!("RELEASE {REGISTRATION_SAVEPOINT}")));
-                match rollback {
-                    Ok(()) => Err(cause),
-                    Err(rollback) => Err(SemanticCatalogError::RollbackFailed {
-                        cause: Box::new(cause),
-                        rollback,
-                    }),
-                }
-            }
+
+    fn rollback_failed(cause: Self, rollback: LimboError) -> Self {
+        SemanticCatalogError::RollbackFailed {
+            cause: Box::new(cause),
+            rollback,
         }
     }
 }

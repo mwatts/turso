@@ -13,6 +13,8 @@ use turso_core::{
 };
 use turso_graph_ir::{self as ir, GraphId, RoleCardinality, SourceTableId};
 
+use crate::transaction::{in_write_transaction, WriteTransactionError};
+
 const RESERVED_PREFIX: &str = "__turso_";
 pub(crate) const GRAPHS_TABLE: &str = "__turso_internal_graph_graphs";
 pub(crate) const GENERATIONS_TABLE: &str = TURSO_GRAPH_GENERATIONS_TABLE_NAME;
@@ -198,6 +200,19 @@ pub enum CatalogError {
     },
 }
 
+impl WriteTransactionError for CatalogError {
+    fn requires_write_transaction() -> Self {
+        CatalogError::RequiresWriteTransaction
+    }
+
+    fn rollback_failed(cause: Self, rollback: turso_core::LimboError) -> Self {
+        CatalogError::RollbackFailed {
+            cause: Box::new(cause),
+            rollback,
+        }
+    }
+}
+
 const REGISTRATION_SAVEPOINT: &str = "turso_graph_register";
 
 pub fn register_graph(
@@ -205,54 +220,9 @@ pub fn register_graph(
     registration: &GraphRegistration,
 ) -> Result<RegisteredGraph, CatalogError> {
     validate_registration_names(registration)?;
-    // Inside an open user transaction a top-level BEGIN would fail (or
-    // interfere with the caller's transaction state), so scope the
-    // registration with a savepoint there; it then commits or rolls back
-    // with the outer transaction. Registration runs internal (nested)
-    // statements, which cannot upgrade a read transaction to a write
-    // transaction, so a deferred transaction that has not yet written must
-    // be rejected instead of panicking in the engine.
-    if !connection.get_auto_commit() && !connection.in_write_transaction() {
-        return Err(CatalogError::RequiresWriteTransaction);
-    }
-    if connection.get_auto_commit() {
-        connection.execute("BEGIN IMMEDIATE")?;
-        let result = register_graph_in_transaction(connection, registration).and_then(|graph| {
-            connection.execute("COMMIT")?;
-            Ok(graph)
-        });
-        match result {
-            Ok(graph) => Ok(graph),
-            Err(cause) => match connection.execute("ROLLBACK") {
-                Ok(()) => Err(cause),
-                Err(rollback) => Err(CatalogError::RollbackFailed {
-                    cause: Box::new(cause),
-                    rollback,
-                }),
-            },
-        }
-    } else {
-        connection.execute(format!("SAVEPOINT {REGISTRATION_SAVEPOINT}"))?;
-        let result = register_graph_in_transaction(connection, registration).and_then(|graph| {
-            connection.execute(format!("RELEASE {REGISTRATION_SAVEPOINT}"))?;
-            Ok(graph)
-        });
-        match result {
-            Ok(graph) => Ok(graph),
-            Err(cause) => {
-                let rollback = connection
-                    .execute(format!("ROLLBACK TO {REGISTRATION_SAVEPOINT}"))
-                    .and_then(|()| connection.execute(format!("RELEASE {REGISTRATION_SAVEPOINT}")));
-                match rollback {
-                    Ok(()) => Err(cause),
-                    Err(rollback) => Err(CatalogError::RollbackFailed {
-                        cause: Box::new(cause),
-                        rollback,
-                    }),
-                }
-            }
-        }
-    }
+    in_write_transaction(connection, REGISTRATION_SAVEPOINT, || {
+        register_graph_in_transaction(connection, registration)
+    })
 }
 
 pub fn load_registered_graph(

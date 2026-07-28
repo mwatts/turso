@@ -8,7 +8,7 @@ use std::{
 };
 
 use thiserror::Error;
-use turso_core::{Connection, Numeric, Value};
+use turso_core::{Connection, LimboError, Numeric, Value};
 use turso_graph_ir as ir;
 
 use crate::{
@@ -20,6 +20,7 @@ use crate::{
         quoted_identifier, unit_mutation_input, LoweredMutationInput, MutationEntityKind,
         MutationRowColumn,
     },
+    transaction::{in_write_transaction, WriteTransactionError},
     BindError, GraphCompilationCatalog, LowerError, ParameterTypes,
 };
 
@@ -115,6 +116,19 @@ pub enum MutationError {
         "graph mutation inside an open transaction requires a write transaction (BEGIN IMMEDIATE or a prior write)"
     )]
     RequiresWriteTransaction,
+}
+
+impl WriteTransactionError for MutationError {
+    fn requires_write_transaction() -> Self {
+        MutationError::RequiresWriteTransaction
+    }
+
+    fn rollback_failed(cause: Self, rollback: LimboError) -> Self {
+        MutationError::RollbackFailed {
+            cause: Box::new(cause),
+            rollback,
+        }
+    }
 }
 
 #[derive(Clone)]
@@ -270,14 +284,9 @@ pub fn execute_cypher_mutation(
         None => unit_mutation_input(),
     };
 
-    // Mutation SQL runs via prepare_internal (InternalHelper). Nested helpers
-    // cannot upgrade a deferred read transaction to write — same discipline as
-    // register_graph / FTS admin: BEGIN IMMEDIATE in autocommit, SAVEPOINT only
-    // inside an existing write transaction.
-    if !connection.get_auto_commit() && !connection.in_write_transaction() {
-        return Err(MutationError::RequiresWriteTransaction);
-    }
-
+    // Mutation SQL runs via prepare_internal (InternalHelper), whose nested
+    // helpers cannot upgrade a deferred read transaction to write — which is
+    // what the shared guard rejects up front.
     let run = || {
         let summary = if let Some(summary) =
             try_single_program_mutation(connection, catalog.as_ref(), &bound, &input, parameters)?
@@ -332,42 +341,7 @@ pub fn execute_cypher_mutation(
         Ok(summary)
     };
 
-    if connection.get_auto_commit() {
-        connection.execute("BEGIN IMMEDIATE")?;
-        match run() {
-            Ok(summary) => {
-                connection.execute("COMMIT")?;
-                Ok(summary)
-            }
-            Err(cause) => match connection.execute("ROLLBACK") {
-                Ok(()) => Err(cause),
-                Err(rollback) => Err(MutationError::RollbackFailed {
-                    cause: Box::new(cause),
-                    rollback,
-                }),
-            },
-        }
-    } else {
-        connection.execute(format!("SAVEPOINT {SAVEPOINT}"))?;
-        match run() {
-            Ok(summary) => {
-                connection.execute(format!("RELEASE {SAVEPOINT}"))?;
-                Ok(summary)
-            }
-            Err(cause) => {
-                let rollback = connection
-                    .execute(format!("ROLLBACK TO {SAVEPOINT}"))
-                    .and_then(|()| connection.execute(format!("RELEASE {SAVEPOINT}")));
-                match rollback {
-                    Ok(()) => Err(cause),
-                    Err(rollback) => Err(MutationError::RollbackFailed {
-                        cause: Box::new(cause),
-                        rollback,
-                    }),
-                }
-            }
-        }
-    }
+    in_write_transaction(connection, SAVEPOINT, run)
 }
 
 /// Closed CREATE fast path for one `CREATE` node with no MATCH input, no WITH

@@ -27,6 +27,7 @@ mod semantic_constraints;
 mod session;
 mod snapshot;
 mod statement;
+mod transaction;
 
 pub use binder::{
     bind, bind_mutation, classify_statement, BindError, BoundMutation, BoundQuery, CatalogEntity,

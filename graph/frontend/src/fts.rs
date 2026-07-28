@@ -2,14 +2,17 @@ use std::{collections::BTreeSet, sync::Arc};
 
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
-use turso_core::{Connection, Numeric, Value};
+use turso_core::{Connection, LimboError, Numeric, Value};
 use turso_graph_ir::{GraphId, ValueType};
 
 use crate::{
     catalog::{quote_identifier, stable_hash},
-    load_registered_graph, CatalogError, GraphCompilationCatalog, RegisteredGraph,
+    load_registered_graph,
+    transaction::{in_write_transaction, WriteTransactionError},
+    CatalogError, GraphCompilationCatalog, RegisteredGraph,
 };
 
+const ADMIN_SAVEPOINT: &str = "__turso_graph_fts_admin";
 const METADATA_TABLE: &str = "__turso_graph_fts_indexes";
 const METADATA_VERSION: i64 = 1;
 
@@ -502,31 +505,19 @@ fn transaction<T>(
     connection: &Arc<Connection>,
     operation: impl FnOnce() -> Result<T, GraphFtsError>,
 ) -> Result<T, GraphFtsError> {
-    if !connection.get_auto_commit() && !connection.in_write_transaction() {
-        return Err(GraphFtsError::RequiresWriteTransaction);
+    in_write_transaction(connection, ADMIN_SAVEPOINT, operation)
+}
+
+impl WriteTransactionError for GraphFtsError {
+    fn requires_write_transaction() -> Self {
+        GraphFtsError::RequiresWriteTransaction
     }
-    let (begin, commit, rollback) = if connection.get_auto_commit() {
-        ("BEGIN IMMEDIATE", "COMMIT", "ROLLBACK")
-    } else {
-        (
-            "SAVEPOINT __turso_graph_fts_admin",
-            "RELEASE __turso_graph_fts_admin",
-            "ROLLBACK TO __turso_graph_fts_admin; RELEASE __turso_graph_fts_admin",
-        )
-    };
-    connection.execute(begin)?;
-    match operation().and_then(|value| {
-        connection.execute(commit)?;
-        Ok(value)
-    }) {
-        Ok(value) => Ok(value),
-        Err(cause) => match connection.execute(rollback) {
-            Ok(()) => Err(cause),
-            Err(rollback) => Err(GraphFtsError::RollbackFailed {
-                cause: Box::new(cause),
-                rollback,
-            }),
-        },
+
+    fn rollback_failed(cause: Self, rollback: LimboError) -> Self {
+        GraphFtsError::RollbackFailed {
+            cause: Box::new(cause),
+            rollback,
+        }
     }
 }
 
