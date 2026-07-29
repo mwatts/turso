@@ -181,6 +181,7 @@ impl InsertFlags {
     pub const EPHEMERAL_TABLE_INSERT: u8 = 0x04; // Flag indicating that this is an insert into an ephemeral table
     pub const SKIP_LAST_ROWID: u8 = 0x08; // Flag indicating that last_insert_rowid() must not be updated
     pub const SKIP_STATEMENT_CHANGE_COUNT: u8 = 0x10; // Flag indicating that changes() must not count this insert
+    pub const SKIP_ALL_CHANGE_COUNTS: u8 = 0x20; // Flag indicating that neither changes() nor total_changes() must count this insert
 
     pub fn new() -> Self {
         InsertFlags(0)
@@ -212,6 +213,11 @@ impl InsertFlags {
 
     pub fn skip_statement_change_count(mut self) -> Self {
         self.0 |= InsertFlags::SKIP_STATEMENT_CHANGE_COUNT;
+        self
+    }
+
+    pub fn skip_all_change_counts(mut self) -> Self {
+        self.0 |= InsertFlags::SKIP_ALL_CHANGE_COUNTS;
         self
     }
 }
@@ -1075,6 +1081,18 @@ pub enum Insn {
         /// Collation for comparison-based aggregates (MIN/MAX), resolved at
         /// translation time from the argument expression.
         collation: Option<CollationSeq>,
+    },
+
+    /// Mirror-image of AggStep: fires when a row crosses the frame-start
+    /// cursor on its way out of the frame. The runtime arm undoes the
+    /// matching xStep — sum subtracts, count decrements, position
+    /// counters advance.
+    AggInverse {
+        acc_reg: usize,
+        col: usize,
+        delimiter: usize,
+        func: AccumulatorFunc,
+        comparator: Option<SortComparatorType>,
     },
 
     AggFinal {
@@ -2099,6 +2117,7 @@ impl InsnVariants {
             InsnVariants::IdxLT => execute::op_idx_lt,
             InsnVariants::DecrJumpZero => execute::op_decr_jump_zero,
             InsnVariants::AggStep => execute::op_agg_step,
+            InsnVariants::AggInverse => execute::op_agg_inverse,
             InsnVariants::AggFinal | InsnVariants::AggValue => execute::op_agg_final,
             InsnVariants::SorterOpen => execute::op_sorter_open,
             InsnVariants::SorterInsert => execute::op_sorter_insert,

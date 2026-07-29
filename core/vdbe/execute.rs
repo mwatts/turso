@@ -2995,7 +2995,7 @@ pub fn op_blob_write(
         other => {
             return Err(LimboError::InternalError(format!(
                 "BlobWrite: source register must hold a blob, got {other:?}"
-            )))
+            )));
         }
     };
     match blob_btree_cursor(state, *cursor, "BlobWrite")?.blob_write_column(*column, off, &data) {
@@ -4349,7 +4349,7 @@ pub fn op_auto_commit(
         (false, true) => {
             return Err(LimboError::InternalError(
                 "Insn::AutoCommit {{ auto_commit: false, rollback: true }} is not valid".into(),
-            ))
+            ));
         }
     };
 
@@ -6266,10 +6266,11 @@ fn init_agg_payload(func: &AggFunc, payload: &mut crate::alloc::Vec<Value>) -> R
 /// - **ArrayAgg/Mode/PercentileCont/PercentileDisc**: buffer every input value by growing the
 ///   payload `Vec` (one push per row); the leading slots hold a running count and, for the
 ///   ordered-set aggregates, the collation / percentile fraction to use at finalize time.
+#[turso_macros::allocation_site(crate::alloc::ValueBlobAllocationSite::AggAccumulate)]
 fn update_agg_payload(
     func: &AggFunc,
-    arg: &Value,               // first argument
-    maybe_arg2: Option<Value>, // for GroupConcat/StringAgg, JsonGroupObject/JsonbGroupObject,
+    arg: &Value,                // first argument
+    maybe_arg2: Option<&Value>, // for GroupConcat/StringAgg, JsonGroupObject/JsonbGroupObject,
     payload: &mut crate::alloc::Vec<Value>,
     collation: CollationSeq,
     comparator: impl FnOnce() -> Result<Option<crate::vdbe::sorter::SortComparator>>,
@@ -6444,7 +6445,7 @@ fn update_agg_payload(
                 return Ok(());
             }
             if matches!(payload[0], Value::Null) {
-                payload[0] = arg.clone();
+                payload[0].try_clone_from(arg)?;
                 return Ok(());
             }
             use std::cmp::Ordering;
@@ -6463,22 +6464,25 @@ fn update_agg_payload(
                 _ => false,
             };
             if should_update {
-                payload[0] = arg.clone();
+                payload[0].try_clone_from(arg)?;
             }
         }
         AggFunc::GroupConcat | AggFunc::StringAgg => {
             if matches!(arg, Value::Null) {
                 return Ok(());
             }
-            let delimiter = maybe_arg2.unwrap_or_else(|| Value::build_text(","));
             let acc = &mut payload[0];
             if matches!(acc, Value::Null) {
-                // First non-null value: convert to Text
-                *acc = Value::build_text(arg.to_string());
+                // Start an empty Text accumulator; append below without an
+                // intermediate String for Text inputs.
+                *acc = Value::build_text(String::new());
             } else {
-                acc.exec_group_concat(&delimiter);
-                acc.exec_group_concat(arg);
+                match maybe_arg2 {
+                    Some(delimiter) => acc.exec_group_concat(delimiter)?,
+                    None => acc.exec_group_concat(&Value::build_text(","))?,
+                }
             }
+            acc.exec_group_concat(arg)?;
         }
         AggFunc::External(_) => {
             mark_unlikely();
@@ -6496,13 +6500,14 @@ fn update_agg_payload(
                 ));
             };
             let mut key_vec = convert_dbtype_to_raw_jsonb(arg, Conv::ToString)?;
-            let mut val_vec = convert_dbtype_to_raw_jsonb(&value, Conv::NotStrict)?;
+            let mut val_vec = convert_dbtype_to_raw_jsonb(value, Conv::NotStrict)?;
             let Value::Blob(vec) = &mut payload[0] else {
                 mark_unlikely();
                 return Err(LimboError::InternalError(
                     "JsonGroupObject: payload[0] is not a blob".to_string(),
                 ));
             };
+            vec.try_reserve(usize::from(vec.is_empty()) + key_vec.len() + val_vec.len())?;
             if vec.is_empty() {
                 // bits for obj header
                 vec.push(12);
@@ -6517,7 +6522,7 @@ fn update_agg_payload(
                 LimboError::InternalError("array_agg count slot must be an integer".into())
             })? as usize;
             payload[0] = Value::from_i64((count + 1) as i64);
-            payload.push(arg.clone());
+            payload.try_push(arg.try_clone()?)?;
         }
         AggFunc::Mode => {
             // Record the value's collation (constant per group) for finalize-time sorting, then
@@ -6526,19 +6531,19 @@ fn update_agg_payload(
             if !matches!(arg, Value::Null) {
                 let count = payload[1].as_int().unwrap_or(0) as usize;
                 payload[1] = Value::from_i64((count + 1) as i64);
-                payload.push(arg.clone());
+                payload.try_push(arg.try_clone()?)?;
             }
         }
         AggFunc::PercentileCont | AggFunc::PercentileDisc => {
             payload[0] = Value::from_i64(collation.to_bits() as i64);
             // The fraction is a per-group constant; record it on every step.
             if let Some(fraction) = maybe_arg2 {
-                payload[2] = fraction;
+                payload[2].try_clone_from(fraction)?;
             }
             if !matches!(arg, Value::Null) {
                 let count = payload[1].as_int().unwrap_or(0) as usize;
                 payload[1] = Value::from_i64((count + 1) as i64);
-                payload.push(arg.clone());
+                payload.try_push(arg.try_clone()?)?;
             }
         }
         #[cfg(feature = "json")]
@@ -6551,6 +6556,7 @@ fn update_agg_payload(
                     "JsonGroupArray: payload[0] is not a blob".to_string(),
                 ));
             };
+            vec.try_reserve(usize::from(vec.is_empty()) + data.len())?;
             if vec.is_empty() {
                 vec.push(11); // bits for array header
             }
@@ -6790,8 +6796,13 @@ fn ordered_set_percentile_disc(values: &[Value], fraction: f64, collation: Colla
     sorted[index.min(n - 1)].clone()
 }
 
-/// Records what a window function needs from one row so its answer can be read
-/// later. Functions without arguments do not read `arg_reg`.
+/// Per-row step for pure window functions (those carried in
+/// `AccumulatorFunc::Window`). Mirrors `op_agg_step` but with no FILTER and
+/// per-function state semantics. State lives in the same
+/// `Register::Aggregate(AggContext::Builtin(_))` slot used by built-in
+/// aggregates so AggValue can read it back via the standard path. The `col`
+/// argument is the register holding the function's single argument (when it
+/// has one — 0-ary functions like row_number ignore it).
 fn op_window_step(
     state: &mut ProgramState,
     acc_reg: usize,
@@ -6884,50 +6895,6 @@ fn op_window_step(
             };
             *pending = 1;
         }
-        // first_value(expr) — captures the argument value of the first row
-        // of the partition once, then never updates. Under our default
-        // RANGE UNBOUNDED PRECEDING TO CURRENT ROW frame this corresponds
-        // to "value at frame start = partition start" (matches SQLite's
-        // first_valueStepFunc behavior on the same frame).
-        //
-        // State: payload[0] = captured value, payload[1] = captured flag
-        // (Integer 0 = not yet captured, 1 = captured). The flag lets us
-        // distinguish "no captures yet" from "captured a NULL".
-        WindowFunc::FirstValue => {
-            if let Register::Value(Value::Null) = state.registers[acc_reg] {
-                state.registers[acc_reg] =
-                    Register::Aggregate(AggContext::Builtin(crate::alloc::try_vec![
-                        Value::Null,
-                        Value::from_i64(0),
-                    ]?));
-            }
-            // Most steps past the first per partition are no-ops; check the
-            // capture flag with an immutable borrow first so we don't clone
-            // the arg (potentially a Text/Blob allocation) on every row.
-            let already_captured = {
-                let Register::Aggregate(AggContext::Builtin(payload)) = &state.registers[acc_reg]
-                else {
-                    unreachable!("first_value accumulator must be a Builtin payload");
-                };
-                let Value::Numeric(Numeric::Integer(captured)) = &payload[1] else {
-                    unreachable!("first_value capture flag must be Integer");
-                };
-                *captured != 0
-            };
-            if !already_captured {
-                let arg_value = state.registers[arg_reg].get_value().clone();
-                let Register::Aggregate(AggContext::Builtin(payload)) =
-                    &mut state.registers[acc_reg]
-                else {
-                    unreachable!("first_value accumulator must be a Builtin payload");
-                };
-                payload[0] = arg_value;
-                let Value::Numeric(Numeric::Integer(captured)) = &mut payload[1] else {
-                    unreachable!("first_value capture flag must be Integer");
-                };
-                *captured = 1;
-            }
-        }
         // last_value(expr) — captures the argument value of every source row,
         // so payload[0] always holds the value of the most recently stepped
         // row. With our default RANGE frame, AggValue is called once per
@@ -6938,17 +6905,63 @@ fn op_window_step(
                 state.registers[acc_reg] =
                     Register::Aggregate(AggContext::Builtin(crate::alloc::try_vec![Value::Null]?));
             }
-            let arg_value = state.registers[arg_reg].get_value().clone();
-            let Register::Aggregate(AggContext::Builtin(payload)) = &mut state.registers[acc_reg]
-            else {
+            let [arg_slot, acc_slot] = state
+                .registers
+                .get_disjoint_mut([arg_reg, acc_reg])
+                .map_err(|_| {
+                    LimboError::InternalError(format!(
+                        "last_value: argument register {arg_reg} and accumulator register {acc_reg} must be distinct"
+                    ))
+                })?;
+            let Register::Aggregate(AggContext::Builtin(payload)) = acc_slot else {
                 unreachable!("last_value accumulator must be a Builtin payload");
             };
-            payload[0] = arg_value;
+            payload[0].try_clone_from(arg_slot.get_value())?;
+        }
+        // ntile(N) — mirrors SQLite's NtileCtx (window.c:410). Frame is
+        // ROWS CURRENT ROW TO UNBOUNDED FOLLOWING. The step fires for
+        // every row entering the frame end (i.e. every row in the
+        // partition); the inverse fires for every row leaving the
+        // frame start, advancing the iRow counter that xValue uses to
+        // pick a bucket.
+        //
+        // State (payload):
+        //   [0] = nTotal — partition row count, incremented per step.
+        //   [1] = nParam — the bucket count, captured from arg[0] on
+        //         first step.
+        //   [2] = iRow   — current output-row index within the
+        //         partition, incremented per inverse.
+        WindowFunc::Ntile => {
+            if let Register::Value(Value::Null) = state.registers[acc_reg] {
+                // ntile(N): N is coerced with SQLite's `sqlite3_value_int64`
+                // rules — the leading integer prefix of text, blobs read as
+                // text, floats truncated toward zero — then must be positive.
+                let nparam = extract_int_value(state.registers[arg_reg].get_value());
+                if nparam <= 0 {
+                    return Err(LimboError::InvalidArgument(
+                        "argument of ntile must be a positive integer".into(),
+                    ));
+                }
+                state.registers[acc_reg] =
+                    Register::Aggregate(AggContext::Builtin(crate::alloc::try_vec![
+                        Value::from_i64(0),
+                        Value::from_i64(nparam),
+                        Value::from_i64(0),
+                    ]?));
+            }
+            let Register::Aggregate(AggContext::Builtin(payload)) = &mut state.registers[acc_reg]
+            else {
+                unreachable!("ntile accumulator must be a Builtin payload");
+            };
+            let Value::Numeric(Numeric::Integer(ntotal)) = &mut payload[0] else {
+                unreachable!("ntile nTotal counter must be Integer");
+            };
+            *ntotal += 1;
         }
         other => {
             return Err(LimboError::InternalError(format!(
                 "window function {other} reached runtime dispatch but has no handler"
-            )))
+            )));
         }
     }
     state.pc += 1;
@@ -6968,7 +6981,7 @@ fn op_window_value(
             other => {
                 return Err(LimboError::InternalError(format!(
                     "row_number accumulator in unexpected register state: {other:?}"
-                )))
+                )));
             }
         },
         WindowFunc::Rank => {
@@ -7034,15 +7047,114 @@ fn op_window_value(
             };
             std::mem::replace(&mut payload[0], Value::Null)
         }
+        // ntile bucket computation — mirrors SQLite's ntileValueFunc
+        // (window.c:453). The partition is split into nParam buckets;
+        // when nTotal isn't a clean multiple, the first nLarge buckets
+        // get one extra row each (size nSize+1) and the rest get nSize.
+        // iRow is the 0-based output position within the partition.
+        WindowFunc::Ntile => {
+            let Register::Aggregate(AggContext::Builtin(payload)) = &state.registers[acc_reg]
+            else {
+                unreachable!("ntile accumulator must be a Builtin payload (xStep runs first)");
+            };
+            let Value::Numeric(Numeric::Integer(ntotal)) = &payload[0] else {
+                unreachable!("ntile nTotal must be Integer");
+            };
+            let Value::Numeric(Numeric::Integer(nparam)) = &payload[1] else {
+                unreachable!("ntile nParam must be Integer");
+            };
+            let Value::Numeric(Numeric::Integer(irow)) = &payload[2] else {
+                unreachable!("ntile iRow must be Integer");
+            };
+            let ntotal = *ntotal;
+            let nparam = *nparam;
+            let irow = *irow;
+            let nsize = ntotal / nparam;
+            let bucket = if nsize == 0 {
+                irow + 1
+            } else {
+                let nlarge = ntotal - nparam * nsize;
+                let ismall = nlarge * (nsize + 1);
+                if irow < ismall {
+                    1 + irow / (nsize + 1)
+                } else {
+                    1 + nlarge + (irow - ismall) / nsize
+                }
+            };
+            Value::from_i64(bucket)
+        }
         other => {
             return Err(LimboError::InternalError(format!(
                 "window function {other} reached runtime dispatch but has no handler"
-            )))
+            )));
         }
     };
     state.registers[dest_reg].set_value(value);
     state.pc += 1;
     Ok(InsnFunctionStepResult::Step)
+}
+
+/// Per-row inverse-step for pure window functions. Companion to
+/// `op_window_step`: fires when a row crosses the frame-start cursor on its
+/// way out of the function's frame.
+fn op_window_inverse(
+    state: &mut ProgramState,
+    acc_reg: usize,
+    _arg_reg: usize,
+    func: &WindowFunc,
+) -> Result<InsnFunctionStepResult> {
+    match func {
+        // ntile's xInverse advances iRow — the output-row position
+        // within the partition that xValue reads. xStep has already
+        // populated nTotal and nParam by the time the flush loop fires
+        // inverse, so the payload is always Builtin here.
+        WindowFunc::Ntile => {
+            let Register::Aggregate(AggContext::Builtin(payload)) = &mut state.registers[acc_reg]
+            else {
+                unreachable!(
+                    "ntile accumulator must be a Builtin payload at inverse (xStep runs first)"
+                );
+            };
+            let Value::Numeric(Numeric::Integer(irow)) = &mut payload[2] else {
+                unreachable!("ntile iRow must be Integer");
+            };
+            *irow += 1;
+            state.pc += 1;
+            Ok(InsnFunctionStepResult::Step)
+        }
+        _ => unreachable!("AggInverse fired for {func} but no inverse arm is wired"),
+    }
+}
+
+pub fn op_agg_inverse(
+    _program: &Program,
+    state: &mut ProgramState,
+    insn: &Insn,
+    _pager: &Arc<Pager>,
+) -> Result<InsnFunctionStepResult> {
+    load_insn!(
+        AggInverse {
+            acc_reg,
+            col,
+            delimiter: _,
+            func,
+            comparator: _,
+        },
+        insn
+    );
+
+    if let AccumulatorFunc::Window(win_func) = func {
+        return op_window_inverse(state, *acc_reg, *col, win_func);
+    }
+
+    // Aggregate window functions all carry RANGE UNBOUNDED PRECEDING TO
+    // CURRENT ROW as their coerced frame, so the frame start never moves
+    // and AggInverse is never emitted for them. Reaching this arm is a
+    // planner bug.
+    unreachable!(
+        "AggInverse fired for aggregate {} but no inverse arm is wired",
+        func.expect_agg()
+    );
 }
 
 pub fn op_agg_step(
@@ -7165,17 +7277,16 @@ pub fn op_agg_step(
             }
         }
         _ => {
-            // Second argument (delimiter for group_concat/json, fraction for percentiles),
             let maybe_arg2 = match func {
                 AggFunc::GroupConcat | AggFunc::StringAgg => {
-                    Some(state.registers[*delimiter].get_value().clone())
+                    Some(state.registers[*delimiter].get_value().try_clone()?)
                 }
                 #[cfg(feature = "json")]
                 AggFunc::JsonGroupObject | AggFunc::JsonbGroupObject => {
-                    Some(state.registers[*delimiter].get_value().clone())
+                    Some(state.registers[*delimiter].get_value().try_clone()?)
                 }
                 AggFunc::PercentileCont | AggFunc::PercentileDisc => {
-                    Some(state.registers[*delimiter].get_value().clone())
+                    Some(state.registers[*delimiter].get_value().try_clone()?)
                 }
                 _ => None,
             };
@@ -7201,7 +7312,7 @@ pub fn op_agg_step(
             update_agg_payload(
                 func,
                 arg,
-                maybe_arg2,
+                maybe_arg2.as_ref(),
                 payload,
                 current_collation,
                 comparator_factory,
@@ -7941,6 +8052,9 @@ pub fn op_function(
                 }
             }
             JsonFunc::JsonReplace => {
+                if arg_count % 2 == 0 {
+                    bail_constraint_error!("json_replace() needs an odd number of arguments")
+                }
                 if let Ok(json) = json_replace(
                     registers_to_ref_values(&state.registers[*start_reg..*start_reg + arg_count]),
                     &state.json_cache,
@@ -7951,6 +8065,9 @@ pub fn op_function(
                 }
             }
             JsonFunc::JsonbReplace => {
+                if arg_count % 2 == 0 {
+                    bail_constraint_error!("json_replace() needs an odd number of arguments")
+                }
                 if let Ok(json) = jsonb_replace(
                     registers_to_ref_values(&state.registers[*start_reg..*start_reg + arg_count]),
                     &state.json_cache,
@@ -7961,6 +8078,9 @@ pub fn op_function(
                 }
             }
             JsonFunc::JsonInsert => {
+                if arg_count % 2 == 0 {
+                    bail_constraint_error!("json_insert() needs an odd number of arguments")
+                }
                 if let Ok(json) = json_insert(
                     registers_to_ref_values(&state.registers[*start_reg..*start_reg + arg_count]),
                     &state.json_cache,
@@ -7971,6 +8091,9 @@ pub fn op_function(
                 }
             }
             JsonFunc::JsonbInsert => {
+                if arg_count % 2 == 0 {
+                    bail_constraint_error!("json_insert() needs an odd number of arguments")
+                }
                 if let Ok(json) = jsonb_insert(
                     registers_to_ref_values(&state.registers[*start_reg..*start_reg + arg_count]),
                     &state.json_cache,
@@ -8051,15 +8174,14 @@ pub fn op_function(
             ScalarFunc::Cast => {
                 assert_eq!(arg_count, 2);
                 assert!(*start_reg + 1 < state.registers.len());
-                let reg_value_argument = state.registers[*start_reg].clone();
-                let Value::Text(reg_value_type) =
-                    state.registers[*start_reg + 1].get_value().clone()
-                else {
-                    unreachable!("Cast with non-text type");
+                let result = {
+                    let Value::Text(cast_type) = state.registers[*start_reg + 1].get_value() else {
+                        unreachable!("Cast with non-text type");
+                    };
+                    state.registers[*start_reg]
+                        .get_value()
+                        .exec_cast(cast_type.as_str())?
                 };
-                let result = reg_value_argument
-                    .get_value()
-                    .exec_cast(reg_value_type.as_str())?;
                 state.registers[*dest].set_value(result);
             }
             ScalarFunc::Changes => {
@@ -9299,7 +9421,7 @@ pub fn op_function(
             | ScalarFunc::UnionExtractFunc => {
                 return Err(LimboError::InternalError(format!(
                     "{scalar_func} should be desugared to a dedicated instruction, not Function"
-                )))
+                )));
             }
         },
         crate::function::Func::Vector(vector_func) => {
@@ -10622,16 +10744,20 @@ pub fn op_insert(
                         if !flag.has(InsertFlags::SKIP_LAST_ROWID) {
                             program.connection.update_last_rowid(rowid);
                         }
-                        if flag.has(InsertFlags::SKIP_STATEMENT_CHANGE_COUNT) {
-                            state.record_total_change();
-                        } else {
-                            state.record_statement_change();
+                        if !flag.has(InsertFlags::SKIP_ALL_CHANGE_COUNTS) {
+                            if flag.has(InsertFlags::SKIP_STATEMENT_CHANGE_COUNT) {
+                                state.record_total_change();
+                            } else {
+                                state.record_statement_change();
+                            }
                         }
                     }
-                } else if flag.has(InsertFlags::SKIP_STATEMENT_CHANGE_COUNT) {
-                    state.record_total_change();
-                } else {
-                    state.record_statement_change();
+                } else if !flag.has(InsertFlags::SKIP_ALL_CHANGE_COUNTS) {
+                    if flag.has(InsertFlags::SKIP_STATEMENT_CHANGE_COUNT) {
+                        state.record_total_change();
+                    } else {
+                        state.record_statement_change();
+                    }
                 }
                 let schema = program.connection.schema.read();
                 let dependent_views = schema.get_dependent_materialized_views(table_name);
@@ -12820,7 +12946,7 @@ pub fn op_sequence_commit_inner_tx(
         _ => {
             return Err(LimboError::InternalError(
                 "SequenceCommitInnerTx: saved_outer_reg must be blob".to_string(),
-            ))
+            ));
         }
     };
 
@@ -12835,7 +12961,7 @@ pub fn op_sequence_commit_inner_tx(
                 return Err(LimboError::InternalError(
                     "SequenceCommitInnerTx: connection has no mv_tx but path was Wrapped"
                         .to_string(),
-                ))
+                ));
             }
         };
         state.sequence_inner_commit = Some(mv_store.commit_tx(inner_tx_id, &conn, *db)?);
@@ -14367,17 +14493,15 @@ pub fn op_count(
 
 /// Format integrity check errors into a result string.
 /// Returns NULL when no errors were found.
-fn format_integrity_check_result(errors: &[IntegrityCheckError]) -> Option<String> {
+fn format_integrity_check_result(errors: &[IntegrityCheckError]) -> Result<Option<String>> {
     if errors.is_empty() {
-        None
+        Ok(None)
     } else {
-        Some(
-            errors
-                .iter()
-                .map(|e| e.to_string())
-                .collect::<Vec<String>>()
-                .join("\n"),
-        )
+        let errors: crate::alloc::Vec<_> = crate::with_btree_allocation_site!(
+            IntegrityCheck,
+            errors.iter().map(|error| error.to_string()).try_collect()
+        )?;
+        Ok(Some(errors.join("\n")))
     }
 }
 
@@ -14398,7 +14522,7 @@ fn has_freelist_error(errors: &[IntegrityCheckError]) -> bool {
 pub enum OpIntegrityCheckState {
     Start,
     CheckingBTreeStructure {
-        errors: Vec<IntegrityCheckError>,
+        errors: crate::alloc::Vec<IntegrityCheckError>,
         current_root_idx: usize,
         current_dropped_idx: usize,
         state: IntegrityCheckState,
@@ -14444,7 +14568,7 @@ pub fn op_integrity_check(
                 *db,
                 |header| (header.freelist_trunk_page.get(), header.database_size.get())
             ));
-            let mut errors = Vec::new();
+            let mut errors: crate::alloc::Vec<_> = crate::alloc::vec![];
             let mut integrity_check_state = IntegrityCheckState::new(db_size as usize);
             let mut current_root_idx = 0;
 
@@ -14490,7 +14614,7 @@ pub fn op_integrity_check(
 
             if errors.len() >= *max_errors {
                 errors.truncate(*max_errors);
-                match format_integrity_check_result(errors) {
+                match format_integrity_check_result(errors)? {
                     Some(msg) => state.registers[*message_register].set_text(Text::new(msg))?,
                     None => state.registers[*message_register].set_null(),
                 }
@@ -14526,10 +14650,13 @@ pub fn op_integrity_check(
                 && integrity_check_state.freelist_count.actual_count
                     != integrity_check_state.freelist_count.expected_count
             {
-                errors.push(IntegrityCheckError::FreelistCountMismatch {
-                    actual_count: integrity_check_state.freelist_count.actual_count,
-                    expected_count: integrity_check_state.freelist_count.expected_count,
-                });
+                crate::with_btree_allocation_site!(
+                    IntegrityCheck,
+                    errors.try_push(IntegrityCheckError::FreelistCountMismatch {
+                        actual_count: integrity_check_state.freelist_count.actual_count,
+                        expected_count: integrity_check_state.freelist_count.expected_count,
+                    })
+                )?;
             }
 
             #[cfg(not(feature = "omit_autovacuum"))]
@@ -14547,14 +14674,20 @@ pub fn op_integrity_check(
                         .contains_key(&(page_number as i64))
                     {
                         if target_pager.pending_byte_page_id() != Some(page_number as u32) {
-                            errors.push(IntegrityCheckError::PageNeverUsed {
-                                page_id: page_number as i64,
-                            });
+                            crate::with_btree_allocation_site!(
+                                IntegrityCheck,
+                                errors.try_push(IntegrityCheckError::PageNeverUsed {
+                                    page_id: page_number as i64,
+                                })
+                            )?;
                         }
                     } else if target_pager.pending_byte_page_id() == Some(page_number as u32) {
-                        errors.push(IntegrityCheckError::PendingBytePageUsed {
-                            page_id: page_number as i64,
-                        })
+                        crate::with_btree_allocation_site!(
+                            IntegrityCheck,
+                            errors.try_push(IntegrityCheckError::PendingBytePageUsed {
+                                page_id: page_number as i64,
+                            })
+                        )?;
                     }
 
                     if errors.len() >= *max_errors {
@@ -14564,7 +14697,7 @@ pub fn op_integrity_check(
             }
 
             errors.truncate(*max_errors);
-            match format_integrity_check_result(errors) {
+            match format_integrity_check_result(errors)? {
                 Some(msg) => state.registers[*message_register].set_text(Text::new(msg))?,
                 None => state.registers[*message_register].set_null(),
             }
