@@ -1100,3 +1100,106 @@ fn text_order_by_and_min_max_follow_sqlite_binary_collation() {
         "ordered text projection must produce an EXPLAIN QUERY PLAN"
     );
 }
+
+/// Vector properties are ordinary BLOB columns, so their bytes are whatever a
+/// writer put there: an unrelated blob, a truncated write, or a hand-crafted
+/// value. `vector_extract` and friends decode those bytes into a dense
+/// `dims`-element buffer, and before main's parse-boundary validation a
+/// malformed sparse index or a trailing-marker byte that underflowed the size
+/// arithmetic aborted the process instead of failing the statement. A Cypher
+/// query must never take down the database on stored data it did not write.
+#[test]
+fn malformed_vector_property_fails_the_query_instead_of_aborting() {
+    let io = Arc::new(MemoryIO::new());
+    let database = Database::open_file(
+        io,
+        ":memory:native-capabilities-vector-guard",
+        Arc::new(SqliteDialect),
+    )
+    .expect("open database");
+    let connection = database.connect().expect("connect");
+    connection
+        .execute(
+            "CREATE TABLE people(id INTEGER PRIMARY KEY, embedding BLOB);\
+             CREATE TABLE relationships(id INTEGER PRIMARY KEY, src INTEGER, dst INTEGER);",
+        )
+        .expect("create sources");
+    register_graph(
+        &connection,
+        &GraphRegistration {
+            name: "vectors".to_owned(),
+            node_sources: vec![NodeSourceRegistration {
+                name: "Person".to_owned(),
+                table: "people".to_owned(),
+                identity_column: "id".to_owned(),
+            }],
+            relationship_sources: vec![RelationshipSourceRegistration::binary(
+                "KNOWS",
+                "relationships",
+                "id",
+                "src",
+                "dst",
+                "Person",
+                "Person",
+            )],
+        },
+    )
+    .expect("register graph");
+    let session = GraphConnection::open(connection, "vectors").expect("open graph session");
+
+    // (id, blob bytes, why the blob is malformed)
+    let malformed: [(i64, &[u8], &str); 3] = [
+        // f32 sparse (type 0x09): one value, idx = 0xFFFFFFFF, dims = 1. The
+        // index is used to address a dense 1-element buffer.
+        (
+            1,
+            &[
+                0x00, 0x00, 0x80, 0x3F, 0xFF, 0xFF, 0xFF, 0xFF, 0x01, 0x00, 0x00, 0x00, 0x09,
+            ],
+            "sparse index past the dimension count",
+        ),
+        // float1bit (type 0x03): trailing_bits = 0xFF names more padding than
+        // the two data bytes hold, so dims underflows.
+        (
+            2,
+            &[0x00, 0xFF, 0x03],
+            "float1bit trailing bits exceed the blob",
+        ),
+        // float8 (type 0x04): shorter than the mandatory alpha/shift header.
+        (
+            3,
+            &[0x00, 0x00, 0x04],
+            "float8 blob shorter than its header",
+        ),
+    ];
+    for (id, blob, _) in malformed {
+        session
+            .execute(
+                "CREATE (:Person {id: $id, embedding: $embedding})",
+                &Parameters::from([
+                    ("id".to_owned(), Value::from_i64(id)),
+                    ("embedding".to_owned(), Value::from_blob(blob.to_vec())),
+                ]),
+            )
+            .expect("store raw blob property");
+    }
+
+    for (id, _, why) in malformed {
+        let result = session.query(
+            &format!("MATCH (n:Person) WHERE n.id = {id} RETURN vector_extract(n.embedding)"),
+            &Parameters::new(),
+        );
+        assert!(
+            result.is_err(),
+            "{why}: vector_extract must report an error, got {result:?}"
+        );
+    }
+
+    // The session survives the failures and still serves the graph.
+    assert_eq!(
+        session
+            .query("MATCH (n:Person) RETURN count(*)", &Parameters::new())
+            .expect("count after malformed vector errors"),
+        vec![vec![Value::from_i64(3)]]
+    );
+}

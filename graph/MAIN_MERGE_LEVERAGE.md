@@ -1,9 +1,66 @@
 # Main merge leverage for the graph frontend
 
 Status: landed on `feature/graph-frontend` after merging `origin/main`
-(`d14a446da` and ancestors). This note is the contract between “merged”
-and “used”: each high-value main theme → automatic vs graph-side work →
-status and proof.
+through `ae22a4afa`. This note is the contract between “merged” and
+“used”: each high-value main theme → automatic vs graph-side work →
+status and proof. Newest merge first.
+
+# Merge 2 — `origin/main` through `ae22a4afa`
+
+## Scope of the merge
+
+- 113 commits since `a9926eb46`: window-function rewrite, a batch of
+  panic/overflow hardening fixes across json/vector/uuid/regexp/
+  percentile, MVCC rollback and passive-checkpoint fixes, `PRAGMA
+  table_info` composite-PK positions, fallible B-tree and JSONB buffer
+  growth, deferred-FK repayment, and the serverless drivers.
+- Conflict resolution: only `Cargo.toml` conflicted, on the workspace
+  crate-version bump to `0.8.0-pre.2`. Took main’s block and bumped the
+  six `turso_graph_*` entries to match; graph crates use
+  `version.workspace = true`, so they must not lag the workspace version.
+- No compile fixes were needed on the graph side this time.
+
+## High-value themes
+
+| Theme | Auto vs graph work | Status | Evidence |
+|---|---|---|---|
+| Vector blob parse-boundary validation (sparse `idx` range, float1bit/float8 size underflow) | **Graph work done** (regression coverage) + automatic core validation | **done** | Graph registers `vector32_sparse`, `vector8`, `vector1bit`, and `vector_extract`, and a vector property is an ordinary BLOB column whose bytes come from whatever writer touched the table. Before `ac49eb07c` / `49ce7cc0b` a malformed blob aborted the process from a plain `MATCH … RETURN vector_extract(n.prop)`; now the statement fails and the session survives. Test: `malformed_vector_property_fails_the_query_instead_of_aborting`. |
+| Remaining panic/overflow hardening (json bounds, JSONB validation, `uuid7`, `unixepoch` modifier, `percentile_disc`, `regexp` arity, `gcd`/`lcm` on `i64::MIN`) | **Not reachable from Cypher** | **skipped** (not reachable) | `graph/frontend/src/functions.rs` registers only the vector, `struct_pack`/`union_*`, and FTS families — no json/regexp/percentile/uuid passthrough. Cypher temporal goes through `turso_graph_temporal` (jiff), not core’s date functions, so the `unixepoch` modifier range check is core-only. Re-check if the registry grows a json or date family. |
+| `PRAGMA table_info` composite primary-key position | **Automatic**; no graph change required | **done** (auto) | `catalog.rs::require_columns` reads column 5 as `> 0` and `require_unique_identity` counts the PK columns. Main replaced `emit_bool(primary_key())` with the 1-based key position, which agrees with `> 0` for every column and still yields more than one PK column for a composite key, so identity validation is unchanged. |
+| MVCC: write-set transfer on rollback, passive-checkpoint/DROP races, sequence change-count leak | **Automatic** for graph MVCC sessions | **done** (auto) | Graph sessions run their mutations through core transactions; the branch’s shared write-transaction guard sits above them. Verified by the MVCC session suite (`mvcc_transaction_reads_its_writes_without_cross_connection_leakage` and siblings) plus `turso_core --lib`. |
+| Fallible buffer growth (B-tree cell buffers, JSONB header) | **Automatic** | **done** (auto) | Graph allocates no core buffers itself; every graph statement goes through the same prepared-SQL path. Covered by the green graph suites after the merge. |
+| Spilled sort-merge dropped comparison result (`16efbd6ce`) | **Automatic** on large `ORDER BY` | **done** (auto), **test deferred** | Graph `ORDER BY` lowers to core sorters, so the fix applies unchanged. A graph-level regression would need a sorter-spill-sized dataset; the corpus run is the practical coverage, and a targeted test is deferred rather than faked with a small dataset that never spills. |
+
+## Secondary main deltas (optional for graph)
+
+| Theme | Auto vs graph | Status |
+|---|---|---|
+| Window rewrite (SQLite frame-cursor model, `lag`/`lead`/`ntile`, `AggInverse`) | Automatic if graph emits window SQL | **deferred** — Cypher has no window surface syntax and lowering emits none; re-check if a top-k-per-group or ranked-path lowering appears |
+| Deferred FK repayment per matching child on parent INSERT | Automatic for registered source tables that declare FKs | **done** (auto) — graph DDL emits no FK constraints, but BYO node/relationship tables commonly do |
+| Views: star columns derived from joined sources | Automatic if graph reads views | **skipped** — graph registers base tables and its own junction/spill tables, not views |
+| `CREATE TABLE … AS SELECT` reports zero result columns | Automatic | **skipped** — graph emits no CTAS |
+| Blob literal prefix case preserved by the parser | Automatic | **done** (auto) — lowering emits uppercase `X'…'`; Cypher itself has no blob literal, so blob values arrive as parameters |
+| `ALTER TABLE ADD COLUMN` with explicit `NULL` | Automatic | **skipped** — graph and testkit add columns without a nullability constraint |
+| Outer-scope “no such column” echoes query casing | Automatic in surfaced core errors | **done** (auto) |
+| Serverless drivers (Rust/Python/Go/JS), bindings, CI, TCL | Out of graph scope | **skipped** (non-goals) |
+
+## How to re-verify
+
+```sh
+cargo test -p turso_graph_frontend --test native_capabilities malformed_vector
+cargo test -p turso_graph_frontend
+cargo test -p turso_graph_runtime
+cargo test -p turso_graph_testkit
+cargo test -p turso_core --lib
+mise run corpus
+```
+
+Note: `cargo build --workspace --all-targets` fails in `perf/memory` with
+`#[global_allocator]` conflicting with the one in `bindings/rust`. That
+crate is not a `default-member`, the conflict predates this merge, and it
+is unrelated to graph; `cargo build --all-targets` is clean.
+
+# Merge 1 — `origin/main` through `d14a446da`
 
 ## Scope of the merge
 
