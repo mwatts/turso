@@ -1204,6 +1204,63 @@ fn malformed_vector_property_fails_the_query_instead_of_aborting() {
     );
 }
 
+/// A literal sort key orders nothing.
+///
+/// Cypher `ORDER BY` takes expressions, so a bare literal is a constant every
+/// row shares and the result keeps the order it already had. SQL reads a small
+/// integer there as a column position instead, which made `ORDER BY 1 DESC`
+/// reverse the projection and `ORDER BY 2` over a one-column projection fail
+/// with "1st ORDER BY term out of range". Core only ever sees literal sort keys
+/// that the graph lowering chose to emit, so the fix belongs here.
+#[test]
+fn literal_sort_keys_neither_reorder_nor_fail() {
+    let (_database, session) = fixture::social_graph_connection();
+
+    let unordered = session
+        .query("MATCH (n:Person) RETURN n.name AS a", &Parameters::new())
+        .expect("unordered projection");
+    assert_eq!(
+        unordered,
+        vec![
+            vec![Value::build_text("Ada")],
+            vec![Value::build_text("Grace")],
+        ],
+        "fixture order the literal sort keys must preserve"
+    );
+
+    // Descending position 1 would put Grace first if the literal were read as
+    // a column position.
+    for query in [
+        "MATCH (n:Person) RETURN n.name AS a ORDER BY 1 DESC",
+        "MATCH (n:Person) RETURN n.name AS a ORDER BY -1",
+        "MATCH (n:Person) RETURN n.name AS a ORDER BY 'x'",
+        // Past the end of the projection: a column position would be an error.
+        "MATCH (n:Person) RETURN n.name AS a ORDER BY 2",
+    ] {
+        assert_eq!(
+            session
+                .query(query, &Parameters::new())
+                .unwrap_or_else(|error| panic!("{query} must not fail: {error:?}")),
+            unordered,
+            "{query} must leave the order alone"
+        );
+    }
+
+    // A literal alongside a real key drops out without disturbing the key.
+    assert_eq!(
+        session
+            .query(
+                "MATCH (n:Person) RETURN n.name AS a ORDER BY 1, n.name DESC",
+                &Parameters::new(),
+            )
+            .expect("literal beside a real sort key"),
+        vec![
+            vec![Value::build_text("Grace")],
+            vec![Value::build_text("Ada")],
+        ]
+    );
+}
+
 /// `reduce()` folds a list of any length.
 ///
 /// Before core gained recursive CTEs the fold was an unrolled ladder of ten

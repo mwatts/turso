@@ -749,9 +749,11 @@ fn lower_plan(
         }
         ir::PlanKind::Sort(sort) => {
             let input = lower_plan(&sort.input, catalog, optional, wanted)?;
-            let ordering = lower_ordering(&sort.keys, &input.bindings, catalog)?;
+            let ordering = lower_ordering(&sort.keys, &input.bindings, catalog)?
+                .map(|ordering| format!(" ORDER BY {ordering}"))
+                .unwrap_or_default();
             Ok(Lowered {
-                sql: format!("SELECT q.* FROM ({}) AS q ORDER BY {ordering}", input.sql),
+                sql: format!("SELECT q.* FROM ({}) AS q{ordering}", input.sql),
                 bindings: input.bindings,
             })
         }
@@ -1281,6 +1283,7 @@ fn lower_project(
     let ordering = sort_keys
         .map(|keys| lower_ordering(keys, &input.bindings, catalog))
         .transpose()?
+        .flatten()
         .map(|ordering| format!(" ORDER BY {ordering}"))
         .unwrap_or_default();
     Ok(Lowered {
@@ -1289,12 +1292,31 @@ fn lower_project(
     })
 }
 
+/// A sort key that is a bare numeric literal orders nothing in Cypher, but SQL
+/// reads a small integer in `ORDER BY` as a column position: `ORDER BY 1 DESC`
+/// would reverse the result and `ORDER BY 2` over a one-column projection is a
+/// "term out of range" error. Every row shares a literal's value, so dropping
+/// the key is exactly what Cypher means and avoids the reinterpretation.
+fn sort_key_orders_nothing(expression: &ir::Expression) -> bool {
+    match expression {
+        ir::Expression::Literal(_) => true,
+        ir::Expression::Unary { op, expression } => {
+            *op == ir::UnaryOp::Negate
+                && matches!(expression.expression, ir::Expression::Literal(_))
+        }
+        _ => false,
+    }
+}
+
+/// Renders the sort keys, or `None` when no key survives and the caller must
+/// emit no `ORDER BY` at all.
 fn lower_ordering(
     keys: &[ir::SortKey],
     bindings: &HashMap<ir::BindingId, BindingLayout>,
     catalog: &dyn RelationalCatalogSnapshot,
-) -> Result<String, LowerError> {
+) -> Result<Option<String>, LowerError> {
     keys.iter()
+        .filter(|key| !sort_key_orders_nothing(&key.expression.expression))
         .map(|key| {
             let expression = lower_expression(&key.expression, bindings, catalog, "q")?;
             let direction = match key.direction {
@@ -1308,7 +1330,7 @@ fn lower_ordering(
             Ok(format!("{expression} {direction} {null_order}"))
         })
         .collect::<Result<Vec<_>, LowerError>>()
-        .map(|items| items.join(", "))
+        .map(|items| (!items.is_empty()).then(|| items.join(", ")))
 }
 
 /// When `RETURN count(*)` (or an equivalent pure star-count aggregate) sits
