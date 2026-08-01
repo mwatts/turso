@@ -23,6 +23,21 @@ rows, not 47 — `age.cypher.match.query-173` is a second
 `MATCH cannot follow OPTIONAL MATCH` row that was already failing before the
 expectation fix, so it never appeared in the 104. No row regressed.
 
+The fix half has landed too: corpus 9004 → 9069 of 10242, no row regressed. The
+gain is larger than the 57 because siblings that were already failing came along
+with each rule, and because `substring` turned out to be 1-indexed (see below).
+
+Two rows moved between the columns while implementing:
+
+- The int4-range family splits by sign, not by the message. AGE reports
+  `substring('abcdef', -2147483649, 0)` with the same "out of INT range" text as
+  the positive overflow, but a negative offset is an error openCypher agrees
+  with. `is_age_restriction_error` now takes the query text so only the
+  non-negative overflows are restrictions.
+- `range(0, 10, null)` returns `[0..10]` in AGE: a null step is a missing step.
+  Only a null start or end is an error, which is what the donor's own message
+  says ("neither start or end can be NULL").
+
 ## Fix (57)
 
 ### Wrong-typed arguments to scalar functions (44)
@@ -61,7 +76,15 @@ for a negative length, so this matches AGE for the right reason.
 
 ### Null in `range()` (1)
 
-`range(0, null, -3)`. `range` takes integers; null is not one.
+`range(0, null, -3)`. A range needs a start and an end to walk between.
+
+### Off by one in `substring()` (found while fixing the above)
+
+Not one of the 104 — the rows that would have caught it were graded as errors.
+`substring` lowered straight onto SQL's `substr()`, which counts from 1, while
+Cypher counts from 0. Both authorities agree: the AGE donor has
+`substring("0123456789", 1, 3)` → `"123"`, and TCK String1 [1] has
+`substring('0123456789', 1)` → `'123456789'`.
 
 ### Non-boolean predicate (1)
 
@@ -104,10 +127,12 @@ supported`. The Cypher runs fine; the error comes from the wrapping
 siblings `cannot cast agtype object` and `cannot cast agtype array` — this is
 a one-line widening of a rule we already made.
 
-### Postgres INT32 range on string functions (8)
+### Postgres INT32 range on string functions (8, revised to 4)
 
 `substring/left/right` with `±2147483649` → "out of INT range". AGE's limit is
 Postgres `int4`. Cypher integers are 64-bit, so the bound does not exist for us.
+The four negative rows moved to the fix column: they overflow the int4 check on
+the way past it, but a negative offset or length is an error either way.
 
 ### Null offsets and lengths (3)
 
@@ -122,14 +147,14 @@ outlier here — unlike the negative-length rows above.
 - `MATCH cannot follow OPTIONAL MATCH` — legal openCypher; AGE's parser
   forbids it.
 
-## Doing the work
+## How the work went
 
-The 47 restriction rows are message-pattern additions to
-`is_age_restriction_error` and flip to `Unsupported` with no engine change.
+The restriction rows are message-pattern additions to
+`is_age_restriction_error`. They stop expecting an error and start expecting
+rows, so they pass as soon as the query runs — no engine change.
 
-The 57 fixes are one theme with a long tail: argument type-checking at lowering
-time, raising through `cypher_raise`. Sensible order is (1) the 3 pattern-variable
-rules (bind-time, no runtime plumbing), (2) negative/null argument-domain checks
-on `substring`/`left`/`right`/`range`, (3) the 44 function type checks, which
-want a shared "argument must be a list/string/number" helper rather than 44
-bespoke checks.
+The fixes turned out to be one theme with a long tail, and none of them needed
+`cypher_raise` after all: every wrong-typed argument in the corpus has a type the
+binder already knows, so the check lands at bind time. `builtin_argument_conflict`
+in `graph/frontend/src/binder.rs` is the shared "argument must be a
+list/string/number" helper, rather than 44 bespoke checks.
