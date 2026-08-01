@@ -18,6 +18,11 @@ The line drawn below: **openCypher/TCK agrees the query is an error → fix.**
 
 Totals: **57 to fix, 47 to reclassify as restrictions.**
 
+The restriction half has landed: corpus 8956 → 9004 of 10242. That is 48 AGE
+rows, not 47 — `age.cypher.match.query-173` is a second
+`MATCH cannot follow OPTIONAL MATCH` row that was already failing before the
+expectation fix, so it never appeared in the 104. No row regressed.
+
 ## Fix (57)
 
 ### Wrong-typed arguments to scalar functions (44)

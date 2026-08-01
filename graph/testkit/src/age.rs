@@ -535,6 +535,13 @@ fn is_infrastructure_error(message: &str) -> bool {
 /// - labels and relationship types are separate namespaces
 /// - shortest-path errors come from AGE's SQL table functions, and cast or
 ///   invocation errors from the outer SELECT's column definition list
+/// - `::` is Postgres cast syntax AGE inherits, so its input-syntax strictness
+///   and its agtype constructors (`::vertex`, `::edge`, `::path`) are vendor
+///   semantics with no openCypher counterpart
+/// - AGE's `int4` bounds and its null rejections in `substring`/`left`/`right`
+///   do not exist in openCypher, where integers are 64-bit and null propagates
+///
+/// See `graph/AGE_ERROR_TRIAGE.md` for the per-family reasoning.
 fn is_age_restriction_error(message: &str, file_stem: &str) -> bool {
     let first_line = message.trim_start().lines().next().unwrap_or_default();
     // Adding a label to a re-bound variable is a conjunctive predicate in a
@@ -567,6 +574,29 @@ fn is_age_restriction_error(message: &str, file_stem: &str) -> bool {
         // supported in a reduce() expression" is a rejection openCypher shares, so
         // it must stay error-expected rather than be reclassified as a restriction.
         || first_line.contains("subqueries (including a nested reduce())")
+        || first_line.starts_with("ON MATCH SET specified more than once")
+        // MATCH after OPTIONAL MATCH is legal openCypher; AGE's parser refuses it.
+        || first_line.starts_with("MATCH cannot follow OPTIONAL MATCH")
+        // The Cypher runs; the wrapping `SELECT ... AS (result json)` is what
+        // fails. Same family as the object/array casts above, and `agtype path`
+        // has no json or int representation to begin with.
+        || (first_line.starts_with("cannot cast agtype") && first_line.ends_with("to json"))
+        || first_line.starts_with("cannot cast agtype path")
+        || first_line.starts_with("cypher(...) in expressions is not supported")
+        // `::` casts: AGE's own typecast checks, plus the Postgres literal
+        // parsers behind them. `'NaN'::float::int` overflows a Postgres bigint;
+        // no cypher() row reaches that message any other way.
+        || first_line.contains("typecast")
+        || first_line.starts_with("invalid input syntax for type bigint")
+        || first_line.starts_with("invalid input syntax for type double precision")
+        || first_line.starts_with("invalid input syntax for type numeric")
+        || first_line.starts_with("bigint out of range")
+        // Postgres int4 bounds on string functions. Negative offsets and
+        // lengths stay error-expected: openCypher rejects those too.
+        || first_line.contains("out of INT range")
+        // Null arguments propagate as null in openCypher rather than raising.
+        || first_line.contains("length parameter cannot be null")
+        || first_line.contains("offset or length cannot be null")
 }
 
 /// The expected output echoes invocations in order but can interleave extra
@@ -685,6 +715,23 @@ mod tests {
         // by openCypher engines too and must stay error-expected.
         assert!(!case("age.age.reduce.query-68").expects_error);
         assert!(case("age.age.reduce.query-69").expects_error);
+        // `::` casts are Postgres syntax AGE inherits, so its typecast checks
+        // and literal parsers are vendor semantics.
+        assert!(!case("age.expr.query-295").expects_error);
+        // The two substring() boundary families sit three lines apart: an
+        // int4 overflow is AGE's own limit, but a negative length is an error
+        // openCypher agrees with.
+        assert!(!case("age.expr.query-555").expects_error);
+        assert!(case("age.expr.query-554").expects_error);
+        // `RETURN true` is fine Cypher; the wrapping SELECT's `AS (result
+        // json)` is what AGE cannot cast. A non-boolean CASE predicate reads
+        // almost the same but is a real Cypher type error.
+        assert!(!case("age.expr.query-321").expects_error);
+        assert!(case("age.expr.query-828").expects_error);
+        // Repeated ON MATCH SET and MATCH after OPTIONAL MATCH are both legal
+        // openCypher that AGE's grammar refuses.
+        assert!(!case("age.cypher.merge.query-263").expects_error);
+        assert!(!case("age.cypher.match.query-174").expects_error);
     }
 
     #[test]
