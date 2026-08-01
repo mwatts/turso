@@ -1,9 +1,81 @@
 # Main merge leverage for the graph frontend
 
 Status: landed on `feature/graph-frontend` after merging `origin/main`
-through `ae22a4afa`. This note is the contract between “merged” and
+through `e99973a43`. This note is the contract between “merged” and
 “used”: each high-value main theme → automatic vs graph-side work →
 status and proof. Newest merge first.
+
+# Merge 3 — `origin/main` through `e99973a43`
+
+## Scope of the merge
+
+- 79 commits since `ae22a4afa`: recursive common table expressions and
+  their follow-up fixes, `percent_rank`/`cume_dist`, a large FTS
+  perf/memory pass, invalid-UTF-8 TEXT record rejection, VDBE register
+  widening, encryption page-size retargeting, MVCC/sync fixes, and the
+  Postgres session-information functions.
+- No conflicts, and no graph-side compile fixes were needed.
+- Pre-existing on `origin/main` and not introduced here: `cargo clippy
+  -p turso_core --all-targets -- --deny=warnings` fails on two unused
+  imports (`core/mvcc/persistent_storage/logical_log.rs`,
+  `core/vdbe/mod.rs`). Verified by running the same clippy invocation in
+  a clean `origin/main` worktree.
+- Corpus: 8926 -> 8956 of 10242, accounted for row by row:
+  - +130 / -104 from the testkit expectation-parsing fix below. The 130
+    are invocations that recover an expectation they always should have
+    had; the 104 are rows that were passing on a defaulted expectation
+    and now fail honestly.
+  - +2 from the `reduce()` rewrite: `age.age.reduce.query-39` and
+    `query-40`, a nested `reduce()` in the list and in the initial value.
+  - +2 that are not a fix. `tck.…temporal10.scenario-12` rows 1 and 4
+    compare `duration.between(now(), now())` against `PT0S` and observe
+    `PT0.000001S` when the two clock reads straddle a microsecond. Rows 2
+    and 5 still fail the same way. Wall-clock flake, counted here only so
+    the arithmetic closes.
+  - The literal-sort-key fix moves no corpus row; no donor query orders by
+    a bare literal. It is covered by `literal_sort_keys_neither_reorder_nor_fail`.
+  - The aggregate-in-`reduce()` rejection nets zero: `query-69` was
+    passing by accident before (wrong expectation, wrong answer) and
+    passes honestly now.
+
+## High-value themes
+
+| Theme | Auto vs graph work | Status | Evidence |
+|---|---|---|---|
+| Recursive CTEs (`4360b24f5` + follow-ups) | **Graph work done** — `reduce()` rewritten | **done** | `reduce(acc = init, x IN list \| body)` lowered to an unrolled ladder of ten sibling CTEs and raised `reduce() list exceeds 10 elements` past that. List length is query data, so the cap was a semantic hole, not a resource limit. The fold is now one `WITH RECURSIVE` over (accumulator, list, index) of fixed SQL size. Test: `reduce_folds_lists_longer_than_the_former_unroll_cap`. `DESIGN_DECISIONS.md` hard-block entry updated. |
+| Aggregates inside `reduce()` (fallout of the recursive rewrite) | **Graph work done** — rejected at bind time | **done** | Core rejects aggregates in a recursive query, as SQLite does, so the fold's body leaked `recursive aggregate queries not supported`. The other two positions were already broken and neither error said so: an aggregate in the list leaked `no such function: collect`, and one in the seed silently answered from a bogus grouping. An aggregate anywhere in a `reduce()` cannot mean what it reads as — the fold's rows are not the outer rows — so the binder now rejects all three with AGE's and Neo4j's message. Test: `aggregates_inside_reduce_are_rejected_in_cypher_terms`. Chasing why the corpus still scored this row as expecting rows exposed a testkit bug that predates the merge: psql's `LINE 1: … cypher('g', $$` error echo has an unclosed `$$`, so the invocation regex swallowed the invocation *after* every errored one and left it defaulting to a row expectation. Fixed alongside; it is what moves `age-deep` by +28 net. |
+| Positional `ORDER BY` narrowed to 32-bit literals (`8961168f6`) | **Graph work done** — divergence is the frontend's | **done** | Main's rule is SQLite's and correct for SQL, which makes the Cypher divergence graph-side: lowering emitted a literal sort key straight into SQL `ORDER BY`, so `RETURN n.name AS a ORDER BY 1 DESC` reversed the result and `ORDER BY 2` failed with "term out of range". Cypher reads a literal as a constant every row shares. Lowering now drops literal (and negated-literal) sort keys and emits no `ORDER BY` when none survives. Test: `literal_sort_keys_neither_reorder_nor_fail`. |
+| FROM-clause call arguments rejected on tables and CTEs (`bb0603e64`) | **Compatibility check only**; vtabs keep their arguments | **done** (auto) | Variable-length path lowering emits a 16-argument call on the internal vtab `__turso_graph_expand(...)` in `FROM` (`lowering.rs:1086`, `:1129`). Main's tightening exempts virtual tables, so the expand join is unaffected; the traversal and native-capability suites stay green. |
+| FTS perf/memory pass (`39d7f9c76`) | **Automatic** | **done** (auto) | Graph FTS registers core's index method rather than implementing `IndexMethodCursor`, so the segment/cache work and the new `IndexMethodCostContext` cost model apply unchanged. `graph/frontend/src/fts.rs` only gates on `experimental_index_method_enabled`. Covered by the graph FTS tests in `native_capabilities`. |
+| Invalid UTF-8 in TEXT record payloads rejected (`1089c645e`) | **Automatic**; graph-reachable only through a foreign writer | **done** (auto), **test deferred** | Same shape as merge 2's vector-blob win: a property column is an ordinary TEXT column whose bytes come from whatever wrote the table, and the decoders previously built `&str` with `from_utf8_unchecked` (SIGSEGV in release). A graph regression test needs a genuinely malformed payload, and turso cannot produce one — `UPDATE people SET name = CAST(X'FF' AS TEXT)` stores a valid U+FFFD, and a `MATCH … RETURN n.name` over it returns normally. Writing the file with sqlite3 first would prove it; deferred rather than faked with a payload that is actually valid. |
+| VDBE register fields widened to u32 (`ab5d692a8`) | **Automatic** | **done** (auto), **reachability unproven** | Removes a translate-time `value exceeds u16::MAX` panic. The reported trigger needs seven CTEs at the 2000-column limit; no Cypher surface produces a projection near that width, so this is hardening the graph inherits rather than a fixed graph bug. |
+| MVCC checkpoint-end ordering, deferred-log CRC, internal-commit marking | **Automatic** for graph MVCC sessions | **done** (auto) | Graph mutations run through core transactions under the branch's shared write-transaction guard. Verified by the graph suites plus `turso_core --lib`. |
+| Record payload extraction, inline short value copies (`c20a54999`, `d35bc84e1`, `bc6c2a50e`) | **Automatic** | **done** (auto) | Every graph statement is prepared SQL through `turso_core`; nothing is reimplemented in graph. |
+
+## Secondary main deltas (optional for graph)
+
+| Theme | Auto vs graph | Status |
+|---|---|---|
+| Recursive-CTE correctness follow-ups: correlated unqualified refs against CTE-backed outer tables (`6c85ac734`), `NullRow` on a pseudo cursor (`eeabdaf63`), outer-join ON clauses left of the recursive table (`fefca00fb`), self-reference affinity (`fc430dc6b`), queue null override (`d6f4c0b79`) | Automatic wherever graph emits recursive CTEs | **done** (auto) — the `reduce()` lowering qualifies every reference and joins no recursive table, so only the affinity fix is load-bearing today; the rest guard future recursive lowerings |
+| Compound selects emitted without cloning the plan (`04e1c6133`) | Automatic on the `UNION` shapes lowering emits | **done** (auto) |
+| `percent_rank()` / `cume_dist()` (`11389ce2c`) | Automatic if graph emits window SQL | **deferred** — Cypher still has no window surface syntax; same standing re-check as the merge 2 window rewrite |
+| Recursive-CTE dedup-index seek elision (`d68190499`) | Automatic on `UNION` recursive CTEs | **skipped** — the `reduce()` fold is `UNION ALL`, which has no dedup index |
+| Attached-database transaction handling (`9913f299d`) | Automatic | **skipped** — graph "attach mode" means installing on an existing connection, not `ATTACH DATABASE`; graph emits no `ATTACH` |
+| Sequence conflict rollback (`3bf79fb4b`) | Automatic for sequence-backed identity columns | **skipped** — graph emits no sequences; BYO tables may still use them |
+| Encryption page-size retargeting, sync composite-PK replay, portable-change rootpage resolution, Postgres session functions, antithesis/CI, benches | Out of graph scope | **skipped** (non-goals) |
+
+## How to re-verify
+
+```sh
+cargo test -p turso_graph_frontend --test native_capabilities reduce_folds
+cargo test -p turso_graph_frontend --test native_capabilities aggregates_inside_reduce
+cargo test -p turso_graph_frontend --test native_capabilities literal_sort_keys
+cargo test -p turso_graph_frontend
+cargo test -p turso_graph_runtime
+cargo test -p turso_graph_testkit
+cargo test -p turso_core --lib
+mise run corpus
+```
 
 # Merge 2 — `origin/main` through `ae22a4afa`
 
