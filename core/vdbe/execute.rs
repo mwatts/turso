@@ -2332,20 +2332,8 @@ pub fn op_array_element(
         Value::Blob(blob) => match ValueIterator::new(blob) {
             Ok(mut iter) => iter
                 .nth(idx)
-                .and_then(|r| r.ok())
-                .map(|vref| {
-                    // The blob may not be a real record — text fields could
-                    // contain invalid UTF-8 (from_utf8_unchecked in the
-                    // record decoder). Validate and demote to blob if needed.
-                    if let ValueRef::Text(t) = &vref {
-                        if t.value.as_bytes().iter().any(|&b| b > 0x7F)
-                            && std::str::from_utf8(t.value.as_bytes()).is_err()
-                        {
-                            return Value::from_slice(t.value.as_bytes());
-                        }
-                    }
-                    vref.to_owned()
-                })
+                .transpose()?
+                .map(|vref| vref.to_owned())
                 .transpose()?
                 .unwrap_or(Value::Null),
             Err(_) => Value::Null,
@@ -3361,6 +3349,12 @@ pub fn halt(
     } else {
         // Even if deferred violations are present, the statement subtransaction completes successfully when
         // it is part of an interactive transaction.
+        //
+        // Drain index-method state before releasing the statement savepoint.
+        // Otherwise the cursor's Drop fallback performs these writes after
+        // statement success, where an I/O error can no longer be returned to
+        // the caller or rolled back at statement scope.
+        index_method_pre_commit_all(state, pager)?;
         state.end_statement(&program.connection, pager, EndStatement::ReleaseSavepoint)?;
         // Apply deferred CDC state after successful statement completion
         if let Some(cdc_info) = state.pending_cdc_info.take() {
@@ -3610,6 +3604,21 @@ fn open_connection_named_savepoints_for_db(
         } else {
             open_named_savepoint_frames_on_wal_pager(pager, frames)
         }
+    })
+}
+
+fn load_active_non_main_wal_headers_for_named_savepoint(conn: &Connection) -> Result<IOResult<()>> {
+    conn.with_all_attached_pagers_with_index(|pagers| {
+        for (db_id, pager) in pagers {
+            if conn.mv_store_for_db(*db_id).is_some() || !pager.holds_read_lock() {
+                continue;
+            }
+            match pager_db_size_for_named_savepoint(pager)? {
+                IOResult::Done(_) => {}
+                IOResult::IO(io) => return Ok(IOResult::IO(io)),
+            }
+        }
+        Ok(IOResult::Done(()))
     })
 }
 
@@ -4507,6 +4516,12 @@ pub fn op_savepoint(
 
     match *op {
         SavepointOp::Begin => {
+            // Mirroring mutates several pager savepoint stacks and therefore
+            // cannot yield halfway through. Load every active WAL header
+            // before opening the first savepoint so an I/O yield is restartable.
+            if let IOResult::IO(io) = load_active_non_main_wal_headers_for_named_savepoint(&conn)? {
+                return Ok(InsnFunctionStepResult::IO(io));
+            }
             conn.with_savepoint_schema_snapshot(
                 |main_schema_snapshot, temp_schema_snapshot, staged_schema_snapshot| {
                     let starts_transaction = conn.auto_commit.load(Ordering::SeqCst);
@@ -6918,6 +6933,32 @@ fn op_window_step(
             };
             payload[0].try_clone_from(arg_slot.get_value())?;
         }
+        // percent_rank() / cume_dist() — mirror SQLite's CallCount-based
+        // percent_rankStepFunc / cume_distStepFunc (window.c:328, :373).
+        // Both share the same xStep semantics: count every row entering
+        // the frame end. With end=UNBOUNDED FOLLOWING, that's every row
+        // in the partition. xInverse and xValue do the rest.
+        //
+        // State (payload):
+        //   [0] = nTotal (partition row count).
+        //   [1] = nStep  (rows that have left the frame start).
+        WindowFunc::PercentRank | WindowFunc::CumeDist => {
+            if let Register::Value(Value::Null) = state.registers[acc_reg] {
+                state.registers[acc_reg] =
+                    Register::Aggregate(AggContext::Builtin(crate::alloc::try_vec![
+                        Value::from_i64(0),
+                        Value::from_i64(0),
+                    ]?));
+            }
+            let Register::Aggregate(AggContext::Builtin(payload)) = &mut state.registers[acc_reg]
+            else {
+                unreachable!("percent_rank/cume_dist accumulator must be a Builtin payload");
+            };
+            let Value::Numeric(Numeric::Integer(ntotal)) = &mut payload[0] else {
+                unreachable!("percent_rank/cume_dist nTotal must be Integer");
+            };
+            *ntotal += 1;
+        }
         // ntile(N) — mirrors SQLite's NtileCtx (window.c:410). Frame is
         // ROWS CURRENT ROW TO UNBOUNDED FOLLOWING. The step fires for
         // every row entering the frame end (i.e. every row in the
@@ -7047,6 +7088,57 @@ fn op_window_value(
             };
             std::mem::replace(&mut payload[0], Value::Null)
         }
+        // percent_rank() — mirrors SQLite's percent_rankValueFunc
+        // (window.c:352). The value is (rows in earlier peer groups) /
+        // (nTotal - 1); 0.0 when there's only one row in the partition.
+        WindowFunc::PercentRank => {
+            let Register::Aggregate(AggContext::Builtin(payload)) = &state.registers[acc_reg]
+            else {
+                return Err(LimboError::InternalError(format!(
+                    "percent_rank accumulator in unexpected register state: {:?}",
+                    state.registers[acc_reg]
+                )));
+            };
+            let Value::Numeric(Numeric::Integer(ntotal)) = &payload[0] else {
+                unreachable!("percent_rank nTotal must be Integer");
+            };
+            let Value::Numeric(Numeric::Integer(nstep)) = &payload[1] else {
+                unreachable!("percent_rank nStep must be Integer");
+            };
+            let ntotal = *ntotal;
+            let nstep = *nstep;
+            let r = if ntotal > 1 {
+                nstep as f64 / (ntotal - 1) as f64
+            } else {
+                0.0
+            };
+            Value::from_f64(r)
+        }
+        // cume_dist() — mirrors SQLite's cume_distValueFunc
+        // (window.c:397). value = nStep / nTotal.
+        WindowFunc::CumeDist => {
+            let Register::Aggregate(AggContext::Builtin(payload)) = &state.registers[acc_reg]
+            else {
+                return Err(LimboError::InternalError(format!(
+                    "cume_dist accumulator in unexpected register state: {:?}",
+                    state.registers[acc_reg]
+                )));
+            };
+            let Value::Numeric(Numeric::Integer(ntotal)) = &payload[0] else {
+                unreachable!("cume_dist nTotal must be Integer");
+            };
+            let Value::Numeric(Numeric::Integer(nstep)) = &payload[1] else {
+                unreachable!("cume_dist nStep must be Integer");
+            };
+            let ntotal = *ntotal;
+            let nstep = *nstep;
+            // nTotal is incremented per xStep, so it's always >= 1 once
+            // we're emitting rows from this partition. A divide-by-zero
+            // here would mean we're computing cume_dist on an empty
+            // partition, which can't happen.
+            let r = nstep as f64 / ntotal as f64;
+            Value::from_f64(r)
+        }
         // ntile bucket computation — mirrors SQLite's ntileValueFunc
         // (window.c:453). The partition is split into nParam buckets;
         // when nTotal isn't a clean multiple, the first nLarge buckets
@@ -7104,6 +7196,25 @@ fn op_window_inverse(
     func: &WindowFunc,
 ) -> Result<InsnFunctionStepResult> {
     match func {
+        // percent_rank / cume_dist xInverse — increment nStep, the
+        // count of rows that have left the frame start. Under GROUPS
+        // mode the AGGINVERSE peer-loop fires xInverse once per row of
+        // the leaving group, so a group of size G bumps nStep by G.
+        WindowFunc::PercentRank | WindowFunc::CumeDist => {
+            let Register::Aggregate(AggContext::Builtin(payload)) = &mut state.registers[acc_reg]
+            else {
+                return Err(LimboError::InternalError(format!(
+                    "percent_rank/cume_dist accumulator in unexpected register state at inverse: {:?}",
+                    state.registers[acc_reg]
+                )));
+            };
+            let Value::Numeric(Numeric::Integer(nstep)) = &mut payload[1] else {
+                unreachable!("percent_rank/cume_dist nStep must be Integer");
+            };
+            *nstep += 1;
+            state.pc += 1;
+            Ok(InsnFunctionStepResult::Step)
+        }
         // ntile's xInverse advances iRow — the output-row position
         // within the partition that xValue reads. xStep has already
         // populated nTotal and nParam by the time the flush loop fires
@@ -17771,6 +17882,31 @@ mod tests {
     }
 
     #[test]
+    fn test_savepoint_loads_evicted_attached_header_before_mirroring() {
+        let io: Arc<dyn IO> = Arc::new(MemoryIO::new());
+        let db = Database::open_file_with_flags(
+            io,
+            "savepoint-main.db",
+            OpenFlags::Create,
+            DatabaseOpts::new().with_attach(true),
+            None,
+            Arc::new(SqliteDialect),
+        )
+        .unwrap();
+        let conn = db.connect().unwrap();
+        conn.execute("ATTACH 'savepoint-aux.db' AS aux").unwrap();
+        conn.execute("CREATE TABLE aux.t(x)").unwrap();
+
+        let attached_db_id = conn.get_database_id_by_name("aux").unwrap();
+        let attached_pager = conn.get_pager_from_database_index(&attached_db_id).unwrap();
+        attached_pager.begin_read_tx().unwrap();
+        attached_pager.clear_page_cache(false);
+
+        conn.execute("SAVEPOINT s").unwrap();
+        conn.execute("RELEASE s").unwrap();
+    }
+
+    #[test]
     fn test_in_place_vacuum_succeeds_and_releases_source_locks() {
         let io: Arc<dyn IO> = Arc::new(MemoryIO::new());
         let db = Database::open_file_with_flags(
@@ -18413,10 +18549,6 @@ mod tests {
 
     #[test]
     fn test_negate_blob_subscript_invalid_utf8_no_panic() {
-        // Negating a blob subscript that extracts a "text" value containing
-        // invalid UTF-8 bytes must not panic. The record decoder uses
-        // from_utf8_unchecked, so ArrayElement must validate extracted text.
-        //
         // Reproduces fuzzer bug at seed 27035.
         let io: Arc<dyn IO> = Arc::new(MemoryIO::new());
         let db = Database::open_file_with_flags(

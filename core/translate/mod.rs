@@ -30,6 +30,7 @@ pub(crate) mod order_by;
 pub(crate) mod plan;
 pub(crate) mod planner;
 pub(crate) mod pragma;
+pub(crate) mod recursive_cte;
 pub(crate) mod result_row;
 pub(crate) mod rollback;
 pub(crate) mod schema;
@@ -198,6 +199,10 @@ pub fn translate_inner(
     }
 
     let is_select = matches!(stmt, ast::Stmt::Select { .. });
+    let is_dml = matches!(
+        stmt,
+        ast::Stmt::Delete { .. } | ast::Stmt::Insert { .. } | ast::Stmt::Update { .. }
+    );
 
     match stmt {
         ast::Stmt::AlterTable(alter) => {
@@ -476,9 +481,16 @@ pub fn translate_inner(
         }
     };
 
-    // Indicate write operations so that in the epilogue we can emit the correct type of transaction
     if is_write {
-        program.begin_write_operation()?;
+        if is_dml {
+            // DML translators register their actual write database. Keep a
+            // main read transaction to coordinate connection-level autocommit,
+            // without upgrading an unrelated main snapshot for attached-only
+            // writes.
+            program.begin_read_operation()?;
+        } else {
+            program.begin_write_operation()?;
+        }
     }
 
     // Indicate read operations so that in the epilogue we can emit the correct type of transaction

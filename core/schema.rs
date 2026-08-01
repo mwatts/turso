@@ -2825,6 +2825,17 @@ impl TryClone for FromClauseSubquery {
     }
 }
 
+impl TryClone for RecursiveCteInput {
+    type Error = TryReserveError;
+
+    fn try_clone(&self) -> Result<Self, Self::Error> {
+        Ok(Self {
+            name: self.name.clone(),
+            columns: self.columns.try_clone()?,
+        })
+    }
+}
+
 impl TryClone for Table {
     type Error = TryReserveError;
 
@@ -2834,6 +2845,9 @@ impl TryClone for Table {
             Table::Virtual(table) => Table::Virtual(Arc::new(table.as_ref().try_clone()?)),
             Table::FromClauseSubquery(from_clause_subquery) => {
                 Table::FromClauseSubquery(Arc::new(from_clause_subquery.as_ref().try_clone()?))
+            }
+            Table::RecursiveCteInput(input) => {
+                Table::RecursiveCteInput(Arc::new(input.as_ref().try_clone()?))
             }
         })
     }
@@ -2961,6 +2975,9 @@ impl ColumnLayout {
             Table::FromClauseSubquery(subquery) => Ok(Self::Identity {
                 column_count: subquery.columns.len(),
             }),
+            Table::RecursiveCteInput(input) => Ok(Self::Identity {
+                column_count: input.columns.len(),
+            }),
         }
     }
 
@@ -3068,6 +3085,7 @@ pub enum Table {
     BTree(Arc<BTreeTable>),
     Virtual(Arc<VirtualTable>),
     FromClauseSubquery(Arc<FromClauseSubquery>),
+    RecursiveCteInput(Arc<RecursiveCteInput>),
 }
 
 impl Table {
@@ -3080,6 +3098,9 @@ impl Table {
             Table::FromClauseSubquery(_) => Err(crate::LimboError::InternalError(
                 "FROM clause subqueries do not have a root page".to_string(),
             )),
+            Table::RecursiveCteInput(_) => Err(crate::LimboError::InternalError(
+                "recursive CTE inputs do not have a root page".to_string(),
+            )),
         }
     }
 
@@ -3088,6 +3109,7 @@ impl Table {
             Self::BTree(table) => &table.name,
             Self::Virtual(table) => &table.name,
             Self::FromClauseSubquery(from_clause_subquery) => &from_clause_subquery.name,
+            Self::RecursiveCteInput(input) => &input.name,
         }
     }
 
@@ -3098,6 +3120,7 @@ impl Table {
             Self::FromClauseSubquery(from_clause_subquery) => {
                 from_clause_subquery.columns.get(index)
             }
+            Self::RecursiveCteInput(input) => input.columns.get(index),
         }
     }
 
@@ -3119,6 +3142,11 @@ impl Table {
                         .as_ref()
                         .is_some_and(|n| n.eq_ignore_ascii_case(name))
                 }),
+            Self::RecursiveCteInput(input) => input.columns.iter().enumerate().find(|(_, col)| {
+                col.name
+                    .as_ref()
+                    .is_some_and(|n| n.eq_ignore_ascii_case(name))
+            }),
         }
     }
 
@@ -3127,6 +3155,7 @@ impl Table {
             Self::BTree(table) => &table.columns,
             Self::Virtual(table) => &table.columns,
             Self::FromClauseSubquery(from_clause_subquery) => &from_clause_subquery.columns,
+            Self::RecursiveCteInput(input) => &input.columns,
         }
     }
 
@@ -3135,6 +3164,7 @@ impl Table {
             Self::BTree(table) => table.is_strict,
             Self::Virtual(_) => false,
             Self::FromClauseSubquery(_) => false,
+            Self::RecursiveCteInput(_) => false,
         }
     }
 
@@ -3143,6 +3173,7 @@ impl Table {
             Self::BTree(table) => Some(table.clone()),
             Self::Virtual(_) => None,
             Self::FromClauseSubquery(_) => None,
+            Self::RecursiveCteInput(_) => None,
         }
     }
 
@@ -3160,6 +3191,7 @@ impl Table {
             Self::BTree(table) => Some(table),
             Self::Virtual(_) => None,
             Self::FromClauseSubquery(_) => None,
+            Self::RecursiveCteInput(_) => None,
         }
     }
 
@@ -4058,6 +4090,13 @@ pub struct FromClauseSubquery {
     /// CTE-specific materialization metadata, when this FROM-subquery is a CTE
     /// reference rather than an inline derived table.
     pub cte: Option<FromClauseSubqueryCteMetadata>,
+}
+
+/// The one-row table read by the recursive part of a recursive CTE.
+#[derive(Debug, Clone)]
+pub struct RecursiveCteInput {
+    pub name: String,
+    pub columns: Vec<Column>,
 }
 
 #[derive(Debug, Clone, Copy)]
