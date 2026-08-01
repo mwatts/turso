@@ -1262,17 +1262,17 @@ impl<'a> Binder<'a> {
         for path in &paths {
             let mut variables = Vec::new();
             if let Some(variable) = &path.start.variable {
-                variables.push(variable);
+                variables.push((variable, CatalogEntity::Node));
             }
             for (relationship, node) in &path.steps {
                 if let Some(variable) = &relationship.variable {
-                    variables.push(variable);
+                    variables.push((variable, CatalogEntity::Relationship));
                 }
                 if let Some(variable) = &node.variable {
-                    variables.push(variable);
+                    variables.push((variable, CatalogEntity::Node));
                 }
             }
-            for variable in variables {
+            for (variable, position) in variables {
                 if correlated.iter().any(|(name, _)| name == &variable.value) {
                     continue;
                 }
@@ -1281,6 +1281,18 @@ impl<'a> Binder<'a> {
                     .iter()
                     .find(|binding| binding.name() == variable.value)
                 {
+                    // Correlation equates the outer value with the identity
+                    // this pattern position matches, so a path or a
+                    // relationship reused in a node position (or the reverse)
+                    // would compare values that can never be equal. openCypher
+                    // raises VariableTypeConflict; the unstaged MATCH path
+                    // already does, and renaming for correlation must not let
+                    // the staged one through.
+                    if let Some(conflict) =
+                        pattern_position_conflict(binding.value_type(), position)
+                    {
+                        return Err(at_unsupported(variable.span, conflict));
+                    }
                     correlated.push((variable.value.clone(), binding.id()));
                 }
             }
@@ -2076,6 +2088,11 @@ impl<'a> Binder<'a> {
                 .find(|binding| binding.name() == variable.value)
                 .cloned()
             {
+                if let Some(conflict) =
+                    pattern_position_conflict(binding.value_type(), CatalogEntity::Node)
+                {
+                    return Err(at_unsupported(variable.span, conflict));
+                }
                 if !node.labels.is_empty() || node.has_property_map {
                     return Err(at_unsupported(
                         node.span,
@@ -3273,17 +3290,23 @@ impl<'a> Binder<'a> {
             if relationship.range.is_some() {
                 variable_length = true;
                 if let Some(variable) = &relationship.variable {
-                    if let Some(existing) = self
+                    if let Some((index, existing)) = self
                         .scope
                         .iter()
-                        .find(|binding| binding.name() == variable.value)
-                        .cloned()
+                        .position(|binding| binding.name() == variable.value)
+                        .map(|index| (index, self.scope[index].clone()))
                     {
                         // A bound list reused in a variable-length pattern
                         // constrains the traversal: materialize the walked
                         // relationship list anonymously and require it to
-                        // equal the bound value (TCK Match4 [8]).
-                        if !matches!(existing.value_type(), ir::ValueType::List(_)) {
+                        // equal the bound value (TCK Match4 [8]). That only
+                        // holds for a list bound by an EARLIER clause -- a
+                        // second `-[p *]-` in the same pattern is the same
+                        // duplicate-variable error the fixed-length form
+                        // raises, not a self-equality constraint.
+                        if index >= preexisting
+                            || !matches!(existing.value_type(), ir::ValueType::List(_))
+                        {
                             return Err(BindError::DuplicateVariable {
                                 name: variable.value.clone(),
                                 span_start: variable.span.start,
@@ -8024,6 +8047,31 @@ fn assemble_union_branches(
     Ok(plan)
 }
 
+/// openCypher raises VariableTypeConflict when a bound variable reappears in a
+/// pattern position its type cannot fill: a relationship or a path is never a
+/// node, and a node or a path is never a relationship. Judged on the binding's
+/// value type rather than its catalog entity so that an aliased entity
+/// (`WITH a AS b`) still reads as the entity it aliases.
+fn pattern_position_conflict(
+    value_type: &ir::ValueType,
+    position: CatalogEntity,
+) -> Option<&'static str> {
+    let (conflicts, message) = match position {
+        CatalogEntity::Node => (
+            matches!(
+                value_type,
+                ir::ValueType::Relationship | ir::ValueType::Path | ir::ValueType::List(_)
+            ),
+            "reusing a non-node variable in a node pattern",
+        ),
+        _ => (
+            matches!(value_type, ir::ValueType::Node | ir::ValueType::Path),
+            "reusing a non-relationship variable in a relationship pattern",
+        ),
+    };
+    conflicts.then_some(message)
+}
+
 fn at_unsupported(span: cypher::Span, feature: &'static str) -> BindError {
     BindError::Unsupported {
         feature,
@@ -8176,6 +8224,58 @@ mod tests {
             &Catalog,
             &ParameterTypes::new(),
         )
+    }
+
+    /// Reusing a relationship or path variable in a node position is a
+    /// VariableTypeConflict in openCypher. Accepting it is worse than a
+    /// missing error: CREATE and MERGE went on to build a node out of the
+    /// relationship variable, and a staged MATCH correlated a path against a
+    /// node identity, so the query silently wrote or matched the wrong thing.
+    #[test]
+    fn an_entity_variable_cannot_reappear_in_a_pattern_position_of_another_kind() {
+        for source in [
+            "CREATE (x:Person)-[y:KNOWS]->(z:Person)-[w:KNOWS]->(y)",
+            "MERGE (x:Person)-[y:KNOWS]->(x)-[z:KNOWS]->(y)",
+            "MATCH (a:Person)-[y:KNOWS]->(b) MERGE (y)-[z:KNOWS]->(b)",
+            "CREATE p=(:Person) WITH p MATCH (p) RETURN p",
+        ] {
+            assert!(
+                matches!(
+                    bind_mutation_text(source),
+                    Err(BindError::Unsupported {
+                        feature: "reusing a non-node variable in a node pattern",
+                        ..
+                    })
+                ),
+                "{source} must not bind"
+            );
+        }
+    }
+
+    /// The kind check reads the binding's value type, not its catalog entity,
+    /// so aliasing a node through WITH keeps it usable as a node.
+    #[test]
+    fn an_aliased_node_still_binds_in_a_node_pattern() {
+        bind_mutation_text("MATCH (a:Person) WITH a AS b CREATE (b)-[:KNOWS]->(:Person)")
+            .expect("an alias of a node is a node");
+    }
+
+    /// A relationship variable may repeat across clauses as an equality
+    /// constraint, but never twice inside one pattern. The fixed-length form
+    /// already raised here; the variable-length form took the reused-list path
+    /// meant for a list bound EARLIER and matched itself, returning no rows
+    /// instead of rejecting the pattern.
+    #[test]
+    fn a_variable_length_relationship_variable_cannot_repeat_in_one_pattern() {
+        assert!(matches!(
+            bind_text("MATCH ()-[p *]-()-[p *]-() RETURN p", ParameterTypes::new()),
+            Err(BindError::DuplicateVariable { name, .. }) if name == "p"
+        ));
+        bind_text(
+            "MATCH ()-[p *]-() WITH p MATCH ()-[p *]-() RETURN p",
+            ParameterTypes::new(),
+        )
+        .expect("a list bound by an earlier clause still constrains the traversal");
     }
 
     #[test]
