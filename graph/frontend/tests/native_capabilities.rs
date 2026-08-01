@@ -1321,3 +1321,43 @@ fn reduce_folds_lists_longer_than_the_former_unroll_cap() {
         vec![vec![Value::from_i64(364)]]
     );
 }
+
+/// An aggregate inside a `reduce()` cannot mean what it reads as: the fold is a
+/// recursive CTE, so the aggregate would range over the fold's own rows rather
+/// than the outer rows it is written against. Each position failed differently
+/// and none failed usefully — the body leaked core's "recursive aggregate
+/// queries not supported", the list leaked "no such function: collect", and the
+/// seed silently answered from a bogus grouping. One Cypher-level rejection
+/// covers all three, and matches the message AGE and Neo4j give.
+#[test]
+fn aggregates_inside_reduce_are_rejected_in_cypher_terms() {
+    let (_database, session) = fixture::social_graph_connection();
+
+    for query in [
+        "RETURN reduce(s = 0, x IN [1, 2] | s + count(x)) AS folded",
+        "MATCH (n:Person) RETURN reduce(s = 0, x IN collect(n.name) | s + 1) AS folded",
+        "MATCH (n:Person) RETURN reduce(s = count(n), x IN [1, 2] | s + x) AS folded",
+    ] {
+        let error = session
+            .query(query, &Parameters::new())
+            .expect_err("reject an aggregate inside reduce()")
+            .to_string();
+        assert!(
+            error.contains("aggregate functions are not supported in a reduce() expression"),
+            "{query} reported {error}"
+        );
+    }
+
+    // The rejection is about the reduce() scope, not about aggregates: the same
+    // aggregate outside the fold still works, and folding its result does too.
+    assert_eq!(
+        session
+            .query(
+                "MATCH (n:Person) WITH collect(n.name) AS names \
+                 RETURN reduce(acc = '', x IN names | acc + x) AS joined",
+                &Parameters::new(),
+            )
+            .expect("fold an aggregate computed in an earlier clause"),
+        vec![vec![Value::build_text("AdaGrace")]]
+    );
+}

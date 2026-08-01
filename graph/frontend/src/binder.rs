@@ -447,6 +447,11 @@ pub enum BindError {
         span_end: usize,
     },
     #[error(
+        "aggregate functions are not supported in a reduce() expression at byte \
+         {span_start}..{span_end}"
+    )]
+    AggregateInReduce { span_start: usize, span_end: usize },
+    #[error(
         "{feature} is not supported in the initial graph slice at byte {span_start}..{span_end}"
     )]
     Unsupported {
@@ -5520,6 +5525,21 @@ impl<'a> Binder<'a> {
                 list,
                 expression: body,
             } => {
+                // A reduce() lowers to a `WITH RECURSIVE` fold, and an aggregate
+                // inside it never sees the outer rows it is written against: in
+                // the body core rejects it outright ("recursive aggregate queries
+                // not supported"), and in the seed or list it would aggregate over
+                // the fold's own single row and answer nonsense. Reject all three
+                // positions, matching AGE.
+                if [initial, list, body]
+                    .into_iter()
+                    .any(|part| contains_aggregate_call(&part.value))
+                {
+                    return Err(BindError::AggregateInReduce {
+                        span_start: expression.span.start,
+                        span_end: expression.span.end,
+                    });
+                }
                 let initial = self.bind_expression(initial)?;
                 let list = self.bind_expression(list)?;
                 let depth = self.reduce_scopes.borrow().len();

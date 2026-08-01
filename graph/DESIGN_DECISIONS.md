@@ -207,8 +207,14 @@ table moves the semantic profile digest recorded with every test run.
 ## Acknowledged hard blocks (no decision needed)
 
 - ~~`reduce()` (71) needs recursive CTEs; turso core rejects them today.~~
-  Superseded: `reduce()` shipped with polymorphic `+`/`/` semantics without
-  recursive CTEs.
+  Superseded twice: `reduce()` first shipped with polymorphic `+`/`/`
+  semantics over an unrolled ten-rung ladder, and now folds with a real
+  `WITH RECURSIVE` after core implemented recursive CTEs (`4360b24f5`), so
+  the ten-element ceiling is gone. Aggregates anywhere inside a `reduce()`
+  are rejected at bind time: the fold's rows are not the outer rows, so an
+  aggregate there cannot mean what it reads as. AGE and Neo4j reject it too.
+  Aggregate first in an earlier clause (`WITH collect(x) AS xs`) and fold the
+  result.
 - Runtime TypeErrors for entity values flowing through `Any`-typed lists
   (~19) need an error-raising SQL function; SELECT cannot raise.
 - AGE jsonb (`?`, `@>`, `#>`), pgvector `OPERATOR(...)`, and ~40
