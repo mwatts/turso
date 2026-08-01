@@ -501,7 +501,8 @@ fn expected_outcomes(root: &Path, relative: &Path, invocation: &Regex) -> Vec<(S
                 .and_then(|stem| stem.to_str())
                 .unwrap_or_default();
             let expects_error = output.strip_prefix("ERROR:").is_some_and(|message| {
-                !is_infrastructure_error(message) && !is_age_restriction_error(message, file_stem)
+                !is_infrastructure_error(message)
+                    && !is_age_restriction_error(message, file_stem, query)
             });
             (normalize_query(query), expects_error)
         })
@@ -539,10 +540,11 @@ fn is_infrastructure_error(message: &str) -> bool {
 ///   and its agtype constructors (`::vertex`, `::edge`, `::path`) are vendor
 ///   semantics with no openCypher counterpart
 /// - AGE's `int4` bounds and its null rejections in `substring`/`left`/`right`
-///   do not exist in openCypher, where integers are 64-bit and null propagates
+///   do not exist in openCypher, where integers are 64-bit and null propagates;
+///   negative arguments are the exception, since openCypher rejects those too
 ///
 /// See `graph/AGE_ERROR_TRIAGE.md` for the per-family reasoning.
-fn is_age_restriction_error(message: &str, file_stem: &str) -> bool {
+fn is_age_restriction_error(message: &str, file_stem: &str, query: &str) -> bool {
     let first_line = message.trim_start().lines().next().unwrap_or_default();
     // Adding a label to a re-bound variable is a conjunctive predicate in a
     // MATCH, but inside a MERGE pattern it is a genuine creation conflict.
@@ -591,12 +593,24 @@ fn is_age_restriction_error(message: &str, file_stem: &str) -> bool {
         || first_line.starts_with("invalid input syntax for type double precision")
         || first_line.starts_with("invalid input syntax for type numeric")
         || first_line.starts_with("bigint out of range")
-        // Postgres int4 bounds on string functions. Negative offsets and
-        // lengths stay error-expected: openCypher rejects those too.
-        || first_line.contains("out of INT range")
+        // Postgres int4 bounds on string functions: Cypher integers are 64-bit,
+        // so the bound does not exist for us. A negative argument trips the same
+        // check on its way past the bound, and openCypher rejects negative
+        // offsets and lengths for its own reasons, so those rows stay
+        // error-expected.
+        || (first_line.contains("out of INT range") && !has_negative_number(query))
         // Null arguments propagate as null in openCypher rather than raising.
         || first_line.contains("length parameter cannot be null")
         || first_line.contains("offset or length cannot be null")
+}
+
+/// True when the query text holds a negative number literal such as
+/// `-2147483649`.
+fn has_negative_number(query: &str) -> bool {
+    query
+        .as_bytes()
+        .windows(2)
+        .any(|pair| pair[0] == b'-' && pair[1].is_ascii_digit())
 }
 
 /// The expected output echoes invocations in order but can interleave extra
@@ -718,11 +732,17 @@ mod tests {
         // `::` casts are Postgres syntax AGE inherits, so its typecast checks
         // and literal parsers are vendor semantics.
         assert!(!case("age.expr.query-295").expects_error);
-        // The two substring() boundary families sit three lines apart: an
-        // int4 overflow is AGE's own limit, but a negative length is an error
-        // openCypher agrees with.
-        assert!(!case("age.expr.query-555").expects_error);
+        // The three substring() boundary rows sit next to each other and AGE
+        // reports two of them with the same "out of INT range" message. An int4
+        // overflow is AGE's own limit, but a negative offset is an error
+        // openCypher agrees with, whichever side of the bound it lands on.
         assert!(case("age.expr.query-554").expects_error);
+        assert!(case("age.expr.query-555").expects_error);
+        assert!(!case("age.expr.query-556").expects_error);
+        // range() rejects a null start or end, but a null step is a missing
+        // step and falls back to 1.
+        assert!(!case("age.expr.query-910").expects_error);
+        assert!(case("age.expr.query-921").expects_error);
         // `RETURN true` is fine Cypher; the wrapping SELECT's `AS (result
         // json)` is what AGE cannot cast. A non-boolean CASE predicate reads
         // almost the same but is a real Cypher type error.
