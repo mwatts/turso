@@ -5636,13 +5636,28 @@ impl<'a> Binder<'a> {
                     .map(|subject| self.bind_expression(subject))
                     .transpose()?
                     .map(Box::new);
+                let searched = subject.is_none();
                 let branches = branches
                     .iter()
                     .map(|(condition, result)| {
-                        Ok((
-                            self.bind_expression(condition)?,
-                            self.bind_expression(result)?,
-                        ))
+                        let condition_span = condition.span;
+                        let condition = self.bind_expression(condition)?;
+                        // A searched CASE tests predicates. Cypher has no
+                        // truthiness, so `WHEN 1` is a type error, not a
+                        // coercion. A CASE with a subject compares values
+                        // instead, and those can be any type.
+                        if searched
+                            && !matches!(
+                                condition.value_type,
+                                ir::ValueType::Boolean | ir::ValueType::Any
+                            )
+                        {
+                            return Err(at_unsupported(
+                                condition_span,
+                                "CASE WHEN over a non-boolean condition",
+                            ));
+                        }
+                        Ok((condition, self.bind_expression(result)?))
                     })
                     .collect::<Result<Vec<_>, BindError>>()?;
                 let default = default
@@ -6059,6 +6074,9 @@ impl<'a> Binder<'a> {
                         });
                     }
                     if name.value.eq_ignore_ascii_case("length") {
+                        if let Some(conflict) = builtin_argument_conflict("length", &arguments) {
+                            return Err(at_unsupported(expression.span, conflict));
+                        }
                         // length() over lists and strings behaves like size().
                         return Ok(sql_call(
                             "__cypher_size",
@@ -6998,6 +7016,105 @@ fn temporal_constructor(
     }
 }
 
+/// The value types a builtin argument may hold. `Any` is an unresolved type
+/// and always fits — only a type the binder actually pinned down can conflict.
+fn argument_fits(value_type: &ir::ValueType, allowed: &[ir::ValueType]) -> bool {
+    matches!(value_type, ir::ValueType::Any)
+        || matches!(value_type, ir::ValueType::Custom { .. })
+        || allowed
+            .iter()
+            .any(|candidate| match (candidate, value_type) {
+                (ir::ValueType::List(_), ir::ValueType::List(_)) => true,
+                _ => candidate == value_type,
+            })
+}
+
+/// Cypher raises a TypeError when a builtin is handed a value of the wrong
+/// type. Without this the call lowers to a SQL function that coerces instead:
+/// `abs('1')` answered 1.0, `toUpper(true)` answered "1", `size(1234567890)`
+/// answered 10 (the digit count), and `keys([1,2,3])` answered the list's
+/// indices. A confident wrong answer is worse than an error, so reject the
+/// mismatch at bind time wherever the argument's type is known.
+fn builtin_argument_conflict(
+    name: &str,
+    arguments: &[ir::TypedExpression],
+) -> Option<&'static str> {
+    use ir::ValueType::{Integer, List, Map, Node, Real, Relationship, Text};
+    let numeric = [Integer, Real];
+    let list_only = [List(Box::new(ir::ValueType::Any))];
+    let entity_or_map = [Node, Relationship, Map];
+    let (allowed, message): (&[ir::ValueType], &'static str) = match name {
+        "abs" | "ceil" | "ceiling" | "floor" | "round" | "sign" | "exp" | "sqrt" | "log"
+        | "log10" | "sin" | "cos" | "tan" | "asin" | "acos" | "atan" | "atan2" | "radians"
+        | "degrees" => (&numeric, "a numeric function over a non-numeric argument"),
+        "toupper" | "touppercase" | "tolower" | "tolowercase" | "trim" | "ltrim" | "rtrim" => {
+            (&[Text], "a string function over a non-string argument")
+        }
+        "head" | "last" | "tail" | "tobooleanlist" | "tofloatlist" | "tointegerlist"
+        | "tostringlist" => (&list_only, "a list function over a non-list argument"),
+        // `keys` on a list used to answer the list's own indices.
+        "keys" => (&entity_or_map, "keys() over a value with no property names"),
+        // `size` and `length` keep their string form, which this engine
+        // supports and treats as `size`; only clearly wrong types are refused.
+        "size" => (
+            &[List(Box::new(ir::ValueType::Any)), Text],
+            "size() over a value that is not a list or string",
+        ),
+        "length" => (
+            &[
+                List(Box::new(ir::ValueType::Any)),
+                Text,
+                ir::ValueType::Path,
+            ],
+            "length() over a value that is not a path, list, or string",
+        ),
+        // `reverse` reaches here only for the string form: the list form is
+        // rewritten before the builtin dispatch.
+        "reverse" => (
+            &[Text],
+            "reverse() over a value that is not a list or string",
+        ),
+        // Positional: the subject is text, the offsets and lengths are whole
+        // numbers. `replace` is text in all three positions.
+        "substring" | "left" | "right" | "replace" => {
+            if !argument_fits(&arguments.first()?.value_type, &[Text]) {
+                return Some("a string function over a non-string argument");
+            }
+            let rest: &[ir::ValueType] = if name == "replace" { &[Text] } else { &numeric };
+            let message = if name == "replace" {
+                "a string function over a non-string argument"
+            } else {
+                "a string offset or length that is not a number"
+            };
+            if arguments
+                .iter()
+                .skip(1)
+                .any(|argument| !argument_fits(&argument.value_type, rest))
+            {
+                return Some(message);
+            }
+            // A negative offset or length has no meaning: openCypher raises
+            // rather than clamping, and SQLite's substr() would read from the
+            // other end of the string instead.
+            return arguments
+                .iter()
+                .skip(1)
+                .any(|argument| {
+                    matches!(
+                        argument.expression,
+                        ir::Expression::Literal(ir::Literal::Integer(value)) if value < 0
+                    )
+                })
+                .then_some("a negative string offset or length");
+        }
+        _ => return None,
+    };
+    arguments
+        .iter()
+        .any(|argument| !argument_fits(&argument.value_type, allowed))
+        .then_some(message)
+}
+
 /// Rewrites Cypher builtin calls onto existing IR forms (identity
 /// passthrough, casts, index/slice sugar, renamed or sentinel SQL
 /// functions). Returns None for names the generic path should handle.
@@ -7006,6 +7123,9 @@ fn rewrite_builtin_call(
     arguments: &[ir::TypedExpression],
     span: cypher::Span,
 ) -> Result<Option<ir::TypedExpression>, BindError> {
+    if let Some(conflict) = builtin_argument_conflict(&name.to_ascii_lowercase(), arguments) {
+        return Err(at_unsupported(span, conflict));
+    }
     let sql_function =
         |sql: &str, args: &[ir::TypedExpression], value_type: ir::ValueType| ir::TypedExpression {
             expression: ir::Expression::Function {
@@ -7102,6 +7222,13 @@ fn rewrite_builtin_call(
                         return Err(at_unsupported(span, "range over non-integer arguments"));
                     }
                 }
+                // A null start or end has no range to walk. A null step is a
+                // missing step, and falls back to 1 like the two-argument form.
+                if arguments[..2].iter().any(|argument| {
+                    argument.expression == ir::Expression::Literal(ir::Literal::Null)
+                }) {
+                    return Err(at_unsupported(span, "range with a null start or end"));
+                }
                 if let Some(step) = arguments.get(2) {
                     if step.expression == ir::Expression::Literal(ir::Literal::Integer(0)) {
                         return Err(at_unsupported(span, "range with a zero step"));
@@ -7166,6 +7293,21 @@ fn rewrite_builtin_call(
                 value_type: base.value_type.clone(),
                 nullability: ir::Nullability::Nullable,
             },
+            // Cypher counts a substring offset from 0, SQL's substr() from 1.
+            ("substring", [text, start] | [text, start, _]) => {
+                let from = ir::TypedExpression {
+                    expression: ir::Expression::Binary {
+                        left: Box::new(start.clone()),
+                        op: ir::BinaryOp::Add,
+                        right: Box::new(integer_literal(1)),
+                    },
+                    value_type: ir::ValueType::Integer,
+                    nullability: start.nullability,
+                };
+                let mut args = vec![text.clone(), from];
+                args.extend(arguments.iter().skip(2).cloned());
+                sql_function("substr", &args, ir::ValueType::Text)
+            }
             ("left", [text, count]) => sql_function(
                 "substr",
                 &[text.clone(), integer_literal(1), count.clone()],

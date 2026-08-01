@@ -1361,3 +1361,120 @@ fn aggregates_inside_reduce_are_rejected_in_cypher_terms() {
         vec![vec![Value::build_text("AdaGrace")]]
     );
 }
+
+/// `substring()` counts from 0, SQL's `substr()` from 1.
+///
+/// The call lowered straight onto `substr`, so every offset was one character
+/// late: `substring('0123456789', 1)` answered the whole string instead of
+/// dropping the leading zero (TCK String1 [1]). Wrong by one and silent, which
+/// is worse than an error -- nothing in the query looks suspect.
+#[test]
+fn substring_offsets_count_from_the_first_character() {
+    let (_database, session) = fixture::social_graph_connection();
+
+    assert_eq!(
+        session
+            .query(
+                "RETURN substring('0123456789', 1) AS tail, \
+                 substring('0123456789', 1, 3) AS middle, \
+                 substring('0123456789', 0) AS whole, \
+                 substring('0123456789', 0, 1) AS first",
+                &Parameters::new(),
+            )
+            .expect("offsets count from zero"),
+        vec![vec![
+            Value::build_text("123456789"),
+            Value::build_text("123"),
+            Value::build_text("0123456789"),
+            Value::build_text("0"),
+        ]]
+    );
+
+    // Null propagates rather than raising, and a bound property is offset the
+    // same way a literal is.
+    assert_eq!(
+        session
+            .query(
+                "RETURN substring(null, null, null) AS missing",
+                &Parameters::new(),
+            )
+            .expect("null propagates"),
+        vec![vec![Value::Null]]
+    );
+}
+
+/// Cypher raises a TypeError when a builtin is handed the wrong type; this
+/// engine lowered the call onto a SQL function that coerced instead, so the
+/// query returned a confident wrong answer. `size(1234567890)` counted the
+/// digits, `keys([1,2,3])` answered the list's own indices, `toUpper(true)`
+/// answered "1", and `abs('1')` answered 1.0.
+#[test]
+fn builtins_reject_arguments_of_the_wrong_type() {
+    let (_database, session) = fixture::social_graph_connection();
+
+    for query in [
+        "RETURN abs('1')",
+        "RETURN sin('0')",
+        "RETURN atan2(0, '1')",
+        "RETURN toUpper(true)",
+        "RETURN trim(true)",
+        "RETURN replace('Hello', 'e', 1)",
+        "RETURN size(1234567890)",
+        "RETURN size({id: 0})",
+        "RETURN head(1234567890)",
+        "RETURN last({id: 0})",
+        "RETURN tail(123)",
+        "RETURN keys([1, 2, 3])",
+        "RETURN length(true)",
+        "RETURN reverse(true)",
+        "RETURN reverse(3.14)",
+        "RETURN toBooleanList(123)",
+        "RETURN toFloatList(555)",
+        "RETURN substring('abcdef', 'x')",
+        "RETURN substring('abcdef', -1)",
+        "RETURN substring('abcdef', 0, -1)",
+        "RETURN left('abcdef', -1)",
+        "RETURN right('abcdef', -1)",
+        "RETURN range(0, null, -3)",
+        "RETURN CASE WHEN 1 THEN 'fail' END",
+    ] {
+        assert!(
+            session.query(query, &Parameters::new()).is_err(),
+            "{query} must not run"
+        );
+    }
+
+    // A null step is a missing step, and a CASE with a subject compares values
+    // rather than testing predicates. Neither is a type error.
+    assert_eq!(
+        session
+            .query(
+                "RETURN size(range(0, 3, null)) AS a, CASE 1 WHEN 1 THEN 'ok' END AS b",
+                &Parameters::new(),
+            )
+            .expect("null range steps and CASE subjects still answer"),
+        vec![vec![Value::from_i64(4), Value::build_text("ok")]]
+    );
+
+    // The same builtins over the types they are defined on still answer.
+    assert_eq!(
+        session
+            .query(
+                "RETURN abs(-1) AS a, toUpper('ada') AS b, size([1, 2, 3]) AS c, \
+                 size('abc') AS d, head([1, 2, 3]) AS e, reverse('abc') AS f, \
+                 length([1, 2, 3]) AS g, round(1.567, 2) AS h",
+                &Parameters::new(),
+            )
+            .expect("well-typed builtins still answer"),
+        vec![vec![
+            Value::from_i64(1),
+            Value::build_text("ADA"),
+            Value::from_i64(3),
+            Value::from_i64(3),
+            Value::from_i64(1),
+            Value::build_text("cba"),
+            Value::from_i64(3),
+            Value::from_f64(1.57),
+        ]]
+    );
+}
