@@ -459,6 +459,28 @@ fn expected_outcomes(root: &Path, relative: &Path, invocation: &Regex) -> Vec<(S
     let Ok(content) = fs::read_to_string(path) else {
         return Vec::new();
     };
+    // psql prints the offending statement back under an error as `LINE n: …`
+    // (and friends). Those echoes contain `cypher('g', $$` without its closing
+    // `$$`, so the invocation regex would match from the echo through the
+    // opening `$$` of the *next* real invocation and swallow it, silently
+    // losing that invocation's expectation. Drop the message-context lines
+    // before scanning; the `ERROR:` line each one belongs to stays.
+    let content = content
+        .lines()
+        .filter(|line| {
+            ![
+                "LINE ",
+                "DETAIL:",
+                "HINT:",
+                "CONTEXT:",
+                "QUERY:",
+                "STATEMENT:",
+            ]
+            .iter()
+            .any(|prefix| line.starts_with(prefix))
+        })
+        .collect::<Vec<_>>()
+        .join("\n");
     invocation
         .captures_iter(&content)
         .map(|captures| {
@@ -540,8 +562,11 @@ fn is_age_restriction_error(message: &str, file_stem: &str) -> bool {
         || first_line.contains("l2_distance")
         || first_line.contains("inner_product")
         || first_line.starts_with("unsupported Unicode escape")
-        // Nested reduce() is valid openCypher; AGE's planner rejects it.
-        || first_line.contains("not supported in a reduce")
+        // Nested reduce() is valid openCypher; AGE's planner rejects it. Match the
+        // subquery message only: AGE's sibling "aggregate functions are not
+        // supported in a reduce() expression" is a rejection openCypher shares, so
+        // it must stay error-expected rather than be reclassified as a restriction.
+        || first_line.contains("subqueries (including a nested reduce())")
 }
 
 /// The expected output echoes invocations in order but can interleave extra
@@ -654,6 +679,12 @@ mod tests {
         // Genuinely invalid Cypher stays error-expected: re-declaring a
         // bound variable in CREATE is VariableAlreadyBound in the TCK too.
         assert!(case("age.cypher.create.query-77").expects_error);
+        // The two reduce() rejections sit next to each other in the same file
+        // and read alike, but only one is an AGE restriction: a nested reduce()
+        // is valid openCypher, while an aggregate inside a reduce() is rejected
+        // by openCypher engines too and must stay error-expected.
+        assert!(!case("age.age.reduce.query-68").expects_error);
+        assert!(case("age.age.reduce.query-69").expects_error);
     }
 
     #[test]
