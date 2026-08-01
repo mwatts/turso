@@ -2131,7 +2131,7 @@ fn lower_expression_with_references(
                 // Dynamically typed operands dispatch in the cypher_add
                 // extension scalar (numbers add, strings concatenate, lists
                 // concatenate/append, null propagates); a compact call keeps
-                // unrolled contexts like reduce() small.
+                // repeated contexts like a reduce() body small.
                 ir::BinaryOp::Add
                     if matches!(left_type, ir::ValueType::Any | ir::ValueType::Text)
                         || matches!(right_type, ir::ValueType::Any | ir::ValueType::Text) =>
@@ -2229,13 +2229,10 @@ fn lower_expression_with_references(
             list,
             body,
         } => {
-            // Recursive CTEs are unavailable, so the fold unrolls into a
-            // fixed ladder of nested scalar subqueries. Every rung carries
-            // (accumulator, list, index) and applies the body only while the
-            // index is inside the list, so the SQL is linear in the cap and
-            // identical per rung; lists longer than the cap raise instead of
-            // silently truncating.
-            const REDUCE_UNROLL_CAP: usize = 10;
+            // The fold is a recursive CTE carrying (accumulator, list, index).
+            // The recursive arm applies the body once per element and stops
+            // when the index leaves the list, so the SQL is a fixed size and
+            // the fold runs for lists of any length.
             let initial = lower_expression_with_references(
                 initial,
                 bindings,
@@ -2247,29 +2244,19 @@ fn lower_expression_with_references(
                 lower_expression_with_references(list, bindings, catalog, input_alias, references)?;
             let body =
                 lower_expression_with_references(body, bindings, catalog, input_alias, references)?;
-            // Flat sibling CTEs keep parser recursion linear; nesting the
-            // rungs as FROM subqueries overflows the stack at this cap.
-            let mut rungs = vec![format!(
-                "r{depth}_0 AS (SELECT ({initial}) AS acc{depth}, \
-                 ({list}) AS lst{depth}, 0 AS idx{depth})"
-            )];
-            for rung in 1..=REDUCE_UNROLL_CAP {
-                let previous = rung - 1;
-                rungs.push(format!(
-                    "r{depth}_{rung} AS (SELECT CASE WHEN rq{depth}.idx{depth} < \
-                     json_array_length(rq{depth}.lst{depth}) THEN ({body}) \
-                     ELSE rq{depth}.acc{depth} END AS acc{depth}, \
-                     rq{depth}.lst{depth} AS lst{depth}, \
-                     rq{depth}.idx{depth} + 1 AS idx{depth} \
-                     FROM r{depth}_{previous} AS rq{depth})"
-                ));
-            }
+            // A NULL list makes `json_array_length` NULL, so the recursive arm
+            // never fires and the final predicate matches no row: the scalar
+            // subquery yields NULL, which is `reduce()` over NULL. An empty
+            // list matches the seed row and yields the initial accumulator.
             Ok(format!(
-                "(WITH {} SELECT CASE WHEN rq{depth}.lst{depth} IS NULL THEN NULL \
-                 WHEN json_array_length(rq{depth}.lst{depth}) > {REDUCE_UNROLL_CAP} \
-                 THEN cypher_raise('Error', 'reduce() list exceeds {REDUCE_UNROLL_CAP} elements') \
-                 ELSE rq{depth}.acc{depth} END FROM r{depth}_{REDUCE_UNROLL_CAP} AS rq{depth})",
-                rungs.join(", ")
+                "(WITH RECURSIVE r{depth}(acc{depth}, lst{depth}, idx{depth}) AS (\
+                 SELECT ({initial}), ({list}), 0 \
+                 UNION ALL \
+                 SELECT ({body}), rq{depth}.lst{depth}, rq{depth}.idx{depth} + 1 \
+                 FROM r{depth} AS rq{depth} \
+                 WHERE rq{depth}.idx{depth} < json_array_length(rq{depth}.lst{depth})) \
+                 SELECT rq{depth}.acc{depth} FROM r{depth} AS rq{depth} \
+                 WHERE rq{depth}.idx{depth} = json_array_length(rq{depth}.lst{depth}))"
             ))
         }
         ir::Expression::PathValue {

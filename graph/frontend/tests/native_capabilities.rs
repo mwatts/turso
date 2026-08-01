@@ -1203,3 +1203,64 @@ fn malformed_vector_property_fails_the_query_instead_of_aborting() {
         vec![vec![Value::from_i64(3)]]
     );
 }
+
+/// `reduce()` folds a list of any length.
+///
+/// Before core gained recursive CTEs the fold was an unrolled ladder of ten
+/// sibling CTEs, so a valid openCypher `reduce()` over an eleventh element
+/// raised "reduce() list exceeds 10 elements" instead of folding. The list
+/// length is query data, never a compile-time constant, so the cap was a
+/// semantic hole rather than a resource limit. The recursive lowering also has
+/// to keep the two boundary cases the ladder encoded explicitly: a null list
+/// folds to null, an empty list to the initializer.
+#[test]
+fn reduce_folds_lists_longer_than_the_former_unroll_cap() {
+    let (_database, session) = fixture::social_graph_connection();
+
+    // 25 elements: well past the ten the ladder could unroll.
+    assert_eq!(
+        session
+            .query(
+                "RETURN reduce(acc = 0, x IN range(1, 25) | acc + x) AS total",
+                &Parameters::new(),
+            )
+            .expect("fold a 25-element list"),
+        vec![vec![Value::from_i64(325)]]
+    );
+
+    // A fold whose body is not associative proves the elements are visited in
+    // list order, not merely all visited.
+    assert_eq!(
+        session
+            .query(
+                "RETURN reduce(acc = '', x IN ['a', 'b', 'c', 'd', 'e', 'f', \
+                 'g', 'h', 'i', 'j', 'k', 'l'] | acc + x) AS word",
+                &Parameters::new(),
+            )
+            .expect("fold twelve strings in order"),
+        vec![vec![Value::build_text("abcdefghijkl")]]
+    );
+
+    assert_eq!(
+        session
+            .query(
+                "RETURN reduce(acc = 7, x IN [] | acc + x) AS empty, \
+                 reduce(acc = 7, x IN null | acc + x) AS missing",
+                &Parameters::new(),
+            )
+            .expect("fold the empty and null lists"),
+        vec![vec![Value::from_i64(7), Value::Null]]
+    );
+
+    // A nested fold puts a whole recursive CTE inside the outer recursive arm.
+    assert_eq!(
+        session
+            .query(
+                "RETURN reduce(acc = 0, x IN range(1, 12) | \
+                 acc + reduce(inner = 0, y IN range(1, x) | inner + y)) AS total",
+                &Parameters::new(),
+            )
+            .expect("fold a nested reduce"),
+        vec![vec![Value::from_i64(364)]]
+    );
+}
