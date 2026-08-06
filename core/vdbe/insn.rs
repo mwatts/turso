@@ -593,6 +593,16 @@ pub enum Insn {
         default: Option<Value>,
     },
 
+    /// Read `defaults.len()` consecutive columns starting at `start_column` from the current row
+    /// of the cursor into consecutive registers starting at `dest`.
+    ColumnRange {
+        cursor_id: CursorID,
+        start_column: usize,
+        dest: usize,
+        // this can't be a SmallVec because it would make the enum too large.
+        defaults: Vec<Option<Value>>,
+    },
+
     /// Jump to `target_pc` if the cursor's current record contains a field at
     /// the given column index.  Falls through when the record has fewer fields
     /// (a "short record" from before ALTER TABLE ADD COLUMN).
@@ -907,6 +917,13 @@ pub enum Insn {
     /// SQLite emits this between trigger-body DML statements so `changes()` and
     /// `total_changes()` observe the just-completed statement without leaking into the next one.
     ResetCount,
+
+    /// Write the number of rows the current statement has changed so far into a register.
+    /// Emitted at the end of INSERT/UPDATE/DELETE programs when PRAGMA count_changes is on,
+    /// followed by a ResultRow that returns the count to the caller.
+    ChangeCount {
+        dest: usize,
+    },
 
     /// Write an integer value into a register.
     Integer {
@@ -2065,6 +2082,7 @@ impl InsnVariants {
             InsnVariants::Rewind => execute::op_rewind,
             InsnVariants::Last => execute::op_last,
             InsnVariants::Column => execute::op_column,
+            InsnVariants::ColumnRange => execute::op_column_range,
             InsnVariants::ColumnHasField => execute::op_column_has_field,
             InsnVariants::TypeCheck => execute::op_type_check,
             InsnVariants::ArrayEncode => execute::op_array_encode,
@@ -2099,6 +2117,7 @@ impl InsnVariants {
             InsnVariants::Integer => execute::op_integer,
             InsnVariants::Program => execute::op_program,
             InsnVariants::ResetCount => execute::op_reset_count,
+            InsnVariants::ChangeCount => execute::op_change_count,
             InsnVariants::Real => execute::op_real,
             InsnVariants::RealAffinity => execute::op_real_affinity,
             InsnVariants::String8 => execute::op_string8,

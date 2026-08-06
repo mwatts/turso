@@ -445,7 +445,13 @@ pub(crate) fn eval_constant_default_value(expr: &ast::Expr) -> Result<Value> {
             match (op, value) {
                 (ast::UnaryOperator::Positive, value) => Ok(value),
                 (ast::UnaryOperator::Negative, Value::Numeric(Numeric::Integer(i))) => {
-                    Ok(Value::from_i64(-i))
+                    // Hex literals like 0x8000000000000000 parse to i64::MIN, whose
+                    // negation does not fit in an i64. Match SQLite's valueFromExpr,
+                    // which promotes -(i64::MIN) to the REAL value 2^63.
+                    match i.checked_neg() {
+                        Some(negated) => Ok(Value::from_i64(negated)),
+                        None => Ok(Value::from_f64(-(i64::MIN as f64))),
+                    }
                 }
                 (ast::UnaryOperator::Negative, Value::Numeric(Numeric::Float(f))) => {
                     Ok(Value::from_f64(-f64::from(f)))
@@ -941,7 +947,7 @@ pub fn translate_alter_table(
                 || btree.unique_sets.iter().any(|set| {
                     set.columns
                         .iter()
-                        .any(|(name, _)| name == &normalize_ident(column_name))
+                        .any(|c| c.name == normalize_ident(column_name))
                 })
             {
                 return Err(LimboError::ParseError(format!(
@@ -993,7 +999,7 @@ pub fn translate_alter_table(
                         }],
                     );
                     let where_copy = index
-                        .bind_where_expr(Some(&mut table_references), resolver)
+                        .bind_where_expr(Some(&mut table_references), resolver)?
                         .ok_or_else(|| {
                             LimboError::ParseError(
                                 "index where clause unexpectedly missing".to_string(),

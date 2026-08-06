@@ -292,15 +292,30 @@ pub(crate) fn open_vacuum_temp_db(
     let test_path = path.clone();
 
     let (encryption_opts, encryption_key) = vacuum_temp_db_encryption(source_conn)?;
-    let db = Database::open_file_with_flags(
-        source_db.io.clone(),
-        &path,
-        OpenFlags::Create,
-        vacuum_target_opts_from_source(source_db),
-        encryption_opts,
-        source_db.dialect(),
-    )?;
-    let conn = db.connect_with_encryption(encryption_key)?;
+    let page_codec = source_conn.pager.load().page_codec_external();
+    let db = match &page_codec {
+        Some(codec) => Database::open(
+            source_db.io.clone(),
+            &path,
+            crate::OpenOptions::new(source_db.dialect())
+                .flags(OpenFlags::Create)
+                .db_opts(vacuum_target_opts_from_source(source_db))
+                .encryption(encryption_opts)
+                .page_codec(codec.clone()),
+        )?,
+        None => Database::open_file_with_flags(
+            source_db.io.clone(),
+            &path,
+            OpenFlags::Create,
+            vacuum_target_opts_from_source(source_db),
+            encryption_opts,
+            source_db.dialect(),
+        )?,
+    };
+    let conn = match page_codec {
+        Some(codec) => db.connect_with_page_codec(codec)?,
+        None => db.connect_with_encryption(encryption_key)?,
+    };
     conn.reset_page_size(page_size)?;
     conn.set_reserved_bytes(reserved_space)?;
     conn.wal_auto_actions_disable();
@@ -2914,8 +2929,10 @@ mod tests {
         );
         assert_eq!(
             after.wal - before.wal,
-            1,
-            "VACUUM INTO finalization must do exactly one WAL fsync after truncation"
+            2,
+            "VACUUM INTO finalization must do one WAL fsync before backfill (the \
+             checkpoint crash-atomicity barrier; finalization forces synchronous=FULL) \
+             and one after truncation"
         );
 
         Ok(())
@@ -3007,7 +3024,7 @@ mod tests {
     }
 
     #[test]
-    fn in_place_vacuum_with_sync_off_syncs_source_db_once_and_wal_once() -> Result<()> {
+    fn in_place_vacuum_with_sync_off_syncs_source_db_once_and_wal_twice() -> Result<()> {
         let io = Arc::new(SyncCountingIo::new("vacuum-source.db"));
         let io_dyn: Arc<dyn IO> = io.clone();
         let db = Database::open_file_with_flags(
@@ -3041,8 +3058,10 @@ mod tests {
         );
         assert_eq!(
             after.wal - before.wal,
-            1,
-            "in-place VACUUM with synchronous=OFF must do exactly one WAL fsync after truncation"
+            2,
+            "in-place VACUUM with synchronous=OFF must do one WAL fsync before backfill \
+             (the checkpoint crash-atomicity barrier; VACUUM forces the checkpoint to \
+             synchronous=FULL) and one after truncation"
         );
 
         Ok(())
@@ -3079,8 +3098,10 @@ mod tests {
         );
         assert_eq!(
             after.wal - before.wal,
-            2,
-            "in-place VACUUM with synchronous=FULL must do one WAL fsync before publish and one after truncation"
+            3,
+            "in-place VACUUM with synchronous=FULL must do one WAL fsync before publish, \
+             one before backfill (the checkpoint crash-atomicity barrier), and one after \
+             truncation"
         );
 
         Ok(())

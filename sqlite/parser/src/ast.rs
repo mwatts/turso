@@ -1615,13 +1615,29 @@ pub enum SortOrder {
 }
 
 /// `NULLS FIRST` or `NULLS LAST`
-#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum NullsOrder {
     /// `NULLS FIRST`
     First,
     /// `NULLS LAST`
     Last,
+}
+
+impl NullsOrder {
+    pub fn reverse(&self) -> Self {
+        match self {
+            NullsOrder::First => NullsOrder::Last,
+            NullsOrder::Last => NullsOrder::First,
+        }
+    }
+
+    pub fn default_for(order: SortOrder) -> Self {
+        match order {
+            SortOrder::Asc => NullsOrder::First,
+            SortOrder::Desc => NullsOrder::Last,
+        }
+    }
 }
 
 /// `REFERENCES` clause
@@ -1786,6 +1802,9 @@ pub enum PragmaName {
     CacheSize,
     /// set the cache spill behavior
     CacheSpill,
+    /// When ON, each INSERT, UPDATE and DELETE returns one row with the
+    /// number of rows it changed.
+    CountChanges,
     /// encryption cipher algorithm name for encrypted databases
     #[strum(serialize = "cipher")]
     #[cfg_attr(feature = "serde", serde(rename = "cipher"))]

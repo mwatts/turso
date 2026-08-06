@@ -48,6 +48,7 @@ mod values;
 pub(crate) mod view;
 mod window;
 
+use crate::connection::PrepareOptions;
 use crate::schema::Schema;
 use crate::storage::pager::Pager;
 use crate::sync::Arc;
@@ -81,6 +82,7 @@ pub fn translate(
     query_mode: QueryMode,
     prepared_source: PreparedSource,
     origin: crate::statement::StatementOrigin,
+    prepare_options: &PrepareOptions,
 ) -> Result<Program> {
     let input = prepared_source.source();
     tracing::trace!("querying {}", input);
@@ -123,6 +125,7 @@ pub fn translate(
         } else {
             connection.dialect()
         },
+        &prepare_options.unqualified_database_search_path,
     );
 
     match stmt {
@@ -203,6 +206,23 @@ pub fn translate_inner(
         stmt,
         ast::Stmt::Delete { .. } | ast::Stmt::Insert { .. } | ast::Stmt::Update { .. }
     );
+
+    // PRAGMA count_changes: top-level INSERT/UPDATE/DELETE statements return one row
+    // with the number of rows they changed. Trigger bodies, foreign key actions and
+    // engine-internal nested statements never return count rows, matching SQLite.
+    let count_changes_column = if connection.get_count_changes()
+        && !connection.is_nested_stmt()
+        && !program.flags.is_subprogram()
+    {
+        match &stmt {
+            ast::Stmt::Insert { .. } => Some("rows inserted"),
+            ast::Stmt::Update { .. } => Some("rows updated"),
+            ast::Stmt::Delete { .. } => Some("rows deleted"),
+            _ => None,
+        }
+    } else {
+        None
+    };
 
     match stmt {
         ast::Stmt::AlterTable(alter) => {
@@ -498,6 +518,17 @@ pub fn translate_inner(
         program.begin_read_operation()?;
     }
 
+    // A statement with RETURNING already produces rows, so it never also returns
+    // a count row (same as SQLite).
+    if let Some(column_name) = count_changes_column {
+        if program.result_columns.is_empty() {
+            let reg = program.alloc_register();
+            program.emit_insn(crate::vdbe::insn::Insn::ChangeCount { dest: reg });
+            program.emit_result_row(reg, 1);
+            program.add_pragma_result_column(column_name.to_string());
+        }
+    }
+
     Ok(())
 }
 
@@ -576,6 +607,7 @@ mod tests {
             QueryMode::Normal,
             PreparedSource::dialect(""),
             crate::statement::StatementOrigin::Root,
+            &crate::connection::PrepareOptions::default(),
         );
         let err = result.unwrap_err().to_string();
         assert!(
@@ -659,6 +691,7 @@ mod tests {
             QueryMode::Normal,
             PreparedSource::dialect(""),
             crate::statement::StatementOrigin::Root,
+            &crate::connection::PrepareOptions::default(),
         )
         .expect_err("translation should fail with malformed sqlite_sequence");
         match err {
@@ -702,6 +735,7 @@ mod tests {
             QueryMode::Normal,
             PreparedSource::dialect(""),
             crate::statement::StatementOrigin::Root,
+            &crate::connection::PrepareOptions::default(),
         )
         .expect_err("translation should fail with missing sqlite_sequence");
         match err {

@@ -1334,10 +1334,19 @@ impl Limbo {
                         if i > 0 {
                             let _ = self.write(b"|");
                         }
-                        if matches!(value, Value::Null) {
-                            let _ = self.write(null_value.as_bytes());
-                        } else {
-                            write!(self, "{value}").map_err(|e| io_error(e, "write"))?;
+                        match value {
+                            Value::Null => {
+                                let _ = self.write(null_value.as_bytes());
+                            }
+                            // Write blob bytes raw, like sqlite3 does in list
+                            // mode. Going through Display would replace bytes
+                            // that are not valid UTF-8 with U+FFFD.
+                            Value::Blob(bytes) => {
+                                self.write(bytes).map_err(|e| io_error(e, "write"))?;
+                            }
+                            _ => {
+                                write!(self, "{value}").map_err(|e| io_error(e, "write"))?;
+                            }
                         }
                     }
                     let _ = self.writeln("");
@@ -1394,7 +1403,6 @@ impl Limbo {
             match stepper.next_row() {
                 Ok(Some(row)) => {
                     let mut table_row = Row::new();
-                    table_row.max_height(1);
                     for (idx, value) in row.get_values().enumerate() {
                         let (content, alignment) = match value {
                             Value::Null => (null_value.clone(), CellAlignment::Left),
