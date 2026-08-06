@@ -462,7 +462,7 @@ impl GraphCatalogSnapshot for SchemaCatalog {
         let source = self.relationship_source_entry(relationship_source)?;
         let start = source.role_by_name("start")?;
         let end = source.role_by_name("end")?;
-        Some((start.node_source, end.node_source))
+        Some((start.fixed_node_source()?, end.fixed_node_source()?))
     }
 
     fn relationship_role_node_source(
@@ -475,7 +475,22 @@ impl GraphCatalogSnapshot for SchemaCatalog {
             return None;
         }
         let source = self.relationship_source_entry(relationship_source)?;
-        source.role_by_id(role).map(|role| role.node_source)
+        source.role_by_id(role)?.fixed_node_source()
+    }
+
+    fn relationship_role_node_sources(
+        &self,
+        graph: ir::GraphId,
+        relationship_source: ir::SourceTableId,
+        role: ir::RoleId,
+    ) -> Vec<ir::SourceTableId> {
+        if graph != self.graph.id {
+            return Vec::new();
+        }
+        self.relationship_source_entry(relationship_source)
+            .and_then(|source| source.role_by_id(role))
+            .map(|role| role.node_sources.clone())
+            .unwrap_or_default()
     }
 
     fn relationship_source_roles(
@@ -809,6 +824,17 @@ impl RelationalCatalogSnapshot for SchemaCatalog {
         })
     }
 
+    fn relationship_role_discriminator(
+        &self,
+        source: ir::SourceTableId,
+        role: ir::RoleId,
+    ) -> Option<String> {
+        self.relationship_source_entry(source)?
+            .role_by_id(role)?
+            .discriminator_column
+            .clone()
+    }
+
     fn property_column(
         &self,
         source: ir::SourceTableId,
@@ -869,7 +895,16 @@ impl RelationalCatalogSnapshot for SchemaCatalog {
         let (table_name, structural) = if let Some(entry) = self.node_source_entry(source) {
             (entry.table.clone(), vec![entry.identity_column.clone()])
         } else if let Some(layout) = self.relationship_layout(source) {
-            (layout.table.clone(), layout.structural_columns())
+            let mut structural = layout.structural_columns();
+            if let Some(entry) = self.relationship_source_entry(source) {
+                structural.extend(
+                    entry
+                        .roles
+                        .iter()
+                        .filter_map(|role| role.discriminator_column.clone()),
+                );
+            }
+            (layout.table, structural)
         } else {
             return None;
         };

@@ -87,6 +87,11 @@ pub enum MutationError {
     MissingBinding(ir::BindingId),
     #[error("relation has no role {role:?}")]
     UnknownRole { role: ir::RoleId },
+    #[error("node source {node_source:?} cannot play relationship role {role:?}")]
+    RoleSourceViolation {
+        role: ir::RoleId,
+        node_source: ir::SourceTableId,
+    },
     #[error("mutation binding {binding} has invalid source provenance {value:?}")]
     InvalidSourceProvenance {
         binding: ir::BindingId,
@@ -1207,6 +1212,7 @@ fn execute_operation(
             let (identity, _) = insert_relationship(
                 connection,
                 catalog,
+                graph,
                 input,
                 create,
                 parameters,
@@ -1232,6 +1238,7 @@ fn execute_operation(
             let (identity, created) = insert_relationship(
                 connection,
                 catalog,
+                graph,
                 input,
                 &merge.create,
                 parameters,
@@ -1648,6 +1655,37 @@ fn execute_operation(
                             "{} = ${parameter}",
                             quoted_identifier(&role.column)
                         ));
+                        if let Some(column) =
+                            catalog.relationship_role_discriminator(update.source, role.role)
+                        {
+                            let (source, kind) = entity_layouts
+                                .get(&players[0])
+                                .ok_or(MutationError::MissingBinding(players[0]))?;
+                            if *kind != MutationEntityKind::Node {
+                                return Err(MutationError::MissingBinding(players[0]));
+                            }
+                            if !catalog
+                                .relationship_role_node_sources(graph, update.source, role.role)
+                                .contains(source)
+                            {
+                                return Err(MutationError::RoleSourceViolation {
+                                    role: role.role,
+                                    node_source: *source,
+                                });
+                            }
+                            let source_parameter =
+                                format!("{INTERNAL_PARAMETER_PREFIX}set_role_source_{index}");
+                            internal.insert(
+                                source_parameter.clone(),
+                                Value::Numeric(Numeric::Integer(
+                                    i64::try_from(source.get()).expect("source ids fit in i64"),
+                                )),
+                            );
+                            assignments.push(format!(
+                                "{} = ${source_parameter}",
+                                quoted_identifier(&column)
+                            ));
+                        }
                     }
                     ir::RoleCardinality::Many => {
                         let table = role
@@ -1907,6 +1945,7 @@ fn node_label_predicates(
 pub(crate) fn insert_relationship(
     connection: &Arc<Connection>,
     catalog: &dyn GraphCompilationCatalog,
+    graph: ir::GraphId,
     input: &LoweredMutationInput,
     create: &ir::CreateRelation,
     parameters: &Parameters,
@@ -1942,7 +1981,34 @@ pub(crate) fn insert_relationship(
             .get(&binding.value)
             .ok_or(MutationError::MissingBinding(binding.value))?;
         match role.cardinality {
-            ir::RoleCardinality::One => fixed.push((role.column.clone(), player.clone())),
+            ir::RoleCardinality::One => {
+                fixed.push((role.column.clone(), player.clone()));
+                if let Some(column) =
+                    catalog.relationship_role_discriminator(create.source, role.role)
+                {
+                    let (source, kind) = entity_layouts
+                        .get(&binding.value)
+                        .ok_or(MutationError::MissingBinding(binding.value))?;
+                    if *kind != MutationEntityKind::Node {
+                        return Err(MutationError::MissingBinding(binding.value));
+                    }
+                    if !catalog
+                        .relationship_role_node_sources(graph, create.source, role.role)
+                        .contains(source)
+                    {
+                        return Err(MutationError::RoleSourceViolation {
+                            role: role.role,
+                            node_source: *source,
+                        });
+                    }
+                    fixed.push((
+                        column,
+                        Value::Numeric(Numeric::Integer(
+                            i64::try_from(source.get()).expect("source ids fit in i64"),
+                        )),
+                    ));
+                }
+            }
             // A many-valued role has no column on the relation table; its
             // players land in the spill table after the relation row exists
             // and has an identity to point at. `fixed` cannot express this,
@@ -2164,8 +2230,9 @@ fn delete_entity(
             // by name, position, or arity.
             let mut predicates = Vec::new();
             for role in &relationship.roles {
-                if catalog.relationship_role_node_source(graph, relationship_source, role.role)
-                    != Some(source)
+                if !catalog
+                    .relationship_role_node_sources(graph, relationship_source, role.role)
+                    .contains(&source)
                 {
                     continue;
                 }
@@ -2179,7 +2246,17 @@ fn delete_entity(
                         quoted_identifier(&relationship.identity_column),
                         quoted_identifier(table),
                     ),
-                    None => format!("{} = ${parameter}", quoted_identifier(&role.column)),
+                    None => {
+                        let source_predicate = catalog
+                            .relationship_role_discriminator(relationship_source, role.role)
+                            .map_or_else(String::new, |column| {
+                                format!("{} = {} AND ", quoted_identifier(&column), source.get())
+                            });
+                        format!(
+                            "{source_predicate}{} = ${parameter}",
+                            quoted_identifier(&role.column)
+                        )
+                    }
                 });
             }
             if predicates.is_empty() {
@@ -3336,7 +3413,7 @@ mod tests {
         // writes the wrong column. `ternary_create` binds roles in an order
         // that differs from both the layout's declaration order and RoleId
         // order, so a positional bug scrambles every column.
-        let (connection, catalog, _graph) = setup_ternary();
+        let (connection, catalog, graph) = setup_ternary();
         let (create, values) = ternary_create(10, 20, 30);
         let entity_layouts = HashMap::new();
         let parameters = Parameters::new();
@@ -3345,6 +3422,7 @@ mod tests {
         insert_relationship(
             &connection,
             catalog.as_ref(),
+            graph,
             &input,
             &create,
             &parameters,
@@ -3370,7 +3448,7 @@ mod tests {
         // Nothing may assume role players are distinct: the same node can
         // legally fill two roles of one relation (e.g. a scribe
         // transcribing their own dictation is also the `text`'s subject).
-        let (connection, catalog, _graph) = setup_ternary();
+        let (connection, catalog, graph) = setup_ternary();
         let (create, values) = ternary_create(7, 7, 30);
         let entity_layouts = HashMap::new();
         let parameters = Parameters::new();
@@ -3379,6 +3457,7 @@ mod tests {
         insert_relationship(
             &connection,
             catalog.as_ref(),
+            graph,
             &input,
             &create,
             &parameters,

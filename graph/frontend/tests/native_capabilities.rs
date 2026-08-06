@@ -1,12 +1,13 @@
 use std::sync::Arc;
 
-use turso_core::{Database, MemoryIO, SqliteDialect, Value};
+use turso_core::{Database, MemoryIO, OpenOptions, SqliteDialect, Value};
 #[cfg(feature = "fts")]
-use turso_core::{DatabaseOpts, Numeric, OpenOptions};
+use turso_core::{DatabaseOpts, Numeric};
 use turso_graph_frontend::{
-    graph_generation, register_graph, GraphConnection, GraphRegistration, NodeSourceRegistration,
-    Parameters, RelationshipSourceRegistration, SnapshotPersistenceMode, SnapshotStatus,
-    GRAPH_CATALOG_VERSION,
+    graph_generation, register_graph, register_graph_with_polymorphic_roles,
+    relationship_types_table_name, GraphConnection, GraphRegistration, NodeSourceRegistration,
+    Parameters, PolymorphicRoleRegistration, RelationshipSourceRegistration,
+    RoleSourceRegistration, SnapshotPersistenceMode, SnapshotStatus, GRAPH_CATALOG_VERSION,
 };
 #[cfg(feature = "fts")]
 use turso_graph_frontend::{
@@ -14,6 +15,7 @@ use turso_graph_frontend::{
     GraphFtsPropertyWeight, GraphFtsTokenizer, ParameterTypes, SemanticNodeType, SemanticProperty,
     SemanticSchemaRegistration, MAX_GRAPH_FTS_INDEX_NAME_BYTES, MAX_GRAPH_FTS_PROPERTIES,
 };
+use turso_graph_ir::RoleCardinality;
 #[cfg(feature = "fts")]
 use turso_graph_ir::{Nullability, ValueType};
 
@@ -716,6 +718,138 @@ fn diagnostics_report_missing_current_and_stale_without_refreshing() {
         stale,
         "diagnostics must not refresh or publish state"
     );
+}
+
+#[test]
+fn schema_inspection_maps_readable_names_to_physical_sources() {
+    let (_database, session) = fixture::social_graph_connection();
+    let inspection = session.inspect_schema().expect("inspect graph schema");
+
+    assert_eq!(inspection.graph_name, "social");
+    assert_eq!(inspection.node_sources.len(), 1);
+    assert_eq!(inspection.node_sources[0].source_name, "Person");
+    assert_eq!(inspection.node_sources[0].table, "people");
+    assert_eq!(inspection.node_sources[0].row_count, 2);
+    assert_eq!(inspection.relationship_sources.len(), 1);
+    assert_eq!(inspection.relationship_sources[0].source_name, "KNOWS");
+    assert_eq!(inspection.relationship_sources[0].table, "relationships");
+    assert_eq!(inspection.relationship_sources[0].row_count, 0);
+    assert_eq!(inspection.relationship_sources[0].roles.len(), 2);
+    assert_eq!(inspection.relationship_sources[0].roles[0].name, "start");
+    assert_eq!(
+        inspection.relationship_sources[0].roles[0].node_sources,
+        ["Person"]
+    );
+}
+
+#[test]
+fn polymorphic_roles_share_one_table_across_node_sources() {
+    let database = Database::open(
+        Arc::new(MemoryIO::new()),
+        ":memory:polymorphic-roles",
+        OpenOptions::new(Arc::new(SqliteDialect)),
+    )
+    .expect("open database");
+    let connection = database.connect().expect("connect");
+    connection
+        .execute(
+            "CREATE TABLE people(id INTEGER PRIMARY KEY, name TEXT); \
+             CREATE TABLE documents(id INTEGER PRIMARY KEY, title TEXT); \
+             CREATE TABLE mentions(\
+                 id INTEGER PRIMARY KEY, \
+                 subject_source INTEGER NOT NULL, \
+                 subject_id INTEGER NOT NULL, \
+                 object_source INTEGER NOT NULL, \
+                 object_id INTEGER NOT NULL\
+             ); \
+             INSERT INTO people VALUES (1, 'Ada'); \
+             INSERT INTO documents VALUES (1, 'Notes');",
+        )
+        .expect("create compact sources");
+    let registered = register_graph_with_polymorphic_roles(
+        &connection,
+        &GraphRegistration {
+            name: "knowledge".to_owned(),
+            node_sources: vec![
+                NodeSourceRegistration {
+                    name: "Person".to_owned(),
+                    table: "people".to_owned(),
+                    identity_column: "id".to_owned(),
+                },
+                NodeSourceRegistration {
+                    name: "Document".to_owned(),
+                    table: "documents".to_owned(),
+                    identity_column: "id".to_owned(),
+                },
+            ],
+            relationship_sources: vec![RelationshipSourceRegistration {
+                name: "MENTIONS".to_owned(),
+                table: "mentions".to_owned(),
+                identity_column: "id".to_owned(),
+                roles: vec![
+                    RoleSourceRegistration {
+                        name: "subject".to_owned(),
+                        column: "subject_id".to_owned(),
+                        node_source: "Person".to_owned(),
+                        cardinality: RoleCardinality::One,
+                    },
+                    RoleSourceRegistration {
+                        name: "object".to_owned(),
+                        column: "object_id".to_owned(),
+                        node_source: "Person".to_owned(),
+                        cardinality: RoleCardinality::One,
+                    },
+                ],
+            }],
+        },
+        &[
+            PolymorphicRoleRegistration {
+                relationship: "MENTIONS".to_owned(),
+                role: "subject".to_owned(),
+                discriminator_column: "subject_source".to_owned(),
+                node_sources: vec!["Person".to_owned(), "Document".to_owned()],
+            },
+            PolymorphicRoleRegistration {
+                relationship: "MENTIONS".to_owned(),
+                role: "object".to_owned(),
+                discriminator_column: "object_source".to_owned(),
+                node_sources: vec!["Person".to_owned(), "Document".to_owned()],
+            },
+        ],
+    )
+    .expect("register compact polymorphic relation");
+    let person_source = registered.node_sources[0].id.get();
+    let document_source = registered.node_sources[1].id.get();
+    connection
+        .execute(format!(
+            "INSERT INTO mentions VALUES (1, {person_source}, 1, {document_source}, 1); \
+             INSERT INTO {}(source_id, relationship_id, type) VALUES ({}, 1, 'MENTIONS')",
+            relationship_types_table_name(registered.id),
+            registered.relationship_sources[0].id.get(),
+        ))
+        .expect("insert cross-source relationship");
+
+    let session = GraphConnection::open(connection, "knowledge").expect("build graph snapshot");
+    let inspection = session.inspect_schema().expect("inspect compact schema");
+    assert_eq!(inspection.relationship_sources.len(), 1);
+    assert_eq!(inspection.relationship_sources[0].table, "mentions");
+    assert_eq!(
+        inspection.relationship_sources[0].roles[0].node_sources,
+        ["Person", "Document"]
+    );
+    assert_eq!(
+        inspection.relationship_sources[0].roles[0]
+            .discriminator_column
+            .as_deref(),
+        Some("subject_source")
+    );
+    let traversed = session
+        .query(
+            "MATCH (a), (b), [r:MENTIONS](subject: a, object: b) RETURN r",
+            &Parameters::new(),
+        )
+        .expect("traverse the cross-source relationship");
+    assert!(!traversed.is_empty());
 }
 
 #[test]

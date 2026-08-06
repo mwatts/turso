@@ -18,6 +18,7 @@ mod dialect;
 mod fts;
 mod functions;
 mod graph_expand;
+mod inspection;
 mod lowering;
 mod mutation;
 mod procedures;
@@ -36,10 +37,11 @@ pub use binder::{
 };
 pub use catalog::{
     graph_generation, labels_table_name, load_registered_graph, register_graph,
-    relationship_type_registry_table_name, relationship_types_table_name, CatalogError,
-    GraphRegistration, NodeSourceRegistration, RegisteredGraph, RegisteredNodeSource,
-    RegisteredRelationshipRole, RegisteredRelationshipSource, RelationshipSourceRegistration,
-    RoleSourceRegistration, GRAPH_CATALOG_VERSION,
+    register_graph_with_polymorphic_roles, relationship_type_registry_table_name,
+    relationship_types_table_name, CatalogError, GraphRegistration, NodeSourceRegistration,
+    PolymorphicRoleRegistration, RegisteredGraph, RegisteredNodeSource, RegisteredRelationshipRole,
+    RegisteredRelationshipSource, RelationshipSourceRegistration, RoleSourceRegistration,
+    GRAPH_CATALOG_VERSION,
 };
 pub use compiler::{graph_frontend_id, GraphCompilationCatalog, GraphCompiler};
 pub use ddl::{execute_graph_ddl, DdlError};
@@ -50,6 +52,10 @@ pub use fts::{
     GraphFtsTokenizer, MAX_GRAPH_FTS_INDEX_NAME_BYTES, MAX_GRAPH_FTS_PROPERTIES,
 };
 pub use graph_expand::{install_graph_catalog, register_graph_catalog, GRAPH_EXPAND_TABLE_NAME};
+pub use inspection::{
+    GraphNodeSourceInspection, GraphPropertyInspection, GraphRelationshipSourceInspection,
+    GraphRoleInspection, GraphSchemaInspection, GraphSemanticTypeInspection,
+};
 pub use lowering::{
     lower_relational, LowerError, NodeTableLayout, RelationalCatalogSnapshot,
     RelationshipRoleLayout, RelationshipTableLayout,

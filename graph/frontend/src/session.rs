@@ -26,6 +26,8 @@ pub enum Error {
     #[error(transparent)]
     Semantic(#[from] crate::SemanticCatalogError),
     #[error(transparent)]
+    Catalog(#[from] crate::CatalogError),
+    #[error(transparent)]
     Database(#[from] turso_core::LimboError),
     #[cfg(feature = "fts")]
     #[error(transparent)]
@@ -259,6 +261,11 @@ impl GraphConnection {
             persistence_mode: self.snapshots.persistence_mode(),
             status: self.snapshots.status(&self.connection, &self.graph_name)?,
         })
+    }
+
+    /// Returns a read-only inventory of graph sources and their semantic names.
+    pub fn inspect_schema(&self) -> Result<crate::GraphSchemaInspection, Error> {
+        crate::inspection::inspect(&self.connection, &self.graph_name)
     }
 
     #[cfg(feature = "fts")]

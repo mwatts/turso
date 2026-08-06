@@ -639,6 +639,31 @@ fn test_fts_sql_queries(tmp_db: TempDatabase) {
     assert!(ids.contains(&4));
 }
 
+/// FTS directory B-trees store index files, not one entry for each directory
+/// table row. Integrity checks must validate their B-tree structure without
+/// applying the row-count rule for ordinary SQL indexes.
+#[cfg(all(feature = "fts", not(target_family = "wasm")))]
+#[turso_macros::test]
+fn test_fts_backing_btree_passes_integrity_checks(tmp_db: TempDatabase) {
+    let conn = tmp_db.connect_limbo();
+
+    conn.execute("CREATE TABLE docs(id INTEGER PRIMARY KEY, body TEXT)")
+        .unwrap();
+    conn.execute("CREATE INDEX docs_fts ON docs USING fts(body)")
+        .unwrap();
+    conn.execute("INSERT INTO docs VALUES (1, 'indexed document')")
+        .unwrap();
+
+    assert_eq!(
+        limbo_exec_rows(&conn, "PRAGMA quick_check"),
+        vec![vec![rusqlite::types::Value::Text("ok".to_owned())]]
+    );
+    assert_eq!(
+        limbo_exec_rows(&conn, "PRAGMA integrity_check"),
+        vec![vec![rusqlite::types::Value::Text("ok".to_owned())]]
+    );
+}
+
 #[cfg(all(feature = "fts", not(target_family = "wasm")))]
 #[turso_macros::test]
 fn test_fts_order_by_and_limit(tmp_db: TempDatabase) {

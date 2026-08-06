@@ -23,7 +23,7 @@ pub(crate) const NODE_SOURCES_TABLE: &str = "__turso_internal_graph_node_sources
 pub(crate) const RELATIONSHIP_SOURCES_TABLE: &str = "__turso_internal_graph_relationship_sources";
 pub(crate) const RELATIONSHIP_ROLES_TABLE: &str = "__turso_internal_graph_relationship_roles";
 
-pub const GRAPH_CATALOG_VERSION: u64 = 4;
+pub const GRAPH_CATALOG_VERSION: u64 = 5;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct NodeSourceRegistration {
@@ -40,9 +40,18 @@ pub struct RoleSourceRegistration {
     /// Endpoint column on the relationship table. Ignored for `Many` roles,
     /// which store players in `<table>__<role>` instead; pass an empty string.
     pub column: String,
-    /// Name of a registered node source.
+    /// Name of the registered node source that plays this role.
     pub node_source: String,
     pub cardinality: RoleCardinality,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct PolymorphicRoleRegistration {
+    pub relationship: String,
+    pub role: String,
+    /// Column containing the registered node source id for each endpoint.
+    pub discriminator_column: String,
+    pub node_sources: Vec<String>,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -110,8 +119,20 @@ pub struct RegisteredRelationshipRole {
     pub role: ir::RoleId,
     pub name: String,
     pub column: String,
-    pub node_source: SourceTableId,
+    pub node_sources: Vec<SourceTableId>,
+    pub discriminator_column: Option<String>,
     pub cardinality: RoleCardinality,
+}
+
+impl RegisteredRelationshipRole {
+    pub fn fixed_node_source(&self) -> Option<SourceTableId> {
+        (self.discriminator_column.is_none() && self.node_sources.len() == 1)
+            .then(|| self.node_sources[0])
+    }
+
+    pub fn accepts(&self, source: SourceTableId) -> bool {
+        self.node_sources.contains(&source)
+    }
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -183,6 +204,8 @@ pub enum CatalogError {
         relationship: String,
         node_source: String,
     },
+    #[error("polymorphic role registration references unknown role `{role}` on relationship source `{relationship}`")]
+    UnknownPolymorphicRole { relationship: String, role: String },
     #[error("catalog row contains an invalid {kind} identity: {value}")]
     InvalidIdentity { kind: &'static str, value: i64 },
     #[error("catalog row has an invalid value in `{0}`")]
@@ -219,9 +242,17 @@ pub fn register_graph(
     connection: &Arc<Connection>,
     registration: &GraphRegistration,
 ) -> Result<RegisteredGraph, CatalogError> {
-    validate_registration_names(registration)?;
+    register_graph_with_polymorphic_roles(connection, registration, &[])
+}
+
+pub fn register_graph_with_polymorphic_roles(
+    connection: &Arc<Connection>,
+    registration: &GraphRegistration,
+    polymorphic_roles: &[PolymorphicRoleRegistration],
+) -> Result<RegisteredGraph, CatalogError> {
+    validate_registration_names(registration, polymorphic_roles)?;
     in_write_transaction(connection, REGISTRATION_SAVEPOINT, || {
-        register_graph_in_transaction(connection, registration)
+        register_graph_in_transaction(connection, registration, polymorphic_roles)
     })
 }
 
@@ -242,6 +273,23 @@ pub fn load_registered_graph(
         return Err(CatalogError::IncompatibleGraphLayout {
             detail: format!("{RELATIONSHIP_ROLES_TABLE} is absent"),
         });
+    }
+    let role_catalog_columns = query_rows(
+        connection,
+        &format!(
+            "PRAGMA table_info({})",
+            sql_string(RELATIONSHIP_ROLES_TABLE)
+        ),
+    )?
+    .into_iter()
+    .map(|row| text(&row, 1, "relationship role catalog column").map(str::to_owned))
+    .collect::<Result<Vec<_>, _>>()?;
+    for required in ["node_source_ids", "node_source_column"] {
+        if !role_catalog_columns.iter().any(|column| column == required) {
+            return Err(CatalogError::IncompatibleGraphLayout {
+                detail: format!("{RELATIONSHIP_ROLES_TABLE}.{required} is absent"),
+            });
+        }
     }
     let graph_rows = query_rows(
         connection,
@@ -296,7 +344,7 @@ pub fn load_registered_graph(
         let role_rows = query_rows(
             connection,
             &format!(
-                "SELECT ordinal, name, column_name, node_source_id, cardinality \
+                "SELECT ordinal, name, column_name, node_source_ids, node_source_column, cardinality \
                  FROM {RELATIONSHIP_ROLES_TABLE} WHERE source_id = {} ORDER BY ordinal",
                 id.get()
             ),
@@ -312,7 +360,7 @@ pub fn load_registered_graph(
                     kind: "role",
                     value: ordinal,
                 })?;
-            let cardinality = match text(&role_row, 4, "role cardinality")? {
+            let cardinality = match text(&role_row, 5, "role cardinality")? {
                 "one" => RoleCardinality::One,
                 "many" => RoleCardinality::Many,
                 _ => return Err(CatalogError::InvalidCatalogValue("role cardinality")),
@@ -321,11 +369,30 @@ pub fn load_registered_graph(
             if cardinality == RoleCardinality::One {
                 required_columns.push(column.clone());
             }
+            let discriminator_column = text(&role_row, 4, "role node source column")?;
+            let discriminator_column =
+                (!discriminator_column.is_empty()).then(|| discriminator_column.to_owned());
+            if let Some(column) = &discriminator_column {
+                required_columns.push(column.clone());
+            }
+            let node_sources = text(&role_row, 3, "role node source ids")?
+                .split(',')
+                .map(|value| {
+                    value
+                        .parse::<i64>()
+                        .map_err(|_| CatalogError::InvalidCatalogValue("role node source ids"))
+                        .and_then(source_id)
+                })
+                .collect::<Result<Vec<_>, _>>()?;
+            if node_sources.is_empty() {
+                return Err(CatalogError::InvalidCatalogValue("role node source ids"));
+            }
             roles.push(RegisteredRelationshipRole {
                 role,
                 name: text(&role_row, 1, "role name")?.to_owned(),
                 column,
-                node_source: source_id(integer(&role_row, 3, "role node source id")?)?,
+                node_sources,
+                discriminator_column,
                 cardinality,
             });
         }
@@ -358,6 +425,7 @@ pub fn graph_generation(connection: &Arc<Connection>, name: &str) -> Result<u64,
 fn register_graph_in_transaction(
     connection: &Arc<Connection>,
     registration: &GraphRegistration,
+    polymorphic_roles: &[PolymorphicRoleRegistration],
 ) -> Result<RegisteredGraph, CatalogError> {
     create_catalog(connection)?;
     if !query_rows(
@@ -385,6 +453,10 @@ fn register_graph_in_transaction(
                 .filter(|role| role.cardinality == RoleCardinality::One)
                 .map(|role| role.column.as_str()),
         );
+        required_columns.extend(relationship.roles.iter().filter_map(|role| {
+            polymorphic_role(polymorphic_roles, relationship, role)
+                .map(|registration| registration.discriminator_column.as_str())
+        }));
         let columns = require_columns(connection, &relationship.table, &required_columns)?;
         require_custom_types_enabled_for_source(connection, &relationship.table)?;
         require_unique_identity(
@@ -473,21 +545,40 @@ fn register_graph_in_transaction(
             sql_string(&relationship.identity_column)
         ))?;
         for (ordinal, role) in relationship.roles.iter().enumerate() {
-            let node_source =
-                node_ids
-                    .get(&role.node_source)
-                    .ok_or_else(|| CatalogError::UnknownEndpoint {
-                        relationship: relationship.name.clone(),
-                        node_source: role.node_source.clone(),
-                    })?;
+            let polymorphic = polymorphic_role(polymorphic_roles, relationship, role);
+            let names = polymorphic
+                .map(|registration| registration.node_sources.as_slice())
+                .unwrap_or_else(|| std::slice::from_ref(&role.node_source));
+            let node_sources = names
+                .iter()
+                .map(|name| {
+                    node_ids
+                        .get(name)
+                        .copied()
+                        .ok_or_else(|| CatalogError::UnknownEndpoint {
+                            relationship: relationship.name.clone(),
+                            node_source: name.clone(),
+                        })
+                })
+                .collect::<Result<Vec<_>, _>>()?;
+            let node_source_ids = node_sources
+                .iter()
+                .map(|source| source.get().to_string())
+                .collect::<Vec<_>>()
+                .join(",");
             execute_internal(connection, format!(
-                "INSERT INTO {RELATIONSHIP_ROLES_TABLE}(source_id, ordinal, name, column_name, node_source_id, cardinality) \
-                 VALUES ({}, {}, {}, {}, {}, {})",
+                "INSERT INTO {RELATIONSHIP_ROLES_TABLE}(source_id, ordinal, name, column_name, node_source_ids, node_source_column, cardinality) \
+                 VALUES ({}, {}, {}, {}, {}, {}, {})",
                 relationship_id,
                 ordinal + 1,
                 sql_string(&role.name),
                 sql_string(&role.column),
-                node_source.get(),
+                sql_string(&node_source_ids),
+                sql_string(
+                    polymorphic
+                        .map(|registration| registration.discriminator_column.as_str())
+                        .unwrap_or(""),
+                ),
                 sql_string(match role.cardinality {
                     RoleCardinality::One => "one",
                     RoleCardinality::Many => "many",
@@ -495,7 +586,7 @@ fn register_graph_in_transaction(
             ))?;
             match role.cardinality {
                 RoleCardinality::One => {
-                    install_role_index(connection, graph_id, relationship, role)?;
+                    install_role_index(connection, graph_id, relationship, role, polymorphic)?;
                 }
                 RoleCardinality::Many => {
                     install_spill_table(connection, graph_id, relationship, role)?;
@@ -506,7 +597,7 @@ fn register_graph_in_transaction(
         // second relationship; the composite index turns that probe from an
         // in-degree scan into an exact lookup. A two-role relation gets
         // exactly one such index, which is today's (start, end) index.
-        install_role_pair_indexes(connection, graph_id, relationship)?;
+        install_role_pair_indexes(connection, graph_id, relationship, polymorphic_roles)?;
     }
 
     let mut mapped_tables = HashSet::new();
@@ -619,7 +710,7 @@ fn create_catalog(connection: &Arc<Connection>) -> Result<(), CatalogError> {
         "CREATE TABLE IF NOT EXISTS {RELATIONSHIP_SOURCES_TABLE}(source_id INTEGER PRIMARY KEY, table_name TEXT NOT NULL, identity_column TEXT NOT NULL)"
     ))?;
     execute_internal(connection, format!(
-        "CREATE TABLE IF NOT EXISTS {RELATIONSHIP_ROLES_TABLE}(source_id INTEGER NOT NULL, ordinal INTEGER NOT NULL, name TEXT NOT NULL COLLATE NOCASE, column_name TEXT NOT NULL, node_source_id INTEGER NOT NULL, cardinality TEXT NOT NULL CHECK(cardinality IN ('one', 'many')), PRIMARY KEY(source_id, ordinal))"
+        "CREATE TABLE IF NOT EXISTS {RELATIONSHIP_ROLES_TABLE}(source_id INTEGER NOT NULL, ordinal INTEGER NOT NULL, name TEXT NOT NULL COLLATE NOCASE, column_name TEXT NOT NULL, node_source_ids TEXT NOT NULL, node_source_column TEXT NOT NULL, cardinality TEXT NOT NULL CHECK(cardinality IN ('one', 'many')), PRIMARY KEY(source_id, ordinal))"
     ))?;
     Ok(())
 }
@@ -640,7 +731,10 @@ fn ensure_catalog_exists(connection: &Arc<Connection>) -> Result<(), CatalogErro
     Ok(())
 }
 
-fn validate_registration_names(registration: &GraphRegistration) -> Result<(), CatalogError> {
+fn validate_registration_names(
+    registration: &GraphRegistration,
+    polymorphic_roles: &[PolymorphicRoleRegistration],
+) -> Result<(), CatalogError> {
     validate_name("graph", &registration.name)?;
     if registration
         .name
@@ -651,6 +745,50 @@ fn validate_registration_names(registration: &GraphRegistration) -> Result<(), C
     }
     if registration.node_sources.is_empty() {
         return Err(CatalogError::NoNodeSources);
+    }
+    let mut polymorphic_names = HashSet::new();
+    for polymorphic in polymorphic_roles {
+        let Some(relationship) = registration
+            .relationship_sources
+            .iter()
+            .find(|source| source.name.eq_ignore_ascii_case(&polymorphic.relationship))
+        else {
+            return Err(CatalogError::UnknownPolymorphicRole {
+                relationship: polymorphic.relationship.clone(),
+                role: polymorphic.role.clone(),
+            });
+        };
+        if !relationship
+            .roles
+            .iter()
+            .any(|role| role.name.eq_ignore_ascii_case(&polymorphic.role))
+        {
+            return Err(CatalogError::UnknownPolymorphicRole {
+                relationship: polymorphic.relationship.clone(),
+                role: polymorphic.role.clone(),
+            });
+        }
+        let key = format!(
+            "{}.{}",
+            polymorphic.relationship.to_ascii_lowercase(),
+            polymorphic.role.to_ascii_lowercase()
+        );
+        if !polymorphic_names.insert(key.clone()) {
+            return Err(CatalogError::DuplicateName {
+                kind: "polymorphic role registration",
+                name: key,
+            });
+        }
+        validate_name("source column", &polymorphic.discriminator_column)?;
+        let mut allowed = HashSet::new();
+        for source in &polymorphic.node_sources {
+            if !allowed.insert(source.to_ascii_lowercase()) {
+                return Err(CatalogError::DuplicateName {
+                    kind: "polymorphic role node source",
+                    name: source.clone(),
+                });
+            }
+        }
     }
     let mut source_names = HashSet::new();
     for source in &registration.node_sources {
@@ -678,6 +816,21 @@ fn validate_registration_names(registration: &GraphRegistration) -> Result<(), C
             if role.cardinality == RoleCardinality::One {
                 columns.push(role.column.as_str());
             }
+            if let Some(registration) = polymorphic_role(polymorphic_roles, source, role) {
+                columns.push(registration.discriminator_column.as_str());
+                if role.cardinality == RoleCardinality::Many {
+                    return Err(CatalogError::InvalidCatalogValue(
+                        "polymorphic Many role is not supported",
+                    ));
+                }
+            }
+            if polymorphic_role(polymorphic_roles, source, role)
+                .is_some_and(|registration| registration.node_sources.is_empty())
+            {
+                return Err(CatalogError::InvalidCatalogValue(
+                    "role node sources must not be empty",
+                ));
+            }
         }
         validate_source_identifiers(&source.table, &columns)?;
         if !source_names.insert(source.name.to_ascii_lowercase()) {
@@ -688,6 +841,19 @@ fn validate_registration_names(registration: &GraphRegistration) -> Result<(), C
         }
     }
     Ok(())
+}
+
+fn polymorphic_role<'a>(
+    registrations: &'a [PolymorphicRoleRegistration],
+    relationship: &RelationshipSourceRegistration,
+    role: &RoleSourceRegistration,
+) -> Option<&'a PolymorphicRoleRegistration> {
+    registrations.iter().find(|registration| {
+        registration
+            .relationship
+            .eq_ignore_ascii_case(&relationship.name)
+            && registration.role.eq_ignore_ascii_case(&role.name)
+    })
 }
 
 fn validate_source_identifiers(table: &str, columns: &[&str]) -> Result<(), CatalogError> {
@@ -850,6 +1016,7 @@ fn install_role_index(
     graph: GraphId,
     source: &RelationshipSourceRegistration,
     role: &RoleSourceRegistration,
+    polymorphic: Option<&PolymorphicRoleRegistration>,
 ) -> Result<(), CatalogError> {
     let name = format!(
         "{TURSO_GRAPH_CATALOG_PREFIX}ep_{}_{}_{:016x}",
@@ -857,13 +1024,32 @@ fn install_role_index(
         role.name.to_ascii_lowercase(),
         stable_hash(&format!("{}:{}", source.table, role.column))
     );
+    let columns = polymorphic
+        .map(|registration| {
+            format!(
+                "{}, {}",
+                quote_identifier(&registration.discriminator_column),
+                quote_identifier(&role.column)
+            )
+        })
+        .unwrap_or_else(|| quote_identifier(&role.column));
+    let required = polymorphic
+        .map(|registration| {
+            vec![
+                registration.discriminator_column.as_str(),
+                role.column.as_str(),
+            ]
+        })
+        .unwrap_or_else(|| vec![role.column.as_str()]);
+    if has_covering_btree_index(connection, &source.table, &required)? {
+        return Ok(());
+    }
     execute_internal(
         connection,
         format!(
-            "CREATE INDEX IF NOT EXISTS {} ON {}({})",
+            "CREATE INDEX IF NOT EXISTS {} ON {}({columns})",
             quote_identifier(&name),
-            quote_identifier(&source.table),
-            quote_identifier(&role.column)
+            quote_identifier(&source.table)
         ),
     )?;
     Ok(())
@@ -875,6 +1061,7 @@ fn install_role_pair_indexes(
     connection: &Arc<Connection>,
     graph: GraphId,
     source: &RelationshipSourceRegistration,
+    polymorphic_roles: &[PolymorphicRoleRegistration],
 ) -> Result<(), CatalogError> {
     let single = source
         .roles
@@ -891,19 +1078,97 @@ fn install_role_pair_indexes(
                     source.table, left.column, right.column
                 ))
             );
+            let required = [
+                polymorphic_role(polymorphic_roles, source, left)
+                    .map(|registration| registration.discriminator_column.as_str()),
+                Some(left.column.as_str()),
+                polymorphic_role(polymorphic_roles, source, right)
+                    .map(|registration| registration.discriminator_column.as_str()),
+                Some(right.column.as_str()),
+            ]
+            .into_iter()
+            .flatten()
+            .collect::<Vec<_>>();
+            if has_covering_btree_index(connection, &source.table, &required)? {
+                continue;
+            }
             execute_internal(
                 connection,
                 format!(
-                    "CREATE INDEX IF NOT EXISTS {} ON {}({}, {})",
+                    "CREATE INDEX IF NOT EXISTS {} ON {}({})",
                     quote_identifier(&name),
                     quote_identifier(&source.table),
-                    quote_identifier(&left.column),
-                    quote_identifier(&right.column)
+                    required
+                        .into_iter()
+                        .map(quote_identifier)
+                        .collect::<Vec<_>>()
+                        .join(", ")
                 ),
             )?;
         }
     }
     Ok(())
+}
+
+fn has_covering_btree_index(
+    connection: &Arc<Connection>,
+    table: &str,
+    required: &[&str],
+) -> Result<bool, CatalogError> {
+    for row in query_rows(
+        connection,
+        &format!("PRAGMA index_list({})", sql_string(table)),
+    )? {
+        let partial = row
+            .get(4)
+            .map(|value| value_integer(value, "index partial"))
+            .transpose()?
+            .unwrap_or(0)
+            != 0;
+        if partial {
+            continue;
+        }
+        let name = text(&row, 1, "index name")?;
+        let schema = query_rows(
+            connection,
+            &format!(
+                "SELECT sql FROM sqlite_schema WHERE type = 'index' AND name = {}",
+                sql_string(name)
+            ),
+        )?;
+        let custom_method = schema
+            .first()
+            .and_then(|row| row.first())
+            .is_some_and(|value| match value {
+                Value::Text(sql) => sql
+                    .as_str()
+                    .split_ascii_whitespace()
+                    .any(|token| token.eq_ignore_ascii_case("USING")),
+                _ => false,
+            });
+        if custom_method {
+            continue;
+        }
+        let columns = query_rows(
+            connection,
+            &format!("PRAGMA index_info({})", sql_string(name)),
+        )?;
+        if columns.len() < required.len() {
+            continue;
+        }
+        if columns
+            .iter()
+            .take(required.len())
+            .zip(required)
+            .all(|(row, required)| {
+                text(row, 2, "indexed column")
+                    .is_ok_and(|column| column.eq_ignore_ascii_case(required))
+            })
+        {
+            return Ok(true);
+        }
+    }
+    Ok(false)
 }
 
 /// A `Many` role stores its players in `<table>__<role>(relation_id, node_id)`,
@@ -1028,7 +1293,7 @@ fn graph_id(value: i64) -> Result<GraphId, CatalogError> {
         })
 }
 
-fn source_id(value: i64) -> Result<SourceTableId, CatalogError> {
+pub(crate) fn source_id(value: i64) -> Result<SourceTableId, CatalogError> {
     u64::try_from(value)
         .ok()
         .and_then(|value| SourceTableId::new(value).ok())
@@ -1447,6 +1712,35 @@ mod tests {
         .expect("query endpoint indexes");
         // One per role plus the composite pair index: exactly today's three.
         assert_eq!(indexes.len(), 3);
+    }
+
+    #[test]
+    fn registration_reuses_existing_endpoint_btree_indexes() {
+        // Schema producers often index relationship endpoints before the
+        // graph is registered. A second index with the same leading columns
+        // adds write and storage cost but cannot provide a new access path.
+        let connection = connection();
+        create_sources(&connection);
+        connection
+            .execute(
+                "CREATE INDEX friendships_src ON friendships(src); \
+                 CREATE INDEX friendships_dst ON friendships(dst);",
+            )
+            .expect("create producer endpoint indexes");
+
+        register_graph(&connection, &registration("social")).expect("register graph");
+
+        let graph_indexes = query_rows(
+            &connection,
+            "SELECT name FROM sqlite_schema WHERE type = 'index' \
+             AND name LIKE '__turso_internal_graph_ep_%'",
+        )
+        .expect("query graph endpoint indexes");
+        assert_eq!(
+            graph_indexes.len(),
+            1,
+            "only the missing composite pair index should be installed"
+        );
     }
 
     #[test]

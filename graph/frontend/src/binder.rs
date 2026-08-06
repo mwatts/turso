@@ -86,6 +86,16 @@ pub trait GraphCatalogSnapshot {
     ) -> Option<ir::SourceTableId> {
         self.node_source(graph)
     }
+    fn relationship_role_node_sources(
+        &self,
+        graph: ir::GraphId,
+        relationship_source: ir::SourceTableId,
+        role: ir::RoleId,
+    ) -> Vec<ir::SourceTableId> {
+        self.relationship_role_node_source(graph, relationship_source, role)
+            .into_iter()
+            .collect()
+    }
     /// The relationship source's declared roles, as a name-resolvable
     /// layout. The binder reads `start`/`end` off it by name (never by
     /// declaration position: a relation's roles are not guaranteed to be

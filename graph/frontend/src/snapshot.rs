@@ -11,6 +11,7 @@ use turso_graph_ir::{
 use turso_graph_runtime::{BuildLimits, Cancellation, EdgeInput, Graph, LimitKind, RuntimeError};
 
 use crate::{
+    catalog::{integer, source_id},
     load_registered_graph, load_semantic_snapshot, CatalogError, SemanticCatalogError,
     GRAPH_CATALOG_VERSION,
 };
@@ -649,7 +650,19 @@ fn build_in_transaction(
         };
         let role_columns = single_valued_roles
             .iter()
-            .map(|role| format!(", r.{}", quote_identifier(&role.column)))
+            .map(|role| {
+                let source = role
+                    .discriminator_column
+                    .as_ref()
+                    .map(|column| format!("r.{}", quote_identifier(column)))
+                    .unwrap_or_else(|| {
+                        role.fixed_node_source()
+                            .expect("a role without a discriminator has one node source")
+                            .get()
+                            .to_string()
+                    });
+                format!(", r.{}, {source}", quote_identifier(&role.column))
+            })
             .collect::<String>();
         let rows = query_rows_cancellable(
             connection,
@@ -667,9 +680,9 @@ fn build_in_transaction(
             ),
             cancellation,
         )?;
-        // Row layout: identity, one column per single-valued role in
+        // Row layout: identity, endpoint and node-source columns per single-valued role in
         // declaration order, then the legacy and semantic type columns.
-        let type_column = 1 + single_valued_roles.len();
+        let type_column = 1 + (2 * single_valued_roles.len());
         let mut relationships_by_identity = HashMap::new();
         let mut role_players: HashMap<SourceIdentity, Vec<(RoleId, NodeId)>> = HashMap::new();
         let mut relationship_order = Vec::new();
@@ -705,16 +718,31 @@ fn build_in_transaction(
             }
             let mut players = Vec::with_capacity(single_valued_roles.len());
             for (index, role) in single_valued_roles.iter().enumerate() {
+                let node_source =
+                    source_id(integer(&row, 2 + (2 * index), "endpoint node source")?)?;
+                if !role.accepts(node_source) {
+                    return Err(SnapshotError::MissingEndpoint {
+                        relationship_source: source.id,
+                        relationship: identity,
+                        role: role.name.clone(),
+                        node_source,
+                        identity: source_identity(
+                            row.get(1 + (2 * index)),
+                            "endpoint",
+                            node_source,
+                        )?,
+                    });
+                }
                 let player_identity =
-                    source_identity(row.get(1 + index), "endpoint", role.node_source)?;
+                    source_identity(row.get(1 + (2 * index)), "endpoint", node_source)?;
                 let node = node_ids
-                    .get(&(role.node_source, player_identity.clone()))
+                    .get(&(node_source, player_identity.clone()))
                     .copied()
                     .ok_or_else(|| SnapshotError::MissingEndpoint {
                         relationship_source: source.id,
                         relationship: identity.clone(),
                         role: role.name.clone(),
-                        node_source: role.node_source,
+                        node_source,
                         identity: player_identity,
                     })?;
                 players.push((role.role, node));
@@ -731,6 +759,9 @@ fn build_in_transaction(
 
         for many_role in &many_roles {
             check_cancelled(cancellation)?;
+            let node_source = many_role
+                .fixed_node_source()
+                .expect("polymorphic Many roles are rejected during registration");
             let spill_table = source.spill_table(many_role);
             let spill_rows = query_rows_cancellable(
                 connection,
@@ -743,8 +774,7 @@ fn build_in_transaction(
             for row in spill_rows {
                 let relationship_identity =
                     source_identity(row.first(), "relationship", source.id)?;
-                let player_identity =
-                    source_identity(row.get(1), "endpoint", many_role.node_source)?;
+                let player_identity = source_identity(row.get(1), "endpoint", node_source)?;
                 if !relationships_by_identity.contains_key(&relationship_identity) {
                     return Err(SnapshotError::OrphanSpillRow {
                         relationship_source: source.id,
@@ -753,13 +783,13 @@ fn build_in_transaction(
                     });
                 }
                 let player = node_ids
-                    .get(&(many_role.node_source, player_identity.clone()))
+                    .get(&(node_source, player_identity.clone()))
                     .copied()
                     .ok_or_else(|| SnapshotError::MissingEndpoint {
                         relationship_source: source.id,
                         relationship: relationship_identity.clone(),
                         role: many_role.name.clone(),
-                        node_source: many_role.node_source,
+                        node_source,
                         identity: player_identity,
                     })?;
                 role_players

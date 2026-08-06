@@ -287,7 +287,12 @@ fn translate_integrity_check_impl(
         let mut bound_indexes = Vec::new();
         if let Some(indexes) = schema.indexes.get(btree_table.name.as_str()) {
             for index in indexes {
-                if index.root_page <= 0 {
+                // A custom index method owns the contents of its backing B-tree.
+                // Its directory table does not have one row for each B-tree
+                // entry, so ordinary row-membership and count checks do not
+                // apply. The structural IntegrityCk pass above still checks its
+                // root page and cells.
+                if index.root_page <= 0 || index.is_backing_btree_index() {
                     continue;
                 }
 

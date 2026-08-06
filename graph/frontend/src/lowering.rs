@@ -76,6 +76,13 @@ pub trait RelationalCatalogSnapshot {
     }
     fn node_layout(&self, source: ir::SourceTableId) -> Option<NodeTableLayout>;
     fn relationship_layout(&self, source: ir::SourceTableId) -> Option<RelationshipTableLayout>;
+    fn relationship_role_discriminator(
+        &self,
+        _source: ir::SourceTableId,
+        _role: ir::RoleId,
+    ) -> Option<String> {
+        None
+    }
     /// Whether label/type junction rows include `source_id`.
     fn source_qualified_membership(&self) -> bool {
         false
@@ -1498,6 +1505,10 @@ fn role_column_ref(relation: ir::BindingId, role: ir::RoleId) -> String {
     format!("{}_role{}", binding_column(relation), role.get())
 }
 
+fn role_source_ref(relation: ir::BindingId, role: ir::RoleId) -> String {
+    format!("{}_role{}_source", binding_column(relation), role.get())
+}
+
 /// Anchors a scan on a relation's own table. Every `One`-cardinality role's
 /// endpoint column is projected under a synthetic, role-keyed name so any
 /// number of `RoleJoin`s can be composed on top — the scan itself carries no
@@ -1539,6 +1550,13 @@ fn lower_relation_scan(
             quote_identifier(&role.column),
             role_column_ref(scan.binding, role.role)
         ));
+        if let Some(column) = catalog.relationship_role_discriminator(scan.source, role.role) {
+            role_columns.push_str(&format!(
+                ", {alias}.{} AS {}",
+                quote_identifier(&column),
+                role_source_ref(scan.binding, role.role)
+            ));
+        }
     }
     let mut sql = format!(
         "SELECT {alias}.{} AS {}, {} AS {}{role_columns}{extra} FROM {} AS {alias}",
@@ -1612,11 +1630,24 @@ fn lower_role_join(
                     quote_identifier(spill_table),
                     binding_column(*binding),
                 ),
-                None => format!(
-                    "q.{} = q.{}",
-                    role_column_ref(join.relationship, join.role),
-                    binding_column(*binding),
-                ),
+                None => {
+                    let mut predicates = vec![format!(
+                        "q.{} = q.{}",
+                        role_column_ref(join.relationship, join.role),
+                        binding_column(*binding),
+                    )];
+                    if catalog
+                        .relationship_role_discriminator(join.relationship_source, join.role)
+                        .is_some()
+                    {
+                        predicates.push(format!(
+                            "q.{} = q.{}",
+                            role_source_ref(join.relationship, join.role),
+                            source_column_ref(*binding),
+                        ));
+                    }
+                    predicates.join(" AND ")
+                }
             };
             Ok(Lowered {
                 sql: format!("SELECT q.* FROM ({}) AS q WHERE {predicate}", input.sql),
@@ -1660,12 +1691,23 @@ fn lower_role_join(
                     quote_identifier(&target.table),
                     quote_identifier(&target.identity_column),
                 ),
-                None => format!(
-                    "JOIN {} AS {alias} ON {alias}.{} = q.{}",
-                    quote_identifier(&target.table),
-                    quote_identifier(&target.identity_column),
-                    role_column_ref(join.relationship, join.role),
-                ),
+                None => {
+                    let source_predicate = catalog
+                        .relationship_role_discriminator(join.relationship_source, join.role)
+                        .map_or_else(String::new, |_| {
+                            format!(
+                                " AND q.{} = {}",
+                                role_source_ref(join.relationship, join.role),
+                                node_source.get()
+                            )
+                        });
+                    format!(
+                        "JOIN {} AS {alias} ON {alias}.{} = q.{}{source_predicate}",
+                        quote_identifier(&target.table),
+                        quote_identifier(&target.identity_column),
+                        role_column_ref(join.relationship, join.role),
+                    )
+                }
             };
             Ok(Lowered {
                 sql: format!(

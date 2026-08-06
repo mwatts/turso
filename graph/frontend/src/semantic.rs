@@ -1057,11 +1057,6 @@ fn validate_against_graph(
                     source_name: source.name.clone(),
                 }
             })?;
-            let required = graph
-                .node_sources
-                .iter()
-                .find(|node_source| node_source.id == physical_role.node_source)
-                .expect("registered relationship role source exists");
             for target_name in expand_endpoint_names(&role.targets, fragments) {
                 if relationship_type_names.contains(&fold(target_name)) {
                     // Relation-as-player: the physical role holds a
@@ -1078,14 +1073,26 @@ fn validate_against_graph(
                     .iter()
                     .find(|node_source| node_source.name.eq_ignore_ascii_case(actual_name))
                     .expect("semantic node source validated above");
-                if actual.id != required.id {
+                if !physical_role.accepts(actual.id) {
                     return Err(SemanticCatalogError::RoleSourceMismatch {
                         relationship_type: relationship.name.clone().into_boxed_str(),
                         role: role.name.clone().into_boxed_str(),
                         node_type: target_name.to_owned().into_boxed_str(),
                         actual_source: actual.name.clone().into_boxed_str(),
                         relationship_source: source.name.clone().into_boxed_str(),
-                        required_source: required.name.clone().into_boxed_str(),
+                        required_source: physical_role
+                            .node_sources
+                            .iter()
+                            .filter_map(|id| {
+                                graph
+                                    .node_sources
+                                    .iter()
+                                    .find(|node_source| node_source.id == *id)
+                            })
+                            .map(|source| source.name.as_str())
+                            .collect::<Vec<_>>()
+                            .join(" or ")
+                            .into_boxed_str(),
                     });
                 }
             }
