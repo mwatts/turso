@@ -16,7 +16,7 @@ use turso_graph_ir as ir;
 
 use crate::catalog::{
     execute_internal, integer, load_registered_graph, query_rows, scalar_integer, sql_string, text,
-    CatalogError, RegisteredGraph, GENERATIONS_TABLE,
+    CatalogError, RegisteredGraph, GENERATIONS_TABLE, SCHEMA_GENERATION_COLUMN,
 };
 use crate::semantic_constraints::{
     create_constraint_catalog, insert_additive_rows, load_constraint_snapshot,
@@ -1307,10 +1307,15 @@ fn bump_semantic_generation(
     connection: &Arc<Connection>,
     graph_id: u64,
 ) -> Result<(), SemanticCatalogError> {
+    // Both counters move: the catalog changed (sessions must reload their
+    // `SchemaCatalog`) and so did the view traversal snapshots were built
+    // against (labels and types can appear or disappear).
     execute_internal(
         connection,
         format!(
-            "UPDATE {GENERATIONS_TABLE} SET generation = generation + 1 \
+            "UPDATE {GENERATIONS_TABLE} \
+             SET generation = generation + 1, \
+                 {SCHEMA_GENERATION_COLUMN} = {SCHEMA_GENERATION_COLUMN} + 1 \
              WHERE graph_id = {graph_id}"
         ),
     )?;

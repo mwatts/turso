@@ -110,6 +110,21 @@ pub fn open_database_with_io(
     )
 }
 
+/// How a session decides its cached `SchemaCatalog` needs reloading.
+enum CatalogFreshness {
+    /// The session was built through [`GraphConnection::install`], so its
+    /// caller owns the catalog and no reload happens here.
+    CallerOwned,
+    /// The database records a catalog-only generation. Reloads happen only
+    /// when the catalog actually changed, so ordinary row writes cost one
+    /// primary-key lookup instead of a full catalog rebuild.
+    SchemaGeneration(Mutex<u64>),
+    /// The database predates `schema_generation`. Fall back to the data
+    /// generation, which advances on every write to a mapped table — correct,
+    /// but it reloads the catalog after every mutation.
+    DataGeneration(Mutex<u64>),
+}
+
 /// Connection-local graph service boundary.
 ///
 /// Read compilation stays on `FrontendCompiler`. Variable traversal rebuilds
@@ -120,7 +135,7 @@ pub struct GraphConnection {
     graph: GraphId,
     graph_name: String,
     catalog: SharedGraphCatalog,
-    catalog_generation: Option<Mutex<u64>>,
+    catalog_freshness: CatalogFreshness,
     /// Same `Arc` registered with Core for `prepare_frontend` recompile safety.
     /// Declared query parameters live on the compiler (shared bind path).
     compiler: Arc<GraphCompiler>,
@@ -173,7 +188,7 @@ impl GraphConnection {
             graph: graph.id,
             graph_name: graph.name.clone(),
             catalog,
-            catalog_generation: None,
+            catalog_freshness: CatalogFreshness::CallerOwned,
             compiler,
             snapshots,
             limits,
@@ -233,7 +248,12 @@ impl GraphConnection {
             Arc::new(SnapshotStore::default()),
             BuildLimits::default(),
         )?;
-        session.catalog_generation = Some(Mutex::new(graph.generation));
+        session.catalog_freshness = match graph.schema_generation {
+            Some(schema_generation) => {
+                CatalogFreshness::SchemaGeneration(Mutex::new(schema_generation))
+            }
+            None => CatalogFreshness::DataGeneration(Mutex::new(graph.generation)),
+        };
         Ok(session)
     }
 
@@ -408,24 +428,46 @@ impl GraphConnection {
     }
 
     fn refresh_catalog_if_stale(&self) -> Result<(), Error> {
-        let Some(generation) = &self.catalog_generation else {
-            return Ok(());
+        // The probe runs before every statement, so it must stay cheap. On the
+        // tracked path it is one primary-key lookup; only a genuine catalog
+        // change pays for the full reload below.
+        let known = match &self.catalog_freshness {
+            CatalogFreshness::CallerOwned => return Ok(()),
+            CatalogFreshness::SchemaGeneration(known) => {
+                let known = known.lock();
+                let current = crate::catalog::load_schema_generation(&self.connection, self.graph)
+                    .map_err(|error| {
+                        Error::Database(turso_core::LimboError::ParseError(error.to_string()))
+                    })?;
+                if current == Some(*known) {
+                    return Ok(());
+                }
+                known
+            }
+            CatalogFreshness::DataGeneration(known) => known.lock(),
         };
-        let mut known_generation = generation.lock();
+        self.reload_catalog(known)
+    }
+
+    fn reload_catalog(&self, mut known: parking_lot::MutexGuard<'_, u64>) -> Result<(), Error> {
         let graph =
             crate::load_registered_graph(&self.connection, &self.graph_name).map_err(|error| {
                 Error::Database(turso_core::LimboError::ParseError(error.to_string()))
             })?;
-        if graph.generation == *known_generation {
+        let current = match &self.catalog_freshness {
+            CatalogFreshness::SchemaGeneration(_) => graph.schema_generation.unwrap_or(*known),
+            _ => graph.generation,
+        };
+        if current == *known {
             return Ok(());
         }
         let semantic = crate::load_semantic_snapshot(&self.connection, &graph)?.map(Arc::new);
         *self.catalog.write() = Arc::new(crate::SchemaCatalog::with_semantic(
             self.connection.clone(),
-            graph.clone(),
+            graph,
             semantic,
         ));
-        *known_generation = graph.generation;
+        *known = current;
         // Catalog shapes affect bind/lower; drop the shared compile cache.
         self.compiler.clear_last_compile();
         Ok(())

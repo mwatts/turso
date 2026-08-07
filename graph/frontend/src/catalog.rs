@@ -18,6 +18,9 @@ use crate::transaction::{in_write_transaction, WriteTransactionError};
 const RESERVED_PREFIX: &str = "__turso_";
 pub(crate) const GRAPHS_TABLE: &str = "__turso_internal_graph_graphs";
 pub(crate) const GENERATIONS_TABLE: &str = TURSO_GRAPH_GENERATIONS_TABLE_NAME;
+/// Catalog-only generation, kept beside the data generation in
+/// [`GENERATIONS_TABLE`]. See [`RegisteredGraph::schema_generation`].
+pub(crate) const SCHEMA_GENERATION_COLUMN: &str = "schema_generation";
 pub(crate) const SOURCES_TABLE: &str = "__turso_internal_graph_sources";
 pub(crate) const NODE_SOURCES_TABLE: &str = "__turso_internal_graph_node_sources";
 pub(crate) const RELATIONSHIP_SOURCES_TABLE: &str = "__turso_internal_graph_relationship_sources";
@@ -172,7 +175,18 @@ impl RegisteredRelationshipSource {
 pub struct RegisteredGraph {
     pub id: GraphId,
     pub name: String,
+    /// Advances on every write to a mapped source table (via the AFTER-DML
+    /// triggers) and on every catalog change. Traversal snapshots rebuild
+    /// when it moves.
     pub generation: u64,
+    /// Advances only when the catalog itself changes: graph registration,
+    /// semantic schema, semantic constraints, fragments. Sessions reload
+    /// their `SchemaCatalog` when it moves, so ordinary row writes no longer
+    /// force a catalog reload.
+    ///
+    /// `None` when the database predates this column; callers treat that as
+    /// "assume stale" and fall back to reloading on every statement.
+    pub schema_generation: Option<u64>,
     pub node_sources: Vec<RegisteredNodeSource>,
     pub relationship_sources: Vec<RegisteredRelationshipSource>,
 }
@@ -291,10 +305,19 @@ pub fn load_registered_graph(
             });
         }
     }
+    // `schema_generation` was added after the first databases were written.
+    // Selecting it from a database that predates it fails to compile, so probe
+    // the column and fall back to the pre-column shape.
+    let has_schema_generation = generations_table_has_schema_generation(connection)?;
+    let schema_generation_column = if has_schema_generation {
+        ", gen.schema_generation"
+    } else {
+        ""
+    };
     let graph_rows = query_rows(
         connection,
         &format!(
-            "SELECT g.id, g.name, gen.generation FROM {GRAPHS_TABLE} g \
+            "SELECT g.id, g.name, gen.generation{schema_generation_column} FROM {GRAPHS_TABLE} g \
              JOIN {GENERATIONS_TABLE} gen ON gen.graph_id = g.id WHERE g.name = {} COLLATE NOCASE",
             sql_string(name)
         ),
@@ -305,6 +328,14 @@ pub fn load_registered_graph(
     let graph_id = graph_id(integer(row, 0, "graph id")?)?;
     let graph_name = text(row, 1, "graph name")?.to_owned();
     let generation = nonnegative_u64(integer(row, 2, "generation")?, "generation")?;
+    let schema_generation = if has_schema_generation {
+        Some(nonnegative_u64(
+            integer(row, 3, "schema generation")?,
+            "schema generation",
+        )?)
+    } else {
+        None
+    };
 
     let node_rows = query_rows(
         connection,
@@ -413,6 +444,7 @@ pub fn load_registered_graph(
         id: graph_id,
         name: graph_name,
         generation,
+        schema_generation,
         node_sources,
         relationship_sources,
     })
@@ -420,6 +452,45 @@ pub fn load_registered_graph(
 
 pub fn graph_generation(connection: &Arc<Connection>, name: &str) -> Result<u64, CatalogError> {
     Ok(load_registered_graph(connection, name)?.generation)
+}
+
+/// Reads just the catalog's schema generation for one graph.
+///
+/// This is the cheap staleness probe a session runs before every statement: a
+/// single primary-key lookup instead of the dozen-plus statements
+/// [`load_registered_graph`] compiles. Only call it once
+/// [`load_registered_graph`] has reported a `schema_generation` — on a database
+/// that predates the column this fails to compile.
+pub(crate) fn load_schema_generation(
+    connection: &Arc<Connection>,
+    graph: GraphId,
+) -> Result<Option<u64>, CatalogError> {
+    let rows = query_rows(
+        connection,
+        &format!(
+            "SELECT {SCHEMA_GENERATION_COLUMN} FROM {GENERATIONS_TABLE} WHERE graph_id = {}",
+            graph.get()
+        ),
+    )?;
+    let Some(row) = rows.first() else {
+        return Ok(None);
+    };
+    nonnegative_u64(integer(row, 0, "schema generation")?, "schema generation").map(Some)
+}
+
+fn generations_table_has_schema_generation(
+    connection: &Arc<Connection>,
+) -> Result<bool, CatalogError> {
+    let columns = query_rows(
+        connection,
+        &format!("PRAGMA table_info({})", sql_string(GENERATIONS_TABLE)),
+    )?;
+    for row in &columns {
+        if text(row, 1, "generations catalog column")? == SCHEMA_GENERATION_COLUMN {
+            return Ok(true);
+        }
+    }
+    Ok(false)
 }
 
 fn register_graph_in_transaction(
@@ -486,7 +557,8 @@ fn register_graph_in_transaction(
     execute_internal(
         connection,
         format!(
-            "INSERT INTO {GENERATIONS_TABLE}(graph_id, generation) VALUES ({}, 0)",
+            "INSERT INTO {GENERATIONS_TABLE}(graph_id, generation, {SCHEMA_GENERATION_COLUMN}) \
+             VALUES ({}, 0, 0)",
             graph_id.get()
         ),
     )?;
@@ -698,8 +770,20 @@ fn create_catalog(connection: &Arc<Connection>) -> Result<(), CatalogError> {
         "CREATE TABLE IF NOT EXISTS {GRAPHS_TABLE}(id INTEGER PRIMARY KEY, name TEXT NOT NULL COLLATE NOCASE UNIQUE)"
     ))?;
     execute_internal(connection, format!(
-        "CREATE TABLE IF NOT EXISTS {GENERATIONS_TABLE}(graph_id INTEGER PRIMARY KEY, generation INTEGER NOT NULL CHECK(generation >= 0))"
+        "CREATE TABLE IF NOT EXISTS {GENERATIONS_TABLE}(graph_id INTEGER PRIMARY KEY, generation INTEGER NOT NULL CHECK(generation >= 0), {SCHEMA_GENERATION_COLUMN} INTEGER NOT NULL DEFAULT 0 CHECK({SCHEMA_GENERATION_COLUMN} >= 0))"
     ))?;
+    // Databases registered before the split carry only `generation`. Adding
+    // the column here (registration always holds a write transaction) lets
+    // them take the fast staleness path from the next open onwards.
+    if !generations_table_has_schema_generation(connection)? {
+        execute_internal(
+            connection,
+            format!(
+                "ALTER TABLE {GENERATIONS_TABLE} \
+                 ADD COLUMN {SCHEMA_GENERATION_COLUMN} INTEGER NOT NULL DEFAULT 0"
+            ),
+        )?;
+    }
     execute_internal(connection, format!(
         "CREATE TABLE IF NOT EXISTS {SOURCES_TABLE}(id INTEGER PRIMARY KEY, graph_id INTEGER NOT NULL, name TEXT NOT NULL COLLATE NOCASE, kind TEXT NOT NULL CHECK(kind IN ('node', 'relationship')), UNIQUE(graph_id, name))"
     ))?;
