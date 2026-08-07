@@ -2166,6 +2166,14 @@ impl Program {
             // We don't want to commit on nested statements. Let parent handle it.
             return Ok(IOResult::Done(()));
         }
+        // Read before committing, because a successful commit resets the
+        // transaction state and the flag with it.
+        let schema_did_change = matches!(
+            self.connection.get_tx_state(),
+            TransactionState::Write {
+                schema_did_change: true
+            }
+        );
         let res = if let Some(mv_store) = mv_store {
             self.commit_txn_mvcc(pager, program_state, mv_store, rollback)
         } else {
@@ -2179,6 +2187,15 @@ impl Program {
                 self.connection.discard_write_set();
             } else {
                 self.connection.publish_write_set();
+                if schema_did_change {
+                    // A token also folds in this connection's cached schema
+                    // version, but a connection that has not reparsed since
+                    // another one ran DDL still holds the old version and the
+                    // old root page. Bumping a database-wide epoch makes the
+                    // DDL visible to every connection right away, whatever
+                    // each one has cached.
+                    self.connection.note_committed_schema_change();
+                }
             }
             if self.change_cnt_on {
                 self.connection

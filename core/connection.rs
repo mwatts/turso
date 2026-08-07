@@ -2862,6 +2862,12 @@ impl Connection {
         pending.clear();
     }
 
+    /// Records that a committed transaction changed the schema, invalidating
+    /// every table's change token across all connections in this process.
+    pub(crate) fn note_committed_schema_change(&self) {
+        self.db.record_committed_writes(std::iter::empty(), true);
+    }
+
     /// Drops the transaction's write set without advancing anything. A
     /// rolled-back write must leave every table's change token where it was.
     pub(crate) fn discard_write_set(&self) {

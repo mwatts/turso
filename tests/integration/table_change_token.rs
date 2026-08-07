@@ -135,6 +135,20 @@ fn a_trigger_write_counts_for_the_table_it_writes(tmp_db: TempDatabase) -> anyho
 }
 
 #[turso_macros::test(init_sql = "CREATE TABLE t(x)")]
+fn another_connections_ddl_moves_the_token(tmp_db: TempDatabase) -> anyhow::Result<()> {
+    let reader = tmp_db.connect_limbo();
+    let writer = tmp_db.connect_limbo();
+    let before = token(&reader, "t");
+    // `reader` has not reparsed, so its cached schema still holds the old
+    // version and the old root page. Only the database-wide schema-change
+    // epoch can tell it that the rows it may have cached are gone.
+    run_query(&tmp_db, &writer, "DROP TABLE t")?;
+    run_query(&tmp_db, &writer, "CREATE TABLE t(x)")?;
+    assert_ne!(before, token(&reader, "t"));
+    Ok(())
+}
+
+#[turso_macros::test(init_sql = "CREATE TABLE t(x)")]
 fn an_unknown_table_has_no_token(tmp_db: TempDatabase) -> anyhow::Result<()> {
     let conn = tmp_db.connect_limbo();
     assert_eq!(
