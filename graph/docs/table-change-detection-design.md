@@ -93,13 +93,32 @@ table_change_counters: Mutex<HashMap<(usize, i64), u64>>,
 `(db, root_page)` into a small `Vec` and hand it to `PreparedProgram` as
 `written_roots: Box<[(usize, i64)]>`. No runtime cost, no per-row cost.
 
-**3. Commit path — bump.**
+**3. Statement end — collect. Transaction commit — publish.**
 
-Where the statement's changes are already published to the connection
-(`op_reset_count` / the halt-and-commit path in `core/vdbe/execute.rs`), and
-only when the statement actually changed rows (`n_change != 0`), bump each
-entry in `written_roots`. Bumping at commit, not at write, gives property 2
-for free: a rolled-back statement never reaches this point.
+These have to be two separate steps, and picking the wrong boundary for the
+second one silently breaks property 2.
+
+The obvious hook, where a statement's changes are published to the connection,
+is the wrong one. `Insn::ResetCount` is only ever emitted by trigger
+subprograms (`core/translate/trigger_exec.rs:619`), and inside an interactive
+transaction `halt` publishes the statement's change count
+(`core/vdbe/execute.rs:3614`) without committing anything. Bumping there means
+`BEGIN; INSERT; ROLLBACK` advances the counter — exactly what
+`source_write_rollback_restores_the_generation`
+(`graph/frontend/src/catalog.rs:2079`) pins today.
+
+The real boundary is `Program::commit_txn` (`core/vdbe/mod.rs:2099`), which
+takes an explicit `rollback: bool` and which both `op_halt` and
+`op_auto_commit` funnel through. So:
+
+- At statement end, when the statement actually changed rows
+  (`n_change != 0`), union `written_roots` into a pending set on the
+  connection. Trigger and FK-action subprograms union into the same set, which
+  is what makes a user trigger on table A that writes table B count for B.
+- In `commit_txn`, when `!rollback` and the commit completes, bump the
+  `Database` counter for every root in the pending set and clear it. On
+  rollback, clear without bumping. Both the WAL and MVCC commit paths route
+  through here, so neither needs its own hook.
 
 **4. `core/connection.rs` — read it.**
 
@@ -118,9 +137,33 @@ already tests the same condition before trusting cached schema state; it
 recovers by dropping the page cache, which has no equivalent here — a counter
 another process never touched cannot be repaired, only distrusted.
 
+**5. The token has to cover DDL too.**
+
+A root page is not a stable name for a table. `DROP TABLE` does not open a
+write cursor on the table it drops — it emits `Insn::Destroy`
+(`core/translate/schema.rs:2057`) — so it never bumps the counter, and the
+freed root page can be handed straight back to the next `CREATE TABLE`. Drop a
+mapped table and recreate it and the counter reads back exactly where it was,
+while the rows are gone. That is a stale snapshot, not an extra reload: the
+only unsafe failure in this whole design. `VACUUM` and `ALTER TABLE` move root
+pages the same way.
+
+So `table_change_token` mixes three things, not one: the per-root counter, the
+schema cookie (which every DDL statement moves), and a process-global
+"unknown write" epoch for the rare `OpenWrite` whose root page is a register
+rather than a literal — `core/translate/alter.rs` and `core/translate/index.rs`
+emit those, and rather than resolve them the epoch just invalidates every
+table at once. All three are conservative in the same direction: they can only
+cause extra reloads.
+
 ### Graph frontend changes
 
-- Delete `install_generation_triggers` and its call site.
+- Delete `install_generation_triggers` and its call site, and replace it with a
+  pass that drops any triggers a previous version already installed. Deleting
+  the install alone leaves existing databases paying the full trigger cost
+  forever, for a column nothing reads any more. This is why
+  `translate_drop_trigger`'s `internal` parameter has to survive the carve-out
+  cleanup even though `translate_create_trigger`'s does not.
 - `RegisteredGraph.generation` stops being a stored column and becomes derived:
   the tokens for the graph's mapped source tables, plus the persisted
   `schema_generation` from the catalog split already landed. Snapshot
@@ -131,7 +174,9 @@ another process never touched cannot be repaired, only distrusted.
   `SnapshotStore` is in-memory and session-scoped.
 - Drop the `is_internal_graph_trigger` parameter from
   `core/translate/update.rs` and the graph-trigger prefix from
-  `core/schema.rs`.
+  `core/schema.rs`. `users_cannot_mutate_catalog_or_forge_internal_generation_triggers`
+  still passes afterwards: the generations table stays a protected name, so a
+  forged trigger body cannot write it whatever the trigger is called.
 
 ### Where the properties land
 
@@ -141,7 +186,8 @@ another process never touched cannot be repaired, only distrusted.
 | Transactional | yes | yes — bumped at commit |
 | Cross-connection | yes | yes — counters live on `Database` |
 | Cross-process | yes | **no** — returns `None`, caller reloads every time |
-| Exact | yes | **near** — a statement that opens a write cursor on two tables and changes rows in one bumps both |
+| Survives DDL | yes | yes — via the schema cookie, not the counter |
+| Exact | yes | **near** — a statement that opens a write cursor on two tables and changes rows in one bumps both; any DDL invalidates every table |
 | Survives restart | yes (persisted) | no — first read after start has no prior token |
 | Cost per row written | one B-tree update | none |
 
@@ -183,13 +229,20 @@ but both are opt-in, heavier, and unavailable on the default path.
 ## Suggested order
 
 1. Land the counters and `table_change_token` behind no flag, with core tests
-   covering: bump on commit, no bump on rollback, no bump when a statement
-   changes nothing, visibility from a second connection, and `None` under
+   covering: bump on commit; **no bump on `BEGIN; INSERT; ROLLBACK`**; no bump
+   when a statement changes nothing; visibility from a second connection; the
+   token moving across a `DROP` plus `CREATE` that writes no rows; a user
+   trigger on one table counting for the table it writes; and `None` under
    multiprocess WAL.
 2. Switch the graph frontend's snapshot invalidation to the token, keeping the
    triggers installed but unused, so the two can be compared on the corpus.
-3. Delete the triggers and the three core carve-outs.
+   Measure the write amplification here too — the cost argument above deserves
+   a number before the triggers go.
+3. Delete the triggers, drop the ones already installed, and remove the core
+   carve-outs.
 
-Step 2 is what makes this safe to land: the old and new signals can be
-asserted equal across the whole conformance corpus before anything is
-removed.
+Step 2 is what makes this safe to land, but the invariant to assert is
+one-directional, not equality: the token must move whenever the trigger
+generation moved. The reverse does not hold and should not — the token is
+per-table where the counter is per-graph, so a write to one graph's table
+leaves the other tables' tokens alone.
