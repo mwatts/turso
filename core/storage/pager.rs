@@ -3160,6 +3160,11 @@ impl Pager {
             // TODO: Unsure what the semantics of "end_tx" is for in-memory databases, ephemeral tables and ephemeral indexes.
             return;
         };
+        // The whole transaction is going away, so nothing it wrote may advance
+        // a table's change token. Statement-scoped undo goes through
+        // savepoints, not here, so this never discards a write set that is
+        // still going to commit.
+        connection.discard_write_set();
         let (is_write, schema_did_change) = match connection.get_tx_state() {
             TransactionState::Write { schema_did_change } => (true, schema_did_change),
             _ => (false, false),

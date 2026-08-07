@@ -553,6 +553,16 @@ pub struct Database<A: alloc::ConcurrentAllocator = alloc::DynAllocator> {
     // Encryption
     encryption_cipher_mode: AtomicCipherMode,
     page_codec_id: Option<PageCodecId>,
+
+    /// Advances once per committed transaction that wrote to the B-tree rooted
+    /// at `(database index, root page)`. In memory and local to this process: a
+    /// fresh process starts from zero, so callers must treat "no earlier token"
+    /// as "assume changed". See [`crate::Connection::table_change_token`].
+    table_change_counters: parking_lot::Mutex<HashMap<(usize, i64), u64>>,
+    /// Advances when a committed transaction wrote to a B-tree whose root page
+    /// was only known at runtime, or when any DDL ran. Mixed into every token,
+    /// so one such transaction invalidates every table at once.
+    unknown_write_epoch: AtomicU64,
 }
 
 // SAFETY: This needs to be audited for thread safety.
@@ -694,6 +704,9 @@ impl Database {
             page_codec_id,
 
             durable_storage: None,
+
+            table_change_counters: parking_lot::Mutex::new(HashMap::default()),
+            unknown_write_epoch: AtomicU64::new(0),
         };
 
         db.register_global_builtin_extensions()
@@ -2288,6 +2301,7 @@ impl Database {
             last_insert_rowid: AtomicI64::new(0),
             changes: AtomicI64::new(0),
             total_changes: AtomicI64::new(0),
+            pending_write_roots: parking_lot::Mutex::new(Default::default()),
             syms: parking_lot::RwLock::new(SymbolTable::new()),
             _shared_cache: false,
             cache_size: AtomicI32::new(default_cache_size),
@@ -2611,6 +2625,35 @@ impl Database {
             matches!(drive_type, DRIVE_FIXED | DRIVE_RAMDISK | DRIVE_REMOVABLE)
                 && drive_type != DRIVE_REMOTE,
         )
+    }
+
+    /// Records that a committed transaction wrote to these B-trees. Called
+    /// once per commit, never per row.
+    pub(crate) fn record_committed_writes(
+        &self,
+        roots: impl IntoIterator<Item = (usize, i64)>,
+        unknown_roots: bool,
+    ) {
+        let mut counters = self.table_change_counters.lock();
+        for root in roots {
+            *counters.entry(root).or_insert(0) += 1;
+        }
+        drop(counters);
+        if unknown_roots {
+            self.unknown_write_epoch.fetch_add(1, Ordering::AcqRel);
+        }
+    }
+
+    /// The change counter for one B-tree, and the epoch that stands in for
+    /// every write whose table could not be identified.
+    pub(crate) fn root_change_counter(&self, db: usize, root_page: i64) -> (u64, u64) {
+        let counter = self
+            .table_change_counters
+            .lock()
+            .get(&(db, root_page))
+            .copied()
+            .unwrap_or(0);
+        (counter, self.unknown_write_epoch.load(Ordering::Acquire))
     }
 
     #[cfg(host_shared_wal)]

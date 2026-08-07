@@ -867,6 +867,12 @@ pub struct ProgramState {
     has_stmt_transaction: bool,
     pub n_change: AtomicI64,
     pub n_total_change: AtomicI64,
+    /// Whether this program changed any row. Unlike `n_change`, which
+    /// `Insn::ResetCount` zeroes inside a trigger subprogram so the trigger's
+    /// writes do not leak into the parent's change count, this stays set for
+    /// the life of the statement. It gates recording the write set, so a
+    /// statement that matched no rows leaves the change counters alone.
+    pub(crate) changed_rows: AtomicBool,
 }
 
 impl std::fmt::Debug for Program {
@@ -928,6 +934,7 @@ impl ProgramState {
             has_stmt_transaction: false,
             attached_savepoint_pagers: Vec::new(),
             n_change: AtomicI64::new(0),
+            changed_rows: AtomicBool::new(false),
             n_total_change: AtomicI64::new(0),
             explain_state: RwLock::new(ExplainState::default()),
             pending_fail_error: None,
@@ -1058,6 +1065,7 @@ impl ProgramState {
         self.attached_savepoint_pagers.clear();
         self.n_change.store(0, Ordering::SeqCst);
         self.n_total_change.store(0, Ordering::SeqCst);
+        self.changed_rows.store(false, Ordering::Relaxed);
         *self.explain_state.write() = ExplainState::default();
         self.pending_fail_error = None;
         self.pending_cdc_info = None;
@@ -1067,10 +1075,12 @@ impl ProgramState {
     pub(crate) fn record_statement_change(&self) {
         self.n_change.fetch_add(1, Ordering::SeqCst);
         self.n_total_change.fetch_add(1, Ordering::SeqCst);
+        self.changed_rows.store(true, Ordering::Relaxed);
     }
 
     pub(crate) fn record_total_change(&self) {
         self.n_total_change.fetch_add(1, Ordering::SeqCst);
+        self.changed_rows.store(true, Ordering::Relaxed);
     }
 
     /// Whether this statement may finish the implicit autocommit transaction
@@ -1545,6 +1555,14 @@ pub struct PreparedProgram {
     pub write_databases: BitSet,
     /// Set of attached database indices that need read transactions.
     pub read_databases: BitSet,
+    /// `(database index, root page)` for every B-tree opened for writing.
+    /// Fed to [`crate::Database`]'s per-root change counters when the
+    /// transaction this statement ran in commits.
+    pub written_roots: Box<[(usize, i64)]>,
+    /// Whether any write cursor's root page is only known at runtime. Such a
+    /// statement bumps the unknown-write epoch instead, invalidating every
+    /// table's change token at once.
+    pub writes_unknown_roots: bool,
 }
 
 #[derive(Clone)]
@@ -2154,6 +2172,14 @@ impl Program {
             self.commit_txn_wal(pager, program_state, rollback)
         }?;
         if !res.is_io() {
+            // The transaction is over either way, so the write set has to go
+            // somewhere: onto the change counters if it committed, into the
+            // bin if it rolled back.
+            if rollback {
+                self.connection.discard_write_set();
+            } else {
+                self.connection.publish_write_set();
+            }
             if self.change_cnt_on {
                 self.connection
                     .set_changes(program_state.n_change.load(Ordering::SeqCst));

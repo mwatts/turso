@@ -3473,6 +3473,7 @@ pub fn halt(
             }
 
             // Release savepoint to preserve partial changes, then commit
+            record_write_set(program, state);
             state.end_statement(&program.connection, pager, EndStatement::ReleaseSavepoint)?;
             vtab_commit_all(&program.connection)?;
             index_method_pre_commit_all(state, pager)?;
@@ -3508,6 +3509,8 @@ pub fn halt(
             "immediate foreign key constraint failed".to_string(),
         ));
     }
+
+    record_write_set(program, state);
 
     if program.is_trigger_subprogram() {
         return Ok(InsnFunctionStepResult::Done);
@@ -3621,6 +3624,19 @@ pub fn halt(
         }
         Ok(InsnFunctionStepResult::Done)
     }
+}
+
+/// Hands the B-trees this statement opened for writing to the connection, so
+/// the commit path can advance their change counters. Skipped when the
+/// statement changed no row, which is what keeps a `WHERE` that matched
+/// nothing from invalidating a traversal snapshot.
+fn record_write_set(program: &Program, state: &ProgramState) {
+    if !state.changed_rows.load(Ordering::Relaxed) {
+        return;
+    }
+    program
+        .connection
+        .record_statement_write_set(&program.written_roots, program.writes_unknown_roots);
 }
 
 /// Call xCommit on all virtual tables that participated in the current transaction.

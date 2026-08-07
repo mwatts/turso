@@ -6364,6 +6364,9 @@ impl<Clock: LogicalClock, A: ConcurrentAllocator> MvStore<Clock, A> {
     /// * `tx_id` - The ID of the transaction to abort.
     /// * `db` - The database index this transaction belongs to.
     pub fn rollback_tx(&self, tx_id: TxID, _pager: Arc<Pager>, connection: &Connection, db: usize) {
+        // Same reasoning as the WAL path in `Pager::rollback_tx`: a discarded
+        // transaction must leave every table's change token where it was.
+        connection.discard_write_set();
         self.rollback_tx_inner(tx_id, Some(connection), db);
     }
 

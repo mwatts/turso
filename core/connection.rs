@@ -348,6 +348,28 @@ pub enum SyncRowStep {
 /// If you add a setting that affects SQL compilation or execution, call
 /// `bump_prepare_context_generation()` in its setter so cached prepared
 /// statements know they need to be reprepared.
+/// The write set accumulated over an open transaction. Small by construction —
+/// one entry per table or index a transaction touched — so a `Vec` with a
+/// linear scan beats hashing.
+#[derive(Default)]
+pub(crate) struct PendingWriteRoots {
+    roots: Vec<(usize, i64)>,
+    /// Whether any statement wrote a B-tree whose root page was only known at
+    /// runtime. Bumps the database's unknown-write epoch on commit.
+    unknown: bool,
+}
+
+impl PendingWriteRoots {
+    fn is_empty(&self) -> bool {
+        self.roots.is_empty() && !self.unknown
+    }
+
+    fn clear(&mut self) {
+        self.roots.clear();
+        self.unknown = false;
+    }
+}
+
 pub struct Connection {
     pub(crate) db: Arc<Database>,
     pub(crate) pager: ArcSwap<Pager>,
@@ -365,6 +387,12 @@ pub struct Connection {
     pub(super) last_insert_rowid: AtomicI64,
     pub(crate) changes: AtomicI64,
     pub(crate) total_changes: AtomicI64,
+    /// B-trees written by statements in the transaction currently open on this
+    /// connection, unioned as each statement finishes. Published to the
+    /// database's change counters when that transaction commits and dropped
+    /// when it rolls back, which is what keeps a rolled-back write from
+    /// advancing any table's change token.
+    pub(crate) pending_write_roots: parking_lot::Mutex<PendingWriteRoots>,
     pub(crate) syms: parking_lot::RwLock<SymbolTable>,
     pub(super) _shared_cache: bool,
     pub(super) cache_size: AtomicI32,
@@ -2772,6 +2800,72 @@ impl Connection {
 
     pub fn total_changes(&self) -> i64 {
         self.total_changes.load(Ordering::SeqCst)
+    }
+
+    /// A token standing for the current contents of `table` in the main
+    /// database. Two tokens taken from the same process compare equal only if
+    /// the table cannot have changed between them; callers use that to decide
+    /// whether a cache built over the table is still good.
+    ///
+    /// `None` means "cannot tell", and the caller must assume the table
+    /// changed. That happens for a table this connection's schema does not
+    /// know, and whenever multiprocess WAL is in play, because a counter kept
+    /// in this process cannot see another process's commits.
+    ///
+    /// The token folds in the schema version as well as the table's change
+    /// counter. It has to: `DROP TABLE` frees a root page without ever opening
+    /// a write cursor on it, and the next `CREATE TABLE` can be handed the
+    /// same page back, so the counter alone would read unchanged across a drop
+    /// and recreate that lost every row.
+    pub fn table_change_token(self: &Arc<Connection>, table: &str) -> Option<u64> {
+        if self.db.shared_wal_coordination().ok()?.is_some() {
+            return None;
+        }
+        let schema = self.schema.read();
+        let root_page = schema.get_btree_table(table)?.root_page;
+        let schema_version = schema.schema_version;
+        drop(schema);
+
+        let (counter, unknown_epoch) = self.db.root_change_counter(MAIN_DB_ID, root_page);
+        use std::hash::{Hash, Hasher};
+        let mut hasher = std::collections::hash_map::DefaultHasher::new();
+        (root_page, counter, unknown_epoch, schema_version).hash(&mut hasher);
+        Some(hasher.finish())
+    }
+
+    /// Folds a finished statement's write set into the open transaction's.
+    /// Called once per statement, including once per trigger and foreign-key
+    /// subprogram, so a trigger that writes a table the parent statement never
+    /// names still counts for that table.
+    pub(crate) fn record_statement_write_set(&self, roots: &[(usize, i64)], unknown: bool) {
+        if roots.is_empty() && !unknown {
+            return;
+        }
+        let mut pending = self.pending_write_roots.lock();
+        for root in roots {
+            if !pending.roots.contains(root) {
+                pending.roots.push(*root);
+            }
+        }
+        pending.unknown |= unknown;
+    }
+
+    /// Publishes the transaction's write set to the database's change counters.
+    /// Called only from the commit path, after the commit has actually landed.
+    pub(crate) fn publish_write_set(&self) {
+        let mut pending = self.pending_write_roots.lock();
+        if pending.is_empty() {
+            return;
+        }
+        self.db
+            .record_committed_writes(pending.roots.iter().copied(), pending.unknown);
+        pending.clear();
+    }
+
+    /// Drops the transaction's write set without advancing anything. A
+    /// rolled-back write must leave every table's change token where it was.
+    pub(crate) fn discard_write_set(&self) {
+        self.pending_write_roots.lock().clear();
     }
 
     pub fn get_cache_size(&self) -> i32 {

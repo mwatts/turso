@@ -40,8 +40,8 @@ impl TableRefIdCounter {
 }
 
 use super::{
-    affinity::Affinity, BranchOffset, CursorID, Insn, InsnReference, PrepareContext,
-    PreparedProgram, Program,
+    affinity::Affinity, insn::RegisterOrLiteral, BranchOffset, CursorID, Insn, InsnReference,
+    PrepareContext, PreparedProgram, Program,
 };
 use crate::translate::plan::BitSet;
 use std::num::NonZeroUsize;
@@ -233,6 +233,14 @@ pub struct ProgramBuilder {
     write_databases: BitSet,
     /// Set of attached database IDs that need read transactions.
     read_databases: BitSet,
+    /// `(database index, root page)` for every B-tree this program opens for
+    /// writing. Known at translate time, so advancing the per-root change
+    /// counters at commit costs nothing per row.
+    written_roots: Vec<(usize, i64)>,
+    /// Set when an `OpenWrite` names its root page through a register, which
+    /// only `alter.rs` and `index.rs` do. The root is not knowable until
+    /// runtime, so such a program invalidates every table rather than guess.
+    writes_unknown_roots: bool,
     /// Schema cookies for attached databases at prepare time.
     write_database_cookies: HashMap<usize, u32>,
     /// Schema cookies for attached databases opened for reading.
@@ -676,6 +684,8 @@ impl ProgramBuilder {
             txn_mode: TransactionMode::None,
             write_databases: BitSet::default(),
             read_databases: BitSet::default(),
+            written_roots: Vec::new(),
+            writes_unknown_roots: false,
             write_database_cookies: HashMap::default(),
             read_database_cookies: HashMap::default(),
             query_mode,
@@ -1057,6 +1067,20 @@ impl ProgramBuilder {
         // Any function can raise at runtime; see Self::may_abort.
         if matches!(insn, Insn::Function { .. }) {
             self.emitted_function_call = true;
+        }
+        if let Insn::OpenWrite { root_page, db, .. } = &insn {
+            let (root_page, db) = (*root_page, *db);
+            match root_page {
+                RegisterOrLiteral::Literal(root) => {
+                    // Write sets are a handful of entries, so a linear scan
+                    // beats hashing. The same root is opened repeatedly by
+                    // upsert and index maintenance paths.
+                    if !self.written_roots.contains(&(db, root)) {
+                        self.written_roots.push((db, root));
+                    }
+                }
+                RegisterOrLiteral::Register(_) => self.writes_unknown_roots = true,
+            }
         }
         if let Insn::Column {
             cursor_id,
@@ -2116,6 +2140,8 @@ impl ProgramBuilder {
             prepare_context,
             write_databases: self.write_databases,
             read_databases: self.read_databases,
+            written_roots: self.written_roots.into_boxed_slice(),
+            writes_unknown_roots: self.writes_unknown_roots,
         };
         Ok(prepared)
     }

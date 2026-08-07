@@ -2800,3 +2800,26 @@ fn test_multiprocess_autoinc_burst_no_duplicates() {
 
     observer_conn.close().unwrap();
 }
+
+#[test]
+fn multiprocess_wal_has_no_table_change_token() {
+    let dir = tempfile::tempdir().unwrap();
+    let db_path = dir.path().join("table-change-token.db");
+    let db_path_str = db_path.to_str().unwrap();
+    let io: Arc<dyn IO> = multiprocess_test_io();
+    let db = open_multiprocess_db(io, db_path_str).unwrap();
+    let conn = db.connect().unwrap();
+    conn.execute("CREATE TABLE t(x)").unwrap();
+
+    // The change counters live in this process's memory, so they cannot see a
+    // commit made by another process holding the same database. Reporting a
+    // token here would let a caller keep a cache that another process already
+    // invalidated, so the only honest answer is "cannot tell".
+    assert_eq!(
+        conn.table_change_token("t"),
+        None,
+        "a process-local counter must not claim to speak for other processes"
+    );
+
+    conn.close().unwrap();
+}

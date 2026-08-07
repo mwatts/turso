@@ -26,6 +26,7 @@ mod statement_reset;
 mod stmt_journal;
 mod stmt_readonly;
 mod storage;
+mod table_change_token;
 mod trigger;
 mod unreliable_io;
 mod wal;
