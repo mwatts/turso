@@ -2992,6 +2992,6 @@ CREATE (b1)-[:FRIEND]->(b2),
 
 ## Longitudinal inventory
 
-- Runs: 289
-- Result records: 583859
+- Runs: 29
+- Result records: 51275
 - Unique test identities: 10291
