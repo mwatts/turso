@@ -264,7 +264,47 @@ again) but not separately attributable in this profile. Listed for completeness.
 
 ## 7. What I believe needs to be done
 
-Ordered by measured leverage on this workload.
+Ordered by measured leverage on this workload. Status as of branch
+`perf/graph-bootstrap`:
+
+| Item | Status |
+|---|---|
+| 1. Scope `validate_state` — by source table | **done**, `379bdf9e0` |
+| 1. Scope `validate_state` — by written row | open, the larger half |
+| 2. Cache or parameterise the catalog queries | open |
+| 3. Stop `op_open_ephemeral` creating a temp directory | **done**, `74e3b4240` |
+| 4. Wire the frontend to per-table change tokens | open |
+| 5. Cache bound mutation plans | open |
+
+What landed and what it is measured to be worth:
+
+- **Source scoping.** A mutation now validates only constraints reading a
+  source table it writes. Steady-state `CREATE` on one type compiles 5
+  statements at 2, 4 and 16 registered types, against `5 + 2 * (types - 1)`
+  before — 35 at 16 types. This removes the term that grows with **ontology
+  size**. It does not remove the term that grows with **row count**: a
+  constraint in scope still scans its whole source table, so a workload where
+  every entry lands in one table still sees §5.3's growth.
+- **Temp files.** `TempFile` no longer creates a directory per ephemeral table.
+  Measured on the same syscall sequence in isolation: 292 µs → 215 µs per open
+  and close, 1.36x. The remainder is the file create and unlink themselves;
+  only keeping small ephemeral tables in memory until they spill, as SQLite
+  does, removes those.
+
+One behaviour was traded away with source scoping, deliberately: a plain-SQL
+write to a mapped table that violates a constraint used to be caught by the next
+Cypher mutation on *any* source, and is now caught only by one touching *that*
+source. Validation was never a guarantee against out-of-band writes, and the
+full pass cost 40.6% of the working thread.
+
+The remaining half of item 1 is the one that matters for a single-table
+ontology: restrict each validation query to the identities the statement wrote.
+`execute_bound` has them, but they have to be threaded through roughly fifteen
+operation branches plus the closed-`CREATE` fast path, and uniqueness, keys and
+cardinality each need their own restriction that stays sound (for uniqueness,
+"only values the written rows carry"; for cardinality, "only nodes the statement
+wrote or repointed"). Getting one branch wrong silently stops validating, which
+is how the FOREACH hole in the source-scoping change showed up.
 
 **1. Scope `validate_state` to the rows the statement wrote, or defer it to commit.**
 `execute_bound` already has the affected identities from `RETURNING id`. Adding

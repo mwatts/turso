@@ -71,24 +71,33 @@ traffic is one statement, so this now matters most for the constraint queries
 
 ### 3. Constraint validation re-checks the whole graph after every statement
 
-`SemanticConstraintSnapshot::validate_state` (`src/semantic_constraints.rs`)
-runs, per mutation, one full scan of the source table for every property
-constraint, key and cardinality constraint. Three separate problems:
+Partly fixed. `validate_state` now takes a `ValidationScope` and skips
+constraints whose source table the mutation does not write, so the cost no
+longer grows with the number of **installed types**. What remains is the cost
+growing with the number of **rows**.
 
-- **It is quadratic.** Bulk-loading N rows costs O(constraints × N²). At 118
-  rows this is invisible; at 50k it is a wall.
+`SemanticConstraintSnapshot::validate_state` (`src/semantic_constraints.rs`)
+still runs, per mutation, one full scan of the source table for every
+in-scope property constraint, key and cardinality constraint. Two problems
+left:
+
+- **It is quadratic in rows.** Bulk-loading N rows of one type costs
+  O(constraints × N²). At 118 rows this is invisible; at 50k it is a wall.
 - **The value-predicate path has no `LIMIT`** (`src/semantic_constraints.rs`,
   `ResolvedPropertyPredicate::Value`). It pulls every non-NULL value of that
   property into Rust and checks them in a loop — on every mutation.
-- **It validates rows the statement never touched.**
 
 Fixes, increasing effort:
 
 - restrict validation to the rows the mutation wrote. `execute_bound` already
   knows the affected identities (the `RETURNING id` values); add
   `entity.<identity> IN (…)`. Uniqueness, keys and cardinality still need a
-  scan but can be restricted to the groups the new rows land in. This is the
-  change that turns O(N²) into O(N).
+  scan but can be restricted to the groups the new rows land in — for
+  uniqueness, only the values the written rows carry; for cardinality, only
+  the nodes the statement wrote or repointed. This is the change that turns
+  O(N²) into O(N). Note that the identities have to be threaded through every
+  operation branch **and** the closed-`CREATE` fast path: a branch that
+  reports no writes silently stops validating.
 - push the value predicate into SQL and add `LIMIT 1`, so a violation stops
   the scan instead of materialising the column.
 - skip constraint classes a statement cannot affect — a `CREATE` touching no
