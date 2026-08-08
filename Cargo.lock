@@ -7568,7 +7568,7 @@ dependencies = [
 
 [[package]]
 name = "turso_graph_cypher"
-version = "0.8.0-pre.2"
+version = "0.8.0-pre.3"
 dependencies = [
  "pest",
  "pest_derive",
@@ -7578,7 +7578,7 @@ dependencies = [
 
 [[package]]
 name = "turso_graph_frontend"
-version = "0.8.0-pre.2"
+version = "0.8.0-pre.3"
 dependencies = [
  "codspeed-divan-compat",
  "parking_lot",
@@ -7602,14 +7602,14 @@ dependencies = [
 
 [[package]]
 name = "turso_graph_ir"
-version = "0.8.0-pre.2"
+version = "0.8.0-pre.3"
 dependencies = [
  "thiserror 2.0.16",
 ]
 
 [[package]]
 name = "turso_graph_runtime"
-version = "0.8.0-pre.2"
+version = "0.8.0-pre.3"
 dependencies = [
  "codspeed-divan-compat",
  "serde",
@@ -7621,7 +7621,7 @@ dependencies = [
 
 [[package]]
 name = "turso_graph_temporal"
-version = "0.8.0-pre.2"
+version = "0.8.0-pre.3"
 dependencies = [
  "jiff",
  "serde_json",
@@ -7631,7 +7631,7 @@ dependencies = [
 
 [[package]]
 name = "turso_graph_testkit"
-version = "0.8.0-pre.2"
+version = "0.8.0-pre.3"
 dependencies = [
  "anyhow",
  "chrono",
