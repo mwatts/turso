@@ -20,6 +20,7 @@ use crate::{
         quoted_identifier, unit_mutation_input, LoweredMutationInput, MutationEntityKind,
         MutationRowColumn,
     },
+    semantic_constraints::ValidationScope,
     transaction::{in_write_transaction, WriteTransactionError},
     BindError, GraphCompilationCatalog, LowerError, ParameterTypes,
 };
@@ -268,6 +269,80 @@ fn runtime_value_compatible(expected: &ir::ValueType, value: &Value) -> bool {
     }
 }
 
+/// The source tables a bound mutation can write, or [`ValidationScope::All`]
+/// when any operation picks its source at run time.
+///
+/// Constraint validation uses this to skip constraints the statement cannot
+/// have broken. Anything it cannot name statically has to widen the scope
+/// rather than narrow it, so an unreadable operation costs the old full pass
+/// instead of a missed violation.
+///
+/// Writes are not all in `request.operations`: a WITH pipeline puts them in
+/// stage items, and FOREACH nests further items inside those. Missing one is
+/// how a violation slips through, so every branch that can hold a mutation has
+/// to be walked.
+fn validation_scope(bound: &BoundMutation) -> ValidationScope {
+    let mut scope = ValidationScope::Sources(Vec::new());
+    collect_mutation_sources(&bound.request.operations, &mut scope);
+    for stage in &bound.stages {
+        collect_stage_sources(&stage.items, &mut scope);
+    }
+    scope
+}
+
+fn collect_stage_sources(items: &[StageItem], scope: &mut ValidationScope) {
+    for item in items {
+        match item {
+            StageItem::Operation(operation) => {
+                collect_mutation_sources(std::slice::from_ref(operation), scope)
+            }
+            StageItem::Foreach { items, .. } => collect_stage_sources(items, scope),
+            // Neither reads nor writes a source through a mutation operation.
+            StageItem::Unwind { .. } | StageItem::Match { .. } => {}
+        }
+    }
+}
+
+fn collect_mutation_sources(operations: &[ir::Mutation], scope: &mut ValidationScope) {
+    for operation in operations {
+        match operation {
+            ir::Mutation::CreateNode(create) => scope.add(create.source),
+            ir::Mutation::CreateRelation(create) => scope.add(create.source),
+            ir::Mutation::SetRoles(set) => scope.add(set.source),
+            ir::Mutation::SetProperty(set) => add_mutation_source(set.source, scope),
+            ir::Mutation::SetLabels(set) => add_mutation_source(set.source, scope),
+            ir::Mutation::ReplaceProperties(replace) => add_mutation_source(replace.source, scope),
+            ir::Mutation::ReplacePropertiesDynamic(replace) => {
+                add_mutation_source(replace.source, scope)
+            }
+            ir::Mutation::RemoveProperty(remove) => add_mutation_source(remove.source, scope),
+            // DETACH DELETE also removes relationships this plan never names,
+            // which can drop other node types below a minimum cardinality.
+            ir::Mutation::Delete(delete) if delete.detach => *scope = ValidationScope::All,
+            ir::Mutation::Delete(delete) => add_mutation_source(delete.source, scope),
+            ir::Mutation::MergeNode(merge) => {
+                scope.add(merge.create.source);
+                collect_mutation_sources(&merge.on_create, scope);
+                collect_mutation_sources(&merge.on_match, scope);
+            }
+            ir::Mutation::MergeRelation(merge) => {
+                scope.add(merge.create.source);
+                collect_mutation_sources(&merge.on_create, scope);
+                collect_mutation_sources(&merge.on_match, scope);
+            }
+        }
+    }
+}
+
+fn add_mutation_source(source: ir::MutationSource, scope: &mut ValidationScope) {
+    match source {
+        ir::MutationSource::Static(source) => scope.add(source),
+        // The binding carries its source as a runtime value, so which table
+        // this writes is not knowable here.
+        ir::MutationSource::Binding(_) => *scope = ValidationScope::All,
+    }
+}
+
 pub fn execute_cypher_mutation(
     connection: &Arc<Connection>,
     graph: ir::GraphId,
@@ -301,8 +376,9 @@ pub fn execute_cypher_mutation(
             execute_bound(connection, catalog.as_ref(), &bound, &input, parameters)?
         };
         if let Some(constraints) = catalog.semantic_constraints() {
+            let scope = validation_scope(&bound);
             constraints
-                .validate_state(connection)
+                .validate_state(connection, &scope)
                 .map_err(|error| match error {
                     crate::SemanticCatalogError::Database(error)
                     | crate::SemanticCatalogError::Catalog(CatalogError::Database(error)) => {

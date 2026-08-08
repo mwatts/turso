@@ -231,6 +231,54 @@ struct ResolvedEndpointOwner {
     identity_column: String,
 }
 
+/// Which source tables a validation pass has to look at.
+///
+/// Re-checking every constraint in the graph after every statement is what made
+/// a bootstrap loop superlinear: with N installed types, each of N mutations ran
+/// one scan per constraint of every other type, none of which it could have
+/// broken.
+///
+/// Narrowing it is sound because of an invariant the write-transaction guard
+/// maintains: **the stored state satisfies every constraint before a mutation
+/// runs**. Registering a constraint validates the whole graph
+/// ([`crate::semantic`]), every mutation validates before it commits, and a
+/// failed validation rolls the mutation back. So after a mutation the only
+/// constraints that can newly fail are the ones reading a table it wrote.
+///
+/// The invariant assumes graph data changes through the graph frontend. Writing
+/// to a mapped table with plain SQL can leave a violation that a later Cypher
+/// mutation on an unrelated source no longer happens to notice.
+#[derive(Clone, Debug, Default)]
+pub(crate) enum ValidationScope {
+    /// Every constraint. Used when a statement's targets are only known at run
+    /// time, and by catalog changes, which have to prove the whole graph fits
+    /// the constraints they are adding.
+    #[default]
+    All,
+    /// Only constraints reading one of these source tables. Short by
+    /// construction — one entry per source a single statement writes — so a
+    /// linear scan beats hashing.
+    Sources(Vec<ir::SourceTableId>),
+}
+
+impl ValidationScope {
+    pub(crate) fn touches(&self, source: ir::SourceTableId) -> bool {
+        match self {
+            ValidationScope::All => true,
+            ValidationScope::Sources(sources) => sources.contains(&source),
+        }
+    }
+
+    /// Adds `source`, unless the scope has already given up on being precise.
+    pub(crate) fn add(&mut self, source: ir::SourceTableId) {
+        if let ValidationScope::Sources(sources) = self {
+            if !sources.contains(&source) {
+                sources.push(source);
+            }
+        }
+    }
+}
+
 /// Immutable constraints resolved against one semantic and relational catalog.
 #[derive(Clone, Debug, Default)]
 pub struct SemanticConstraintSnapshot {
@@ -343,14 +391,33 @@ impl SemanticConstraintSnapshot {
     pub(crate) fn validate_state(
         &self,
         connection: &Arc<Connection>,
+        scope: &ValidationScope,
     ) -> Result<(), SemanticCatalogError> {
         for constraint in &self.property_constraints {
+            if !scope.touches(constraint.source) {
+                continue;
+            }
             self.validate_property_state(connection, constraint)?;
         }
         for key in &self.keys {
+            if !scope.touches(key.source) {
+                continue;
+            }
             self.validate_key_state(connection, key)?;
         }
         for cardinality in &self.cardinalities {
+            // A new node starts with no relationships, so it can break a
+            // minimum on its own without the relationship table being written
+            // at all. Either side of the constraint being touched is enough to
+            // put it back in scope.
+            let touched = scope.touches(cardinality.relationship_source)
+                || cardinality
+                    .node_owners
+                    .iter()
+                    .any(|owner| scope.touches(owner.source));
+            if !touched {
+                continue;
+            }
             self.validate_cardinality_state(connection, cardinality)?;
         }
         Ok(())

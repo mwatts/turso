@@ -21,6 +21,7 @@ use crate::catalog::{
 use crate::semantic_constraints::{
     create_constraint_catalog, insert_additive_rows, load_constraint_snapshot,
     rows_for_registration, SemanticConstraintRegistration, SemanticConstraintSnapshot,
+    ValidationScope,
 };
 use crate::transaction::{in_write_transaction, WriteTransactionError};
 
@@ -909,7 +910,12 @@ pub fn register_semantic_constraints(
         let updated = load_semantic_snapshot(connection, &graph)?.ok_or(
             SemanticCatalogError::InvalidCatalogValue("semantic schema disappeared"),
         )?;
-        updated.constraints().validate_state(connection)?;
+        // A new constraint has to hold over data that predates it, so this is
+        // the pass that establishes the invariant mutation-time validation then
+        // narrows itself against.
+        updated
+            .constraints()
+            .validate_state(connection, &ValidationScope::All)?;
         bump_semantic_generation(connection, graph.id.get())
     })
 }
