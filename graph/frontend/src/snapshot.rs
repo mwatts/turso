@@ -12,8 +12,8 @@ use turso_graph_runtime::{BuildLimits, Cancellation, EdgeInput, Graph, LimitKind
 
 use crate::{
     catalog::{integer, source_id},
-    load_registered_graph, load_semantic_snapshot, CatalogError, SemanticCatalogError,
-    GRAPH_CATALOG_VERSION,
+    load_registered_graph, load_semantic_snapshot, CatalogError, RegisteredGraph,
+    SemanticCatalogError, GRAPH_CATALOG_VERSION,
 };
 
 const VISIBLE_SNAPSHOT_SAVEPOINT: &str = "__turso_graph_visible_snapshot";
@@ -60,6 +60,10 @@ pub struct TraversalSnapshot {
     graph_name: String,
     catalog_version: u64,
     source_generation: u64,
+    /// The token-derived generation as of the build. Compared instead of
+    /// `source_generation`; the latter is kept only so the two can be checked
+    /// against each other while the triggers are still installed.
+    derived_source_generation: Option<u64>,
     graph: Graph,
     nodes: Vec<NodeCoordinate>,
     node_ids: HashMap<NodeCoordinate, NodeId>,
@@ -320,7 +324,7 @@ impl SnapshotStore {
         let Some(snapshot) = self.get(registered.id)? else {
             return Ok(SnapshotStatus::Missing);
         };
-        Ok(classify_snapshot(&snapshot, registered.generation))
+        Ok(classify_snapshot(&snapshot, &registered))
     }
 
     pub fn discard(&self, graph: GraphId) -> Result<bool, SnapshotError> {
@@ -340,7 +344,7 @@ impl SnapshotStore {
         let registered = load_registered_graph(connection, graph_name)?;
         Ok(self.get(registered.id)?.filter(|snapshot| {
             matches!(
-                classify_snapshot(snapshot, registered.generation),
+                classify_snapshot(snapshot, &registered),
                 SnapshotStatus::Current(_)
             )
         }))
@@ -354,7 +358,7 @@ impl SnapshotStore {
         let current = load_registered_graph(connection, snapshot.graph_name())?;
         if current.id != snapshot.graph_id
             || snapshot.catalog_version != GRAPH_CATALOG_VERSION
-            || current.generation != snapshot.source_generation
+            || sources_changed(&snapshot, &current)
         {
             return Ok(PublishOutcome::Stale {
                 built_generation: snapshot.source_generation,
@@ -435,7 +439,7 @@ impl SessionSnapshotStore {
         let Some(snapshot) = self.get(registered.id)? else {
             return Ok(SnapshotStatus::Missing);
         };
-        Ok(classify_snapshot(&snapshot, registered.generation))
+        Ok(classify_snapshot(&snapshot, &registered))
     }
 
     pub fn refresh_visible(
@@ -469,7 +473,7 @@ impl SessionSnapshotStore {
         let registered = load_registered_graph(connection, graph_name)?;
         if let Some(snapshot) = self.get(registered.id)? {
             if matches!(
-                classify_snapshot(&snapshot, registered.generation),
+                classify_snapshot(&snapshot, &registered),
                 SnapshotStatus::Current(_)
             ) {
                 return Ok((snapshot, false));
@@ -868,6 +872,7 @@ fn build_in_transaction(
         graph_name: registered.name,
         catalog_version: GRAPH_CATALOG_VERSION,
         source_generation: registered.generation,
+        derived_source_generation: registered.derived_generation,
         graph,
         nodes: node_coordinates,
         node_ids: node_lookup,
@@ -878,17 +883,48 @@ fn build_in_transaction(
     })
 }
 
-fn classify_snapshot(snapshot: &TraversalSnapshot, current_generation: u64) -> SnapshotStatus {
+/// Whether the graph's sources changed since the snapshot was built.
+///
+/// Answers from the change tokens, not the trigger-maintained column. A token
+/// that was unavailable at build time or is unavailable now means "assume
+/// changed", which costs a rebuild and never serves stale rows.
+fn sources_changed(snapshot: &TraversalSnapshot, current: &RegisteredGraph) -> bool {
+    let changed = match (
+        snapshot.derived_source_generation,
+        current.derived_generation,
+    ) {
+        (Some(built), Some(now)) => built != now,
+        _ => true,
+    };
+    // The triggers are still installed, so their answer is still available to
+    // check against. The invariant is one-directional on purpose: the token
+    // must move whenever the trigger generation moved, but not the reverse.
+    // The token is per-table where the column is per-graph, so a write to one
+    // graph's table leaves another graph's tables alone.
+    //
+    // A hard assert, not `debug_assert`: the corpus that has to clear this
+    // runs release, where a debug assert is compiled out and would check
+    // nothing. It goes away with the triggers in the next step.
+    assert!(
+        snapshot.source_generation == current.generation || changed,
+        "trigger generation moved from {} to {} but the derived generation did not move from {:?}; \
+         the token would have served a stale snapshot",
+        snapshot.source_generation,
+        current.generation,
+        snapshot.derived_source_generation
+    );
+    changed
+}
+
+fn classify_snapshot(snapshot: &TraversalSnapshot, current: &RegisteredGraph) -> SnapshotStatus {
     let metadata = snapshot.metadata();
-    if snapshot.catalog_version == GRAPH_CATALOG_VERSION
-        && snapshot.source_generation == current_generation
-    {
+    if snapshot.catalog_version == GRAPH_CATALOG_VERSION && !sources_changed(snapshot, current) {
         SnapshotStatus::Current(metadata)
     } else {
         SnapshotStatus::Stale {
             snapshot: metadata,
             current_catalog_version: GRAPH_CATALOG_VERSION,
-            current_generation,
+            current_generation: current.generation,
         }
     }
 }
@@ -900,7 +936,7 @@ fn is_snapshot_current(
     let registered = load_registered_graph(connection, snapshot.graph_name())?;
     Ok(registered.id == snapshot.graph_id
         && matches!(
-            classify_snapshot(snapshot, registered.generation),
+            classify_snapshot(snapshot, &registered),
             SnapshotStatus::Current(_)
         ))
 }

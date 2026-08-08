@@ -4947,6 +4947,10 @@ pub fn op_savepoint(
                 mark_unlikely();
                 return Err(LimboError::TxError(format!("no such savepoint: {name}")));
             };
+            // Rows just went away. The pending write set only ever grows, so
+            // without this a change token would read exactly as it did before
+            // the rollback and callers would keep a cache of undone rows.
+            conn.note_savepoint_rollback();
             let frame_info = conn.rollback_named_savepoint_frame(name);
             mirror_named_savepoint_to_active_non_main_databases(
                 &conn,

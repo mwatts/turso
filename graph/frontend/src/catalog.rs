@@ -1,5 +1,6 @@
 use std::{
-    collections::{HashMap, HashSet},
+    collections::{hash_map::DefaultHasher, HashMap, HashSet},
+    hash::{Hash, Hasher},
     sync::Arc,
 };
 
@@ -187,6 +188,17 @@ pub struct RegisteredGraph {
     /// `None` when the database predates this column; callers treat that as
     /// "assume stale" and fall back to reloading on every statement.
     pub schema_generation: Option<u64>,
+    /// The same signal as `generation`, derived from the engine's per-table
+    /// change tokens instead of from the trigger-maintained column. `None`
+    /// when any input is unavailable -- a table the engine cannot tokenize,
+    /// multiprocess WAL, or a database predating `schema_generation` --
+    /// which callers treat as "assume stale".
+    ///
+    /// Covers exactly the tables the triggers are installed on, so it moves
+    /// whenever `generation` moves. It also moves in cases the triggers miss
+    /// entirely, such as DDL on a mapped table, and it is per-table where
+    /// `generation` is per-graph.
+    pub derived_generation: Option<u64>,
     pub node_sources: Vec<RegisteredNodeSource>,
     pub relationship_sources: Vec<RegisteredRelationshipSource>,
 }
@@ -440,14 +452,53 @@ pub fn load_registered_graph(
             roles,
         });
     }
+    let derived_generation = derive_generation(
+        connection,
+        schema_generation,
+        &node_sources,
+        &relationship_sources,
+    );
     Ok(RegisteredGraph {
         id: graph_id,
         name: graph_name,
         generation,
         schema_generation,
+        derived_generation,
         node_sources,
         relationship_sources,
     })
+}
+
+/// Folds the change tokens of the graph's mapped source tables together with
+/// the catalog's own generation.
+///
+/// The table set is the one [`install_generation_triggers`] installs on, so
+/// this cannot miss a write the triggers would have caught. Order is fixed by
+/// the `ORDER BY s.id` the caller loads with, and the same table mapped twice
+/// contributes twice -- neither affects whether the value *moves*, which is
+/// all callers compare.
+fn derive_generation(
+    connection: &Arc<Connection>,
+    schema_generation: Option<u64>,
+    node_sources: &[RegisteredNodeSource],
+    relationship_sources: &[RegisteredRelationshipSource],
+) -> Option<u64> {
+    let mut hasher = DefaultHasher::new();
+    // A database predating the catalog split cannot say whether the catalog
+    // changed, so the whole derived value has to be unavailable too.
+    schema_generation?.hash(&mut hasher);
+    let tables = node_sources
+        .iter()
+        .map(|source| source.table.as_str())
+        .chain(
+            relationship_sources
+                .iter()
+                .map(|source| source.table.as_str()),
+        );
+    for table in tables {
+        connection.table_change_token(table)?.hash(&mut hasher);
+    }
+    Some(hasher.finish())
 }
 
 pub fn graph_generation(connection: &Arc<Connection>, name: &str) -> Result<u64, CatalogError> {
@@ -1642,7 +1693,21 @@ mod tests {
                 .expect("reopen database");
         let connection = database.connect().expect("reconnect");
         let reopened = load_registered_graph(&connection, "multi").expect("reload graph");
-        assert_eq!(reopened, registered);
+        // The derived generation is a change signal for this process, not
+        // catalog content: a reopened database counts changes from scratch, so
+        // it is expected to differ and callers rebuild once. Everything the
+        // catalog actually persists has to survive the round trip.
+        assert!(
+            reopened.derived_generation.is_some(),
+            "a reopened graph must still produce a change signal"
+        );
+        assert_eq!(
+            RegisteredGraph {
+                derived_generation: registered.derived_generation,
+                ..reopened
+            },
+            registered
+        );
     }
 
     #[test]

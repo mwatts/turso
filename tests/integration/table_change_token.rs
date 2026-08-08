@@ -86,6 +86,55 @@ fn a_statement_that_matches_no_row_leaves_the_token_alone(
 }
 
 #[turso_macros::test(init_sql = "CREATE TABLE t(x)")]
+fn a_transaction_sees_its_own_uncommitted_writes(tmp_db: TempDatabase) -> anyhow::Result<()> {
+    let conn = tmp_db.connect_limbo();
+    let before = token(&conn, "t");
+    run_query(&tmp_db, &conn, "BEGIN")?;
+    run_query(&tmp_db, &conn, "INSERT INTO t VALUES (1)")?;
+    let after_first = token(&conn, "t");
+    assert_ne!(
+        before, after_first,
+        "a writer reads its own uncommitted writes, so anything caching rows \
+         for this connection has to rebuild before the transaction commits"
+    );
+    run_query(&tmp_db, &conn, "INSERT INTO t VALUES (2)")?;
+    assert_ne!(
+        after_first,
+        token(&conn, "t"),
+        "each statement has to move the token, not just the first; otherwise a \
+         cache rebuilt after statement one is served again after statement two"
+    );
+    run_query(&tmp_db, &conn, "ROLLBACK")?;
+    assert_eq!(
+        before,
+        token(&conn, "t"),
+        "rollback undoes the writes, so the token has to land back exactly \
+         where it started"
+    );
+    Ok(())
+}
+
+#[turso_macros::test(init_sql = "CREATE TABLE t(x)")]
+fn an_open_transactions_writes_are_invisible_to_other_connections(
+    tmp_db: TempDatabase,
+) -> anyhow::Result<()> {
+    let writer = tmp_db.connect_limbo();
+    let reader = tmp_db.connect_limbo();
+    let before = token(&reader, "t");
+    run_query(&tmp_db, &writer, "BEGIN")?;
+    run_query(&tmp_db, &writer, "INSERT INTO t VALUES (1)")?;
+    assert_eq!(
+        before,
+        token(&reader, "t"),
+        "another connection cannot read these rows yet, so its caches are \
+         still good; only commit may move its token"
+    );
+    run_query(&tmp_db, &writer, "COMMIT")?;
+    assert_ne!(before, token(&reader, "t"));
+    Ok(())
+}
+
+#[turso_macros::test(init_sql = "CREATE TABLE t(x)")]
 fn a_second_connection_sees_the_write(tmp_db: TempDatabase) -> anyhow::Result<()> {
     let writer = tmp_db.connect_limbo();
     let reader = tmp_db.connect_limbo();

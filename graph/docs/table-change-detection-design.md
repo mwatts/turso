@@ -34,6 +34,22 @@ row in the generations table — a B-tree descent and a page dirty per row, on
 the single hottest row in the database. Under MVCC that same row becomes a
 write-write conflict point between otherwise independent writers.
 
+Measured against a table carrying the same three AFTER-DML triggers the
+frontend installs, counting WAL frames so the numbers do not depend on build
+profile:
+
+| Workload | Without triggers | With triggers | |
+| --- | --- | --- | --- |
+| 100 single-row inserts | 100 frames | 200 frames | **2.00x**, +1 page per row |
+| 400 single-row inserts | 403 frames | 803 frames | **1.99x**, +1 page per row |
+| 20,000 rows in one transaction | 69 frames | 70 frames | +1 page total |
+| Bytecode per inserted row | 20 instructions | 46 instructions | **2.3x** |
+
+The cost lands on transaction count, not row count: the counter page is written
+once per transaction however many rows it carries. A bulk load barely notices.
+A row-at-a-time writer — the shape most application traffic takes — doubles its
+durable writes, and every one of those writes lands on the same page.
+
 **Core carve-outs.** The generations table is a protected internal name, so
 core needs an explicit exception for the trigger body:
 
