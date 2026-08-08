@@ -616,17 +616,64 @@ fn lower_plan(
             bindings: HashMap::new(),
         }),
         ir::PlanKind::NodeScan(scan) => lower_node_scan(scan, catalog, wanted),
-        ir::PlanKind::RoleExpand(expand) => {
-            lower_role_expand(expand, catalog, optional, &[], wanted, None)
-        }
+        ir::PlanKind::RoleExpand(expand) => lower_role_expand(
+            expand,
+            catalog,
+            optional,
+            &[],
+            wanted,
+            None,
+            &mut HashMap::new(),
+        ),
         ir::PlanKind::GraphExpand(expand) => lower_graph_expand(expand, catalog, wanted),
         ir::PlanKind::Filter(filter) => {
-            let input = lower_plan(&filter.input, catalog, optional, wanted)?;
-            let predicate = lower_expression(&filter.predicate, &input.bindings, catalog, "q")?;
-            Ok(Lowered {
-                sql: format!("SELECT q.* FROM ({}) AS q WHERE {predicate}", input.sql),
-                bindings: input.bindings,
-            })
+            // A predicate belongs in the WHERE of the select that joins the
+            // tables it constrains. Wrapping that select in a derived table and
+            // filtering outside leaves the predicate naming derived-table
+            // columns, where core can neither choose an index seek nor tell
+            // that the term rejects an outer join's null-extended rows -- it
+            // has no pass that flattens a FROM-clause subquery to see through
+            // one. Pushing it in buys the seek and lets a LEFT JOIN whose rows
+            // the predicate discards become an INNER JOIN, which in turn frees
+            // the join order.
+            //
+            // A run of stacked filters shares the one WHERE, so a chain does
+            // not strand the outer predicates a level above the joins.
+            let mut predicates = vec![&filter.predicate];
+            let mut base = &filter.input;
+            while let ir::PlanKind::Filter(inner) = base.kind() {
+                predicates.push(&inner.predicate);
+                base = &inner.input;
+            }
+            let mut row_aliases = HashMap::new();
+            let input =
+                lower_plan_exposing_row_aliases(base, catalog, optional, wanted, &mut row_aliases)?;
+            if !optional {
+                let mut pushed = Vec::with_capacity(predicates.len());
+                for predicate in predicates.iter().rev() {
+                    let Some(sql) =
+                        pushed_down_predicate(predicate, &input.bindings, catalog, &row_aliases)?
+                    else {
+                        pushed.clear();
+                        break;
+                    };
+                    pushed.push(sql);
+                }
+                if !pushed.is_empty() {
+                    return Ok(Lowered {
+                        sql: format!("{} WHERE {}", input.sql, pushed.join(" AND ")),
+                        bindings: input.bindings,
+                    });
+                }
+            }
+            // Innermost predicate first, so the wrappers nest in plan order.
+            let mut sql = input.sql;
+            let bindings = input.bindings;
+            for predicate in predicates.iter().rev() {
+                let predicate = lower_expression(predicate, &bindings, catalog, "q")?;
+                sql = format!("SELECT q.* FROM ({sql}) AS q WHERE {predicate}");
+            }
+            Ok(Lowered { sql, bindings })
         }
         ir::PlanKind::Project(project) => lower_project(project, catalog, optional, wanted),
         ir::PlanKind::Distinct(distinct) => {
@@ -636,9 +683,13 @@ fn lower_plan(
                 bindings: input.bindings,
             })
         }
-        ir::PlanKind::LeftApply(apply) => {
-            lower_optional_chain(&apply.right, Some(&apply.left), catalog, wanted)
-        }
+        ir::PlanKind::LeftApply(apply) => lower_optional_chain(
+            &apply.right,
+            Some(&apply.left),
+            catalog,
+            wanted,
+            &mut HashMap::new(),
+        ),
         ir::PlanKind::Aggregate(aggregate) => {
             // Column-free count(*) over a bare node scan can skip materializing
             // node rows and ride complete B-tree indexes core now treats as
@@ -1182,6 +1233,7 @@ fn lower_optional_chain(
     boundary: Option<&ir::Plan>,
     catalog: &dyn RelationalCatalogSnapshot,
     wanted: &WantedProperties,
+    row_aliases: &mut HashMap<ir::BindingId, BindingReference>,
 ) -> Result<Lowered, LowerError> {
     if boundary.is_some_and(|boundary| plan == boundary) {
         return lower_plan(plan, catalog, false, wanted);
@@ -1203,18 +1255,39 @@ fn lower_optional_chain(
         return lower_plan(original, catalog, false, wanted);
     }
     match current.kind() {
-        ir::PlanKind::RoleExpand(expand) => {
-            lower_role_expand(expand, catalog, true, &predicates, wanted, boundary)
-        }
+        ir::PlanKind::RoleExpand(expand) => lower_role_expand(
+            expand,
+            catalog,
+            true,
+            &predicates,
+            wanted,
+            boundary,
+            row_aliases,
+        ),
         ir::PlanKind::Union(union) => {
+            // Each branch is wrapped in its own select and the branches are
+            // combined with UNION, so no branch's aliases survive into the
+            // result and `row_aliases` stays empty.
             let mut parts = Vec::new();
             let mut bindings: Option<HashMap<ir::BindingId, BindingLayout>> = None;
             for branch in union.inputs() {
                 let lowered = match branch.kind() {
-                    ir::PlanKind::RoleExpand(expand) => {
-                        lower_role_expand(expand, catalog, true, &predicates, wanted, boundary)?
-                    }
-                    _ => lower_optional_chain(branch, boundary, catalog, wanted)?,
+                    ir::PlanKind::RoleExpand(expand) => lower_role_expand(
+                        expand,
+                        catalog,
+                        true,
+                        &predicates,
+                        wanted,
+                        boundary,
+                        &mut HashMap::new(),
+                    )?,
+                    _ => lower_optional_chain(
+                        branch,
+                        boundary,
+                        catalog,
+                        wanted,
+                        &mut HashMap::new(),
+                    )?,
                 };
                 parts.push(format!("SELECT q.* FROM ({}) AS q", lowered.sql));
                 if let Some(combined) = &mut bindings {
@@ -1430,6 +1503,85 @@ fn try_lower_column_free_node_count(
     }))
 }
 
+/// Alias `lower_node_scan` gives the scanned node's table. Anything appended to
+/// that scan's SQL addresses the node's row through this name, so the two have
+/// to agree.
+const NODE_SCAN_ALIAS: &str = "n";
+
+/// Lowers `plan` and reports, in `row_aliases`, the alias holding each binding
+/// whose own table the resulting SQL joins in its outermost select -- the
+/// bindings a predicate appended to that SQL can name directly. Left empty for
+/// any plan whose SQL is not a single select ending in its FROM clause, since
+/// there is nothing safe to append a WHERE to.
+fn lower_plan_exposing_row_aliases(
+    plan: &ir::Plan,
+    catalog: &dyn RelationalCatalogSnapshot,
+    optional: bool,
+    wanted: &WantedProperties,
+    row_aliases: &mut HashMap<ir::BindingId, BindingReference>,
+) -> Result<Lowered, LowerError> {
+    match plan.kind() {
+        ir::PlanKind::NodeScan(scan) => {
+            let lowered = lower_node_scan(scan, catalog, wanted)?;
+            let layout = catalog
+                .node_layout(scan.source)
+                .ok_or(LowerError::MissingSource(scan.source))?;
+            row_aliases.insert(
+                scan.binding,
+                BindingReference::row(
+                    NODE_SCAN_ALIAS,
+                    format!(
+                        "{NODE_SCAN_ALIAS}.{}",
+                        quote_identifier(&layout.identity_column)
+                    ),
+                ),
+            );
+            Ok(lowered)
+        }
+        ir::PlanKind::RoleExpand(expand) => {
+            lower_role_expand(expand, catalog, optional, &[], wanted, None, row_aliases)
+        }
+        ir::PlanKind::LeftApply(apply) => lower_optional_chain(
+            &apply.right,
+            Some(&apply.left),
+            catalog,
+            wanted,
+            row_aliases,
+        ),
+        _ => lower_plan(plan, catalog, optional, wanted),
+    }
+}
+
+/// Alias no lowering emits, standing in for "this binding's row is not one the
+/// pushed-down predicate can name".
+const UNPUSHABLE_ALIAS: &str = "__graph_not_in_scope";
+
+/// Lowers `predicate` against the joined tables named in `row_aliases`, or
+/// returns `None` when it reads a binding those aliases do not cover.
+///
+/// Rather than trying to enumerate every binding the predicate mentions --
+/// which would silently miss one the expression walker does not descend into,
+/// and emit SQL naming a column that is not in scope -- this lowers with an
+/// alias nothing else can produce and rejects the result if it survives.
+fn pushed_down_predicate(
+    predicate: &ir::TypedExpression,
+    bindings: &HashMap<ir::BindingId, BindingLayout>,
+    catalog: &dyn RelationalCatalogSnapshot,
+    row_aliases: &HashMap<ir::BindingId, BindingReference>,
+) -> Result<Option<String>, LowerError> {
+    if row_aliases.is_empty() {
+        return Ok(None);
+    }
+    let sql = lower_expression_with_references(
+        predicate,
+        bindings,
+        catalog,
+        UNPUSHABLE_ALIAS,
+        row_aliases,
+    )?;
+    Ok((!sql.contains(UNPUSHABLE_ALIAS)).then_some(sql))
+}
+
 fn lower_node_scan(
     scan: &ir::NodeScan,
     catalog: &dyn RelationalCatalogSnapshot,
@@ -1454,7 +1606,7 @@ fn lower_node_scan(
         wanted,
         scan.binding,
         scan.source,
-        "n",
+        NODE_SCAN_ALIAS,
         catalog,
         &mut binding_layout,
         MaterializationContext {
@@ -1465,7 +1617,7 @@ fn lower_node_scan(
     );
     bindings.insert(scan.binding, binding_layout);
     let mut sql = format!(
-        "SELECT n.{} AS {}, {} AS {}{extra} FROM {} AS n",
+        "SELECT {NODE_SCAN_ALIAS}.{} AS {}, {} AS {}{extra} FROM {} AS {NODE_SCAN_ALIAS}",
         quote_identifier(&layout.identity_column),
         binding_column(scan.binding),
         scan.source.get(),
@@ -1485,7 +1637,7 @@ fn lower_node_scan(
                 };
                 sql.push_str(&format!(
                     " JOIN {} AS lbl{index} ON {source_predicate}\
-                     lbl{index}.node_id = n.{} AND lbl{index}.label = '{}'",
+                     lbl{index}.node_id = {NODE_SCAN_ALIAS}.{} AND lbl{index}.label = '{}'",
                     quote_identifier(&labels_table),
                     quote_identifier(&layout.identity_column),
                     name.replace('\'', "''")
@@ -1731,9 +1883,18 @@ fn lower_role_expand(
     join_predicates: &[&ir::TypedExpression],
     wanted: &WantedProperties,
     boundary: Option<&ir::Plan>,
+    row_aliases: &mut HashMap<ir::BindingId, BindingReference>,
 ) -> Result<Lowered, LowerError> {
+    // The input becomes a derived table, so whatever aliases it joined are
+    // sealed inside it and cannot be named from the select built here.
     let input = if optional {
-        lower_optional_chain(&expand.input, boundary, catalog, wanted)?
+        lower_optional_chain(
+            &expand.input,
+            boundary,
+            catalog,
+            wanted,
+            &mut HashMap::new(),
+        )?
     } else {
         lower_plan(&expand.input, catalog, false, wanted)?
     };
@@ -2003,6 +2164,32 @@ fn lower_role_expand(
             quote_identifier(&target.table)
         ),
     };
+    // Both tables are joined by the select built below, so anything appended to
+    // it can read their columns straight off these aliases. The identities here
+    // are the raw ones: the null-probing `CASE` above exists to shape the
+    // select's output columns, and a predicate does not want it.
+    row_aliases.insert(
+        expand.relationship.id(),
+        BindingReference::row(
+            relationship_alias,
+            format!(
+                "{relationship_alias}.{}",
+                quote_identifier(&relationship.identity_column)
+            ),
+        ),
+    );
+    if bound_reference.is_none() {
+        row_aliases.insert(
+            expand.to.id(),
+            BindingReference::row(
+                target_alias,
+                format!(
+                    "{target_alias}.{}",
+                    quote_identifier(&target.identity_column)
+                ),
+            ),
+        );
+    }
     Ok(Lowered {
         sql: format!(
             "SELECT q.*, {relationship_identity} AS {}, {} AS {}, \
@@ -3772,15 +3959,20 @@ mod tests {
         let mut wanted = WantedProperties::new();
         collect_wanted(&filtered, &mut wanted);
         let lowered = lower_plan(&filtered, &catalog, false, &wanted).unwrap();
-        // The scan materializes the property once and the filter references
-        // the column instead of a correlated subquery.
+        // The scan materializes the property once for the projection, and the
+        // filter reads the column instead of a correlated subquery.
         assert!(lowered.sql.contains("AS b1_p1"), "{}", lowered.sql);
+        assert!(!lowered.sql.contains("(SELECT p."), "{}", lowered.sql);
+        // The predicate names the scanned table, and sits in the scan's own
+        // WHERE rather than a wrapper around it. Core picks index seeks only
+        // from predicates naming the table being scanned, so a derived-table
+        // reference here would cost the seek and force a full scan.
         assert!(
-            lowered.sql.contains("WHERE (q.b1_p1) = ('x')"),
+            lowered.sql.contains(r#"WHERE (n."address") = ('x')"#),
             "{}",
             lowered.sql
         );
-        assert!(!lowered.sql.contains("(SELECT p."), "{}", lowered.sql);
+        assert!(!lowered.sql.contains(") AS q WHERE"), "{}", lowered.sql);
     }
 
     /// Cypher lists lower to JSON arrays, so `IN` membership must probe the

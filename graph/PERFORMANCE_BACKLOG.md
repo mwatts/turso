@@ -78,6 +78,36 @@ What is still uncached is the mutation's own write. Its text carries the
 values being written, so it never repeats and a text-keyed cache cannot help
 it; reusing it needs the plan bound to parameters instead, which is item 4.
 
+### 6. Filters now reach the tables they constrain — done
+
+Not from the tessera report; found by reading what a `main` merge brought in.
+Core gained passes that turn a LEFT JOIN into an INNER JOIN when a predicate
+rejects the null-extended rows, and that seek an index for `IS NULL`. Both
+read the query's WHERE terms, and both need the term to name a table the
+query joins.
+
+`lower_plan`'s `Filter` arm wrapped its input in a derived table and filtered
+outside it, so every predicate named derived-table columns. Core has no pass
+that flattens a FROM-clause subquery, so from its side those terms constrained
+an opaque subquery and neither pass could fire. The arm now appends the
+predicate to the WHERE of the select that joins the constrained tables, and
+folds a run of stacked filters into that one WHERE so a chain does not strand
+the outer predicates a level up. A predicate reading a binding that select
+does not join falls back to the old wrapper.
+
+The lowering emits `(a) = (5)` — parenthesizing each operand is how it keeps
+precedence right without tracking it. Core matched a constraint only when the
+operand *was* a column, so a parenthesized column hid the index and every such
+comparison scanned. `as_binary_components`
+(`core/translate/expr/utils.rs`) now drops those parentheses, which is what
+SQLite's grammar does while parsing. Row values are untouched: `(x, y)` is one
+value, not a wrapper. `sqlite/conformance/sqlite-sqltests/parenthesized-operand-index-seek.sqltest`
+pins it.
+
+Both halves are needed. With only the pushdown the predicate still reads
+`(n."age") > (30)` and core scans; with only the parentheses fix the predicate
+still sits outside the join and names a derived table.
+
 ## Open, in rough order of leverage
 
 ### 3. Constraint validation re-checks the whole graph after every statement

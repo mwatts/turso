@@ -573,23 +573,29 @@ fn print_binary_sql_goldens() {
     }
 }
 
-/// SQL recorded by running `print_binary_sql_goldens` against the
-/// direction-based `lower_fixed_expand`, before role-based lowering
-/// replaced it. Frozen: if role-based lowering disagrees, the lowering is
-/// wrong, not this map.
+/// SQL recorded by running `print_binary_sql_goldens` against the current
+/// lowering. Binary is a layout of the role model, so these pin that the two
+/// agree down to alias and predicate order.
+///
+/// Re-recorded when filter pushdown moved a predicate out of a wrapping select
+/// and into the WHERE of the select that joins the tables it constrains. That
+/// is the point of the change -- core reads index seeks and null-rejecting
+/// terms only off predicates naming a joined table -- so these goldens moved
+/// with it. Anything that changes them without that intent is a bug in the
+/// lowering, not in this map.
 fn expected_binary_sql(query: &str) -> &'static str {
     match query {
         "MATCH (a:Person)-[r:KNOWS]->(b:Person) RETURN b.name" => {
-            r#"SELECT q.b4 AS "b.name" FROM (SELECT q.b3_p1 AS b4 FROM (SELECT q.* FROM (SELECT q.*, r."id" AS b2, 2 AS b2_source, n."id" AS b3, 1 AS b3_source, n."name" AS b3_p1 FROM (SELECT n."id" AS b1, 1 AS b1_source FROM "people" AS n) AS q JOIN "relationships" AS r ON r."src" = q.b1 JOIN "people" AS n ON n."id" = r."dst") AS q WHERE TRUE) AS q) AS q"#
+            r#"SELECT q.b4 AS "b.name" FROM (SELECT q.b3_p1 AS b4 FROM (SELECT q.*, r."id" AS b2, 2 AS b2_source, n."id" AS b3, 1 AS b3_source, n."name" AS b3_p1 FROM (SELECT n."id" AS b1, 1 AS b1_source FROM "people" AS n) AS q JOIN "relationships" AS r ON r."src" = q.b1 JOIN "people" AS n ON n."id" = r."dst" WHERE TRUE) AS q) AS q"#
         }
         "MATCH (a:Person)<-[r:KNOWS]-(b:Person) RETURN b.name" => {
-            r#"SELECT q.b4 AS "b.name" FROM (SELECT q.b3_p1 AS b4 FROM (SELECT q.* FROM (SELECT q.*, r."id" AS b2, 2 AS b2_source, n."id" AS b3, 1 AS b3_source, n."name" AS b3_p1 FROM (SELECT n."id" AS b1, 1 AS b1_source FROM "people" AS n) AS q JOIN "relationships" AS r ON r."dst" = q.b1 JOIN "people" AS n ON n."id" = r."src") AS q WHERE TRUE) AS q) AS q"#
+            r#"SELECT q.b4 AS "b.name" FROM (SELECT q.b3_p1 AS b4 FROM (SELECT q.*, r."id" AS b2, 2 AS b2_source, n."id" AS b3, 1 AS b3_source, n."name" AS b3_p1 FROM (SELECT n."id" AS b1, 1 AS b1_source FROM "people" AS n) AS q JOIN "relationships" AS r ON r."dst" = q.b1 JOIN "people" AS n ON n."id" = r."src" WHERE TRUE) AS q) AS q"#
         }
         "MATCH (a:Person)-[r:KNOWS]-(b:Person) RETURN b.name" => {
-            r#"SELECT q.b4 AS "b.name" FROM (SELECT q.b3_p1 AS b4 FROM (SELECT q.* FROM (SELECT q.*, r."id" AS b2, 2 AS b2_source, n."id" AS b3, 1 AS b3_source, n."name" AS b3_p1 FROM (SELECT n."id" AS b1, 1 AS b1_source FROM "people" AS n) AS q JOIN "relationships" AS r ON (r."src" = q.b1 OR r."dst" = q.b1) JOIN "people" AS n ON n."id" = CASE WHEN r."src" = q.b1 THEN r."dst" ELSE r."src" END) AS q WHERE TRUE) AS q) AS q"#
+            r#"SELECT q.b4 AS "b.name" FROM (SELECT q.b3_p1 AS b4 FROM (SELECT q.*, r."id" AS b2, 2 AS b2_source, n."id" AS b3, 1 AS b3_source, n."name" AS b3_p1 FROM (SELECT n."id" AS b1, 1 AS b1_source FROM "people" AS n) AS q JOIN "relationships" AS r ON (r."src" = q.b1 OR r."dst" = q.b1) JOIN "people" AS n ON n."id" = CASE WHEN r."src" = q.b1 THEN r."dst" ELSE r."src" END WHERE TRUE) AS q) AS q"#
         }
         "MATCH (a:Person)-[r:KNOWS]->(b:Person) WHERE b.age > 30 RETURN b" => {
-            r#"SELECT q.b4 AS "b" FROM (SELECT q.b3 AS b4 FROM (SELECT q.* FROM (SELECT q.* FROM (SELECT q.*, r."id" AS b2, 2 AS b2_source, n."id" AS b3, 1 AS b3_source, n."age" AS b3_p2 FROM (SELECT n."id" AS b1, 1 AS b1_source FROM "people" AS n) AS q JOIN "relationships" AS r ON r."src" = q.b1 JOIN "people" AS n ON n."id" = r."dst") AS q WHERE TRUE) AS q WHERE (q.b3_p2) > (30)) AS q) AS q"#
+            r#"SELECT q.b4 AS "b" FROM (SELECT q.b3 AS b4 FROM (SELECT q.*, r."id" AS b2, 2 AS b2_source, n."id" AS b3, 1 AS b3_source, n."age" AS b3_p2 FROM (SELECT n."id" AS b1, 1 AS b1_source FROM "people" AS n) AS q JOIN "relationships" AS r ON r."src" = q.b1 JOIN "people" AS n ON n."id" = r."dst" WHERE TRUE AND (n."age") > (30)) AS q) AS q"#
         }
         other => panic!("no recorded golden SQL for {other}"),
     }
