@@ -14,6 +14,7 @@ use crate::{
     },
     lowering::quoted_identifier,
     semantic::{SemanticCatalogError, SemanticSnapshot, SemanticTypeInfo},
+    statement_cache::StatementCache,
 };
 
 pub(crate) const SEMANTIC_PROPERTY_CONSTRAINTS_TABLE: &str =
@@ -388,22 +389,27 @@ impl SemanticConstraintSnapshot {
         Ok(())
     }
 
+    /// Every query this runs is built from the resolved constraint, never from
+    /// the row that was written, so the SQL text repeats exactly across
+    /// mutations and `statements` turns the second and later runs into a step
+    /// of an already-compiled program.
     pub(crate) fn validate_state(
         &self,
         connection: &Arc<Connection>,
+        statements: &StatementCache,
         scope: &ValidationScope,
     ) -> Result<(), SemanticCatalogError> {
         for constraint in &self.property_constraints {
             if !scope.touches(constraint.source) {
                 continue;
             }
-            self.validate_property_state(connection, constraint)?;
+            self.validate_property_state(connection, statements, constraint)?;
         }
         for key in &self.keys {
             if !scope.touches(key.source) {
                 continue;
             }
-            self.validate_key_state(connection, key)?;
+            self.validate_key_state(connection, statements, key)?;
         }
         for cardinality in &self.cardinalities {
             // A new node starts with no relationships, so it can break a
@@ -418,7 +424,7 @@ impl SemanticConstraintSnapshot {
             if !touched {
                 continue;
             }
-            self.validate_cardinality_state(connection, cardinality)?;
+            self.validate_cardinality_state(connection, statements, cardinality)?;
         }
         Ok(())
     }
@@ -453,6 +459,7 @@ impl SemanticConstraintSnapshot {
     fn validate_property_state(
         &self,
         connection: &Arc<Connection>,
+        statements: &StatementCache,
         constraint: &ResolvedPropertyConstraint,
     ) -> Result<(), SemanticCatalogError> {
         let table = quoted_identifier(&constraint.table);
@@ -466,7 +473,7 @@ impl SemanticConstraintSnapshot {
         );
         match &constraint.predicate {
             ResolvedPropertyPredicate::Required => {
-                let rows = query_rows(
+                let rows = statements.query_rows(
                     connection,
                     &format!(
                         "SELECT {identity} FROM {table} AS entity \
@@ -482,7 +489,7 @@ impl SemanticConstraintSnapshot {
                 }
             }
             ResolvedPropertyPredicate::Unique => {
-                let rows = query_rows(
+                let rows = statements.query_rows(
                     connection,
                     &format!(
                         "SELECT {column} FROM {table} AS entity \
@@ -499,7 +506,7 @@ impl SemanticConstraintSnapshot {
                 }
             }
             ResolvedPropertyPredicate::Value(predicate) => {
-                let rows = query_rows(
+                let rows = statements.query_rows(
                     connection,
                     &format!(
                         "SELECT {identity}, {column} FROM {table} AS entity \
@@ -530,6 +537,7 @@ impl SemanticConstraintSnapshot {
     fn validate_key_state(
         &self,
         connection: &Arc<Connection>,
+        statements: &StatementCache,
         key: &ResolvedKeyConstraint,
     ) -> Result<(), SemanticCatalogError> {
         let table = quoted_identifier(&key.table);
@@ -546,14 +554,15 @@ impl SemanticConstraintSnapshot {
             .map(|column| format!("{column} IS NULL"))
             .collect::<Vec<_>>()
             .join(" OR ");
-        if !query_rows(
-            connection,
-            &format!(
-                "SELECT {identity} FROM {table} AS entity \
-                 WHERE {membership} AND ({any_null}) LIMIT 1"
-            ),
-        )?
-        .is_empty()
+        if !statements
+            .query_rows(
+                connection,
+                &format!(
+                    "SELECT {identity} FROM {table} AS entity \
+                     WHERE {membership} AND ({any_null}) LIMIT 1"
+                ),
+            )?
+            .is_empty()
         {
             return Err(SemanticCatalogError::ConstraintViolation {
                 constraint: format!("key on `{}`", key.owner_name),
@@ -561,14 +570,15 @@ impl SemanticConstraintSnapshot {
             });
         }
         let grouping = columns.join(", ");
-        if !query_rows(
-            connection,
-            &format!(
-                "SELECT {grouping} FROM {table} AS entity \
-                 WHERE {membership} GROUP BY {grouping} HAVING COUNT(*) > 1 LIMIT 1"
-            ),
-        )?
-        .is_empty()
+        if !statements
+            .query_rows(
+                connection,
+                &format!(
+                    "SELECT {grouping} FROM {table} AS entity \
+                     WHERE {membership} GROUP BY {grouping} HAVING COUNT(*) > 1 LIMIT 1"
+                ),
+            )?
+            .is_empty()
         {
             return Err(SemanticCatalogError::ConstraintViolation {
                 constraint: format!("key on `{}`", key.owner_name),
@@ -581,6 +591,7 @@ impl SemanticConstraintSnapshot {
     fn validate_cardinality_state(
         &self,
         connection: &Arc<Connection>,
+        statements: &StatementCache,
         cardinality: &ResolvedCardinalityConstraint,
     ) -> Result<(), SemanticCatalogError> {
         let relationship_table = quoted_identifier(&cardinality.relationship_table);
@@ -611,7 +622,7 @@ impl SemanticConstraintSnapshot {
                 .maximum
                 .map(|maximum| format!(" OR COUNT({relationship_identity}) > {maximum}"))
                 .unwrap_or_default();
-            let rows = query_rows(
+            let rows = statements.query_rows(
                 connection,
                 &format!(
                     "SELECT {node_identity}, COUNT({relationship_identity}) \

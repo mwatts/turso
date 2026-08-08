@@ -23,6 +23,7 @@ use crate::semantic_constraints::{
     rows_for_registration, SemanticConstraintRegistration, SemanticConstraintSnapshot,
     ValidationScope,
 };
+use crate::statement_cache::StatementCache;
 use crate::transaction::{in_write_transaction, WriteTransactionError};
 
 pub(crate) const SEMANTIC_TYPES_TABLE: &str = "__turso_internal_graph_semantic_types";
@@ -913,9 +914,13 @@ pub fn register_semantic_constraints(
         // A new constraint has to hold over data that predates it, so this is
         // the pass that establishes the invariant mutation-time validation then
         // narrows itself against.
-        updated
-            .constraints()
-            .validate_state(connection, &ValidationScope::All)?;
+        // Registration runs once, so nothing here repeats a statement; the cache
+        // is a throwaway that satisfies the signature and dies with the call.
+        updated.constraints().validate_state(
+            connection,
+            &StatementCache::default(),
+            &ValidationScope::All,
+        )?;
         bump_semantic_generation(connection, graph.id.get())
     })
 }

@@ -13,7 +13,10 @@ use turso_core::{
 };
 use turso_graph_ir::{self as ir, GraphId, RoleCardinality, SourceTableId};
 
-use crate::transaction::{in_write_transaction, WriteTransactionError};
+use crate::{
+    statement_cache::StatementCache,
+    transaction::{in_write_transaction, WriteTransactionError},
+};
 
 const RESERVED_PREFIX: &str = "__turso_";
 pub(crate) const GRAPHS_TABLE: &str = "__turso_internal_graph_graphs";
@@ -463,9 +466,12 @@ pub fn graph_generation(connection: &Arc<Connection>, name: &str) -> Result<u64,
 /// that predates the column this fails to compile.
 pub(crate) fn load_schema_generation(
     connection: &Arc<Connection>,
+    statements: &StatementCache,
     graph: GraphId,
 ) -> Result<Option<u64>, CatalogError> {
-    let rows = query_rows(
+    // Runs before every statement on the session, and its text never changes,
+    // so this is the clearest case for reusing the prepared statement.
+    let rows = statements.query_rows(
         connection,
         &format!(
             "SELECT {SCHEMA_GENERATION_COLUMN} FROM {GENERATIONS_TABLE} WHERE graph_id = {}",

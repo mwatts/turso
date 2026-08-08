@@ -21,6 +21,7 @@ use crate::{
         MutationRowColumn,
     },
     semantic_constraints::ValidationScope,
+    statement_cache::StatementCache,
     transaction::{in_write_transaction, WriteTransactionError},
     BindError, GraphCompilationCatalog, LowerError, ParameterTypes,
 };
@@ -343,8 +344,9 @@ fn add_mutation_source(source: ir::MutationSource, scope: &mut ValidationScope) 
     }
 }
 
-pub fn execute_cypher_mutation(
+pub(crate) fn execute_cypher_mutation(
     connection: &Arc<Connection>,
+    statements: &StatementCache,
     graph: ir::GraphId,
     catalog: Arc<dyn GraphCompilationCatalog>,
     source: &str,
@@ -378,7 +380,7 @@ pub fn execute_cypher_mutation(
         if let Some(constraints) = catalog.semantic_constraints() {
             let scope = validation_scope(&bound);
             constraints
-                .validate_state(connection, &scope)
+                .validate_state(connection, statements, &scope)
                 .map_err(|error| match error {
                     crate::SemanticCatalogError::Database(error)
                     | crate::SemanticCatalogError::Catalog(CatalogError::Database(error)) => {
@@ -2875,6 +2877,7 @@ mod tests {
     ) -> Result<MutationSummary, MutationError> {
         execute_cypher_mutation(
             connection,
+            &StatementCache::default(),
             graph,
             catalog.clone(),
             source,
@@ -2979,6 +2982,7 @@ mod tests {
         let parameters = HashMap::from([("name".to_owned(), Value::build_text("Grace"))]);
         execute_cypher_mutation(
             &connection,
+            &StatementCache::default(),
             graph,
             catalog.clone(),
             "MATCH (n:Person {id: 1}) SET n.name = $name",

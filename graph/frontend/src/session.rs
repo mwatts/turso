@@ -7,10 +7,10 @@ use turso_graph_ir::GraphId;
 use turso_graph_runtime::{BuildLimits, Cancellation, NeverCancelled};
 
 use crate::{
-    compiler::SharedGraphCatalog, execute_cypher_mutation, graph_frontend_id,
-    install_graph_catalog, GraphCompilationCatalog, GraphCompiler, GraphDiagnostics, MutationError,
-    MutationSummary, ParameterTypes, Parameters, RegisteredGraph, SessionSnapshotStore,
-    SnapshotError, SnapshotStore, GRAPH_DIALECT_NAME,
+    compiler::SharedGraphCatalog, graph_frontend_id, install_graph_catalog,
+    mutation::execute_cypher_mutation, statement_cache::StatementCache, GraphCompilationCatalog,
+    GraphCompiler, GraphDiagnostics, MutationError, MutationSummary, ParameterTypes, Parameters,
+    RegisteredGraph, SessionSnapshotStore, SnapshotError, SnapshotStore, GRAPH_DIALECT_NAME,
 };
 
 #[derive(Debug, Error)]
@@ -140,6 +140,10 @@ pub struct GraphConnection {
     /// Declared query parameters live on the compiler (shared bind path).
     compiler: Arc<GraphCompiler>,
     snapshots: Arc<SessionSnapshotStore>,
+    /// The SQL a mutation runs around its writes — the freshness probe and the
+    /// constraint checks — is the same text every time, so the session keeps
+    /// those statements compiled instead of paying for them per mutation.
+    statements: StatementCache,
     limits: BuildLimits,
     host_mode: GraphHostMode,
     /// When set, the session refuses any statement the binder classifies as a
@@ -191,6 +195,7 @@ impl GraphConnection {
             catalog_freshness: CatalogFreshness::CallerOwned,
             compiler,
             snapshots,
+            statements: StatementCache::default(),
             limits,
             host_mode,
             read_only: false,
@@ -414,8 +419,14 @@ impl GraphConnection {
             )?;
         }
         let catalog = self.catalog.read().clone();
-        let result =
-            execute_cypher_mutation(&self.connection, self.graph, catalog, source, parameters);
+        let result = execute_cypher_mutation(
+            &self.connection,
+            &self.statements,
+            self.graph,
+            catalog,
+            source,
+            parameters,
+        );
         let cleared = self.snapshots.clear();
         if let Err(error) = &cleared {
             // The mutation outcome must not be masked by cache state: on
@@ -435,10 +446,14 @@ impl GraphConnection {
             CatalogFreshness::CallerOwned => return Ok(()),
             CatalogFreshness::SchemaGeneration(known) => {
                 let known = known.lock();
-                let current = crate::catalog::load_schema_generation(&self.connection, self.graph)
-                    .map_err(|error| {
-                        Error::Database(turso_core::LimboError::ParseError(error.to_string()))
-                    })?;
+                let current = crate::catalog::load_schema_generation(
+                    &self.connection,
+                    &self.statements,
+                    self.graph,
+                )
+                .map_err(|error| {
+                    Error::Database(turso_core::LimboError::ParseError(error.to_string()))
+                })?;
                 if current == Some(*known) {
                     return Ok(());
                 }

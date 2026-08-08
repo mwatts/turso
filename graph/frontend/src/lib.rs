@@ -28,6 +28,7 @@ mod semantic_constraints;
 mod session;
 mod snapshot;
 mod statement;
+mod statement_cache;
 mod transaction;
 
 pub use binder::{
@@ -60,9 +61,11 @@ pub use lowering::{
     lower_relational, LowerError, NodeTableLayout, RelationalCatalogSnapshot,
     RelationshipRoleLayout, RelationshipTableLayout,
 };
+// `execute_cypher_mutation` now takes the session's statement cache, which is
+// an internal type, so it is reached through `GraphConnection::execute`.
 pub use mutation::{
-    execute_cypher_mutation, take_closed_create_fast_path_hit, MutationError, MutationSummary,
-    Parameters, CLOSED_CREATE_FAST_PATH_HITS,
+    take_closed_create_fast_path_hit, MutationError, MutationSummary, Parameters,
+    CLOSED_CREATE_FAST_PATH_HITS,
 };
 pub use schema_catalog::SchemaCatalog;
 pub use semantic::{
