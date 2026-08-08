@@ -26,6 +26,11 @@ Only two of those statements ever did the work (`INSERT INTO people`,
 `INSERT INTO __turso_graph_node_labels_1`). Nothing amortised: the 21st
 mutation cost exactly what the 1st did.
 
+Fix 2 makes the rest amortise. Counting the same way on a `CREATE` with one
+required and one unique property, a steady-state mutation compiles 2
+statements where it used to compile 5; the 3 it drops are the ones whose text
+repeats.
+
 `graph/frontend/tests/catalog_refresh.rs` keeps the fixed part honest.
 
 ## Fixed
@@ -49,25 +54,31 @@ keeps its old meaning and still drives traversal-snapshot rebuilds.
 Databases written before the column fall back to the data generation, i.e.
 the old always-reload behaviour, until a registration call migrates them.
 
-## Open, in rough order of leverage
+### 2. The SQL a mutation repeats is now kept prepared — done
 
-### 2. No prepared-statement cache anywhere
-
-`catalog::query_rows` (`src/catalog.rs`) is
+`catalog::query_rows` (`src/catalog.rs`) was
 `connection.prepare(sql)?.run_collect_rows()`, and core's
-`prepare_with_origin` has no cache: every call is parse + plan + codegen. The
-catalog SQL is a small fixed set of strings with `graph_id`/name interpolated
-into them.
+`prepare_with_origin` has no cache, so every call was parse + plan + codegen.
 
-Two options, not mutually exclusive:
+The session now owns a `StatementCache` (`src/statement_cache.rs`) keyed on
+the exact SQL text, and the two paths that repeat themselves — the catalog
+freshness probe and `validate_state`'s constraint checks — go through it.
+Parameterising on `graph_id` turned out to be unnecessary: those queries are
+built from the resolved constraint, never from the row being written, so the
+text already repeats byte-for-byte.
 
-- parameterise the catalog queries (`WHERE graph_id = ?`) and hold the
-  prepared statements on the session;
-- add an LRU keyed on SQL text inside the frontend.
+A held statement cannot answer a stale question. `Statement::step`
+re-prepares when the connection's prepare context has moved, and a schema
+change surfaces from the VDBE as `SchemaUpdated`, which also re-prepares and
+retries. The cache lives on the session rather than on `Connection` because a
+`Statement` owns an `Arc<Connection>` — a connection holding its own
+statements never drops.
 
-Neither needs a core change. After fix 1 the remaining per-mutation catalog
-traffic is one statement, so this now matters most for the constraint queries
-(item 3) and for genuine schema reloads.
+What is still uncached is the mutation's own write. Its text carries the
+values being written, so it never repeats and a text-keyed cache cannot help
+it; reusing it needs the plan bound to parameters instead, which is item 4.
+
+## Open, in rough order of leverage
 
 ### 3. Constraint validation re-checks the whole graph after every statement
 

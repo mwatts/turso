@@ -271,7 +271,7 @@ Ordered by measured leverage on this workload. Status as of branch
 |---|---|
 | 1. Scope `validate_state` — by source table | **done**, `379bdf9e0` |
 | 1. Scope `validate_state` — by written row | open, the larger half |
-| 2. Cache or parameterise the catalog queries | open |
+| 2. Cache or parameterise the catalog queries | **done**, `df549ed80` |
 | 3. Stop `op_open_ephemeral` creating a temp directory | **done**, `74e3b4240` |
 | 4. Wire the frontend to per-table change tokens | open |
 | 5. Cache bound mutation plans | open |
@@ -285,6 +285,14 @@ What landed and what it is measured to be worth:
   size**. It does not remove the term that grows with **row count**: a
   constraint in scope still scans its whole source table, so a workload where
   every entry lands in one table still sees §5.3's growth.
+- **Prepared statements.** The SQL a mutation runs around its writes does not
+  depend on the row being written, so the session now holds it compiled, keyed
+  on the exact text. A steady-state `CREATE` with a required and a unique
+  property compiles 2 statements instead of 5: the catalog freshness probe, the
+  required-property check and the uniqueness check are now steps of an
+  already-compiled program. Bypassing the cache puts all 3 back, twice over two
+  mutations. This is the constant that item 1 multiplies, so it is worth the
+  same proportion whatever item 1 ends up costing.
 - **Temp files.** `TempFile` no longer creates a directory per ephemeral table.
   Measured on the same syscall sequence in isolation: 292 µs → 215 µs per open
   and close, 1.36x. The remainder is the file create and unlink themselves;
@@ -314,11 +322,12 @@ bootstrap into a single validation pass, and is what this workload actually want
 the whole ontology as one logical unit. Backlog item 3 already proposes both; this is the item to
 do first.
 
-**2. Cache or parameterise the catalog queries.**
-Parameterise on `graph_id` and hold the prepared statements on the session, or add an LRU keyed on
-SQL text in the frontend. No core change required. This cuts the constant that item 1 multiplies,
-and it is the difference between "one validation pass per bootstrap" being fast and being merely
-tolerable.
+**2. Cache or parameterise the catalog queries.** Done in `df549ed80`.
+The session holds prepared statements keyed on SQL text. Parameterising on
+`graph_id` was not needed: the text already repeats byte-for-byte across
+mutations, because every one of these queries is built from the resolved
+constraint rather than from the row. What remains open here is the one query
+whose text does vary — the bound mutation's own write — which is item 5.
 
 **3. Stop `op_open_ephemeral` from creating a temp directory per statement.**
 Core change, `core/io/mod.rs`. 15.6% of the working thread, and unlike items 1 and 2 it scales with
