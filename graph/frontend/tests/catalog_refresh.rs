@@ -1,8 +1,8 @@
 //! A row write must not reload the graph catalog.
 //!
-//! Writing a row bumps the data generation (the AFTER-DML triggers on mapped
-//! source tables), which traversal snapshots need. It must not bump the
-//! catalog's own generation, because reloading the catalog recompiles a dozen
+//! Writing a row moves the source change signal, which traversal snapshots
+//! need. It must not bump the catalog's own generation, because reloading the
+//! catalog recompiles a dozen
 //! internal statements and throws away the Cypher compile cache — per
 //! mutation. Catalog reloads belong to catalog changes only.
 
@@ -12,7 +12,7 @@ use tracing::field::{Field, Visit};
 use tracing_subscriber::layer::{Context, Layer, SubscriberExt};
 use turso_graph_frontend::{
     core::{Database, MemoryIO, SqliteDialect},
-    graph_generation, register_graph, register_semantic_constraints, register_semantic_schema,
+    load_registered_graph, register_graph, register_semantic_constraints, register_semantic_schema,
     GraphConnection, GraphRegistration, NodeSourceRegistration, Parameters,
     RelationshipSourceRegistration, SemanticConstraintRegistration, SemanticNodeType,
     SemanticProperty, SemanticRequiredProperty, SemanticSchemaRegistration,
@@ -167,7 +167,7 @@ fn writing_a_row_does_not_send_the_session_back_to_the_catalog() {
 }
 
 #[test]
-fn a_row_write_advances_the_data_generation_but_not_the_schema_generation() {
+fn a_row_write_moves_the_source_signal_but_not_the_schema_generation() {
     let database = graph_database();
     let connection = database.connect().expect("connect");
     let session = GraphConnection::open(connection.clone(), "social").expect("open graph session");
@@ -181,14 +181,21 @@ fn a_row_write_advances_the_data_generation_but_not_the_schema_generation() {
         format!("{rows:?}")
     };
 
-    let data_before = graph_generation(&connection, "social").expect("data generation");
+    let source_signal = || {
+        load_registered_graph(&connection, "social")
+            .expect("load graph")
+            .derived_generation
+            .expect("a registered graph must produce a change signal")
+    };
+    let data_before = source_signal();
     let schema_before = schema_generation();
 
     create(&session, "Ada");
 
-    assert!(
-        graph_generation(&connection, "social").expect("data generation") > data_before,
-        "a row write must advance the data generation so snapshots rebuild"
+    assert_ne!(
+        source_signal(),
+        data_before,
+        "a row write must move the source signal so snapshots rebuild"
     );
     assert_eq!(
         schema_generation(),

@@ -353,20 +353,42 @@ pub enum SyncRowStep {
 /// linear scan beats hashing.
 #[derive(Default)]
 pub(crate) struct PendingWriteRoots {
-    roots: Vec<(usize, i64)>,
-    /// Whether any statement wrote a B-tree whose root page was only known at
+    /// `((database index, root page), statements that wrote it)`. The count is
+    /// what makes an open transaction's own writes visible to itself: a reader
+    /// on this connection sees the token move after each statement, not only at
+    /// commit. Other connections cannot see uncommitted writes and so must not
+    /// see this.
+    roots: Vec<((usize, i64), u64)>,
+    /// How many statements wrote a B-tree whose root page was only known at
     /// runtime. Bumps the database's unknown-write epoch on commit.
-    unknown: bool,
+    unknown: u64,
+    /// How many savepoint rollbacks this transaction has done. Never published
+    /// to the database: other connections cannot see the undone rows, and the
+    /// roots involved are still in `roots`, so their counters advance at commit
+    /// either way.
+    undos: u64,
 }
 
 impl PendingWriteRoots {
     fn is_empty(&self) -> bool {
-        self.roots.is_empty() && !self.unknown
+        self.roots.is_empty() && self.unknown == 0
     }
 
     fn clear(&mut self) {
         self.roots.clear();
-        self.unknown = false;
+        self.unknown = 0;
+        self.undos = 0;
+    }
+
+    /// How many statements in the open transaction have written this root.
+    /// Zero once the transaction commits or rolls back, which is why the value
+    /// has to be folded in alongside the committed counter rather than
+    /// replacing it.
+    fn writes_to(&self, root: (usize, i64)) -> u64 {
+        self.roots
+            .iter()
+            .find(|(candidate, _)| *candidate == root)
+            .map_or(0, |(_, writes)| *writes)
     }
 }
 
@@ -2827,9 +2849,28 @@ impl Connection {
         drop(schema);
 
         let (counter, unknown_epoch) = self.db.root_change_counter(MAIN_DB_ID, root_page);
+        // An open transaction's own writes are visible to it and to nobody
+        // else, so they move this connection's token and no other's. Rollback
+        // drops the pending counts, which returns the token to exactly the
+        // value it had before the transaction opened.
+        let pending = self.pending_write_roots.lock();
+        let pending_writes = pending.writes_to((MAIN_DB_ID, root_page));
+        let pending_unknown = pending.unknown;
+        let pending_undos = pending.undos;
+        drop(pending);
+
         use std::hash::{Hash, Hasher};
         let mut hasher = std::collections::hash_map::DefaultHasher::new();
-        (root_page, counter, unknown_epoch, schema_version).hash(&mut hasher);
+        (
+            root_page,
+            counter,
+            unknown_epoch,
+            schema_version,
+            pending_writes,
+            pending_unknown,
+            pending_undos,
+        )
+            .hash(&mut hasher);
         Some(hasher.finish())
     }
 
@@ -2843,11 +2884,16 @@ impl Connection {
         }
         let mut pending = self.pending_write_roots.lock();
         for root in roots {
-            if !pending.roots.contains(root) {
-                pending.roots.push(*root);
+            match pending
+                .roots
+                .iter_mut()
+                .find(|(candidate, _)| candidate == root)
+            {
+                Some((_, writes)) => *writes += 1,
+                None => pending.roots.push((*root, 1)),
             }
         }
-        pending.unknown |= unknown;
+        pending.unknown += u64::from(unknown);
     }
 
     /// Publishes the transaction's write set to the database's change counters.
@@ -2857,9 +2903,18 @@ impl Connection {
         if pending.is_empty() {
             return;
         }
-        self.db
-            .record_committed_writes(pending.roots.iter().copied(), pending.unknown);
+        self.db.record_committed_writes(
+            pending.roots.iter().map(|(root, _)| *root),
+            pending.unknown > 0,
+        );
         pending.clear();
+    }
+
+    /// Records that a savepoint rollback undid part of the open transaction.
+    /// Conservative on purpose: it moves every table's token on this
+    /// connection rather than working out which roots the rollback touched.
+    pub(crate) fn note_savepoint_rollback(&self) {
+        self.pending_write_roots.lock().undos += 1;
     }
 
     /// Records that a committed transaction changed the schema, invalidating

@@ -1,9 +1,16 @@
 # Detecting table changes without triggers
 
-Design for the core primitive that would let the graph frontend drop its
-AFTER-DML generation triggers. Status: proposal, nothing implemented.
+Design for the core primitive that lets the graph frontend drop its AFTER-DML
+generation triggers.
 
-## What the triggers do today
+Status: done. `Connection::table_change_token` landed first, then snapshot
+invalidation moved onto it while the triggers stayed installed so the two
+answers could be compared, and finally the triggers were deleted. Everything
+below is left as written at proposal time, so it reads in the future tense and
+in a few places names things that ended up slightly different -- what actually
+landed, including where it diverged, is at the bottom under "What landed".
+
+## What the triggers did
 
 `install_generation_triggers` (`graph/frontend/src/catalog.rs`) installs, for
 every mapped node-source and relationship-source table, three triggers:
@@ -34,21 +41,36 @@ row in the generations table — a B-tree descent and a page dirty per row, on
 the single hottest row in the database. Under MVCC that same row becomes a
 write-write conflict point between otherwise independent writers.
 
-**Core carve-outs.** The generations table is a protected internal name, so
-core needs an explicit exception for the trigger body:
+Measured against a table carrying the same three AFTER-DML triggers the
+frontend installs, counting WAL frames so the numbers do not depend on build
+profile:
 
-- `core/translate/update.rs` — `validate_update` takes
-  `is_internal_graph_trigger` and skips the protected-table check when the
-  target is `TURSO_GRAPH_GENERATIONS_TABLE_NAME` **and** the firing trigger's
-  name starts with `TURSO_GRAPH_GENERATION_TRIGGER_PREFIX`.
+| Workload | Without triggers | With triggers | |
+| --- | --- | --- | --- |
+| 100 single-row inserts | 100 frames | 200 frames | **2.00x**, +1 page per row |
+| 400 single-row inserts | 403 frames | 803 frames | **1.99x**, +1 page per row |
+| 20,000 rows in one transaction | 69 frames | 70 frames | +1 page total |
+| Bytecode per inserted row | 20 instructions | 46 instructions | **2.3x** |
+
+The cost lands on transaction count, not row count: the counter page is written
+once per transaction however many rows it carries. A bulk load barely notices.
+A row-at-a-time writer — the shape most application traffic takes — doubles its
+durable writes, and every one of those writes lands on the same page.
+
+**Core carve-outs.** The generations table is a protected internal name, so
+core needed an explicit exception for the trigger body:
+
+- `core/translate/update.rs` — `validate_update` took
+  `is_internal_graph_trigger` and skipped the protected-table check when the
+  target was `TURSO_GRAPH_GENERATIONS_TABLE_NAME` **and** the firing trigger's
+  name started with `TURSO_GRAPH_GENERATION_TRIGGER_PREFIX`. **Removed.**
+- `core/schema.rs` — `TURSO_GRAPH_GENERATION_TRIGGER_PREFIX` existed only for
+  that check. **Removed from core**; the graph frontend keeps a private copy so
+  it can recognize and drop what an older build installed.
 - `core/translate/trigger.rs` — `translate_create_trigger` /
   `translate_drop_trigger` take `internal: bool` so users cannot forge or drop
-  a trigger under the graph prefix.
-- `core/schema.rs` — `TURSO_GRAPH_GENERATION_TRIGGER_PREFIX` exists only for
-  those checks.
-
-These are the only graph triggers in the frontend. Removing them removes the
-whole `is_internal_graph_trigger` path from core.
+  a trigger under the graph prefix. **Kept**: it guards the whole
+  `TURSO_GRAPH_CATALOG_PREFIX` name space, and the drop pass needs it.
 
 ## What core already has
 
@@ -246,3 +268,32 @@ one-directional, not equality: the token must move whenever the trigger
 generation moved. The reverse does not hold and should not — the token is
 per-table where the counter is per-graph, so a write to one graph's table
 leaves the other tables' tokens alone.
+
+## What landed
+
+1. `Connection::table_change_token` plus the per-root counters, with the core
+   tests listed above.
+2. Snapshot invalidation switched to the token, triggers still installed, the
+   one-directional invariant asserted on a release corpus run of 10,242
+   records. It caught two real gaps in the token -- a transaction not seeing
+   its own uncommitted writes, and savepoint rollback leaving the token
+   unmoved -- which is exactly what that step existed to do.
+3. Triggers deleted. `load_registered_graph` drops any an older build left
+   behind, because their bodies update a protected table that core no longer
+   makes an exception for, so leaving one installed would fail the next write
+   to a mapped table.
+
+Two things came out different from the proposal above.
+
+The stored `generation` column survives. The plan said it would stop being
+stored and become derived; instead the derived value moved into a new
+`RegisteredGraph::derived_generation`, which is what snapshots compare, and the
+column stayed. Nothing bumps it per row any more, but `bump_semantic_generation`
+still moves it on catalog changes, and sessions on a database predating
+`schema_generation` watch it to decide when to reload their catalog.
+
+`graph_generation()` kept its signature, but it is no longer the staleness
+probe. It reads the stored column, which now moves only on catalog changes, so
+the callers that care about source writes -- snapshots, and the tests that
+cover them -- ask `load_registered_graph` for `derived_generation` instead.
+There are two signals now, and one accessor cannot stand for both.

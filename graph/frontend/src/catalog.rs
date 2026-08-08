@@ -1,14 +1,12 @@
 use std::{
-    collections::{HashMap, HashSet},
+    collections::{hash_map::DefaultHasher, HashMap, HashSet},
+    hash::{Hash, Hasher},
     sync::Arc,
 };
 
 use thiserror::Error;
 use turso_core::{
-    schema::{
-        TURSO_GRAPH_CATALOG_PREFIX, TURSO_GRAPH_GENERATIONS_TABLE_NAME,
-        TURSO_GRAPH_GENERATION_TRIGGER_PREFIX,
-    },
+    schema::{TURSO_GRAPH_CATALOG_PREFIX, TURSO_GRAPH_GENERATIONS_TABLE_NAME},
     Connection, Numeric, Value,
 };
 use turso_graph_ir::{self as ir, GraphId, RoleCardinality, SourceTableId};
@@ -24,6 +22,11 @@ pub(crate) const GENERATIONS_TABLE: &str = TURSO_GRAPH_GENERATIONS_TABLE_NAME;
 /// Catalog-only generation, kept beside the data generation in
 /// [`GENERATIONS_TABLE`]. See [`RegisteredGraph::schema_generation`].
 pub(crate) const SCHEMA_GENERATION_COLUMN: &str = "schema_generation";
+/// Name prefix of the AFTER-DML triggers older builds installed on every mapped
+/// source table to bump [`GENERATIONS_TABLE`]. Nothing installs them any more;
+/// the prefix survives only so [`drop_stale_generation_triggers`] can recognize
+/// what one of those builds left behind.
+const GENERATION_TRIGGER_PREFIX: &str = "__turso_internal_graph_gen_";
 pub(crate) const SOURCES_TABLE: &str = "__turso_internal_graph_sources";
 pub(crate) const NODE_SOURCES_TABLE: &str = "__turso_internal_graph_node_sources";
 pub(crate) const RELATIONSHIP_SOURCES_TABLE: &str = "__turso_internal_graph_relationship_sources";
@@ -178,9 +181,12 @@ impl RegisteredRelationshipSource {
 pub struct RegisteredGraph {
     pub id: GraphId,
     pub name: String,
-    /// Advances on every write to a mapped source table (via the AFTER-DML
-    /// triggers) and on every catalog change. Traversal snapshots rebuild
-    /// when it moves.
+    /// Advances on every catalog change. It used to advance on every write to a
+    /// mapped source table as well, via AFTER-DML triggers that are now gone --
+    /// [`RegisteredGraph::derived_generation`] carries that signal instead, for
+    /// free. Kept because sessions on a database predating
+    /// [`RegisteredGraph::schema_generation`] still watch it to decide when to
+    /// reload their catalog.
     pub generation: u64,
     /// Advances only when the catalog itself changes: graph registration,
     /// semantic schema, semantic constraints, fragments. Sessions reload
@@ -190,6 +196,17 @@ pub struct RegisteredGraph {
     /// `None` when the database predates this column; callers treat that as
     /// "assume stale" and fall back to reloading on every statement.
     pub schema_generation: Option<u64>,
+    /// Moves whenever a mapped source table changes, derived from the engine's
+    /// per-table change tokens. This is what traversal snapshots compare.
+    /// `None` when any input is unavailable -- a table the engine cannot
+    /// tokenize, multiprocess WAL, or a database predating `schema_generation`
+    /// -- which callers treat as "assume stale".
+    ///
+    /// Covers exactly the tables the retired AFTER-DML triggers fired on, and
+    /// catches cases they missed entirely, such as DDL on a mapped table. It is
+    /// also per-table where their counter was per-graph, so a write to one
+    /// graph's tables no longer invalidates another's snapshots.
+    pub derived_generation: Option<u64>,
     pub node_sources: Vec<RegisteredNodeSource>,
     pub relationship_sources: Vec<RegisteredRelationshipSource>,
 }
@@ -254,6 +271,7 @@ impl WriteTransactionError for CatalogError {
 }
 
 const REGISTRATION_SAVEPOINT: &str = "turso_graph_register";
+const STALE_TRIGGER_SAVEPOINT: &str = "turso_graph_drop_stale_triggers";
 
 pub fn register_graph(
     connection: &Arc<Connection>,
@@ -443,14 +461,57 @@ pub fn load_registered_graph(
             roles,
         });
     }
+    // Before the tokens are read, not after: a leftover trigger would fail the
+    // next write to a mapped table, and every graph operation loads the
+    // registration first, so this is the last point that is still ahead of one.
+    drop_stale_generation_triggers(connection, &node_sources, &relationship_sources)?;
+    let derived_generation = derive_generation(
+        connection,
+        schema_generation,
+        &node_sources,
+        &relationship_sources,
+    );
     Ok(RegisteredGraph {
         id: graph_id,
         name: graph_name,
         generation,
         schema_generation,
+        derived_generation,
         node_sources,
         relationship_sources,
     })
+}
+
+/// Folds the change tokens of the graph's mapped source tables together with
+/// the catalog's own generation.
+///
+/// The table set is the one the retired generation triggers fired on, so this
+/// cannot miss a write they would have caught. Order is fixed by
+/// the `ORDER BY s.id` the caller loads with, and the same table mapped twice
+/// contributes twice -- neither affects whether the value *moves*, which is
+/// all callers compare.
+fn derive_generation(
+    connection: &Arc<Connection>,
+    schema_generation: Option<u64>,
+    node_sources: &[RegisteredNodeSource],
+    relationship_sources: &[RegisteredRelationshipSource],
+) -> Option<u64> {
+    let mut hasher = DefaultHasher::new();
+    // A database predating the catalog split cannot say whether the catalog
+    // changed, so the whole derived value has to be unavailable too.
+    schema_generation?.hash(&mut hasher);
+    let tables = node_sources
+        .iter()
+        .map(|source| source.table.as_str())
+        .chain(
+            relationship_sources
+                .iter()
+                .map(|source| source.table.as_str()),
+        );
+    for table in tables {
+        connection.table_change_token(table)?.hash(&mut hasher);
+    }
+    Some(hasher.finish())
 }
 
 pub fn graph_generation(connection: &Arc<Connection>, name: &str) -> Result<u64, CatalogError> {
@@ -678,22 +739,6 @@ fn register_graph_in_transaction(
         install_role_pair_indexes(connection, graph_id, relationship, polymorphic_roles)?;
     }
 
-    let mut mapped_tables = HashSet::new();
-    mapped_tables.extend(
-        registration
-            .node_sources
-            .iter()
-            .map(|source| source.table.as_str()),
-    );
-    mapped_tables.extend(
-        registration
-            .relationship_sources
-            .iter()
-            .map(|source| source.table.as_str()),
-    );
-    for table in mapped_tables {
-        install_generation_triggers(connection, graph_id, table)?;
-    }
     execute_internal(
         connection,
         format!(
@@ -1298,24 +1343,62 @@ fn install_spill_table(
     Ok(())
 }
 
-fn install_generation_triggers(
+/// Removes the generation triggers an older build installed on this graph's
+/// mapped source tables.
+///
+/// Nothing installs them any more: the change tokens carry the same signal
+/// without a row write per written row. Leaving them behind is not merely
+/// wasteful but broken, because their bodies update a protected internal table
+/// and core no longer makes an exception for them, so the next write to a
+/// mapped table would fail.
+///
+/// The common case -- a database this build registered -- costs one hash lookup
+/// per mapped table against the in-memory schema and issues no SQL at all.
+fn drop_stale_generation_triggers(
     connection: &Arc<Connection>,
-    graph: GraphId,
-    table: &str,
+    node_sources: &[RegisteredNodeSource],
+    relationship_sources: &[RegisteredRelationshipSource],
 ) -> Result<(), CatalogError> {
-    for event in ["INSERT", "UPDATE", "DELETE"] {
-        let name = format!(
-            "{TURSO_GRAPH_GENERATION_TRIGGER_PREFIX}{}_{}_{:016x}",
-            graph.get(),
-            event.to_ascii_lowercase(),
-            stable_hash(table)
+    let schema = connection.current_schema();
+    let mut stale = Vec::new();
+    for table in node_sources
+        .iter()
+        .map(|source| source.table.as_str())
+        .chain(
+            relationship_sources
+                .iter()
+                .map(|source| source.table.as_str()),
+        )
+    {
+        let Some(triggers) = schema.triggers.get(&table.to_lowercase()) else {
+            continue;
+        };
+        stale.extend(
+            triggers
+                .iter()
+                .filter(|trigger| trigger.name.starts_with(GENERATION_TRIGGER_PREFIX))
+                .map(|trigger| trigger.name.clone()),
         );
-        execute_internal(connection, format!(
-            "CREATE TRIGGER {} AFTER {event} ON {} BEGIN UPDATE {GENERATIONS_TABLE} SET generation = generation + 1 WHERE graph_id = {}; END",
-            quote_identifier(&name), quote_identifier(table), graph.get()
-        ))?;
     }
-    Ok(())
+    if stale.is_empty() {
+        return Ok(());
+    }
+    // Dropping is DDL, so it needs a write transaction. A caller sitting in a
+    // read transaction cannot open one -- but it cannot fire the trigger
+    // either, so leaving the work to the next load in a writable context is
+    // safe rather than merely convenient.
+    if !connection.get_auto_commit() && !connection.in_write_transaction() {
+        return Ok(());
+    }
+    in_write_transaction(connection, STALE_TRIGGER_SAVEPOINT, || {
+        for name in &stale {
+            execute_internal(
+                connection,
+                format!("DROP TRIGGER IF EXISTS {}", quote_identifier(name)),
+            )?;
+        }
+        Ok(())
+    })
 }
 
 pub(crate) fn query_rows(
@@ -1648,7 +1731,21 @@ mod tests {
                 .expect("reopen database");
         let connection = database.connect().expect("reconnect");
         let reopened = load_registered_graph(&connection, "multi").expect("reload graph");
-        assert_eq!(reopened, registered);
+        // The derived generation is a change signal for this process, not
+        // catalog content: a reopened database counts changes from scratch, so
+        // it is expected to differ and callers rebuild once. Everything the
+        // catalog actually persists has to survive the round trip.
+        assert!(
+            reopened.derived_generation.is_some(),
+            "a reopened graph must still produce a change signal"
+        );
+        assert_eq!(
+            RegisteredGraph {
+                derived_generation: registered.derived_generation,
+                ..reopened
+            },
+            registered
+        );
     }
 
     #[test]
@@ -1731,45 +1828,57 @@ mod tests {
         );
     }
 
+    /// Reads the change signal traversal snapshots actually compare.
+    fn derived(connection: &Arc<Connection>) -> u64 {
+        load_registered_graph(connection, "social")
+            .expect("load graph")
+            .derived_generation
+            .expect("a registered graph must produce a change signal")
+    }
+
     #[test]
-    fn registration_installs_stable_sources_indexes_and_generation_triggers() {
+    fn registration_detects_source_writes_without_installing_triggers() {
         let connection = connection();
         create_sources(&connection);
         let graph = register_graph(&connection, &registration("social")).expect("register graph");
 
-        assert_eq!(graph.generation, 0);
         assert_eq!(graph.node_sources.len(), 1);
         assert_eq!(graph.relationship_sources.len(), 1);
         assert_ne!(graph.node_sources[0].id, graph.relationship_sources[0].id);
 
-        connection
-            .execute("INSERT INTO people VALUES (1, 'Ada')")
-            .expect("insert node");
-        assert_eq!(
-            graph_generation(&connection, "social").expect("generation"),
-            1
+        // Registration must not put a trigger on a mapped table. Each one cost a
+        // row write on the single hottest row in the database for every row
+        // written; the change tokens below give the same answer for free.
+        let triggers = query_rows(
+            &connection,
+            "SELECT name FROM sqlite_schema WHERE type = 'trigger' \
+             AND name LIKE '__turso_internal_graph_%'",
+        )
+        .expect("query internal triggers");
+        assert!(
+            triggers.is_empty(),
+            "registration installed graph triggers: {triggers:?}"
         );
-        connection
-            .execute("UPDATE people SET name = 'Grace' WHERE id = 1")
-            .expect("update node");
-        assert_eq!(
-            graph_generation(&connection, "social").expect("generation"),
-            2
-        );
-        connection
-            .execute("INSERT INTO friendships VALUES (1, 1, 1)")
-            .expect("insert edge");
-        assert_eq!(
-            graph_generation(&connection, "social").expect("generation"),
-            3
-        );
-        connection
-            .execute("DELETE FROM friendships WHERE id = 1")
-            .expect("delete edge");
-        assert_eq!(
-            graph_generation(&connection, "social").expect("generation"),
-            4
-        );
+
+        // Every shape of write the retired triggers fired on still has to move
+        // the signal, or a snapshot outlives the rows it was built from.
+        let mut previous = derived(&connection);
+        for (label, sql) in [
+            ("insert node", "INSERT INTO people VALUES (1, 'Ada')"),
+            (
+                "update node",
+                "UPDATE people SET name = 'Grace' WHERE id = 1",
+            ),
+            ("insert edge", "INSERT INTO friendships VALUES (1, 1, 1)"),
+            ("delete edge", "DELETE FROM friendships WHERE id = 1"),
+        ] {
+            connection
+                .execute(sql)
+                .unwrap_or_else(|_| panic!("{label}"));
+            let current = derived(&connection);
+            assert_ne!(previous, current, "{label} did not move the change signal");
+            previous = current;
+        }
     }
 
     #[test]
@@ -2082,23 +2191,63 @@ mod tests {
     }
 
     #[test]
+    fn loading_a_graph_drops_generation_triggers_an_older_build_left_behind() {
+        let connection = connection();
+        create_sources(&connection);
+        register_graph(&connection, &registration("social")).expect("register graph");
+
+        // Exactly what an older build installed, recreated by hand because
+        // nothing installs it any more. Its body updates a protected internal
+        // table, which core no longer excuses, so leaving it in place would
+        // fail the next write to `people`.
+        connection.execute("BEGIN IMMEDIATE").expect("begin");
+        connection
+            .prepare_internal(format!(
+                "CREATE TRIGGER {GENERATION_TRIGGER_PREFIX}1_insert_stale AFTER INSERT ON people \
+                 BEGIN UPDATE {GENERATIONS_TABLE} SET generation = generation + 1 WHERE graph_id = 1; END"
+            ))
+            .expect("prepare legacy trigger")
+            .run_ignore_rows()
+            .expect("install legacy trigger");
+        connection.execute("COMMIT").expect("commit");
+
+        load_registered_graph(&connection, "social").expect("load graph");
+
+        let triggers = query_rows(
+            &connection,
+            "SELECT name FROM sqlite_schema WHERE type = 'trigger' \
+             AND name LIKE '__turso_internal_graph_%'",
+        )
+        .expect("query internal triggers");
+        assert!(
+            triggers.is_empty(),
+            "loading the graph must drop what an older build installed: {triggers:?}"
+        );
+        connection
+            .execute("INSERT INTO people VALUES (1, 'Ada')")
+            .expect("writes to a mapped table must work once the trigger is gone");
+    }
+
+    #[test]
     fn source_write_rollback_restores_the_generation() {
         let connection = connection();
         create_sources(&connection);
         register_graph(&connection, &registration("social")).expect("register graph");
 
+        let before = derived(&connection);
         connection.execute("BEGIN").expect("begin");
         connection
             .execute("INSERT INTO people VALUES (1, 'Ada')")
             .expect("insert node");
-        assert_eq!(
-            graph_generation(&connection, "social").expect("inside generation"),
-            1
-        );
+        // The writer reads its own uncommitted row, so a snapshot built before
+        // the insert is already stale for this connection.
+        assert_ne!(before, derived(&connection), "inside the transaction");
         connection.execute("ROLLBACK").expect("rollback");
         assert_eq!(
-            graph_generation(&connection, "social").expect("rolled back generation"),
-            0
+            before,
+            derived(&connection),
+            "the rollback undid every row, so a snapshot built before the \
+             transaction is good again and must not be thrown away"
         );
     }
 
@@ -2239,7 +2388,7 @@ mod tests {
     }
 
     #[test]
-    fn users_cannot_mutate_catalog_or_forge_internal_generation_triggers() {
+    fn users_cannot_mutate_catalog_or_touch_reserved_graph_objects() {
         let connection = connection();
         create_sources(&connection);
         register_graph(&connection, &registration("social")).expect("register graph");
@@ -2256,14 +2405,12 @@ mod tests {
             "internal trigger prefix must reject user DDL"
         );
 
-        let trigger_rows = query_rows(
-            &connection,
-            "SELECT name FROM sqlite_schema WHERE type = 'trigger' AND name LIKE '__turso_internal_graph_gen_%' LIMIT 1",
-        )
-        .expect("query trigger");
-        let trigger_name = text(&trigger_rows[0], 0, "trigger name").expect("trigger name");
+        // The reserved name space is checked before the trigger is looked up, so
+        // this is rejected for its name rather than for not existing. Nothing
+        // installs a graph trigger any more, but the frontend still drops ones
+        // an older build left behind, and that has to stay off limits to users.
         assert!(connection
-            .execute(format!("DROP TRIGGER {}", quote_identifier(trigger_name)))
+            .execute("DROP TRIGGER __turso_internal_graph_gen_forged")
             .is_err());
 
         let index_rows = query_rows(

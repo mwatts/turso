@@ -12,8 +12,8 @@ use turso_graph_runtime::{BuildLimits, Cancellation, EdgeInput, Graph, LimitKind
 
 use crate::{
     catalog::{integer, source_id},
-    load_registered_graph, load_semantic_snapshot, CatalogError, SemanticCatalogError,
-    GRAPH_CATALOG_VERSION,
+    load_registered_graph, load_semantic_snapshot, CatalogError, RegisteredGraph,
+    SemanticCatalogError, GRAPH_CATALOG_VERSION,
 };
 
 const VISIBLE_SNAPSHOT_SAVEPOINT: &str = "__turso_graph_visible_snapshot";
@@ -59,7 +59,11 @@ pub struct TraversalSnapshot {
     graph_id: GraphId,
     graph_name: String,
     catalog_version: u64,
-    source_generation: u64,
+    /// The change signal the mapped source tables carried when this snapshot
+    /// was built, derived from the engine's per-table change tokens. `None`
+    /// when the engine could not produce one, which callers read as "assume
+    /// changed".
+    source_generation: Option<u64>,
     graph: Graph,
     nodes: Vec<NodeCoordinate>,
     node_ids: HashMap<NodeCoordinate, NodeId>,
@@ -82,7 +86,7 @@ impl TraversalSnapshot {
         self.catalog_version
     }
 
-    pub const fn source_generation(&self) -> u64 {
+    pub const fn source_generation(&self) -> Option<u64> {
         self.source_generation
     }
 
@@ -141,7 +145,10 @@ impl TraversalSnapshot {
 pub struct SnapshotMetadata {
     pub graph_id: GraphId,
     pub catalog_version: u64,
-    pub source_generation: u64,
+    /// The source change signal at build time. See
+    /// [`TraversalSnapshot::source_generation`]. Opaque: compare it for
+    /// equality, do not order it.
+    pub source_generation: Option<u64>,
     pub node_count: usize,
     pub relationship_count: usize,
     pub build_elapsed: Duration,
@@ -156,7 +163,7 @@ pub enum SnapshotStatus {
     Stale {
         snapshot: SnapshotMetadata,
         current_catalog_version: u64,
-        current_generation: u64,
+        current_generation: Option<u64>,
     },
 }
 
@@ -178,11 +185,11 @@ pub struct GraphDiagnostics {
 pub enum PublishOutcome {
     Published {
         replaced: bool,
-        generation: u64,
+        generation: Option<u64>,
     },
     Stale {
-        built_generation: u64,
-        current_generation: u64,
+        built_generation: Option<u64>,
+        current_generation: Option<u64>,
     },
 }
 
@@ -320,7 +327,7 @@ impl SnapshotStore {
         let Some(snapshot) = self.get(registered.id)? else {
             return Ok(SnapshotStatus::Missing);
         };
-        Ok(classify_snapshot(&snapshot, registered.generation))
+        Ok(classify_snapshot(&snapshot, &registered))
     }
 
     pub fn discard(&self, graph: GraphId) -> Result<bool, SnapshotError> {
@@ -340,7 +347,7 @@ impl SnapshotStore {
         let registered = load_registered_graph(connection, graph_name)?;
         Ok(self.get(registered.id)?.filter(|snapshot| {
             matches!(
-                classify_snapshot(snapshot, registered.generation),
+                classify_snapshot(snapshot, &registered),
                 SnapshotStatus::Current(_)
             )
         }))
@@ -354,11 +361,11 @@ impl SnapshotStore {
         let current = load_registered_graph(connection, snapshot.graph_name())?;
         if current.id != snapshot.graph_id
             || snapshot.catalog_version != GRAPH_CATALOG_VERSION
-            || current.generation != snapshot.source_generation
+            || sources_changed(&snapshot, &current)
         {
             return Ok(PublishOutcome::Stale {
                 built_generation: snapshot.source_generation,
-                current_generation: current.generation,
+                current_generation: current.derived_generation,
             });
         }
         let generation = snapshot.source_generation;
@@ -435,7 +442,7 @@ impl SessionSnapshotStore {
         let Some(snapshot) = self.get(registered.id)? else {
             return Ok(SnapshotStatus::Missing);
         };
-        Ok(classify_snapshot(&snapshot, registered.generation))
+        Ok(classify_snapshot(&snapshot, &registered))
     }
 
     pub fn refresh_visible(
@@ -469,7 +476,7 @@ impl SessionSnapshotStore {
         let registered = load_registered_graph(connection, graph_name)?;
         if let Some(snapshot) = self.get(registered.id)? {
             if matches!(
-                classify_snapshot(&snapshot, registered.generation),
+                classify_snapshot(&snapshot, &registered),
                 SnapshotStatus::Current(_)
             ) {
                 return Ok((snapshot, false));
@@ -867,7 +874,7 @@ fn build_in_transaction(
         graph_id: registered.id,
         graph_name: registered.name,
         catalog_version: GRAPH_CATALOG_VERSION,
-        source_generation: registered.generation,
+        source_generation: registered.derived_generation,
         graph,
         nodes: node_coordinates,
         node_ids: node_lookup,
@@ -878,17 +885,27 @@ fn build_in_transaction(
     })
 }
 
-fn classify_snapshot(snapshot: &TraversalSnapshot, current_generation: u64) -> SnapshotStatus {
+/// Whether the graph's sources changed since the snapshot was built.
+///
+/// Answers from the engine's per-table change tokens. A token that was
+/// unavailable at build time or is unavailable now means "assume changed",
+/// which costs a rebuild and never serves stale rows.
+fn sources_changed(snapshot: &TraversalSnapshot, current: &RegisteredGraph) -> bool {
+    match (snapshot.source_generation, current.derived_generation) {
+        (Some(built), Some(now)) => built != now,
+        _ => true,
+    }
+}
+
+fn classify_snapshot(snapshot: &TraversalSnapshot, current: &RegisteredGraph) -> SnapshotStatus {
     let metadata = snapshot.metadata();
-    if snapshot.catalog_version == GRAPH_CATALOG_VERSION
-        && snapshot.source_generation == current_generation
-    {
+    if snapshot.catalog_version == GRAPH_CATALOG_VERSION && !sources_changed(snapshot, current) {
         SnapshotStatus::Current(metadata)
     } else {
         SnapshotStatus::Stale {
             snapshot: metadata,
             current_catalog_version: GRAPH_CATALOG_VERSION,
-            current_generation,
+            current_generation: current.derived_generation,
         }
     }
 }
@@ -900,7 +917,7 @@ fn is_snapshot_current(
     let registered = load_registered_graph(connection, snapshot.graph_name())?;
     Ok(registered.id == snapshot.graph_id
         && matches!(
-            classify_snapshot(snapshot, registered.generation),
+            classify_snapshot(snapshot, &registered),
             SnapshotStatus::Current(_)
         ))
 }
@@ -1134,13 +1151,13 @@ mod tests {
                 &turso_graph_runtime::NeverCancelled,
             )
             .unwrap();
-        assert_eq!(
-            outcome,
-            PublishOutcome::Published {
-                replaced: false,
-                generation: 0
-            }
-        );
+        let PublishOutcome::Published {
+            replaced: false,
+            generation: first,
+        } = outcome
+        else {
+            panic!("first publish must not replace anything: {outcome:?}");
+        };
         assert_eq!(
             store
                 .get(registered.id)
@@ -1162,13 +1179,17 @@ mod tests {
                 &turso_graph_runtime::NeverCancelled,
             )
             .unwrap();
-        assert_eq!(
-            outcome,
-            PublishOutcome::Published {
-                replaced: true,
-                generation: 1
-            }
-        );
+        let PublishOutcome::Published {
+            replaced: true,
+            generation: second,
+        } = outcome
+        else {
+            panic!("the second publish must replace the first: {outcome:?}");
+        };
+        // The signal is an opaque token, so the only thing to assert is that
+        // the insert moved it. Equal values here would mean the store could
+        // keep serving the empty snapshot.
+        assert_ne!(first, second, "the insert must move the source signal");
         let snapshot = store.get_current(&connection, "social").unwrap().unwrap();
         assert_eq!(snapshot.graph().node_count(), 1);
         assert_eq!(
@@ -1268,12 +1289,17 @@ mod tests {
             .execute("INSERT INTO people VALUES (1, 'A')")
             .unwrap();
         let store = SnapshotStore::default();
-        assert_eq!(
-            store.publish_if_current(&connection, candidate).unwrap(),
-            PublishOutcome::Stale {
-                built_generation: 0,
-                current_generation: 1
-            }
+        let outcome = store.publish_if_current(&connection, candidate).unwrap();
+        let PublishOutcome::Stale {
+            built_generation,
+            current_generation,
+        } = outcome
+        else {
+            panic!("the insert landed after the build, so the candidate is stale: {outcome:?}");
+        };
+        assert_ne!(
+            built_generation, current_generation,
+            "the candidate was rejected, so the two signals must actually differ"
         );
         assert!(store.get(registered.id).unwrap().is_none());
     }
@@ -1465,17 +1491,19 @@ mod tests {
         connection
             .execute("INSERT INTO people VALUES (2, 'B')")
             .unwrap();
-        assert!(matches!(
-            store.status(&connection, "social").unwrap(),
-            SnapshotStatus::Stale {
-                snapshot: SnapshotMetadata {
-                    source_generation: 1,
-                    ..
-                },
-                current_generation: 2,
-                ..
-            }
-        ));
+        let status = store.status(&connection, "social").unwrap();
+        let SnapshotStatus::Stale {
+            snapshot,
+            current_generation,
+            ..
+        } = status
+        else {
+            panic!("a snapshot built before the insert must read as stale: {status:?}");
+        };
+        assert_ne!(
+            snapshot.source_generation, current_generation,
+            "staleness has to come from the signal actually moving"
+        );
         assert!(store
             .get_for_connection(&connection, registered.id)
             .unwrap()
