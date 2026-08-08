@@ -253,7 +253,7 @@ pub(crate) fn lower_mutation_expression(
     expression: &ir::TypedExpression,
     input: &LoweredMutationInput,
     catalog: &dyn RelationalCatalogSnapshot,
-    references: &HashMap<ir::BindingId, String>,
+    references: &HashMap<ir::BindingId, BindingReference>,
     additional_bindings: &HashMap<ir::BindingId, (ir::SourceTableId, MutationEntityKind)>,
 ) -> Result<String, LowerError> {
     let mut bindings = input.bindings.clone();
@@ -1881,22 +1881,35 @@ fn lower_role_expand(
         },
     );
     if !join_predicates.is_empty() {
+        // The predicates are appended to whichever ON clause is chosen below,
+        // and that decides which aliases are in scope for them. The
+        // relationship is joined first, so its alias is readable from either
+        // clause; the target node's alias only exists once there is a node
+        // join to attach it to.
+        let joins_target_node = !node_on.is_empty();
+        let target_identity = format!(
+            "{target_alias}.{}",
+            quote_identifier(&target.identity_column)
+        );
         let references = HashMap::from([
             (
                 expand.relationship.id(),
-                format!(
-                    "{relationship_alias}.{}",
-                    quote_identifier(&relationship.identity_column)
+                BindingReference::row(
+                    relationship_alias,
+                    format!(
+                        "{relationship_alias}.{}",
+                        quote_identifier(&relationship.identity_column)
+                    ),
                 ),
             ),
             (
                 expand.to.id(),
                 match &bound_reference {
-                    Some(bound) => bound.clone(),
-                    None => format!(
-                        "{target_alias}.{}",
-                        quote_identifier(&target.identity_column)
-                    ),
+                    Some(bound) => BindingReference::value(bound.clone()),
+                    None if joins_target_node => {
+                        BindingReference::row(target_alias, target_identity)
+                    }
+                    None => BindingReference::value(target_identity),
                 },
             ),
         ]);
@@ -2022,7 +2035,7 @@ fn lower_expression_with_references(
     bindings: &HashMap<ir::BindingId, BindingLayout>,
     catalog: &dyn RelationalCatalogSnapshot,
     input_alias: &str,
-    references: &HashMap<ir::BindingId, String>,
+    references: &HashMap<ir::BindingId, BindingReference>,
 ) -> Result<String, LowerError> {
     match &expression.expression {
         ir::Expression::Literal(literal) => Ok(lower_literal(literal)),
@@ -2057,6 +2070,24 @@ fn lower_expression_with_references(
                 ));
             }
             let jsonb = catalog.property_column_is_jsonb(binding.source, *property);
+            // The binding's own table is joined right here, so its columns are
+            // readable directly. Going back to the table through a correlated
+            // subquery would repeat a lookup per candidate row for a value the
+            // join already has, and hides the column from index selection.
+            if fields.is_empty() {
+                if let Some(alias) = references.get(entity).and_then(|r| r.row_alias.as_deref()) {
+                    if let Some(column) =
+                        resolved_property_column(catalog, binding.source, semantic_types, *property)
+                    {
+                        let value = format!("{alias}.{}", quote_identifier(&column));
+                        return Ok(if jsonb {
+                            format!("json({value})")
+                        } else {
+                            value
+                        });
+                    }
+                }
+            }
             let column =
                 resolved_property_column(catalog, binding.source, semantic_types, *property)
                     .ok_or(LowerError::MissingProperty {
@@ -3143,14 +3174,47 @@ fn lower_expression_with_references(
     }
 }
 
+/// Where a binding's row lives while lowering an expression that sits outside
+/// the SELECT which materializes that binding's columns -- a join's ON clause,
+/// or a mutation's row values.
+#[derive(Clone, Debug)]
+pub(crate) struct BindingReference {
+    /// SQL for the binding's identity value.
+    identity: String,
+    /// Table alias holding this binding's row, set only when that table is
+    /// joined in the same scope as the expression being lowered. A property
+    /// read then comes straight off the alias instead of going back to the
+    /// table through a correlated subquery.
+    row_alias: Option<String>,
+}
+
+impl BindingReference {
+    /// A reference whose row is not a table in scope: a bound parameter, or an
+    /// identity carried in from an enclosing query.
+    pub(crate) fn value(identity: String) -> Self {
+        Self {
+            identity,
+            row_alias: None,
+        }
+    }
+
+    /// A reference to a row of `alias`, whose columns are readable right here.
+    fn row(alias: &str, identity: String) -> Self {
+        Self {
+            identity,
+            row_alias: Some(alias.to_owned()),
+        }
+    }
+}
+
 fn binding_reference(
     binding: ir::BindingId,
     input_alias: &str,
-    references: &HashMap<ir::BindingId, String>,
+    references: &HashMap<ir::BindingId, BindingReference>,
 ) -> String {
     references
         .get(&binding)
-        .cloned()
+        .map(|reference| reference.identity.clone())
         .unwrap_or_else(|| format!("{input_alias}.{}", binding_column(binding)))
 }
 

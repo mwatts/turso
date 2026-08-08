@@ -17,8 +17,8 @@ use crate::{
     catalog::CatalogError,
     lowering::{
         lower_mutation_expression, lower_mutation_input, mutation_rows_with_sources_sql,
-        quoted_identifier, unit_mutation_input, LoweredMutationInput, MutationEntityKind,
-        MutationRowColumn,
+        quoted_identifier, unit_mutation_input, BindingReference, LoweredMutationInput,
+        MutationEntityKind, MutationRowColumn,
     },
     semantic_constraints::ValidationScope,
     statement_cache::StatementCache,
@@ -2565,7 +2565,7 @@ fn property_column(
 }
 
 struct References {
-    sql: HashMap<ir::BindingId, String>,
+    sql: HashMap<ir::BindingId, BindingReference>,
     values: HashMap<String, Value>,
 }
 
@@ -2574,7 +2574,9 @@ fn reference_parameters(values: &HashMap<ir::BindingId, Value>) -> References {
     let mut parameters = HashMap::new();
     for (binding, value) in values {
         let name = identity_parameter(*binding);
-        sql.insert(*binding, format!("${name}"));
+        // A mutation carries its rows in as parameters, so there is no table
+        // alias here whose columns a property could be read from.
+        sql.insert(*binding, BindingReference::value(format!("${name}")));
         parameters.insert(name, value.clone());
     }
     References {
