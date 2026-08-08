@@ -273,7 +273,7 @@ Ordered by measured leverage on this workload. Status as of branch
 | 1. Scope `validate_state` — by written row | open, the larger half |
 | 2. Cache or parameterise the catalog queries | **done**, `df549ed80` |
 | 3. Stop `op_open_ephemeral` creating a temp directory | **done**, `74e3b4240` |
-| 4. Wire the frontend to per-table change tokens | open |
+| 4. Wire the frontend to per-table change tokens | **done**, `1c333a51c`, merged in |
 | 5. Cache bound mutation plans | open |
 
 What landed and what it is measured to be worth:
@@ -285,6 +285,11 @@ What landed and what it is measured to be worth:
   size**. It does not remove the term that grows with **row count**: a
   constraint in scope still scans its whole source table, so a workload where
   every entry lands in one table still sees §5.3's growth.
+- **Change tokens.** Landed on `feature/graph-frontend` by other work and
+  merged into this branch, so the numbers above were re-measured on the merged
+  tree rather than carried over. The generation triggers are gone; snapshot
+  invalidation now reads a per-table change token instead of a trigger-bumped
+  counter.
 - **Prepared statements.** The SQL a mutation runs around its writes does not
   depend on the row being written, so the session now holds it compiled, keyed
   on the exact text. A steady-state `CREATE` with a required and a unique
