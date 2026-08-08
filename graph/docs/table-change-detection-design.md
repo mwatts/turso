@@ -292,7 +292,8 @@ column stayed. Nothing bumps it per row any more, but `bump_semantic_generation`
 still moves it on catalog changes, and sessions on a database predating
 `schema_generation` watch it to decide when to reload their catalog.
 
-`graph_generation()` did not keep its signature -- it is gone. Callers ask
-`load_registered_graph` for the field they mean, because there are now two
-signals and a single accessor could only have returned the wrong one half the
-time.
+`graph_generation()` kept its signature, but it is no longer the staleness
+probe. It reads the stored column, which now moves only on catalog changes, so
+the callers that care about source writes -- snapshots, and the tests that
+cover them -- ask `load_registered_graph` for `derived_generation` instead.
+There are two signals now, and one accessor cannot stand for both.
