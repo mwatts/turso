@@ -1199,10 +1199,13 @@ mod tests {
         fixture.writer.execute("ROLLBACK").unwrap();
         assert!(matches!(
             fixture.writer_session.diagnostics().unwrap().status,
+            // The overlay was built from rows the rollback threw away, so the
+            // signal it recorded must no longer match. The values are opaque
+            // tokens, so the assertion is inequality, not an ordering.
             SnapshotStatus::Stale { snapshot, current_generation, .. }
                 if snapshot.node_count == 3
                     && snapshot.relationship_count == 1
-                    && current_generation < snapshot.source_generation
+                    && current_generation != snapshot.source_generation
         ));
         assert!(outgoing(&fixture.writer_session).is_empty());
         let SnapshotStatus::Current(rebuilt) = fixture.writer_session.diagnostics().unwrap().status

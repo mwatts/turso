@@ -176,7 +176,6 @@ pub const SQLITE_SEQUENCE_TABLE_NAME: &str = "sqlite_sequence";
 pub const TURSO_TYPES_TABLE_NAME: &str = "__turso_internal_types";
 pub const TURSO_GRAPH_CATALOG_PREFIX: &str = "__turso_internal_graph_";
 pub const TURSO_GRAPH_GENERATIONS_TABLE_NAME: &str = "__turso_internal_graph_generations";
-pub const TURSO_GRAPH_GENERATION_TRIGGER_PREFIX: &str = "__turso_internal_graph_gen_";
 pub const DBSP_TABLE_PREFIX: &str = "__turso_internal_dbsp_state_v";
 pub const TURSO_INTERNAL_PREFIX: &str = "__turso_internal_";
 pub const SEQ_BACKING_TABLE_PREFIX: &str = "__turso_internal_seq_";

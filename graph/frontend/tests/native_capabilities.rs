@@ -4,7 +4,7 @@ use turso_core::{Database, MemoryIO, OpenOptions, SqliteDialect, Value};
 #[cfg(feature = "fts")]
 use turso_core::{DatabaseOpts, Numeric};
 use turso_graph_frontend::{
-    graph_generation, register_graph, register_graph_with_polymorphic_roles,
+    load_registered_graph, register_graph, register_graph_with_polymorphic_roles,
     relationship_types_table_name, GraphConnection, GraphRegistration, NodeSourceRegistration,
     Parameters, PolymorphicRoleRegistration, RelationshipSourceRegistration,
     RoleSourceRegistration, SnapshotPersistenceMode, SnapshotStatus, GRAPH_CATALOG_VERSION,
@@ -689,10 +689,15 @@ fn diagnostics_report_missing_current_and_stale_without_refreshing() {
     };
     assert_eq!(metadata.graph_id, session.graph_id());
     assert_eq!(metadata.catalog_version, GRAPH_CATALOG_VERSION);
+    // The signal has to agree across connections, or one connection's write
+    // would leave another's snapshot looking current.
     assert_eq!(
         metadata.source_generation,
-        graph_generation(&fixture::second_connection(&database), "social").unwrap()
+        load_registered_graph(&fixture::second_connection(&database), "social")
+            .expect("load graph on a second connection")
+            .derived_generation
     );
+    assert!(metadata.source_generation.is_some());
     assert_eq!(metadata.node_count, 2);
     assert_eq!(metadata.relationship_count, 0);
     assert!(metadata.estimated_heap_bytes > 0);

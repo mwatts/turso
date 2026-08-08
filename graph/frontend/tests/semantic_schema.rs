@@ -1084,7 +1084,7 @@ fn semantic_registration_invalidates_and_retypes_traversal_snapshots() {
             current_generation,
             ..
         } if snapshot.source_generation == before.source_generation
-            && current_generation == before.source_generation + 1
+            && current_generation != before.source_generation
     ));
     assert!(store
         .get_current(&connection, "social")
