@@ -24,8 +24,9 @@ make test
 # Single TCL test
 make test-single TEST=select.test
 
-# SQL test runner
-make -C sqlite/conformance run-cli
+# SQL test runner. `CI=1` builds release; without it the heavy tests
+# time out against a cap that was sized for release.
+CI=1 make -C sqlite/conformance run-cli
 
 # Rust unit/integration tests (full workspace)
 cargo test

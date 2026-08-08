@@ -13,8 +13,8 @@ cargo run -q --bin tursodb -- -q # run the interactive cli. never run with --rel
 
 make test                      # TCL compat + sqlite3 + extensions + MVCC
 make test-single TEST=foo.test # single TCL test
-make -C sqlite/conformance run-rust ARGS='--snapshot-filter __never__'  # sqltest runner (preferred for new tests)
-CI=1 make -C sqlite/conformance run-rust  # use only if snapshot tests are required
+CI=1 make -C sqlite/conformance run-rust ARGS='--snapshot-filter __never__'  # sqltest runner (preferred for new tests)
+CI=1 make -C sqlite/conformance run-rust  # add snapshot tests
 
 scripts/diff.sh "SQL" [label]  # compare sqlite3 vs tursodb output
 
@@ -22,10 +22,19 @@ mise run corpus                # graph conformance corpus (release, by design)
 mise run cypherbench-sample    # graph execution benchmark (release, by design)
 ```
 
-The `mise` graph tasks are the one exception to "never `--release`": rows
-appended to `graph/test-results/history.jsonl` are only comparable against that
-history when produced by an optimized build, and each row records the profile
-it was built with.
+Conformance and the graph tasks are the exceptions to "never `--release`":
+
+- **Conformance needs `CI=1`**, which is what switches `sqlite/conformance` to a
+  release build. The runner gives every test the same 600s cap, and that cap is
+  sized for release. A debug build blows through it on the heavy tests --
+  `big-db` and `big-db-mvcc` each write 2.25 GB and take ~680s and ~780s in
+  debug -- so a debug run reports timeouts that say nothing about your change.
+  The same applies to `make test`, whose `test-sqltest` step runs debug unless
+  `CI=1` is set.
+- **The `mise` graph tasks are always release.** Rows appended to
+  `graph/test-results/history.jsonl` are only comparable against that history
+  when produced by an optimized build, and each row records the profile it was
+  built with.
 
 ## Testing
 
@@ -34,8 +43,11 @@ it was built with.
 - `cargo test` - Rust unit and integration tests
 - `make test` - broad compatibility suite (TCL, sqlite3, extensions, MVCC)
 - `make test-single TEST=foo.test` - single legacy TCL test
-- `make -C sqlite/conformance run-rust ARGS='--snapshot-filter __never__'` - preferred `.sqltest` runner for new coverage
-- `CI=1 make -C sqlite/conformance run-rust` - only when snapshot tests are required
+- `CI=1 make -C sqlite/conformance run-rust ARGS='--snapshot-filter __never__'` - preferred `.sqltest` runner for new coverage
+- `CI=1 make -C sqlite/conformance run-rust` - same, plus the snapshot tests
+
+Always pass `CI=1` to conformance. Without it the runner builds debug and the
+heavy tests time out against a cap that was sized for release.
 
 ### Test Organization
 
