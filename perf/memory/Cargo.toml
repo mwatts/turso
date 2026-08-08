@@ -13,6 +13,9 @@ path = "src/main.rs"
 name = "stack-report"
 path = "src/stack_report.rs"
 
+[lints.rust]
+unexpected_cfgs = { level = "warn", check-cfg = ['cfg(dhat_heap)'] }
+
 [features]
 stacker = ["turso/stacker"]
 

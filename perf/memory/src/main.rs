@@ -1,16 +1,23 @@
 use anyhow::Result;
 use clap::{Parser, ValueEnum};
-use memory_benchmark::measure::{MemoryReport, MemorySnapshot, file_size, take_snapshot};
+use memory_benchmark::measure::{
+    DHAT_DISABLED_HINT, MemoryReport, MemorySnapshot, file_size, take_snapshot,
+};
 use memory_benchmark::profile::Phase;
 use memory_benchmark::workload::{
     JournalMode, WorkloadConfig, WorkloadObserver, WorkloadProfile, clean_db_files, run_workload,
 };
 use std::time::{Duration, Instant};
 
-// Workspace Clippy runs with `--all-features`, which enables `turso`'s
-// mimalloc-backed global allocator. Skip the benchmark-only dhat allocator
-// under Clippy so the lint build does not try to link two allocators.
-#[cfg(not(clippy))]
+// A binary gets one global allocator. `turso` installs a mimalloc-backed one
+// whenever its `mimalloc` feature is on, and any workspace-wide build turns
+// that feature on for every crate at once -- so a dhat allocator that is
+// always compiled in makes `cargo build --workspace` fail to link.
+//
+// This is deliberately a `cfg` flag rather than a Cargo feature: `--all-features`
+// would switch a feature back on and reintroduce the clash. Profiling runs opt
+// in with RUSTFLAGS="--cfg dhat_heap", which nothing else turns on by accident.
+#[cfg(dhat_heap)]
 #[global_allocator]
 static ALLOC: dhat::Alloc = dhat::Alloc;
 
@@ -72,6 +79,34 @@ struct Args {
     mvcc_gc_threshold: Option<i64>,
 }
 
+/// The dhat heap numbers for a finished run.
+struct HeapTotals {
+    current_bytes: usize,
+    peak_bytes: usize,
+    allocs: u64,
+    bytes_allocated: u64,
+}
+
+/// Reads the dhat heap totals, or None when the dhat allocator was compiled
+/// out. Asking dhat for stats without its allocator installed would only ever
+/// report zeros, which reads exactly like a run that allocated nothing.
+fn heap_totals() -> Option<HeapTotals> {
+    #[cfg(dhat_heap)]
+    {
+        let stats = dhat::HeapStats::get();
+        Some(HeapTotals {
+            current_bytes: stats.curr_bytes,
+            peak_bytes: stats.max_bytes,
+            allocs: stats.total_blocks,
+            bytes_allocated: stats.total_bytes,
+        })
+    }
+    #[cfg(not(dhat_heap))]
+    {
+        None
+    }
+}
+
 /// Takes RSS snapshots at phase transitions and tracks the RSS peak after
 /// every batch.
 struct SnapshotObserver {
@@ -100,7 +135,7 @@ impl WorkloadObserver for SnapshotObserver {
 }
 
 fn main() -> Result<()> {
-    #[cfg(not(clippy))]
+    #[cfg(dhat_heap)]
     let _profiler = dhat::Profiler::new_heap();
 
     tracing_subscriber::fmt()
@@ -152,7 +187,10 @@ async fn async_main(args: Args) -> Result<()> {
     let mut snapshots = observer.snapshots;
     snapshots.push(final_snap.clone());
 
-    let dhat_stats = dhat::HeapStats::get();
+    let heap = heap_totals();
+    if heap.is_none() {
+        eprintln!("warning: heap numbers omitted -- {DHAT_DISABLED_HINT}");
+    }
     let report = MemoryReport {
         mode: args.mode.to_string(),
         workload: workload_name,
@@ -163,10 +201,10 @@ async fn async_main(args: Args) -> Result<()> {
         peak_bytes,
         final_bytes: final_snap.rss_bytes,
         net_growth_bytes: final_snap.rss_bytes.saturating_sub(baseline),
-        heap_current_bytes: dhat_stats.curr_bytes,
-        heap_peak_bytes: dhat_stats.max_bytes,
-        total_allocs: dhat_stats.total_blocks,
-        total_bytes_allocated: dhat_stats.total_bytes,
+        heap_current_bytes: heap.as_ref().map(|h| h.current_bytes),
+        heap_peak_bytes: heap.as_ref().map(|h| h.peak_bytes),
+        total_allocs: heap.as_ref().map(|h| h.allocs),
+        total_bytes_allocated: heap.as_ref().map(|h| h.bytes_allocated),
         snapshots,
         db_file_bytes: file_size(db_path),
         wal_file_bytes: {
