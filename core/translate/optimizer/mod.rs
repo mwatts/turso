@@ -53,8 +53,7 @@ use crate::{
 use crate::{turso_assert, turso_assert_eq, turso_debug_assert, turso_soft_unreachable};
 use constraints::{
     can_use_partial_index, constraints_from_where_clause, partial_index,
-    partial_index_predicate_terms, usable_constraints_for_join_order, Constraint,
-    ConstraintOperator, ConstraintRef,
+    partial_index_predicate_terms, usable_constraints_for_join_order, Constraint, ConstraintRef,
 };
 use cost::Cost;
 use join::{compute_best_join_order_with_context, BestJoinOrderResult, JoinPlanningContext};
@@ -800,7 +799,7 @@ pub fn optimize_select_plan(plan: &mut SelectPlan, resolver: &Resolver) -> Resul
     plan.simple_aggregate = detect_simple_aggregate(plan);
     let best_join_order = optimize_table_access(
         schema,
-        resolver.dialect.as_ref(),
+        resolver,
         &mut plan.result_columns,
         &mut plan.table_references,
         &available_indexes,
@@ -880,7 +879,7 @@ fn optimize_delete_plan(plan: &mut DeletePlan, resolver: &Resolver) -> Result<()
 
     let _ = optimize_table_access(
         schema,
-        resolver.dialect.as_ref(),
+        resolver,
         &mut plan.result_columns,
         &mut plan.table_references,
         &available_indexes,
@@ -942,7 +941,7 @@ fn optimize_update_plan(
     let available_indexes = AvailableIndexes::for_table_references(resolver, &target_tables);
     let optimize_result = optimize_table_access(
         schema,
-        resolver.dialect.as_ref(),
+        resolver,
         &mut [],
         &mut target_tables,
         &available_indexes,
@@ -1671,121 +1670,72 @@ fn base_row_estimate(
     }
 }
 
-/// Returns true if a WHERE-term predicate is null-rejecting for a table.
+/// Returns true if a WHERE-term predicate is null-rejecting for a table: the
+/// term can never be TRUE when every column of the table is NULL. On a row an
+/// outer join null-extended, every column of the table IS NULL, so such a
+/// term filters that row out — the join then behaves like an inner join and
+/// can be rewritten to one.
 ///
-/// Non-rejecting cases include:
-/// - `IS`/`IS NOT` comparisons, which can evaluate true for NULL-containing inputs.
-/// - Expressions that route the table's values through NULL-masking functions
-///   like `ifnull`/`coalesce`.
+/// Port of SQLite's `impliesNotNullRow` (expr.c). Conservative: returns false
+/// when unsure. `IS`, `IS NOT` and `IS NULL` tests, functions, CASE and row
+/// values can all turn NULL inputs into TRUE (or into non-NULL values a
+/// comparison then accepts), so nothing below them counts. A comparison or an
+/// arithmetic expression yields NULL when an input is NULL, so for those it
+/// is enough that one input mentions the table.
 fn where_term_is_null_rejecting_for_table(
     expr: &ast::Expr,
-    operator: ConstraintOperator,
     table_id: ast::TableInternalId,
-    dialect: &dyn crate::dialect::Dialect,
 ) -> bool {
-    if matches!(
-        operator,
-        ConstraintOperator::AstNativeOperator(ast::Operator::Is | ast::Operator::IsNot)
-    ) {
-        return false;
-    }
-
-    !expr_has_null_masking_for_table(expr, table_id, dialect)
-}
-
-/// Returns true if an expression references a column from `table_id`.
-fn expr_references_table(expr: &ast::Expr, table_id: ast::TableInternalId) -> bool {
-    use crate::translate::expr::{walk_expr, WalkControl};
-    let mut found = false;
-    let _ = walk_expr(expr, &mut |inner: &ast::Expr| -> Result<WalkControl> {
-        match inner {
-            ast::Expr::Column { table, .. } | ast::Expr::RowId { table, .. }
-                if *table == table_id =>
-            {
-                found = true;
-                return Ok(WalkControl::SkipChildren);
-            }
-            _ => {}
-        }
-        Ok(WalkControl::Continue)
-    });
-    found
-}
-
-/// Returns true if an expression is a NULL check on a column from `table_id`.
-/// Matches patterns like `col IS NULL`, `col IS NOT NULL`, `IsNull(col)`, `NotNull(col)`.
-fn is_null_check_on_table(expr: &ast::Expr, table_id: ast::TableInternalId) -> bool {
+    use ast::Operator::*;
+    let rejects = |e: &ast::Expr| where_term_is_null_rejecting_for_table(e, table_id);
     match expr {
-        ast::Expr::IsNull(inner) | ast::Expr::NotNull(inner) => {
-            expr_references_table(inner, table_id)
-        }
-        ast::Expr::Binary(lhs, ast::Operator::Is | ast::Operator::IsNot, rhs) => {
-            (matches!(rhs.as_ref(), ast::Expr::Literal(ast::Literal::Null))
-                && expr_references_table(lhs, table_id))
-                || (matches!(lhs.as_ref(), ast::Expr::Literal(ast::Literal::Null))
-                    && expr_references_table(rhs, table_id))
-        }
+        ast::Expr::Column { table, .. } | ast::Expr::RowId { table, .. } => *table == table_id,
+
+        // These can be TRUE (or produce a non-NULL value) even when every
+        // input is NULL, so nothing below them proves anything.
+        ast::Expr::Binary(_, Is | IsNot, _)
+        | ast::Expr::IsNull(_)
+        | ast::Expr::NotNull(_)
+        | ast::Expr::Case { .. }
+        | ast::Expr::FunctionCall { .. }
+        | ast::Expr::FunctionCallStar { .. }
+        | ast::Expr::Like { .. } => false,
+
+        // Both arms must reject on their own: `x OR y` can be TRUE through
+        // the other arm, and under a NOT so can `x AND y`. (Top-level WHERE
+        // terms are already split on AND, so an AND here sits under a NOT or
+        // inside parentheses, where the polarity is unknown.)
+        ast::Expr::Binary(lhs, And | Or, rhs) => rejects(lhs) && rejects(rhs),
+
+        // A comparison with a NULL input is never TRUE, and an arithmetic or
+        // concatenation result with a NULL input is NULL. Either side counts.
+        ast::Expr::Binary(lhs, _, rhs) => rejects(lhs) || rejects(rhs),
+
+        // NULL is never in a list. (An empty list has no such guarantee:
+        // `x NOT IN ()` is TRUE for NULL x.)
+        ast::Expr::InList {
+            lhs,
+            rhs: in_list_values,
+            ..
+        } => !in_list_values.is_empty() && rejects(lhs),
+
+        // `x NOT BETWEEN y AND z` can be TRUE for NULL x only when y or z is
+        // NULL too, so it is enough that x rejects, or both bounds do.
+        ast::Expr::Between {
+            lhs, start, end, ..
+        } => rejects(lhs) || (rejects(start) && rejects(end)),
+
+        // NULL-propagating wrappers.
+        ast::Expr::Unary(_, inner) | ast::Expr::Cast { expr: inner, .. } => rejects(inner),
+        ast::Expr::Collate(inner, _) => rejects(inner),
+        // A single-element parenthesized expression is just grouping; a
+        // row value (more elements) is compared element-wise and can be
+        // TRUE with a NULL element.
+        ast::Expr::Parenthesized(exprs) => exprs.len() == 1 && rejects(&exprs[0]),
+
+        // Literals, parameters, subqueries, and anything else: no proof.
         _ => false,
     }
-}
-
-/// Returns true if an expression uses a NULL-masking construct over columns from `table_id`.
-/// This includes NULL-masking functions (COALESCE, IFNULL) and CASE/IIF expressions
-/// that explicitly handle the NULL case for columns from the target table.
-fn expr_has_null_masking_for_table(
-    expr: &ast::Expr,
-    table_id: ast::TableInternalId,
-    dialect: &dyn crate::dialect::Dialect,
-) -> bool {
-    use crate::translate::expr::{walk_expr, WalkControl};
-    let mut found = false;
-    let _ = walk_expr(expr, &mut |e: &ast::Expr| -> Result<WalkControl> {
-        match e {
-            ast::Expr::FunctionCall { name, args, .. } => {
-                if let Ok(Some(func)) = dialect.resolve_function(name.as_str(), args.len()) {
-                    // IIF(cond, then, else) is like CASE WHEN cond THEN then ELSE else END.
-                    // If the condition is a null check on the target table, IIF masks nulls.
-                    if matches!(
-                        func,
-                        crate::function::Func::Scalar(crate::function::ScalarFunc::Iif)
-                    ) {
-                        if let Some(cond) = args.first() {
-                            if is_null_check_on_table(cond, table_id) {
-                                found = true;
-                                return Ok(WalkControl::SkipChildren);
-                            }
-                        }
-                        return Ok(WalkControl::Continue);
-                    }
-                    if !func.can_mask_nulls() {
-                        return Ok(WalkControl::Continue);
-                    }
-                    for arg in args {
-                        if expr_references_table(arg, table_id) {
-                            found = true;
-                            return Ok(WalkControl::SkipChildren);
-                        }
-                    }
-                }
-            }
-            // CASE WHEN <null-check-on-table> THEN ... ELSE ... END
-            // If any WHEN condition checks for NULL on a column from the target table,
-            // the CASE explicitly handles NULLs and can produce non-NULL results.
-            ast::Expr::Case {
-                when_then_pairs, ..
-            } => {
-                for (when_expr, _) in when_then_pairs {
-                    if is_null_check_on_table(when_expr, table_id) {
-                        found = true;
-                        return Ok(WalkControl::SkipChildren);
-                    }
-                }
-            }
-            _ => {}
-        }
-        Ok(WalkControl::Continue)
-    });
-    found
 }
 
 /// Enforce INDEXED BY / NOT INDEXED hints by validating index existence and
@@ -1870,7 +1820,7 @@ fn enforce_indexed_by_hints(
 #[allow(clippy::too_many_arguments)]
 fn optimize_table_access(
     schema: &Schema,
-    dialect: &dyn crate::dialect::Dialect,
+    resolver: &Resolver,
     result_columns: &mut [ResultSetColumn],
     table_references: &mut TableReferences,
     available_indexes: &AvailableIndexes,
@@ -2000,35 +1950,22 @@ fn optimize_table_access(
     // -> recompute constraints if we rewrote a LEFT JOIN into an INNER JOIN.
     loop {
         let mut outer_join_rewritten = false;
-        for (i, t) in table_references
-            .joined_tables_mut()
-            .iter_mut()
-            .enumerate()
-            .filter(|(_, t)| {
-                t.join_info
-                    .as_ref()
-                    // Skip FULL OUTER JOIN tables: removing `outer` would suppress
-                    // unmatched-probe-row emission and prevent LeftJoinMetadata
-                    // allocation needed by the hash join.
-                    .is_some_and(|join_info| join_info.is_outer() && !join_info.is_full_outer())
-            })
-        {
-            // Check if there's a constraint that would filter out NULL rows,
-            // allowing us to convert the LEFT JOIN into an INNER JOIN for join reordering purposes.
-            // Most binary ops like x = foo filter out NULL rows, but
-            // IS NULL constraints do NOT - they specifically KEEP them.
-            // So we should not convert LEFT JOIN to INNER JOIN based on IS NULL constraints.
-            // Also, expressions wrapped in ifnull()/coalesce() are NOT null-rejecting because
-            // they explicitly handle NULLs and can produce non-NULL values for NULL inputs.
-            if constraints_per_table[i].constraints.iter().any(|c| {
-                let is_from_where = where_clause[c.where_clause_pos.0].from_outer_join.is_none();
-                let is_null_rejecting = where_term_is_null_rejecting_for_table(
-                    &where_clause[c.where_clause_pos.0].expr,
-                    c.operator,
-                    t.internal_id,
-                    dialect,
-                );
-                is_from_where && is_null_rejecting
+        for t in table_references.joined_tables_mut().iter_mut().filter(|t| {
+            t.join_info
+                .as_ref()
+                // Skip FULL OUTER JOIN tables: removing `outer` would suppress
+                // unmatched-probe-row emission and prevent LeftJoinMetadata
+                // allocation needed by the hash join.
+                .is_some_and(|join_info| join_info.is_outer() && !join_info.is_full_outer())
+        }) {
+            // Check if a WHERE term filters out the join's null-extended rows,
+            // allowing us to convert the LEFT JOIN into an INNER JOIN for join
+            // reordering purposes. This looks at the raw WHERE terms, not the
+            // extracted constraints, so terms that never become constraints
+            // (like `t.v = 5 OR t.w = 7`) also count.
+            if where_clause.iter().any(|term| {
+                term.from_outer_join.is_none()
+                    && where_term_is_null_rejecting_for_table(&term.expr, t.internal_id)
             }) {
                 t.join_info.as_mut().unwrap().join_type = JoinType::Inner;
                 for term in where_clause.iter_mut() {
@@ -2399,6 +2336,7 @@ fn optimize_table_access(
                                 *iter_dir,
                                 where_clause,
                                 Some(table_references),
+                                Some(resolver),
                             )?,
                         });
                 } else {
@@ -2432,6 +2370,7 @@ fn optimize_table_access(
                                     *iter_dir,
                                     where_clause,
                                     Some(table_references),
+                                    Some(resolver),
                                 )?,
                             });
                         continue;
@@ -2447,7 +2386,11 @@ fn optimize_table_access(
                             Operation::Search(Search::RowidEq {
                                 cmp_expr: constraints_per_table[table_idx].constraints
                                     [eq.constraint_pos]
-                                    .get_constraining_expr(where_clause, Some(table_references))
+                                    .get_constraining_expr(
+                                        where_clause,
+                                        Some(table_references),
+                                        Some(resolver),
+                                    )
                                     .1,
                             })
                         } else {
@@ -2459,6 +2402,7 @@ fn optimize_table_access(
                                     *iter_dir,
                                     where_clause,
                                     Some(table_references),
+                                    Some(resolver),
                                 )?,
                             })
                         };
@@ -2515,6 +2459,7 @@ fn optimize_table_access(
                     *iter_dir,
                     where_clause,
                     Some(table_references),
+                    Some(resolver),
                 )?;
 
                 table_references.joined_tables_mut()[table_idx].op =
@@ -2593,6 +2538,7 @@ fn optimize_table_access(
                                 IterationDirection::Forwards, // Multi-index always scans forward
                                 where_clause,
                                 Some(table_references),
+                                Some(resolver),
                             )?,
                         },
                         MultiIndexBranchAccessParams::InSeek { source } => {
@@ -2773,7 +2719,7 @@ fn build_vtab_scan_op(
         if usage.omit {
             where_clause[constraint.where_clause_pos.0].consumed = true;
         }
-        let (_, expr, _) = constraint.get_constraining_expr(where_clause, referenced_tables);
+        let (_, expr, _) = constraint.get_constraining_expr(where_clause, referenced_tables, None);
         constraints[zero_based_argv_index] = Some(expr);
         arg_count += 1;
     }
@@ -2980,18 +2926,21 @@ impl Optimizable for ast::Expr {
             Expr::Binary(_, ast::Operator::Modulus | ast::Operator::Divide, _) => false, // 1 % 0, 1 / 0
             Expr::Binary(expr, _, expr1) => expr.is_nonnull(tables) && expr1.is_nonnull(tables),
             Expr::Case {
-                base,
                 when_then_pairs,
                 else_expr,
                 ..
             } => {
-                base.as_ref().is_none_or(|base| base.is_nonnull(tables))
-                    && when_then_pairs
-                        .iter()
-                        .all(|(_, then)| then.is_nonnull(tables))
+                // With no ELSE, the CASE yields NULL when no WHEN matches.
+                // Otherwise its result is one of the THEN values or the ELSE
+                // value, so it is non-null only when all of those are. The base
+                // is only compared in the WHEN tests and never becomes the
+                // result, so its nullability does not matter.
+                when_then_pairs
+                    .iter()
+                    .all(|(_, then)| then.is_nonnull(tables))
                     && else_expr
                         .as_ref()
-                        .is_none_or(|else_expr| else_expr.is_nonnull(tables))
+                        .is_some_and(|else_expr| else_expr.is_nonnull(tables))
             }
             Expr::Cast { expr, .. } => expr.is_nonnull(tables),
             Expr::Collate(expr, _) => expr.is_nonnull(tables),
@@ -3327,6 +3276,7 @@ pub fn build_seek_def_from_constraints(
     iter_dir: IterationDirection,
     where_clause: &[WhereTerm],
     referenced_tables: Option<&TableReferences>,
+    resolver: Option<&Resolver>,
 ) -> Result<SeekDef> {
     if constraint_refs.is_empty() {
         // Zero-prefix seeks are used for extremum scans over an already ordered
@@ -3354,7 +3304,9 @@ pub fn build_seek_def_from_constraints(
     // Extract the key values and operators
     let key = constraint_refs
         .iter()
-        .map(|cref| cref.as_seek_range_constraint(constraints, where_clause, referenced_tables))
+        .map(|cref| {
+            cref.as_seek_range_constraint(constraints, where_clause, referenced_tables, resolver)
+        })
         .collect();
 
     let seek_def = build_seek_def(iter_dir, key)?;
@@ -3871,18 +3823,15 @@ mod tests {
             Box::new(Expr::Literal(ast::Literal::Numeric("127".into()))),
         );
 
-        assert!(!where_term_is_null_rejecting_for_table(
-            &expr,
-            ast::Operator::GreaterEquals.into(),
-            table,
-            &crate::dialect::SqliteDialect,
-        ));
+        assert!(!where_term_is_null_rejecting_for_table(&expr, table));
     }
 
     #[test]
     fn null_rejection_detection_requires_target_table_reference() {
         let target_table = TableInternalId::from(7);
         let other_table = TableInternalId::from(8);
+        // A term that never mentions the target table can be TRUE on the
+        // join's null-extended rows, so it proves nothing about them.
         let expr = Expr::Binary(
             Box::new(fn_call(
                 "coalesce",
@@ -3900,12 +3849,7 @@ mod tests {
             Box::new(Expr::Literal(ast::Literal::Numeric("1".into()))),
         );
 
-        assert!(where_term_is_null_rejecting_for_table(
-            &expr,
-            ast::Operator::Greater.into(),
-            target_table,
-            &crate::dialect::SqliteDialect,
-        ));
+        assert!(!where_term_is_null_rejecting_for_table(&expr, target_table));
     }
 
     #[test]
@@ -3934,12 +3878,7 @@ mod tests {
             Box::new(Expr::Literal(ast::Literal::Numeric("2".into()))),
         );
 
-        assert!(!where_term_is_null_rejecting_for_table(
-            &expr,
-            ast::Operator::Equals.into(),
-            table,
-            &crate::dialect::SqliteDialect,
-        ));
+        assert!(!where_term_is_null_rejecting_for_table(&expr, table));
     }
 
     #[test]
@@ -3956,12 +3895,7 @@ mod tests {
             Box::new(Expr::Literal(ast::Literal::Null)),
         );
 
-        assert!(!where_term_is_null_rejecting_for_table(
-            &expr,
-            ast::Operator::Is.into(),
-            table,
-            &crate::dialect::SqliteDialect,
-        ));
+        assert!(!where_term_is_null_rejecting_for_table(&expr, table));
     }
 
     #[test]
@@ -3983,12 +3917,7 @@ mod tests {
             }),
         );
 
-        assert!(!where_term_is_null_rejecting_for_table(
-            &expr,
-            ast::Operator::Is.into(),
-            table,
-            &crate::dialect::SqliteDialect,
-        ));
+        assert!(!where_term_is_null_rejecting_for_table(&expr, table));
     }
 
     #[test]
@@ -4005,12 +3934,7 @@ mod tests {
             Box::new(Expr::Literal(ast::Literal::Numeric("5".into()))),
         );
 
-        assert!(!where_term_is_null_rejecting_for_table(
-            &expr,
-            ast::Operator::Is.into(),
-            table,
-            &crate::dialect::SqliteDialect,
-        ));
+        assert!(!where_term_is_null_rejecting_for_table(&expr, table));
     }
 
     #[test]
@@ -4027,12 +3951,7 @@ mod tests {
             Box::new(Expr::Literal(ast::Literal::Numeric("5".into()))),
         );
 
-        assert!(!where_term_is_null_rejecting_for_table(
-            &expr,
-            ast::Operator::IsNot.into(),
-            table,
-            &crate::dialect::SqliteDialect,
-        ));
+        assert!(!where_term_is_null_rejecting_for_table(&expr, table));
     }
 
     #[test]
@@ -4062,12 +3981,7 @@ mod tests {
             Box::new(Expr::Literal(ast::Literal::Numeric("0".into()))),
         );
 
-        assert!(!where_term_is_null_rejecting_for_table(
-            &expr,
-            ast::Operator::Greater.into(),
-            table,
-            &crate::dialect::SqliteDialect,
-        ));
+        assert!(!where_term_is_null_rejecting_for_table(&expr, table));
     }
 
     #[test]
@@ -4101,12 +4015,71 @@ mod tests {
             Box::new(Expr::Literal(ast::Literal::Numeric("0".into()))),
         );
 
-        // CASE without IS NULL check doesn't mask nulls, so it IS null-rejecting
+        // Any CASE can turn NULL inputs into a non-NULL result (here the ELSE
+        // arm yields 0 for a NULL t.col), so no CASE term proves anything
+        // about null-extended rows. Same rule as SQLite's impliesNotNullRow.
+        assert!(!where_term_is_null_rejecting_for_table(&expr, table));
+    }
+
+    #[test]
+    fn null_rejection_detection_null_test_nested_in_comparison_not_rejecting() {
+        let table = TableInternalId::from(18);
+        // (t.col IS NULL) = 1 — TRUE on a null-extended row.
+        let expr = Expr::Binary(
+            Box::new(Expr::Parenthesized(vec![Box::new(Expr::IsNull(Box::new(
+                Expr::Column {
+                    database: None,
+                    table,
+                    column: 0,
+                    is_rowid_alias: false,
+                },
+            )))])),
+            ast::Operator::Equals,
+            Box::new(Expr::Literal(ast::Literal::Numeric("1".into()))),
+        );
+
+        assert!(!where_term_is_null_rejecting_for_table(&expr, table));
+    }
+
+    #[test]
+    fn null_rejection_detection_or_needs_both_arms() {
+        let table = TableInternalId::from(19);
+        let other_table = TableInternalId::from(20);
+        let col = |t: TableInternalId, c: usize| Expr::Column {
+            database: None,
+            table: t,
+            column: c,
+            is_rowid_alias: false,
+        };
+        let eq_five = |t: TableInternalId, c: usize| {
+            Expr::Binary(
+                Box::new(col(t, c)),
+                ast::Operator::Equals,
+                Box::new(Expr::Literal(ast::Literal::Numeric("5".into()))),
+            )
+        };
+
+        // t.a = 5 OR t.b = 5: both arms are false when t's columns are NULL.
+        let both_arms_on_table = Expr::Binary(
+            Box::new(eq_five(table, 0)),
+            ast::Operator::Or,
+            Box::new(eq_five(table, 1)),
+        );
         assert!(where_term_is_null_rejecting_for_table(
-            &expr,
-            ast::Operator::Greater.into(),
-            table,
-            &crate::dialect::SqliteDialect,
+            &both_arms_on_table,
+            table
+        ));
+
+        // t.a = 5 OR u.x = 5: the u arm can make the OR true on t's
+        // null-extended rows.
+        let one_arm_on_other_table = Expr::Binary(
+            Box::new(eq_five(table, 0)),
+            ast::Operator::Or,
+            Box::new(eq_five(other_table, 0)),
+        );
+        assert!(!where_term_is_null_rejecting_for_table(
+            &one_arm_on_other_table,
+            table
         ));
     }
 
@@ -4137,11 +4110,6 @@ mod tests {
             Box::new(Expr::Literal(ast::Literal::Numeric("0".into()))),
         );
 
-        assert!(!where_term_is_null_rejecting_for_table(
-            &expr,
-            ast::Operator::Greater.into(),
-            table,
-            &crate::dialect::SqliteDialect,
-        ));
+        assert!(!where_term_is_null_rejecting_for_table(&expr, table));
     }
 }

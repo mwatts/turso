@@ -104,6 +104,7 @@ pub fn emit_query<'a>(
 
     // Handle VALUES clause - emit values after subqueries are prepared
     if !plan.values.is_empty() {
+        init_limit(program, t_ctx, &plan.limit, &plan.offset)?;
         let reg_result_cols_start = emit_values(program, plan, t_ctx)?;
         program.preassign_label_to_next_insn(after_main_loop_label);
         return Ok(reg_result_cols_start);
@@ -283,7 +284,7 @@ pub fn emit_query<'a>(
         group_by_emit_row_phase(program, t_ctx, plan, &mut grouped_output_subqueries)?;
     } else if !plan.aggregates.is_empty() {
         // Handle aggregation without GROUP BY (or HAVING without GROUP BY)
-        emit_ungrouped_aggregation(program, t_ctx, plan)?;
+        emit_ungrouped_aggregation(program, t_ctx, plan, &mut grouped_output_subqueries)?;
     } else if plan.window.is_some() {
         emit_window_flush(program, t_ctx, plan)?;
     }

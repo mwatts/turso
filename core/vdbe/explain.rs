@@ -1993,7 +1993,9 @@ pub fn insn_to_row(
                 0,
                 format!("if (r[{}]==NULL) goto {}", reg, target_pc.as_debug_int()),
             ),
-            Insn::ParseSchema { db, where_clause } => (
+            Insn::ParseSchema {
+                db, where_clause, ..
+            } => (
                 "ParseSchema",
                 *db as i64,
                 0,
@@ -2231,6 +2233,15 @@ pub fn insn_to_row(
                 Value::build_text(""),
                 0,
                 format!("goto {}", target_pc_when_reentered.as_debug_int()),
+            ),
+            Insn::ResetOnce { region_end } => (
+                "ResetOnce",
+                region_end.as_debug_int() as i64,
+                0,
+                0,
+                Value::build_text(""),
+                0,
+                format!("clear once flags before {}", region_end.as_debug_int()),
             ),
             Insn::BeginSubrtn { dest, dest_end } => (
                 "BeginSubrtn",
