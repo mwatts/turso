@@ -45,12 +45,22 @@ pub fn as_binary_components(
             if expr_vector_size(lhs)? > 1 || expr_vector_size(rhs)? > 1 {
                 return Ok(None);
             }
-            Ok(Some((lhs.as_ref(), (*operator).into(), rhs.as_ref())))
+            // Parentheses around an operand mean nothing -- `(t.x) = 5` is
+            // `t.x = 5` -- but they hide the column from index selection and
+            // from affinity resolution, which costs a seek and turns the query
+            // into a full scan. SQLite's grammar drops redundant parentheses
+            // outright; ours keeps them in the AST, so they come off here.
+            // Row values are unaffected: `unwrap_parens` leaves `(x, y)` alone.
+            Ok(Some((
+                unwrap_parens(lhs)?,
+                (*operator).into(),
+                unwrap_parens(rhs)?,
+            )))
         }
         ast::Expr::Like { lhs, not, rhs, .. } => Ok(Some((
-            lhs.as_ref(),
+            unwrap_parens(lhs)?,
             ConstraintOperator::Like { not: *not },
-            rhs.as_ref(),
+            unwrap_parens(rhs)?,
         ))),
         _ => Ok(None),
     }

@@ -1,0 +1,120 @@
+@database :memory:
+
+# Parentheses around one side of a comparison mean nothing: `(a) = 5` is
+# `a = 5`. SQLite's grammar throws the redundant parentheses away while
+# parsing, so by the time its planner looks at the term it sees a bare column.
+# Turso keeps them in the AST, and the planner only recognises a constraint
+# when the operand *is* a column -- so a parenthesized column hid the index and
+# the query fell back to a full table scan.
+#
+# Machine-written SQL is where this bites. A generator that parenthesizes every
+# operand to keep precedence right produces correct answers at scan speed and
+# gives no hint that an index was available.
+
+setup schema {
+    CREATE TABLE t(id INTEGER PRIMARY KEY, a INTEGER, b TEXT);
+    CREATE INDEX t_a ON t(a);
+    CREATE INDEX t_b ON t(b);
+    INSERT INTO t VALUES (1, 5, 'xy'), (2, 7, 'yz'), (3, NULL, 'xz');
+}
+
+@setup schema
+@skip-if sqlite "query plan explanation output is different in sqlite"
+test plan-parenthesized-column-equality-seeks {
+    EXPLAIN QUERY PLAN SELECT b FROM t WHERE (a) = 5;
+}
+expect {
+    1|0|0|SEARCH t USING INDEX t_a (a=?)
+}
+
+@setup schema
+@skip-if sqlite "query plan explanation output is different in sqlite"
+test plan-doubly-parenthesized-column-equality-seeks {
+    EXPLAIN QUERY PLAN SELECT b FROM t WHERE ((a)) = 5;
+}
+expect {
+    1|0|0|SEARCH t USING INDEX t_a (a=?)
+}
+
+# IS NULL is a seekable constraint like any other comparison, and the
+# parentheses hid the column from it in the same way.
+@setup schema
+@skip-if sqlite "query plan explanation output is different in sqlite"
+test plan-parenthesized-column-is-null-seeks {
+    EXPLAIN QUERY PLAN SELECT b FROM t WHERE (a) IS NULL;
+}
+expect {
+    1|0|0|SEARCH t USING INDEX t_a (a=?)
+}
+
+@setup schema
+@skip-if sqlite "query plan explanation output is different in sqlite"
+test plan-parenthesized-column-range-seeks {
+    EXPLAIN QUERY PLAN SELECT b FROM t WHERE (a) > 5;
+}
+expect {
+    1|0|0|SEARCH t USING INDEX t_a (a>?)
+}
+
+# A parenthesized literal on the right never blocked the seek, because the
+# planner matches on the left operand being a column. Pinned so the unwrapping
+# added for the left side cannot regress the side that already worked.
+@setup schema
+@skip-if sqlite "query plan explanation output is different in sqlite"
+test plan-parenthesized-literal-still-seeks {
+    EXPLAIN QUERY PLAN SELECT b FROM t WHERE a = (5);
+}
+expect {
+    1|0|0|SEARCH t USING INDEX t_a (a=?)
+}
+
+# The answers have to be the ones the scan gave. A seek that returns different
+# rows is worse than no seek at all.
+@setup schema
+@cross-check-integrity
+test parenthesized-column-equality-returns-the-same-rows {
+    SELECT id FROM t WHERE (a) = 5;
+}
+expect {
+    1
+}
+
+@setup schema
+@cross-check-integrity
+test parenthesized-column-is-null-returns-the-same-rows {
+    SELECT id FROM t WHERE (a) IS NULL;
+}
+expect {
+    3
+}
+
+@setup schema
+@cross-check-integrity
+test parenthesized-column-range-returns-the-same-rows {
+    SELECT id FROM t WHERE (a) > 5;
+}
+expect {
+    2
+}
+
+@setup schema
+@cross-check-integrity
+test parenthesized-column-like-returns-the-same-rows {
+    SELECT id FROM t WHERE (b) LIKE 'x%' ORDER BY id;
+}
+expect {
+    1
+    3
+}
+
+# A row value is also a parenthesized expression, but `(id, a)` is one value
+# with two fields, not a redundant wrapper. Stripping it would turn the
+# comparison into nonsense, so the unwrapping has to leave it alone.
+@setup schema
+@cross-check-integrity
+test row-value-parentheses-are-left-alone {
+    SELECT id FROM t WHERE (id, a) IN (VALUES (1, 5), (2, 99)) ORDER BY id;
+}
+expect {
+    1
+}
