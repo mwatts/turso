@@ -132,9 +132,18 @@ counts (MERGE-related failures may move under exact multiset).
   the behavior is worse than a pin test that fails when behavior changes
   accidentally.
 
-## Decision (fill in when implementing)
+## Decision (product, 2026-08-10)
 
 | Item | Choice | Date |
 | --- | --- | --- |
-| R7 multiset vs subset | _TBD_ | |
-| R8 fix vs document | _TBD_ | |
+| R7 multiset vs subset | **A — exact multiset** | 2026-08-10 |
+| R8 fix vs document | **1 — fix** (unique enforcement, not document-only) | 2026-08-10 |
+| Empty MERGE key | **Fail closed** when match key is empty | 2026-08-10 |
+| Shared tables (Q5/R8) | **In scope for R8** — merge-key uniqueness must work when multiple types share a table (type is part of the key; Many multiset is part of the key) | 2026-08-10 |
+
+**Implementation approach for R8 + shared tables:** a catalog merge-key table
+keyed by a stable hash of (graph, relationship source, One-role columns,
+sorted Many-role player multisets, relationship type names). Concurrent MERGE
+of the same key hits UNIQUE on that table and re-matches instead of inserting
+a second relationship. This avoids incorrect `UNIQUE(src,dst)` on multi-type
+shared tables and covers Many roles that endpoint indexes cannot express.

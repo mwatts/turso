@@ -318,6 +318,90 @@ fn merge_with_different_witness_does_not_collapse_into_the_first_relation() {
     );
 }
 
+/// R7 exact multiset: a relationship whose Many role has {w1,w2} must not
+/// match a MERGE that names only {w1}. Subset EXISTS would silently attach
+/// ON MATCH to the two-witness edge and discard the smaller assertion.
+#[test]
+fn merge_with_subset_of_many_players_does_not_match_a_superset_relation() {
+    let (database, session) = fixture::witnessed_session();
+    session
+        .execute(
+            "CREATE (:Person {id: 1}), (:Person {id: 2}), (:Person {id: 3}), (:Person {id: 4})",
+            &Parameters::new(),
+        )
+        .expect("seed people");
+    session
+        .execute(
+            "MATCH (a:Person {id: 1}), (b:Person {id: 2}), (w1:Person {id: 3}), (w2:Person {id: 4}) \
+             CREATE [x:KNOWS](start: a, end: b, witness: w1, witness: w2)",
+            &Parameters::new(),
+        )
+        .expect("create two-witness relation");
+    session
+        .execute(
+            "MATCH (a:Person {id: 1}), (b:Person {id: 2}), (w:Person {id: 3}) \
+             MERGE [x:KNOWS](start: a, end: b, witness: w)",
+            &Parameters::new(),
+        )
+        .expect("subset MERGE must create its own one-witness relation, not match the superset");
+
+    let connection = fixture::second_connection(&database);
+    assert_eq!(
+        connection
+            .prepare("SELECT count(*) FROM relationships")
+            .unwrap()
+            .run_collect_rows()
+            .unwrap(),
+        vec![vec![Value::from_i64(2)]],
+        "subset MERGE must not collapse into a Many-superset relationship"
+    );
+}
+
+/// Empty MERGE key (no properties, labels, or endpoints) is fail-closed.
+#[test]
+fn propertyless_merge_without_a_match_key_is_rejected() {
+    let (_database, session) = fixture::social_graph_connection();
+    let error = session
+        .execute("MERGE (n)", &Parameters::new())
+        .expect_err("property-less MERGE must not use 1=1 LIMIT 1");
+    let message = error.to_string();
+    assert!(
+        message.contains("match key") || message.contains("MERGE"),
+        "expected EmptyMergeKey wording, got: {message}"
+    );
+}
+
+/// R8: two sessions MERGEing the same pattern leave one relationship row.
+/// The merge-keys catalog table serializes the claim (works for shared tables
+/// and Many multisets, not only UNIQUE(src,dst)).
+#[test]
+fn concurrent_identical_relationship_merges_leave_one_row() {
+    let (database, session_a) = fixture::social_graph_connection();
+    // social fixture already seeded Person id 1 and 2.
+    let session_b =
+        GraphConnection::open(fixture::second_connection(&database), "social")
+            .expect("open second session on the same registered graph");
+
+    let merge = "MATCH (a:Person {id: 1}), (b:Person {id: 2}) MERGE (a)-[:KNOWS]->(b)";
+    session_a
+        .execute(merge, &Parameters::new())
+        .expect("first session merge");
+    session_b
+        .execute(merge, &Parameters::new())
+        .expect("second session merge of the same pattern");
+
+    let connection = fixture::second_connection(&database);
+    assert_eq!(
+        connection
+            .prepare("SELECT count(*) FROM relationships")
+            .unwrap()
+            .run_collect_rows()
+            .unwrap(),
+        vec![vec![Value::from_i64(1)]],
+        "identical MERGEs from two sessions must claim one merge key / one relationship"
+    );
+}
+
 /// `mutation.rs`'s `insert_relationship` guards its spill writes with `if
 /// created` (added in Task 14a, untested until now: it can only be
 /// exercised through MERGE over a role pattern). A relation matched by

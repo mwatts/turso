@@ -31,8 +31,12 @@ pub(crate) const SOURCES_TABLE: &str = "__turso_internal_graph_sources";
 pub(crate) const NODE_SOURCES_TABLE: &str = "__turso_internal_graph_node_sources";
 pub(crate) const RELATIONSHIP_SOURCES_TABLE: &str = "__turso_internal_graph_relationship_sources";
 pub(crate) const RELATIONSHIP_ROLES_TABLE: &str = "__turso_internal_graph_relationship_roles";
+/// Concurrent MERGE uniqueness for relationship patterns (R8), including
+/// shared multi-type tables and Many-role multisets. Keyed by a stable hash of
+/// the match key; `relation_id` points at the winning relationship row.
+pub(crate) const MERGE_KEYS_TABLE: &str = "__turso_internal_graph_merge_keys";
 
-pub const GRAPH_CATALOG_VERSION: u64 = 5;
+pub const GRAPH_CATALOG_VERSION: u64 = 6;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct NodeSourceRegistration {
@@ -864,7 +868,23 @@ fn create_catalog(connection: &Arc<Connection>) -> Result<(), CatalogError> {
     execute_internal(connection, format!(
         "CREATE TABLE IF NOT EXISTS {RELATIONSHIP_ROLES_TABLE}(source_id INTEGER NOT NULL, ordinal INTEGER NOT NULL, name TEXT NOT NULL COLLATE NOCASE, column_name TEXT NOT NULL, node_source_ids TEXT NOT NULL, node_source_column TEXT NOT NULL, cardinality TEXT NOT NULL CHECK(cardinality IN ('one', 'many')), PRIMARY KEY(source_id, ordinal))"
     ))?;
+    ensure_merge_keys_table(connection)?;
     Ok(())
+}
+
+/// R8 concurrent MERGE uniqueness table. Safe to call on every open/register.
+pub(crate) fn ensure_merge_keys_table(connection: &Arc<Connection>) -> Result<(), CatalogError> {
+    execute_internal(
+        connection,
+        format!(
+            "CREATE TABLE IF NOT EXISTS {MERGE_KEYS_TABLE}(\
+             graph_id INTEGER NOT NULL, \
+             source_id INTEGER NOT NULL, \
+             merge_key TEXT NOT NULL, \
+             relation_id INTEGER NOT NULL, \
+             PRIMARY KEY(graph_id, source_id, merge_key))"
+        ),
+    )
 }
 
 fn ensure_catalog_exists(connection: &Arc<Connection>) -> Result<(), CatalogError> {

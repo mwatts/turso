@@ -14,7 +14,7 @@ use turso_graph_ir as ir;
 use crate::{
     bind_mutation,
     binder::{BoundMutation, StageItem, StageProjection},
-    catalog::CatalogError,
+    catalog::{self, CatalogError},
     lowering::{
         lower_mutation_expression, lower_mutation_input, mutation_rows_with_sources_sql,
         quoted_identifier, unit_mutation_input, BindingReference, LoweredMutationInput,
@@ -85,6 +85,14 @@ pub enum MutationError {
     ReservedParameter(String),
     #[error("created {entity} did not return exactly one identity")]
     MissingCreatedIdentity { entity: &'static str },
+    /// MERGE without a discriminating match key would match an arbitrary row
+    /// (`1 = 1 LIMIT 1`). Fail closed so multi-row sources cannot silently
+    /// attach ON MATCH to a random entity.
+    #[error(
+        "MERGE requires a match key (properties, labels/types, or role endpoints); \
+         a property-less MERGE over a multi-row source is not allowed"
+    )]
+    EmptyMergeKey,
     #[error("mutation references binding {0} before it has a value")]
     MissingBinding(ir::BindingId),
     #[error("relation has no role {role:?}")]
@@ -2189,14 +2197,11 @@ pub(crate) fn insert_relationship(
                 }
             }
             // A many-valued role has no column on the relation table; its
-            // players land in the spill table after the relation row exists
-            // and has an identity to point at. `fixed` cannot express this,
-            // so a MERGE matches a `Many` role by membership instead: each
-            // named player must already be present in that role's spill
-            // table for the same relation. `binding.value`'s parameter is
-            // already registered in `insert_entity`'s `internal` map via
-            // `reference_parameters(values)`, so no extra plumbing is
-            // needed to reference it here.
+            // players land in the spill table after the relation row exists.
+            // MERGE match (R7 exact multiset): every named player EXISTS in
+            // the spill set, and the spill COUNT equals the pattern player
+            // count for this role — so a superset relationship does not match
+            // a smaller pattern.
             ir::RoleCardinality::Many => {
                 if merge {
                     let table = role.spill_table.as_ref().ok_or_else(|| {
@@ -2215,6 +2220,30 @@ pub(crate) fn insert_relationship(
                 }
                 spilled.push((role.clone(), player.clone()));
             }
+        }
+    }
+    if merge {
+        // One COUNT(*) = N predicate per Many role (not per player).
+        let mut many_counts: HashMap<String, (String, usize)> = HashMap::new();
+        for (role, _) in &spilled {
+            let table = role.spill_table.as_ref().ok_or_else(|| {
+                MutationError::MissingSpillTable {
+                    relation: role.name.clone(),
+                    role: role.name.clone(),
+                }
+            })?;
+            let entry = many_counts
+                .entry(role.name.clone())
+                .or_insert_with(|| (table.clone(), 0));
+            entry.1 += 1;
+        }
+        for (_role_name, (table, count)) in many_counts {
+            merge_predicates.push(format!(
+                "(SELECT COUNT(*) FROM {} WHERE relation_id = {}.{}) = {count}",
+                quoted_identifier(&table),
+                quoted_identifier(&layout.table),
+                quoted_identifier(&layout.identity_column),
+            ));
         }
     }
     let (identity, created) = insert_entity(
@@ -2254,7 +2283,7 @@ pub(crate) fn insert_relationship(
                 (player_parameter.clone(), player.clone()),
             ]);
             io.run_ignore(
-                                &format!(
+                &format!(
                     "INSERT INTO {}(relation_id, node_id) VALUES (${relation_parameter}, ${player_parameter})",
                     quoted_identifier(table),
                 ),
@@ -2262,8 +2291,206 @@ pub(crate) fn insert_relationship(
                 &internal,
             )?;
         }
+        // R8: claim the stable merge key so a concurrent MERGE of the same
+        // pattern cannot leave a second relationship row. On conflict, delete
+        // this orphan and re-match the winner.
+        if merge {
+            let merge_key = relationship_merge_key(
+                catalog,
+                create.source,
+                &create.relationship_types,
+                &fixed,
+                &spilled,
+            );
+            match claim_relationship_merge_key(
+                io,
+                graph,
+                create.source,
+                &merge_key,
+                &identity,
+                parameters,
+            )? {
+                MergeKeyClaim::Won => {}
+                MergeKeyClaim::Lost { winner } => {
+                    // Remove the relation row (and spill) we just inserted.
+                    delete_orphaned_relationship(
+                        io,
+                        catalog,
+                        graph,
+                        create.source,
+                        &layout,
+                        &identity,
+                        parameters,
+                    )?;
+                    return Ok((winner, false));
+                }
+            }
+        }
     }
     Ok((identity, created))
+}
+
+/// Stable text key for a relationship MERGE pattern (R8).
+///
+/// Includes relationship type names, One-role endpoint values, and sorted
+/// Many-role player multisets so shared multi-type tables and n-ary Many
+/// shapes stay distinct when they should.
+fn relationship_merge_key(
+    catalog: &dyn GraphCompilationCatalog,
+    source: ir::SourceTableId,
+    relationship_types: &[ir::RelationshipTypeId],
+    fixed: &[(String, Value)],
+    spilled: &[(crate::RelationshipRoleLayout, Value)],
+) -> String {
+    let mut parts = Vec::new();
+    parts.push(format!("source={}", source.get()));
+    let mut type_names: Vec<String> = relationship_types
+        .iter()
+        .filter_map(|id| {
+            catalog
+                .relationship_type_name(*id)
+                .map(|name| name.to_owned())
+        })
+        .collect();
+    type_names.sort();
+    parts.push(format!("types={}", type_names.join(",")));
+    let mut fixed_parts: Vec<String> = fixed
+        .iter()
+        .map(|(col, val)| format!("{col}={}", equality_key_for_value(val)))
+        .collect();
+    fixed_parts.sort();
+    parts.extend(fixed_parts);
+    // Group Many players by role name; sort player keys within each role.
+    let mut by_role: HashMap<String, Vec<String>> = HashMap::new();
+    for (role, player) in spilled {
+        by_role
+            .entry(role.name.clone())
+            .or_default()
+            .push(equality_key_for_value(player));
+    }
+    let mut role_names: Vec<_> = by_role.keys().cloned().collect();
+    role_names.sort();
+    for role_name in role_names {
+        let mut players = by_role.remove(&role_name).unwrap_or_default();
+        players.sort();
+        parts.push(format!("many:{role_name}={}", players.join("+")));
+    }
+    parts.join("|")
+}
+
+enum MergeKeyClaim {
+    Won,
+    Lost { winner: Value },
+}
+
+fn claim_relationship_merge_key(
+    io: &MutationIo,
+    graph: ir::GraphId,
+    source: ir::SourceTableId,
+    merge_key: &str,
+    relation_id: &Value,
+    parameters: &Parameters,
+) -> Result<MergeKeyClaim, MutationError> {
+    catalog::ensure_merge_keys_table(io.connection).map_err(|error| match error {
+        CatalogError::Database(error) => MutationError::Database(error),
+        other => MutationError::Database(turso_core::LimboError::InternalError(other.to_string())),
+    })?;
+    let key_param = format!("{INTERNAL_PARAMETER_PREFIX}merge_key");
+    let rel_param = format!("{INTERNAL_PARAMETER_PREFIX}merge_rel");
+    let internal = HashMap::from([
+        (key_param.clone(), Value::build_text(merge_key.to_owned())),
+        (rel_param.clone(), relation_id.clone()),
+    ]);
+    // Insert our claim. On conflict, another writer already owns this pattern.
+    let inserted = io.run_rows(
+        &format!(
+            "INSERT INTO {}(graph_id, source_id, merge_key, relation_id) \
+             VALUES ({}, {}, ${key_param}, ${rel_param}) \
+             ON CONFLICT(graph_id, source_id, merge_key) DO NOTHING \
+             RETURNING relation_id",
+            catalog::MERGE_KEYS_TABLE,
+            graph.get(),
+            source.get(),
+        ),
+        parameters,
+        &internal,
+    )?;
+    if !inserted.is_empty() {
+        return Ok(MergeKeyClaim::Won);
+    }
+    let existing = io.run_rows(
+        &format!(
+            "SELECT relation_id FROM {} \
+             WHERE graph_id = {} AND source_id = {} AND merge_key = ${key_param}",
+            catalog::MERGE_KEYS_TABLE,
+            graph.get(),
+            source.get(),
+        ),
+        parameters,
+        &internal,
+    )?;
+    let winner = existing
+        .into_iter()
+        .next()
+        .and_then(|mut row| row.pop())
+        .ok_or_else(|| {
+            MutationError::Database(turso_core::LimboError::InternalError(
+                "merge key conflict without a winning relation_id".to_owned(),
+            ))
+        })?;
+    Ok(MergeKeyClaim::Lost { winner })
+}
+
+fn delete_orphaned_relationship(
+    io: &MutationIo,
+    catalog: &dyn GraphCompilationCatalog,
+    graph: ir::GraphId,
+    source: ir::SourceTableId,
+    layout: &crate::RelationshipTableLayout,
+    identity: &Value,
+    parameters: &Parameters,
+) -> Result<(), MutationError> {
+    let id_param = format!("{INTERNAL_PARAMETER_PREFIX}orphan_rel");
+    let internal = HashMap::from([(id_param.clone(), identity.clone())]);
+    // Spill rows for Many roles first.
+    for role in &layout.roles {
+        if let Some(table) = &role.spill_table {
+            io.run_ignore(
+                &format!(
+                    "DELETE FROM {} WHERE relation_id = ${id_param}",
+                    quoted_identifier(table),
+                ),
+                parameters,
+                &internal,
+            )?;
+        }
+    }
+    if let Some(types_table) = catalog.relationship_types_table() {
+        let source_pred = if catalog.source_qualified_membership() {
+            format!("source_id = {} AND ", source.get())
+        } else {
+            String::new()
+        };
+        io.run_ignore(
+            &format!(
+                "DELETE FROM {} WHERE {source_pred}relationship_id = ${id_param}",
+                quoted_identifier(&types_table),
+            ),
+            parameters,
+            &internal,
+        )?;
+    }
+    let _ = graph; // graph reserved for future multi-graph spill cleanup
+    io.run_ignore(
+        &format!(
+            "DELETE FROM {} WHERE {} = ${id_param}",
+            quoted_identifier(&layout.table),
+            quoted_identifier(&layout.identity_column),
+        ),
+        parameters,
+        &internal,
+    )?;
+    Ok(())
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -2328,8 +2555,9 @@ fn insert_entity(
         }
     }
     if merge {
-        // A propertyless MERGE matches any candidate row (Cypher semantics);
-        // label membership arrives through merge_predicates.
+        // Match key = property/endpoint columns plus label/type/Many predicates.
+        // An empty key would be `1 = 1 LIMIT 1` and attach to a random row on a
+        // multi-row source — fail closed (product decision 2026-08-10).
         let predicate = columns
             .iter()
             .zip(&expressions)
@@ -2337,13 +2565,11 @@ fn insert_entity(
             .chain(merge_predicates.iter().cloned())
             .collect::<Vec<_>>()
             .join(" AND ");
-        let predicate = if predicate.is_empty() {
-            "1 = 1".to_owned()
-        } else {
-            predicate
-        };
+        if predicate.is_empty() {
+            return Err(MutationError::EmptyMergeKey);
+        }
         let existing = io.run_rows(
-                        &format!(
+            &format!(
                 "SELECT {} FROM {} WHERE {predicate} LIMIT 1",
                 quoted_identifier(identity),
                 quoted_identifier(table),

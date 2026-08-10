@@ -261,6 +261,19 @@ aggregation with grouping.
 | `SET n:Label1:Label2` | Add labels |
 | `SET [x](role: player, …)` | Repoint named roles of an already-bound relation |
 
+#### MERGE match rules (Turso product)
+
+- **Match key required.** A MERGE must discriminate rows with properties,
+  labels/types, and/or role endpoints. A property-less `MERGE (n)` with no
+  labels is rejected (`EmptyMergeKey`) instead of matching an arbitrary row.
+- **Many-role match is exact multiset.** For a `Many` role, the spill players
+  must equal the pattern’s players (same identities and count). A relationship
+  with witnesses `{A,B}` does **not** match `MERGE … (witness: A)` alone.
+- **Concurrent MERGE uniqueness.** Relationship MERGE patterns claim a stable
+  key in `__turso_internal_graph_merge_keys` so two sessions MERGEing the same
+  pattern (including shared multi-type tables and Many multisets) leave one
+  relationship row.
+
 ### Patterns
 
 Node patterns, arrow relationship patterns with `Outgoing` / `Incoming` /

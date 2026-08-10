@@ -246,13 +246,15 @@ AVG’s divisor counts only values that enter the sum (or rejects non-numeric). 
 **Test:** unit or injection that forces arity mismatch does not abort the process. 
 **Status: done** — `1a5bf497e` (PR-C).
 
-**R7. MERGE Many-role match is exact player multiset (or documented subset).** 
-Default product rule: a relationship matches MERGE only if the multiset of players for each Many role equals the pattern’s players (count and identity), not merely EXISTS for each named player. If subset match is intentional, document it in `docs/graph.md` and the IR comments and pin a corpus expectation. 
+**R7. MERGE Many-role match is exact player multiset (or documented subset).**
+Default product rule: a relationship matches MERGE only if the multiset of players for each Many role equals the pattern's players (count and identity), not merely EXISTS for each named player. If subset match is intentional, document it in `docs/graph.md` and the IR comments and pin a corpus expectation.
 **Test:** relation with three players in a Many role does not match MERGE that names two of them unless docs say subset.
+**Status: done** — product chose exact multiset (A). EXISTS per player plus `COUNT(*) = N` per Many role; test `merge_with_subset_of_many_players_does_not_match_a_superset_relation`. Empty MERGE key fail-closed (`EmptyMergeKey`).
 
-**R8. Concurrent MERGE does not double-insert the same pattern under single-writer IMMEDIATE without a unique key, without documenting the race.** 
-Prefer physical unique indexes on MERGE keys where semantic mode allows, plus `INSERT … ON CONFLICT` or retry. Until that lands, document that two writers can both create. 
+**R8. Concurrent MERGE does not double-insert the same pattern under single-writer IMMEDIATE without a unique key, without documenting the race.**
+Prefer physical unique indexes on MERGE keys where semantic mode allows, plus `INSERT … ON CONFLICT` or retry. Until that lands, document that two writers can both create.
 **Test:** two connections, concurrent MERGE same endpoints and type, assert one row or assert documented conflict error.
+**Status: done** — product chose fix (1) including shared tables. Catalog `__turso_internal_graph_merge_keys` claims a stable key; loser deletes orphan and re-matches. Test `concurrent_identical_relationship_merges_leave_one_row`.
 
 **R9. REMOVE label either works or fails closed.** 
 openCypher `REMOVE n:Label` either deletes the label-junction row (new IR + executor) or bind rejects with an explicit unsupported message. Silent no-op is forbidden. 
@@ -411,7 +413,7 @@ subject lines from that log.
 | **PR-D** | R14 | **done** | `c25c7236c` | DESIGN/CONFORMANCE → REPORT; core-changes §2 = tokens |
 | **PR-E** | R15 (partial), R17 | **done** for scoped goals | `c25c7236c` | Written ids + value SQL LIMIT 1 + typeof; LRU cache; backlog 3a/3b |
 | **PR-F** | R16 | **done** | `ca77b3988` | Single Cypher parse; mutation helper StatementCache + nested park |
-| **PR-G** | R7, R8 | open | — | MERGE Many multiset; concurrency |
+| **PR-G** | R7, R8, empty MERGE key | **done** (product A + R8 fix) | `bfce1286e` | Exact Many multiset; merge-keys table; fail-closed empty key |
 | **PR-H** | R9–R12 | open | — | REMOVE label; OPTIONAL null; RETURN alias ORDER BY; shadow |
 | **PR-I** | R13, R22–R24 | open | — | Soft limits honesty; module splits; typed expects; compile LRU |
 | **PR-J** | R20 residual, R21, R25, R26 | open | — | Shared publish; role-general cardinality; FTS outer; expand knobs |
@@ -476,8 +478,8 @@ Statuses mirror §7.0.
 4. ~~**PR-D: Docs (R14).**~~ **done** `c25c7236c` — REPORT pointers; core-changes inventory matches tokens.
 5. ~~**PR-E: Constraints scale (R15, R17).**~~ **done** for required/value + cache (`c25c7236c`) — Written-id validation; LIMIT 1 value SQL + typeof; StatementCache LRU; PERFORMANCE_BACKLOG 3a/3b. Unique/key/cardinality scale still open under residual item 3.
 6. ~~**PR-F: Mutation prepare (R16).**~~ **done** — Single parse; helper statement reuse (`mutation_prepare_cost`).
-7. **PR-G: MERGE concurrency and Many match (R7, R8).** Exact multiset + unique/UPSERT or documented race + test. **← next**
-8. **PR-H: Cypher holes (R9–R12).** REMOVE label; nullability; ORDER BY aliases; quantifier shadowing.
+7. ~~**PR-G: MERGE concurrency and Many match (R7, R8).**~~ **done** — Exact multiset; merge-keys table; empty MERGE key fail-closed.
+8. **PR-H: Cypher holes (R9–R12).** REMOVE label; nullability; ORDER BY aliases; quantifier shadowing. **← next**
 9. **PR-I: Honesty and structure (R13, R22–R24).** Stream snapshot or document soft limits; start module splits; typed expects; compile cache LRU.
 10. **PR-J: Product follow-ons (R20 residual, R21, R25, R26, optional core multi-stmt).** Session expand limits; shared publish; role-general cardinality; FTS outer scan; design spike for mutation PreparedSource (no obligation to finish in J).
 
@@ -485,7 +487,7 @@ Do not combine PR-A with PR-J. Do not land path-order changes without R3’s mul
 
 ### 7.4 Priority if only one engineer is available
 
-Order by wrong data first: ~~A → B → C → D → E → F~~ **done** → **G → H → I → J**.
+Order by wrong data first: ~~A → B → C → D → E → F → G~~ **done** → **H → I → J**.
 
 ---
 
