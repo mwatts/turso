@@ -976,6 +976,7 @@ fn validate_against_graph(
             &source.table,
             &[source.identity_column.as_str()],
             &mut property_types,
+            true, // Cell is the only property store
         )?;
     }
 
@@ -1013,6 +1014,7 @@ fn validate_against_graph(
                 &source.table,
                 &[source.identity_column.as_str()],
                 &mut property_types,
+                true, // Cell is the only property store
             )?;
             for property in &member.properties {
                 let key = (fold(&member.node_type), fold(&property.name));
@@ -1060,6 +1062,8 @@ fn validate_against_graph(
             &source.table,
             &structural,
             &mut property_types,
+            // Edge cells not yet single-rail; relation properties still need columns.
+            false,
         )?;
         for role in &relationship.roles {
             let physical_role = source.role_by_name(&role.name).ok_or_else(|| {
@@ -1162,6 +1166,9 @@ fn check_owned_columns(
     table_name: &str,
     structural: &[&str],
     property_types: &mut HashMap<String, (String, ir::ValueType)>,
+    // When true, missing SQL columns are allowed: the property lives in the
+    // Cell store and `SemanticProperty.column` is only a stable key spelling.
+    cell_store: bool,
 ) -> Result<(), SemanticCatalogError> {
     let schema = connection.current_schema();
     let table = schema.get_table(table_name).ok_or_else(|| {
@@ -1178,7 +1185,11 @@ fn check_owned_columns(
                 column: property.column.clone(),
             });
         }
-        let Some((_, column)) = table.get_column_by_name(&property.column) else {
+        let value_type = if let Some((_, column)) = table.get_column_by_name(&property.column) {
+            crate::schema_catalog::column_value_type(&schema, column, table.is_strict())
+        } else if cell_store {
+            ir::ValueType::Any
+        } else {
             return Err(SemanticCatalogError::ColumnMissing {
                 owner: owner.to_owned(),
                 property: property.name.clone(),
@@ -1186,8 +1197,6 @@ fn check_owned_columns(
                 table: table_name.to_owned(),
             });
         };
-        let value_type =
-            crate::schema_catalog::column_value_type(&schema, column, table.is_strict());
         match property_types.entry(fold(&property.name)) {
             std::collections::hash_map::Entry::Vacant(entry) => {
                 entry.insert((owner.to_owned(), value_type));
@@ -1247,6 +1256,7 @@ fn register_semantic_in_transaction(
         || !existing.fragment_ownership.is_empty();
     if has_existing {
         if existing.clone().canonicalized() == expected.clone().canonicalized() {
+            seed_prop_dict_from_semantic_properties(connection, graph, &expected.properties)?;
             return Ok(());
         }
         if fragments.fragments.is_empty()
@@ -1254,6 +1264,7 @@ fn register_semantic_in_transaction(
             && existing.clone().without_fragments().canonicalized()
                 == expected.clone().canonicalized()
         {
+            seed_prop_dict_from_semantic_properties(connection, graph, &expected.properties)?;
             return Ok(());
         }
         if !fragments.fragments.is_empty()
@@ -1287,6 +1298,7 @@ fn register_semantic_in_transaction(
                     fragment_ownership: expected.fragment_ownership,
                 };
                 insert_catalog_rows(connection, graph.id.get(), &delta)?;
+                seed_prop_dict_from_semantic_properties(connection, graph, &delta.properties)?;
                 bump_semantic_generation(connection, graph.id.get())?;
                 return Ok(());
             }
@@ -1295,7 +1307,31 @@ fn register_semantic_in_transaction(
     }
 
     insert_catalog_rows(connection, graph.id.get(), &expected)?;
+    seed_prop_dict_from_semantic_properties(connection, graph, &expected.properties)?;
     bump_semantic_generation(connection, graph.id.get())?;
+    Ok(())
+}
+
+/// Align Cell `prop_dict` ids with semantic property ids so Cell physical
+/// storage uses the same PropertyId the binder resolved.
+fn seed_prop_dict_from_semantic_properties(
+    connection: &Arc<Connection>,
+    graph: &RegisteredGraph,
+    properties: &[(u64, String)],
+) -> Result<(), SemanticCatalogError> {
+    // Cell is the only property store; always seed prop_dict.
+    let dict = crate::catalog::prop_dict_table_name(graph.id);
+    for (prop_id, name) in properties {
+        let escaped = name.replace('\'', "''");
+        // REPLACE so semantic property ids win over auto-allocated open names.
+        execute_internal(
+            connection,
+            format!(
+                "INSERT OR REPLACE INTO \"{dict}\"(prop_id, name, value_type) \
+                 VALUES ({prop_id}, '{escaped}', 'any')"
+            ),
+        )?;
+    }
     Ok(())
 }
 

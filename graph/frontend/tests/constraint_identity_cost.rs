@@ -134,18 +134,21 @@ fn steady_create_filters_required_and_value_to_written_ids_with_limit_one() {
         );
     }
 
+    // Value probe may name a legacy column (`score`) or Cell storage
+    // (`node_props` / `prop_id`); both shapes are valid on the single rail.
     let value: Vec<&String> = first
         .iter()
         .filter(|sql| {
             sql.contains("AS entity")
-                && sql.contains("score")
                 && !sql.contains("IS NULL")
                 && sql.contains("EXISTS")
+                && (sql.contains("score") || sql.contains("node_props") || sql.contains("prop_id"))
+                && sql.contains("typeof(")
         })
         .collect();
     assert!(
         !value.is_empty(),
-        "expected a value-predicate probe against score on first CREATE, got {first:#?}"
+        "expected a value-predicate probe (column or Cell) on first CREATE, got {first:#?}"
     );
     for sql in &value {
         assert!(

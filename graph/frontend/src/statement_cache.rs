@@ -80,12 +80,9 @@ impl StatementCache {
         connection: &Arc<Connection>,
         sql: &str,
     ) -> Result<Vec<Vec<Value>>, CatalogError> {
-        self.run(
-            connection,
-            sql,
-            PrepareKind::Root,
-            |statement| statement.run_collect_rows(),
-        )
+        self.run(connection, sql, PrepareKind::Root, |statement| {
+            statement.run_collect_rows()
+        })
         .map_err(CatalogError::from)
     }
 

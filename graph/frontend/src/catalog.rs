@@ -112,6 +112,12 @@ impl RelationshipSourceRegistration {
     }
 }
 
+/// Options for [`register_graph_with_options`].
+///
+/// Empty for now; property storage is always Cell (not selectable).
+#[derive(Clone, Debug, Default, Eq, PartialEq)]
+pub struct GraphRegisterOptions {}
+
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct GraphRegistration {
     pub name: String,
@@ -281,7 +287,12 @@ pub fn register_graph(
     connection: &Arc<Connection>,
     registration: &GraphRegistration,
 ) -> Result<RegisteredGraph, CatalogError> {
-    register_graph_with_polymorphic_roles(connection, registration, &[])
+    register_graph_with_options(
+        connection,
+        registration,
+        &[],
+        GraphRegisterOptions::default(),
+    )
 }
 
 pub fn register_graph_with_polymorphic_roles(
@@ -289,9 +300,23 @@ pub fn register_graph_with_polymorphic_roles(
     registration: &GraphRegistration,
     polymorphic_roles: &[PolymorphicRoleRegistration],
 ) -> Result<RegisteredGraph, CatalogError> {
+    register_graph_with_options(
+        connection,
+        registration,
+        polymorphic_roles,
+        GraphRegisterOptions::default(),
+    )
+}
+
+pub fn register_graph_with_options(
+    connection: &Arc<Connection>,
+    registration: &GraphRegistration,
+    polymorphic_roles: &[PolymorphicRoleRegistration],
+    options: GraphRegisterOptions,
+) -> Result<RegisteredGraph, CatalogError> {
     validate_registration_names(registration, polymorphic_roles)?;
     in_write_transaction(connection, REGISTRATION_SAVEPOINT, || {
-        register_graph_in_transaction(connection, registration, polymorphic_roles)
+        register_graph_in_transaction(connection, registration, polymorphic_roles, options)
     })
 }
 
@@ -476,6 +501,7 @@ pub fn load_registered_graph(
         &node_sources,
         &relationship_sources,
     );
+    ensure_property_store(connection, graph_id)?;
     Ok(RegisteredGraph {
         id: graph_id,
         name: graph_name,
@@ -527,10 +553,20 @@ fn derive_generation(
     tables.push(labels_table_name(graph_id));
     tables.push(relationship_types_table_name(graph_id));
     tables.push(relationship_type_registry_table_name(graph_id));
+    // Open Cell property store participates in snapshot freshness when present.
+    let open_dict = prop_dict_table_name(graph_id);
+    let open_props = node_props_table_name(graph_id);
+    let open_edge = edge_props_table_name(graph_id);
+    tables.push(open_dict.clone());
+    tables.push(open_props.clone());
+    tables.push(open_edge.clone());
     tables.sort();
     tables.dedup();
     for table in &tables {
-        connection.table_change_token(table)?.hash(&mut hasher);
+        match connection.table_change_token(table) {
+            Some(token) => token.hash(&mut hasher),
+            None => return None,
+        }
     }
     Some(hasher.finish())
 }
@@ -585,6 +621,7 @@ fn register_graph_in_transaction(
     connection: &Arc<Connection>,
     registration: &GraphRegistration,
     polymorphic_roles: &[PolymorphicRoleRegistration],
+    options: GraphRegisterOptions,
 ) -> Result<RegisteredGraph, CatalogError> {
     create_catalog(connection)?;
     if !query_rows(
@@ -819,6 +856,9 @@ fn register_graph_in_transaction(
             ),
         )?;
     }
+    // Single rail: every graph gets prop_dict + node_props + edge_props.
+    let _ = options;
+    install_open_property_store(connection, graph_id)?;
     load_registered_graph(connection, &registration.name)
 }
 
@@ -835,6 +875,96 @@ pub fn relationship_types_table_name(graph: GraphId) -> String {
 /// Name of the per-graph relationship-type identity registry.
 pub fn relationship_type_registry_table_name(graph: GraphId) -> String {
     format!("__turso_graph_relationship_type_registry_{}", graph.get())
+}
+
+/// Open Cell property-name dictionary for a graph (`prop_id`, `name`, `value_type`).
+pub fn prop_dict_table_name(graph: GraphId) -> String {
+    format!("__turso_graph_prop_dict_{}", graph.get())
+}
+
+/// Open Cell node property rows (`node_id`, `prop_id`, `value`).
+pub fn node_props_table_name(graph: GraphId) -> String {
+    format!("__turso_graph_node_props_{}", graph.get())
+}
+
+/// Open Cell relationship property rows (`source_id`, `rel_id`, `prop_id`, `value`).
+pub fn edge_props_table_name(graph: GraphId) -> String {
+    format!("__turso_graph_edge_props_{}", graph.get())
+}
+
+fn table_exists(connection: &Arc<Connection>, name: &str) -> Result<bool, CatalogError> {
+    Ok(!query_rows(
+        connection,
+        &format!(
+            "SELECT name FROM sqlite_schema WHERE type = 'table' AND name = {}",
+            sql_string(name)
+        ),
+    )?
+    .is_empty())
+}
+
+/// Graphs must have a Cell property store; no column-store fallback and no
+/// data migration from legacy payload columns.
+fn ensure_property_store(
+    connection: &Arc<Connection>,
+    graph_id: GraphId,
+) -> Result<(), CatalogError> {
+    if table_exists(connection, &prop_dict_table_name(graph_id))?
+        && table_exists(connection, &node_props_table_name(graph_id))?
+        && table_exists(connection, &edge_props_table_name(graph_id))?
+    {
+        Ok(())
+    } else {
+        Err(CatalogError::IncompatibleGraphLayout {
+            detail: "missing Cell property store tables (prop_dict / node_props / edge_props); re-register the graph".to_owned(),
+        })
+    }
+}
+
+fn install_open_property_store(
+    connection: &Arc<Connection>,
+    graph_id: GraphId,
+) -> Result<(), CatalogError> {
+    let dict = prop_dict_table_name(graph_id);
+    let props = node_props_table_name(graph_id);
+    let edge_props = edge_props_table_name(graph_id);
+    execute_internal(
+        connection,
+        format!(
+            "CREATE TABLE IF NOT EXISTS \"{dict}\"(\
+             prop_id INTEGER PRIMARY KEY, \
+             name TEXT NOT NULL COLLATE NOCASE UNIQUE, \
+             value_type TEXT NOT NULL)"
+        ),
+    )?;
+    execute_internal(
+        connection,
+        format!(
+            "CREATE TABLE IF NOT EXISTS \"{props}\"(\
+             source_id INTEGER NOT NULL, \
+             node_id INTEGER NOT NULL, \
+             prop_id INTEGER NOT NULL, \
+             value, \
+             PRIMARY KEY(source_id, node_id, prop_id))"
+        ),
+    )?;
+    execute_internal(
+        connection,
+        format!("CREATE INDEX IF NOT EXISTS \"{props}_by_kv\" ON \"{props}\"(prop_id, value)"),
+    )?;
+    execute_internal(
+        connection,
+        format!(
+            "CREATE TABLE IF NOT EXISTS \"{edge_props}\"(             source_id INTEGER NOT NULL,              rel_id INTEGER NOT NULL,              prop_id INTEGER NOT NULL,              value,              PRIMARY KEY(source_id, rel_id, prop_id))"
+        ),
+    )?;
+    execute_internal(
+        connection,
+        format!(
+            "CREATE INDEX IF NOT EXISTS \"{edge_props}_by_kv\" ON \"{edge_props}\"(prop_id, value)"
+        ),
+    )?;
+    Ok(())
 }
 
 fn create_catalog(connection: &Arc<Connection>) -> Result<(), CatalogError> {

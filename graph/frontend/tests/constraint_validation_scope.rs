@@ -366,12 +366,13 @@ fn a_text_value_still_fails_an_integer_range_predicate() {
     // CREATE of a TEXT score on an Any property goes through insert_entity's
     // Any branch (`check_runtime_value` → `validate_runtime` in Rust) and can
     // fail before validate_state runs, so that path does not prove the SQL
-    // probe. Seed the bad TEXT with raw SQL + label membership (bypasses
-    // Cypher write-time checks), then SET another property on that row so
-    // validate_state re-checks the written identity and must reject via SQL.
+    // probe. Seed the bad TEXT with raw SQL into the semantic property column
+    // + label membership (bypasses Cypher write-time checks), then SET another
+    // property so validate_state re-checks the written identity via SQL.
     let database = graph_with_integer_range_on_any_column();
     let connection = database.connect().expect("connect");
-    let session = GraphConnection::open(connection.clone(), "ontology").expect("open graph session");
+    let session =
+        GraphConnection::open(connection.clone(), "ontology").expect("open graph session");
     let labels = turso_graph_frontend::labels_table_name(session.graph_id());
 
     connection

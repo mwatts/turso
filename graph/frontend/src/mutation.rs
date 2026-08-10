@@ -13,7 +13,7 @@ use turso_graph_ir as ir;
 
 use crate::{
     bind_mutation,
-    binder::{BoundMutation, StageItem, StageProjection},
+    binder::{BoundMutation, CatalogEntity, StageItem, StageProjection},
     catalog::{self, CatalogError},
     lowering::{
         lower_mutation_expression, lower_mutation_input, mutation_rows_with_sources_sql,
@@ -23,7 +23,7 @@ use crate::{
     semantic_constraints::{ValidationScope, WrittenIdentities},
     statement_cache::StatementCache,
     transaction::{in_write_transaction, WriteTransactionError},
-    BindError, GraphCompilationCatalog, LowerError, ParameterTypes,
+    BindError, GraphCatalogSnapshot, GraphCompilationCatalog, LowerError, ParameterTypes,
 };
 
 const SAVEPOINT: &str = "__turso_graph_mutation";
@@ -655,10 +655,7 @@ fn execute_bound(
         .unwrap_or_default();
     let mut rows = if request.input.is_some() {
         let (sql, columns) = mutation_rows_with_sources_sql(input, &input_bindings);
-        decode_mutation_rows(
-            io.run_rows(&sql, parameters, &HashMap::new())?,
-            &columns,
-        )?
+        decode_mutation_rows(io.run_rows(&sql, parameters, &HashMap::new())?, &columns)?
     } else {
         vec![MutationRow {
             values: HashMap::new(),
@@ -747,7 +744,7 @@ fn execute_bound(
                             &row.entity_layouts,
                         )?;
                         let elements = io.run_rows(
-                                                        &format!("SELECT value FROM json_each(({sql}))"),
+                            &format!("SELECT value FROM json_each(({sql}))"),
                             parameters,
                             &references.values,
                         )?;
@@ -884,7 +881,7 @@ fn run_stage_items_once(
                     entity_layouts,
                 )?;
                 let elements = io.run_rows(
-                                        &format!("SELECT value FROM json_each(({sql}))"),
+                    &format!("SELECT value FROM json_each(({sql}))"),
                     parameters,
                     &references.values,
                 )?;
@@ -991,11 +988,8 @@ fn project_stage(
             })
             .collect::<Result<Vec<_>, _>>()?
             .join(", ");
-        let mut produced = io.run_rows(
-                        &format!("SELECT {columns}"),
-            parameters,
-            &references.values,
-        )?;
+        let mut produced =
+            io.run_rows(&format!("SELECT {columns}"), parameters, &references.values)?;
         evaluated.push((
             produced.pop().unwrap_or_default(),
             projected_entity_layouts(projections, &row.entity_layouts),
@@ -1098,11 +1092,7 @@ fn project_stage(
                 &references.sql,
                 &row.entity_layouts,
             )?;
-            let result = io.run_rows(
-                                &format!("SELECT ({sql})"),
-                parameters,
-                &references.values,
-            )?;
+            let result = io.run_rows(&format!("SELECT ({sql})"), parameters, &references.values)?;
             let truthy = matches!(
                 result.first().and_then(|row| row.first()),
                 Some(Value::Numeric(Numeric::Integer(value))) if *value != 0
@@ -1147,11 +1137,8 @@ fn sort_stage_rows(
                 &references.sql,
                 &row.entity_layouts,
             )?;
-            let mut produced = io.run_rows(
-                                &format!("SELECT ({sql})"),
-                parameters,
-                &references.values,
-            )?;
+            let mut produced =
+                io.run_rows(&format!("SELECT ({sql})"), parameters, &references.values)?;
             keys.push(
                 produced
                     .pop()
@@ -1300,7 +1287,7 @@ fn fold_aggregate(
                     .collect::<Vec<_>>()
                     .join(" UNION ALL ");
                 io.run_rows(
-                                        &format!("SELECT json_group_array(value) FROM ({selects})"),
+                    &format!("SELECT json_group_array(value) FROM ({selects})"),
                     parameters,
                     &internal,
                 )?
@@ -1475,7 +1462,7 @@ fn execute_operation(
         ir::Mutation::SetProperty(set) => {
             let source = mutation_source(set.source, entity_layouts)?;
             let layout = entity_table(catalog, source)?;
-            let column = property_column(catalog, source, &set.semantic_types, set.property)?;
+            let physical = property_physical(catalog, source, &set.semantic_types, set.property)?;
             let references = reference_parameters(values);
             let expression = lower_mutation_expression(
                 &set.value,
@@ -1489,7 +1476,8 @@ fn execute_operation(
                 .ok_or(MutationError::MissingBinding(set.entity))?;
             written.record(source, identity.clone());
             let mut internal = references.values;
-            internal.insert(identity_parameter(set.entity), identity.clone());
+            let identity_param = identity_parameter(set.entity);
+            internal.insert(identity_param.clone(), identity.clone());
             let assignment = if set.value.value_type == ir::ValueType::Any {
                 let evaluated = io.evaluate_scalar(&expression, parameters, &internal)?;
                 check_runtime_value(
@@ -1508,17 +1496,13 @@ fn execute_operation(
             } else {
                 expression
             };
-            io.run_ignore(
-                                &format!(
-                    "UPDATE {} SET {} = {assignment} WHERE {} = ${}",
-                    quoted_identifier(&layout.table),
-                    quoted_identifier(&column),
-                    quoted_identifier(&layout.identity),
-                    identity_parameter(set.entity),
-                ),
-                parameters,
-                &internal,
-            )?;
+            let sql = physical.set_sql(
+                &layout.table,
+                &layout.identity,
+                &identity_param,
+                &assignment,
+            );
+            run_mutation_sql(io, &sql, parameters, &internal)?;
         }
         ir::Mutation::SetLabels(set) => {
             let source = mutation_source(set.source, entity_layouts)?;
@@ -1527,14 +1511,7 @@ fn execute_operation(
                 .ok_or(MutationError::MissingBinding(set.entity))?
                 .clone();
             written.record(source, identity.clone());
-            record_node_labels(
-                io,
-                catalog,
-                source,
-                &set.labels,
-                &identity,
-                parameters,
-            )?;
+            record_node_labels(io, catalog, source, &set.labels, &identity, parameters)?;
         }
         ir::Mutation::ReplaceProperties(replace) => {
             let source = mutation_source(replace.source, entity_layouts)?;
@@ -1545,12 +1522,16 @@ fn execute_operation(
                 .ok_or(MutationError::MissingBinding(replace.entity))?;
             written.record(source, identity.clone());
             let mut internal = references.values;
-            internal.insert(identity_parameter(replace.entity), identity.clone());
-            let mut assignments = Vec::new();
-            let mut assigned_columns = Vec::new();
+            let identity_param = identity_parameter(replace.entity);
+            internal.insert(identity_param.clone(), identity.clone());
+
+            // Write each map entry through property_physical (Cell or Column).
+            // Whole-map clear nulls every owned property not present in the map.
+            let mut assigned = std::collections::HashSet::new();
             for entry in &replace.entries {
-                let column =
-                    property_column(catalog, source, &entry.semantic_types, entry.property)?;
+                assigned.insert(entry.property);
+                let physical =
+                    property_physical(catalog, source, &entry.semantic_types, entry.property)?;
                 let expression = lower_mutation_expression(
                     &entry.value,
                     input,
@@ -1559,8 +1540,7 @@ fn execute_operation(
                     entity_layouts,
                 )?;
                 let assignment = if entry.value.value_type == ir::ValueType::Any {
-                    let evaluated =
-                        io.evaluate_scalar(&expression, parameters, &internal)?;
+                    let evaluated = io.evaluate_scalar(&expression, parameters, &internal)?;
                     check_runtime_value(
                         catalog,
                         source,
@@ -1578,58 +1558,93 @@ fn execute_operation(
                 } else {
                     expression
                 };
-                assignments.push(format!("{} = {assignment}", quoted_identifier(&column)));
-                assigned_columns.push(column);
+                let sql = physical.set_sql(
+                    &layout.table,
+                    &layout.identity,
+                    &identity_param,
+                    &assignment,
+                );
+                run_mutation_sql(io, &sql, parameters, &internal)?;
             }
             if replace.clear {
-                // `SET n = map` wipes every payload column the map omits.
                 if let Some(properties) = GraphCompilationCatalog::semantic_properties(
                     catalog,
                     source,
                     &replace.semantic_types,
                 ) {
-                    for (_, _, _, column) in properties {
-                        if !assigned_columns.contains(&column) {
-                            assignments.push(format!("{} = NULL", quoted_identifier(&column)));
+                    for (property, _, _, _) in properties {
+                        if assigned.contains(&property) {
+                            continue;
                         }
+                        let physical =
+                            property_physical(catalog, source, &replace.semantic_types, property)?;
+                        let sql =
+                            physical.remove_sql(&layout.table, &layout.identity, &identity_param);
+                        run_mutation_sql(io, &sql, parameters, &internal)?;
                     }
                 } else {
-                    let structural = if let Some(relationship) = catalog.relationship_layout(source)
-                    {
-                        relationship.structural_columns()
-                    } else {
-                        vec![layout.identity.clone()]
-                    };
-                    let escaped = layout.table.replace('\'', "''");
-                    let columns = io.run_rows(
-                                                &format!("SELECT name FROM pragma_table_info('{escaped}')"),
+                    // Hybrid open rail: residual SQL columns (name/age fixtures)
+                    // plus Cell side-table. Null every real payload column, wipe
+                    // all cells, then re-apply the map entries that remain.
+                    null_all_payload_columns(
+                        io,
+                        catalog,
+                        source,
+                        &layout,
+                        &identity_param,
                         parameters,
-                        &HashMap::new(),
+                        &internal,
                     )?;
-                    for row in columns {
-                        let Some(Value::Text(name)) = row.first() else {
-                            continue;
+                    if let Some((props_table, entity_column, _dict)) =
+                        catalog.cell_props_table(source)
+                    {
+                        io.run_ignore(
+                            &format!(
+                                "DELETE FROM {} WHERE source_id = {} AND {} = ${identity_param}",
+                                quoted_identifier(&props_table),
+                                source.get(),
+                                quoted_identifier(&entity_column),
+                            ),
+                            parameters,
+                            &internal,
+                        )?;
+                    }
+                    for entry in &replace.entries {
+                        let physical = property_physical(
+                            catalog,
+                            source,
+                            &entry.semantic_types,
+                            entry.property,
+                        )?;
+                        let expression = lower_mutation_expression(
+                            &entry.value,
+                            input,
+                            catalog,
+                            &references.sql,
+                            entity_layouts,
+                        )?;
+                        let assignment = if entry.value.value_type == ir::ValueType::Any {
+                            let evaluated =
+                                io.evaluate_scalar(&expression, parameters, &internal)?;
+                            let value_parameter = format!(
+                                "{INTERNAL_PARAMETER_PREFIX}replace_re_{}_{}",
+                                replace.entity.get(),
+                                entry.property.get()
+                            );
+                            internal.insert(value_parameter.clone(), evaluated);
+                            format!("${value_parameter}")
+                        } else {
+                            expression
                         };
-                        let name = name.to_string();
-                        if structural.contains(&name) || assigned_columns.contains(&name) {
-                            continue;
-                        }
-                        assignments.push(format!("{} = NULL", quoted_identifier(&name)));
+                        let sql = physical.set_sql(
+                            &layout.table,
+                            &layout.identity,
+                            &identity_param,
+                            &assignment,
+                        );
+                        run_mutation_sql(io, &sql, parameters, &internal)?;
                     }
                 }
-            }
-            if !assignments.is_empty() {
-                io.run_ignore(
-                                        &format!(
-                        "UPDATE {} SET {} WHERE {} = ${}",
-                        quoted_identifier(&layout.table),
-                        assignments.join(", "),
-                        quoted_identifier(&layout.identity),
-                        identity_parameter(replace.entity),
-                    ),
-                    parameters,
-                    &internal,
-                )?;
             }
         }
         ir::Mutation::ReplacePropertiesDynamic(replace) => {
@@ -1661,7 +1676,7 @@ fn execute_operation(
                 &replace.semantic_types,
             ) {
                 let map_rows = io.run_rows(
-                                        &format!("SELECT key, value FROM json_each(${map_parameter})"),
+                    &format!("SELECT key, value FROM json_each(${map_parameter})"),
                     parameters,
                     &internal,
                 )?;
@@ -1704,13 +1719,41 @@ fn execute_operation(
                     }
                     updates.insert(column, value.clone());
                 }
+                let identity_param = identity_parameter(replace.entity);
                 let mut assignments = Vec::new();
-                for (property, _, _, column) in owned_properties {
-                    let value = match updates.remove(&column) {
+                for (property, _, _, column) in &owned_properties {
+                    let value = match updates.remove(column) {
                         Some(value) => value,
                         None if replace.clear => Value::Null,
                         None => continue,
                     };
+                    let physical =
+                        property_physical(catalog, source, &replace.semantic_types, *property)?;
+                    if matches!(physical, crate::PropertyPhysical::Cell { .. }) {
+                        if matches!(value, Value::Null) {
+                            let sql = physical.remove_sql(
+                                &layout.table,
+                                &layout.identity,
+                                &identity_param,
+                            );
+                            run_mutation_sql(io, &sql, parameters, &internal)?;
+                        } else {
+                            let value_parameter = format!(
+                                "{INTERNAL_PARAMETER_PREFIX}dynamic_{}_{}",
+                                replace.entity.get(),
+                                property.get()
+                            );
+                            internal.insert(value_parameter.clone(), value);
+                            let sql = physical.set_sql(
+                                &layout.table,
+                                &layout.identity,
+                                &identity_param,
+                                &format!("${value_parameter}"),
+                            );
+                            run_mutation_sql(io, &sql, parameters, &internal)?;
+                        }
+                        continue;
+                    }
                     let value_parameter = format!(
                         "{INTERNAL_PARAMETER_PREFIX}dynamic_{}_{}",
                         replace.entity.get(),
@@ -1719,12 +1762,12 @@ fn execute_operation(
                     internal.insert(value_parameter.clone(), value);
                     assignments.push(format!(
                         "{} = ${value_parameter}",
-                        quoted_identifier(&column)
+                        quoted_identifier(column)
                     ));
                 }
                 if !assignments.is_empty() {
                     io.run_ignore(
-                                                &format!(
+                        &format!(
                             "UPDATE {} SET {} WHERE {} = ${}",
                             quoted_identifier(&layout.table),
                             assignments.join(", "),
@@ -1737,6 +1780,78 @@ fn execute_operation(
                 }
                 return Ok(());
             }
+            // Open hybrid rail: map keys resolve through the catalog (Column
+            // when a real SQL field exists, otherwise Cell). Clear nulls every
+            // residual column and wipes cells before applying the new map.
+            if catalog.cell_props_table(source).is_some()
+                || catalog.payload_columns(source).is_some()
+            {
+                let identity_param = identity_parameter(replace.entity);
+                let entity_kind = match entity_layouts.get(&replace.entity) {
+                    Some((_, MutationEntityKind::Relationship)) => CatalogEntity::Relationship,
+                    _ => CatalogEntity::Node,
+                };
+                let map_rows = io.run_rows(
+                    &format!("SELECT key, value FROM json_each(${map_parameter})"),
+                    parameters,
+                    &internal,
+                )?;
+                let mut pending: Vec<(ir::PropertyId, Value)> = Vec::new();
+                for row in map_rows {
+                    let (Some(Value::Text(key)), Some(value)) = (row.first(), row.get(1)) else {
+                        return Err(MutationError::UnknownDynamicKey {
+                            key: "<non-text>".to_owned(),
+                        });
+                    };
+                    let key = key.to_string();
+                    let resolved = GraphCatalogSnapshot::property(catalog, graph, entity_kind, &key)
+                        .ok_or_else(|| MutationError::UnknownDynamicKey { key: key.clone() })?;
+                    pending.push((resolved.id, value.clone()));
+                }
+                if replace.clear {
+                    null_all_payload_columns(
+                        io,
+                        catalog,
+                        source,
+                        &layout,
+                        &identity_param,
+                        parameters,
+                        &internal,
+                    )?;
+                    if let Some((props_table, entity_column, _dict)) =
+                        catalog.cell_props_table(source)
+                    {
+                        io.run_ignore(
+                            &format!(
+                                "DELETE FROM {} WHERE source_id = {} AND {} = ${identity_param}",
+                                quoted_identifier(&props_table),
+                                source.get(),
+                                quoted_identifier(&entity_column),
+                            ),
+                            parameters,
+                            &internal,
+                        )?;
+                    }
+                }
+                for (index, (property, value)) in pending.into_iter().enumerate() {
+                    let physical =
+                        property_physical(catalog, source, &replace.semantic_types, property)?;
+                    let value_parameter = format!(
+                        "{INTERNAL_PARAMETER_PREFIX}dyn_open_{}_{index}",
+                        replace.entity.get()
+                    );
+                    internal.insert(value_parameter.clone(), value);
+                    let sql = physical.set_sql(
+                        &layout.table,
+                        &layout.identity,
+                        &identity_param,
+                        &format!("${value_parameter}"),
+                    );
+                    run_mutation_sql(io, &sql, parameters, &internal)?;
+                }
+                return Ok(());
+            }
+
             let columns =
                 catalog
                     .payload_columns(source)
@@ -1763,7 +1878,7 @@ fn execute_operation(
                 .join(", ");
             if !assignments.is_empty() {
                 io.run_ignore(
-                                        &format!(
+                    &format!(
                         "UPDATE {} SET {assignments} WHERE {} = ${}",
                         quoted_identifier(&layout.table),
                         quoted_identifier(&layout.identity),
@@ -1777,28 +1892,20 @@ fn execute_operation(
         ir::Mutation::RemoveProperty(remove) => {
             let source = mutation_source(remove.source, entity_layouts)?;
             let layout = entity_table(catalog, source)?;
-            let column = property_column(catalog, source, &remove.semantic_types, remove.property)?;
+            let physical =
+                property_physical(catalog, source, &remove.semantic_types, remove.property)?;
             let identity = values
                 .get(&remove.entity)
                 .ok_or(MutationError::MissingBinding(remove.entity))?;
             written.record(source, identity.clone());
-            let internal = HashMap::from([(identity_parameter(remove.entity), identity.clone())]);
-            io.run_ignore(
-                                &format!(
-                    "UPDATE {} SET {} = NULL WHERE {} = ${}",
-                    quoted_identifier(&layout.table),
-                    quoted_identifier(&column),
-                    quoted_identifier(&layout.identity),
-                    identity_parameter(remove.entity),
-                ),
-                parameters,
-                &internal,
-            )?;
+            let identity_param = identity_parameter(remove.entity);
+            let internal = HashMap::from([(identity_param.clone(), identity.clone())]);
+            let sql = physical.remove_sql(&layout.table, &layout.identity, &identity_param);
+            run_mutation_sql(io, &sql, parameters, &internal)?;
         }
         ir::Mutation::Delete(delete) => {
             let source = mutation_source(delete.source, entity_layouts)?;
-            delete_entity(io, catalog, graph, delete, source, parameters, values,
-            )?;
+            delete_entity(io, catalog, graph, delete, source, parameters, values)?;
         }
         ir::Mutation::SetRoles(update) => {
             let layout = catalog
@@ -1888,7 +1995,7 @@ fn execute_operation(
                         // statement twice mean something different from
                         // running it once.
                         io.run_ignore(
-                                                        &format!(
+                            &format!(
                                 "DELETE FROM {} WHERE relation_id = ${identity_param}",
                                 quoted_identifier(table),
                             ),
@@ -1917,7 +2024,7 @@ fn execute_operation(
             }
             if !assignments.is_empty() {
                 io.run_ignore(
-                                        &format!(
+                    &format!(
                         "UPDATE {} SET {} WHERE {} = ${identity_param}",
                         quoted_identifier(&layout.table),
                         assignments.join(", "),
@@ -2226,12 +2333,13 @@ pub(crate) fn insert_relationship(
         // One COUNT(*) = N predicate per Many role (not per player).
         let mut many_counts: HashMap<String, (String, usize)> = HashMap::new();
         for (role, _) in &spilled {
-            let table = role.spill_table.as_ref().ok_or_else(|| {
-                MutationError::MissingSpillTable {
-                    relation: role.name.clone(),
-                    role: role.name.clone(),
-                }
-            })?;
+            let table =
+                role.spill_table
+                    .as_ref()
+                    .ok_or_else(|| MutationError::MissingSpillTable {
+                        relation: role.name.clone(),
+                        role: role.name.clone(),
+                    })?;
             let entry = many_counts
                 .entry(role.name.clone())
                 .or_insert_with(|| (table.clone(), 0));
@@ -2510,23 +2618,31 @@ fn insert_entity(
     fixed: &[(String, Value)],
     merge_predicates: &[String],
 ) -> Result<(Value, bool), MutationError> {
+    use crate::PropertyPhysical;
+    use std::collections::BTreeMap;
+
     let references = reference_parameters(values);
     let mut columns = Vec::new();
     let mut expressions = Vec::new();
     let mut internal = references.values;
+    // MERGE match predicates built alongside inserts (column / bag extract / cell EXISTS).
+    let mut match_terms = Vec::new();
+    // JsonBag: one bag column may collect many keys → nested json_set.
+    let mut bag_entries: BTreeMap<String, Vec<(String, String)>> = BTreeMap::new();
+    // Cell: write after INSERT RETURNING identity.
+    let mut cell_writes: Vec<(PropertyPhysical, String)> = Vec::new();
+
     for (index, (column, value)) in fixed.iter().enumerate() {
         let name = format!("{INTERNAL_PARAMETER_PREFIX}fixed_{index}");
         columns.push(column.clone());
         expressions.push(format!("${name}"));
+        match_terms.push(format!("{} IS (${name})", quoted_identifier(column)));
         internal.insert(name, value.clone());
     }
+
     for property in properties {
-        columns.push(property_column(
-            catalog,
-            source,
-            &property.semantic_types,
-            property.property,
-        )?);
+        let physical =
+            property_physical(catalog, source, &property.semantic_types, property.property)?;
         let expression = lower_mutation_expression(
             &property.value,
             input,
@@ -2534,7 +2650,7 @@ fn insert_entity(
             &references.sql,
             entity_layouts,
         )?;
-        if property.value.value_type == ir::ValueType::Any {
+        let value_sql = if property.value.value_type == ir::ValueType::Any {
             let evaluated = io.evaluate_scalar(&expression, parameters, &internal)?;
             check_runtime_value(
                 catalog,
@@ -2546,22 +2662,51 @@ fn insert_entity(
             let name = format!(
                 "{INTERNAL_PARAMETER_PREFIX}property_{}_{}",
                 property.property.get(),
-                expressions.len()
+                expressions.len() + bag_entries.len() + cell_writes.len()
             );
             internal.insert(name.clone(), evaluated);
-            expressions.push(format!("${name}"));
+            format!("${name}")
         } else {
-            expressions.push(expression);
+            expression
+        };
+
+        match_terms.push(physical.equality_match_sql(table, identity, &value_sql));
+        match physical {
+            PropertyPhysical::Column { column, .. } => {
+                columns.push(column);
+                expressions.push(value_sql);
+            }
+            PropertyPhysical::JsonBag { bag_column, key } => {
+                bag_entries
+                    .entry(bag_column)
+                    .or_default()
+                    .push((key, value_sql));
+            }
+            cell @ PropertyPhysical::Cell { .. } => {
+                cell_writes.push((cell, value_sql));
+            }
         }
     }
+
+    // Collapse each bag into one INSERT column: json_set(json_set('{}', …), …).
+    for (bag_column, entries) in bag_entries {
+        let mut bag_expr = "'{}'".to_owned();
+        for (key, value_sql) in entries {
+            bag_expr = format!(
+                "json_set({bag_expr}, '$.{}', {value_sql})",
+                key.replace('\'', "''")
+            );
+        }
+        columns.push(bag_column);
+        expressions.push(bag_expr);
+    }
+
     if merge {
         // Match key = property/endpoint columns plus label/type/Many predicates.
         // An empty key would be `1 = 1 LIMIT 1` and attach to a random row on a
         // multi-row source — fail closed (product decision 2026-08-10).
-        let predicate = columns
-            .iter()
-            .zip(&expressions)
-            .map(|(column, expression)| format!("{} IS ({expression})", quoted_identifier(column)))
+        let predicate = match_terms
+            .into_iter()
             .chain(merge_predicates.iter().cloned())
             .collect::<Vec<_>>()
             .join(" AND ");
@@ -2601,11 +2746,23 @@ fn insert_entity(
         )
     };
     let rows = io.run_rows(&sql, parameters, &internal)?;
-    rows.into_iter()
+    let identity_value = rows
+        .into_iter()
         .next()
         .and_then(|mut row| row.pop())
-        .map(|identity| (identity, true))
-        .ok_or(MutationError::MissingCreatedIdentity { entity })
+        .ok_or(MutationError::MissingCreatedIdentity { entity })?;
+
+    // Cell properties live in a side table; write them after the entity row exists.
+    if !cell_writes.is_empty() {
+        let id_param = format!("{INTERNAL_PARAMETER_PREFIX}created_{entity}_id");
+        internal.insert(id_param.clone(), identity_value.clone());
+        for (physical, value_sql) in cell_writes {
+            let sql = physical.set_sql(table, identity, &id_param, &value_sql);
+            run_mutation_sql(io, &sql, parameters, &internal)?;
+        }
+    }
+
+    Ok((identity_value, true))
 }
 
 fn delete_entity(
@@ -2681,18 +2838,19 @@ fn delete_entity(
                 // them, and the relation row itself, undeleted by the time
                 // the final DELETE below runs. Capturing concrete ids up
                 // front makes every later step independent of earlier ones.
-                let matched_ids: Vec<Value> = io.run_rows(
-                                        &format!(
-                        "SELECT {} FROM {} WHERE {predicate}",
-                        quoted_identifier(&relationship.identity_column),
-                        quoted_identifier(&relationship.table),
-                    ),
-                    parameters,
-                    &internal,
-                )?
-                .into_iter()
-                .filter_map(|mut row| row.pop())
-                .collect();
+                let matched_ids: Vec<Value> = io
+                    .run_rows(
+                        &format!(
+                            "SELECT {} FROM {} WHERE {predicate}",
+                            quoted_identifier(&relationship.identity_column),
+                            quoted_identifier(&relationship.table),
+                        ),
+                        parameters,
+                        &internal,
+                    )?
+                    .into_iter()
+                    .filter_map(|mut row| row.pop())
+                    .collect();
                 if matched_ids.is_empty() {
                     continue;
                 }
@@ -2725,7 +2883,7 @@ fn delete_entity(
                         }
                     })?;
                     io.run_ignore(
-                                                &format!(
+                        &format!(
                             "DELETE FROM {} WHERE relation_id IN ({ids})",
                             quoted_identifier(table),
                         ),
@@ -2742,7 +2900,7 @@ fn delete_entity(
                         String::new()
                     };
                     io.run_ignore(
-                                                &format!(
+                        &format!(
                             "DELETE FROM \"{}\" WHERE {source_predicate}relationship_id IN ({ids})",
                             types_table.replace('"', "\"\""),
                         ),
@@ -2751,7 +2909,7 @@ fn delete_entity(
                     )?;
                 }
                 io.run_ignore(
-                                        &format!(
+                    &format!(
                         "DELETE FROM {} WHERE {} IN ({ids})",
                         quoted_identifier(&relationship.table),
                         quoted_identifier(&relationship.identity_column),
@@ -2759,15 +2917,16 @@ fn delete_entity(
                     parameters,
                     &matched_internal,
                 )?;
-            } else if !io.run_rows(
-                                &format!(
-                    "SELECT 1 FROM {} WHERE {predicate} LIMIT 1",
-                    quoted_identifier(&relationship.table)
-                ),
-                parameters,
-                &internal,
-            )?
-            .is_empty()
+            } else if !io
+                .run_rows(
+                    &format!(
+                        "SELECT 1 FROM {} WHERE {predicate} LIMIT 1",
+                        quoted_identifier(&relationship.table)
+                    ),
+                    parameters,
+                    &internal,
+                )?
+                .is_empty()
             {
                 return Err(MutationError::NodeHasRelationships);
             }
@@ -2779,7 +2938,7 @@ fn delete_entity(
                 String::new()
             };
             io.run_ignore(
-                                &format!(
+                &format!(
                     "DELETE FROM \"{}\" WHERE {source_predicate}node_id = ${}",
                     labels_table.replace('"', "\"\""),
                     identity_parameter(delete.entity),
@@ -2788,8 +2947,22 @@ fn delete_entity(
                 &internal,
             )?;
         }
+        // Cell store: drop property rows before the identity row disappears.
+        if let Some((props_table, entity_column, _dict)) = catalog.cell_props_table(source) {
+            io.run_ignore(
+                &format!(
+                    "DELETE FROM {} WHERE source_id = {} AND {} = ${}",
+                    quoted_identifier(&props_table),
+                    source.get(),
+                    quoted_identifier(&entity_column),
+                    identity_parameter(delete.entity),
+                ),
+                parameters,
+                &internal,
+            )?;
+        }
         Ok(io.run_ignore(
-                        &format!(
+            &format!(
                 "DELETE FROM {} WHERE {} = ${}",
                 quoted_identifier(&layout.table),
                 quoted_identifier(&layout.identity_column),
@@ -2809,7 +2982,7 @@ fn delete_entity(
                 String::new()
             };
             io.run_ignore(
-                                &format!(
+                &format!(
                     "DELETE FROM \"{}\" WHERE {source_predicate}relationship_id = ${}",
                     types_table.replace('"', "\"\""),
                     identity_parameter(delete.entity),
@@ -2835,7 +3008,7 @@ fn delete_entity(
                         role: role.name.clone(),
                     })?;
             io.run_ignore(
-                                &format!(
+                &format!(
                     "DELETE FROM {} WHERE relation_id = ${}",
                     quoted_identifier(table),
                     identity_parameter(delete.entity),
@@ -2845,7 +3018,7 @@ fn delete_entity(
             )?;
         }
         Ok(io.run_ignore(
-                        &format!(
+            &format!(
                 "DELETE FROM {} WHERE {} = ${}",
                 quoted_identifier(&layout.table),
                 quoted_identifier(&layout.identity_column),
@@ -2881,29 +3054,129 @@ fn entity_table(
     }
 }
 
-fn property_column(
+fn property_physical(
     catalog: &dyn GraphCompilationCatalog,
     source: ir::SourceTableId,
     semantic_types: &[String],
     property: ir::PropertyId,
-) -> Result<String, LowerError> {
-    match GraphCompilationCatalog::semantic_property_for_id(
-        catalog,
-        source,
-        semantic_types,
-        property,
-    ) {
-        Some(Some((_, _, column))) => Ok(column),
-        Some(None) => Err(LowerError::MissingProperty {
+) -> Result<crate::PropertyPhysical, LowerError> {
+    crate::resolve_property_physical(catalog, source, semantic_types, property).ok_or(
+        LowerError::MissingProperty {
             source_id: source,
             property,
-        }),
-        None => catalog
-            .property_column(source, property)
-            .ok_or(LowerError::MissingProperty {
-                source_id: source,
-                property,
-            }),
+        },
+    )
+}
+
+/// Null every real SQL payload column on the entity table (not identity).
+/// Whole-map replace re-applies kept keys after this wipe.
+fn null_all_payload_columns(
+    io: &MutationIo,
+    catalog: &dyn GraphCompilationCatalog,
+    source: ir::SourceTableId,
+    layout: &EntityTable,
+    identity_param: &str,
+    parameters: &Parameters,
+    internal: &HashMap<String, Value>,
+) -> Result<(), MutationError> {
+    let Some(payload) = catalog.payload_columns(source) else {
+        return Ok(());
+    };
+    let mut null_columns = Vec::new();
+    for (_logical, physical) in payload {
+        if physical.eq_ignore_ascii_case(&layout.identity) {
+            continue;
+        }
+        if !catalog.source_has_column(source, &physical) {
+            continue;
+        }
+        if null_columns
+            .iter()
+            .any(|existing: &String| existing.eq_ignore_ascii_case(&physical))
+        {
+            continue;
+        }
+        null_columns.push(physical);
+    }
+    if null_columns.is_empty() {
+        return Ok(());
+    }
+    let assignments = null_columns
+        .iter()
+        .map(|column| format!("{} = NULL", quoted_identifier(column)))
+        .collect::<Vec<_>>()
+        .join(", ");
+    io.run_ignore(
+        &format!(
+            "UPDATE {} SET {assignments} WHERE {} = ${identity_param}",
+            quoted_identifier(&layout.table),
+            quoted_identifier(&layout.identity),
+        ),
+        parameters,
+        internal,
+    )?;
+    Ok(())
+}
+
+/// Run one or more engine SQL statements (Cell SET is delete + insert).
+fn run_mutation_sql(
+    io: &MutationIo,
+    sql: &str,
+    parameters: &Parameters,
+    internal: &HashMap<String, Value>,
+) -> Result<(), MutationError> {
+    for statement in sql.split(';').map(str::trim).filter(|s| !s.is_empty()) {
+        io.run_ignore(statement, parameters, internal)?;
+    }
+    Ok(())
+}
+
+/// Look up or insert a prop_dict row for an open property name; returns prop_id.
+#[allow(dead_code)] // retained for open-cell paths that resolve without GraphCatalogSnapshot::property
+fn ensure_open_cell_prop_id(
+    io: &MutationIo,
+    dict_table: &str,
+    name: &str,
+    parameters: &Parameters,
+    internal: &HashMap<String, Value>,
+) -> Result<u64, MutationError> {
+    let escaped = name.replace('\'', "''");
+    let existing = io.run_rows(
+        &format!(
+            "SELECT prop_id FROM {} WHERE name = '{escaped}' COLLATE NOCASE",
+            quoted_identifier(dict_table),
+        ),
+        parameters,
+        internal,
+    )?;
+    if let Some(Value::Numeric(turso_core::Numeric::Integer(id))) =
+        existing.first().and_then(|row| row.first())
+    {
+        return Ok(*id as u64);
+    }
+    io.run_ignore(
+        &format!(
+            "INSERT INTO {}(name, value_type) VALUES ('{escaped}', 'any')",
+            quoted_identifier(dict_table),
+        ),
+        parameters,
+        internal,
+    )?;
+    let created = io.run_rows(
+        &format!(
+            "SELECT prop_id FROM {} WHERE name = '{escaped}' COLLATE NOCASE",
+            quoted_identifier(dict_table),
+        ),
+        parameters,
+        internal,
+    )?;
+    match created.first().and_then(|row| row.first()) {
+        Some(Value::Numeric(turso_core::Numeric::Integer(id))) => Ok(*id as u64),
+        other => Err(MutationError::Database(
+            turso_core::LimboError::InternalError(format!(
+                "open cell prop_dict insert for `{name}` did not return prop_id: {other:?}"
+            )),
+        )),
     }
 }
 
@@ -2976,11 +3249,7 @@ impl MutationIo<'_> {
         parameters: &Parameters,
         internal: &HashMap<String, Value>,
     ) -> Result<Value, MutationError> {
-        let mut rows = self.run_rows(
-            &format!("SELECT {expression}"),
-            parameters,
-            internal,
-        )?;
+        let mut rows = self.run_rows(&format!("SELECT {expression}"), parameters, internal)?;
         if rows.len() != 1 || rows[0].len() != 1 {
             return Err(MutationError::MissingEvaluatedValue);
         }

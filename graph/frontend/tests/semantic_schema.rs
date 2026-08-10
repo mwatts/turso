@@ -922,10 +922,13 @@ fn registration_rejects_structural_missing_and_wrong_kind_mappings() {
         Err(SemanticCatalogError::StructuralColumn { .. })
     ));
 
-    let mut missing = semantic_registration();
-    missing.node_types[0].properties[0].column = "ghost".to_owned();
+    // Cell rail: a property's `column` field is a stable dict key, not a
+    // required SQL column. Missing-column rejection remains for relationship
+    // properties (edge cells not yet flipped).
+    let mut missing_rel = semantic_registration();
+    missing_rel.relationship_types[0].properties[0].column = "ghost_rel".to_owned();
     assert!(matches!(
-        register_semantic_schema(&connection, "social", &missing),
+        register_semantic_schema(&connection, "social", &missing_rel),
         Err(SemanticCatalogError::ColumnMissing { .. })
     ));
 
@@ -962,7 +965,8 @@ fn failed_registration_writes_no_catalog_rows() {
     let connection = connection();
     registered_graph(&connection);
     let mut invalid = semantic_registration();
-    invalid.node_types[1].properties[0].column = "ghost".to_owned();
+    // Structural identity column is always rejected, even under Cell storage.
+    invalid.node_types[0].properties[0].column = "pk".to_owned();
 
     assert!(register_semantic_schema(&connection, "social", &invalid).is_err());
     register_semantic_schema(&connection, "social", &semantic_registration())
@@ -3608,20 +3612,14 @@ fn direct_sql_can_bypass_semantic_constraints_but_later_cypher_detects_the_viola
 
     let session = turso_graph_frontend::Connection::open(connection, "social")
         .expect("open graph containing direct-SQL violation");
+    // Identity-scoped validation only re-checks rows the statement writes.
+    // Touch the SQL-seeded Customer so required displayName is probed.
     let error = session
-        .execute(
-            "CREATE (:Supplier {displayName: 'Iron Co'})",
-            &Default::default(),
-        )
-        .expect_err("the next Cypher mutation validates the complete active constraint state");
+        .execute("MATCH (c:Customer) SET c.born = 1815", &Default::default())
+        .expect_err(
+            "a Cypher write that touches the violated Customer must re-check required properties",
+        );
     assert!(error.to_string().contains("is required"), "{error}");
-    assert!(
-        session
-            .query("MATCH (s:Supplier) RETURN s", &Default::default())
-            .expect("read after rollback")
-            .is_empty(),
-        "the unrelated Cypher write must roll back"
-    );
 }
 
 #[test]

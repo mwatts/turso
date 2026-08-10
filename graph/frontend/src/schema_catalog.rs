@@ -15,6 +15,17 @@ use crate::lowering::{
 };
 use crate::semantic::{OwnedProperty, SemanticRole, SemanticSnapshot, SemanticTypeInfo};
 
+fn sql_string_literal(value: &str) -> String {
+    format!("'{}'", value.replace('\'', "''"))
+}
+
+fn value_as_i64(value: &turso_core::Value) -> Option<i64> {
+    match value {
+        turso_core::Value::Numeric(turso_core::Numeric::Integer(id)) => Some(*id),
+        _ => None,
+    }
+}
+
 /// Production catalog snapshot backed directly by `core::Schema` — no PRAGMA
 /// string-parsing, no parallel type model. Column classification reuses
 /// `Schema::classify_column` (`core/schema.rs`), the same function
@@ -51,6 +62,143 @@ impl SchemaCatalog {
             .node_sources
             .iter()
             .find(|entry| entry.id == source)
+    }
+
+    /// Resolve or auto-register an open Cell property by name.
+    ///
+    /// Unknown names get `value_type = any` so bind can proceed; product code
+    /// may pre-seed typed rows in `prop_dict` for stricter CONTAINS gates.
+    fn open_cell_property(&self, name: &str) -> Option<ResolvedProperty> {
+        if name.is_empty() {
+            return None;
+        }
+        let (column_type, nullability) = self.open_cell_type_hint(name);
+        let dict = crate::catalog::prop_dict_table_name(self.graph.id);
+        let rows = self
+            .connection
+            .prepare(format!(
+                "SELECT prop_id, value_type FROM \"{dict}\" WHERE name = {} COLLATE NOCASE",
+                sql_string_literal(name)
+            ))
+            .and_then(|mut statement| statement.run_collect_rows())
+            .ok()?;
+        if let Some(row) = rows.first() {
+            let prop_id = value_as_i64(row.first()?)? as u32;
+            // Prefer live column type when the topology table still carries a
+            // legacy payload column (adoption / transitional fixtures).
+            let value_type = if column_type != ir::ValueType::Any {
+                column_type
+            } else {
+                match row.get(1) {
+                    Some(turso_core::Value::Text(text)) => {
+                        crate::parse_dict_value_type(text.as_str())
+                    }
+                    _ => ir::ValueType::Any,
+                }
+            };
+            return Some(ResolvedProperty {
+                id: ir::PropertyId::new(prop_id).ok()?,
+                value_type,
+                nullability,
+            });
+        }
+        let type_name = crate::dict_value_type_name(&column_type);
+        self.connection
+            .execute(format!(
+                "INSERT INTO \"{dict}\"(name, value_type) VALUES ({}, '{type_name}')",
+                sql_string_literal(name)
+            ))
+            .ok()?;
+        let id_rows = self
+            .connection
+            .prepare(format!(
+                "SELECT prop_id FROM \"{dict}\" WHERE name = {} COLLATE NOCASE",
+                sql_string_literal(name)
+            ))
+            .and_then(|mut statement| statement.run_collect_rows())
+            .ok()?;
+        let prop_id = value_as_i64(id_rows.first()?.first()?)? as u32;
+        Some(ResolvedProperty {
+            id: ir::PropertyId::new(prop_id).ok()?,
+            value_type: column_type,
+            nullability,
+        })
+    }
+
+    /// If a semantic type on `source` owns `property` and maps it to a real
+    /// SQL column on that table, return that column name.
+    fn semantic_owned_column_on_source(
+        &self,
+        source: ir::SourceTableId,
+        property: ir::PropertyId,
+    ) -> Option<String> {
+        let semantic = self.semantic.as_ref()?;
+        let entry = self.node_source_entry(source)?;
+        let table = self.connection.current_schema().get_table(&entry.table)?;
+        for type_info in semantic
+            .node_type_values()
+            .filter(|type_info| type_info.source == source)
+        {
+            if let Some(owned) = type_info.property_by_id(property) {
+                if table.get_column_by_name(&owned.column).is_some() {
+                    return Some(owned.column.clone());
+                }
+            }
+        }
+        None
+    }
+
+    /// Type/nullability from a same-named column on a node source table, if any.
+    fn open_cell_type_hint(&self, name: &str) -> (ir::ValueType, ir::Nullability) {
+        let schema = self.connection.current_schema();
+        for entry in &self.graph.node_sources {
+            let Some(table) = schema.get_table(&entry.table) else {
+                continue;
+            };
+            let Some((_, column)) = table.get_column_by_name(name) else {
+                continue;
+            };
+            let value_type = self.column_value_type(&schema, column, table.is_strict());
+            let nullability = if name.eq_ignore_ascii_case(&entry.identity_column) {
+                ir::Nullability::NonNull
+            } else {
+                column_nullability(column)
+            };
+            return (value_type, nullability);
+        }
+        (ir::ValueType::Any, ir::Nullability::Nullable)
+    }
+
+    fn open_cell_property_name(&self, prop_id: u64) -> Option<String> {
+        let dict = crate::catalog::prop_dict_table_name(self.graph.id);
+        let rows = self
+            .connection
+            .prepare(format!(
+                "SELECT name FROM \"{dict}\" WHERE prop_id = {prop_id}"
+            ))
+            .and_then(|mut statement| statement.run_collect_rows())
+            .ok()?;
+        match rows.first().and_then(|row| row.first()) {
+            Some(turso_core::Value::Text(name)) => Some(name.to_string()),
+            _ => None,
+        }
+    }
+
+    fn open_cell_value_type(&self, prop_id: u64) -> Option<ir::ValueType> {
+        let dict = crate::catalog::prop_dict_table_name(self.graph.id);
+        let rows = self
+            .connection
+            .prepare(format!(
+                "SELECT value_type FROM \"{dict}\" WHERE prop_id = {prop_id}"
+            ))
+            .and_then(|mut statement| statement.run_collect_rows())
+            .ok()?;
+        match rows.first().and_then(|row| row.first()) {
+            Some(turso_core::Value::Text(text)) => {
+                Some(crate::parse_dict_value_type(text.as_str()))
+            }
+            _ => None,
+        }
     }
 
     fn relationship_source_entry(
@@ -551,6 +699,18 @@ impl GraphCatalogSnapshot for SchemaCatalog {
                 PropertyResolution::NotOwned { .. } | PropertyResolution::Ambiguous { .. } => None,
             };
         }
+        // Cell store (single rail): node properties resolve via prop_dict.
+        // Identity column names still resolve (registered in the dict) so
+        // CREATE {id: 1} works; property_physical maps them back to the
+        // identity Column write. Relationship properties stay on source
+        // columns until edge cells land.
+        if entity == CatalogEntity::Node {
+            return self.open_cell_property(name);
+        }
+        // Relationship properties: Cell via shared dict (edge_props).
+        if entity == CatalogEntity::Relationship {
+            return self.open_cell_property(name);
+        }
         let table = self.table_for(entity)?;
         let (index, column) = table.get_column_by_name(name)?;
         let schema = self.connection.current_schema();
@@ -853,16 +1013,127 @@ impl RelationalCatalogSnapshot for SchemaCatalog {
             }
             return None;
         }
+        // Cell rail: property ids are dictionary ids, not column ordinals.
+        // Callers that need a name-like token get the dict name; physical
+        // access goes through `property_physical` (Column only when present).
+        if self.node_source_entry(source).is_some()
+            || self.relationship_source_entry(source).is_some()
+        {
+            return self.open_cell_property_name(property.get() as u64);
+        }
+        None
+    }
+
+    fn property_physical(
+        &self,
+        source: ir::SourceTableId,
+        property: ir::PropertyId,
+    ) -> Option<crate::PropertyPhysical> {
+        if self.node_source_entry(source).is_some() {
+            let entry = self.node_source_entry(source)?;
+            let prop_id = u64::from(property.get());
+            // Identity key writes go on the entity table, not as cells.
+            if let Some(name) = self.open_cell_property_name(prop_id) {
+                if name.eq_ignore_ascii_case(&entry.identity_column) {
+                    return Some(crate::PropertyPhysical::Column {
+                        column: entry.identity_column.clone(),
+                        jsonb: false,
+                    });
+                }
+            }
+            // Prefer a real SQL column when present: multi-source semantic
+            // owner-specific maps, STRICT struct/union payloads, and adopted
+            // tables still carrying property columns. Pure open names (no
+            // column) use Cell.
+            if let Some(column) = self.semantic_owned_column_on_source(source, property) {
+                return Some(crate::PropertyPhysical::Column {
+                    jsonb: self.property_column_is_jsonb(source, property),
+                    column,
+                });
+            }
+            if let Some(name) = self.open_cell_property_name(prop_id) {
+                if let Some(table) = self.connection.current_schema().get_table(&entry.table) {
+                    if table.get_column_by_name(&name).is_some() {
+                        return Some(crate::PropertyPhysical::Column {
+                            jsonb: self.property_column_is_jsonb(source, property),
+                            column: name,
+                        });
+                    }
+                }
+            }
+            let value_type = self
+                .open_cell_value_type(prop_id)
+                .unwrap_or(ir::ValueType::Any);
+            return Some(crate::PropertyPhysical::Cell {
+                props_table: crate::catalog::node_props_table_name(self.graph.id),
+                source_id: u64::from(entry.id.get()),
+                entity_column: "node_id".to_owned(),
+                identity_column: entry.identity_column.clone(),
+                prop_id,
+                prop_id_column: "prop_id".to_owned(),
+                value_column: "value".to_owned(),
+                value_type,
+            });
+        }
+        if let Some(entry) = self.relationship_source_entry(source) {
+            let prop_id = u64::from(property.get());
+            if let Some(name) = self.open_cell_property_name(prop_id) {
+                if name.eq_ignore_ascii_case(&entry.identity_column) {
+                    return Some(crate::PropertyPhysical::Column {
+                        column: entry.identity_column.clone(),
+                        jsonb: false,
+                    });
+                }
+                // Prefer real SQL column when present (STRICT / endpoints already structural).
+                if let Some(table) = self.connection.current_schema().get_table(&entry.table) {
+                    if table.get_column_by_name(&name).is_some() {
+                        // Skip structural role columns — those are not properties.
+                        let structural: Vec<&str> = entry
+                            .roles
+                            .iter()
+                            .filter(|r| !r.column.is_empty())
+                            .map(|r| r.column.as_str())
+                            .chain(std::iter::once(entry.identity_column.as_str()))
+                            .collect();
+                        if !structural.iter().any(|c| c.eq_ignore_ascii_case(&name)) {
+                            return Some(crate::PropertyPhysical::Column {
+                                jsonb: self.property_column_is_jsonb(source, property),
+                                column: name,
+                            });
+                        }
+                    }
+                }
+            }
+            let value_type = self
+                .open_cell_value_type(prop_id)
+                .unwrap_or(ir::ValueType::Any);
+            return Some(crate::PropertyPhysical::Cell {
+                props_table: crate::catalog::edge_props_table_name(self.graph.id),
+                source_id: u64::from(entry.id.get()),
+                entity_column: "rel_id".to_owned(),
+                identity_column: entry.identity_column.clone(),
+                prop_id,
+                prop_id_column: "prop_id".to_owned(),
+                value_column: "value".to_owned(),
+                value_type,
+            });
+        }
+        // No property physical for unknown sources.
+        None
+    }
+
+    fn source_has_column(&self, source: ir::SourceTableId, column: &str) -> bool {
         let table_name = if let Some(entry) = self.node_source_entry(source) {
-            &entry.table
+            entry.table.as_str()
         } else if let Some(entry) = self.relationship_source_entry(source) {
-            &entry.table
+            entry.table.as_str()
         } else {
-            return None;
+            return false;
         };
-        let table = self.connection.current_schema().get_table(table_name)?;
-        let index = (property.get() as usize).checked_sub(1)?;
-        table.get_column_at(index)?.name.clone()
+        self.connection
+            .current_schema()
+            .get_table(table_name)
+            .is_some_and(|table| table.get_column_by_name(column).is_some())
     }
 
     fn property_column_is_jsonb(
@@ -891,41 +1162,49 @@ impl RelationalCatalogSnapshot for SchemaCatalog {
             .is_some_and(|column| column.ty_str.eq_ignore_ascii_case("JSONB"))
     }
 
-    fn payload_columns(&self, source: ir::SourceTableId) -> Option<Vec<(String, String)>> {
-        let (table_name, structural) = if let Some(entry) = self.node_source_entry(source) {
-            (entry.table.clone(), vec![entry.identity_column.clone()])
-        } else if let Some(layout) = self.relationship_layout(source) {
-            let mut structural = layout.structural_columns();
-            if let Some(entry) = self.relationship_source_entry(source) {
-                structural.extend(
-                    entry
-                        .roles
-                        .iter()
-                        .filter_map(|role| role.discriminator_column.clone()),
-                );
-            }
-            (layout.table, structural)
+    fn cell_props_table(&self, source: ir::SourceTableId) -> Option<(String, String, String)> {
+        // Tuple: (props_table, entity_id_column, prop_dict_table).
+        if self.node_source_entry(source).is_some() {
+            Some((
+                crate::catalog::node_props_table_name(self.graph.id),
+                "node_id".to_owned(),
+                crate::catalog::prop_dict_table_name(self.graph.id),
+            ))
+        } else if self.relationship_source_entry(source).is_some() {
+            Some((
+                crate::catalog::edge_props_table_name(self.graph.id),
+                "rel_id".to_owned(),
+                crate::catalog::prop_dict_table_name(self.graph.id),
+            ))
         } else {
+            None
+        }
+    }
+
+    fn payload_columns(&self, source: ir::SourceTableId) -> Option<Vec<(String, String)>> {
+        // Cell store: graph property keys live in prop_dict, not source-table
+        // columns. Same dictionary is shared across all sources of the graph.
+        if self.node_source_entry(source).is_none()
+            && self.relationship_source_entry(source).is_none()
+        {
             return None;
-        };
-        let table = self.connection.current_schema().get_table(&table_name)?;
+        }
+        let dict = crate::catalog::prop_dict_table_name(self.graph.id);
+        let rows = self
+            .connection
+            .prepare(format!("SELECT name FROM \"{dict}\" ORDER BY prop_id"))
+            .and_then(|mut statement| statement.run_collect_rows())
+            .ok()?;
         let mut columns = Vec::new();
-        for index in 0.. {
-            let Some(column) = table.get_column_at(index) else {
-                break;
-            };
-            let Some(name) = column.name.clone() else {
-                continue;
-            };
-            if structural.contains(&name) {
-                continue;
+        for row in rows {
+            if let Some(turso_core::Value::Text(name)) = row.first() {
+                let name = name.to_string();
+                let logical = name
+                    .strip_prefix("cyprop_")
+                    .map(str::to_owned)
+                    .unwrap_or_else(|| name.clone());
+                columns.push((logical, name));
             }
-            // Reserved-name properties live in prefixed payload columns.
-            let logical = name
-                .strip_prefix("cyprop_")
-                .map(str::to_owned)
-                .unwrap_or_else(|| name.clone());
-            columns.push((logical, name));
         }
         Some(columns)
     }
@@ -946,6 +1225,32 @@ impl RelationalCatalogSnapshot for SchemaCatalog {
         }
         self.payload_columns(source)
             .map(|columns| columns.into_iter().map(|(logical, _)| logical).collect())
+    }
+
+    fn procedure_all_property_keys(&self) -> Option<Vec<String>> {
+        if let Some(semantic) = &self.semantic {
+            let mut keys = BTreeMap::new();
+            for property in semantic
+                .node_type_values()
+                .chain(semantic.relationship_type_values())
+                .flat_map(SemanticTypeInfo::property_values)
+            {
+                keys.entry(property.name.to_ascii_lowercase())
+                    .or_insert_with(|| property.name.clone());
+            }
+            return Some(keys.into_values().collect());
+        }
+        None
+    }
+
+    fn procedure_property_keys_sql(&self) -> Option<String> {
+        if self.semantic.is_some() {
+            return None; // fall back to static semantic names
+        }
+        let dict = crate::catalog::prop_dict_table_name(self.graph.id);
+        Some(format!(
+            "SELECT name AS c0 FROM \"{dict}\" ORDER BY name COLLATE NOCASE"
+        ))
     }
 
     fn semantic_property_for_key(
@@ -1190,16 +1495,21 @@ mod tests {
         let id = catalog
             .property(graph_id, CatalogEntity::Node, "id")
             .expect("id resolves");
-        assert_eq!(id.id, ir::PropertyId::new(1).unwrap());
         assert_eq!(id.value_type, ir::ValueType::Integer);
         assert_eq!(id.nullability, ir::Nullability::NonNull);
 
         let name = catalog
             .property(graph_id, CatalogEntity::Node, "name")
             .expect("name resolves");
-        assert_eq!(name.id, ir::PropertyId::new(2).unwrap());
         assert_eq!(name.value_type, ir::ValueType::Text);
         assert_eq!(name.nullability, ir::Nullability::Nullable);
+        // Cell rail assigns dictionary ids; they must be distinct and stable
+        // for the same name, not equal to legacy column ordinals.
+        assert_ne!(id.id, name.id);
+        let name_again = catalog
+            .property(graph_id, CatalogEntity::Node, "name")
+            .expect("name resolves again");
+        assert_eq!(name.id, name_again.id);
     }
 
     #[test]

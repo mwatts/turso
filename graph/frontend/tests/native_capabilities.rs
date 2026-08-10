@@ -703,9 +703,17 @@ fn diagnostics_report_missing_current_and_stale_without_refreshing() {
     assert!(metadata.estimated_heap_bytes > 0);
     assert!(metadata.estimated_peak_build_bytes >= metadata.estimated_heap_bytes);
 
-    fixture::second_connection(&database)
-        .execute("INSERT INTO people VALUES (3, 'Katherine', 101)")
+    // Graph property writes go through Cell storage; use Cypher so the write
+    // is a real graph mutation that also advances source change tokens.
+    let other = GraphConnection::open(fixture::second_connection(&database), "social")
+        .expect("open second graph session");
+    other
+        .execute(
+            "CREATE (:Person {id: 3, name: 'Katherine', age: 101})",
+            &Parameters::new(),
+        )
         .expect("mutate a registered source");
+    drop(other);
     let stale = session.diagnostics().expect("stale diagnostics");
     let SnapshotStatus::Stale {
         snapshot,
@@ -717,7 +725,11 @@ fn diagnostics_report_missing_current_and_stale_without_refreshing() {
     };
     assert_eq!(current_catalog_version, GRAPH_CATALOG_VERSION);
     assert_eq!(snapshot.node_count, 2);
-    assert!(current_generation > snapshot.source_generation);
+    // derived_generation is a hash, not a counter — inequality is the signal.
+    assert_ne!(
+        current_generation, snapshot.source_generation,
+        "stale diagnostics must report a different derived generation after a write"
+    );
     assert_eq!(
         session.diagnostics().expect("repeat diagnostics"),
         stale,
@@ -1051,20 +1063,32 @@ fn property_keys_enumerates_declared_logical_payloads_across_sources() {
         )
         .expect("catalog procedure");
 
+    // Cell rail: property keys come from prop_dict, not source-table columns.
+    // An empty graph has no dictionary entries until properties are used or
+    // seeded (CREATE GRAPH / semantic registration).
+    assert!(
+        rows.is_empty(),
+        "empty Cell graph should report no property keys until properties exist, got {rows:?}"
+    );
+
+    // Use property names that are not SQL columns so they must go through the
+    // Cell dictionary (name is a real column and may prefer Column physical).
+    session
+        .execute("CREATE (:Person {tag: 'a', rank: 1})", &Parameters::new())
+        .expect("create seeds open properties into prop_dict");
+    let rows = session
+        .query(
+            "CALL db.propertyKeys() YIELD propertyKey \
+             RETURN propertyKey ORDER BY propertyKey",
+            &Parameters::new(),
+        )
+        .expect("catalog procedure after writes");
     assert_eq!(
         rows,
-        [
-            "empty_declared",
-            "id",
-            "name",
-            "owner's_note",
-            "score",
-            "since",
-            "src",
-        ]
-        .into_iter()
-        .map(|name| vec![Value::Text(name.into())])
-        .collect::<Vec<_>>()
+        ["rank", "tag"]
+            .into_iter()
+            .map(|name| vec![Value::Text(name.into())])
+            .collect::<Vec<_>>()
     );
 }
 

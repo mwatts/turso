@@ -1,8 +1,9 @@
 //! Steady-state mutations must not re-prepare stable helper SQL (R16).
 //!
-//! Value-inlined INSERT text still recompiles every CREATE — that is expected.
-//! Label-junction membership SQL is parameterized on the identity only, so
-//! after the first CREATE the session must reuse the prepared program.
+//! Value-carrying property writes still recompile when literals differ (Cell
+//! INSERT … VALUES (…, 'name') or legacy column INSERT). Label-junction
+//! membership SQL is parameterized on the identity only, so after the first
+//! CREATE the session must reuse the prepared program.
 //!
 //! One test in this binary, by design: see `prepared_sql`.
 
@@ -98,8 +99,8 @@ fn steady_create_reuses_label_junction_and_constraint_helper_sql() {
     assert!(
         statements
             .iter()
-            .any(|sql| sql.contains("INSERT INTO \"people\"")),
-        "value-inlined node INSERT must still recompile: {statements:#?}"
+            .any(|sql| { sql.contains("INSERT INTO \"people\"") || sql.contains("node_props") }),
+        "value-carrying CREATE write must still recompile (entity or Cell insert): {statements:#?}"
     );
 
     // Label junction and required-property probes are byte-stable across

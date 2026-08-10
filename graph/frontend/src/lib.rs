@@ -23,6 +23,7 @@ mod inspection;
 mod lowering;
 mod mutation;
 mod procedures;
+mod property_physical;
 mod schema_catalog;
 mod semantic;
 mod semantic_constraints;
@@ -37,13 +38,15 @@ pub use binder::{
     GraphCatalogSnapshot, ParameterTypes, PropertyResolution, ResolvedNodeType, ResolvedProperty,
     StatementKind,
 };
+#[allow(deprecated)]
 pub use catalog::{
-    graph_generation, labels_table_name, load_registered_graph, register_graph,
+    edge_props_table_name, graph_generation, labels_table_name, load_registered_graph,
+    node_props_table_name, prop_dict_table_name, register_graph, register_graph_with_options,
     register_graph_with_polymorphic_roles, relationship_type_registry_table_name,
-    relationship_types_table_name, CatalogError, GraphRegistration, NodeSourceRegistration,
-    PolymorphicRoleRegistration, RegisteredGraph, RegisteredNodeSource, RegisteredRelationshipRole,
-    RegisteredRelationshipSource, RelationshipSourceRegistration, RoleSourceRegistration,
-    GRAPH_CATALOG_VERSION,
+    relationship_types_table_name, CatalogError, GraphRegisterOptions, GraphRegistration,
+    NodeSourceRegistration, PolymorphicRoleRegistration, RegisteredGraph, RegisteredNodeSource,
+    RegisteredRelationshipRole, RegisteredRelationshipSource, RelationshipSourceRegistration,
+    RoleSourceRegistration, GRAPH_CATALOG_VERSION,
 };
 pub use compiler::{graph_frontend_id, GraphCompilationCatalog, GraphCompiler};
 pub use ddl::{execute_graph_ddl, DdlError};
@@ -61,6 +64,10 @@ pub use inspection::{
 pub use lowering::{
     lower_relational, lower_relational_with_options, ExpandLowerOptions, LowerError,
     NodeTableLayout, RelationalCatalogSnapshot, RelationshipRoleLayout, RelationshipTableLayout,
+};
+pub use property_physical::{
+    dict_value_type_name, parse_dict_value_type, resolve_property_physical, PropertyDictEntry,
+    PropertyDictError, PropertyDictionary, PropertyPhysical, NODE_PROPS_CELL_DDL, PROP_DICT_DDL,
 };
 pub use turso_graph_runtime::{BuildLimits, TraversalLimits};
 // `execute_cypher_mutation` now takes the session's statement cache, which is

@@ -1507,14 +1507,25 @@ mod tests {
             )
             .unwrap();
             let registered = crate::register_graph(&conn, &social_registration()).unwrap();
-            conn.execute("INSERT INTO people(id, name) VALUES (1, 'Alice')")
-                .unwrap();
-            conn.execute(format!(
-                "INSERT INTO \"{}\"(source_id, node_id, label) VALUES ({}, 1, 'Person')",
-                crate::labels_table_name(registered.id),
-                registered.node_sources[0].id.get(),
-            ))
+            // Seed through Cypher so properties land in the Cell store (the
+            // single property rail). Raw SQL inserts into `people.name` are
+            // not graph properties.
+            let session = crate::GraphConnection::install(
+                conn.clone(),
+                &registered,
+                std::sync::Arc::new(crate::SchemaCatalog::new(conn.clone(), registered.clone())),
+                crate::ParameterTypes::new(),
+                std::sync::Arc::new(crate::SnapshotStore::default()),
+                turso_graph_runtime::BuildLimits::default(),
+            )
             .unwrap();
+            session
+                .execute(
+                    "CREATE (:Person {id: 1, name: 'Alice'})",
+                    &crate::Parameters::new(),
+                )
+                .unwrap();
+            drop(session);
             conn.close().unwrap();
         }
         let (_io, db) = crate::open_database(

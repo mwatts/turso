@@ -361,6 +361,18 @@ Grouped by how well-understood the work is, not by priority.
 - **Variable-length path materialization** — the one outlined follow-up in
   `graph/DESIGN_DECISIONS.md`.
 - **Database-wide protection of owned backing tables.**
+- **Ontology-scale physical property store (Cell).** One model for all graphs:
+  topology tables hold identity and relationship endpoints only; Cypher
+  properties live in `prop_dict` plus `node_props` / `edge_props` with
+  `INDEX(prop_id, value)` and `source_id` namespacing. No consumer storage
+  modes and no payload-column migration path — register always installs the
+  Cell tables; graphs without them must be re-registered. When a source table
+  still has a real SQL property column (STRICT struct/union, multi-owner
+  semantic maps), that column is used for physical access; otherwise values
+  are Cell-only. No core wide-col table type unless cells fail product needs.
+  Plan:
+  [`docs/superpowers/plans/2026-08-10-graph-json-bag-property-store-spike.md`](superpowers/plans/2026-08-10-graph-json-bag-property-store-spike.md).
+
 
 ### Known hard blocks
 

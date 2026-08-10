@@ -200,6 +200,9 @@ pub(crate) struct ResolvedPropertyConstraint {
     property_id: ir::PropertyId,
     property_name: String,
     column: String,
+    /// When set, property values live in Cell storage: `(props_table, prop_id)`.
+    /// Validation SQL reads that side table instead of `entity.column`.
+    cell_prop: Option<(String, u64)>,
     predicate: ResolvedPropertyPredicate,
     regex: Option<Regex>,
 }
@@ -469,12 +472,7 @@ impl SemanticConstraintSnapshot {
             if !scope.touches(constraint.source) {
                 continue;
             }
-            self.validate_property_state(
-                connection,
-                statements,
-                constraint,
-                identity_filter,
-            )?;
+            self.validate_property_state(connection, statements, constraint, identity_filter)?;
         }
         for key in &self.keys {
             if !scope.touches(key.source) {
@@ -536,7 +534,23 @@ impl SemanticConstraintSnapshot {
     ) -> Result<(), SemanticCatalogError> {
         let table = quoted_identifier(&constraint.table);
         let identity = format!("entity.{}", quoted_identifier(&constraint.identity_column));
-        let column = format!("entity.{}", quoted_identifier(&constraint.column));
+        let column = match &constraint.cell_prop {
+            Some((props_table, prop_id)) => {
+                let entity_col = match constraint.owner_kind {
+                    OwnerKind::Node => "node_id",
+                    OwnerKind::Relationship => "rel_id",
+                };
+                format!(
+                    "(SELECT cell.{} FROM {} AS cell WHERE cell.source_id = {} AND cell.{} = {identity} AND cell.{} = {prop_id})",
+                    quoted_identifier("value"),
+                    quoted_identifier(props_table),
+                    constraint.source.get(),
+                    quoted_identifier(entity_col),
+                    quoted_identifier("prop_id"),
+                )
+            }
+            None => format!("entity.{}", quoted_identifier(&constraint.column)),
+        };
         let membership = self.membership_predicate(
             constraint.owner_kind,
             constraint.source,
@@ -909,19 +923,14 @@ fn value_predicate_violation_sql(
             // alone is enough for TEXT-vs-numeric; range compares only run
             // when SQLite would also compare like-for-like after the guard
             // fails first for mismatches.
-            Some(format!(
-                "{type_guard} OR ({})",
-                out_of_range.join(" OR ")
-            ))
+            Some(format!("{type_guard} OR ({})", out_of_range.join(" OR ")))
         }
         SemanticValuePredicate::Allowed { values } => {
             if values.is_empty() {
                 return None;
             }
-            let type_guard = scalar_family_typeof_guard(
-                column,
-                &values.iter().collect::<Vec<_>>(),
-            )?;
+            let type_guard =
+                scalar_family_typeof_guard(column, &values.iter().collect::<Vec<_>>())?;
             let literals = values
                 .iter()
                 .map(scalar_sql_literal)
@@ -965,9 +974,7 @@ fn scalar_family_typeof_guard(column: &str, values: &[&SemanticScalar]) -> Optio
         }
     }
     match family? {
-        ScalarSqlFamily::Numeric => {
-            Some(format!("typeof({column}) NOT IN ('integer', 'real')"))
-        }
+        ScalarSqlFamily::Numeric => Some(format!("typeof({column}) NOT IN ('integer', 'real')")),
         ScalarSqlFamily::Text => Some(format!("typeof({column}) != 'text'")),
     }
 }
@@ -1737,6 +1744,39 @@ pub(crate) fn load_constraint_snapshot(
             ),
             _ => None,
         };
+        // Use Cell validation only when the property is not a real SQL column
+        // on the source table (open properties). Owner-specific semantic
+        // columns keep column-shaped probes.
+        let cell_prop = match owner_kind {
+            OwnerKind::Node => {
+                let table_has_column = connection
+                    .current_schema()
+                    .get_table(&table)
+                    .is_some_and(|t| t.get_column_by_name(&property.column).is_some());
+                if table_has_column {
+                    None
+                } else {
+                    Some((
+                        crate::catalog::node_props_table_name(graph.id),
+                        u64::from(property_id.get()),
+                    ))
+                }
+            }
+            OwnerKind::Relationship => {
+                let table_has_column = connection
+                    .current_schema()
+                    .get_table(&table)
+                    .is_some_and(|t| t.get_column_by_name(&property.column).is_some());
+                if table_has_column {
+                    None
+                } else {
+                    Some((
+                        crate::catalog::edge_props_table_name(graph.id),
+                        u64::from(property_id.get()),
+                    ))
+                }
+            }
+        };
         snapshot
             .property_constraints
             .push(ResolvedPropertyConstraint {
@@ -1748,6 +1788,7 @@ pub(crate) fn load_constraint_snapshot(
                 property_id,
                 property_name: property.name.clone(),
                 column: property.column.clone(),
+                cell_prop,
                 predicate,
                 regex,
             });

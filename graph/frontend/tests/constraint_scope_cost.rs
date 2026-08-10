@@ -139,11 +139,17 @@ fn a_create_costs_the_same_no_matter_how_many_other_types_exist() {
 
     // Guards the assertions below against passing because nothing was
     // recorded — an empty recording satisfies both of them.
+    // Cell rail: steady CREATE often reuses a cached `INSERT INTO t0` and only
+    // recompiles prop_dict / node_props statements. Accept either shape.
     assert!(
-        many.iter()
-            .any(|sql| sql.contains("\"t0\"") || sql.contains(" t0 ")),
-        "expected the CREATE to compile SQL against its own source table t0, but recorded \
-         {many:#?}"
+        many.iter().any(|sql| {
+            sql.contains("\"t0\"")
+                || sql.contains(" t0 ")
+                || sql.contains("node_props")
+                || sql.contains("prop_dict")
+        }),
+        "expected the CREATE to compile SQL against its own source (t0 or Cell tables), but \
+         recorded {many:#?}"
     );
 
     let foreign = foreign_table_reads(&many);

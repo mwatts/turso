@@ -378,9 +378,8 @@ fn propertyless_merge_without_a_match_key_is_rejected() {
 fn concurrent_identical_relationship_merges_leave_one_row() {
     let (database, session_a) = fixture::social_graph_connection();
     // social fixture already seeded Person id 1 and 2.
-    let session_b =
-        GraphConnection::open(fixture::second_connection(&database), "social")
-            .expect("open second session on the same registered graph");
+    let session_b = GraphConnection::open(fixture::second_connection(&database), "social")
+        .expect("open second session on the same registered graph");
 
     let merge = "MATCH (a:Person {id: 1}), (b:Person {id: 2}) MERGE (a)-[:KNOWS]->(b)";
     session_a

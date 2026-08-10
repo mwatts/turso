@@ -4,6 +4,8 @@ use thiserror::Error;
 use turso_graph_ir as ir;
 use turso_parser::ast;
 
+use crate::property_physical::{resolve_property_physical, PropertyPhysical};
+
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct NodeTableLayout {
     pub table: String,
@@ -102,6 +104,32 @@ pub trait RelationalCatalogSnapshot {
     ) -> bool {
         false
     }
+    /// Physical storage for a property on `source`.
+    ///
+    /// Default: map `property_column` to [`PropertyPhysical::Column`]. Catalogs
+    /// that store properties in a JSON bag or side-table cells override this.
+    /// [`resolve_property_physical`] uses this as the existence-aware oracle:
+    /// semantic maps only force a type-qualified Column when that column
+    /// exists on the source table (see [`source_has_column`]).
+    fn property_physical(
+        &self,
+        source: ir::SourceTableId,
+        property: ir::PropertyId,
+    ) -> Option<PropertyPhysical> {
+        self.property_column(source, property)
+            .map(|column| PropertyPhysical::Column {
+                jsonb: self.property_column_is_jsonb(source, property),
+                column,
+            })
+    }
+    /// Whether `column` is a real SQL column on the entity table for `source`.
+    ///
+    /// Used by [`resolve_property_physical`] so multi-owner semantic maps
+    /// (e.g. `weight` → `since` / `share`) only force Column when the mapped
+    /// field exists. Default `false` keeps unknown catalogs on the Cell path.
+    fn source_has_column(&self, _source: ir::SourceTableId, _column: &str) -> bool {
+        false
+    }
     /// Junction table recording each node's labels, when the graph has one.
     fn labels_table(&self) -> Option<String> {
         None
@@ -127,9 +155,16 @@ pub trait RelationalCatalogSnapshot {
     fn procedure_relationship_types(&self) -> Option<Vec<String>> {
         None
     }
+    /// When the graph stores Cypher properties in a Cell side-table:
+    /// `(props_table, entity_id_column, prop_dict_table)`. `None` when this
+    /// source still uses columns on the entity table (transitional dual path).
+    fn cell_props_table(&self, _source: ir::SourceTableId) -> Option<(String, String, String)> {
+        None
+    }
     /// Payload properties of a source as (cypher name, physical column)
     /// pairs — every column except identity/endpoint columns. Enables
-    /// whole-entity property reads (`properties(n)`).
+    /// whole-entity property reads (`properties(n)`). Under Cell storage the
+    /// "physical" half is the property name (cells are not entity columns).
     fn payload_columns(&self, _source: ir::SourceTableId) -> Option<Vec<(String, String)>> {
         None
     }
@@ -139,6 +174,15 @@ pub trait RelationalCatalogSnapshot {
     fn procedure_property_keys(&self, source: ir::SourceTableId) -> Option<Vec<String>> {
         self.payload_columns(source)
             .map(|columns| columns.into_iter().map(|(logical, _)| logical).collect())
+    }
+    /// All property names in the graph dictionary (Cell rail). Prefer this for
+    /// `db.propertyKeys` so keys are not empty when sources share one dict.
+    fn procedure_all_property_keys(&self) -> Option<Vec<String>> {
+        None
+    }
+    /// Live SQL for `db.propertyKeys` (must project one text column `c0`).
+    fn procedure_property_keys_sql(&self) -> Option<String> {
+        None
     }
 
     fn semantic_property_for_key(
@@ -396,17 +440,29 @@ fn source_column_ref(binding: ir::BindingId) -> String {
     format!("{}_source", binding_column(binding))
 }
 
+// Used by FTS property argument lowering; default builds omit that arm.
+#[cfg_attr(not(feature = "fts"), allow(dead_code))]
 fn resolved_property_column(
     catalog: &dyn RelationalCatalogSnapshot,
     source: ir::SourceTableId,
     semantic_types: &[String],
     property: ir::PropertyId,
 ) -> Option<String> {
-    match catalog.semantic_property_for_id(source, semantic_types, property) {
-        Some(Some((_, _, column))) => Some(column),
-        Some(None) => None,
-        None => catalog.property_column(source, property),
+    match resolve_property_physical(catalog, source, semantic_types, property)? {
+        PropertyPhysical::Column { column, .. } => Some(column),
+        PropertyPhysical::JsonBag { key, .. } => Some(key),
+        // FTS / legacy helpers that want a name-like token; Cell uses prop_id.
+        PropertyPhysical::Cell { prop_id, .. } => Some(prop_id.to_string()),
     }
+}
+
+fn resolved_property_physical(
+    catalog: &dyn RelationalCatalogSnapshot,
+    source: ir::SourceTableId,
+    semantic_types: &[String],
+    property: ir::PropertyId,
+) -> Option<PropertyPhysical> {
+    resolve_property_physical(catalog, source, semantic_types, property)
 }
 
 #[derive(Clone, Copy, Default)]
@@ -439,7 +495,7 @@ fn materialize_properties(
         let Some(id) = ir::PropertyId::new(*property).ok() else {
             continue;
         };
-        let Some(column) = resolved_property_column(catalog, source, semantic_types, id) else {
+        let Some(physical) = resolved_property_physical(catalog, source, semantic_types, id) else {
             if matches!(
                 catalog.semantic_property_for_id(source, semantic_types, id),
                 Some(None)
@@ -453,12 +509,7 @@ fn materialize_properties(
             }
             continue;
         };
-        let value = format!("{alias}.{}", quote_identifier(&column));
-        let value = if catalog.property_column_is_jsonb(source, id) {
-            format!("json({value})")
-        } else {
-            value
-        };
+        let value = physical.read_from_alias(alias);
         let value = context.null_probe.map_or(value.clone(), |null_probe| {
             format!("CASE WHEN {null_probe} IS NULL THEN NULL ELSE {value} END")
         });
@@ -988,19 +1039,27 @@ fn lower_procedure_call(
             }
         }
         ir::ProcedureIdentity::DbPropertyKeys => {
-            let mut keys = BTreeSet::new();
-            for source in catalog
-                .registered_node_sources()
-                .into_iter()
-                .chain(catalog.registered_relationship_sources())
-            {
-                keys.extend(
-                    catalog
-                        .procedure_property_keys(source)
-                        .ok_or(LowerError::MissingSource(source))?,
-                );
+            // Prefer a live scan of prop_dict so keys added after prepare
+            // (open Cell auto-registration) are visible without recompile.
+            if let Some(sql) = catalog.procedure_property_keys_sql() {
+                sql
+            } else if let Some(keys) = catalog.procedure_all_property_keys() {
+                text_procedure_rows(keys)
+            } else {
+                let mut keys = BTreeSet::new();
+                for source in catalog
+                    .registered_node_sources()
+                    .into_iter()
+                    .chain(catalog.registered_relationship_sources())
+                {
+                    keys.extend(
+                        catalog
+                            .procedure_property_keys(source)
+                            .ok_or(LowerError::MissingSource(source))?,
+                    );
+                }
+                text_procedure_rows(keys)
             }
-            text_procedure_rows(keys)
         }
     };
     let projections = call
@@ -2369,31 +2428,69 @@ fn lower_expression_with_references(
                     property_column_ref(*entity, *property)
                 ));
             }
-            let jsonb = catalog.property_column_is_jsonb(binding.source, *property);
+            let physical =
+                resolved_property_physical(catalog, binding.source, semantic_types, *property)
+                    .ok_or(LowerError::MissingProperty {
+                        source_id: binding.source,
+                        property: *property,
+                    })?;
             // The binding's own table is joined right here, so its columns are
             // readable directly. Going back to the table through a correlated
             // subquery would repeat a lookup per candidate row for a value the
             // join already has, and hides the column from index selection.
             if fields.is_empty() {
                 if let Some(alias) = references.get(entity).and_then(|r| r.row_alias.as_deref()) {
-                    if let Some(column) =
-                        resolved_property_column(catalog, binding.source, semantic_types, *property)
-                    {
-                        let value = format!("{alias}.{}", quote_identifier(&column));
-                        return Ok(if jsonb {
-                            format!("json({value})")
-                        } else {
-                            value
-                        });
-                    }
+                    return Ok(physical.read_from_alias(alias));
                 }
             }
-            let column =
-                resolved_property_column(catalog, binding.source, semantic_types, *property)
-                    .ok_or(LowerError::MissingProperty {
-                        source_id: binding.source,
-                        property: *property,
-                    })?;
+            if !fields.is_empty() {
+                // Nested field access only applies to column-backed properties
+                // (struct/union). Bag/cell values are scalars at this layer.
+                let PropertyPhysical::Column { column, jsonb } = &physical else {
+                    return Err(LowerError::UnsupportedOperator(
+                        "struct/union field access on bag or cell property",
+                    ));
+                };
+                let (table, identity) = match binding.kind {
+                    EntityKind::Node => {
+                        let layout = catalog
+                            .node_layout(binding.source)
+                            .ok_or(LowerError::MissingSource(binding.source))?;
+                        (layout.table, layout.identity_column)
+                    }
+                    EntityKind::Relationship => {
+                        let layout = catalog
+                            .relationship_layout(binding.source)
+                            .ok_or(LowerError::MissingSource(binding.source))?;
+                        (layout.table, layout.identity_column)
+                    }
+                };
+                let mut selector = quote_identifier(column);
+                for field in fields {
+                    validate_bare_name(field)?;
+                    selector.push('.');
+                    selector.push_str(&quote_identifier(field));
+                }
+                // core's SQL grammar caps dot-chain expressions at 3 identifiers
+                // (`Expr::DoublyQualified`, core/translate/expr/binding.rs).
+                let selector = if fields.len() < 2 {
+                    format!("p.{selector}")
+                } else {
+                    selector
+                };
+                let selector = if *jsonb && fields.is_empty() {
+                    format!("json({selector})")
+                } else {
+                    selector
+                };
+                return Ok(format!(
+                    "(SELECT {} FROM {} AS p WHERE p.{} = {})",
+                    selector,
+                    quote_identifier(&table),
+                    quote_identifier(&identity),
+                    binding_reference(*entity, input_alias, references)
+                ));
+            }
             let (table, identity) = match binding.kind {
                 EntityKind::Node => {
                     let layout = catalog
@@ -2408,42 +2505,13 @@ fn lower_expression_with_references(
                     (layout.table, layout.identity_column)
                 }
             };
-            let mut selector = quote_identifier(&column);
-            for field in fields {
-                validate_bare_name(field)?;
-                selector.push('.');
-                selector.push_str(&quote_identifier(field));
-            }
-            // core's SQL grammar caps dot-chain expressions at 3 identifiers
-            // (`Expr::DoublyQualified`, core/translate/expr/binding.rs). The
-            // `p.col.field1` form (<=1 nested field) fits that cap, but
-            // `p.col.field1.field2` (2 nested fields) would be a 4th
-            // identifier core's parser cannot parse at all. core's only AST
-            // path for genuine 2-level nested field access instead requires
-            // an unqualified column name as the chain's root
-            // (`col.field1.field2`, `try_resolve_nested_field_access`), so
-            // the `p.` alias prefix is dropped for that case. This is safe:
-            // `find_custom_type_column` only searches this subquery's own
-            // single joined table, never the outer query's scope, so the
-            // bare column name stays unambiguous. The WHERE clause's
-            // identity correlation keeps using the `p.` alias either way.
-            let selector = if fields.len() < 2 {
-                format!("p.{selector}")
-            } else {
-                selector
-            };
-            let selector = if jsonb && fields.is_empty() {
-                format!("json({selector})")
-            } else {
-                selector
-            };
-            Ok(format!(
-                "(SELECT {} FROM {} AS p WHERE p.{} = {})",
-                selector,
-                quote_identifier(&table),
-                quote_identifier(&identity),
-                binding_reference(*entity, input_alias, references)
-            ))
+            physical
+                .read_by_identity_sql(
+                    &table,
+                    &identity,
+                    &binding_reference(*entity, input_alias, references),
+                )
+                .map_err(|_message| LowerError::UnsupportedOperator("property physical read form"))
         }
         ir::Expression::Parameter(name) => {
             validate_bare_name(name)?;
@@ -3137,18 +3205,14 @@ fn lower_expression_with_references(
                 )?;
                 let mut branches = Vec::new();
                 for source in &layout.sources {
-                    let columns =
+                    let columns: Vec<(String, String)> =
                         if let Some(properties) = catalog.semantic_properties(*source, &[]) {
                             properties
                                 .into_iter()
                                 .map(|(_, name, _, column)| (name, column))
                                 .collect()
                         } else {
-                            catalog.payload_columns(*source).ok_or(
-                                LowerError::UnsupportedOperator(
-                                    "properties() without payload columns",
-                                ),
-                            )?
+                            catalog.payload_columns(*source).unwrap_or_default()
                         };
                     let (table, identity) = match layout.kind {
                         EntityKind::Node => {
@@ -3164,8 +3228,11 @@ fn lower_expression_with_references(
                             (source_layout.table, source_layout.identity_column)
                         }
                     };
+                    // Only emit entity-table fields that actually exist.
+                    // Cell-rail names in the dict are not SQL columns.
                     let pairs = columns
                         .iter()
+                        .filter(|(_, physical)| catalog.source_has_column(*source, physical))
                         .map(|(logical, physical)| {
                             format!(
                                 "'{}', prp.{}",
@@ -3175,21 +3242,46 @@ fn lower_expression_with_references(
                         })
                         .collect::<Vec<_>>()
                         .join(", ");
-                    let object = if pairs.is_empty() {
-                        "json_object()".to_owned()
+                    let column_object = if pairs.is_empty() {
+                        None
                     } else {
-                        format!("json_object({pairs})")
+                        let object = format!("json_object({pairs})");
+                        // json_group_object over json_each strips null-valued
+                        // keys, matching Cypher's properties() (absent, not null).
+                        Some(format!(
+                            "(SELECT coalesce(json_group_object(je.key, je.value), json_object()) \
+                             FROM json_each((SELECT {object} FROM {} AS prp \
+                             WHERE prp.{} = ({identity_value}))) AS je \
+                             WHERE je.value IS NOT NULL)",
+                            quote_identifier(&table),
+                            quote_identifier(&identity),
+                        ))
                     };
-                    // json_group_object over json_each strips null-valued
-                    // keys, matching Cypher's properties() (absent, not null).
-                    let sql = format!(
-                        "(SELECT coalesce(json_group_object(je.key, je.value), json_object()) \
-                         FROM json_each((SELECT {object} FROM {} AS prp \
-                         WHERE prp.{} = ({identity_value}))) AS je \
-                         WHERE je.value IS NOT NULL)",
-                        quote_identifier(&table),
-                        quote_identifier(&identity),
+                    let cell_object = catalog.cell_props_table(*source).map(
+                        |(props_table, entity_column, dict_table)| {
+                            format!(
+                                "(SELECT coalesce(json_group_object(d.name, c.value), json_object()) \
+                                 FROM {} AS c \
+                                 JOIN {} AS d ON d.prop_id = c.prop_id \
+                                 WHERE c.source_id = {} AND c.{} = ({identity_value}) \
+                                   AND c.value IS NOT NULL)",
+                                quote_identifier(&props_table),
+                                quote_identifier(&dict_table),
+                                source.get(),
+                                quote_identifier(&entity_column),
+                            )
+                        },
                     );
+                    let sql = match (column_object, cell_object) {
+                        (Some(columns_sql), Some(cells_sql)) => {
+                            // Cells overlay columns so open properties appear
+                            // alongside residual SQL fields (name/age fixtures).
+                            format!("(SELECT json_patch(({columns_sql}), ({cells_sql})))")
+                        }
+                        (Some(columns_sql), None) => columns_sql,
+                        (None, Some(cells_sql)) => cells_sql,
+                        (None, None) => "json_object()".to_owned(),
+                    };
                     branches.push((*source, sql));
                 }
                 if let [(_, sql)] = branches.as_slice() {

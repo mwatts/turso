@@ -1,17 +1,10 @@
 //! `CREATE GRAPH` — sugar over [`register_graph`].
 //!
-//! This module adds no storage model. It parses the DDL, infers the physical
-//! names the statement left unsaid, emits the backing `CREATE TABLE`s, and
-//! hands the result to the same registration path a Rust caller would use. A
-//! graph created this way is indistinguishable from one registered directly.
-//!
-//! Tables are created `IF NOT EXISTS`, which is what makes one syntax serve
-//! both purposes: a fresh graph gets new tables, and a graph declared over an
-//! existing schema adopts those tables instead. Adoption is not blind — the
-//! registration that follows verifies every named column exists and that the
-//! identity column is unique, so a shape mismatch surfaces as
-//! [`CatalogError::MissingColumn`] naming the exact column rather than as a
-//! graph that half-works.
+//! Single property rail: node/relationship tables hold **identity and role
+//! endpoints only**. Declared `(name TYPE)` properties seed the graph
+//! `prop_dict`; Cypher property values live in `node_props` cells, not as
+//! extra SQL columns. Tables are still created `IF NOT EXISTS` so a
+//! declaration can adopt an existing topology table (identity + endpoints).
 
 use std::sync::Arc;
 
@@ -21,9 +14,9 @@ use turso_graph_cypher::{parse_ddl, ColumnDecl, GraphDdl, ParseError, RelationDe
 use turso_graph_ir::RoleCardinality;
 
 use crate::catalog::{
-    labels_table_name, register_graph, relationship_types_table_name, sql_string, CatalogError,
-    GraphRegistration, NodeSourceRegistration, RegisteredGraph, RelationshipSourceRegistration,
-    RoleSourceRegistration,
+    labels_table_name, prop_dict_table_name, register_graph, relationship_types_table_name,
+    sql_string, CatalogError, GraphRegistration, NodeSourceRegistration, RegisteredGraph,
+    RelationshipSourceRegistration, RoleSourceRegistration,
 };
 use crate::transaction::{in_write_transaction, WriteTransactionError};
 
@@ -100,8 +93,46 @@ fn apply(connection: &Arc<Connection>, plan: &DdlPlan) -> Result<RegisteredGraph
         connection.execute(statement.as_str())?;
     }
     let graph = register_graph(connection, &plan.registration)?;
+    seed_prop_dict(connection, &graph, &plan.property_seeds)?;
     backfill_membership(connection, &graph)?;
     Ok(graph)
+}
+
+/// Seed `prop_dict` from CREATE GRAPH property declarations (types only;
+/// values arrive via Cypher).
+fn seed_prop_dict(
+    connection: &Arc<Connection>,
+    graph: &RegisteredGraph,
+    seeds: &[(String, String)],
+) -> Result<(), DdlError> {
+    let dict = prop_dict_table_name(graph.id);
+    for (name, sql_type) in seeds {
+        let value_type = ddl_type_to_dict_type(sql_type);
+        let escaped = name.replace('\'', "''");
+        connection.execute(format!(
+            "INSERT OR IGNORE INTO \"{dict}\"(name, value_type) VALUES ('{escaped}', '{value_type}')"
+        ))?;
+    }
+    Ok(())
+}
+
+fn ddl_type_to_dict_type(sql_type: &str) -> &'static str {
+    let upper = sql_type.trim().to_ascii_uppercase();
+    if upper.contains("INT") {
+        "integer"
+    } else if upper.contains("REAL")
+        || upper.contains("FLOA")
+        || upper.contains("DOUB")
+        || upper.contains("NUM")
+    {
+        "float"
+    } else if upper.contains("BOOL") {
+        "boolean"
+    } else if upper.contains("TEXT") || upper.contains("CHAR") || upper.contains("CLOB") {
+        "text"
+    } else {
+        "any"
+    }
 }
 
 /// Records the label of every row that already existed in an adopted table.
@@ -150,19 +181,25 @@ fn backfill_membership(
 struct DdlPlan {
     create_tables: Vec<String>,
     registration: GraphRegistration,
+    /// (property name, SQL type text) for prop_dict seeding.
+    property_seeds: Vec<(String, String)>,
 }
 
 fn lower(ddl: &GraphDdl) -> Result<DdlPlan, DdlError> {
     let mut create_tables = Vec::new();
     let mut node_sources = Vec::new();
+    let mut property_seeds = Vec::new();
 
     for node in &ddl.nodes {
         let table = declared_or(node.table.as_ref(), &node.name.value);
         let identity = declared_or(node.key.as_ref(), DEFAULT_IDENTITY_COLUMN);
 
-        let mut columns = vec![identity_column(&identity)];
-        columns.extend(column_definitions(&node.columns));
+        // Topology only: identity column. Declared properties seed prop_dict.
+        let columns = vec![identity_column(&identity)];
         create_tables.push(create_table(&table, &columns));
+        for column in &node.columns {
+            property_seeds.push((column.name.value.clone(), column.column_type.value.clone()));
+        }
 
         node_sources.push(NodeSourceRegistration {
             name: node.name.value.clone(),
@@ -173,9 +210,12 @@ fn lower(ddl: &GraphDdl) -> Result<DdlPlan, DdlError> {
 
     let mut relationship_sources = Vec::new();
     for relation in &ddl.relations {
-        let (statement, source) = lower_relation(relation)?;
+        let (statement, source, rel_seeds) = lower_relation(relation)?;
         create_tables.push(statement);
         relationship_sources.push(source);
+        // Relation property columns still land on the relation table until
+        // edge cells exist; also seed the shared dict for future edge cells.
+        property_seeds.extend(rel_seeds);
     }
 
     Ok(DdlPlan {
@@ -185,17 +225,26 @@ fn lower(ddl: &GraphDdl) -> Result<DdlPlan, DdlError> {
             node_sources,
             relationship_sources,
         },
+        property_seeds,
     })
 }
 
 fn lower_relation(
     relation: &RelationDecl,
-) -> Result<(String, RelationshipSourceRegistration), DdlError> {
+) -> Result<
+    (
+        String,
+        RelationshipSourceRegistration,
+        Vec<(String, String)>,
+    ),
+    DdlError,
+> {
     let table = declared_or(relation.table.as_ref(), &relation.name.value);
     let identity = declared_or(relation.key.as_ref(), DEFAULT_IDENTITY_COLUMN);
 
     let mut columns = vec![identity_column(&identity)];
     let mut roles = Vec::new();
+    let mut seeds = Vec::new();
 
     for role in &relation.roles {
         if role.many {
@@ -227,7 +276,10 @@ fn lower_relation(
         });
     }
 
-    columns.extend(column_definitions(&relation.columns));
+    // Topology only: identity + role endpoints. Declared properties seed the dict.
+    for column in &relation.columns {
+        seeds.push((column.name.value.clone(), column.column_type.value.clone()));
+    }
 
     Ok((
         create_table(&table, &columns),
@@ -237,6 +289,7 @@ fn lower_relation(
             identity_column: identity,
             roles,
         },
+        seeds,
     ))
 }
 
@@ -252,6 +305,7 @@ fn identity_column(name: &str) -> String {
 
 /// Column types are emitted verbatim: the declaration writes SQL types, and
 /// this DDL does not introduce a type system of its own.
+#[allow(dead_code)] // reserved if CREATE GRAPH re-emits typed columns
 fn column_definitions(columns: &[ColumnDecl]) -> impl Iterator<Item = String> + '_ {
     columns
         .iter()
@@ -292,14 +346,27 @@ mod tests {
                ROLE end -> Person",
         );
 
+        // Nodes: identity only; `name` seeds prop_dict, not a SQL column.
         assert_eq!(
             plan.create_tables[0],
-            "CREATE TABLE IF NOT EXISTS \"Person\" (\"id\" INTEGER PRIMARY KEY, \"name\" TEXT)"
+            "CREATE TABLE IF NOT EXISTS \"Person\" (\"id\" INTEGER PRIMARY KEY)"
         );
         assert_eq!(
             plan.create_tables[1],
             "CREATE TABLE IF NOT EXISTS \"KNOWS\" (\"id\" INTEGER PRIMARY KEY, \
-             \"start\" INTEGER, \"end\" INTEGER, \"since\" INTEGER)"
+             \"start\" INTEGER, \"end\" INTEGER)"
+        );
+        assert!(
+            plan.property_seeds
+                .iter()
+                .any(|(name, ty)| name == "name" && ty.eq_ignore_ascii_case("TEXT")),
+            "node property decls seed prop_dict: {:?}",
+            plan.property_seeds
+        );
+        assert!(
+            plan.property_seeds.iter().any(|(name, _)| name == "since"),
+            "relation property decls seed prop_dict: {:?}",
+            plan.property_seeds
         );
 
         let node = &plan.registration.node_sources[0];

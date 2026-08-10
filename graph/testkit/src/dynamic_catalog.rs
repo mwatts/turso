@@ -4,15 +4,18 @@
 //! properties, while a fixture registers one node and one relationship
 //! table. This catalog delegates to the schema-backed catalog first and
 //! provisions anything unknown on demand: labels and relationship types
-//! get fresh identities (the engine does not filter scans by label), and
-//! properties get a real column added to the backing table.
+//! get fresh identities (the engine does not filter scans by label).
+//!
+//! Properties use the Cell rail by default (via [`SchemaCatalog`]). Reserved
+//! structural names (`id` / `src` / `dst`) still get a `cyprop_*` SQL column
+//! so non-integer donor values never collide with INTEGER PRIMARY KEY.
 
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 
 use turso_core::Connection;
 use turso_graph_frontend::{
-    CatalogEntity, GraphCatalogSnapshot, NodeTableLayout, RegisteredGraph,
+    CatalogEntity, GraphCatalogSnapshot, NodeTableLayout, PropertyPhysical, RegisteredGraph,
     RelationalCatalogSnapshot, RelationshipTableLayout, ResolvedProperty, SchemaCatalog,
 };
 use turso_graph_ir as ir;
@@ -169,9 +172,8 @@ impl GraphCatalogSnapshot for DynamicCatalog {
     ) -> Option<ResolvedProperty> {
         let is_node = matches!(entity, CatalogEntity::Node);
         {
-            // Dynamically provisioned properties stay Any-typed even after
-            // their ALTERed column becomes visible to the schema catalog,
-            // which would otherwise re-resolve them with a text affinity.
+            // Dynamically provisioned reserved properties stay Any-typed even
+            // after their cyprop_* column becomes visible to the schema catalog.
             let state = self.state.lock().expect("catalog state lock");
             if let Some(property) = state.properties.get(&(is_node, name.to_owned())) {
                 return Some(property.clone());
@@ -188,9 +190,8 @@ impl GraphCatalogSnapshot for DynamicCatalog {
         };
         let is_reserved = reserved.contains(&name);
         if !is_reserved {
-            if let Some(property) = self.inner.property(graph, entity, name) {
-                return Some(property);
-            }
+            // Open names: Cell rail via prop_dict (no ALTER TABLE).
+            return self.inner.property(graph, entity, name);
         }
         let mut state = self.state.lock().expect("catalog state lock");
         let key = (is_node, name.to_owned());
@@ -199,15 +200,12 @@ impl GraphCatalogSnapshot for DynamicCatalog {
         } else {
             &self.relationship_table
         };
-        let physical = if is_reserved {
-            format!("cyprop_{name}")
-        } else {
-            name.to_owned()
-        };
+        let physical = format!("cyprop_{name}");
         let column = physical.replace('"', "\"\"");
-        self.connection
-            .execute(format!("ALTER TABLE \"{table}\" ADD COLUMN \"{column}\""))
-            .ok()?;
+        // Column may already exist (cypherbench load / seed mirror).
+        let _ = self
+            .connection
+            .execute(format!("ALTER TABLE \"{table}\" ADD COLUMN \"{column}\""));
         let property = ResolvedProperty {
             id: ir::PropertyId::new(Self::next_id(&mut state)).ok()?,
             value_type: ir::ValueType::Any,
@@ -287,15 +285,17 @@ impl RelationalCatalogSnapshot for DynamicCatalog {
         source: ir::SourceTableId,
         property: ir::PropertyId,
     ) -> Option<String> {
-        if let Some(column) = self.inner.property_column(source, property) {
-            return Some(column);
-        }
-        self.state
+        if let Some(column) = self
+            .state
             .lock()
             .expect("catalog state lock")
             .property_columns
             .get(&property)
             .cloned()
+        {
+            return Some(column);
+        }
+        self.inner.property_column(source, property)
     }
 
     fn property_column_is_jsonb(
@@ -306,11 +306,79 @@ impl RelationalCatalogSnapshot for DynamicCatalog {
         self.inner.property_column_is_jsonb(source, property)
     }
 
+    fn property_physical(
+        &self,
+        source: ir::SourceTableId,
+        property: ir::PropertyId,
+    ) -> Option<PropertyPhysical> {
+        // Reserved cyprop_* columns provisioned by this catalog stay Column.
+        // Everything else uses SchemaCatalog's Cell/real-column routing so
+        // open property names are not forced onto missing SQL columns.
+        if let Some(column) = self
+            .state
+            .lock()
+            .expect("catalog state lock")
+            .property_columns
+            .get(&property)
+            .cloned()
+        {
+            return Some(PropertyPhysical::Column {
+                jsonb: self.property_column_is_jsonb(source, property),
+                column,
+            });
+        }
+        self.inner.property_physical(source, property)
+    }
+
+    fn source_has_column(&self, source: ir::SourceTableId, column: &str) -> bool {
+        self.inner.source_has_column(source, column)
+    }
+
+    fn cell_props_table(&self, source: ir::SourceTableId) -> Option<(String, String, String)> {
+        self.inner.cell_props_table(source)
+    }
+
     fn payload_columns(&self, source: ir::SourceTableId) -> Option<Vec<(String, String)>> {
         self.inner.payload_columns(source)
     }
 
     fn procedure_property_keys(&self, source: ir::SourceTableId) -> Option<Vec<String>> {
         self.inner.procedure_property_keys(source)
+    }
+
+    fn procedure_all_property_keys(&self) -> Option<Vec<String>> {
+        self.inner.procedure_all_property_keys()
+    }
+
+    fn procedure_property_keys_sql(&self) -> Option<String> {
+        self.inner.procedure_property_keys_sql()
+    }
+
+    fn semantic_property_for_key(
+        &self,
+        source: ir::SourceTableId,
+        type_names: &[String],
+        key: &str,
+    ) -> Option<Option<(String, ir::ValueType, String)>> {
+        self.inner
+            .semantic_property_for_key(source, type_names, key)
+    }
+
+    fn semantic_property_for_id(
+        &self,
+        source: ir::SourceTableId,
+        type_names: &[String],
+        property: ir::PropertyId,
+    ) -> Option<Option<(String, ir::ValueType, String)>> {
+        self.inner
+            .semantic_property_for_id(source, type_names, property)
+    }
+
+    fn semantic_properties(
+        &self,
+        source: ir::SourceTableId,
+        type_names: &[String],
+    ) -> Option<Vec<(ir::PropertyId, String, ir::ValueType, String)>> {
+        self.inner.semantic_properties(source, type_names)
     }
 }

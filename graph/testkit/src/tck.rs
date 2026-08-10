@@ -466,8 +466,9 @@ fn execute_case(
             );
         }
     }
-    let labels_table = turso_graph_frontend::labels_table_name(fixture.session.graph_id());
-    let counters_before = graph_counters(&fixture.connection, &labels_table);
+    let graph_id = fixture.session.graph_id();
+    let labels_table = turso_graph_frontend::labels_table_name(graph_id);
+    let counters_before = graph_counters(&fixture.connection, &labels_table, graph_id);
     match execute_tck_statement(&fixture.session, query, &parameters) {
         Err(error) if expectation == Expectation::Error => {
             (Outcome::Passed, None, Some(error), "execution")
@@ -489,6 +490,7 @@ fn execute_case(
                 if let Err(message) = compare_side_effects(
                     &fixture.connection,
                     &labels_table,
+                    graph_id,
                     counters_before.as_ref(),
                     step,
                 ) {
@@ -573,11 +575,14 @@ struct GraphCounters {
 }
 
 /// Counts nodes, relationships, and non-null property cells in the shared
-/// fixture tables. Labels are not physically stored, so ±labels expectations
-/// cannot be verified.
+/// fixture tables. Property counts include residual SQL columns (name/age /
+/// cyprop_*) plus Cell-rail rows in node_props/edge_props. Labels are not
+/// physically stored as Cypher ±labels, so those expectations cannot be
+/// verified against the junction alone.
 fn graph_counters(
     connection: &std::sync::Arc<turso_core::Connection>,
     labels_table: &str,
+    graph: turso_graph_ir::GraphId,
 ) -> Result<GraphCounters, String> {
     let count = |sql: &str| -> Result<i64, String> {
         let rows = connection
@@ -609,6 +614,19 @@ fn graph_counters(
             properties += count(&format!("SELECT count(\"{name}\") FROM \"{table}\""))?;
         }
     }
+    // Cell rail: each non-null cell is one property value.
+    let node_props = turso_graph_frontend::node_props_table_name(graph);
+    let edge_props = turso_graph_frontend::edge_props_table_name(graph);
+    if table_exists(connection, &node_props)? {
+        properties += count(&format!(
+            "SELECT count(*) FROM \"{node_props}\" WHERE value IS NOT NULL"
+        ))?;
+    }
+    if table_exists(connection, &edge_props)? {
+        properties += count(&format!(
+            "SELECT count(*) FROM \"{edge_props}\" WHERE value IS NOT NULL"
+        ))?;
+    }
     Ok(GraphCounters {
         nodes: count("SELECT count(*) FROM people")?,
         relationships: count("SELECT count(*) FROM relationships")?,
@@ -619,14 +637,29 @@ fn graph_counters(
     })
 }
 
+fn table_exists(
+    connection: &std::sync::Arc<turso_core::Connection>,
+    table: &str,
+) -> Result<bool, String> {
+    let rows = connection
+        .prepare(format!(
+            "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = '{}'",
+            table.replace('\'', "''")
+        ))
+        .and_then(|mut statement| statement.run_collect_rows())
+        .map_err(|error| error.to_string())?;
+    Ok(!rows.is_empty())
+}
+
 fn compare_side_effects(
     connection: &std::sync::Arc<turso_core::Connection>,
     labels_table: &str,
+    graph: turso_graph_ir::GraphId,
     before: Result<&GraphCounters, &String>,
     step: &Step,
 ) -> Result<(), String> {
     let before = before.map_err(|error| format!("side-effect baseline failed: {error}"))?;
-    let after = graph_counters(connection, labels_table)
+    let after = graph_counters(connection, labels_table, graph)
         .map_err(|error| format!("side-effect measurement failed: {error}"))?;
     let mut observed = std::collections::BTreeMap::new();
     let diff = |added: &str, removed: &str, delta: i64| {
@@ -1302,15 +1335,15 @@ fn stringify_rows_with_entities(
                         (
                             Some(turso_graph_ir::ValueType::Node),
                             Value::Numeric(Numeric::Integer(identity)),
-                        ) => render_node(connection, labels_table, *identity)
+                        ) => render_node(connection, labels_table, *identity, graph)
                             .unwrap_or_else(|| identity.to_string()),
                         (
                             Some(turso_graph_ir::ValueType::Relationship),
                             Value::Numeric(Numeric::Integer(identity)),
-                        ) => render_relationship(connection, &types_table, *identity)
+                        ) => render_relationship(connection, &types_table, *identity, graph)
                             .unwrap_or_else(|| identity.to_string()),
                         (Some(turso_graph_ir::ValueType::Path), Value::Text(json)) => {
-                            render_path(connection, labels_table, &types_table, json.as_str())
+                            render_path(connection, labels_table, &types_table, graph, json.as_str())
                                 .unwrap_or_else(|| json.to_string())
                         }
                         _ => stringify_value(
@@ -1366,41 +1399,67 @@ fn entity_properties(
     table: &str,
     excluded: &[&str],
     identity: i64,
+    graph: turso_graph_ir::GraphId,
+    cell_entity_column: &str,
 ) -> Vec<(String, String)> {
-    let mut properties = Vec::new();
-    let Some(columns) = scalar_rows(
+    let mut properties = std::collections::BTreeMap::new();
+    if let Some(columns) = scalar_rows(
         connection,
         &format!("SELECT name FROM pragma_table_info('{table}')"),
-    ) else {
-        return properties;
-    };
-    for column in columns {
-        let Some(Value::Text(name)) = column.first() else {
-            continue;
-        };
-        let name = name.to_string();
-        if excluded.contains(&name.as_str()) {
-            continue;
-        }
-        let Some(values) = scalar_rows(
-            connection,
-            &format!("SELECT \"{name}\" FROM \"{table}\" WHERE id = {identity}"),
-        ) else {
-            continue;
-        };
-        if let Some(value) = values.first().and_then(|row| row.first()) {
-            if !matches!(value, Value::Null) {
-                // Reserved-name properties live in prefixed payload columns
-                // (dynamic catalog); render them under their Cypher name.
-                let logical = name
-                    .strip_prefix("cyprop_")
-                    .map(str::to_owned)
-                    .unwrap_or(name);
-                properties.push((logical, render_property_value(value)));
+    ) {
+        for column in columns {
+            let Some(Value::Text(name)) = column.first() else {
+                continue;
+            };
+            let name = name.to_string();
+            if excluded.contains(&name.as_str()) {
+                continue;
+            }
+            let Some(values) = scalar_rows(
+                connection,
+                &format!("SELECT \"{name}\" FROM \"{table}\" WHERE id = {identity}"),
+            ) else {
+                continue;
+            };
+            if let Some(value) = values.first().and_then(|row| row.first()) {
+                if !matches!(value, Value::Null) {
+                    // Reserved-name properties live in prefixed payload columns
+                    // (dynamic catalog); render them under their Cypher name.
+                    let logical = name
+                        .strip_prefix("cyprop_")
+                        .map(str::to_owned)
+                        .unwrap_or(name);
+                    properties.insert(logical, render_property_value(value));
+                }
             }
         }
     }
-    properties
+    // Cell rail: overlay dict-named values for this entity.
+    let props_table = if cell_entity_column == "node_id" {
+        turso_graph_frontend::node_props_table_name(graph)
+    } else {
+        turso_graph_frontend::edge_props_table_name(graph)
+    };
+    let dict = turso_graph_frontend::prop_dict_table_name(graph);
+    if let Some(rows) = scalar_rows(
+        connection,
+        &format!(
+            "SELECT d.name, c.value FROM \"{props_table}\" AS c \
+             JOIN \"{dict}\" AS d ON d.prop_id = c.prop_id \
+             WHERE c.{cell_entity_column} = {identity} AND c.value IS NOT NULL"
+        ),
+    ) {
+        for row in rows {
+            let Some(Value::Text(name)) = row.first() else {
+                continue;
+            };
+            let Some(value) = row.get(1) else {
+                continue;
+            };
+            properties.insert(name.to_string(), render_property_value(value));
+        }
+    }
+    properties.into_iter().collect()
 }
 
 fn render_entity(labels: Vec<String>, properties: Vec<(String, String)>, node: bool) -> String {
@@ -1434,6 +1493,7 @@ fn render_node(
     connection: &std::sync::Arc<turso_core::Connection>,
     labels_table: &str,
     identity: i64,
+    graph: turso_graph_ir::GraphId,
 ) -> Option<String> {
     let labels = scalar_rows(
         connection,
@@ -1445,7 +1505,14 @@ fn render_node(
         _ => None,
     })
     .collect();
-    let properties = entity_properties(connection, "people", &["id"], identity);
+    let properties = entity_properties(
+        connection,
+        "people",
+        &["id"],
+        identity,
+        graph,
+        "node_id",
+    );
     Some(render_entity(labels, properties, true))
 }
 
@@ -1453,6 +1520,7 @@ fn render_relationship(
     connection: &std::sync::Arc<turso_core::Connection>,
     types_table: &str,
     identity: i64,
+    graph: turso_graph_ir::GraphId,
 ) -> Option<String> {
     let types = scalar_rows(
         connection,
@@ -1466,8 +1534,14 @@ fn render_relationship(
         _ => None,
     })
     .collect();
-    let properties =
-        entity_properties(connection, "relationships", &["id", "src", "dst"], identity);
+    let properties = entity_properties(
+        connection,
+        "relationships",
+        &["id", "src", "dst"],
+        identity,
+        graph,
+        "rel_id",
+    );
     Some(render_entity(types, properties, false))
 }
 
@@ -1478,6 +1552,7 @@ fn render_path(
     connection: &std::sync::Arc<turso_core::Connection>,
     labels_table: &str,
     types_table: &str,
+    graph: turso_graph_ir::GraphId,
     json: &str,
 ) -> Option<String> {
     let parsed: serde_json::Value = serde_json::from_str(json).ok()?;
@@ -1492,7 +1567,12 @@ fn render_path(
     let nodes = identities("nodes")?;
     let relationships = identities("relationships")?;
     let mut rendered = String::from("<");
-    rendered.push_str(&render_node(connection, labels_table, *nodes.first()?)?);
+    rendered.push_str(&render_node(
+        connection,
+        labels_table,
+        *nodes.first()?,
+        graph,
+    )?);
     for (index, relationship) in relationships.iter().enumerate() {
         let source = scalar_rows(
             connection,
@@ -1505,7 +1585,7 @@ fn render_path(
             _ => None,
         })?;
         let outgoing = source == nodes[index];
-        let arrow = render_relationship(connection, types_table, *relationship)?;
+        let arrow = render_relationship(connection, types_table, *relationship, graph)?;
         if outgoing {
             rendered.push_str(&format!("-{arrow}->"));
         } else {
@@ -1515,6 +1595,7 @@ fn render_path(
             connection,
             labels_table,
             *nodes.get(index + 1)?,
+            graph,
         )?);
     }
     rendered.push('>');
