@@ -73,12 +73,12 @@ Reads and writes do not share one execution model:
 
 ### 1.3 Scale cost with measured shape
 
-`PERFORMANCE_BACKLOG.md` records a bootstrap case (in-memory DB, one node type, constraints on): a single CREATE compiled 21 SQL statements before the catalog-reload fix, 5 after; 20 CREATEs went from 420 compiles to 100. Source-scoped validation (`379bdf9e0`) stopped cost growing with **type count**. PR-E (PR-D/E commit) scopes **required/value** to written identities and runs value predicates in SQL with `LIMIT 1` + typeof guards (backlog 3a). Residual item 3 is **unique/key/cardinality** membership scans still Θ(N) per CREATE of a constrained type — not the old full value-column materialization.
+`PERFORMANCE_BACKLOG.md` records a bootstrap case (in-memory DB, one node type, constraints on): a single CREATE compiled 21 SQL statements before the catalog-reload fix, 5 after; 20 CREATEs went from 420 compiles to 100. Source-scoped validation (`379bdf9e0`) stopped cost growing with **type count**. PR-E (`c25c7236c`) scopes **required/value** to written identities and runs value predicates in SQL with `LIMIT 1` + typeof guards (backlog 3a). Residual item 3 is **unique/key/cardinality** membership scans still Θ(N) per CREATE of a constrained type — not the old full value-column materialization.
 
 ### 1.4 Evidence sources for this audit
 
 - Code on head `bb5bfe094` under `graph/frontend`, `graph/runtime`, `graph/ir`, `graph/cypher`, and core hooks listed in appendix A.
-- Live corpus thermometer: `graph/test-results/REPORT.md`. Stale hardcoded pass rates in DESIGN/CONFORMANCE were removed (R14; PR-D/E commit on this branch).
+- Live corpus thermometer: `graph/test-results/REPORT.md`. Stale hardcoded pass rates in DESIGN/CONFORMANCE were removed (R14; `c25c7236c` on this branch).
 - Prior fix status: July review P0s 1–8 (MERGE type match, multi-source catalog, aggregate detection, unbounded hop silence, mutate/snapshot clear ordering, nested BEGIN, REAL identity encoding) verified still fixed in current sources.
 
 ---
@@ -103,10 +103,10 @@ After the P0 and P1 work in §7 lands, these invariants hold. Status as of the l
 **Status: partial** — decode arity → `MutationError` done (`1a5bf497e`, R6); remaining catalog/`expect` cleanup is R23.
 
 **I6. Constraint validation cost scales with written identities when the statement reports them.** For CREATE/MERGE/SET that return or know affected ids, required/value checks do not re-scan the entire type membership for every unconstrained row of that type on every statement. Bulk load of N rows does not re-pull every non-NULL value column into Rust on every statement. 
-**Status: partial (R15 core)** — required/value identity filter + value SQL `LIMIT 1` + typeof guards in the PR-D/E commit (PR-E); unique/key/cardinality still membership-wide (PERFORMANCE_BACKLOG residual item 3). Note: original text cross-referenced R14 by mistake; scale is R15.
+**Status: partial (R15 core)** — required/value identity filter + value SQL `LIMIT 1` + typeof guards in the `c25c7236c` (PR-E); unique/key/cardinality still membership-wide (PERFORMANCE_BACKLOG residual item 3). Note: original text cross-referenced R14 by mistake; scale is R15.
 
 **I7. Documentation matches code for invalidation.** `graph/docs/core-changes.md` and static pass-rate blocks that agents read do not claim live generation triggers or obsolete corpus totals when REPORT.md and the token design say otherwise. 
-**Status: done** — R14 in the PR-D/E commit (DESIGN/CONFORMANCE/core-changes).
+**Status: done** — R14 in the `c25c7236c` (DESIGN/CONFORMANCE/core-changes).
 
 I1–I4 hold on committed history through `d212a504c`. Corpus pass rate is still not a substitute for those invariants under multi-source or multi-hop data, but the silent dirt classes named in §1.1 are closed.
 
@@ -276,14 +276,14 @@ Either stream snapshot build into CSR without retaining full `Vec<Vec<Value>>` f
 
 **R14. Docs that agents treat as truth track REPORT and tokens.** 
 `DESIGN_DECISIONS.md` must not hardcode obsolete pass rates; point at REPORT.md. `CONFORMANCE.md` “Current result” either regenerates from the same history as REPORT or defers entirely. `graph/docs/core-changes.md` §2 describes deleted generation triggers as historical and names `table_change_token` as current invalidation. 
-**Status: done** — PR-D in the PR-D/E commit (`DESIGN_DECISIONS.md`, `CONFORMANCE.md`, `graph/docs/core-changes.md` §2).
+**Status: done** — PR-D in the `c25c7236c` (`DESIGN_DECISIONS.md`, `CONFORMANCE.md`, `graph/docs/core-changes.md` §2).
 
 ### 4.2 Scale and structure (should)
 
 **R15. Constraint validation scopes to affected rows when known.** 
 When `execute_bound` knows written identities (RETURNING ids or equivalent), required and value checks filter `entity.identity IN (…)`. Unique/key checks restrict to values present on written rows when that is sound. Value SQL uses predicates in SQL with `LIMIT 1` where a single violation suffices. 
 **Acceptance:** bulk N inserts of one constrained type are O(N) validation work, not O(N²), measured by SQL prepare/step counts or wall time on a fixed machine (method and numbers recorded in PERFORMANCE_BACKLOG). 
-**Status: partial — done for required/value** — PR-E (PR-D/E commit): `WrittenIdentities` through mutation paths; ids staged in `__turso_graph_mutation_written` (stable SQL for statement cache); required/value join that table; range/allowed lowered with `typeof` guards + `LIMIT 1`; regex identity-filtered when known. Unique/key/cardinality still full membership (PERFORMANCE_BACKLOG residual item 3). Tests: `constraint_identity_cost`, `constraint_validation_scope` (incl. raw-seed SET for typeof SQL path).
+**Status: partial — done for required/value** — PR-E (`c25c7236c`): `WrittenIdentities` through mutation paths; ids staged in `__turso_graph_mutation_written` (stable SQL for statement cache); required/value join that table; range/allowed lowered with `typeof` guards + `LIMIT 1`; regex identity-filtered when known. Unique/key/cardinality still full membership (PERFORMANCE_BACKLOG residual item 3). Tests: `constraint_identity_cost`, `constraint_validation_scope` (incl. raw-seed SET for typeof SQL path).
 
 **R16. Mutation helpers reuse prepared statements.** 
 SQL templates whose text is stable across rows (identity-parameterized helpers) go through session `StatementCache` or a mutation-local cache. Cypher for a mutation is parsed once per `execute` call for both snapshot need and bind. 
@@ -293,7 +293,7 @@ SQL templates whose text is stable across rows (identity-parameterized helpers) 
 **R17. StatementCache eviction is not full clear.** 
 At capacity, drop one entry (LRU or random), not the entire map, or size capacity by constraint count so the freshness probe is not thrashing. 
 **Test:** >64 distinct constraint SQL strings still keep the probe query warm. 
-**Status: done** — PR-E (PR-D/E commit): LRU drop-one in `statement_cache.rs` (unit tests `eviction_at_capacity_drops_one_entry_not_the_whole_map`, `a_hot_key_survives_when_colder_entries_are_evicted`).
+**Status: done** — PR-E (`c25c7236c`): LRU drop-one in `statement_cache.rs` (unit tests `eviction_at_capacity_drops_one_entry_not_the_whole_map`, `a_hot_key_survives_when_colder_entries_are_evicted`).
 
 **R18. Filter and property materialization keep indexable shapes.** 
 Continue pushdown of predicates onto joined base tables. Prefer materializing wanted properties at scan/join time over correlated property subqueries for each projection site. 
@@ -365,8 +365,8 @@ Use these only when a requirement above needs them; do not add them for fashion.
 | Direct SQL write to mapped table | Violations until a later Cypher mutation revalidates in scope | Documented boundary | Do not “fix” by installing silent triggers without a product decision |
 | `table_change_token` is `None` (multiprocess WAL) | Must treat as changed / rebuild always | Safe direction | Keep conservative |
 | Soft memory limit undercount | Process OOM before LimitExceeded | Soft | R13 open |
-| StatementCache full clear | Extra prepare storms | **Fixed** LRU drop-one (PR-D/E commit, R17) | R17 done |
-| Value constraint full column pull | High latency on large tables | **Fixed** for required/value when ids known (PR-D/E commit, R15); unique/key residual | R15 partial |
+| StatementCache full clear | Extra prepare storms | **Fixed** LRU drop-one (`c25c7236c`, R17) | R17 done |
+| Value constraint full column pull | High latency on large tables | **Fixed** for required/value when ids known (`c25c7236c`, R15); unique/key residual | R15 partial |
 
 ---
 
@@ -408,8 +408,8 @@ subject lines from that log.
 | **PR-A** | R1, R2 | **done** | `1a5bf497e` | DETACH type-junction cleanup; `derive_generation` + spill/junctions |
 | **PR-B** | R3 | **done** | `1a5bf497e` | Ordered path aggregates; multi-hop `nodes(p)` test |
 | **PR-C** | R4, R5, R6 | **done** | `1a5bf497e`, `d212a504c` | Equality keys; AVG/ORDER/SUM; decode errors; SUM overflow test |
-| **PR-D** | R14 | **done** | PR-D/E commit | DESIGN/CONFORMANCE → REPORT; core-changes §2 = tokens |
-| **PR-E** | R15 (partial), R17 | **done** for scoped goals | PR-D/E commit | Written ids + value SQL LIMIT 1 + typeof; LRU cache; backlog 3a/3b |
+| **PR-D** | R14 | **done** | `c25c7236c` | DESIGN/CONFORMANCE → REPORT; core-changes §2 = tokens |
+| **PR-E** | R15 (partial), R17 | **done** for scoped goals | `c25c7236c` | Written ids + value SQL LIMIT 1 + typeof; LRU cache; backlog 3a/3b |
 | **PR-F** | R16 | open | — | Mutation prepare reuse; single Cypher parse |
 | **PR-G** | R7, R8 | open | — | MERGE Many multiset; concurrency |
 | **PR-H** | R9–R12 | open | — | REMOVE label; OPTIONAL null; RETURN alias ORDER BY; shadow |
@@ -461,9 +461,9 @@ Corpus recording is release-profile by design (`Agents.md` / mise tasks). Compar
 | R6 | Decode arity mismatch → error | done `1a5bf497e` |
 | R7 | Many-role MERGE exact multiset | open |
 | R10–R12 | OPTIONAL labels null; RETURN alias ORDER BY; list-comp shadow | open |
-| R14 | Docs point at REPORT; tokens in core-changes | done — PR-D/E commit |
-| R15 | Bulk create compile/step counts or time bounds; identity/LIMIT 1 shape | partial: `constraint_identity_cost`, validation_scope (PR-D/E commit); unique residual |
-| R17 | Cache drop-one keeps hot probe | done — PR-D/E commit (unit tests in `statement_cache.rs`) |
+| R14 | Docs point at REPORT; tokens in core-changes | done — `c25c7236c` |
+| R15 | Bulk create compile/step counts or time bounds; identity/LIMIT 1 shape | partial: `constraint_identity_cost`, validation_scope (`c25c7236c`); unique residual |
+| R17 | Cache drop-one keeps hot probe | done — `c25c7236c` (unit tests in `statement_cache.rs`) |
 
 ### 7.3 PR sequence
 
@@ -473,8 +473,8 @@ Statuses mirror §7.0.
 1. ~~**PR-A: Data dirt (R1, R2).**~~ **done** `1a5bf497e` — DETACH type-junction delete; expand `derive_generation` table set.
 2. ~~**PR-B: Path order (R3).**~~ **done** `1a5bf497e` — Ordered path aggregation; multi-hop fixture.
 3. ~~**PR-C: Write equality and numbers (R4, R5, R6).**~~ **done** `1a5bf497e` + `d212a504c` — Typed keys; AVG/SUM/ORDER BY; soft decode errors.
-4. ~~**PR-D: Docs (R14).**~~ **done** PR-D/E commit — REPORT pointers; core-changes inventory matches tokens.
-5. ~~**PR-E: Constraints scale (R15, R17).**~~ **done** for required/value + cache (PR-D/E commit) — Written-id validation; LIMIT 1 value SQL + typeof; StatementCache LRU; PERFORMANCE_BACKLOG 3a/3b. Unique/key/cardinality scale still open under residual item 3.
+4. ~~**PR-D: Docs (R14).**~~ **done** `c25c7236c` — REPORT pointers; core-changes inventory matches tokens.
+5. ~~**PR-E: Constraints scale (R15, R17).**~~ **done** for required/value + cache (`c25c7236c`) — Written-id validation; LIMIT 1 value SQL + typeof; StatementCache LRU; PERFORMANCE_BACKLOG 3a/3b. Unique/key/cardinality scale still open under residual item 3.
 6. **PR-F: Mutation prepare (R16).** Single parse; helper statement reuse. Steady-state CREATE metrics. **← next**
 7. **PR-G: MERGE concurrency and Many match (R7, R8).** Exact multiset + unique/UPSERT or documented race + test.
 8. **PR-H: Cypher holes (R9–R12).** REMOVE label; nullability; ORDER BY aliases; quantifier shadowing.
@@ -533,8 +533,8 @@ Counts at audit time vs after backfill (done = fully closed; partial counted ope
 | should (R15–R26) | 12 | **9** (R15 residual, R16, R19–R26; R18 done; R17 done; R20 partial) | **R17, R18**; **R15** required/value only |
 | Core optional table | not numbered | not numbered | — |
 
-**Done musts:** R1–R6 (`1a5bf497e` / `d212a504c`), R14 (PR-D/E commit). 
-**Done shoulds:** R17 (PR-D/E commit), R18 (`4b36cd16d`/`bb5bfe094`/`27f6a9118`). 
+**Done musts:** R1–R6 (`1a5bf497e` / `d212a504c`), R14 (`c25c7236c`). 
+**Done shoulds:** R17 (`c25c7236c`), R18 (`4b36cd16d`/`bb5bfe094`/`27f6a9118`). 
 **Partial:** R15 (required/value + LIMIT 1; unique/key/cardinality residual), R20 (`197091d6e`). 
 **Open musts:** R7–R13. **Open shoulds:** R16, R19, R21–R26 (+ residual R15/R20).
 
