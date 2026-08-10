@@ -20,7 +20,7 @@ use crate::{
         quoted_identifier, unit_mutation_input, BindingReference, LoweredMutationInput,
         MutationEntityKind, MutationRowColumn,
     },
-    semantic_constraints::ValidationScope,
+    semantic_constraints::{ValidationScope, WrittenIdentities},
     statement_cache::StatementCache,
     transaction::{in_write_transaction, WriteTransactionError},
     BindError, GraphCompilationCatalog, LowerError, ParameterTypes,
@@ -377,17 +377,36 @@ pub(crate) fn execute_cypher_mutation(
     // helpers cannot upgrade a deferred read transaction to write — which is
     // what the shared guard rejects up front.
     let run = || {
-        let summary = if let Some(summary) =
-            try_single_program_mutation(connection, catalog.as_ref(), &bound, &input, parameters)?
-        {
+        let mut written = WrittenIdentities::default();
+        let summary = if let Some(summary) = try_single_program_mutation(
+            connection,
+            catalog.as_ref(),
+            &bound,
+            &input,
+            parameters,
+            &mut written,
+        )? {
             summary
         } else {
-            execute_bound(connection, catalog.as_ref(), &bound, &input, parameters)?
+            execute_bound(
+                connection,
+                catalog.as_ref(),
+                &bound,
+                &input,
+                parameters,
+                &mut written,
+            )?
         };
         if let Some(constraints) = catalog.semantic_constraints() {
             let scope = validation_scope(&bound);
+            // Source-precise scopes may filter required/value to written ids.
+            // ValidationScope::All (DETACH, binding-sourced writes) forces a
+            // full membership pass inside validate_state regardless of this map.
+            if matches!(scope, ValidationScope::All) {
+                written.mark_incomplete();
+            }
             constraints
-                .validate_state(connection, statements, &scope)
+                .validate_state(connection, statements, &scope, written.as_filter())
                 .map_err(|error| match error {
                     crate::SemanticCatalogError::Database(error)
                     | crate::SemanticCatalogError::Catalog(CatalogError::Database(error)) => {
@@ -452,6 +471,7 @@ fn try_single_program_mutation(
     bound: &BoundMutation,
     input: &LoweredMutationInput,
     parameters: &Parameters,
+    written: &mut WrittenIdentities,
 ) -> Result<Option<MutationSummary>, MutationError> {
     if bound.request.input.is_some()
         || !bound.stages.is_empty()
@@ -493,6 +513,7 @@ fn try_single_program_mutation(
         &identity,
         parameters,
     )?;
+    written.record(create.source, identity);
     CLOSED_CREATE_FAST_PATH_HIT.with(|hit| hit.set(true));
     CLOSED_CREATE_FAST_PATH_HITS.fetch_add(1, Ordering::SeqCst);
     Ok(Some(MutationSummary {
@@ -597,6 +618,7 @@ fn execute_bound(
     bound: &BoundMutation,
     input: &LoweredMutationInput,
     parameters: &Parameters,
+    written: &mut WrittenIdentities,
 ) -> Result<MutationSummary, MutationError> {
     let request = &bound.request;
     let input_bindings = request
@@ -637,6 +659,7 @@ fn execute_bound(
                 parameters,
                 &mut row.values,
                 &mut row.entity_layouts,
+                written,
             )?;
             operations_executed += 1;
         }
@@ -672,6 +695,7 @@ fn execute_bound(
                             parameters,
                             &mut row.values,
                             &mut row.entity_layouts,
+                            written,
                         )?;
                         operations_executed += 1;
                     }
@@ -688,6 +712,7 @@ fn execute_bound(
                             &mut row.values,
                             &mut row.entity_layouts,
                             &mut operations_executed,
+                            written,
                         )?;
                     }
                 }
@@ -809,6 +834,7 @@ fn run_stage_items_once(
     values: &mut HashMap<ir::BindingId, Value>,
     entity_layouts: &mut HashMap<ir::BindingId, (ir::SourceTableId, MutationEntityKind)>,
     operations_executed: &mut u64,
+    written: &mut WrittenIdentities,
 ) -> Result<(), MutationError> {
     for item in items {
         match item {
@@ -822,6 +848,7 @@ fn run_stage_items_once(
                     parameters,
                     values,
                     entity_layouts,
+                    written,
                 )?;
                 *operations_executed += 1;
             }
@@ -860,6 +887,7 @@ fn run_stage_items_once(
                         &mut scratch,
                         entity_layouts,
                         operations_executed,
+                        written,
                     )?;
                 }
             }
@@ -1281,6 +1309,7 @@ fn execute_operation(
     parameters: &Parameters,
     values: &mut HashMap<ir::BindingId, Value>,
     entity_layouts: &mut HashMap<ir::BindingId, (ir::SourceTableId, MutationEntityKind)>,
+    written: &mut WrittenIdentities,
 ) -> Result<(), MutationError> {
     match operation {
         ir::Mutation::CreateNode(create) => {
@@ -1302,6 +1331,7 @@ fn execute_operation(
                 &identity,
                 parameters,
             )?;
+            written.record(create.source, identity.clone());
             values.insert(create.binding.id(), identity);
             entity_layouts.insert(
                 create.binding.id(),
@@ -1327,6 +1357,7 @@ fn execute_operation(
                 &identity,
                 parameters,
             )?;
+            written.record(merge.create.source, identity.clone());
             values.insert(merge.create.binding.id(), identity);
             entity_layouts.insert(
                 merge.create.binding.id(),
@@ -1347,6 +1378,7 @@ fn execute_operation(
                     parameters,
                     values,
                     entity_layouts,
+                    written,
                 )?;
             }
         }
@@ -1370,6 +1402,7 @@ fn execute_operation(
                 &identity,
                 parameters,
             )?;
+            written.record(create.source, identity.clone());
             values.insert(create.binding.id(), identity);
             entity_layouts.insert(
                 create.binding.id(),
@@ -1401,6 +1434,7 @@ fn execute_operation(
                     parameters,
                 )?;
             }
+            written.record(merge.create.source, identity.clone());
             values.insert(merge.create.binding.id(), identity);
             entity_layouts.insert(
                 merge.create.binding.id(),
@@ -1421,6 +1455,7 @@ fn execute_operation(
                     parameters,
                     values,
                     entity_layouts,
+                    written,
                 )?;
             }
         }
@@ -1439,6 +1474,7 @@ fn execute_operation(
             let identity = values
                 .get(&set.entity)
                 .ok_or(MutationError::MissingBinding(set.entity))?;
+            written.record(source, identity.clone());
             let mut internal = references.values;
             internal.insert(identity_parameter(set.entity), identity.clone());
             let assignment = if set.value.value_type == ir::ValueType::Any {
@@ -1478,6 +1514,7 @@ fn execute_operation(
                 .get(&set.entity)
                 .ok_or(MutationError::MissingBinding(set.entity))?
                 .clone();
+            written.record(source, identity.clone());
             record_node_labels(
                 connection,
                 catalog,
@@ -1494,6 +1531,7 @@ fn execute_operation(
             let identity = values
                 .get(&replace.entity)
                 .ok_or(MutationError::MissingBinding(replace.entity))?;
+            written.record(source, identity.clone());
             let mut internal = references.values;
             internal.insert(identity_parameter(replace.entity), identity.clone());
             let mut assignments = Vec::new();
@@ -1591,6 +1629,7 @@ fn execute_operation(
             let identity = values
                 .get(&replace.entity)
                 .ok_or(MutationError::MissingBinding(replace.entity))?;
+            written.record(source, identity.clone());
             let mut internal = references.values;
             internal.insert(identity_parameter(replace.entity), identity.clone());
             let value = lower_mutation_expression(
@@ -1735,6 +1774,7 @@ fn execute_operation(
             let identity = values
                 .get(&remove.entity)
                 .ok_or(MutationError::MissingBinding(remove.entity))?;
+            written.record(source, identity.clone());
             let internal = HashMap::from([(identity_parameter(remove.entity), identity.clone())]);
             run_ignore(
                 connection,
@@ -1763,6 +1803,7 @@ fn execute_operation(
                 .get(&update.relation)
                 .ok_or(MutationError::MissingBinding(update.relation))?
                 .clone();
+            written.record(update.source, identity.clone());
             let identity_param = identity_parameter(update.relation);
             let mut internal: HashMap<String, Value> =
                 HashMap::from([(identity_param.clone(), identity)]);

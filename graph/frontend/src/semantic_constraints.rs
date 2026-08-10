@@ -1,6 +1,9 @@
 //! Additive semantic constraints over registered graph types.
 
-use std::{collections::HashSet, sync::Arc};
+use std::{
+    collections::{HashMap, HashSet},
+    sync::Arc,
+};
 
 use regex::Regex;
 use serde::{Deserialize, Serialize};
@@ -280,6 +283,45 @@ impl ValidationScope {
     }
 }
 
+/// Entity identities a mutation wrote, keyed by source table.
+///
+/// When tracking is complete, required and value-predicate checks may filter to
+/// these identities instead of scanning every membership row of the type.
+/// Unique, key, and cardinality checks still need group-level scans and ignore
+/// this map for correctness. When tracking is incomplete (binding-sourced
+/// writes, DETACH that cannot list every affected row), [`as_filter`] returns
+/// `None` and property checks fall back to the full type membership.
+#[derive(Clone, Debug, Default)]
+pub(crate) struct WrittenIdentities {
+    by_source: HashMap<ir::SourceTableId, Vec<Value>>,
+    incomplete: bool,
+}
+
+impl WrittenIdentities {
+    /// Record one written entity identity on `source`.
+    pub(crate) fn record(&mut self, source: ir::SourceTableId, identity: Value) {
+        if self.incomplete {
+            return;
+        }
+        self.by_source.entry(source).or_default().push(identity);
+    }
+
+    /// Stop trusting identity lists for the rest of this statement.
+    pub(crate) fn mark_incomplete(&mut self) {
+        self.incomplete = true;
+        self.by_source.clear();
+    }
+
+    /// Identities safe to use as a required/value filter, or `None` if unknown.
+    pub(crate) fn as_filter(&self) -> Option<&HashMap<ir::SourceTableId, Vec<Value>>> {
+        if self.incomplete {
+            None
+        } else {
+            Some(&self.by_source)
+        }
+    }
+}
+
 /// Immutable constraints resolved against one semantic and relational catalog.
 #[derive(Clone, Debug, Default)]
 pub struct SemanticConstraintSnapshot {
@@ -393,17 +435,46 @@ impl SemanticConstraintSnapshot {
     /// the row that was written, so the SQL text repeats exactly across
     /// mutations and `statements` turns the second and later runs into a step
     /// of an already-compiled program.
+    ///
+    /// When `written` is present and the scope is source-precise, required and
+    /// value checks join a session temp table of those identities (loaded once
+    /// below) instead of scanning every membership row. Embedding ids in the
+    /// SQL text would defeat the statement cache, so the filter is always the
+    /// same subquery shape. Unique, key, and cardinality always use
+    /// membership-wide scans. Pass `None` when identities are unknown
+    /// (registration-time full validation, DETACH, binding-sourced writes).
     pub(crate) fn validate_state(
         &self,
         connection: &Arc<Connection>,
         statements: &StatementCache,
         scope: &ValidationScope,
+        written: Option<&HashMap<ir::SourceTableId, Vec<Value>>>,
     ) -> Result<(), SemanticCatalogError> {
+        // DETACH / binding paths use ValidationScope::All because they can
+        // affect unlisted sources. Identity filters only apply when the scope
+        // is still source-precise; otherwise a partial id list would skip
+        // constraints on sources we cannot name.
+        let written = match scope {
+            ValidationScope::All => None,
+            ValidationScope::Sources(_) => written,
+        };
+        let identity_filter = match written {
+            Some(written) => {
+                stage_written_identities(connection, written)?;
+                true
+            }
+            None => false,
+        };
         for constraint in &self.property_constraints {
             if !scope.touches(constraint.source) {
                 continue;
             }
-            self.validate_property_state(connection, statements, constraint)?;
+            self.validate_property_state(
+                connection,
+                statements,
+                constraint,
+                identity_filter,
+            )?;
         }
         for key in &self.keys {
             if !scope.touches(key.source) {
@@ -461,6 +532,7 @@ impl SemanticConstraintSnapshot {
         connection: &Arc<Connection>,
         statements: &StatementCache,
         constraint: &ResolvedPropertyConstraint,
+        identity_filter: bool,
     ) -> Result<(), SemanticCatalogError> {
         let table = quoted_identifier(&constraint.table);
         let identity = format!("entity.{}", quoted_identifier(&constraint.identity_column));
@@ -471,13 +543,27 @@ impl SemanticConstraintSnapshot {
             &identity,
             &constraint.owner_name,
         );
+        // Required/value may narrow to written identities staged in
+        // WRITTEN_IDENTITIES_TABLE. Unique still needs the whole type
+        // membership so a new row can collide with an old one.
+        let identity_clause = if identity_filter {
+            format!(
+                " AND {identity} IN (\
+                 SELECT written.identity FROM {written} AS written \
+                 WHERE written.source_id = {source})",
+                written = quoted_identifier(WRITTEN_IDENTITIES_TABLE),
+                source = constraint.source.get(),
+            )
+        } else {
+            String::new()
+        };
         match &constraint.predicate {
             ResolvedPropertyPredicate::Required => {
                 let rows = statements.query_rows(
                     connection,
                     &format!(
                         "SELECT {identity} FROM {table} AS entity \
-                         WHERE {membership} AND {column} IS NULL LIMIT 1"
+                         WHERE {membership} AND {column} IS NULL{identity_clause} LIMIT 1"
                     ),
                 )?;
                 if !rows.is_empty() {
@@ -506,11 +592,57 @@ impl SemanticConstraintSnapshot {
                 }
             }
             ResolvedPropertyPredicate::Value(predicate) => {
+                // Prefer a pure-SQL violation probe with LIMIT 1 so a large
+                // table does not materialise every non-NULL property value.
+                if let Some(violation) = value_predicate_violation_sql(&column, predicate) {
+                    let rows = statements.query_rows(
+                        connection,
+                        &format!(
+                            "SELECT {identity} FROM {table} AS entity \
+                             WHERE {membership} AND {column} IS NOT NULL \
+                             AND ({violation}){identity_clause} LIMIT 1"
+                        ),
+                    )?;
+                    if !rows.is_empty() {
+                        // Re-fetch the value only for the error message path
+                        // so the detail matches the Rust predicate wording.
+                        let detail = match statements.query_rows(
+                            connection,
+                            &format!(
+                                "SELECT {column} FROM {table} AS entity \
+                                 WHERE {membership} AND {column} IS NOT NULL \
+                                 AND ({violation}){identity_clause} LIMIT 1"
+                            ),
+                        ) {
+                            Ok(rows) => rows
+                                .into_iter()
+                                .next()
+                                .and_then(|row| row.into_iter().next())
+                                .and_then(|value| runtime_scalar(&value))
+                                .and_then(|value| {
+                                    validate_resolved_value(constraint, predicate, &value).err()
+                                })
+                                .unwrap_or_else(|| {
+                                    "has a value incompatible with its predicate".to_owned()
+                                }),
+                            Err(_) => "has a value incompatible with its predicate".to_owned(),
+                        };
+                        return Err(constraint_violation(
+                            &constraint.owner_name,
+                            &constraint.property_name,
+                            &detail,
+                        ));
+                    }
+                    return Ok(());
+                }
+                // Regex (and any predicate we cannot encode) still runs in
+                // Rust, but only over the identity-filtered rows when known,
+                // and stops at the first violation.
                 let rows = statements.query_rows(
                     connection,
                     &format!(
                         "SELECT {identity}, {column} FROM {table} AS entity \
-                         WHERE {membership} AND {column} IS NOT NULL"
+                         WHERE {membership} AND {column} IS NOT NULL{identity_clause}"
                     ),
                 )?;
                 for row in rows {
@@ -682,6 +814,175 @@ fn runtime_scalar(value: &Value) -> Option<SemanticScalar> {
         Value::Numeric(Numeric::Integer(value)) => Some(SemanticScalar::Integer(*value)),
         Value::Numeric(Numeric::Float(value)) => Some(SemanticScalar::Real(f64::from(*value))),
         Value::Text(value) => Some(SemanticScalar::Text(value.to_string())),
+    }
+}
+
+/// Temp table used for identity-scoped required/value checks. Filled once per
+/// `validate_state` when the mutation reported written identities; filter SQL
+/// always names this table so prepared statements stay cacheable.
+const WRITTEN_IDENTITIES_TABLE: &str = "__turso_graph_mutation_written";
+
+/// Load written identities into a connection-local temp table so constraint
+/// SQL can filter without embedding ids in the prepared text.
+fn stage_written_identities(
+    connection: &Arc<Connection>,
+    written: &HashMap<ir::SourceTableId, Vec<Value>>,
+) -> Result<(), SemanticCatalogError> {
+    connection.execute(format!(
+        "CREATE TEMP TABLE IF NOT EXISTS {WRITTEN_IDENTITIES_TABLE} (\
+         source_id INTEGER NOT NULL, \
+         identity)"
+    ))?;
+    connection.execute(format!("DELETE FROM {WRITTEN_IDENTITIES_TABLE}"))?;
+    for (source, identities) in written {
+        for identity in identities {
+            let literal = sql_value_literal(identity)?;
+            connection.execute(format!(
+                "INSERT INTO {WRITTEN_IDENTITIES_TABLE}(source_id, identity) \
+                 VALUES ({}, {literal})",
+                source.get(),
+            ))?;
+        }
+    }
+    Ok(())
+}
+
+/// Encode a runtime identity as a SQL literal for the written-ids temp table.
+/// Blobs are rejected so a bad identity cannot silently widen the filter.
+fn sql_value_literal(value: &Value) -> Result<String, SemanticCatalogError> {
+    match value {
+        Value::Null => Ok("NULL".to_owned()),
+        Value::Numeric(Numeric::Integer(value)) => Ok(value.to_string()),
+        Value::Numeric(Numeric::Float(value)) => {
+            let value = f64::from(*value);
+            if !value.is_finite() {
+                return Err(SemanticCatalogError::InvalidCatalogValue(
+                    "non-finite identity in constraint filter",
+                ));
+            }
+            Ok(format!("{value}"))
+        }
+        Value::Text(value) => Ok(sql_string(value.as_str())),
+        Value::Blob(_) => Err(SemanticCatalogError::InvalidCatalogValue(
+            "blob identity in constraint filter",
+        )),
+    }
+}
+
+/// SQL expression that is true when `column` violates `predicate`.
+///
+/// Type mismatches are violations, matching Rust `validate_scalar` (which
+/// rejects "not comparable with its range" / non-members). Without
+/// `typeof` guards, SQLite affinity would coerce TEXT like `'50'` or `'abc'`
+/// against a numeric range and miss the error the old Rust path raised.
+/// Returns `None` for predicates that must stay in Rust (regex, mixed allowed
+/// sets).
+fn value_predicate_violation_sql(
+    column: &str,
+    predicate: &SemanticValuePredicate,
+) -> Option<String> {
+    match predicate {
+        SemanticValuePredicate::Range { minimum, maximum } => {
+            let mut bound_values = Vec::new();
+            if let Some(minimum) = minimum {
+                bound_values.push(&minimum.value);
+            }
+            if let Some(maximum) = maximum {
+                bound_values.push(&maximum.value);
+            }
+            if bound_values.is_empty() {
+                return None;
+            }
+            let type_guard = scalar_family_typeof_guard(column, bound_values.as_slice())?;
+            let mut out_of_range = Vec::new();
+            if let Some(minimum) = minimum {
+                let literal = scalar_sql_literal(&minimum.value)?;
+                let op = if minimum.inclusive { "<" } else { "<=" };
+                out_of_range.push(format!("{column} {op} {literal}"));
+            }
+            if let Some(maximum) = maximum {
+                let literal = scalar_sql_literal(&maximum.value)?;
+                let op = if maximum.inclusive { ">" } else { ">=" };
+                out_of_range.push(format!("{column} {op} {literal}"));
+            }
+            // Wrong type OR (same family and out of bounds). The type guard
+            // alone is enough for TEXT-vs-numeric; range compares only run
+            // when SQLite would also compare like-for-like after the guard
+            // fails first for mismatches.
+            Some(format!(
+                "{type_guard} OR ({})",
+                out_of_range.join(" OR ")
+            ))
+        }
+        SemanticValuePredicate::Allowed { values } => {
+            if values.is_empty() {
+                return None;
+            }
+            let type_guard = scalar_family_typeof_guard(
+                column,
+                &values.iter().collect::<Vec<_>>(),
+            )?;
+            let literals = values
+                .iter()
+                .map(scalar_sql_literal)
+                .collect::<Option<Vec<_>>>()?;
+            Some(format!(
+                "{type_guard} OR {column} NOT IN ({})",
+                literals.join(", ")
+            ))
+        }
+        SemanticValuePredicate::Regex { .. } => None,
+    }
+}
+
+/// Family of a scalar for typeof-guarded SQL probes.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+enum ScalarSqlFamily {
+    Numeric,
+    Text,
+}
+
+fn scalar_sql_family(value: &SemanticScalar) -> Option<ScalarSqlFamily> {
+    match value {
+        SemanticScalar::Boolean(_) | SemanticScalar::Integer(_) | SemanticScalar::Real(_) => {
+            Some(ScalarSqlFamily::Numeric)
+        }
+        SemanticScalar::Text(_) => Some(ScalarSqlFamily::Text),
+    }
+}
+
+/// `typeof(column)` predicate that is true when the stored value is not in the
+/// same family as every `values` entry. Mixed families return `None` so the
+/// caller falls back to Rust evaluation.
+fn scalar_family_typeof_guard(column: &str, values: &[&SemanticScalar]) -> Option<String> {
+    let mut family = None;
+    for value in values {
+        let next = scalar_sql_family(value)?;
+        match family {
+            None => family = Some(next),
+            Some(existing) if existing == next => {}
+            Some(_) => return None,
+        }
+    }
+    match family? {
+        ScalarSqlFamily::Numeric => {
+            Some(format!("typeof({column}) NOT IN ('integer', 'real')"))
+        }
+        ScalarSqlFamily::Text => Some(format!("typeof({column}) != 'text'")),
+    }
+}
+
+fn scalar_sql_literal(value: &SemanticScalar) -> Option<String> {
+    match value {
+        SemanticScalar::Boolean(value) => Some(if *value { "1" } else { "0" }.to_owned()),
+        SemanticScalar::Integer(value) => Some(value.to_string()),
+        SemanticScalar::Real(value) => {
+            if !value.is_finite() {
+                return None;
+            }
+            Some(format!("{value}"))
+        }
+        SemanticScalar::Text(value) => Some(sql_string(value)),
     }
 }
 

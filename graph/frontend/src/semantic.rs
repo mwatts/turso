@@ -920,6 +920,7 @@ pub fn register_semantic_constraints(
             connection,
             &StatementCache::default(),
             &ValidationScope::All,
+            None,
         )?;
         bump_semantic_generation(connection, graph.id.get())
     })

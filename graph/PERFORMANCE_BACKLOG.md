@@ -108,39 +108,63 @@ Both halves are needed. With only the pushdown the predicate still reads
 `(n."age") > (30)` and core scans; with only the parentheses fix the predicate
 still sits outside the join and names a derived table.
 
+## Fixed (continued)
+
+### 3a. Required/value checks scope to written identities; value predicates use SQL + `LIMIT 1` — done (R15)
+
+`WrittenIdentities` is filled on every mutation path that can name the rows it
+touched (closed-`CREATE` fast path, `execute_operation` create/merge/set/
+replace/remove/set-roles). When `ValidationScope` is still source-precise,
+`validate_state` stages those ids into a connection-local temp table
+`__turso_graph_mutation_written` and required/value probes join it:
+
+```sql
+… AND entity."id" IN (
+  SELECT written.identity FROM "__turso_graph_mutation_written" AS written
+  WHERE written.source_id = <source>
+) LIMIT 1
+```
+
+Ids live in the temp table, not in the prepared text, so the statement cache
+still reuses the probe SQL across creates (same shape as fix 2).
+
+Range and allowed value predicates lower to a pure-SQL violation expression
+with `LIMIT 1`. Regex still evaluates in Rust, but only over the
+identity-filtered rows when known, and stops at the first violation.
+
+**Measurement method** (same `Preparing:` tracing as the top of this file;
+in-memory DB; one node type; required + range constraints; 25 warm CREATEs
+then one steady CREATE):
+
+| Probe | Before (this item) | After |
+| --- | --- | --- |
+| Required SQL | full membership, `LIMIT 1` | membership ∩ written ids, `LIMIT 1` |
+| Value SQL | `SELECT id, col … IS NOT NULL` (no limit; all rows into Rust) | violation predicate in SQL + written-id filter + `LIMIT 1` |
+| Steady CREATE recompiles of required/value text | 0 after cache warm (text was stable) | still 0 (temp-table filter keeps text stable) |
+
+Pinned by `graph/frontend/tests/constraint_identity_cost.rs` (SQL shape) and
+`constraint_validation_scope` (range still fails after bulk load and on SET).
+DETACH / binding-sourced writes still force `ValidationScope::All` and a full
+membership pass so integrity is never under-scoped.
+
+### 3b. StatementCache drop-one eviction — done (R17)
+
+At capacity 64 the cache used to `clear()` the entire map. It now drops the
+least-recently-used entry only (`statement_cache.rs`). Unit tests pin that a
+hot probe survives overflow.
+
 ## Open, in rough order of leverage
 
-### 3. Constraint validation re-checks the whole graph after every statement
+### 3. Constraint validation residual scale (unique / key / cardinality)
 
-Partly fixed. `validate_state` now takes a `ValidationScope` and skips
-constraints whose source table the mutation does not write, so the cost no
-longer grows with the number of **installed types**. What remains is the cost
-growing with the number of **rows**.
+Required and value property checks no longer grow with row count when the
+mutation reports identities (see 3a). Still open:
 
-`SemanticConstraintSnapshot::validate_state` (`src/semantic_constraints.rs`)
-still runs, per mutation, one full scan of the source table for every
-in-scope property constraint, key and cardinality constraint. Two problems
-left:
-
-- **It is quadratic in rows.** Bulk-loading N rows of one type costs
-  O(constraints × N²). At 118 rows this is invisible; at 50k it is a wall.
-- **The value-predicate path has no `LIMIT`** (`src/semantic_constraints.rs`,
-  `ResolvedPropertyPredicate::Value`). It pulls every non-NULL value of that
-  property into Rust and checks them in a loop — on every mutation.
-
-Fixes, increasing effort:
-
-- restrict validation to the rows the mutation wrote. `execute_bound` already
-  knows the affected identities (the `RETURNING id` values); add
-  `entity.<identity> IN (…)`. Uniqueness, keys and cardinality still need a
-  scan but can be restricted to the groups the new rows land in — for
-  uniqueness, only the values the written rows carry; for cardinality, only
-  the nodes the statement wrote or repointed. This is the change that turns
-  O(N²) into O(N). Note that the identities have to be threaded through every
-  operation branch **and** the closed-`CREATE` fast path: a branch that
-  reports no writes silently stops validating.
-- push the value predicate into SQL and add `LIMIT 1`, so a violation stops
-  the scan instead of materialising the column.
+- **Unique, key, and cardinality** still scan the type (or join) membership.
+  Unique already has `HAVING COUNT(*) > 1 LIMIT 1`, but cost is still Θ(N) per
+  CREATE of a constrained type. Restricting unique to the values the written
+  rows carry, and cardinality to the nodes the statement wrote or repointed,
+  would finish the O(N²) → O(N) story for those classes.
 - skip constraint classes a statement cannot affect — a `CREATE` touching no
   relationship type `X` cannot change `X`'s cardinality on untouched nodes.
 - defer validation to commit inside an explicit transaction. On its own this
@@ -156,12 +180,10 @@ writes have none. Caching bound mutation plans keyed on
 (source, schema generation) would pay for itself in exactly the
 bootstrap-loop shape that prompted this work.
 
-### 5. Replace the generation triggers with a core primitive
+### 5. Replace the generation triggers with a core primitive — done
 
-The AFTER-DML triggers cost more than the invalidation they provide: every row
-written to a mapped table also updates one hot row in the generations table,
-and core carries carve-outs in `translate/update.rs`, `translate/index.rs` and
-`translate/trigger.rs` purely to let those triggers exist.
-
-See `graph/docs/table-change-detection-design.md` for the proposed core
-change.
+`Connection::table_change_token` landed; AFTER-DML generation triggers were
+deleted. Snapshots compare `RegisteredGraph::derived_generation` (schema
+generation + change tokens for mapped tables). See
+`graph/docs/table-change-detection-design.md` (“What landed”) and
+`graph/docs/core-changes.md` §2.

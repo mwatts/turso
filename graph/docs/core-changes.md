@@ -16,7 +16,8 @@ graph integration from incidental merge noise.
 | Area | Files (approx.) | Intent |
 |---|---|---|
 | Multi-frontend prepare | `frontend.rs` (new), `connection.rs`, `statement.rs`, `error.rs`, `lib.rs`, `vdbe/*` glue | Cypher (and Postgres) compile through a connection-local compiler registry; reprepare keeps original source |
-| Graph catalog protection | `schema.rs` constants, `translate/{mod,index,trigger,update}.rs` | Reserve `__turso_internal_graph_*` names; allow generation triggers to write protected tables |
+| Graph catalog protection | `schema.rs` constants, `translate/{mod,index,trigger}.rs` | Reserve `__turso_internal_graph_*` names for junction/registry/generations tables |
+| Table change tokens | `connection.rs` (`table_change_token`), root counters in `database.rs` | Per-process tokens so CSR/`derived_generation` rebuild without AFTER-DML triggers |
 | Resumable graph expand | `vtab.rs`, `vdbe/execute.rs` | Internal vtab steps can `Yield` so long traversals cooperate with the VDBE IO loop |
 | Shared type classification | `schema.rs` (`classify_column`), `statement.rs` | One column-type classifier for SQL result metadata and Cypher property binding |
 | Observability | `pragma.rs`, `translate/pragma.rs`, `storage/pager.rs` | `PRAGMA memory_stats` for graph/perf measurement |
@@ -91,15 +92,23 @@ consumer of the same registry.
   prerequisites; unlocks the registry before calling into the compiler
   so compilers cannot deadlock on the registry lock.
 - `in_write_transaction()` — public probe for write txn state.
+- `table_change_token(table) -> Option<u64>` — per-process monotonic
+  token for a main-DB btree root (see §2.3). Returns `None` when the
+  connection cannot trust process-local counters (for example shared-WAL
+  multi-process coordination).
 
 **Why (graph)**
 
 - `GraphConnection::install` registers the Cypher compiler; `Drop`
   unregisters so sessions do not leak compilers on shared connections.
-- Catalog registration and generation maintenance use **internal**
-  nested statements that cannot upgrade a deferred read transaction to
-  a write. Callers must check `in_write_transaction()` (or open an
-  explicit write) before catalog DDL; the API makes that check honest.
+- Catalog registration uses **internal** nested statements that cannot
+  upgrade a deferred read transaction to a write. Callers must check
+  `in_write_transaction()` (or open an explicit write) before catalog
+  DDL; the API makes that check honest.
+- Snapshot and catalog freshness hash `table_change_token` values for
+  mapped tables into `RegisteredGraph::derived_generation` instead of
+  installing AFTER-DML generation triggers (see
+  [`table-change-detection-design.md`](table-change-detection-design.md)).
 
 ### 1.3 `core/statement.rs`, `core/vdbe/mod.rs`, `core/vdbe/builder.rs`, `core/vdbe/explain.rs`
 
@@ -149,23 +158,44 @@ logic.
 
 ---
 
-## 2. Graph catalog: reserved names and generation triggers
+## 2. Graph catalog: reserved names and change-token invalidation
+
+**Current design (what agents must treat as truth).** CSR snapshots and
+catalog freshness do **not** rely on live AFTER-DML generation triggers.
+Core exposes `Connection::table_change_token(table)`. The graph catalog
+hashes schema generation plus change tokens for mapped tables into
+`RegisteredGraph::derived_generation`. Snapshots rebuild when that value
+moves. Full design and migration history:
+[`table-change-detection-design.md`](table-change-detection-design.md)
+(“What landed”).
+
+**Historical note only.** An earlier branch revision installed
+`__turso_internal_graph_gen_*` AFTER INSERT/UPDATE/DELETE triggers that
+bumped `__turso_internal_graph_generations`. Those triggers are gone.
+`load_registered_graph` still drops any trigger an older database left
+behind, because their bodies update a protected table and core no longer
+grants a generation-trigger UPDATE exception. Do not reintroduce live
+generation DML triggers without revisiting that design doc.
 
 ### 2.1 `core/schema.rs` — constants
 
 ```text
-TURSO_GRAPH_CATALOG_PREFIX            = "__turso_internal_graph_"
-TURSO_GRAPH_GENERATIONS_TABLE_NAME    = "__turso_internal_graph_generations"
-TURSO_GRAPH_GENERATION_TRIGGER_PREFIX = "__turso_internal_graph_gen_"
+TURSO_GRAPH_CATALOG_PREFIX         = "__turso_internal_graph_"
+TURSO_GRAPH_GENERATIONS_TABLE_NAME = "__turso_internal_graph_generations"
 ```
 
 **Why**
 
-Graph registration creates junction tables, registries, and generation
-counters with stable internal names. User SQL must not create or drop
-objects that collide with those names, and generation triggers must be
-allowed to update the generations table even though it is otherwise a
-protected system-style object.
+Graph registration creates junction tables, identity registries, and a
+generations row with stable internal names. User SQL must not create or
+drop objects that collide with those names.
+
+The generations table still stores a row per graph. Nothing bumps its
+`generation` column on ordinary source-table DML anymore.
+`bump_semantic_generation` (and schema-generation tracking) still move
+catalog-level counters so sessions know when to reload registration.
+Per-row source writes are observed via change tokens (§2.3), not via
+trigger bodies writing this table.
 
 ### 2.2 `core/translate/index.rs`, `trigger.rs`
 
@@ -180,23 +210,37 @@ protected system-style object.
 **Why**
 
 Graph catalog DDL runs as internal statements. Ordinary clients must not
-hijack or delete graph catalog objects by name.
+hijack or delete graph catalog objects by name. The reserved-name guard
+also blocks recreating the deleted generation-trigger name prefix as a
+user trigger without going through internal prepare.
 
-### 2.3 `core/translate/update.rs`
+### 2.3 `Connection::table_change_token` (current CSR/source invalidation)
 
 **What**
 
-- `validate_update` gains `is_internal_graph_trigger`.
-- An UPDATE is treated as an internal graph generation write when the
-  target is `TURSO_GRAPH_GENERATIONS_TABLE_NAME` **and** the firing
-  trigger name starts with `TURSO_GRAPH_GENERATION_TRIGGER_PREFIX`.
+- Per main-DB btree root, the process keeps a change counter (and related
+  epoch / pending-write state). Commits advance counters for roots that
+  were written; open-transaction pending writes move the **calling**
+  connection’s token so a nested graph expand can see its own uncommitted
+  work; rollback restores the pre-transaction token.
+- `table_change_token(table)` hashes root identity, counters, and pending
+  state into a `u64`, or returns `None` when the process cannot trust
+  local counters (shared-WAL multi-process coordination). Callers treat
+  `None` as “assume changed” and rebuild.
 
-**Why**
+**Why (graph)**
 
-Source-table DML bumps a generation counter via AFTER triggers so
-traversal snapshots know when to rebuild. Those trigger bodies update a
-table that would otherwise reject user DML. The exception is **narrow**
-(table + trigger-name prefix), not a blanket unlock of system tables.
+- `catalog::derive_generation` folds `table_change_token` for base node
+  and relationship tables, spill tables, and type/label junctions (see
+  graph `catalog.rs`) together with schema generation.
+- Session and shared snapshot stores compare stored generation to
+  `derived_generation` and rebuild CSR when they diverge.
+- This replaces AFTER-DML generation triggers without embedding graph
+  knowledge in the VDBE: any writer that mutates a mapped table moves the
+  token, including plain SQL on the same connection.
+
+**Not a durability claim.** Tokens are process-local. Multi-process shared
+WAL returns `None`; graph code must rebuild rather than trust a stale CSR.
 
 ### 2.4 `core/translate/mod.rs`
 
@@ -349,7 +393,8 @@ the graph crates. Used by branch docs/tools such as
 | Path | Role |
 |---|---|
 | `core/frontend.rs` | New frontend compiler API |
-| `core/connection.rs` | Registry, `prepare_frontend`, write-txn probe |
+| `core/connection.rs` | Registry, `prepare_frontend`, write-txn probe, `table_change_token` |
+| `core/database.rs` | Root change counters feeding `table_change_token` |
 | `core/error.rs` | `FrontendError` wiring |
 | `core/lib.rs` | Module exports, connection init |
 | `core/statement.rs` | Frontend reprepare errors; `classify_column` use |
@@ -358,7 +403,6 @@ the graph crates. Used by branch docs/tools such as
 | `core/translate/index.rs` | Internal drop index / reserved names |
 | `core/translate/trigger.rs` | Reserved graph trigger names |
 | `core/translate/trigger_exec.rs` | `PreparedSource` on subprograms |
-| `core/translate/update.rs` | Generation-trigger UPDATE exception |
 | `core/translate/fkeys.rs` | `PreparedSource` on FK subprograms |
 | `core/translate/pragma.rs` | `memory_stats` |
 | `core/pragma.rs` | Pragma table entry |
@@ -383,7 +427,9 @@ the graph crates. Used by branch docs/tools such as
 - [`BRANCH_QUALITY_REVIEW.md`](../BRANCH_QUALITY_REVIEW.md) — quality
   bar and known follow-ups.
 - [`DESIGN_DECISIONS.md`](../DESIGN_DECISIONS.md) — product/semantics
-  choices for the graph layer.
+  choices for the graph layer (pass rates: always REPORT.md).
+- [`table-change-detection-design.md`](table-change-detection-design.md)
+  — change-token invalidation that replaced generation triggers.
 - [`docs/multi-frontend.md`](../../docs/multi-frontend.md) — product
   documentation for the multi-frontend model.
 - [`docs/graph.md`](../../docs/graph.md) — consumer-facing graph API.

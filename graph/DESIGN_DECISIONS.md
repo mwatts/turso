@@ -22,12 +22,14 @@ Status: all decisions are made and implemented on this branch
 
 Original option analysis below — retained as a historical record; several
 recommendations were superseded by the implemented decisions listed above
-(e.g. junction tables over Option A label columns). For current pass rates
-see [`test-results/REPORT.md`](test-results/REPORT.md).
+(e.g. junction tables over Option A label columns).
 
-Corpus state when written: 6,161 / 10,392 passing. Each decision below
-blocks a measured family of remaining failures. Options are ordered by
-increasing scope; the recommendation states a default, not a commitment.
+**Live corpus pass/fail counts are not maintained in this file.** Use
+[`test-results/REPORT.md`](test-results/REPORT.md) (regenerated from
+`test-results/history.jsonl` on recorded baseline runs). Each decision below
+blocked a measured family of failures at the time it was written. Options are
+ordered by increasing scope; the recommendation states a default, not a
+commitment.
 
 ## 1. Label storage and filtering (~500 failures, plus silent wrong results)
 
