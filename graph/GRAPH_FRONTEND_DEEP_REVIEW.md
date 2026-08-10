@@ -410,7 +410,7 @@ subject lines from that log.
 | **PR-C** | R4, R5, R6 | **done** | `1a5bf497e`, `d212a504c` | Equality keys; AVG/ORDER/SUM; decode errors; SUM overflow test |
 | **PR-D** | R14 | **done** | `c25c7236c` | DESIGN/CONFORMANCE → REPORT; core-changes §2 = tokens |
 | **PR-E** | R15 (partial), R17 | **done** for scoped goals | `c25c7236c` | Written ids + value SQL LIMIT 1 + typeof; LRU cache; backlog 3a/3b |
-| **PR-F** | R16 | **done** | `96a85cfb5` | Single Cypher parse; mutation helper StatementCache + nested park |
+| **PR-F** | R16 | **done** | `ca77b3988` | Single Cypher parse; mutation helper StatementCache + nested park |
 | **PR-G** | R7, R8 | open | — | MERGE Many multiset; concurrency |
 | **PR-H** | R9–R12 | open | — | REMOVE label; OPTIONAL null; RETURN alias ORDER BY; shadow |
 | **PR-I** | R13, R22–R24 | open | — | Soft limits honesty; module splits; typed expects; compile LRU |
