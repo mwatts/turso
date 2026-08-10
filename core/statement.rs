@@ -375,6 +375,35 @@ impl Statement {
         self.tail_offset
     }
 
+    /// End the nested prepare guard while this InternalHelper statement is idle
+    /// (e.g. held in a session prepare cache between steps).
+    ///
+    /// `prepare_internal` starts a nested guard that must stay active while the
+    /// statement runs, so parent txn finalization stays with the outer mutation.
+    /// Holding many prepared helpers without parking stacks those guards and
+    /// blocks later reads. Pair with [`Self::unpark_nested_helper`] before the
+    /// next bind/step. Root statements are a no-op.
+    pub fn park_nested_helper(&mut self) {
+        if !self.nested_guard_active {
+            return;
+        }
+        self.reset_best_effort();
+        self.program.connection.end_nested();
+        self.nested_guard_active = false;
+    }
+
+    /// Restore the nested prepare guard before reusing a parked helper.
+    ///
+    /// No-op if the statement is not an InternalHelper origin or the guard is
+    /// already active.
+    pub fn unpark_nested_helper(&mut self) {
+        if self.nested_guard_active || !self.origin.needs_nested_guard() {
+            return;
+        }
+        self.program.connection.start_nested();
+        self.nested_guard_active = true;
+    }
+
     pub fn get_trigger(&self) -> Option<Arc<Trigger>> {
         self.program.trigger.clone()
     }

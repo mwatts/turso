@@ -288,7 +288,7 @@ When `execute_bound` knows written identities (RETURNING ids or equivalent), req
 **R16. Mutation helpers reuse prepared statements.** 
 SQL templates whose text is stable across rows (identity-parameterized helpers) go through session `StatementCache` or a mutation-local cache. Cypher for a mutation is parsed once per `execute` call for both snapshot need and bind. 
 **Acceptance:** steady-state CREATE with constraints does not re-prepare the same helper text per row. 
-**Status: open** — constraint/probe SQL already cached (`df549ed80`); mutation write helpers and double Cypher parse remain PR-F.
+**Status: done** — PR-F: session parses once and passes `Result<Query,_>` into `execute_cypher_mutation`; mutation helpers use `StatementCache` + `prepare_internal` with `park_nested_helper` / `unpark_nested_helper`; test `mutation_prepare_cost`.
 
 **R17. StatementCache eviction is not full clear.** 
 At capacity, drop one entry (LRU or random), not the entire map, or size capacity by constraint count so the freshness probe is not thrashing. 
@@ -410,7 +410,7 @@ subject lines from that log.
 | **PR-C** | R4, R5, R6 | **done** | `1a5bf497e`, `d212a504c` | Equality keys; AVG/ORDER/SUM; decode errors; SUM overflow test |
 | **PR-D** | R14 | **done** | `c25c7236c` | DESIGN/CONFORMANCE → REPORT; core-changes §2 = tokens |
 | **PR-E** | R15 (partial), R17 | **done** for scoped goals | `c25c7236c` | Written ids + value SQL LIMIT 1 + typeof; LRU cache; backlog 3a/3b |
-| **PR-F** | R16 | open | — | Mutation prepare reuse; single Cypher parse |
+| **PR-F** | R16 | **done** | `96a85cfb5` | Single Cypher parse; mutation helper StatementCache + nested park |
 | **PR-G** | R7, R8 | open | — | MERGE Many multiset; concurrency |
 | **PR-H** | R9–R12 | open | — | REMOVE label; OPTIONAL null; RETURN alias ORDER BY; shadow |
 | **PR-I** | R13, R22–R24 | open | — | Soft limits honesty; module splits; typed expects; compile LRU |
@@ -475,8 +475,8 @@ Statuses mirror §7.0.
 3. ~~**PR-C: Write equality and numbers (R4, R5, R6).**~~ **done** `1a5bf497e` + `d212a504c` — Typed keys; AVG/SUM/ORDER BY; soft decode errors.
 4. ~~**PR-D: Docs (R14).**~~ **done** `c25c7236c` — REPORT pointers; core-changes inventory matches tokens.
 5. ~~**PR-E: Constraints scale (R15, R17).**~~ **done** for required/value + cache (`c25c7236c`) — Written-id validation; LIMIT 1 value SQL + typeof; StatementCache LRU; PERFORMANCE_BACKLOG 3a/3b. Unique/key/cardinality scale still open under residual item 3.
-6. **PR-F: Mutation prepare (R16).** Single parse; helper statement reuse. Steady-state CREATE metrics. **← next**
-7. **PR-G: MERGE concurrency and Many match (R7, R8).** Exact multiset + unique/UPSERT or documented race + test.
+6. ~~**PR-F: Mutation prepare (R16).**~~ **done** — Single parse; helper statement reuse (`mutation_prepare_cost`).
+7. **PR-G: MERGE concurrency and Many match (R7, R8).** Exact multiset + unique/UPSERT or documented race + test. **← next**
 8. **PR-H: Cypher holes (R9–R12).** REMOVE label; nullability; ORDER BY aliases; quantifier shadowing.
 9. **PR-I: Honesty and structure (R13, R22–R24).** Stream snapshot or document soft limits; start module splits; typed expects; compile cache LRU.
 10. **PR-J: Product follow-ons (R20 residual, R21, R25, R26, optional core multi-stmt).** Session expand limits; shared publish; role-general cardinality; FTS outer scan; design spike for mutation PreparedSource (no obligation to finish in J).
@@ -485,7 +485,7 @@ Do not combine PR-A with PR-J. Do not land path-order changes without R3’s mul
 
 ### 7.4 Priority if only one engineer is available
 
-Order by wrong data first: ~~A → B → C → D → E~~ **done** → **F → G → H → I → J**.
+Order by wrong data first: ~~A → B → C → D → E → F~~ **done** → **G → H → I → J**.
 
 ---
 

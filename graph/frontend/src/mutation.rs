@@ -351,12 +351,18 @@ fn add_mutation_source(source: ir::MutationSource, scope: &mut ValidationScope) 
     }
 }
 
+/// Execute a Cypher mutation.
+///
+/// `parsed` is the result of a single `turso_graph_cypher::parse` for this
+/// statement. The session parses once (also to decide snapshot refresh) and
+/// hands the value in so this path does not parse again. Callers that do not
+/// have a parse yet pass `turso_graph_cypher::parse(source)`.
 pub(crate) fn execute_cypher_mutation(
     connection: &Arc<Connection>,
     statements: &StatementCache,
     graph: ir::GraphId,
     catalog: Arc<dyn GraphCompilationCatalog>,
-    source: &str,
+    parsed: Result<turso_graph_cypher::Query, turso_graph_cypher::ParseError>,
     parameters: &Parameters,
 ) -> Result<MutationSummary, MutationError> {
     CLOSED_CREATE_FAST_PATH_HIT.with(|hit| hit.set(false));
@@ -365,7 +371,7 @@ pub(crate) fn execute_cypher_mutation(
             return Err(MutationError::ReservedParameter(name.clone()));
         }
     }
-    let syntax = turso_graph_cypher::parse(source)?;
+    let syntax = parsed?;
     let parameter_types = parameter_types(parameters);
     let bound = bind_mutation(&syntax, graph, catalog.as_ref(), &parameter_types)?;
     let input = match &bound.request.input {
@@ -375,11 +381,16 @@ pub(crate) fn execute_cypher_mutation(
 
     // Mutation SQL runs via prepare_internal (InternalHelper), whose nested
     // helpers cannot upgrade a deferred read transaction to write — which is
-    // what the shared guard rejects up front.
+    // what the shared guard rejects up front. Stable helper text is reused
+    // through `statements` (label/type junction, parameterized SET/DELETE).
     let run = || {
+        let io = MutationIo {
+            connection,
+            statements,
+        };
         let mut written = WrittenIdentities::default();
         let summary = if let Some(summary) = try_single_program_mutation(
-            connection,
+            &io,
             catalog.as_ref(),
             &bound,
             &input,
@@ -389,7 +400,7 @@ pub(crate) fn execute_cypher_mutation(
             summary
         } else {
             execute_bound(
-                connection,
+                &io,
                 catalog.as_ref(),
                 &bound,
                 &input,
@@ -466,7 +477,7 @@ pub(crate) fn execute_cypher_mutation(
 /// inserts. A hit on [`CLOSED_CREATE_FAST_PATH_HITS`] therefore means "closed
 /// CREATE branch ran", not "one VDBE program for the whole mutation".
 fn try_single_program_mutation(
-    connection: &Arc<Connection>,
+    io: &MutationIo,
     catalog: &dyn GraphCompilationCatalog,
     bound: &BoundMutation,
     input: &LoweredMutationInput,
@@ -496,7 +507,7 @@ fn try_single_program_mutation(
     let empty_values = HashMap::new();
     let empty_layouts = HashMap::new();
     let (identity, _) = insert_node(
-        connection,
+        io,
         catalog,
         input,
         create,
@@ -506,7 +517,7 @@ fn try_single_program_mutation(
         false,
     )?;
     record_node_labels(
-        connection,
+        io,
         catalog,
         create.source,
         &create.labels,
@@ -613,7 +624,7 @@ fn equality_key_for_row(row: &MutationRow) -> String {
 }
 
 fn execute_bound(
-    connection: &Arc<Connection>,
+    io: &MutationIo,
     catalog: &dyn GraphCompilationCatalog,
     bound: &BoundMutation,
     input: &LoweredMutationInput,
@@ -637,7 +648,7 @@ fn execute_bound(
     let mut rows = if request.input.is_some() {
         let (sql, columns) = mutation_rows_with_sources_sql(input, &input_bindings);
         decode_mutation_rows(
-            run_rows(connection, &sql, parameters, &HashMap::new())?,
+            io.run_rows(&sql, parameters, &HashMap::new())?,
             &columns,
         )?
     } else {
@@ -651,7 +662,7 @@ fn execute_bound(
     for row in &mut rows {
         for operation in &request.operations {
             execute_operation(
-                connection,
+                io,
                 catalog,
                 request.graph,
                 input,
@@ -666,7 +677,7 @@ fn execute_bound(
     }
     for stage in &bound.stages {
         rows = project_stage(
-            connection,
+            io,
             catalog,
             input,
             parameters,
@@ -675,7 +686,7 @@ fn execute_bound(
             stage.distinct,
             rows,
         )?;
-        rows = sort_stage_rows(connection, catalog, input, parameters, &stage.order, rows)?;
+        rows = sort_stage_rows(io, catalog, input, parameters, &stage.order, rows)?;
         if let Some(skip) = stage.skip {
             rows.drain(..skip.min(rows.len()));
         }
@@ -687,7 +698,7 @@ fn execute_bound(
                 StageItem::Operation(operation) => {
                     for row in &mut rows {
                         execute_operation(
-                            connection,
+                            io,
                             catalog,
                             request.graph,
                             input,
@@ -703,7 +714,7 @@ fn execute_bound(
                 StageItem::Foreach { .. } => {
                     for row in &mut rows {
                         run_stage_items_once(
-                            connection,
+                            io,
                             catalog,
                             request.graph,
                             input,
@@ -727,9 +738,8 @@ fn execute_bound(
                             &references.sql,
                             &row.entity_layouts,
                         )?;
-                        let elements = run_rows(
-                            connection,
-                            &format!("SELECT value FROM json_each(({sql}))"),
+                        let elements = io.run_rows(
+                                                        &format!("SELECT value FROM json_each(({sql}))"),
                             parameters,
                             &references.values,
                         )?;
@@ -757,7 +767,7 @@ fn execute_bound(
                         // through internal reference parameters.
                         let references = reference_parameters(&row.values);
                         let matched = decode_mutation_rows(
-                            run_rows(connection, &sql, parameters, &references.values)?,
+                            io.run_rows(&sql, parameters, &references.values)?,
                             &columns,
                         )?;
                         if matched.is_empty() && *optional {
@@ -785,7 +795,7 @@ fn execute_bound(
         Vec::new()
     } else {
         let projected = project_stage(
-            connection,
+            io,
             catalog,
             input,
             parameters,
@@ -825,7 +835,7 @@ fn execute_bound(
 /// leaving the surrounding row set unchanged.
 #[allow(clippy::too_many_arguments)]
 fn run_stage_items_once(
-    connection: &Arc<Connection>,
+    io: &MutationIo,
     catalog: &dyn GraphCompilationCatalog,
     graph: ir::GraphId,
     input: &LoweredMutationInput,
@@ -840,7 +850,7 @@ fn run_stage_items_once(
         match item {
             StageItem::Operation(operation) => {
                 execute_operation(
-                    connection,
+                    io,
                     catalog,
                     graph,
                     input,
@@ -865,9 +875,8 @@ fn run_stage_items_once(
                     &references.sql,
                     entity_layouts,
                 )?;
-                let elements = run_rows(
-                    connection,
-                    &format!("SELECT value FROM json_each(({sql}))"),
+                let elements = io.run_rows(
+                                        &format!("SELECT value FROM json_each(({sql}))"),
                     parameters,
                     &references.values,
                 )?;
@@ -878,7 +887,7 @@ fn run_stage_items_once(
                     let mut scratch = values.clone();
                     scratch.insert(*output, element);
                     run_stage_items_once(
-                        connection,
+                        io,
                         catalog,
                         graph,
                         input,
@@ -929,7 +938,7 @@ fn projected_entity_layouts(
 /// items, then the optional predicate and DISTINCT apply to the output rows.
 #[allow(clippy::too_many_arguments)]
 fn project_stage(
-    connection: &Arc<Connection>,
+    io: &MutationIo,
     catalog: &dyn GraphCompilationCatalog,
     input: &LoweredMutationInput,
     parameters: &Parameters,
@@ -974,9 +983,8 @@ fn project_stage(
             })
             .collect::<Result<Vec<_>, _>>()?
             .join(", ");
-        let mut produced = run_rows(
-            connection,
-            &format!("SELECT {columns}"),
+        let mut produced = io.run_rows(
+                        &format!("SELECT {columns}"),
             parameters,
             &references.values,
         )?;
@@ -1038,7 +1046,7 @@ fn project_stage(
                         values.insert(
                             *id,
                             fold_aggregate(
-                                connection,
+                                io,
                                 parameters,
                                 *function,
                                 argument.is_none(),
@@ -1082,9 +1090,8 @@ fn project_stage(
                 &references.sql,
                 &row.entity_layouts,
             )?;
-            let result = run_rows(
-                connection,
-                &format!("SELECT ({sql})"),
+            let result = io.run_rows(
+                                &format!("SELECT ({sql})"),
                 parameters,
                 &references.values,
             )?;
@@ -1110,7 +1117,7 @@ fn project_stage(
 /// that row's own bindings, exactly like a stage predicate, so it sees
 /// aggregate outputs the same way `WITH ... WHERE` does.
 fn sort_stage_rows(
-    connection: &Arc<Connection>,
+    io: &MutationIo,
     catalog: &dyn GraphCompilationCatalog,
     input: &LoweredMutationInput,
     parameters: &Parameters,
@@ -1132,9 +1139,8 @@ fn sort_stage_rows(
                 &references.sql,
                 &row.entity_layouts,
             )?;
-            let mut produced = run_rows(
-                connection,
-                &format!("SELECT ({sql})"),
+            let mut produced = io.run_rows(
+                                &format!("SELECT ({sql})"),
                 parameters,
                 &references.values,
             )?;
@@ -1165,7 +1171,7 @@ fn sort_stage_rows(
 }
 
 fn fold_aggregate(
-    connection: &Arc<Connection>,
+    io: &MutationIo,
     parameters: &Parameters,
     function: ir::AggregateFunction,
     count_star: bool,
@@ -1285,9 +1291,8 @@ fn fold_aggregate(
                     })
                     .collect::<Vec<_>>()
                     .join(" UNION ALL ");
-                run_rows(
-                    connection,
-                    &format!("SELECT json_group_array(value) FROM ({selects})"),
+                io.run_rows(
+                                        &format!("SELECT json_group_array(value) FROM ({selects})"),
                     parameters,
                     &internal,
                 )?
@@ -1301,7 +1306,7 @@ fn fold_aggregate(
 
 #[allow(clippy::too_many_arguments)]
 fn execute_operation(
-    connection: &Arc<Connection>,
+    io: &MutationIo,
     catalog: &dyn GraphCompilationCatalog,
     graph: ir::GraphId,
     input: &LoweredMutationInput,
@@ -1314,7 +1319,7 @@ fn execute_operation(
     match operation {
         ir::Mutation::CreateNode(create) => {
             let (identity, _) = insert_node(
-                connection,
+                io,
                 catalog,
                 input,
                 create,
@@ -1324,7 +1329,7 @@ fn execute_operation(
                 false,
             )?;
             record_node_labels(
-                connection,
+                io,
                 catalog,
                 create.source,
                 &create.labels,
@@ -1340,7 +1345,7 @@ fn execute_operation(
         }
         ir::Mutation::MergeNode(merge) => {
             let (identity, created) = insert_node(
-                connection,
+                io,
                 catalog,
                 input,
                 &merge.create,
@@ -1350,7 +1355,7 @@ fn execute_operation(
                 true,
             )?;
             record_node_labels(
-                connection,
+                io,
                 catalog,
                 merge.create.source,
                 &merge.create.labels,
@@ -1370,7 +1375,7 @@ fn execute_operation(
             };
             for action in actions {
                 execute_operation(
-                    connection,
+                    io,
                     catalog,
                     graph,
                     input,
@@ -1384,7 +1389,7 @@ fn execute_operation(
         }
         ir::Mutation::CreateRelation(create) => {
             let (identity, _) = insert_relationship(
-                connection,
+                io,
                 catalog,
                 graph,
                 input,
@@ -1395,7 +1400,7 @@ fn execute_operation(
                 false,
             )?;
             record_relationship_type(
-                connection,
+                io,
                 catalog,
                 create.source,
                 &create.relationship_types,
@@ -1411,7 +1416,7 @@ fn execute_operation(
         }
         ir::Mutation::MergeRelation(merge) => {
             let (identity, created) = insert_relationship(
-                connection,
+                io,
                 catalog,
                 graph,
                 input,
@@ -1426,7 +1431,7 @@ fn execute_operation(
                 // predicates require them); recording here would attach types
                 // to a relationship the merge did not create.
                 record_relationship_type(
-                    connection,
+                    io,
                     catalog,
                     merge.create.source,
                     &merge.create.relationship_types,
@@ -1447,7 +1452,7 @@ fn execute_operation(
             };
             for action in actions {
                 execute_operation(
-                    connection,
+                    io,
                     catalog,
                     graph,
                     input,
@@ -1478,7 +1483,7 @@ fn execute_operation(
             let mut internal = references.values;
             internal.insert(identity_parameter(set.entity), identity.clone());
             let assignment = if set.value.value_type == ir::ValueType::Any {
-                let evaluated = evaluate_scalar(connection, &expression, parameters, &internal)?;
+                let evaluated = io.evaluate_scalar(&expression, parameters, &internal)?;
                 check_runtime_value(
                     catalog,
                     source,
@@ -1495,9 +1500,8 @@ fn execute_operation(
             } else {
                 expression
             };
-            run_ignore(
-                connection,
-                &format!(
+            io.run_ignore(
+                                &format!(
                     "UPDATE {} SET {} = {assignment} WHERE {} = ${}",
                     quoted_identifier(&layout.table),
                     quoted_identifier(&column),
@@ -1516,7 +1520,7 @@ fn execute_operation(
                 .clone();
             written.record(source, identity.clone());
             record_node_labels(
-                connection,
+                io,
                 catalog,
                 source,
                 &set.labels,
@@ -1548,7 +1552,7 @@ fn execute_operation(
                 )?;
                 let assignment = if entry.value.value_type == ir::ValueType::Any {
                     let evaluated =
-                        evaluate_scalar(connection, &expression, parameters, &internal)?;
+                        io.evaluate_scalar(&expression, parameters, &internal)?;
                     check_runtime_value(
                         catalog,
                         source,
@@ -1589,9 +1593,8 @@ fn execute_operation(
                         vec![layout.identity.clone()]
                     };
                     let escaped = layout.table.replace('\'', "''");
-                    let columns = run_rows(
-                        connection,
-                        &format!("SELECT name FROM pragma_table_info('{escaped}')"),
+                    let columns = io.run_rows(
+                                                &format!("SELECT name FROM pragma_table_info('{escaped}')"),
                         parameters,
                         &HashMap::new(),
                     )?;
@@ -1608,9 +1611,8 @@ fn execute_operation(
                 }
             }
             if !assignments.is_empty() {
-                run_ignore(
-                    connection,
-                    &format!(
+                io.run_ignore(
+                                        &format!(
                         "UPDATE {} SET {} WHERE {} = ${}",
                         quoted_identifier(&layout.table),
                         assignments.join(", "),
@@ -1639,7 +1641,7 @@ fn execute_operation(
                 &references.sql,
                 entity_layouts,
             )?;
-            let evaluated = evaluate_scalar(connection, &value, parameters, &internal)?;
+            let evaluated = io.evaluate_scalar(&value, parameters, &internal)?;
             let map_parameter = format!(
                 "{INTERNAL_PARAMETER_PREFIX}replace_map_{}",
                 replace.entity.get()
@@ -1650,9 +1652,8 @@ fn execute_operation(
                 source,
                 &replace.semantic_types,
             ) {
-                let map_rows = run_rows(
-                    connection,
-                    &format!("SELECT key, value FROM json_each(${map_parameter})"),
+                let map_rows = io.run_rows(
+                                        &format!("SELECT key, value FROM json_each(${map_parameter})"),
                     parameters,
                     &internal,
                 )?;
@@ -1714,9 +1715,8 @@ fn execute_operation(
                     ));
                 }
                 if !assignments.is_empty() {
-                    run_ignore(
-                        connection,
-                        &format!(
+                    io.run_ignore(
+                                                &format!(
                             "UPDATE {} SET {} WHERE {} = ${}",
                             quoted_identifier(&layout.table),
                             assignments.join(", "),
@@ -1754,9 +1754,8 @@ fn execute_operation(
                 .collect::<Vec<_>>()
                 .join(", ");
             if !assignments.is_empty() {
-                run_ignore(
-                    connection,
-                    &format!(
+                io.run_ignore(
+                                        &format!(
                         "UPDATE {} SET {assignments} WHERE {} = ${}",
                         quoted_identifier(&layout.table),
                         quoted_identifier(&layout.identity),
@@ -1776,9 +1775,8 @@ fn execute_operation(
                 .ok_or(MutationError::MissingBinding(remove.entity))?;
             written.record(source, identity.clone());
             let internal = HashMap::from([(identity_parameter(remove.entity), identity.clone())]);
-            run_ignore(
-                connection,
-                &format!(
+            io.run_ignore(
+                                &format!(
                     "UPDATE {} SET {} = NULL WHERE {} = ${}",
                     quoted_identifier(&layout.table),
                     quoted_identifier(&column),
@@ -1791,8 +1789,7 @@ fn execute_operation(
         }
         ir::Mutation::Delete(delete) => {
             let source = mutation_source(delete.source, entity_layouts)?;
-            delete_entity(
-                connection, catalog, graph, delete, source, parameters, values,
+            delete_entity(io, catalog, graph, delete, source, parameters, values,
             )?;
         }
         ir::Mutation::SetRoles(update) => {
@@ -1882,9 +1879,8 @@ fn execute_operation(
                         // append, so an appending SET would make running one
                         // statement twice mean something different from
                         // running it once.
-                        run_ignore(
-                            connection,
-                            &format!(
+                        io.run_ignore(
+                                                        &format!(
                                 "DELETE FROM {} WHERE relation_id = ${identity_param}",
                                 quoted_identifier(table),
                             ),
@@ -1899,9 +1895,8 @@ fn execute_operation(
                                 "{INTERNAL_PARAMETER_PREFIX}set_role_player_{index}_{player_index}"
                             );
                             internal.insert(player_parameter.clone(), player.clone());
-                            run_ignore(
-                                connection,
-                                &format!(
+                            io.run_ignore(
+                                                                &format!(
                                     "INSERT INTO {}(relation_id, node_id) VALUES (${identity_param}, ${player_parameter})",
                                     quoted_identifier(table),
                                 ),
@@ -1913,9 +1908,8 @@ fn execute_operation(
                 }
             }
             if !assignments.is_empty() {
-                run_ignore(
-                    connection,
-                    &format!(
+                io.run_ignore(
+                                        &format!(
                         "UPDATE {} SET {} WHERE {} = ${identity_param}",
                         quoted_identifier(&layout.table),
                         assignments.join(", "),
@@ -1933,7 +1927,7 @@ fn execute_operation(
 /// Records a created or merged node's labels in the graph's junction
 /// table; idempotent so MERGE matches do not duplicate rows.
 fn record_node_labels(
-    connection: &Arc<Connection>,
+    io: &MutationIo,
     catalog: &dyn GraphCompilationCatalog,
     source: ir::SourceTableId,
     labels: &[ir::LabelId],
@@ -1967,7 +1961,7 @@ fn record_node_labels(
                  WHERE node_id = ${parameter} AND label = '{name}')"
             )
         };
-        run_ignore(connection, &sql, parameters, &internal)?;
+        io.run_ignore(&sql, parameters, &internal)?;
     }
     Ok(())
 }
@@ -1975,7 +1969,7 @@ fn record_node_labels(
 /// Records a created or merged relationship's type in the graph's junction
 /// table; idempotent so MERGE matches do not duplicate rows.
 fn record_relationship_type(
-    connection: &Arc<Connection>,
+    io: &MutationIo,
     catalog: &dyn GraphCompilationCatalog,
     source: ir::SourceTableId,
     relationship_types: &[ir::RelationshipTypeId],
@@ -2010,14 +2004,14 @@ fn record_relationship_type(
                  WHERE relationship_id = ${parameter} AND type = '{name}')"
             )
         };
-        run_ignore(connection, &sql, parameters, &internal)?;
+        io.run_ignore(&sql, parameters, &internal)?;
     }
     Ok(())
 }
 
 #[allow(clippy::too_many_arguments)]
 fn insert_node(
-    connection: &Arc<Connection>,
+    io: &MutationIo,
     catalog: &dyn GraphCompilationCatalog,
     input: &LoweredMutationInput,
     create: &ir::CreateNode,
@@ -2041,7 +2035,7 @@ fn insert_node(
         Vec::new()
     };
     insert_entity(
-        connection,
+        io,
         catalog,
         input,
         &layout.table,
@@ -2128,7 +2122,7 @@ fn node_label_predicates(
 
 #[allow(clippy::too_many_arguments)]
 pub(crate) fn insert_relationship(
-    connection: &Arc<Connection>,
+    io: &MutationIo,
     catalog: &dyn GraphCompilationCatalog,
     graph: ir::GraphId,
     input: &LoweredMutationInput,
@@ -2224,7 +2218,7 @@ pub(crate) fn insert_relationship(
         }
     }
     let (identity, created) = insert_entity(
-        connection,
+        io,
         catalog,
         input,
         &layout.table,
@@ -2259,9 +2253,8 @@ pub(crate) fn insert_relationship(
                 (relation_parameter.clone(), identity.clone()),
                 (player_parameter.clone(), player.clone()),
             ]);
-            run_ignore(
-                connection,
-                &format!(
+            io.run_ignore(
+                                &format!(
                     "INSERT INTO {}(relation_id, node_id) VALUES (${relation_parameter}, ${player_parameter})",
                     quoted_identifier(table),
                 ),
@@ -2275,7 +2268,7 @@ pub(crate) fn insert_relationship(
 
 #[allow(clippy::too_many_arguments)]
 fn insert_entity(
-    connection: &Arc<Connection>,
+    io: &MutationIo,
     catalog: &dyn GraphCompilationCatalog,
     input: &LoweredMutationInput,
     table: &str,
@@ -2315,7 +2308,7 @@ fn insert_entity(
             entity_layouts,
         )?;
         if property.value.value_type == ir::ValueType::Any {
-            let evaluated = evaluate_scalar(connection, &expression, parameters, &internal)?;
+            let evaluated = io.evaluate_scalar(&expression, parameters, &internal)?;
             check_runtime_value(
                 catalog,
                 source,
@@ -2349,9 +2342,8 @@ fn insert_entity(
         } else {
             predicate
         };
-        let existing = run_rows(
-            connection,
-            &format!(
+        let existing = io.run_rows(
+                        &format!(
                 "SELECT {} FROM {} WHERE {predicate} LIMIT 1",
                 quoted_identifier(identity),
                 quoted_identifier(table),
@@ -2382,7 +2374,7 @@ fn insert_entity(
             quoted_identifier(identity),
         )
     };
-    let rows = run_rows(connection, &sql, parameters, &internal)?;
+    let rows = io.run_rows(&sql, parameters, &internal)?;
     rows.into_iter()
         .next()
         .and_then(|mut row| row.pop())
@@ -2391,7 +2383,7 @@ fn insert_entity(
 }
 
 fn delete_entity(
-    connection: &Arc<Connection>,
+    io: &MutationIo,
     catalog: &dyn GraphCompilationCatalog,
     graph: ir::GraphId,
     delete: &ir::DeleteEntity,
@@ -2463,9 +2455,8 @@ fn delete_entity(
                 // them, and the relation row itself, undeleted by the time
                 // the final DELETE below runs. Capturing concrete ids up
                 // front makes every later step independent of earlier ones.
-                let matched_ids: Vec<Value> = run_rows(
-                    connection,
-                    &format!(
+                let matched_ids: Vec<Value> = io.run_rows(
+                                        &format!(
                         "SELECT {} FROM {} WHERE {predicate}",
                         quoted_identifier(&relationship.identity_column),
                         quoted_identifier(&relationship.table),
@@ -2507,9 +2498,8 @@ fn delete_entity(
                             role: role.name.clone(),
                         }
                     })?;
-                    run_ignore(
-                        connection,
-                        &format!(
+                    io.run_ignore(
+                                                &format!(
                             "DELETE FROM {} WHERE relation_id IN ({ids})",
                             quoted_identifier(table),
                         ),
@@ -2525,9 +2515,8 @@ fn delete_entity(
                     } else {
                         String::new()
                     };
-                    run_ignore(
-                        connection,
-                        &format!(
+                    io.run_ignore(
+                                                &format!(
                             "DELETE FROM \"{}\" WHERE {source_predicate}relationship_id IN ({ids})",
                             types_table.replace('"', "\"\""),
                         ),
@@ -2535,9 +2524,8 @@ fn delete_entity(
                         &matched_internal,
                     )?;
                 }
-                run_ignore(
-                    connection,
-                    &format!(
+                io.run_ignore(
+                                        &format!(
                         "DELETE FROM {} WHERE {} IN ({ids})",
                         quoted_identifier(&relationship.table),
                         quoted_identifier(&relationship.identity_column),
@@ -2545,9 +2533,8 @@ fn delete_entity(
                     parameters,
                     &matched_internal,
                 )?;
-            } else if !run_rows(
-                connection,
-                &format!(
+            } else if !io.run_rows(
+                                &format!(
                     "SELECT 1 FROM {} WHERE {predicate} LIMIT 1",
                     quoted_identifier(&relationship.table)
                 ),
@@ -2565,9 +2552,8 @@ fn delete_entity(
             } else {
                 String::new()
             };
-            run_ignore(
-                connection,
-                &format!(
+            io.run_ignore(
+                                &format!(
                     "DELETE FROM \"{}\" WHERE {source_predicate}node_id = ${}",
                     labels_table.replace('"', "\"\""),
                     identity_parameter(delete.entity),
@@ -2576,9 +2562,8 @@ fn delete_entity(
                 &internal,
             )?;
         }
-        Ok(run_ignore(
-            connection,
-            &format!(
+        Ok(io.run_ignore(
+                        &format!(
                 "DELETE FROM {} WHERE {} = ${}",
                 quoted_identifier(&layout.table),
                 quoted_identifier(&layout.identity_column),
@@ -2597,9 +2582,8 @@ fn delete_entity(
             } else {
                 String::new()
             };
-            run_ignore(
-                connection,
-                &format!(
+            io.run_ignore(
+                                &format!(
                     "DELETE FROM \"{}\" WHERE {source_predicate}relationship_id = ${}",
                     types_table.replace('"', "\"\""),
                     identity_parameter(delete.entity),
@@ -2624,9 +2608,8 @@ fn delete_entity(
                         relation: role.name.clone(),
                         role: role.name.clone(),
                     })?;
-            run_ignore(
-                connection,
-                &format!(
+            io.run_ignore(
+                                &format!(
                     "DELETE FROM {} WHERE relation_id = ${}",
                     quoted_identifier(table),
                     identity_parameter(delete.entity),
@@ -2635,9 +2618,8 @@ fn delete_entity(
                 &internal,
             )?;
         }
-        Ok(run_ignore(
-            connection,
-            &format!(
+        Ok(io.run_ignore(
+                        &format!(
                 "DELETE FROM {} WHERE {} = ${}",
                 quoted_identifier(&layout.table),
                 quoted_identifier(&layout.identity_column),
@@ -2724,50 +2706,62 @@ fn identity_parameter(binding: ir::BindingId) -> String {
     format!("{INTERNAL_PARAMETER_PREFIX}{}", binding.get())
 }
 
-fn run_ignore(
-    connection: &Arc<Connection>,
-    sql: &str,
-    parameters: &Parameters,
-    internal: &HashMap<String, Value>,
-) -> Result<(), turso_core::LimboError> {
-    // Engine-generated mutation SQL: InternalHelper origin so SQLite function
-    // resolution applies (no user dialect / GraphDialect parse of helper SQL).
-    let mut statement = connection.prepare_internal(sql)?;
-    bind_parameters(&mut statement, parameters, internal)?;
-    statement.run_ignore_rows()
+/// Connection + statement cache for one mutation execution.
+///
+/// Keeps prepare reuse on stable helper SQL without threading two handles
+/// through every recursive operation helper.
+pub(crate) struct MutationIo<'a> {
+    connection: &'a Arc<Connection>,
+    statements: &'a StatementCache,
 }
 
-fn run_rows(
-    connection: &Arc<Connection>,
-    sql: &str,
-    parameters: &Parameters,
-    internal: &HashMap<String, Value>,
-) -> Result<Vec<Vec<Value>>, turso_core::LimboError> {
-    // Engine-generated mutation SQL: InternalHelper origin so SQLite function
-    // resolution applies (no user dialect / GraphDialect parse of helper SQL).
-    let mut statement = connection.prepare_internal(sql)?;
-    bind_parameters(&mut statement, parameters, internal)?;
-    statement.run_collect_rows()
-}
-
-fn evaluate_scalar(
-    connection: &Arc<Connection>,
-    expression: &str,
-    parameters: &Parameters,
-    internal: &HashMap<String, Value>,
-) -> Result<Value, MutationError> {
-    let mut rows = run_rows(
-        connection,
-        &format!("SELECT {expression}"),
-        parameters,
-        internal,
-    )?;
-    if rows.len() != 1 || rows[0].len() != 1 {
-        return Err(MutationError::MissingEvaluatedValue);
+impl MutationIo<'_> {
+    fn run_ignore(
+        &self,
+        sql: &str,
+        parameters: &Parameters,
+        internal: &HashMap<String, Value>,
+    ) -> Result<(), turso_core::LimboError> {
+        // Engine-generated mutation SQL: InternalHelper origin so SQLite
+        // function resolution applies. Exact-text reuse covers label/type
+        // junctions and other parameterized helpers that repeat across
+        // bootstrap CREATEs.
+        self.statements
+            .run_ignore_internal(self.connection, sql, |statement| {
+                bind_parameters(statement, parameters, internal)
+            })
     }
-    rows.pop()
-        .and_then(|mut row| row.pop())
-        .ok_or(MutationError::MissingEvaluatedValue)
+
+    fn run_rows(
+        &self,
+        sql: &str,
+        parameters: &Parameters,
+        internal: &HashMap<String, Value>,
+    ) -> Result<Vec<Vec<Value>>, turso_core::LimboError> {
+        self.statements
+            .query_rows_internal(self.connection, sql, |statement| {
+                bind_parameters(statement, parameters, internal)
+            })
+    }
+
+    fn evaluate_scalar(
+        &self,
+        expression: &str,
+        parameters: &Parameters,
+        internal: &HashMap<String, Value>,
+    ) -> Result<Value, MutationError> {
+        let mut rows = self.run_rows(
+            &format!("SELECT {expression}"),
+            parameters,
+            internal,
+        )?;
+        if rows.len() != 1 || rows[0].len() != 1 {
+            return Err(MutationError::MissingEvaluatedValue);
+        }
+        rows.pop()
+            .and_then(|mut row| row.pop())
+            .ok_or(MutationError::MissingEvaluatedValue)
+    }
 }
 
 fn bind_parameters(
@@ -3017,7 +3011,7 @@ mod tests {
             &StatementCache::default(),
             graph,
             catalog.clone(),
-            source,
+            turso_graph_cypher::parse(source),
             &Parameters::new(),
         )
     }
@@ -3122,7 +3116,7 @@ mod tests {
             &StatementCache::default(),
             graph,
             catalog.clone(),
-            "MATCH (n:Person {id: 1}) SET n.name = $name",
+            turso_graph_cypher::parse("MATCH (n:Person {id: 1}) SET n.name = $name"),
             &parameters,
         )
         .unwrap();
@@ -3302,10 +3296,19 @@ mod tests {
             .unwrap()
     }
 
+    fn mutation_io(name: &str) -> (Arc<Connection>, StatementCache) {
+        (memory_connection(name), StatementCache::default())
+    }
+
     #[test]
     fn fold_average_divides_only_by_numeric_inputs() {
+        let (connection, cache) = mutation_io(":memory:avg");
+        let io = MutationIo {
+            connection: &connection,
+            statements: &cache,
+        };
         let avg = fold_aggregate(
-            &memory_connection(":memory:avg"),
+            &io,
             &Parameters::new(),
             ir::AggregateFunction::Average,
             false,
@@ -3330,8 +3333,13 @@ mod tests {
     fn fold_integer_sum_errors_on_i64_overflow_instead_of_wrapping() {
         // Wrapping sum would return a negative or truncated value silently in
         // release; checked_add must surface an error when i64::MAX + 1 overflows.
+        let (connection, cache) = mutation_io(":memory:sum-overflow");
+        let io = MutationIo {
+            connection: &connection,
+            statements: &cache,
+        };
         let err = fold_aggregate(
-            &memory_connection(":memory:sum-overflow"),
+            &io,
             &Parameters::new(),
             ir::AggregateFunction::Sum,
             false,
@@ -3346,7 +3354,7 @@ mod tests {
         );
         // Non-overflowing sum still works through the same path.
         let ok = fold_aggregate(
-            &memory_connection(":memory:sum-ok"),
+            &io,
             &Parameters::new(),
             ir::AggregateFunction::Sum,
             false,
@@ -3778,8 +3786,13 @@ mod tests {
         let parameters = Parameters::new();
         let input = unit_mutation_input();
         connection.execute("BEGIN IMMEDIATE").unwrap();
+        let cache = StatementCache::default();
+        let io = MutationIo {
+            connection: &connection,
+            statements: &cache,
+        };
         insert_relationship(
-            &connection,
+            &io,
             catalog.as_ref(),
             graph,
             &input,
@@ -3813,8 +3826,13 @@ mod tests {
         let parameters = Parameters::new();
         let input = unit_mutation_input();
         connection.execute("BEGIN IMMEDIATE").unwrap();
+        let cache = StatementCache::default();
+        let io = MutationIo {
+            connection: &connection,
+            statements: &cache,
+        };
         insert_relationship(
-            &connection,
+            &io,
             catalog.as_ref(),
             graph,
             &input,

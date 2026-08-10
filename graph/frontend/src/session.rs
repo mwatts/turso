@@ -420,16 +420,16 @@ impl GraphConnection {
             }
         }
         self.refresh_catalog_if_stale()?;
-        // A source the parser rejects is left to the mutation path below, which
-        // owns the error message callers already match on.
-        let syntax = turso_graph_cypher::parse(source).ok();
+        // Parse once: this decides whether expand needs a traversal snapshot
+        // and is the only parse the mutation path will see (R16).
+        let parsed = turso_graph_cypher::parse(source);
         // A mutation is the only entry point that does not compile through
         // GraphCompiler, so nothing else refreshes the snapshot `graph_expand`
         // reads. Without this, a variable-length pattern in a mutation works
         // only when some earlier read happened to leave a snapshot behind.
-        if syntax
+        if parsed
             .as_ref()
-            .is_some_and(crate::compiler::query_needs_traversal_snapshot)
+            .is_ok_and(crate::compiler::query_needs_traversal_snapshot)
         {
             self.snapshots.refresh_visible_if_stale(
                 &self.connection,
@@ -444,7 +444,7 @@ impl GraphConnection {
             &self.statements,
             self.graph,
             catalog,
-            source,
+            parsed,
             parameters,
         );
         let cleared = self.snapshots.clear();

@@ -34,10 +34,18 @@ use crate::catalog::CatalogError;
 
 /// How many distinct SQL strings one cache keeps statements for.
 ///
-/// The working set is small and fixed: one freshness probe plus a couple of
-/// queries per constraint in scope. The bound is here so a session that runs
-/// unusual one-off SQL cannot grow the map without limit.
-const CAPACITY: usize = 64;
+/// Sized for a freshness probe, a few constraint checks, and the stable
+/// mutation helpers (label/type junction, parameterized SET/DELETE/spill)
+/// that a bootstrap loop repeats. Value-inlined INSERT text still cannot hit
+/// the cache; that is intentional.
+const CAPACITY: usize = 96;
+
+enum PrepareKind {
+    /// Catalog / constraint SQL via root prepare.
+    Root,
+    /// Mutation helpers via `prepare_internal` (InternalHelper origin).
+    Internal,
+}
 
 struct Inner {
     /// Statements keyed on exact SQL text.
@@ -65,11 +73,56 @@ pub(crate) struct StatementCache {
 impl StatementCache {
     /// Run `sql` and collect its rows, reusing a prepared statement when this
     /// cache already holds one for that exact text.
+    ///
+    /// Uses root `prepare` (catalog freshness probes and constraint SQL).
     pub(crate) fn query_rows(
         &self,
         connection: &Arc<Connection>,
         sql: &str,
     ) -> Result<Vec<Vec<Value>>, CatalogError> {
+        self.run(
+            connection,
+            sql,
+            PrepareKind::Root,
+            |statement| statement.run_collect_rows(),
+        )
+        .map_err(CatalogError::from)
+    }
+
+    /// Mutation helper: `prepare_internal` (or reuse), run `bind`, collect rows.
+    pub(crate) fn query_rows_internal(
+        &self,
+        connection: &Arc<Connection>,
+        sql: &str,
+        bind: impl FnOnce(&mut Statement) -> Result<(), turso_core::LimboError>,
+    ) -> Result<Vec<Vec<Value>>, turso_core::LimboError> {
+        self.run(connection, sql, PrepareKind::Internal, |statement| {
+            bind(statement)?;
+            statement.run_collect_rows()
+        })
+    }
+
+    /// Mutation helper: `prepare_internal` (or reuse), run `bind`, ignore rows.
+    pub(crate) fn run_ignore_internal(
+        &self,
+        connection: &Arc<Connection>,
+        sql: &str,
+        bind: impl FnOnce(&mut Statement) -> Result<(), turso_core::LimboError>,
+    ) -> Result<(), turso_core::LimboError> {
+        self.run(connection, sql, PrepareKind::Internal, |statement| {
+            bind(statement)?;
+            statement.run_ignore_rows().map(|()| Vec::<Value>::new())
+        })
+        .map(|_| ())
+    }
+
+    fn run<T>(
+        &self,
+        connection: &Arc<Connection>,
+        sql: &str,
+        kind: PrepareKind,
+        body: impl FnOnce(&mut Statement) -> Result<T, turso_core::LimboError>,
+    ) -> Result<T, turso_core::LimboError> {
         // The statement leaves the map for the duration of the call. A
         // re-entrant query on the same SQL then prepares its own rather than
         // stepping a statement that is already mid-execution.
@@ -85,14 +138,25 @@ impl StatementCache {
             }
         };
         let mut statement = match cached {
-            Some(statement) => statement,
-            None => connection.prepare(sql)?,
+            Some(mut statement) => {
+                // Cached InternalHelper statements were parked so they do not
+                // hold a nested-txn guard while idle. Restore before step.
+                statement.unpark_nested_helper();
+                statement
+            }
+            None => match kind {
+                PrepareKind::Root => connection.prepare(sql)?,
+                PrepareKind::Internal => connection.prepare_internal(sql)?,
+            },
         };
-        let rows = statement.run_collect_rows();
+        let result = body(&mut statement);
         // A statement that failed part-way can hold execution state that reset
         // is not guaranteed to unwind, so only a clean run earns a place back
         // in the cache.
-        if rows.is_ok() && statement.reset().is_ok() {
+        if result.is_ok() && statement.reset().is_ok() {
+            // Drop nested guards while the statement sits in the cache so a
+            // bootstrap loop of prepared helpers does not stack start_nested.
+            statement.park_nested_helper();
             let mut inner = self.statements.lock();
             // Drop one oldest entry at a time until there is room. A full clear
             // would throw away the hot catalog probe and every other constraint
@@ -112,7 +176,7 @@ impl StatementCache {
             inner.map.insert(sql.to_owned(), statement);
             inner.order.push_back(sql.to_owned());
         }
-        Ok(rows?)
+        result
     }
 
     /// How many distinct SQL strings currently hold a prepared statement.
