@@ -1177,6 +1177,10 @@ fn lower_graph_expand(
         } else {
             format!("{group_columns}, ")
         };
+        // Force hop order by sorting expand steps before aggregation. Turso
+        // processes GROUP BY rows in input order for these aggregates when the
+        // nested FROM is ordered by (path_id, path_position); without that
+        // sort, json_group_array can permute hop lists.
         let mut aggregates = Vec::new();
         if let Some(path_output) = &expand.path_output {
             aggregates.push(format!(
@@ -1194,15 +1198,46 @@ fn lower_graph_expand(
             ));
         }
         let aggregates = aggregates.join(", ");
+        // Nested SELECT names outer columns without the `q.` prefix used in
+        // `group_columns`, so rebuild the GROUP BY list for the ordered steps.
+        let outer_group_columns: Vec<String> = expand
+            .input
+            .scope()
+            .iter()
+            .filter(|binding| !matches!(binding.value_type(), ir::ValueType::Path))
+            .flat_map(|binding| {
+                let mut columns = vec![binding_column(binding.id())];
+                if let Some(layout) = input.bindings.get(&binding.id()) {
+                    for property in &layout.properties {
+                        if let Ok(id) = ir::PropertyId::new(*property) {
+                            columns.push(property_column_ref(binding.id(), id));
+                        }
+                    }
+                }
+                columns
+            })
+            .collect();
+        let group_by = if outer_group_columns.is_empty() {
+            "path_id".to_owned()
+        } else {
+            format!("{}, path_id", outer_group_columns.join(", "))
+        };
+        let select_group = if outer_group_columns.is_empty() {
+            String::new()
+        } else {
+            format!("{}, ", outer_group_columns.join(", "))
+        };
         return Ok(Lowered {
             sql: format!(
                 "SELECT g.*, r.{} AS {}, {} AS {}, n.{} AS {}, {} AS {} \
-                 FROM (SELECT {}{aggregates}, \
+                 FROM (SELECT {select_group}{aggregates}, \
                  max(CASE WHEN gx.is_terminal = 1 THEN gx.node_identity END) AS __gx_node, \
                  max(CASE WHEN gx.is_terminal = 1 THEN gx.relationship_identity END) AS __gx_rel \
-                 FROM ({}) AS q \
+                 FROM (SELECT {inner_select}gx.path_id, gx.path_position, gx.node_identity, \
+                 gx.relationship_identity, gx.is_terminal FROM ({}) AS q \
                  JOIN __turso_graph_expand({}, {}, q.{}, {}, {}, {}, '{}', {}, {}, {}, '{}', {}, {}, {}, {}, {}) AS gx{source_join} \
-                 GROUP BY {}gx.path_id) AS g \
+                 ORDER BY gx.path_id, gx.path_position) AS gx \
+                 GROUP BY {group_by}) AS g \
                  JOIN {} AS n ON n.{} = g.__gx_node \
                  LEFT JOIN {} AS r ON r.{} = g.__gx_rel",
                 quote_identifier(&relationship.identity_column),
@@ -1213,7 +1248,6 @@ fn lower_graph_expand(
                 binding_column(expand.to.id()),
                 expand.target_node_source.get(),
                 source_column_ref(expand.to.id()),
-                inner_select,
                 input.sql,
                 expand.graph.get(),
                 expand.from_node_source.get(),
@@ -1231,7 +1265,6 @@ fn lower_graph_expand(
                 limits.max_paths,
                 limits.max_work,
                 limits.max_memory_bytes,
-                inner_select,
                 quote_identifier(&target.table),
                 quote_identifier(&target.identity_column),
                 quote_identifier(&relationship.table),

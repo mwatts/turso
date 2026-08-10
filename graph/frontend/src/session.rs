@@ -1025,6 +1025,49 @@ mod tests {
     }
 
     #[test]
+    fn multi_hop_path_nodes_list_identities_in_hop_order() {
+        // nodes(p) must list hop identities in increasing path_position, not
+        // whatever order an unordered json_group_array happens to process.
+        let fixture = fixture(":memory:graph-session-path-order");
+        fixture
+            .writer
+            .execute(
+                "INSERT INTO people VALUES (3, 'C'); \
+                 INSERT INTO relationships VALUES (1, 1, 2), (2, 2, 3);",
+            )
+            .unwrap();
+        let rows = fixture
+            .writer_session
+            .query(
+                "MATCH p = (a:Person {id: 1})-[:KNOWS*2..2]->(b:Person {id: 3}) \
+                 RETURN nodes(p) AS ns, relationships(p) AS rs",
+                &Parameters::new(),
+            )
+            .expect("two-hop path must materialize");
+        assert_eq!(rows.len(), 1, "expected one path, got {rows:?}");
+        let ns = rows[0][0].to_string();
+        let rs = rows[0][1].to_string();
+        // Path values are JSON; node identities appear as 1 then 2 then 3.
+        let pos1 = ns.find('1').expect("start node in nodes(p)");
+        let pos2 = ns.find('2').expect("middle node in nodes(p)");
+        let pos3 = ns.find('3').expect("end node in nodes(p)");
+        assert!(
+            pos1 < pos2 && pos2 < pos3,
+            "nodes(p) must list hops in order, got {ns}"
+        );
+        let r1 = rs
+            .find('1')
+            .expect("first relationship in relationships(p)");
+        let r2 = rs
+            .find('2')
+            .expect("second relationship in relationships(p)");
+        assert!(
+            r1 < r2,
+            "relationships(p) must list hops in order, got {rs}"
+        );
+    }
+
+    #[test]
     fn prepare_binds_cypher_once_for_result_types_and_frontend() {
         // Read prepare must not re-bind solely to recover result types after
         // FrontendCompiler::compile already bound the same source.

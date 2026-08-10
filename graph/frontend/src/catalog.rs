@@ -468,6 +468,7 @@ pub fn load_registered_graph(
     let derived_generation = derive_generation(
         connection,
         schema_generation,
+        graph_id,
         &node_sources,
         &relationship_sources,
     );
@@ -482,17 +483,17 @@ pub fn load_registered_graph(
     })
 }
 
-/// Folds the change tokens of the graph's mapped source tables together with
-/// the catalog's own generation.
+/// Folds change tokens for CSR inputs together with the catalog generation.
 ///
-/// The table set is the one the retired generation triggers fired on, so this
-/// cannot miss a write they would have caught. Order is fixed by
-/// the `ORDER BY s.id` the caller loads with, and the same table mapped twice
-/// contributes twice -- neither affects whether the value *moves*, which is
-/// all callers compare.
+/// Includes base node/relationship tables, Many-role spill tables, and the
+/// label/type/registry junction tables for this graph. Order is sorted after
+/// collection so the hash is stable regardless of registration order; the
+/// same table listed twice is deduped. Callers only care whether the value
+/// *moves*.
 fn derive_generation(
     connection: &Arc<Connection>,
     schema_generation: Option<u64>,
+    graph_id: ir::GraphId,
     node_sources: &[RegisteredNodeSource],
     relationship_sources: &[RegisteredRelationshipSource],
 ) -> Option<u64> {
@@ -500,15 +501,31 @@ fn derive_generation(
     // A database predating the catalog split cannot say whether the catalog
     // changed, so the whole derived value has to be unavailable too.
     schema_generation?.hash(&mut hasher);
-    let tables = node_sources
+    // CSR adjacency is built from base tables *and* spill/membership tables.
+    // Omitting spill or type/label junctions leaves expand on a stale snapshot
+    // after spill-only or type-only writes.
+    let mut tables: Vec<String> = node_sources
         .iter()
-        .map(|source| source.table.as_str())
+        .map(|source| source.table.clone())
         .chain(
             relationship_sources
                 .iter()
-                .map(|source| source.table.as_str()),
-        );
-    for table in tables {
+                .map(|source| source.table.clone()),
+        )
+        .collect();
+    for source in relationship_sources {
+        for role in &source.roles {
+            if role.cardinality == RoleCardinality::Many {
+                tables.push(source.spill_table(role));
+            }
+        }
+    }
+    tables.push(labels_table_name(graph_id));
+    tables.push(relationship_types_table_name(graph_id));
+    tables.push(relationship_type_registry_table_name(graph_id));
+    tables.sort();
+    tables.dedup();
+    for table in &tables {
         connection.table_change_token(table)?.hash(&mut hasher);
     }
     Some(hasher.finish())
@@ -2175,6 +2192,114 @@ mod tests {
         assert_eq!(reloaded_source.roles[2].name, "endorsers");
         assert_eq!(reloaded_source.roles[2].role, ir::RoleId::new(3).unwrap());
         assert_eq!(reloaded_source.roles[2].cardinality, RoleCardinality::Many);
+    }
+
+    #[test]
+    fn spill_only_write_moves_derived_generation() {
+        // CSR rebuild keys off derived_generation; spill-only DML must move it
+        // or expand keeps a stale adjacency that omits the new player.
+        let connection = connection();
+        connection
+            .execute(
+                "CREATE TABLE people(id INTEGER PRIMARY KEY); \
+                 CREATE TABLE texts(id INTEGER PRIMARY KEY); \
+                 CREATE TABLE citations(\
+                     id INTEGER PRIMARY KEY, author_id INTEGER, work_id INTEGER); \
+                 INSERT INTO people VALUES (1), (2); \
+                 INSERT INTO texts VALUES (10); \
+                 INSERT INTO citations VALUES (100, 1, 10);",
+            )
+            .expect("seed citation graph");
+        let registered = register_graph(
+            &connection,
+            &GraphRegistration {
+                name: "library".to_owned(),
+                node_sources: vec![
+                    NodeSourceRegistration {
+                        name: "Person".to_owned(),
+                        table: "people".to_owned(),
+                        identity_column: "id".to_owned(),
+                    },
+                    NodeSourceRegistration {
+                        name: "Text".to_owned(),
+                        table: "texts".to_owned(),
+                        identity_column: "id".to_owned(),
+                    },
+                ],
+                relationship_sources: vec![RelationshipSourceRegistration {
+                    name: "Citation".to_owned(),
+                    table: "citations".to_owned(),
+                    identity_column: "id".to_owned(),
+                    roles: vec![
+                        RoleSourceRegistration {
+                            name: "author".to_owned(),
+                            column: "author_id".to_owned(),
+                            node_source: "Person".to_owned(),
+                            cardinality: RoleCardinality::One,
+                        },
+                        RoleSourceRegistration {
+                            name: "work".to_owned(),
+                            column: "work_id".to_owned(),
+                            node_source: "Text".to_owned(),
+                            cardinality: RoleCardinality::One,
+                        },
+                        RoleSourceRegistration {
+                            name: "endorsers".to_owned(),
+                            column: "endorsers".to_owned(),
+                            node_source: "Person".to_owned(),
+                            cardinality: RoleCardinality::Many,
+                        },
+                    ],
+                }],
+            },
+        )
+        .expect("register");
+        let before = registered
+            .derived_generation
+            .expect("derived generation after register");
+        let spill = registered.relationship_sources[0].spill_table(
+            registered.relationship_sources[0]
+                .role_by_name("endorsers")
+                .unwrap(),
+        );
+        connection
+            .execute(format!("INSERT INTO {spill} VALUES (100, 2)"))
+            .expect("spill-only insert");
+        let after = load_registered_graph(&connection, "library")
+            .expect("reload")
+            .derived_generation
+            .expect("derived generation after spill write");
+        assert_ne!(
+            before, after,
+            "spill-only write must move derived_generation so expand rebuilds"
+        );
+    }
+
+    #[test]
+    fn type_junction_write_moves_derived_generation() {
+        let connection = connection();
+        create_sources(&connection);
+        let registered =
+            register_graph(&connection, &registration("social")).expect("register social");
+        let before = registered
+            .derived_generation
+            .expect("derived generation after register");
+        let types = relationship_types_table_name(registered.id);
+        // relationship id 1 is not required to exist for the token to move;
+        // the junction table itself is a CSR input.
+        connection
+            .execute(format!(
+                "INSERT INTO {types}(source_id, relationship_id, type) VALUES (2, 1, 'KNOWS')"
+            ))
+            .expect("type junction insert");
+        let after = load_registered_graph(&connection, "social")
+            .expect("reload")
+            .derived_generation
+            .expect("derived generation after type write");
+        assert_ne!(
+            before, after,
+            "type-junction write must move derived_generation"
+        );
     }
 
     #[test]

@@ -123,6 +123,12 @@ pub enum MutationError {
         "graph mutation inside an open transaction requires a write transaction (BEGIN IMMEDIATE or a prior write)"
     )]
     RequiresWriteTransaction,
+    #[error("Many role `{role}` on relation table `{relation}` has no spill table in the catalog")]
+    MissingSpillTable { relation: String, role: String },
+    #[error(
+        "mutation row shape mismatch: SQL returned {actual} columns but lowering expected {expected}"
+    )]
+    RowShapeMismatch { expected: usize, actual: usize },
 }
 
 impl WriteTransactionError for MutationError {
@@ -150,11 +156,12 @@ fn decode_mutation_rows(
 ) -> Result<Vec<MutationRow>, MutationError> {
     rows.into_iter()
         .map(|row| {
-            assert_eq!(
-                row.len(),
-                columns.len(),
-                "mutation row shape must match its lowering metadata"
-            );
+            if row.len() != columns.len() {
+                return Err(MutationError::RowShapeMismatch {
+                    expected: columns.len(),
+                    actual: row.len(),
+                });
+            }
             let mut values = HashMap::new();
             let mut entity_layouts = HashMap::new();
             for (column, value) in columns.iter().zip(row) {
@@ -413,7 +420,9 @@ pub(crate) fn execute_cypher_mutation(
         }
         if bound.returns_distinct {
             let mut seen = std::collections::HashSet::new();
-            summary.rows.retain(|row| seen.insert(format!("{row:?}")));
+            summary
+                .rows
+                .retain(|row| seen.insert(equality_key_for_values(row)));
         }
         if let Some(skip) = bound.returns_skip {
             summary.rows.drain(..skip.min(summary.rows.len()));
@@ -495,7 +504,8 @@ fn try_single_program_mutation(
 }
 
 /// Cypher ORDER BY comparison over returned SQL values: numbers before
-/// text, text before blobs, null last ascending.
+/// text, text before blobs, null last ascending. Integer vs integer compares
+/// on `i64` so values outside the exact float mantissa still order correctly.
 fn compare_returned_values(left: &Value, right: &Value) -> std::cmp::Ordering {
     use std::cmp::Ordering;
     fn rank(value: &Value) -> u8 {
@@ -507,6 +517,9 @@ fn compare_returned_values(left: &Value, right: &Value) -> std::cmp::Ordering {
         }
     }
     match (left, right) {
+        (Value::Numeric(Numeric::Integer(left)), Value::Numeric(Numeric::Integer(right))) => {
+            left.cmp(right)
+        }
         (Value::Numeric(left), Value::Numeric(right)) => {
             let left = match left {
                 Numeric::Integer(value) => *value as f64,
@@ -516,11 +529,66 @@ fn compare_returned_values(left: &Value, right: &Value) -> std::cmp::Ordering {
                 Numeric::Integer(value) => *value as f64,
                 Numeric::Float(value) => f64::from(*value),
             };
-            left.partial_cmp(&right).unwrap_or(Ordering::Equal)
+            // NaN is not equal to NaN under Cypher/SQL ordering; pin it after
+            // every finite number of the same rank so sort stays total.
+            match (left.partial_cmp(&right), left.is_nan(), right.is_nan()) {
+                (Some(ordering), _, _) => ordering,
+                (None, true, true) => Ordering::Equal,
+                (None, true, false) => Ordering::Greater,
+                (None, false, true) => Ordering::Less,
+                (None, false, false) => Ordering::Equal,
+            }
         }
         (Value::Text(left), Value::Text(right)) => left.value.cmp(&right.value),
+        (Value::Blob(left), Value::Blob(right)) => left.as_slice().cmp(right.as_slice()),
         _ => rank(left).cmp(&rank(right)),
     }
+}
+
+/// Stable, equality-oriented key for DISTINCT / grouping. Uses value kind and
+/// payload bytes/bits rather than Rust `Debug`, so floats and blobs group by
+/// their data, not formatting accidents.
+fn equality_key_for_value(value: &Value) -> String {
+    match value {
+        Value::Null => "n".to_owned(),
+        Value::Numeric(Numeric::Integer(v)) => format!("i{v}"),
+        Value::Numeric(Numeric::Float(v)) => {
+            let bits = f64::from(*v).to_bits();
+            format!("f{bits}")
+        }
+        Value::Text(text) => format!("t{}", text.as_str()),
+        Value::Blob(blob) => {
+            let mut out = String::from("b");
+            for byte in blob.as_slice() {
+                use std::fmt::Write;
+                let _ = write!(out, "{byte:02x}");
+            }
+            out
+        }
+    }
+}
+
+fn equality_key_for_values(values: &[Value]) -> String {
+    values
+        .iter()
+        .map(equality_key_for_value)
+        .collect::<Vec<_>>()
+        .join("\u{1f}")
+}
+
+fn equality_key_for_row(row: &MutationRow) -> String {
+    let mut entries: Vec<_> = row.values.iter().collect();
+    entries.sort_by_key(|(id, _)| id.get());
+    let mut parts = Vec::with_capacity(entries.len() + row.entity_layouts.len());
+    for (id, value) in entries {
+        parts.push(format!("{}={}", id.get(), equality_key_for_value(value)));
+    }
+    let mut layouts: Vec<_> = row.entity_layouts.iter().collect();
+    layouts.sort_by_key(|(id, _)| id.get());
+    for (id, (source, kind)) in layouts {
+        parts.push(format!("{}@{}:{:?}", id.get(), source.get(), kind));
+    }
+    parts.join("\u{1f}")
 }
 
 fn execute_bound(
@@ -907,7 +975,11 @@ fn project_stage(
                         }
                         StageProjection::Aggregate { .. } => None,
                     };
-                    format!("{:?}@{source:?}", row[*position])
+                    format!(
+                        "{}@{}",
+                        equality_key_for_value(&row[*position]),
+                        source.map(|s| s.to_string()).unwrap_or_default()
+                    )
                 })
                 .collect::<Vec<_>>()
                 .join("\u{1}");
@@ -999,20 +1071,8 @@ fn project_stage(
         output_rows = kept;
     }
     if distinct {
-        let mut seen = Vec::new();
-        output_rows.retain(|row| {
-            let mut entries: Vec<_> = row.values.iter().collect();
-            entries.sort_by_key(|(id, _)| id.get());
-            let mut layouts: Vec<_> = row.entity_layouts.iter().collect();
-            layouts.sort_by_key(|(id, _)| id.get());
-            let key = format!("{entries:?}@{layouts:?}");
-            if seen.contains(&key) {
-                false
-            } else {
-                seen.push(key);
-                true
-            }
-        });
+        let mut seen = std::collections::HashSet::new();
+        output_rows.retain(|row| seen.insert(equality_key_for_row(row)));
     }
     Ok(output_rows)
 }
@@ -1085,16 +1145,8 @@ fn fold_aggregate(
     distinct: bool,
 ) -> Result<Value, MutationError> {
     if distinct {
-        let mut seen = Vec::new();
-        values.retain(|value| {
-            let key = format!("{value:?}");
-            if seen.contains(&key) {
-                false
-            } else {
-                seen.push(key);
-                true
-            }
-        });
+        let mut seen = std::collections::HashSet::new();
+        values.retain(|value| seen.insert(equality_key_for_value(value)));
     }
     let non_null: Vec<&Value> = values
         .iter()
@@ -1119,29 +1171,41 @@ fn fold_aggregate(
             Value::Numeric(Numeric::Integer(count as i64))
         }
         ir::AggregateFunction::Sum => {
-            let all_integers = non_null
+            let numerics: Vec<&Value> = non_null
+                .iter()
+                .copied()
+                .filter(|value| matches!(value, Value::Numeric(_)))
+                .collect();
+            let all_integers = numerics
                 .iter()
                 .all(|value| matches!(value, Value::Numeric(Numeric::Integer(_))));
             if all_integers {
-                Value::Numeric(Numeric::Integer(
-                    non_null
-                        .iter()
-                        .filter_map(|value| match value {
-                            Value::Numeric(Numeric::Integer(value)) => Some(*value),
-                            _ => None,
-                        })
-                        .sum(),
-                ))
+                let mut total: i64 = 0;
+                for value in numerics {
+                    let Value::Numeric(Numeric::Integer(part)) = value else {
+                        continue;
+                    };
+                    total = total.checked_add(*part).ok_or_else(|| {
+                        MutationError::SemanticConstraintViolation(
+                            "integer SUM overflowed i64".to_owned(),
+                        )
+                    })?;
+                }
+                Value::Numeric(Numeric::Integer(total))
             } else {
-                float_value(non_null.iter().filter_map(|value| as_float(value)).sum())
+                float_value(numerics.iter().filter_map(|value| as_float(value)).sum())
             }
         }
         ir::AggregateFunction::Average => {
-            if non_null.is_empty() {
+            let numerics: Vec<f64> = non_null
+                .iter()
+                .filter_map(|value| as_float(value))
+                .collect();
+            if numerics.is_empty() {
                 Value::Null
             } else {
-                let total: f64 = non_null.iter().filter_map(|value| as_float(value)).sum();
-                float_value(total / non_null.len() as f64)
+                let total: f64 = numerics.iter().sum();
+                float_value(total / numerics.len() as f64)
             }
         }
         ir::AggregateFunction::Minimum | ir::AggregateFunction::Maximum => {
@@ -1766,10 +1830,12 @@ fn execute_operation(
                         }
                     }
                     ir::RoleCardinality::Many => {
-                        let table = role
-                            .spill_table
-                            .as_ref()
-                            .expect("a Many role always has a spill table");
+                        let table = role.spill_table.as_ref().ok_or_else(|| {
+                            MutationError::MissingSpillTable {
+                                relation: role.name.clone(),
+                                role: role.name.clone(),
+                            }
+                        })?;
                         // SET replaces the whole player set rather than
                         // appending: there is no "unset" syntax to undo an
                         // append, so an appending SET would make running one
@@ -2098,10 +2164,12 @@ pub(crate) fn insert_relationship(
             // needed to reference it here.
             ir::RoleCardinality::Many => {
                 if merge {
-                    let table = role
-                        .spill_table
-                        .as_ref()
-                        .expect("a Many role always has a spill table");
+                    let table = role.spill_table.as_ref().ok_or_else(|| {
+                        MutationError::MissingSpillTable {
+                            relation: role.name.clone(),
+                            role: role.name.clone(),
+                        }
+                    })?;
                     let player_parameter = identity_parameter(binding.value);
                     merge_predicates.push(format!(
                         "EXISTS (SELECT 1 FROM {} WHERE relation_id = {}.{} AND node_id = ${player_parameter})",
@@ -2138,10 +2206,13 @@ pub(crate) fn insert_relationship(
     if created {
         let relation_parameter = format!("{INTERNAL_PARAMETER_PREFIX}spill_relation");
         for (index, (role, player)) in spilled.iter().enumerate() {
-            let table = role
-                .spill_table
-                .as_ref()
-                .expect("a Many role always has a spill table");
+            let table =
+                role.spill_table
+                    .as_ref()
+                    .ok_or_else(|| MutationError::MissingSpillTable {
+                        relation: role.name.clone(),
+                        role: role.name.clone(),
+                    })?;
             let player_parameter = format!("{INTERNAL_PARAMETER_PREFIX}spill_player_{index}");
             let internal = HashMap::from([
                 (relation_parameter.clone(), identity.clone()),
@@ -2389,15 +2460,35 @@ fn delete_entity(
                     .iter()
                     .filter(|role| role.cardinality == ir::RoleCardinality::Many)
                 {
-                    let table = role
-                        .spill_table
-                        .as_ref()
-                        .expect("a Many role always has a spill table");
+                    let table = role.spill_table.as_ref().ok_or_else(|| {
+                        MutationError::MissingSpillTable {
+                            relation: relationship.table.clone(),
+                            role: role.name.clone(),
+                        }
+                    })?;
                     run_ignore(
                         connection,
                         &format!(
                             "DELETE FROM {} WHERE relation_id IN ({ids})",
                             quoted_identifier(table),
+                        ),
+                        parameters,
+                        &matched_internal,
+                    )?;
+                }
+                // Same residual type membership as a direct relationship DELETE:
+                // drop type-junction rows for every detached relationship id.
+                if let Some(types_table) = catalog.relationship_types_table() {
+                    let source_predicate = if catalog.source_qualified_membership() {
+                        format!("source_id = {} AND ", relationship_source.get())
+                    } else {
+                        String::new()
+                    };
+                    run_ignore(
+                        connection,
+                        &format!(
+                            "DELETE FROM \"{}\" WHERE {source_predicate}relationship_id IN ({ids})",
+                            types_table.replace('"', "\"\""),
                         ),
                         parameters,
                         &matched_internal,
@@ -2485,10 +2576,13 @@ fn delete_entity(
             .iter()
             .filter(|role| role.cardinality == ir::RoleCardinality::Many)
         {
-            let table = role
-                .spill_table
-                .as_ref()
-                .expect("a Many role always has a spill table");
+            let table =
+                role.spill_table
+                    .as_ref()
+                    .ok_or_else(|| MutationError::MissingSpillTable {
+                        relation: role.name.clone(),
+                        role: role.name.clone(),
+                    })?;
             run_ignore(
                 connection,
                 &format!(
@@ -3093,6 +3187,119 @@ mod tests {
         .unwrap();
         assert!(rows(&connection, "SELECT id FROM people WHERE id = 1").is_empty());
         assert!(rows(&connection, "SELECT id FROM relationships").is_empty());
+    }
+
+    #[test]
+    fn detach_delete_clears_relationship_type_junction_rows() {
+        // DETACH must leave the same type-membership residual as a direct
+        // relationship DELETE: no type-junction row for a deleted relationship id.
+        let (connection, catalog, graph) = setup_typed();
+        execute(
+            &connection,
+            &catalog,
+            graph,
+            "CREATE (a:Person {id: 1, name: 'Ada'})-[:KNOWS]->(b:Person {id: 2, name: 'Grace'})",
+        )
+        .unwrap();
+        assert_eq!(
+            rows(
+                &connection,
+                "SELECT count(*) FROM rel_types WHERE relationship_id = 1"
+            ),
+            vec![vec![Value::from_i64(1)]],
+            "fixture must write type membership before DETACH"
+        );
+        execute(
+            &connection,
+            &catalog,
+            graph,
+            "MATCH (n:Person {id: 1}) DETACH DELETE n",
+        )
+        .unwrap();
+        assert!(
+            rows(&connection, "SELECT * FROM relationships").is_empty(),
+            "relationship row must be gone"
+        );
+        assert!(
+            rows(&connection, "SELECT * FROM rel_types").is_empty(),
+            "type-junction rows must not outlive the relationship after DETACH"
+        );
+    }
+
+    #[test]
+    fn decode_mutation_rows_returns_error_on_shape_mismatch() {
+        let result = decode_mutation_rows(
+            vec![vec![Value::from_i64(1), Value::from_i64(2)]],
+            &[MutationRowColumn::Value(ir::BindingId::new(1).unwrap())],
+        );
+        match result {
+            Err(MutationError::RowShapeMismatch {
+                expected: 1,
+                actual: 2,
+            }) => {}
+            Err(other) => panic!("arity mismatch must return RowShapeMismatch, got {other:?}"),
+            Ok(_) => panic!("arity mismatch must not succeed"),
+        }
+    }
+
+    #[test]
+    fn compare_returned_values_orders_large_integers_by_i64() {
+        // Values that are not exact as f64 must still order by integer magnitude.
+        let left = Value::from_i64((1_i64 << 53) + 3);
+        let right = Value::from_i64((1_i64 << 53) + 1);
+        assert_eq!(
+            compare_returned_values(&left, &right),
+            std::cmp::Ordering::Greater
+        );
+    }
+
+    #[test]
+    fn fold_average_divides_only_by_numeric_inputs() {
+        let avg = fold_aggregate(
+            &{
+                let io = Arc::new(turso_core::MemoryIO::new());
+                turso_core::Database::open_file(
+                    io,
+                    ":memory:avg",
+                    Arc::new(turso_core::SqliteDialect),
+                )
+                .unwrap()
+                .connect()
+                .unwrap()
+            },
+            &Parameters::new(),
+            ir::AggregateFunction::Average,
+            false,
+            vec![
+                Value::from_i64(10),
+                Value::build_text("skip"),
+                Value::from_i64(20),
+            ],
+            false,
+        )
+        .unwrap();
+        // 10 and 20 only → average 15, not 10 (which would use divisor 3).
+        match avg {
+            Value::Numeric(Numeric::Float(f)) => {
+                assert!((f64::from(f) - 15.0).abs() < 1e-9, "got {f:?}");
+            }
+            other => panic!("expected float average, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn equality_key_distinguishes_blob_payloads_debug_might_confuse() {
+        let a = Value::from_slice(&[0x01, 0x02]).unwrap();
+        let b = Value::from_slice(&[0x01, 0x03]).unwrap();
+        assert_ne!(
+            equality_key_for_value(&a),
+            equality_key_for_value(&b),
+            "distinct blob payloads must not share a DISTINCT key"
+        );
+        assert_eq!(
+            equality_key_for_value(&a),
+            equality_key_for_value(&Value::from_slice(&[0x01, 0x02]).unwrap())
+        );
     }
 
     #[test]
