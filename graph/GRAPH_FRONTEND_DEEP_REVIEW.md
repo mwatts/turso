@@ -413,7 +413,7 @@ subject lines from that log.
 | **PR-D** | R14 | **done** | `c25c7236c` | DESIGN/CONFORMANCE → REPORT; core-changes §2 = tokens |
 | **PR-E** | R15 (partial), R17 | **done** for scoped goals | `c25c7236c` | Written ids + value SQL LIMIT 1 + typeof; LRU cache; backlog 3a/3b |
 | **PR-F** | R16 | **done** | `ca77b3988` | Single Cypher parse; mutation helper StatementCache + nested park |
-| **PR-G** | R7, R8, empty MERGE key | **done** (product A + R8 fix) | `bfce1286e` | Exact Many multiset; merge-keys table; fail-closed empty key |
+| **PR-G** | R7, R8, empty MERGE key | **done** (product A + R8 fix) | `e670837c5` | Exact Many multiset; merge-keys table; fail-closed empty key |
 | **PR-H** | R9–R12 | open | — | REMOVE label; OPTIONAL null; RETURN alias ORDER BY; shadow |
 | **PR-I** | R13, R22–R24 | open | — | Soft limits honesty; module splits; typed expects; compile LRU |
 | **PR-J** | R20 residual, R21, R25, R26 | open | — | Shared publish; role-general cardinality; FTS outer; expand knobs |
