@@ -121,12 +121,13 @@ impl InternalVirtualTable for GraphExpandTable {
             };
         }
 
+        let estimate = crate::expand_estimate::planner_expand_estimate();
         Ok(IndexInfo {
             idx_num: INPUT_COLUMN_COUNT as i32,
             idx_str: Some("graph-expand-v1".to_owned()),
             order_by_consumed: false,
-            estimated_cost: 100.0,
-            estimated_rows: 100,
+            estimated_cost: estimate.estimated_cost,
+            estimated_rows: estimate.estimated_rows.min(u32::MAX as u64) as u32,
             constraint_usages: usages,
         })
     }
@@ -808,6 +809,54 @@ mod tests {
         fn property_column(&self, source: SourceTableId, property: PropertyId) -> Option<String> {
             (source == self.node_source && property.get() == 1).then(|| "name".to_owned())
         }
+    }
+
+    #[test]
+    fn best_index_uses_hop_based_estimates_not_fixed_hundred() {
+        use turso_ext::{ConstraintInfo, ConstraintOp, ConstraintUsage};
+        let table = GraphExpandTable {
+            snapshots: Arc::new(SnapshotStore::default()),
+        };
+        let constraints: Vec<ConstraintInfo> = (0..INPUT_COLUMN_COUNT)
+            .map(|column| ConstraintInfo {
+                column_index: (COL_GRAPH_ID + column) as u32,
+                op: ConstraintOp::Eq,
+                usable: true,
+                index: column,
+            })
+            .collect();
+
+        crate::expand_estimate::begin_lower_estimates();
+        crate::expand_estimate::record_expand_estimate(crate::expand_estimate::estimate_expand(
+            1, 1, 1, "trail", 100_000,
+        ));
+        let short = table.best_index(&constraints, &[]).unwrap();
+
+        crate::expand_estimate::begin_lower_estimates();
+        crate::expand_estimate::record_expand_estimate(crate::expand_estimate::estimate_expand(
+            1, 4, 1, "trail", 100_000,
+        ));
+        let long = table.best_index(&constraints, &[]).unwrap();
+
+        assert!(
+            long.estimated_rows > short.estimated_rows,
+            "1..4 hops ({}) should estimate more rows than 1..1 ({})",
+            long.estimated_rows,
+            short.estimated_rows
+        );
+        assert!(
+            long.estimated_cost > short.estimated_cost,
+            "1..4 hops ({}) should cost more than 1..1 ({})",
+            long.estimated_cost,
+            short.estimated_cost
+        );
+        // Not the old fixed constants.
+        assert!(short.estimated_rows != 100 || short.estimated_cost != 100.0);
+        assert_eq!(long.constraint_usages.len(), INPUT_COLUMN_COUNT);
+        assert!(long
+            .constraint_usages
+            .iter()
+            .all(|usage: &ConstraintUsage| usage.argv_index.is_some()));
     }
 
     #[test]

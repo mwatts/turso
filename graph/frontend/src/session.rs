@@ -4,7 +4,7 @@ use parking_lot::{Mutex, RwLock};
 use thiserror::Error;
 use turso_core::{Connection, Value};
 use turso_graph_ir::GraphId;
-use turso_graph_runtime::{BuildLimits, Cancellation, NeverCancelled};
+use turso_graph_runtime::{BuildLimits, Cancellation, NeverCancelled, TraversalLimits};
 
 use crate::{
     compiler::SharedGraphCatalog, graph_frontend_id, install_graph_catalog,
@@ -145,6 +145,7 @@ pub struct GraphConnection {
     /// those statements compiled instead of paying for them per mutation.
     statements: StatementCache,
     limits: BuildLimits,
+    traversal_limits: TraversalLimits,
     host_mode: GraphHostMode,
     /// When set, the session refuses any statement the binder classifies as a
     /// write. Enforcement is syntactic and happens before the statement runs,
@@ -197,9 +198,28 @@ impl GraphConnection {
             snapshots,
             statements: StatementCache::default(),
             limits,
+            traversal_limits: TraversalLimits::default(),
             host_mode,
             read_only: false,
         })
+    }
+
+    /// Path-search budgets embedded into variable-length expand SQL.
+    ///
+    /// Changing limits clears the Cypher compile cache so the next prepare
+    /// re-lowers expand arguments with the new values.
+    pub fn set_traversal_limits(&mut self, limits: TraversalLimits) {
+        self.traversal_limits = limits;
+        self.compiler.set_traversal_limits(limits);
+    }
+
+    pub fn traversal_limits(&self) -> TraversalLimits {
+        self.traversal_limits
+    }
+
+    /// CSR / snapshot build budgets (unchanged by expand path-search knobs).
+    pub fn build_limits(&self) -> BuildLimits {
+        self.limits
     }
 
     /// Refuse every statement this connection classifies as a write.

@@ -958,8 +958,8 @@ fn find_best_access_method_for_vtab(
     constraints: &[Constraint],
     join_order: &[JoinOrderMember],
     input_cardinality: f64,
-    base_row_count: RowCountEstimate,
-    params: &CostModelParams,
+    _base_row_count: RowCountEstimate,
+    _params: &CostModelParams,
 ) -> Result<Option<AccessMethod>> {
     let vtab_constraints = convert_to_vtab_constraint(constraints, join_order)?;
 
@@ -969,19 +969,14 @@ fn find_best_access_method_for_vtab(
 
     match best_index_result {
         Ok(index_info) => {
+            // Prefer the vtab's own row/cost model when it reports one. Scaling by
+            // outer cardinality matches nest-loop delivery of the virtual table
+            // once per outer row (table-valued args from the left side).
+            let rows_per_outer = (index_info.estimated_rows as f64).max(1.0);
+            let per_outer_cost = index_info.estimated_cost.max(0.001);
             Ok(Some(AccessMethod {
-                // TODO: Base cost on `IndexInfo::estimated_cost` and output cardinality on `IndexInfo::estimated_rows`
-                cost: estimate_cost_for_scan_or_seek(
-                    None,
-                    &[],
-                    &[],
-                    input_cardinality,
-                    base_row_count,
-                    false,
-                    params,
-                    None,
-                ),
-                estimated_rows_per_outer_row: *base_row_count,
+                cost: Cost(input_cardinality * per_outer_cost),
+                estimated_rows_per_outer_row: rows_per_outer,
                 residual_constraints: ResidualConstraintMode::ApplyUnconsumed,
                 consumed_where_terms: SmallVec::new(),
                 params: AccessMethodParams::VirtualTable {

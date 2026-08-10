@@ -235,7 +235,7 @@ pub(crate) fn lower_mutation_input(
 ) -> Result<LoweredMutationInput, LowerError> {
     let mut wanted = WantedProperties::new();
     collect_wanted(plan, &mut wanted);
-    let lowered = lower_plan(plan, catalog, false, &wanted)?;
+    let lowered = lower_plan(plan, catalog, false, &wanted, ExpandLowerOptions::default())?;
     Ok(LoweredMutationInput {
         sql: lowered.sql,
         bindings: lowered.bindings,
@@ -313,6 +313,26 @@ pub(crate) fn quoted_identifier(identifier: &str) -> String {
     quote_identifier(identifier)
 }
 
+/// Options that affect variable-length expand SQL (session budgets and LIMIT).
+#[derive(Clone, Copy, Debug)]
+pub struct ExpandLowerOptions {
+    /// Path-search budgets embedded as expand vtab arguments.
+    pub traversal_limits: turso_graph_runtime::TraversalLimits,
+    /// When the outermost result has a literal LIMIT (plus SKIP if present),
+    /// expand's `max_paths` is capped so the search need not enumerate more
+    /// paths than the query can return.
+    pub result_path_cap: Option<u64>,
+}
+
+impl Default for ExpandLowerOptions {
+    fn default() -> Self {
+        Self {
+            traversal_limits: turso_graph_runtime::TraversalLimits::default(),
+            result_path_cap: None,
+        }
+    }
+}
+
 /// Lower a bound fixed-pattern graph plan into Turso's public SQL AST.
 ///
 /// Generated SQL is parsed immediately, making the AST the only value that
@@ -321,9 +341,19 @@ pub fn lower_relational(
     plan: &ir::Plan,
     catalog: &dyn RelationalCatalogSnapshot,
 ) -> Result<ast::Stmt, LowerError> {
+    lower_relational_with_options(plan, catalog, ExpandLowerOptions::default())
+}
+
+/// Like [`lower_relational`], with session expand budgets and optional path cap.
+pub fn lower_relational_with_options(
+    plan: &ir::Plan,
+    catalog: &dyn RelationalCatalogSnapshot,
+    options: ExpandLowerOptions,
+) -> Result<ast::Stmt, LowerError> {
+    crate::expand_estimate::begin_lower_estimates();
     let mut wanted = WantedProperties::new();
     collect_wanted(plan, &mut wanted);
-    let lowered = lower_plan(plan, catalog, false, &wanted)?;
+    let lowered = lower_plan(plan, catalog, false, &wanted, options)?;
     let sql = if plan.result_shape().is_empty() {
         lowered.sql
     } else {
@@ -609,6 +639,7 @@ fn lower_plan(
     catalog: &dyn RelationalCatalogSnapshot,
     optional: bool,
     wanted: &WantedProperties,
+    expand_options: ExpandLowerOptions,
 ) -> Result<Lowered, LowerError> {
     match plan.kind() {
         ir::PlanKind::Unit(_) => Ok(Lowered {
@@ -624,8 +655,11 @@ fn lower_plan(
             wanted,
             None,
             &mut HashMap::new(),
+            expand_options,
         ),
-        ir::PlanKind::GraphExpand(expand) => lower_graph_expand(expand, catalog, wanted),
+        ir::PlanKind::GraphExpand(expand) => {
+            lower_graph_expand(expand, catalog, wanted, expand_options)
+        }
         ir::PlanKind::Filter(filter) => {
             // A predicate belongs in the WHERE of the select that joins the
             // tables it constrains. Wrapping that select in a derived table and
@@ -646,8 +680,14 @@ fn lower_plan(
                 base = &inner.input;
             }
             let mut row_aliases = HashMap::new();
-            let input =
-                lower_plan_exposing_row_aliases(base, catalog, optional, wanted, &mut row_aliases)?;
+            let input = lower_plan_exposing_row_aliases(
+                base,
+                catalog,
+                optional,
+                wanted,
+                &mut row_aliases,
+                expand_options,
+            )?;
             if !optional {
                 let mut pushed = Vec::with_capacity(predicates.len());
                 for predicate in predicates.iter().rev() {
@@ -675,9 +715,11 @@ fn lower_plan(
             }
             Ok(Lowered { sql, bindings })
         }
-        ir::PlanKind::Project(project) => lower_project(project, catalog, optional, wanted),
+        ir::PlanKind::Project(project) => {
+            lower_project(project, catalog, optional, wanted, expand_options)
+        }
         ir::PlanKind::Distinct(distinct) => {
-            let input = lower_plan(&distinct.input, catalog, optional, wanted)?;
+            let input = lower_plan(&distinct.input, catalog, optional, wanted, expand_options)?;
             Ok(Lowered {
                 sql: format!("SELECT DISTINCT q.* FROM ({}) AS q", input.sql),
                 bindings: input.bindings,
@@ -689,6 +731,7 @@ fn lower_plan(
             catalog,
             wanted,
             &mut HashMap::new(),
+            expand_options,
         ),
         ir::PlanKind::Aggregate(aggregate) => {
             // Column-free count(*) over a bare node scan can skip materializing
@@ -698,7 +741,7 @@ fn lower_plan(
             if let Some(lowered) = try_lower_column_free_node_count(aggregate, catalog)? {
                 return Ok(lowered);
             }
-            let input = lower_plan(&aggregate.input, catalog, optional, wanted)?;
+            let input = lower_plan(&aggregate.input, catalog, optional, wanted, expand_options)?;
             let mut selects = Vec::new();
             let mut groups = Vec::new();
             let mut bindings = HashMap::new();
@@ -806,7 +849,7 @@ fn lower_plan(
             Ok(Lowered { sql, bindings })
         }
         ir::PlanKind::Sort(sort) => {
-            let input = lower_plan(&sort.input, catalog, optional, wanted)?;
+            let input = lower_plan(&sort.input, catalog, optional, wanted, expand_options)?;
             let ordering = lower_ordering(&sort.keys, &input.bindings, catalog)?
                 .map(|ordering| format!(" ORDER BY {ordering}"))
                 .unwrap_or_default();
@@ -816,7 +859,7 @@ fn lower_plan(
             })
         }
         ir::PlanKind::Skip(skip) => {
-            let input = lower_plan(&skip.input, catalog, optional, wanted)?;
+            let input = lower_plan(&skip.input, catalog, optional, wanted, expand_options)?;
             let count = lower_expression(&skip.count, &input.bindings, catalog, "q")?;
             Ok(Lowered {
                 sql: format!(
@@ -827,7 +870,7 @@ fn lower_plan(
             })
         }
         ir::PlanKind::Limit(limit) => {
-            let input = lower_plan(&limit.input, catalog, optional, wanted)?;
+            let input = lower_plan(&limit.input, catalog, optional, wanted, expand_options)?;
             let count = lower_expression(&limit.count, &input.bindings, catalog, "q")?;
             Ok(Lowered {
                 sql: format!("SELECT q.* FROM ({}) AS q LIMIT {count}", input.sql),
@@ -835,7 +878,7 @@ fn lower_plan(
             })
         }
         ir::PlanKind::Unwind(unwind) => {
-            let input = lower_plan(&unwind.input, catalog, optional, wanted)?;
+            let input = lower_plan(&unwind.input, catalog, optional, wanted, expand_options)?;
             let list = lower_expression(&unwind.list, &input.bindings, catalog, "q")?;
             Ok(Lowered {
                 sql: format!(
@@ -846,10 +889,12 @@ fn lower_plan(
                 bindings: input.bindings,
             })
         }
-        ir::PlanKind::ProcedureCall(call) => lower_procedure_call(call, catalog, optional, wanted),
+        ir::PlanKind::ProcedureCall(call) => {
+            lower_procedure_call(call, catalog, optional, wanted, expand_options)
+        }
         ir::PlanKind::Join(join) => {
-            let left = lower_plan(&join.left, catalog, optional, wanted)?;
-            let right = lower_plan(&join.right, catalog, optional, wanted)?;
+            let left = lower_plan(&join.left, catalog, optional, wanted, expand_options)?;
+            let right = lower_plan(&join.right, catalog, optional, wanted, expand_options)?;
             let mut bindings = left.bindings;
             bindings.extend(right.bindings);
             Ok(Lowered {
@@ -864,7 +909,7 @@ fn lower_plan(
             let mut parts = Vec::new();
             let mut bindings: Option<HashMap<ir::BindingId, BindingLayout>> = None;
             for input in union.inputs() {
-                let lowered = lower_plan(input, catalog, optional, wanted)?;
+                let lowered = lower_plan(input, catalog, optional, wanted, expand_options)?;
                 // Branch column names differ (per-branch binding ids); SQL
                 // set operators combine positionally and the first branch's
                 // names win, matching this Union node's scope.
@@ -893,7 +938,7 @@ fn lower_plan(
             })
         }
         ir::PlanKind::RelationScan(scan) => lower_relation_scan(scan, catalog, wanted),
-        ir::PlanKind::RoleJoin(join) => lower_role_join(join, catalog, wanted),
+        ir::PlanKind::RoleJoin(join) => lower_role_join(join, catalog, wanted, expand_options),
     }
 }
 
@@ -902,13 +947,14 @@ fn lower_procedure_call(
     catalog: &dyn RelationalCatalogSnapshot,
     optional: bool,
     wanted: &WantedProperties,
+    expand_options: ExpandLowerOptions,
 ) -> Result<Lowered, LowerError> {
     if !call.arguments.is_empty() {
         return Err(LowerError::UnsupportedOperator(
             "arguments for built-in catalog procedures",
         ));
     }
-    let input = lower_plan(&call.input, catalog, optional, wanted)?;
+    let input = lower_plan(&call.input, catalog, optional, wanted, expand_options)?;
     let rows = match call.procedure {
         ir::ProcedureIdentity::DbLabels => {
             if let Some(labels) = catalog.procedure_labels() {
@@ -1006,8 +1052,9 @@ fn lower_graph_expand(
     expand: &ir::GraphExpand,
     catalog: &dyn RelationalCatalogSnapshot,
     wanted: &WantedProperties,
+    expand_options: ExpandLowerOptions,
 ) -> Result<Lowered, LowerError> {
-    let input = lower_plan(&expand.input, catalog, false, wanted)?;
+    let input = lower_plan(&expand.input, catalog, false, wanted, expand_options)?;
     if !input.bindings.contains_key(&expand.from) {
         return Err(LowerError::MissingBinding(expand.from));
     }
@@ -1059,7 +1106,20 @@ fn lower_graph_expand(
         .map(|relationship_type| relationship_type.get().to_string())
         .collect::<Vec<_>>()
         .join(",");
-    let limits = turso_graph_runtime::TraversalLimits::default();
+    let mut limits = expand_options.traversal_limits;
+    // Pattern hop bound is the traversal hop field; session budgets supply the rest.
+    limits.max_hops = expand.max_hops;
+    if let Some(path_cap) = expand_options.result_path_cap {
+        limits.max_paths = limits.max_paths.min(path_cap.max(1));
+    }
+    let type_count = crate::expand_estimate::relationship_type_count(&relationship_types);
+    crate::expand_estimate::record_expand_estimate(crate::expand_estimate::estimate_expand(
+        expand.min_hops,
+        expand.max_hops,
+        type_count,
+        uniqueness,
+        limits.max_paths,
+    ));
     let mut bindings = input.bindings.clone();
     bindings.insert(
         expand.relationship.id(),
@@ -1234,16 +1294,17 @@ fn lower_optional_chain(
     catalog: &dyn RelationalCatalogSnapshot,
     wanted: &WantedProperties,
     row_aliases: &mut HashMap<ir::BindingId, BindingReference>,
+    expand_options: ExpandLowerOptions,
 ) -> Result<Lowered, LowerError> {
     if boundary.is_some_and(|boundary| plan == boundary) {
-        return lower_plan(plan, catalog, false, wanted);
+        return lower_plan(plan, catalog, false, wanted, expand_options);
     }
     let original = plan;
     let mut current = plan;
     let mut predicates = Vec::new();
     while let ir::PlanKind::Filter(filter) = current.kind() {
         if boundary.is_some_and(|boundary| current == boundary) {
-            return lower_plan(original, catalog, false, wanted);
+            return lower_plan(original, catalog, false, wanted, expand_options);
         }
         predicates.push(&filter.predicate);
         current = &filter.input;
@@ -1252,7 +1313,7 @@ fn lower_optional_chain(
         // Only filters sat above the boundary: they are optional-pattern
         // predicates over the mandatory plan; treat them as a plain filter
         // (an optional pattern with no expansion adds no bindings).
-        return lower_plan(original, catalog, false, wanted);
+        return lower_plan(original, catalog, false, wanted, expand_options);
     }
     match current.kind() {
         ir::PlanKind::RoleExpand(expand) => lower_role_expand(
@@ -1263,6 +1324,7 @@ fn lower_optional_chain(
             wanted,
             boundary,
             row_aliases,
+            expand_options,
         ),
         ir::PlanKind::Union(union) => {
             // Each branch is wrapped in its own select and the branches are
@@ -1280,6 +1342,7 @@ fn lower_optional_chain(
                         wanted,
                         boundary,
                         &mut HashMap::new(),
+                        expand_options,
                     )?,
                     _ => lower_optional_chain(
                         branch,
@@ -1287,6 +1350,7 @@ fn lower_optional_chain(
                         catalog,
                         wanted,
                         &mut HashMap::new(),
+                        expand_options,
                     )?,
                 };
                 parts.push(format!("SELECT q.* FROM ({}) AS q", lowered.sql));
@@ -1312,7 +1376,7 @@ fn lower_optional_chain(
                 bindings: bindings.unwrap_or_default(),
             })
         }
-        _ => lower_plan(original, catalog, false, wanted),
+        _ => lower_plan(original, catalog, false, wanted, expand_options),
     }
 }
 
@@ -1321,13 +1385,17 @@ fn lower_project(
     catalog: &dyn RelationalCatalogSnapshot,
     optional: bool,
     wanted: &WantedProperties,
+    expand_options: ExpandLowerOptions,
 ) -> Result<Lowered, LowerError> {
     let (input, sort_keys) = match project.input.kind() {
         ir::PlanKind::Sort(sort) => (
-            lower_plan(&sort.input, catalog, optional, wanted)?,
+            lower_plan(&sort.input, catalog, optional, wanted, expand_options)?,
             Some(sort.keys.as_slice()),
         ),
-        _ => (lower_plan(&project.input, catalog, optional, wanted)?, None),
+        _ => (
+            lower_plan(&project.input, catalog, optional, wanted, expand_options)?,
+            None,
+        ),
     };
     let mut bindings = HashMap::new();
     let columns = project
@@ -1519,6 +1587,7 @@ fn lower_plan_exposing_row_aliases(
     optional: bool,
     wanted: &WantedProperties,
     row_aliases: &mut HashMap<ir::BindingId, BindingReference>,
+    expand_options: ExpandLowerOptions,
 ) -> Result<Lowered, LowerError> {
     match plan.kind() {
         ir::PlanKind::NodeScan(scan) => {
@@ -1538,17 +1607,25 @@ fn lower_plan_exposing_row_aliases(
             );
             Ok(lowered)
         }
-        ir::PlanKind::RoleExpand(expand) => {
-            lower_role_expand(expand, catalog, optional, &[], wanted, None, row_aliases)
-        }
+        ir::PlanKind::RoleExpand(expand) => lower_role_expand(
+            expand,
+            catalog,
+            optional,
+            &[],
+            wanted,
+            None,
+            row_aliases,
+            expand_options,
+        ),
         ir::PlanKind::LeftApply(apply) => lower_optional_chain(
             &apply.right,
             Some(&apply.left),
             catalog,
             wanted,
             row_aliases,
+            expand_options,
         ),
-        _ => lower_plan(plan, catalog, optional, wanted),
+        _ => lower_plan(plan, catalog, optional, wanted, expand_options),
     }
 }
 
@@ -1758,8 +1835,9 @@ fn lower_role_join(
     join: &ir::RoleJoin,
     catalog: &dyn RelationalCatalogSnapshot,
     wanted: &WantedProperties,
+    expand_options: ExpandLowerOptions,
 ) -> Result<Lowered, LowerError> {
-    let input = lower_plan(&join.input, catalog, false, wanted)?;
+    let input = lower_plan(&join.input, catalog, false, wanted, expand_options)?;
     let relationship = catalog
         .relationship_layout(join.relationship_source)
         .ok_or(LowerError::MissingSource(join.relationship_source))?;
@@ -1884,6 +1962,7 @@ fn lower_role_expand(
     wanted: &WantedProperties,
     boundary: Option<&ir::Plan>,
     row_aliases: &mut HashMap<ir::BindingId, BindingReference>,
+    expand_options: ExpandLowerOptions,
 ) -> Result<Lowered, LowerError> {
     // The input becomes a derived table, so whatever aliases it joined are
     // sealed inside it and cannot be named from the select built here.
@@ -1894,9 +1973,10 @@ fn lower_role_expand(
             catalog,
             wanted,
             &mut HashMap::new(),
+            expand_options,
         )?
     } else {
-        lower_plan(&expand.input, catalog, false, wanted)?
+        lower_plan(&expand.input, catalog, false, wanted, expand_options)?
     };
     let needs_source_filter = input
         .bindings
@@ -2566,7 +2646,13 @@ fn lower_expression_with_references(
             let sub = {
                 let mut sub_wanted = WantedProperties::new();
                 collect_wanted(plan, &mut sub_wanted);
-                lower_plan(plan, catalog, false, &sub_wanted)?
+                lower_plan(
+                    plan,
+                    catalog,
+                    false,
+                    &sub_wanted,
+                    ExpandLowerOptions::default(),
+                )?
             };
             let conditions = correlations
                 .iter()
@@ -3727,7 +3813,14 @@ mod tests {
             },
             count,
         );
-        let lowered = lower_plan(&plan, &LabeledCatalog, false, &WantedProperties::new()).unwrap();
+        let lowered = lower_plan(
+            &plan,
+            &LabeledCatalog,
+            false,
+            &WantedProperties::new(),
+            ExpandLowerOptions::default(),
+        )
+        .unwrap();
         assert_eq!(
             lowered.sql, "SELECT count(*) AS b2 FROM \"people\"",
             "unlabeled star-count must not wrap a node projection: {}",
@@ -3749,7 +3842,14 @@ mod tests {
             },
             count,
         );
-        let lowered = lower_plan(&plan, &LabeledCatalog, false, &WantedProperties::new()).unwrap();
+        let lowered = lower_plan(
+            &plan,
+            &LabeledCatalog,
+            false,
+            &WantedProperties::new(),
+            ExpandLowerOptions::default(),
+        )
+        .unwrap();
         assert_eq!(
             lowered.sql,
             "SELECT count(*) AS b2 FROM \"__turso_graph_node_labels_1\" AS lbl0 \
@@ -3958,7 +4058,14 @@ mod tests {
         .unwrap();
         let mut wanted = WantedProperties::new();
         collect_wanted(&filtered, &mut wanted);
-        let lowered = lower_plan(&filtered, &catalog, false, &wanted).unwrap();
+        let lowered = lower_plan(
+            &filtered,
+            &catalog,
+            false,
+            &wanted,
+            ExpandLowerOptions::default(),
+        )
+        .unwrap();
         // The scan materializes the property once for the projection, and the
         // filter reads the column instead of a correlated subquery.
         assert!(lowered.sql.contains("AS b1_p1"), "{}", lowered.sql);

@@ -8,7 +8,8 @@ use turso_graph_ir as ir;
 use turso_parser::ast;
 
 use crate::{
-    bind, lower_relational, GraphCatalogSnapshot, ParameterTypes, RelationalCatalogSnapshot,
+    bind, lower_relational_with_options, ExpandLowerOptions, GraphCatalogSnapshot, ParameterTypes,
+    RelationalCatalogSnapshot,
 };
 
 const GRAPH_FRONTEND_NAME: &str = "graph-cypher";
@@ -67,6 +68,8 @@ pub struct GraphCompiler {
     graph: ir::GraphId,
     catalog: SharedGraphCatalog,
     parameters: ParameterTypes,
+    /// Path-search budgets embedded into `__turso_graph_expand` SQL at lower.
+    traversal_limits: Mutex<turso_graph_runtime::TraversalLimits>,
     last: Mutex<Option<CompileOutcome>>,
     /// Cache-miss compile count; unit tests assert prepare shares one pass.
     #[cfg(test)]
@@ -93,10 +96,24 @@ impl GraphCompiler {
             graph,
             catalog,
             parameters,
+            traversal_limits: Mutex::new(turso_graph_runtime::TraversalLimits::default()),
             last: Mutex::new(None),
             #[cfg(test)]
             compile_misses: AtomicUsize::new(0),
         }
+    }
+
+    /// Update expand path-search budgets used on the next compile miss.
+    ///
+    /// Clears the last compile cache so a prepared source re-lowers with the
+    /// new budgets.
+    pub fn set_traversal_limits(&self, limits: turso_graph_runtime::TraversalLimits) {
+        *self.traversal_limits.lock() = limits;
+        self.clear_last_compile();
+    }
+
+    pub fn traversal_limits(&self) -> turso_graph_runtime::TraversalLimits {
+        *self.traversal_limits.lock()
     }
 
     /// Parse, bind, and lower once. Cache by exact source string.
@@ -132,7 +149,11 @@ impl GraphCompiler {
                     .unwrap_or(ir::ValueType::Any)
             })
             .collect();
-        let statement = lower_relational(&bound.plan, catalog.as_ref())
+        let options = ExpandLowerOptions {
+            traversal_limits: self.traversal_limits(),
+            result_path_cap: result_path_cap(&bound.plan),
+        };
+        let statement = lower_relational_with_options(&bound.plan, catalog.as_ref(), options)
             .map_err(|error| LimboError::ParseError(error.to_string()))?;
         let outcome = CompileOutcome {
             source: source.to_owned(),
@@ -181,6 +202,42 @@ pub fn graph_frontend_id() -> FrontendId {
         FrontendId::new(GRAPH_FRONTEND_NAME).expect("static graph frontend id must be non-empty")
     })
     .clone()
+}
+
+/// Literal LIMIT (+ SKIP) on the outermost result, if both are constant.
+///
+/// Used only to cap expand `max_paths` so a `LIMIT 10` query need not enumerate
+/// the full path budget. Non-literal counts return `None` (no cap from LIMIT).
+fn result_path_cap(plan: &ir::Plan) -> Option<u64> {
+    match plan.kind() {
+        ir::PlanKind::Limit(limit) => {
+            let lim = literal_nonneg_count(&limit.count)?;
+            let skip = skip_before_limit(&limit.input).unwrap_or(0);
+            Some(lim.saturating_add(skip).max(1))
+        }
+        ir::PlanKind::Project(project) => result_path_cap(&project.input),
+        ir::PlanKind::Sort(sort) => result_path_cap(&sort.input),
+        ir::PlanKind::Distinct(distinct) => result_path_cap(&distinct.input),
+        ir::PlanKind::Skip(skip) => result_path_cap(&skip.input),
+        _ => None,
+    }
+}
+
+fn literal_nonneg_count(expression: &ir::TypedExpression) -> Option<u64> {
+    match &expression.expression {
+        ir::Expression::Literal(ir::Literal::Integer(value)) if *value >= 0 => Some(*value as u64),
+        _ => None,
+    }
+}
+
+fn skip_before_limit(plan: &ir::Plan) -> Option<u64> {
+    match plan.kind() {
+        ir::PlanKind::Skip(skip) => literal_nonneg_count(&skip.count),
+        ir::PlanKind::Sort(sort) => skip_before_limit(&sort.input),
+        ir::PlanKind::Project(project) => skip_before_limit(&project.input),
+        ir::PlanKind::Distinct(distinct) => skip_before_limit(&distinct.input),
+        _ => None,
+    }
 }
 
 /// Variable-length relationship expansions need a traversal snapshot.
@@ -351,5 +408,50 @@ mod tests {
             .compile_outcome("MATCH (a:Person)-[:KNOWS*1..2]->(b) RETURN b.name")
             .expect("compile");
         assert!(outcome.needs_snapshot);
+    }
+
+    #[test]
+    fn expand_sql_embeds_session_path_budget() {
+        let compiler = compiler();
+        let mut limits = turso_graph_runtime::TraversalLimits::default();
+        limits.max_paths = 50_000;
+        limits.max_node_visits = 12_345;
+        compiler.set_traversal_limits(limits);
+        let outcome = compiler
+            .compile_outcome("MATCH (a:Person)-[:KNOWS*1..2]->(b) RETURN b.name")
+            .expect("compile");
+        let sql = outcome.cmd.to_string();
+        assert!(
+            sql.contains("12345"),
+            "session max_node_visits should appear in expand args: {sql}"
+        );
+        assert!(
+            sql.contains("50000"),
+            "session max_paths should appear in expand args: {sql}"
+        );
+    }
+
+    #[test]
+    fn expand_sql_caps_max_paths_with_outer_limit() {
+        let compiler = compiler();
+        let mut limits = turso_graph_runtime::TraversalLimits::default();
+        limits.max_paths = 50_000;
+        compiler.set_traversal_limits(limits);
+        let outcome = compiler
+            .compile_outcome(
+                "MATCH (a:Person)-[:KNOWS*1..2]->(b) RETURN b.name ORDER BY b.name LIMIT 7",
+            )
+            .expect("compile");
+        let sql = outcome.cmd.to_string();
+        // Expand arg order ends: uniqueness, visits, edge_visits, max_paths, work, memory.
+        // max_paths must be min(50000, 7) = 7, not the session 50000.
+        assert!(
+            !sql.contains("50000"),
+            "outer LIMIT should replace the session max_paths in expand args: {sql}"
+        );
+        assert!(
+            sql.contains(", 7, 20000000,") || sql.contains(", 7, 20000000)"),
+            "expected max_paths=7 before default max_work: {sql}"
+        );
     }
 }

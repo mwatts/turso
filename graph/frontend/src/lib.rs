@@ -14,6 +14,7 @@ mod catalog;
 mod compiler;
 mod ddl;
 mod dialect;
+mod expand_estimate;
 #[cfg(feature = "fts")]
 mod fts;
 mod functions;
@@ -58,9 +59,10 @@ pub use inspection::{
     GraphRoleInspection, GraphSchemaInspection, GraphSemanticTypeInspection,
 };
 pub use lowering::{
-    lower_relational, LowerError, NodeTableLayout, RelationalCatalogSnapshot,
-    RelationshipRoleLayout, RelationshipTableLayout,
+    lower_relational, lower_relational_with_options, ExpandLowerOptions, LowerError,
+    NodeTableLayout, RelationalCatalogSnapshot, RelationshipRoleLayout, RelationshipTableLayout,
 };
+pub use turso_graph_runtime::{BuildLimits, TraversalLimits};
 // `execute_cypher_mutation` now takes the session's statement cache, which is
 // an internal type, so it is reached through `GraphConnection::execute`.
 pub use mutation::{
