@@ -3253,20 +3253,18 @@ mod tests {
         );
     }
 
+    fn memory_connection(name: &str) -> Arc<Connection> {
+        let io = Arc::new(turso_core::MemoryIO::new());
+        turso_core::Database::open_file(io, name, Arc::new(turso_core::SqliteDialect))
+            .unwrap()
+            .connect()
+            .unwrap()
+    }
+
     #[test]
     fn fold_average_divides_only_by_numeric_inputs() {
         let avg = fold_aggregate(
-            &{
-                let io = Arc::new(turso_core::MemoryIO::new());
-                turso_core::Database::open_file(
-                    io,
-                    ":memory:avg",
-                    Arc::new(turso_core::SqliteDialect),
-                )
-                .unwrap()
-                .connect()
-                .unwrap()
-            },
+            &memory_connection(":memory:avg"),
             &Parameters::new(),
             ir::AggregateFunction::Average,
             false,
@@ -3285,6 +3283,37 @@ mod tests {
             }
             other => panic!("expected float average, got {other:?}"),
         }
+    }
+
+    #[test]
+    fn fold_integer_sum_errors_on_i64_overflow_instead_of_wrapping() {
+        // Wrapping sum would return a negative or truncated value silently in
+        // release; checked_add must surface an error when i64::MAX + 1 overflows.
+        let err = fold_aggregate(
+            &memory_connection(":memory:sum-overflow"),
+            &Parameters::new(),
+            ir::AggregateFunction::Sum,
+            false,
+            vec![Value::from_i64(i64::MAX), Value::from_i64(1)],
+            false,
+        )
+        .expect_err("i64 SUM overflow must not wrap");
+        let message = err.to_string();
+        assert!(
+            message.contains("overflow") || message.contains("SUM"),
+            "unexpected error for overflow: {message}"
+        );
+        // Non-overflowing sum still works through the same path.
+        let ok = fold_aggregate(
+            &memory_connection(":memory:sum-ok"),
+            &Parameters::new(),
+            ir::AggregateFunction::Sum,
+            false,
+            vec![Value::from_i64(i64::MAX - 1), Value::from_i64(1)],
+            false,
+        )
+        .expect("i64::MAX is representable");
+        assert_eq!(ok, Value::from_i64(i64::MAX));
     }
 
     #[test]
