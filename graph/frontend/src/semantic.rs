@@ -26,17 +26,14 @@ use crate::semantic_constraints::{
 use crate::statement_cache::StatementCache;
 use crate::transaction::{in_write_transaction, WriteTransactionError};
 
-pub(crate) const SEMANTIC_TYPES_TABLE: &str = "__turso_internal_graph_semantic_types";
-pub(crate) const SEMANTIC_PROPERTIES_TABLE: &str = "__turso_internal_graph_semantic_properties";
-pub(crate) const SEMANTIC_OWNERSHIP_TABLE: &str = "__turso_internal_graph_semantic_ownership";
-pub(crate) const SEMANTIC_ROLE_TABLE: &str = "__turso_internal_graph_semantic_roles";
-pub(crate) const SEMANTIC_FRAGMENTS_TABLE: &str = "__turso_internal_graph_semantic_fragments";
-pub(crate) const SEMANTIC_FRAGMENT_MEMBERS_TABLE: &str =
-    "__turso_internal_graph_semantic_fragment_members";
-pub(crate) const SEMANTIC_FRAGMENT_PROPERTIES_TABLE: &str =
-    "__turso_internal_graph_semantic_fragment_properties";
-pub(crate) const SEMANTIC_FRAGMENT_OWNERSHIP_TABLE: &str =
-    "__turso_internal_graph_semantic_fragment_ownership";
+pub(crate) const SEMANTIC_TYPES_TABLE: &str = "__tdb_int_g_styp";
+pub(crate) const SEMANTIC_PROPERTIES_TABLE: &str = "__tdb_int_g_sprop";
+pub(crate) const SEMANTIC_OWNERSHIP_TABLE: &str = "__tdb_int_g_sown";
+pub(crate) const SEMANTIC_ROLE_TABLE: &str = "__tdb_int_g_srole";
+pub(crate) const SEMANTIC_FRAGMENTS_TABLE: &str = "__tdb_int_g_sfrag";
+pub(crate) const SEMANTIC_FRAGMENT_MEMBERS_TABLE: &str = "__tdb_int_g_sfmem";
+pub(crate) const SEMANTIC_FRAGMENT_PROPERTIES_TABLE: &str = "__tdb_int_g_sfprop";
+pub(crate) const SEMANTIC_FRAGMENT_OWNERSHIP_TABLE: &str = "__tdb_int_g_sfown";
 
 const REGISTRATION_SAVEPOINT: &str = "turso_graph_register_semantic";
 

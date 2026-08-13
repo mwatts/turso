@@ -6,7 +6,7 @@ tables that you *register* as a graph; Cypher compiles down to the same
 AST → VDBE pipeline the SQL frontends use, so storage, WAL, and
 transactions are all the engine's own. There is no separate graph file
 format — graph metadata (labels, relationship types, generation counters)
-lives as `__turso_graph_*` tables, indexes, and triggers inside the same
+lives as `__tdb_int_g_*` tables and indexes inside the same
 `.db` file as your SQL schema.
 
 > **Status:** experimental, source-only — no published crate, no language
@@ -270,7 +270,7 @@ aggregation with grouping.
   must equal the pattern’s players (same identities and count). A relationship
   with witnesses `{A,B}` does **not** match `MERGE … (witness: A)` alone.
 - **Concurrent MERGE uniqueness.** Relationship MERGE patterns claim a stable
-  key in `__turso_internal_graph_merge_keys` so two sessions MERGEing the same
+  key in `__tdb_int_g_mkey` so two sessions MERGEing the same
   pattern (including shared multi-type tables and Many multisets) leave one
   relationship row.
 
@@ -402,7 +402,7 @@ databases; use attach when the file already hosts another dialect.
 
 ### Expand virtual table (session activation)
 
-Variable-length paths lower to the internal `__turso_graph_expand` virtual
+Variable-length paths lower to the internal `__tdb_int_g_expand` virtual
 table. That table holds a process-local [`SnapshotStore`] — derived adjacency
 state, not durable catalog rows — so it **cannot** be installed from
 `GraphDialect::register_catalog` at schema build (no connection snapshot
@@ -428,7 +428,7 @@ wrapping matches other graph admin helpers that use `prepare_internal`:
 | Host state | Wrapper |
 |------------|---------|
 | Autocommit | `BEGIN IMMEDIATE` → work → `COMMIT` / `ROLLBACK` |
-| Existing write transaction | `SAVEPOINT __turso_graph_mutation` → work → `RELEASE` / `ROLLBACK TO` |
+| Existing write transaction | `SAVEPOINT __tdb_int_g_mut` → work → `RELEASE` / `ROLLBACK TO` |
 | Deferred read transaction (`BEGIN` without write) | `MutationError::RequiresWriteTransaction` — use `BEGIN IMMEDIATE` or a prior write |
 
 Mutation helper SQL is prepared with `prepare_internal` (InternalHelper), so
@@ -781,7 +781,7 @@ Logical names and properties are validated against the registered graph
 catalog. Identity and relationship role columns and statically non-text
 properties are rejected. Configuration is bounded to 128 bytes per logical index name and 16
 properties. Tokenizers and weights are typed values rather than SQL fragments.
-The physical index uses a stable reserved `__turso_graph_fts_*` name, while a
+The physical index uses a stable reserved `__tdb_int_g_fts_*` name, while a
 versioned internal metadata row preserves the logical definition for listing,
 duplicate detection, reopen, and drop. Physical DDL and metadata share one
 transaction/savepoint; a conflicting same-name definition is an error rather
@@ -845,7 +845,7 @@ SQL `BEGIN` … `ROLLBACK` undoes a Cypher `CREATE`.
 
 - Each `execute()` is atomic: in **autocommit** it opens
   `BEGIN IMMEDIATE` … `COMMIT` / `ROLLBACK`; inside an existing **write**
-  transaction it uses `SAVEPOINT __turso_graph_mutation` … `RELEASE` /
+  transaction it uses `SAVEPOINT __tdb_int_g_mut` … `RELEASE` /
   `ROLLBACK TO`. Nested helpers cannot upgrade a deferred read transaction,
   so bare `BEGIN` without a prior write returns
   `MutationError::RequiresWriteTransaction` — use `BEGIN IMMEDIATE` (or

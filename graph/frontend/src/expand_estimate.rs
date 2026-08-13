@@ -1,4 +1,4 @@
-//! Cost and row estimates for `__turso_graph_expand`.
+//! Cost and row estimates for `__tdb_int_g_expand`.
 //!
 //! The expand virtual table's `best_index` cannot see live graph degree, so the
 //! model uses hop bounds, relationship-type count, uniqueness, and the
@@ -16,7 +16,7 @@ use std::cell::RefCell;
 const DEFAULT_BRANCHING: f64 = 4.0;
 
 thread_local! {
-    /// Estimates for each `__turso_graph_expand` lowered on this thread during
+    /// Estimates for each `__tdb_int_g_expand` lowered on this thread during
     /// the current `lower_relational` call, in encounter order.
     static EXPAND_SITES: RefCell<Vec<ExpandCostEstimate>> = RefCell::new(Vec::new());
 }

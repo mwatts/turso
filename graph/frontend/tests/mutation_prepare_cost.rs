@@ -108,7 +108,7 @@ fn steady_create_reuses_label_junction_and_constraint_helper_sql() {
     let repeated_helpers: Vec<&String> = statements
         .iter()
         .filter(|sql| {
-            sql.contains("__turso_graph_node_labels_")
+            sql.contains("__tdb_int_g_nl_")
                 || (sql.contains("AS entity") && sql.contains("EXISTS"))
                 || sql.contains("schema_generation")
         })

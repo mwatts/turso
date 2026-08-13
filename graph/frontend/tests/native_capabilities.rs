@@ -57,7 +57,7 @@ fn graph_fts_scalars_use_a_core_index() {
         .expect("explain graph FTS");
     assert!(
         plan.iter().flatten().any(|value| {
-            matches!(value, Value::Text(detail) if detail.as_str().contains("INDEX METHOD") || detail.as_str().contains("__turso_graph_fts_"))
+            matches!(value, Value::Text(detail) if detail.as_str().contains("INDEX METHOD") || detail.as_str().contains("__tdb_int_g_fts_"))
         }),
         "expected core FTS planner evidence, got {plan:?}"
     );
@@ -66,7 +66,7 @@ fn graph_fts_scalars_use_a_core_index() {
             matches!(
                 value,
                 Value::Text(detail)
-                    if detail.as_str().contains("__turso_graph_node_labels_")
+                    if detail.as_str().contains("__tdb_int_g_nl_")
                         && detail.as_str().contains("_ix1")
             )
         }),
@@ -196,7 +196,7 @@ fn graph_fts_administration_is_transactional_persistent_and_bounded() {
     assert!(connection
         .prepare(
             "SELECT name FROM sqlite_schema \
-             WHERE name GLOB '__turso_graph_fts_*'",
+             WHERE name GLOB '__tdb_int_g_fts_*'",
         )
         .unwrap()
         .run_collect_rows()
@@ -231,7 +231,7 @@ fn graph_fts_administration_is_transactional_persistent_and_bounded() {
     assert!(connection
         .prepare(
             "SELECT name FROM sqlite_schema \
-             WHERE name GLOB '__turso_graph_fts_*'",
+             WHERE name GLOB '__tdb_int_g_fts_*'",
         )
         .unwrap()
         .run_collect_rows()
@@ -239,7 +239,7 @@ fn graph_fts_administration_is_transactional_persistent_and_bounded() {
         .is_empty());
 
     let created = session.create_fts_index(&spec).expect("create index");
-    assert!(created.physical_name.starts_with("__turso_graph_fts_"));
+    assert!(created.physical_name.starts_with("__tdb_int_g_fts_"));
     assert_eq!(
         session.create_fts_index(&spec).expect("idempotent create"),
         created
@@ -409,7 +409,7 @@ fn graph_fts_administration_is_transactional_persistent_and_bounded() {
         .expect("a missing FTS index has no matches")
         .is_empty());
 
-    let unusual_name = "safe'; DROP TABLE people; --/../__turso_graph_fts_";
+    let unusual_name = "safe'; DROP TABLE people; --/../__tdb_int_g_fts_";
     let unusual = session
         .create_fts_index(&GraphFtsIndexSpec {
             name: unusual_name.to_owned(),
@@ -839,12 +839,18 @@ fn polymorphic_roles_share_one_table_across_node_sources() {
     let document_source = registered.node_sources[1].id.get();
     connection
         .execute(format!(
-            "INSERT INTO mentions VALUES (1, {person_source}, 1, {document_source}, 1); \
-             INSERT INTO {}(source_id, relationship_id, type) VALUES ({}, 1, 'MENTIONS')",
+            "INSERT INTO mentions VALUES (1, {person_source}, 1, {document_source}, 1)"
+        ))
+        .expect("insert cross-source relationship");
+    connection
+        .prepare_internal(format!(
+            "INSERT INTO {}(source_id, relationship_id, type) VALUES ({}, 1, 'MENTIONS')",
             relationship_types_table_name(registered.id),
             registered.relationship_sources[0].id.get(),
         ))
-        .expect("insert cross-source relationship");
+        .expect("prepare relationship type membership")
+        .run_ignore_rows()
+        .expect("insert relationship type membership");
 
     let session = GraphConnection::open(connection, "knowledge").expect("build graph snapshot");
     let inspection = session.inspect_schema().expect("inspect compact schema");
@@ -1129,7 +1135,7 @@ fn pure_count_star_uses_junction_covering_index() {
         .collect::<Vec<_>>()
         .join("\n");
     assert!(
-        plan_text.contains("__turso_graph_node_labels_")
+        plan_text.contains("__tdb_int_g_nl_")
             && (plan_text.contains("USING INDEX")
                 || plan_text.contains("USING COVERING INDEX")
                 || plan_text.contains("SEARCH")),

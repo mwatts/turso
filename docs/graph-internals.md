@@ -163,7 +163,7 @@ run() = bind → try_single_program_mutation | execute_bound
 | Host state | Wrapper |
 |---|---|
 | Autocommit | `BEGIN IMMEDIATE` → `run()` → `COMMIT` / `ROLLBACK` |
-| Existing write transaction | `SAVEPOINT __turso_graph_mutation` → `run()` → `RELEASE` / `ROLLBACK TO` |
+| Existing write transaction | `SAVEPOINT __tdb_int_g_mut` → `run()` → `RELEASE` / `ROLLBACK TO` |
 | Deferred read transaction (bare `BEGIN`) | `MutationError::RequiresWriteTransaction` |
 
 Two consequences worth internalizing:
@@ -204,12 +204,10 @@ rules protect the current implementation:
 There is no graph file format. Graph metadata lives in reserved tables inside
 the same `.db` file:
 
-- `__turso_graph_catalog` — registrations, semantic schema, constraints,
-  fragments, FTS index metadata
-- `__turso_graph_node_labels_*`, `__turso_graph_relationship_types_*`,
-  `__turso_graph_relationship_type_registry_*` — label/type junctions
-- `__turso_graph_fts_*` — physical FTS index names
-- generation-counter triggers
+- `__tdb_int_g_{graphs,gen,src,nsrc,rsrc,roles,mkey}` — registrations
+- `__tdb_int_g_{styp,sprop,sown,srole,sfrag,…}` — semantic overlay
+- `__tdb_int_g_{nl,rt,rtr,pd,np,xp}_*` — per-graph junctions and Cell store
+- `__tdb_int_g_fts[_*]` — FTS metadata and physical index names
 
 Reserved-name handling and the generation triggers live in core
 (`core/schema.rs`, `core/translate/{index,trigger,update}.rs`) — see
@@ -258,7 +256,7 @@ adjacency snapshot.
   heuristic; see `graph/DESIGN_DECISIONS.md` "Path algorithm legality".
 - `graph/runtime/src/shortest.rs` — `shortest_path`, `weighted_shortest_path`
 
-Variable-length lowering targets the internal `__turso_graph_expand` virtual
+Variable-length lowering targets the internal `__tdb_int_g_expand` virtual
 table, which holds a process-local `SnapshotStore`. Because that store is
 derived state and needs a connection snapshot, it **cannot** be installed from
 `GraphDialect::register_catalog` at schema build; both open modes activate it

@@ -20,12 +20,9 @@ use crate::{
     statement_cache::StatementCache,
 };
 
-pub(crate) const SEMANTIC_PROPERTY_CONSTRAINTS_TABLE: &str =
-    "__turso_internal_graph_semantic_property_constraints";
-pub(crate) const SEMANTIC_KEY_CONSTRAINTS_TABLE: &str =
-    "__turso_internal_graph_semantic_key_constraints";
-pub(crate) const SEMANTIC_CARDINALITY_CONSTRAINTS_TABLE: &str =
-    "__turso_internal_graph_semantic_cardinality_constraints";
+pub(crate) const SEMANTIC_PROPERTY_CONSTRAINTS_TABLE: &str = "__tdb_int_g_scprop";
+pub(crate) const SEMANTIC_KEY_CONSTRAINTS_TABLE: &str = "__tdb_int_g_sckey";
+pub(crate) const SEMANTIC_CARDINALITY_CONSTRAINTS_TABLE: &str = "__tdb_int_g_sccard";
 
 /// Additive semantic constraints for an already-registered semantic schema.
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
@@ -834,7 +831,7 @@ fn runtime_scalar(value: &Value) -> Option<SemanticScalar> {
 /// Temp table used for identity-scoped required/value checks. Filled once per
 /// `validate_state` when the mutation reported written identities; filter SQL
 /// always names this table so prepared statements stay cacheable.
-const WRITTEN_IDENTITIES_TABLE: &str = "__turso_graph_mutation_written";
+const WRITTEN_IDENTITIES_TABLE: &str = "__tdb_int_g_written";
 
 /// Load written identities into a connection-local temp table so constraint
 /// SQL can filter without embedding ids in the prepared text.
@@ -842,20 +839,29 @@ fn stage_written_identities(
     connection: &Arc<Connection>,
     written: &HashMap<ir::SourceTableId, Vec<Value>>,
 ) -> Result<(), SemanticCatalogError> {
-    connection.execute(format!(
-        "CREATE TEMP TABLE IF NOT EXISTS {WRITTEN_IDENTITIES_TABLE} (\
-         source_id INTEGER NOT NULL, \
-         identity)"
-    ))?;
-    connection.execute(format!("DELETE FROM {WRITTEN_IDENTITIES_TABLE}"))?;
+    crate::catalog::execute_internal(
+        connection,
+        format!(
+            "CREATE TEMP TABLE IF NOT EXISTS {WRITTEN_IDENTITIES_TABLE} (\
+             source_id INTEGER NOT NULL, \
+             identity)"
+        ),
+    )?;
+    crate::catalog::execute_internal(
+        connection,
+        format!("DELETE FROM {WRITTEN_IDENTITIES_TABLE}"),
+    )?;
     for (source, identities) in written {
         for identity in identities {
             let literal = sql_value_literal(identity)?;
-            connection.execute(format!(
-                "INSERT INTO {WRITTEN_IDENTITIES_TABLE}(source_id, identity) \
-                 VALUES ({}, {literal})",
-                source.get(),
-            ))?;
+            crate::catalog::execute_internal(
+                connection,
+                format!(
+                    "INSERT INTO {WRITTEN_IDENTITIES_TABLE}(source_id, identity) \
+                     VALUES ({}, {literal})",
+                    source.get(),
+                ),
+            )?;
         }
     }
     Ok(())

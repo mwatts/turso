@@ -379,9 +379,11 @@ fn a_text_value_still_fails_an_integer_range_predicate() {
         .execute("INSERT INTO people(id, name, score) VALUES (1, 't1', 'abc')")
         .expect("seed non-numeric TEXT score without Cypher validation");
     connection
-        .execute(format!(
+        .prepare_internal(format!(
             "INSERT INTO \"{labels}\"(source_id, node_id, label) VALUES (1, 1, 'Person')"
         ))
+        .expect("prepare seeded node label")
+        .run_ignore_rows()
         .expect("record seeded node label");
 
     let error_abc = session
@@ -406,9 +408,11 @@ fn a_text_value_still_fails_an_integer_range_predicate() {
         .execute("INSERT INTO people(id, name, score) VALUES (2, 't2', '50')")
         .expect("seed numeric-looking TEXT score");
     connection
-        .execute(format!(
+        .prepare_internal(format!(
             "INSERT INTO \"{labels}\"(source_id, node_id, label) VALUES (1, 2, 'Person')"
         ))
+        .expect("prepare second label")
+        .run_ignore_rows()
         .expect("record second label");
 
     let error_numeric_text = session

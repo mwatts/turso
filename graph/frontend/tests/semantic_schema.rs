@@ -1051,15 +1051,27 @@ fn semantic_registration_invalidates_and_retypes_traversal_snapshots() {
     registered_graph(&connection);
     let graph = load_registered_graph(&connection, "social").expect("load graph");
     connection
-        .execute(format!(
+        .execute(
             "INSERT INTO tbl_people(pk, full_name) VALUES (1, 'Ada'), (2, 'Iron Co'); \
-             INSERT INTO tbl_edges(pk, a, b, since) VALUES (10, 1, 2, 1840); \
-             INSERT INTO \"{}\"(source_id, relationship_id, type) \
+             INSERT INTO tbl_edges(pk, a, b, since) VALUES (10, 1, 2, 1840)",
+        )
+        .expect("seed source rows");
+    connection
+        .execute("BEGIN IMMEDIATE")
+        .expect("begin type membership");
+    connection
+        .prepare_internal(format!(
+            "INSERT INTO \"{}\"(source_id, relationship_id, type) \
              VALUES ({}, 10, 'TRADES_WITH')",
             relationship_types_table_name(graph.id),
             graph.relationship_sources[0].id.get(),
         ))
-        .expect("seed graph");
+        .expect("prepare type membership")
+        .run_ignore_rows()
+        .expect("seed type membership");
+    connection
+        .execute("COMMIT")
+        .expect("commit type membership");
 
     let store = SnapshotStore::default();
     store
@@ -2983,7 +2995,7 @@ fn required_constraint_is_persisted_idempotently_and_rejects_invalid_existing_da
         .prepare(
             "SELECT COUNT(*) FROM sqlite_schema \
              WHERE type = 'table' \
-               AND name = '__turso_internal_graph_semantic_property_constraints'",
+               AND name = '__tdb_int_g_scprop'",
         )
         .and_then(|mut statement| statement.run_collect_rows())
         .expect("constraint catalog remains readable");
@@ -3007,7 +3019,7 @@ fn required_constraint_is_persisted_idempotently_and_rejects_invalid_existing_da
     let persisted = connection
         .prepare(
             "SELECT owner_type_id, property_id \
-             FROM __turso_internal_graph_semantic_property_constraints \
+             FROM __tdb_int_g_scprop \
              WHERE kind = 'required'",
         )
         .and_then(|mut statement| statement.run_collect_rows())
@@ -3158,9 +3170,9 @@ fn every_constraint_kind_rejects_invalid_existing_data_atomically() {
             "failed activation must not publish a generation"
         );
         for table in [
-            "__turso_internal_graph_semantic_property_constraints",
-            "__turso_internal_graph_semantic_key_constraints",
-            "__turso_internal_graph_semantic_cardinality_constraints",
+            "__tdb_int_g_scprop",
+            "__tdb_int_g_sckey",
+            "__tdb_int_g_sccard",
         ] {
             let rows = connection
                 .prepare(format!(
@@ -3602,13 +3614,17 @@ fn direct_sql_can_bypass_semantic_constraints_but_later_cypher_detects_the_viola
     let source = graph.node_sources[0].id;
     let labels = labels_table_name(graph.id);
     connection
-        .execute(format!(
-            "INSERT INTO tbl_people(pk, birth_year) VALUES (1, 1815); \
-             INSERT INTO \"{labels}\"(source_id, node_id, label) \
+        .execute("INSERT INTO tbl_people(pk, birth_year) VALUES (1, 1815)")
+        .expect("direct SQL into the source table");
+    connection
+        .prepare_internal(format!(
+            "INSERT INTO \"{labels}\"(source_id, node_id, label) \
              VALUES ({}, 1, 'Customer')",
             source.get()
         ))
-        .expect("direct SQL is outside semantic enforcement");
+        .expect("prepare label membership")
+        .run_ignore_rows()
+        .expect("direct SQL into the label junction");
 
     let session = turso_graph_frontend::Connection::open(connection, "social")
         .expect("open graph containing direct-SQL violation");

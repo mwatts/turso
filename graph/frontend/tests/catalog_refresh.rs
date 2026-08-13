@@ -21,10 +21,10 @@ use turso_graph_frontend::{
 /// Internal tables whose appearance in a prepared statement means the session
 /// went back to the catalog.
 const CATALOG_TABLES: [&str; 4] = [
-    "__turso_internal_graph_sources",
-    "__turso_internal_graph_node_sources",
-    "__turso_internal_graph_semantic_types",
-    "__turso_internal_graph_semantic_ownership",
+    "__tdb_int_g_src",
+    "__tdb_int_g_nsrc",
+    "__tdb_int_g_styp",
+    "__tdb_int_g_sown",
 ];
 
 /// Records the SQL that core compiles, by watching the `Preparing: {sql}`
@@ -174,7 +174,7 @@ fn a_row_write_moves_the_source_signal_but_not_the_schema_generation() {
 
     let schema_generation = || {
         let rows = connection
-            .prepare("SELECT schema_generation FROM __turso_internal_graph_generations")
+            .prepare("SELECT schema_generation FROM __tdb_int_g_gen")
             .expect("prepare schema generation")
             .run_collect_rows()
             .expect("read schema generation");
@@ -211,7 +211,7 @@ fn registering_semantic_constraints_advances_the_schema_generation() {
 
     let schema_generation = || {
         let rows = connection
-            .prepare("SELECT schema_generation FROM __turso_internal_graph_generations")
+            .prepare("SELECT schema_generation FROM __tdb_int_g_gen")
             .expect("prepare schema generation")
             .run_collect_rows()
             .expect("read schema generation");

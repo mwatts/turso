@@ -17,7 +17,11 @@ use crate::{
 };
 
 const RESERVED_PREFIX: &str = "__turso_";
-pub(crate) const GRAPHS_TABLE: &str = "__turso_internal_graph_graphs";
+// Graph objects use `__tdb_int_g_` (reserved in core). Suffixes: graphs, gen,
+// src, nsrc, rsrc, roles, mkey; per-graph nl/rt/rtr/pd/np/xp_{id}; semantic
+// styp/sprop/sown/srole/sfrag/sfmem/sfprop/sfown; constraints
+// scprop/sckey/sccard; indexes ep_/sp_; FTS fts[_*]; expand, written, mut.
+pub(crate) const GRAPHS_TABLE: &str = "__tdb_int_g_graphs";
 pub(crate) const GENERATIONS_TABLE: &str = TURSO_GRAPH_GENERATIONS_TABLE_NAME;
 /// Catalog-only generation, kept beside the data generation in
 /// [`GENERATIONS_TABLE`]. See [`RegisteredGraph::schema_generation`].
@@ -27,16 +31,16 @@ pub(crate) const SCHEMA_GENERATION_COLUMN: &str = "schema_generation";
 /// the prefix survives only so [`drop_stale_generation_triggers`] can recognize
 /// what one of those builds left behind.
 const GENERATION_TRIGGER_PREFIX: &str = "__turso_internal_graph_gen_";
-pub(crate) const SOURCES_TABLE: &str = "__turso_internal_graph_sources";
-pub(crate) const NODE_SOURCES_TABLE: &str = "__turso_internal_graph_node_sources";
-pub(crate) const RELATIONSHIP_SOURCES_TABLE: &str = "__turso_internal_graph_relationship_sources";
-pub(crate) const RELATIONSHIP_ROLES_TABLE: &str = "__turso_internal_graph_relationship_roles";
+pub(crate) const SOURCES_TABLE: &str = "__tdb_int_g_src";
+pub(crate) const NODE_SOURCES_TABLE: &str = "__tdb_int_g_nsrc";
+pub(crate) const RELATIONSHIP_SOURCES_TABLE: &str = "__tdb_int_g_rsrc";
+pub(crate) const RELATIONSHIP_ROLES_TABLE: &str = "__tdb_int_g_roles";
 /// Concurrent MERGE uniqueness for relationship patterns (R8), including
 /// shared multi-type tables and Many-role multisets. Keyed by a stable hash of
 /// the match key; `relation_id` points at the winning relationship row.
-pub(crate) const MERGE_KEYS_TABLE: &str = "__turso_internal_graph_merge_keys";
+pub(crate) const MERGE_KEYS_TABLE: &str = "__tdb_int_g_mkey";
 
-pub const GRAPH_CATALOG_VERSION: u64 = 6;
+pub const GRAPH_CATALOG_VERSION: u64 = 7;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct NodeSourceRegistration {
@@ -864,32 +868,32 @@ fn register_graph_in_transaction(
 
 /// Name of the per-graph node-label junction table.
 pub fn labels_table_name(graph: GraphId) -> String {
-    format!("__turso_graph_node_labels_{}", graph.get())
+    format!("{TURSO_GRAPH_CATALOG_PREFIX}nl_{}", graph.get())
 }
 
 /// Name of the per-graph relationship-type junction table.
 pub fn relationship_types_table_name(graph: GraphId) -> String {
-    format!("__turso_graph_relationship_types_{}", graph.get())
+    format!("{TURSO_GRAPH_CATALOG_PREFIX}rt_{}", graph.get())
 }
 
 /// Name of the per-graph relationship-type identity registry.
 pub fn relationship_type_registry_table_name(graph: GraphId) -> String {
-    format!("__turso_graph_relationship_type_registry_{}", graph.get())
+    format!("{TURSO_GRAPH_CATALOG_PREFIX}rtr_{}", graph.get())
 }
 
 /// Open Cell property-name dictionary for a graph (`prop_id`, `name`, `value_type`).
 pub fn prop_dict_table_name(graph: GraphId) -> String {
-    format!("__turso_graph_prop_dict_{}", graph.get())
+    format!("{TURSO_GRAPH_CATALOG_PREFIX}pd_{}", graph.get())
 }
 
 /// Open Cell node property rows (`node_id`, `prop_id`, `value`).
 pub fn node_props_table_name(graph: GraphId) -> String {
-    format!("__turso_graph_node_props_{}", graph.get())
+    format!("{TURSO_GRAPH_CATALOG_PREFIX}np_{}", graph.get())
 }
 
 /// Open Cell relationship property rows (`source_id`, `rel_id`, `prop_id`, `value`).
 pub fn edge_props_table_name(graph: GraphId) -> String {
-    format!("__turso_graph_edge_props_{}", graph.get())
+    format!("{TURSO_GRAPH_CATALOG_PREFIX}xp_{}", graph.get())
 }
 
 fn table_exists(connection: &Arc<Connection>, name: &str) -> Result<bool, CatalogError> {
@@ -1038,11 +1042,7 @@ fn validate_registration_names(
     polymorphic_roles: &[PolymorphicRoleRegistration],
 ) -> Result<(), CatalogError> {
     validate_name("graph", &registration.name)?;
-    if registration
-        .name
-        .to_ascii_lowercase()
-        .starts_with(RESERVED_PREFIX)
-    {
+    if is_reserved_name(&registration.name) {
         return Err(CatalogError::ReservedGraphName(registration.name.clone()));
     }
     if registration.node_sources.is_empty() {
@@ -1158,9 +1158,14 @@ fn polymorphic_role<'a>(
     })
 }
 
+fn is_reserved_name(name: &str) -> bool {
+    let folded = name.to_ascii_lowercase();
+    folded.starts_with(RESERVED_PREFIX) || folded.starts_with(TURSO_GRAPH_CATALOG_PREFIX)
+}
+
 fn validate_source_identifiers(table: &str, columns: &[&str]) -> Result<(), CatalogError> {
     validate_name("source table", table)?;
-    if table.to_ascii_lowercase().starts_with(RESERVED_PREFIX) {
+    if is_reserved_name(table) {
         return Err(CatalogError::ReservedGraphName(table.to_owned()));
     }
     for column in columns {
@@ -1494,7 +1499,7 @@ fn install_spill_table(
         ("rev", "node_id, relation_id"),
     ] {
         let name = format!(
-            "{TURSO_GRAPH_CATALOG_PREFIX}spill_{}_{suffix}_{:016x}",
+            "{TURSO_GRAPH_CATALOG_PREFIX}sp_{}_{suffix}_{:016x}",
             graph.get(),
             stable_hash(&table)
         );
@@ -2019,7 +2024,7 @@ mod tests {
         let triggers = query_rows(
             &connection,
             "SELECT name FROM sqlite_schema WHERE type = 'trigger' \
-             AND name LIKE '__turso_internal_graph_%'",
+             AND (name LIKE '__tdb_int_g_%' OR name LIKE '__turso_internal_graph_%')",
         )
         .expect("query internal triggers");
         assert!(
@@ -2073,7 +2078,7 @@ mod tests {
         let indexes = query_rows(
             &connection,
             "SELECT name FROM sqlite_schema WHERE type = 'index' \
-             AND name LIKE '__turso_internal_graph_ep_%'",
+             AND name LIKE '__tdb_int_g_ep_%'",
         )
         .expect("query endpoint indexes");
         // One per role plus the composite pair index: exactly today's three.
@@ -2099,7 +2104,7 @@ mod tests {
         let graph_indexes = query_rows(
             &connection,
             "SELECT name FROM sqlite_schema WHERE type = 'index' \
-             AND name LIKE '__turso_internal_graph_ep_%'",
+             AND name LIKE '__tdb_int_g_ep_%'",
         )
         .expect("query graph endpoint indexes");
         assert_eq!(
@@ -2175,7 +2180,7 @@ mod tests {
         let indexes = query_rows(
             &connection,
             "SELECT name FROM sqlite_schema WHERE type = 'index' \
-             AND name LIKE '__turso_internal_graph_ep_%'",
+             AND name LIKE '__tdb_int_g_ep_%'",
         )
         .expect("query endpoint indexes");
         // Three single-role indexes plus one composite per unordered role pair
@@ -2320,7 +2325,7 @@ mod tests {
         let endpoint_indexes = query_rows(
             &connection,
             "SELECT name FROM sqlite_schema WHERE type = 'index' \
-             AND name LIKE '__turso_internal_graph_ep_%'",
+             AND name LIKE '__tdb_int_g_ep_%'",
         )
         .expect("query endpoint indexes");
         // One index per single-valued role (author, work) plus one composite
@@ -2438,9 +2443,11 @@ mod tests {
         // relationship id 1 is not required to exist for the token to move;
         // the junction table itself is a CSR input.
         connection
-            .execute(format!(
+            .prepare_internal(format!(
                 "INSERT INTO {types}(source_id, relationship_id, type) VALUES (2, 1, 'KNOWS')"
             ))
+            .expect("prepare type junction insert")
+            .run_ignore_rows()
             .expect("type junction insert");
         let after = load_registered_graph(&connection, "social")
             .expect("reload")
@@ -2491,7 +2498,7 @@ mod tests {
         let triggers = query_rows(
             &connection,
             "SELECT name FROM sqlite_schema WHERE type = 'trigger' \
-             AND name LIKE '__turso_internal_graph_%'",
+             AND (name LIKE '__tdb_int_g_%' OR name LIKE '__turso_internal_graph_%')",
         )
         .expect("query internal triggers");
         assert!(
@@ -2672,7 +2679,7 @@ mod tests {
         assert!(update.is_err(), "catalog generation must reject direct DML");
 
         let forged = connection.execute(
-            "CREATE TRIGGER __turso_internal_graph_gen_forged AFTER INSERT ON people \
+            "CREATE TRIGGER __tdb_int_g_forged AFTER INSERT ON people \
              BEGIN SELECT 1; END",
         );
         assert!(
@@ -2685,12 +2692,12 @@ mod tests {
         // installs a graph trigger any more, but the frontend still drops ones
         // an older build left behind, and that has to stay off limits to users.
         assert!(connection
-            .execute("DROP TRIGGER __turso_internal_graph_gen_forged")
+            .execute("DROP TRIGGER __tdb_int_g_forged")
             .is_err());
 
         let index_rows = query_rows(
             &connection,
-            "SELECT name FROM sqlite_schema WHERE type = 'index' AND name LIKE '__turso_internal_graph_ep_%' LIMIT 1",
+            "SELECT name FROM sqlite_schema WHERE type = 'index' AND name LIKE '__tdb_int_g_ep_%' LIMIT 1",
         )
         .expect("query index");
         let index_name = text(&index_rows[0], 0, "index name").expect("index name");

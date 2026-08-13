@@ -24,7 +24,7 @@ use crate::transaction::{in_write_transaction, WriteTransactionError};
 const DEFAULT_IDENTITY_COLUMN: &str = "id";
 /// SQL type given to inferred identity and role columns.
 const IDENTITY_TYPE: &str = "INTEGER";
-const DDL_SAVEPOINT: &str = "__turso_graph_ddl";
+const DDL_SAVEPOINT: &str = "__tdb_int_g_ddl";
 
 #[derive(Debug, Error)]
 pub enum DdlError {
@@ -109,9 +109,12 @@ fn seed_prop_dict(
     for (name, sql_type) in seeds {
         let value_type = ddl_type_to_dict_type(sql_type);
         let escaped = name.replace('\'', "''");
-        connection.execute(format!(
-            "INSERT OR IGNORE INTO \"{dict}\"(name, value_type) VALUES ('{escaped}', '{value_type}')"
-        ))?;
+        crate::catalog::execute_internal(
+            connection,
+            format!(
+                "INSERT OR IGNORE INTO \"{dict}\"(name, value_type) VALUES ('{escaped}', '{value_type}')"
+            ),
+        )?;
     }
     Ok(())
 }
@@ -152,26 +155,32 @@ fn backfill_membership(
 ) -> Result<(), DdlError> {
     let labels = labels_table_name(graph.id);
     for source in &graph.node_sources {
-        connection.execute(format!(
-            "INSERT INTO {}(source_id, node_id, label) SELECT {}, {}, {} FROM {}",
-            quote(&labels),
-            source.id.get(),
-            quote(&source.identity_column),
-            sql_string(&source.name),
-            quote(&source.table),
-        ))?;
+        crate::catalog::execute_internal(
+            connection,
+            format!(
+                "INSERT INTO {}(source_id, node_id, label) SELECT {}, {}, {} FROM {}",
+                quote(&labels),
+                source.id.get(),
+                quote(&source.identity_column),
+                sql_string(&source.name),
+                quote(&source.table),
+            ),
+        )?;
     }
 
     let types = relationship_types_table_name(graph.id);
     for source in &graph.relationship_sources {
-        connection.execute(format!(
-            "INSERT INTO {}(source_id, relationship_id, type) SELECT {}, {}, {} FROM {}",
-            quote(&types),
-            source.id.get(),
-            quote(&source.identity_column),
-            sql_string(&source.name),
-            quote(&source.table),
-        ))?;
+        crate::catalog::execute_internal(
+            connection,
+            format!(
+                "INSERT INTO {}(source_id, relationship_id, type) SELECT {}, {}, {} FROM {}",
+                quote(&types),
+                source.id.get(),
+                quote(&source.identity_column),
+                sql_string(&source.name),
+                quote(&source.table),
+            ),
+        )?;
     }
     Ok(())
 }

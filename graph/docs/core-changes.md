@@ -16,7 +16,7 @@ graph integration from incidental merge noise.
 | Area | Files (approx.) | Intent |
 |---|---|---|
 | Multi-frontend prepare | `frontend.rs` (new), `connection.rs`, `statement.rs`, `error.rs`, `lib.rs`, `vdbe/*` glue | Cypher (and Postgres) compile through a connection-local compiler registry; reprepare keeps original source |
-| Graph catalog protection | `schema.rs` constants, `translate/{mod,index,trigger}.rs` | Reserve `__turso_internal_graph_*` names for junction/registry/generations tables |
+| Graph catalog protection | `schema.rs` constants, `translate/{mod,index,trigger}.rs` | Reserve `__tdb_int_g_*` names for junction/registry/generations tables |
 | Table change tokens | `connection.rs` (`table_change_token`), root counters in `database.rs` | Per-process tokens so CSR/`derived_generation` rebuild without AFTER-DML triggers |
 | Resumable graph expand | `vtab.rs`, `vdbe/execute.rs` | Internal vtab steps can `Yield` so long traversals cooperate with the VDBE IO loop |
 | Shared type classification | `schema.rs` (`classify_column`), `statement.rs` | One column-type classifier for SQL result metadata and Cypher property binding |
@@ -180,8 +180,8 @@ generation DML triggers without revisiting that design doc.
 ### 2.1 `core/schema.rs` — constants
 
 ```text
-TURSO_GRAPH_CATALOG_PREFIX         = "__turso_internal_graph_"
-TURSO_GRAPH_GENERATIONS_TABLE_NAME = "__turso_internal_graph_generations"
+TURSO_GRAPH_CATALOG_PREFIX         = "__tdb_int_g_"
+TURSO_GRAPH_GENERATIONS_TABLE_NAME = "__tdb_int_g_gen"
 ```
 
 **Why**
@@ -321,7 +321,7 @@ Keeps SQL and graph paths consistent after the extract.
 
 **Why**
 
-Variable-length path expansion (`__turso_graph_expand`) can do a lot of
+Variable-length path expansion (`__tdb_int_g_expand`) can do a lot of
 CPU work per VDBE instruction. Cooperative **Yield** lets the expand
 cursor return control to the VDBE IO / cancel path without blocking the
 connection indefinitely. Non-graph internal tables are unchanged in

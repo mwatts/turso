@@ -174,8 +174,8 @@ pub const TEMP_SCHEMA_TABLE_NAME: &str = "sqlite_temp_schema";
 pub const TEMP_SCHEMA_TABLE_NAME_ALT: &str = "sqlite_temp_master";
 pub const SQLITE_SEQUENCE_TABLE_NAME: &str = "sqlite_sequence";
 pub const TURSO_TYPES_TABLE_NAME: &str = "__turso_internal_types";
-pub const TURSO_GRAPH_CATALOG_PREFIX: &str = "__turso_internal_graph_";
-pub const TURSO_GRAPH_GENERATIONS_TABLE_NAME: &str = "__turso_internal_graph_generations";
+pub const TURSO_GRAPH_CATALOG_PREFIX: &str = "__tdb_int_g_";
+pub const TURSO_GRAPH_GENERATIONS_TABLE_NAME: &str = "__tdb_int_g_gen";
 pub const DBSP_TABLE_PREFIX: &str = "__turso_internal_dbsp_state_v";
 pub const TURSO_INTERNAL_PREFIX: &str = "__turso_internal_";
 pub const SEQ_BACKING_TABLE_PREFIX: &str = "__turso_internal_seq_";
@@ -639,7 +639,8 @@ pub const ROWID_SENTINEL: usize = usize::MAX;
 pub const EXPR_INDEX_SENTINEL: usize = usize::MAX;
 
 /// Internal table prefixes that should be protected from CREATE/DROP
-pub const RESERVED_TABLE_PREFIXES: [&str; 2] = ["sqlite_", "__turso_internal_"];
+pub const RESERVED_TABLE_PREFIXES: [&str; 3] =
+    ["sqlite_", "__turso_internal_", TURSO_GRAPH_CATALOG_PREFIX];
 
 /// Check if a table name refers to a system table that should be protected from direct writes
 pub fn is_system_table(table_name: &str) -> bool {
@@ -651,7 +652,8 @@ pub fn is_system_table(table_name: &str) -> bool {
 pub fn allow_user_dml(table_name: &str) -> bool {
     const NAMES: [&str; 2] = [SCHEMA_TABLE_NAME, SCHEMA_TABLE_NAME_ALT];
     !(NAMES.iter().any(|n| n.eq_ignore_ascii_case(table_name))
-        || table_name.starts_with(TURSO_INTERNAL_PREFIX)) // internal name wouldn't be uppercase
+        || table_name.starts_with(TURSO_INTERNAL_PREFIX) // internal name wouldn't be uppercase
+        || table_name.starts_with(TURSO_GRAPH_CATALOG_PREFIX))
 }
 
 // Sequence persistence design

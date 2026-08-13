@@ -104,10 +104,11 @@ impl SchemaCatalog {
         }
         let type_name = crate::dict_value_type_name(&column_type);
         self.connection
-            .execute(format!(
+            .prepare_internal(format!(
                 "INSERT INTO \"{dict}\"(name, value_type) VALUES ({}, '{type_name}')",
                 sql_string_literal(name)
             ))
+            .and_then(|mut statement| statement.run_ignore_rows())
             .ok()?;
         let id_rows = self
             .connection

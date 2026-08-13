@@ -160,9 +160,9 @@ It also adds graph IR, a traversal runtime, and a separate mutation path.
 | Read path | Refresh snapshot if needed → `prepare_frontend` | `prepare_cancellable` |
 | Compile (reads) | Cypher parse → bind IR → `lower_relational` → engine AST | `compiler.rs`, `binder.rs`, `lowering.rs` |
 | Mutation path | **Does not use** `FrontendCompiler`: autocommit `BEGIN IMMEDIATE` or write-txn savepoint plus many `prepare_internal` SQL statements in Rust | `mutation.rs` |
-| Variable-length paths | `GraphExpand` IR → `__turso_graph_expand` internal virtual table | `graph_expand.rs`, runtime CSR/snapshot |
+| Variable-length paths | `GraphExpand` IR → `__tdb_int_g_expand` internal virtual table | `graph_expand.rs`, runtime CSR/snapshot |
 | Dialect `parse` | **SQLite only**; Cypher text returns an error that points to `GraphConnection` | `dialect.rs` |
-| Schema store | Unmarked SQLite DDL for user tables; graph meta in `__turso_internal_graph_*` | catalog |
+| Schema store | Unmarked SQLite DDL for user tables; graph meta in `__tdb_int_g_*` | catalog |
 | Catalog surface | `turso_graphs` virtual table via dialect plus registration tables | dialect + catalog |
 | Functions | Dialect temporal names for Root; every `install` also calls `install_temporal_extension` for InternalHelper mutation SQL | dialect + `graph/temporal` |
 | Protocol / CLI | **None** | — |
@@ -203,7 +203,7 @@ Legend:
 | `register_catalog` virtual tables | Builtins | Builtins + `pg_*` | Builtins + `turso_graphs` | Graph expand installs per connection, not in dialect catalog |
 | Dialect function surface | Builtins | PG scalars | Temporal names + exec | Graph also installs a static extension on each connection |
 | Internal helper SQL (`prepare_internal`) | Engine uses it | Schema / COPY use it | Catalog / FTS use it | Correct pattern for all |
-| Virtual tables for non-SQL ops | Many | Catalog | `__turso_graph_expand` | Expand is the main graph-specific Core hook |
+| Virtual tables for non-SQL ops | Many | Catalog | `__tdb_int_g_expand` | Expand is the main graph-specific Core hook |
 | FTS / index methods | Core FTS | Via SQL | Graph wrappers → Core FTS | Good use (see `native_capabilities` tests) |
 | Covering index / sorter / recycle wins | Automatic | Automatic | Automatic when lowering shape is good | See `MAIN_MERGE_LEVERAGE.md` |
 | EXPLAIN | Full | Full | Full (session): one `compile_outcome` then SQL `EXPLAIN QUERY PLAN` over lowered AST | Empty Cypher `result_types` for EQP columns; not re-parsing Cypher as dialect |
@@ -225,7 +225,7 @@ These choices match Postgres on purpose. Keep them.
 5. **No direct VDBE emission** — lowering produces engine AST or SQL that Core prepares.
 6. **Crate separation from Postgres** — apps compose frontends only through Core registration; no `graph.cypher` adapter inside PG.
 7. **Core automatic benefits** — VDBE recycling, covering counts (after lowering fixes), and collation/sorter behavior apply when SQL shapes cooperate.
-8. **Internal virtual table for hard ops** — `__turso_graph_expand` is the right pattern: Core-backed operator without public `ProgramBuilder`.
+8. **Internal virtual table for hard ops** — `__tdb_int_g_expand` is the right pattern: Core-backed operator without public `ProgramBuilder`.
 
 ---
 
@@ -281,7 +281,7 @@ Core still has no formal compile context (schema generation, frontend options, p
 
 ### 6.4 Graph expand is strong, but not a first-class Core operator
 
-`__turso_graph_expand` is an **internal virtual table** with process-local snapshot state.
+`__tdb_int_g_expand` is an **internal virtual table** with process-local snapshot state.
 It reuses VDBE virtual-table machinery and yield-safe cursors. That is good.
 
 Gaps:
@@ -450,7 +450,7 @@ Gate rewrites on test failures, performance, or cancel/reprepare bugs.
 
 - Dialect is source of truth for **Root** temporal/`cypher_*` under `GraphDialect` — **shipped** (Task 4).
 - **Always** call `install_temporal_extension` on every `GraphConnection::install` (including DialectPinned) so InternalHelper mutation SQL can resolve the same names — **shipped** (final review fix; overrides earlier “zero installs on dialect open” claim).
-- Expand install: `__turso_graph_expand` catalog install is idempotent; session install for both modes (Task 5).
+- Expand install: `__tdb_int_g_expand` catalog install is idempotent; session install for both modes (Task 5).
 - Keep `turso_graphs` as the public listing.
 - Document private `__turso_internal_*` tables as engine-adjacent metadata (like `sqlite_sequence`).
 

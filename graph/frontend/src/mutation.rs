@@ -26,8 +26,8 @@ use crate::{
     BindError, GraphCatalogSnapshot, GraphCompilationCatalog, LowerError, ParameterTypes,
 };
 
-const SAVEPOINT: &str = "__turso_graph_mutation";
-pub(crate) const INTERNAL_PARAMETER_PREFIX: &str = "__turso_internal_graph_ref_";
+const SAVEPOINT: &str = "__tdb_int_g_mut";
+pub(crate) const INTERNAL_PARAMETER_PREFIX: &str = "__tdb_int_g_ref_";
 
 /// Count of mutations that took the closed CREATE fast path.
 ///

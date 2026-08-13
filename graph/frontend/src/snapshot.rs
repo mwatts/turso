@@ -16,7 +16,7 @@ use crate::{
     SemanticCatalogError, GRAPH_CATALOG_VERSION,
 };
 
-const VISIBLE_SNAPSHOT_SAVEPOINT: &str = "__turso_graph_visible_snapshot";
+const VISIBLE_SNAPSHOT_SAVEPOINT: &str = "__tdb_int_g_snap";
 
 #[derive(Clone, Debug, Eq, Hash, PartialEq)]
 pub enum SourceIdentity {

@@ -125,7 +125,7 @@ fn steady_create_filters_required_and_value_to_written_ids_with_limit_one() {
     );
     for sql in &required {
         assert!(
-            sql.contains("__turso_graph_mutation_written"),
+            sql.contains("__tdb_int_g_written"),
             "required check must filter through the written-identities temp table, got: {sql}"
         );
         assert!(
@@ -152,7 +152,7 @@ fn steady_create_filters_required_and_value_to_written_ids_with_limit_one() {
     );
     for sql in &value {
         assert!(
-            sql.contains("__turso_graph_mutation_written"),
+            sql.contains("__tdb_int_g_written"),
             "value check must filter through the written-identities temp table, got: {sql}"
         );
         assert!(

@@ -4,6 +4,7 @@ use thiserror::Error;
 use turso_graph_ir as ir;
 use turso_parser::ast;
 
+use crate::graph_expand::GRAPH_EXPAND_TABLE_NAME;
 use crate::property_physical::{resolve_property_physical, PropertyPhysical};
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -1294,7 +1295,7 @@ fn lower_graph_expand(
                  max(CASE WHEN gx.is_terminal = 1 THEN gx.relationship_identity END) AS __gx_rel \
                  FROM (SELECT {inner_select}gx.path_id, gx.path_position, gx.node_identity, \
                  gx.relationship_identity, gx.is_terminal FROM ({}) AS q \
-                 JOIN __turso_graph_expand({}, {}, q.{}, {}, {}, {}, '{}', {}, {}, {}, '{}', {}, {}, {}, {}, {}) AS gx{source_join} \
+                 JOIN {GRAPH_EXPAND_TABLE_NAME}({}, {}, q.{}, {}, {}, {}, '{}', {}, {}, {}, '{}', {}, {}, {}, {}, {}) AS gx{source_join} \
                  ORDER BY gx.path_id, gx.path_position) AS gx \
                  GROUP BY {group_by}) AS g \
                  JOIN {} AS n ON n.{} = g.__gx_node \
@@ -1336,7 +1337,7 @@ fn lower_graph_expand(
         sql: format!(
             "SELECT q.*, r.{} AS {}, {} AS {}, n.{} AS {}, {} AS {} \
              FROM ({}) AS q \
-             JOIN __turso_graph_expand({}, {}, q.{}, {}, {}, {}, '{}', {}, {}, {}, '{}', {}, {}, {}, {}, {}) AS gx{source_join} \
+             JOIN {GRAPH_EXPAND_TABLE_NAME}({}, {}, q.{}, {}, {}, {}, '{}', {}, {}, {}, '{}', {}, {}, {}, {}, {}) AS gx{source_join} \
              JOIN {} AS n ON gx.is_terminal = 1 AND gx.node_source_id = {} AND n.{} = gx.node_identity \
              LEFT JOIN {} AS r ON gx.relationship_source_id = {} AND r.{} = gx.relationship_identity",
             quote_identifier(&relationship.identity_column),
@@ -3872,7 +3873,7 @@ mod tests {
         }
 
         fn labels_table(&self) -> Option<String> {
-            Some("__turso_graph_node_labels_1".to_owned())
+            Some("__tdb_int_g_nl_1".to_owned())
         }
 
         fn label_name(&self, label: ir::LabelId) -> Option<String> {
@@ -3977,7 +3978,7 @@ mod tests {
         .unwrap();
         assert_eq!(
             lowered.sql,
-            "SELECT count(*) AS b2 FROM \"__turso_graph_node_labels_1\" AS lbl0 \
+            "SELECT count(*) AS b2 FROM \"__tdb_int_g_nl_1\" AS lbl0 \
              WHERE lbl0.source_id = 1 AND lbl0.label = 'Person'",
             "labeled star-count must count junction rows directly: {}",
             lowered.sql

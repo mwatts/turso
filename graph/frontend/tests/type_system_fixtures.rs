@@ -292,10 +292,12 @@ fn matches_two_level_nested_struct_field_read_executes() {
         )
         .expect("insert nested struct-valued row");
     connection
-        .execute(format!(
+        .prepare_internal(format!(
             "INSERT INTO \"{}\"(source_id, node_id, label) VALUES (1, 1, 'Zone')",
             turso_graph_frontend::labels_table_name(session.graph_id())
         ))
+        .expect("prepare seeded node label")
+        .run_ignore_rows()
         .expect("record seeded node label");
 
     let rows = session
@@ -325,10 +327,12 @@ fn nested_struct_field_read_lowers_and_executes() {
         .execute("INSERT INTO people VALUES (1, struct_pack('Ada', struct_pack('London', 90210)))")
         .expect("insert nested struct-valued row");
     connection
-        .execute(format!(
+        .prepare_internal(format!(
             "INSERT INTO \"{}\"(source_id, node_id, label) VALUES (1, 1, 'Person')",
             turso_graph_frontend::labels_table_name(session.graph_id())
         ))
+        .expect("prepare seeded node label")
+        .run_ignore_rows()
         .expect("record seeded node label");
 
     // Exactly at the two-level cap: `info` is the root property, `home` and

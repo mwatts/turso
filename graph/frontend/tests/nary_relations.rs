@@ -54,13 +54,23 @@ fn seed_node(
         .find(|source| source.name == label)
         .unwrap_or_else(|| panic!("no {label} node source registered"));
     connection
-        .execute(format!(
-            "INSERT INTO {table}(id) VALUES ({id}); \
-             INSERT INTO \"{}\"(source_id, node_id, label) VALUES ({}, {id}, '{label}');",
+        .execute(format!("INSERT INTO {table}(id) VALUES ({id})"))
+        .expect("seed node row");
+    // Junction tables are reserved: the insert must be internal, and a
+    // standalone internal statement does not commit, so wrap it.
+    connection
+        .execute("BEGIN IMMEDIATE")
+        .expect("begin label seed");
+    connection
+        .prepare_internal(format!(
+            "INSERT INTO \"{}\"(source_id, node_id, label) VALUES ({}, {id}, '{label}')",
             labels_table_name(graph.id),
             source.id.get(),
         ))
-        .expect("seed node");
+        .expect("prepare node label")
+        .run_ignore_rows()
+        .expect("seed node label");
+    connection.execute("COMMIT").expect("commit label seed");
 }
 
 #[test]

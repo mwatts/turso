@@ -12,8 +12,8 @@ use crate::{
     CatalogError, GraphCompilationCatalog, RegisteredGraph,
 };
 
-const ADMIN_SAVEPOINT: &str = "__turso_graph_fts_admin";
-const METADATA_TABLE: &str = "__turso_graph_fts_indexes";
+const ADMIN_SAVEPOINT: &str = "__tdb_int_g_ftsadm";
+const METADATA_TABLE: &str = "__tdb_int_g_fts";
 const METADATA_VERSION: i64 = 1;
 
 pub const MAX_GRAPH_FTS_INDEX_NAME_BYTES: usize = 128;
@@ -300,7 +300,7 @@ fn resolve_index(
         })
         .collect::<Result<Vec<_>, GraphFtsError>>()?;
     let physical_name = format!(
-        "__turso_graph_fts_{}_{:016x}",
+        "__tdb_int_g_fts_{}_{:016x}",
         graph.id.get(),
         stable_hash(&format!(
             "{}:{}:{}",

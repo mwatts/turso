@@ -16,7 +16,7 @@ use turso_graph_runtime::{
 
 use crate::{SnapshotStore, SourceIdentity, TraversalSnapshot};
 
-pub const GRAPH_EXPAND_TABLE_NAME: &str = "__turso_graph_expand";
+pub const GRAPH_EXPAND_TABLE_NAME: &str = "__tdb_int_g_expand";
 
 const OUTPUT_COLUMN_COUNT: usize = 11;
 const INPUT_COLUMN_COUNT: usize = 16;
@@ -38,7 +38,7 @@ pub fn register_graph_catalog(
     schema.register_internal_vtab(GraphExpandTable { snapshots })
 }
 
-/// Session-activate `__turso_graph_expand` on an open connection.
+/// Session-activate `__tdb_int_g_expand` on an open connection.
 ///
 /// Variable-length path execution holds a [`SnapshotStore`] that is session-
 /// (and optionally process-) local derived state, not durable catalog. That is

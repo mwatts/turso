@@ -19,6 +19,7 @@ const META_FIELD_VALUE_REF: u64 = 2;
 
 const SQLITE_INTERNAL_PREFIX: &str = "sqlite_";
 const TURSO_INTERNAL_PREFIX: &str = "__turso_internal_";
+const TURSO_GRAPH_CATALOG_PREFIX: &str = "__tdb_int_g_";
 const TURSO_SYNC_PREFIX: &str = "turso_sync_";
 const TURSO_CDC_TABLE_NAME: &str = "turso_cdc";
 const TURSO_CDC_VERSION_TABLE_NAME: &str = "turso_cdc_version";
@@ -26,6 +27,7 @@ const TURSO_CDC_VERSION_TABLE_NAME: &str = "turso_cdc_version";
 pub(crate) fn is_portable_logical_name(name: &str) -> bool {
     !name.starts_with(SQLITE_INTERNAL_PREFIX)
         && !name.starts_with(TURSO_INTERNAL_PREFIX)
+        && !name.starts_with(TURSO_GRAPH_CATALOG_PREFIX)
         && !name.starts_with(TURSO_SYNC_PREFIX)
         && name != TURSO_CDC_TABLE_NAME
         && name != TURSO_CDC_VERSION_TABLE_NAME

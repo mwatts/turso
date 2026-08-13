@@ -68,7 +68,7 @@ pub struct GraphCompiler {
     graph: ir::GraphId,
     catalog: SharedGraphCatalog,
     parameters: ParameterTypes,
-    /// Path-search budgets embedded into `__turso_graph_expand` SQL at lower.
+    /// Path-search budgets embedded into `__tdb_int_g_expand` SQL at lower.
     traversal_limits: Mutex<turso_graph_runtime::TraversalLimits>,
     last: Mutex<Option<CompileOutcome>>,
     /// Cache-miss compile count; unit tests assert prepare shares one pass.
