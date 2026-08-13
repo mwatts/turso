@@ -6,10 +6,10 @@ use turso_core::{Connection, LimboError, Numeric, Value};
 use turso_graph_ir::{GraphId, ValueType};
 
 use crate::{
+    CatalogError, GraphCompilationCatalog, RegisteredGraph,
     catalog::{quote_identifier, stable_hash},
     load_registered_graph,
-    transaction::{in_write_transaction, WriteTransactionError},
-    CatalogError, GraphCompilationCatalog, RegisteredGraph,
+    transaction::{WriteTransactionError, in_write_transaction},
 };
 
 const ADMIN_SAVEPOINT: &str = "__tdb_int_g_ftsadm";

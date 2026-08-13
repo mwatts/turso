@@ -11,9 +11,9 @@ use turso_graph_ir::{
 use turso_graph_runtime::{BuildLimits, Cancellation, EdgeInput, Graph, LimitKind, RuntimeError};
 
 use crate::{
+    CatalogError, GRAPH_CATALOG_VERSION, RegisteredGraph, SemanticCatalogError,
     catalog::{integer, source_id},
-    load_registered_graph, load_semantic_snapshot, CatalogError, RegisteredGraph,
-    SemanticCatalogError, GRAPH_CATALOG_VERSION,
+    load_registered_graph, load_semantic_snapshot,
 };
 
 const VISIBLE_SNAPSHOT_SAVEPOINT: &str = "__tdb_int_g_snap";
@@ -1037,13 +1037,13 @@ fn quote_identifier(identifier: &str) -> String {
 mod tests {
     use super::*;
     use crate::{
-        register_graph, GraphRegistration, NodeSourceRegistration, RegisteredGraph,
-        RelationshipSourceRegistration, RoleSourceRegistration,
+        GraphRegistration, NodeSourceRegistration, RegisteredGraph, RelationshipSourceRegistration,
+        RoleSourceRegistration, register_graph,
     };
     use turso_core::{Database, MemoryIO, SqliteDialect};
     use turso_graph_ir::{RoleCardinality, RoleId};
     use turso_graph_runtime::{
-        traverse, LimitKind, TraversalLimits, TraversalOrder, TraversalRequest, Uniqueness,
+        LimitKind, TraversalLimits, TraversalOrder, TraversalRequest, Uniqueness, traverse,
     };
 
     fn role(value: u32) -> RoleId {
@@ -1354,10 +1354,12 @@ mod tests {
             ),
             Err(SnapshotError::DuplicateSourceIdentity { kind: "node", .. })
         ));
-        assert!(SnapshotStore::default()
-            .get(registered.id)
-            .unwrap()
-            .is_none());
+        assert!(
+            SnapshotStore::default()
+                .get(registered.id)
+                .unwrap()
+                .is_none()
+        );
     }
 
     struct Cancelled;
@@ -1398,14 +1400,16 @@ mod tests {
         connection
             .execute("INSERT INTO relationships VALUES (10, 1, 999)")
             .unwrap();
-        assert!(store
-            .refresh(
-                &connection,
-                "social",
-                BuildLimits::default(),
-                &turso_graph_runtime::NeverCancelled,
-            )
-            .is_err());
+        assert!(
+            store
+                .refresh(
+                    &connection,
+                    "social",
+                    BuildLimits::default(),
+                    &turso_graph_runtime::NeverCancelled,
+                )
+                .is_err()
+        );
         assert!(Arc::ptr_eq(
             &original,
             &store.get(registered.id).unwrap().unwrap()
@@ -1504,10 +1508,12 @@ mod tests {
             snapshot.source_generation, current_generation,
             "staleness has to come from the signal actually moving"
         );
-        assert!(store
-            .get_for_connection(&connection, registered.id)
-            .unwrap()
-            .is_none());
+        assert!(
+            store
+                .get_for_connection(&connection, registered.id)
+                .unwrap()
+                .is_none()
+        );
     }
 
     #[test]
@@ -1584,14 +1590,16 @@ mod tests {
         let original = store.get(registered.id).unwrap().unwrap();
 
         connection.execute("DROP TABLE relationships").unwrap();
-        assert!(store
-            .refresh(
-                &connection,
-                "social",
-                BuildLimits::default(),
-                &turso_graph_runtime::NeverCancelled,
-            )
-            .is_err());
+        assert!(
+            store
+                .refresh(
+                    &connection,
+                    "social",
+                    BuildLimits::default(),
+                    &turso_graph_runtime::NeverCancelled,
+                )
+                .is_err()
+        );
         assert!(Arc::ptr_eq(
             &original,
             &store.get(registered.id).unwrap().unwrap()

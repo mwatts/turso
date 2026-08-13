@@ -8,7 +8,7 @@
 
 use parking_lot::RwLock;
 use std::sync::Arc;
-use turso_core::{schema::BTreeTable, Dialect, Result};
+use turso_core::{Dialect, Result, schema::BTreeTable};
 
 /// Shared with [`crate::graph_frontend_id`] so the dialect name and the
 /// frontend-compiler id stay one identity, like `"postgres"` does for pg.
@@ -267,7 +267,7 @@ impl Dialect for GraphDialect {
 mod tests {
     use super::*;
     use std::sync::Arc;
-    use turso_core::{Database, DatabaseOpts, MemoryIO, OpenFlags, IO};
+    use turso_core::{Database, DatabaseOpts, IO, MemoryIO, OpenFlags};
 
     fn open_graph_db(io: &Arc<dyn turso_core::IO>, path: &str) -> Arc<Database> {
         Database::open_file_with_flags(

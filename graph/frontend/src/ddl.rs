@@ -10,15 +10,15 @@ use std::sync::Arc;
 
 use thiserror::Error;
 use turso_core::{Connection, LimboError};
-use turso_graph_cypher::{parse_ddl, ColumnDecl, GraphDdl, ParseError, RelationDecl, Spanned};
+use turso_graph_cypher::{ColumnDecl, GraphDdl, ParseError, RelationDecl, Spanned, parse_ddl};
 use turso_graph_ir::RoleCardinality;
 
 use crate::catalog::{
-    labels_table_name, prop_dict_table_name, register_graph, relationship_types_table_name,
-    sql_string, CatalogError, GraphRegistration, NodeSourceRegistration, RegisteredGraph,
-    RelationshipSourceRegistration, RoleSourceRegistration,
+    CatalogError, GraphRegistration, NodeSourceRegistration, RegisteredGraph,
+    RelationshipSourceRegistration, RoleSourceRegistration, labels_table_name,
+    prop_dict_table_name, register_graph, relationship_types_table_name, sql_string,
 };
-use crate::transaction::{in_write_transaction, WriteTransactionError};
+use crate::transaction::{WriteTransactionError, in_write_transaction};
 
 /// Identity column used when a declaration does not say `KEY <column>`.
 const DEFAULT_IDENTITY_COLUMN: &str = "id";
@@ -46,7 +46,9 @@ pub enum DdlError {
         role: String,
         column: String,
     },
-    #[error("graph DDL inside an open transaction requires a write transaction (BEGIN IMMEDIATE or a prior write)")]
+    #[error(
+        "graph DDL inside an open transaction requires a write transaction (BEGIN IMMEDIATE or a prior write)"
+    )]
     RequiresWriteTransaction,
     #[error("graph DDL failed and rollback also failed: {cause}; rollback: {rollback}")]
     RollbackFailed {

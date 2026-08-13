@@ -2,8 +2,8 @@ use std::{
     cell::Cell,
     collections::HashMap,
     sync::{
-        atomic::{AtomicUsize, Ordering},
         Arc,
+        atomic::{AtomicUsize, Ordering},
     },
 };
 
@@ -12,18 +12,18 @@ use turso_core::{Connection, LimboError, Numeric, Value};
 use turso_graph_ir as ir;
 
 use crate::{
+    BindError, GraphCatalogSnapshot, GraphCompilationCatalog, LowerError, ParameterTypes,
     bind_mutation,
     binder::{BoundMutation, CatalogEntity, StageItem, StageProjection},
     catalog::{self, CatalogError},
     lowering::{
+        BindingReference, LoweredMutationInput, MutationEntityKind, MutationRowColumn,
         lower_mutation_expression, lower_mutation_input, mutation_rows_with_sources_sql,
-        quoted_identifier, unit_mutation_input, BindingReference, LoweredMutationInput,
-        MutationEntityKind, MutationRowColumn,
+        quoted_identifier, unit_mutation_input,
     },
     semantic_constraints::{ValidationScope, WrittenIdentities},
     statement_cache::StatementCache,
-    transaction::{in_write_transaction, WriteTransactionError},
-    BindError, GraphCatalogSnapshot, GraphCompilationCatalog, LowerError, ParameterTypes,
+    transaction::{WriteTransactionError, in_write_transaction},
 };
 
 const SAVEPOINT: &str = "__tdb_int_g_mut";
@@ -1804,8 +1804,9 @@ fn execute_operation(
                         });
                     };
                     let key = key.to_string();
-                    let resolved = GraphCatalogSnapshot::property(catalog, graph, entity_kind, &key)
-                        .ok_or_else(|| MutationError::UnknownDynamicKey { key: key.clone() })?;
+                    let resolved =
+                        GraphCatalogSnapshot::property(catalog, graph, entity_kind, &key)
+                            .ok_or_else(|| MutationError::UnknownDynamicKey { key: key.clone() })?;
                     pending.push((resolved.id, value.clone()));
                 }
                 if replace.clear {

@@ -7,10 +7,10 @@ use turso_graph_ir::GraphId;
 use turso_graph_runtime::{BuildLimits, Cancellation, NeverCancelled, TraversalLimits};
 
 use crate::{
-    compiler::SharedGraphCatalog, graph_frontend_id, install_graph_catalog,
-    mutation::execute_cypher_mutation, statement_cache::StatementCache, GraphCompilationCatalog,
-    GraphCompiler, GraphDiagnostics, MutationError, MutationSummary, ParameterTypes, Parameters,
-    RegisteredGraph, SessionSnapshotStore, SnapshotError, SnapshotStore, GRAPH_DIALECT_NAME,
+    GRAPH_DIALECT_NAME, GraphCompilationCatalog, GraphCompiler, GraphDiagnostics, MutationError,
+    MutationSummary, ParameterTypes, Parameters, RegisteredGraph, SessionSnapshotStore,
+    SnapshotError, SnapshotStore, compiler::SharedGraphCatalog, graph_frontend_id,
+    install_graph_catalog, mutation::execute_cypher_mutation, statement_cache::StatementCache,
 };
 
 #[derive(Debug, Error)]
@@ -562,9 +562,10 @@ fn bind_query_parameters(
 mod tests {
     use super::*;
     use crate::{
-        register_graph, CatalogEntity, GraphCatalogSnapshot, GraphRegistration,
-        NodeSourceRegistration, NodeTableLayout, RelationalCatalogSnapshot, RelationshipRoleLayout,
+        CatalogEntity, GraphCatalogSnapshot, GraphRegistration, NodeSourceRegistration,
+        NodeTableLayout, RelationalCatalogSnapshot, RelationshipRoleLayout,
         RelationshipSourceRegistration, RelationshipTableLayout, ResolvedProperty, SnapshotStatus,
+        register_graph,
     };
     use turso_core::{Database, MemoryIO, SqliteDialect};
     use turso_graph_ir as ir;
@@ -978,9 +979,11 @@ mod tests {
             .reader_session
             .query("RETURN split(1, ',')", &Parameters::new())
             .expect_err("non-text split input must fail");
-        assert!(error
-            .to_string()
-            .contains("split() over non-text arguments"));
+        assert!(
+            error
+                .to_string()
+                .contains("split() over non-text arguments")
+        );
     }
 
     #[test]

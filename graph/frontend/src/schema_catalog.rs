@@ -1,8 +1,8 @@
 use std::{collections::BTreeMap, sync::Arc};
 
 use turso_core::{
-    schema::{Column, Schema, Table},
     Connection,
+    schema::{Column, Schema, Table},
 };
 use turso_graph_ir as ir;
 
@@ -1348,11 +1348,11 @@ mod tests {
         RoleSourceRegistration,
     };
     use crate::semantic::{
-        SemanticFragment, SemanticFragmentMember, SemanticFragmentRegistration, SemanticNodeType,
-        SemanticProperty, SemanticSchemaRegistration, SEMANTIC_FRAGMENTS_TABLE,
         SEMANTIC_FRAGMENT_MEMBERS_TABLE, SEMANTIC_FRAGMENT_OWNERSHIP_TABLE,
-        SEMANTIC_FRAGMENT_PROPERTIES_TABLE, SEMANTIC_OWNERSHIP_TABLE, SEMANTIC_PROPERTIES_TABLE,
-        SEMANTIC_ROLE_TABLE, SEMANTIC_TYPES_TABLE,
+        SEMANTIC_FRAGMENT_PROPERTIES_TABLE, SEMANTIC_FRAGMENTS_TABLE, SEMANTIC_OWNERSHIP_TABLE,
+        SEMANTIC_PROPERTIES_TABLE, SEMANTIC_ROLE_TABLE, SEMANTIC_TYPES_TABLE, SemanticFragment,
+        SemanticFragmentMember, SemanticFragmentRegistration, SemanticNodeType, SemanticProperty,
+        SemanticSchemaRegistration,
     };
     use std::sync::Arc;
     use turso_core::{Database, DatabaseOpts, MemoryIO, OpenFlags, SqliteDialect};

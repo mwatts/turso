@@ -512,7 +512,9 @@ pub enum BindError {
         span_start: usize,
         span_end: usize,
     },
-    #[error("`{name}` is both a role of `{relationship_type}` and a relationship type; write the role form `[x:{relationship_type}]({name}: target)` or qualify the type")]
+    #[error(
+        "`{name}` is both a role of `{relationship_type}` and a relationship type; write the role form `[x:{relationship_type}]({name}: target)` or qualify the type"
+    )]
     AmbiguousRoleName {
         name: String,
         relationship_type: String,
@@ -2170,7 +2172,7 @@ impl<'a> Binder<'a> {
                         return Err(at_unsupported(
                             node.span,
                             "untyped node creation with multiple physical sources",
-                        ))
+                        ));
                     }
                 },
                 _ => {
@@ -2186,7 +2188,7 @@ impl<'a> Binder<'a> {
                             return Err(at_unsupported(
                                 node.span,
                                 "node creation with labels from multiple physical sources",
-                            ))
+                            ));
                         }
                     }
                 }
@@ -6365,7 +6367,7 @@ impl<'a> Binder<'a> {
                 return Err(BindError::InvalidPropertyTarget {
                     span_start: name.span.start,
                     span_end: name.span.end,
-                })
+                });
             }
         };
         fields
@@ -8541,10 +8543,12 @@ mod tests {
         assert_eq!(staged.returns.len(), 1);
         let staged_match = bind_mutation_text("CREATE (:Person {id: 1}) MATCH (n) DELETE n")
             .expect("uncorrelated MATCH after a mutation should bind as a stage");
-        assert!(staged_match.stages.iter().any(|stage| stage
-            .items
-            .iter()
-            .any(|item| matches!(item, StageItem::Match { .. }))));
+        assert!(staged_match.stages.iter().any(|stage| {
+            stage
+                .items
+                .iter()
+                .any(|item| matches!(item, StageItem::Match { .. }))
+        }));
         // Correlated re-matching of a mutation binding executes per row.
         let correlated = bind_mutation_text("CREATE (a:Person {id: 1}) MATCH (a) DELETE a")
             .expect("correlated MATCH after a mutation should bind");

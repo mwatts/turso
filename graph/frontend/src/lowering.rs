@@ -5,7 +5,7 @@ use turso_graph_ir as ir;
 use turso_parser::ast;
 
 use crate::graph_expand::GRAPH_EXPAND_TABLE_NAME;
-use crate::property_physical::{resolve_property_physical, PropertyPhysical};
+use crate::property_physical::{PropertyPhysical, resolve_property_physical};
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct NodeTableLayout {

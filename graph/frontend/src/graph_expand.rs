@@ -2,8 +2,8 @@ use std::sync::Arc;
 
 use parking_lot::RwLock;
 use turso_core::{
-    schema::Schema, Connection, InternalVirtualTable, InternalVirtualTableCursor,
-    InternalVirtualTableStep, LimboError, Numeric, Value,
+    Connection, InternalVirtualTable, InternalVirtualTableCursor, InternalVirtualTableStep,
+    LimboError, Numeric, Value, schema::Schema,
 };
 use turso_ext::{
     ConstraintInfo, ConstraintOp, ConstraintUsage, IndexInfo, OrderByInfo, ResultCode,
@@ -583,11 +583,11 @@ fn runtime_error(error: turso_graph_runtime::RuntimeError) -> LimboError {
 mod tests {
     use super::*;
     use crate::{
-        graph_frontend_id, load_registered_graph, register_graph, CatalogEntity,
-        GraphCatalogSnapshot, GraphCompiler, GraphRegistration, NodeSourceRegistration,
-        NodeTableLayout, ParameterTypes, PublishOutcome, RelationalCatalogSnapshot,
-        RelationshipRoleLayout, RelationshipSourceRegistration, RelationshipTableLayout,
-        ResolvedProperty,
+        CatalogEntity, GraphCatalogSnapshot, GraphCompiler, GraphRegistration,
+        NodeSourceRegistration, NodeTableLayout, ParameterTypes, PublishOutcome,
+        RelationalCatalogSnapshot, RelationshipRoleLayout, RelationshipSourceRegistration,
+        RelationshipTableLayout, ResolvedProperty, graph_frontend_id, load_registered_graph,
+        register_graph,
     };
     use turso_core::{Database, MemoryIO, SqliteDialect};
     use turso_graph_ir::{LabelId, Nullability, PropertyId, RoleCardinality, ValueType};
@@ -853,10 +853,11 @@ mod tests {
         // Not the old fixed constants.
         assert!(short.estimated_rows != 100 || short.estimated_cost != 100.0);
         assert_eq!(long.constraint_usages.len(), INPUT_COLUMN_COUNT);
-        assert!(long
-            .constraint_usages
-            .iter()
-            .all(|usage: &ConstraintUsage| usage.argv_index.is_some()));
+        assert!(
+            long.constraint_usages
+                .iter()
+                .all(|usage: &ConstraintUsage| usage.argv_index.is_some())
+        );
     }
 
     #[test]
@@ -908,19 +909,23 @@ mod tests {
         let (connection, snapshots, graph_id) = setup();
         let empty_store = Arc::new(SnapshotStore::default());
         install_graph_catalog(&connection, empty_store).unwrap();
-        assert!(connection
-            .prepare(format!("SELECT * FROM {}", invocation(graph_id)))
-            .unwrap()
-            .run_collect_rows()
-            .is_err());
+        assert!(
+            connection
+                .prepare(format!("SELECT * FROM {}", invocation(graph_id)))
+                .unwrap()
+                .run_collect_rows()
+                .is_err()
+        );
 
         install_graph_catalog(&connection, snapshots).unwrap();
-        assert!(connection
-            .prepare(format!(
-                "SELECT * FROM {GRAPH_EXPAND_TABLE_NAME}({}, 1, 10, 1)",
-                graph_id.get()
-            ))
-            .is_err());
+        assert!(
+            connection
+                .prepare(format!(
+                    "SELECT * FROM {GRAPH_EXPAND_TABLE_NAME}({}, 1, 10, 1)",
+                    graph_id.get()
+                ))
+                .is_err()
+        );
     }
 
     #[test]

@@ -8,8 +8,8 @@ use turso_graph_ir as ir;
 use turso_parser::ast;
 
 use crate::{
-    bind, lower_relational_with_options, ExpandLowerOptions, GraphCatalogSnapshot, ParameterTypes,
-    RelationalCatalogSnapshot,
+    ExpandLowerOptions, GraphCatalogSnapshot, ParameterTypes, RelationalCatalogSnapshot, bind,
+    lower_relational_with_options,
 };
 
 const GRAPH_FRONTEND_NAME: &str = "graph-cypher";

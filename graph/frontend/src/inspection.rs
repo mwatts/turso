@@ -4,8 +4,9 @@ use turso_core::Connection;
 use turso_graph_ir::GraphId;
 
 use crate::{
+    Error, SemanticSnapshot, SemanticTypeInfo,
     catalog::{quote_identifier, scalar_integer},
-    load_registered_graph, load_semantic_snapshot, Error, SemanticSnapshot, SemanticTypeInfo,
+    load_registered_graph, load_semantic_snapshot,
 };
 
 #[derive(Clone, Debug, Eq, PartialEq)]
