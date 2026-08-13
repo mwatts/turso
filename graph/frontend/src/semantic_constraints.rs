@@ -12,8 +12,8 @@ use turso_graph_ir as ir;
 
 use crate::{
     catalog::{
-        integer, labels_table_name, query_rows, relationship_types_table_name, sql_string, text,
-        RegisteredGraph,
+        RegisteredGraph, integer, labels_table_name, query_rows, relationship_types_table_name,
+        sql_string, text,
     },
     lowering::quoted_identifier,
     semantic::{SemanticCatalogError, SemanticSnapshot, SemanticTypeInfo},
@@ -1126,6 +1126,26 @@ impl ConstraintRows {
     pub(crate) fn is_empty(&self) -> bool {
         self.property.is_empty() && self.keys.is_empty() && self.cardinality.is_empty()
     }
+}
+
+pub(crate) fn clear_constraint_rows(
+    connection: &Arc<Connection>,
+    graph_id: u64,
+) -> Result<(), SemanticCatalogError> {
+    for table in [
+        SEMANTIC_PROPERTY_CONSTRAINTS_TABLE,
+        SEMANTIC_KEY_CONSTRAINTS_TABLE,
+        SEMANTIC_CARDINALITY_CONSTRAINTS_TABLE,
+    ] {
+        if connection.current_schema().get_table(table).is_none() {
+            continue;
+        }
+        crate::catalog::execute_internal(
+            connection,
+            format!("DELETE FROM {table} WHERE graph_id = {graph_id}"),
+        )?;
+    }
+    Ok(())
 }
 
 pub(crate) fn rows_for_registration(

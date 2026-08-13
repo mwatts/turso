@@ -152,6 +152,25 @@ declare any number of named roles directly — see "Roles" below. Either way,
 identities are table-local coordinates: equal numeric identities in two
 source tables remain distinct graph entities.
 
+### Evolving a registered graph
+
+`register_graph` creates. A second call with the same name returns
+`GraphAlreadyExists`. To add sources later, call
+`extend_graph_registration` with the *complete* desired registration,
+including sources that already exist. Existing `SourceTableId`s stay.
+A shape change is `SourceConflict`. Omitting a stored source is
+`SourceRemoved`.
+
+`register_semantic_schema_with_fragments` is exact-replay. A changed
+overlay returns `ConflictingSchema`. To rebuild types, fragments, and
+constraints without dropping graph sources or user rows, call
+`replace_semantic_overlay`. An exact replay returns `Unchanged`.
+
+Hosts must not `INSERT`/`DELETE` `__tdb_int_g_*` tables or call
+`prepare_internal` on catalog objects. The functions above own those
+writes. See
+[`docs/superpowers/specs/2026-08-12-graph-catalog-host-api-design.md`](superpowers/specs/2026-08-12-graph-catalog-host-api-design.md).
+
 ## Roles
 
 Every relationship source declares one or more named **roles**. Each role has

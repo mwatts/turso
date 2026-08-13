@@ -15,16 +15,16 @@ use turso_core::{Connection, LimboError};
 use turso_graph_ir as ir;
 
 use crate::catalog::{
-    execute_internal, integer, load_registered_graph, query_rows, scalar_integer, sql_string, text,
-    CatalogError, RegisteredGraph, GENERATIONS_TABLE, SCHEMA_GENERATION_COLUMN,
+    CatalogError, GENERATIONS_TABLE, RegisteredGraph, SCHEMA_GENERATION_COLUMN, execute_internal,
+    integer, load_registered_graph, query_rows, scalar_integer, sql_string, text,
 };
 use crate::semantic_constraints::{
-    create_constraint_catalog, insert_additive_rows, load_constraint_snapshot,
-    rows_for_registration, SemanticConstraintRegistration, SemanticConstraintSnapshot,
-    ValidationScope,
+    SemanticConstraintRegistration, SemanticConstraintSnapshot, ValidationScope,
+    create_constraint_catalog, insert_additive_rows, load_constraint_rows,
+    load_constraint_snapshot, rows_for_registration,
 };
 use crate::statement_cache::StatementCache;
-use crate::transaction::{in_write_transaction, WriteTransactionError};
+use crate::transaction::{WriteTransactionError, in_write_transaction};
 
 pub(crate) const SEMANTIC_TYPES_TABLE: &str = "__tdb_int_g_styp";
 pub(crate) const SEMANTIC_PROPERTIES_TABLE: &str = "__tdb_int_g_sprop";
@@ -646,9 +646,7 @@ pub enum SemanticCatalogError {
     #[error("semantic catalog database operation failed: {0}")]
     Database(#[from] turso_core::LimboError),
     /// Both registration and its required rollback failed.
-    #[error(
-        "semantic registration failed and rollback also failed: {cause}; rollback: {rollback}"
-    )]
+    #[error("semantic registration failed and rollback also failed: {cause}; rollback: {rollback}")]
     RollbackFailed {
         /// Original registration error.
         cause: Box<SemanticCatalogError>,
@@ -872,6 +870,143 @@ pub fn register_semantic_schema_with_fragments(
     run_in_registration_transaction(connection, |connection| {
         register_semantic_in_transaction(connection, &graph, registration, fragments)
     })
+}
+
+/// Outcome of [`replace_semantic_overlay`].
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum SemanticReplaceOutcome {
+    /// Stored overlay already matched the request. Nothing was written.
+    Unchanged,
+    /// Overlay rows were replaced and `schema_generation` moved.
+    Replaced {
+        /// Generation before the replace.
+        previous_generation: u64,
+        /// Generation after the replace.
+        generation: u64,
+    },
+}
+
+/// Replace the semantic overlay for an existing graph.
+///
+/// Graph sources and user tables are not touched. An exact replay of the
+/// stored overlay returns [`SemanticReplaceOutcome::Unchanged`]. A constraint
+/// that fails against existing rows rolls the savepoint back.
+pub fn replace_semantic_overlay(
+    connection: &Arc<Connection>,
+    graph_name: &str,
+    schema: &SemanticSchemaRegistration,
+    fragments: &SemanticFragmentRegistration,
+    constraints: &SemanticConstraintRegistration,
+) -> Result<SemanticReplaceOutcome, SemanticCatalogError> {
+    validate_registration_shape_with_fragments(schema, fragments)?;
+    let graph = match load_registered_graph(connection, graph_name) {
+        Ok(graph) => graph,
+        Err(CatalogError::GraphNotFound(_)) | Err(CatalogError::IncompatibleGraphLayout { .. }) => {
+            return Err(SemanticCatalogError::GraphNotFound(graph_name.to_owned()));
+        }
+        Err(error) => return Err(error.into()),
+    };
+    validate_against_graph(connection, &graph, schema, fragments)?;
+    let expected = catalog_rows_for_registration(&graph, schema, fragments);
+    let existing = if semantic_catalog_present(connection)? {
+        load_catalog_rows(connection, graph.id.get())?
+    } else {
+        CatalogRows::default()
+    };
+    let schema_same = existing.clone().canonicalized() == expected.clone().canonicalized();
+    if schema_same {
+        if let Some(snapshot) = load_semantic_snapshot(connection, &graph)? {
+            let requested = rows_for_registration(constraints, &snapshot)?;
+            let stored = load_constraint_rows(connection, graph.id.get())?;
+            if stored == requested {
+                return Ok(SemanticReplaceOutcome::Unchanged);
+            }
+        } else if constraints == &SemanticConstraintRegistration::default() {
+            return Ok(SemanticReplaceOutcome::Unchanged);
+        }
+    } else if existing.types.is_empty()
+        && expected.types.is_empty()
+        && constraints == &SemanticConstraintRegistration::default()
+    {
+        return Ok(SemanticReplaceOutcome::Unchanged);
+    }
+
+    let previous_generation = graph.schema_generation.unwrap_or(graph.generation);
+    run_in_registration_transaction(connection, |connection| {
+        clear_semantic_overlay_rows(connection, graph.id.get())?;
+        crate::semantic_constraints::clear_constraint_rows(connection, graph.id.get())?;
+        create_semantic_catalog(connection, !fragments.fragments.is_empty())?;
+        insert_catalog_rows(connection, graph.id.get(), &expected)?;
+        seed_prop_dict_from_semantic_properties(connection, &graph, &expected.properties)?;
+        let snapshot = load_semantic_snapshot(connection, &graph)?.ok_or(
+            SemanticCatalogError::InvalidCatalogValue("semantic schema disappeared"),
+        )?;
+        let requested = rows_for_registration(constraints, &snapshot)?;
+        if !requested.is_empty() {
+            create_constraint_catalog(connection)?;
+            insert_additive_rows(connection, graph.id.get(), &requested)?;
+            let updated = load_semantic_snapshot(connection, &graph)?.ok_or(
+                SemanticCatalogError::InvalidCatalogValue("semantic schema disappeared"),
+            )?;
+            updated.constraints().validate_state(
+                connection,
+                &StatementCache::default(),
+                &ValidationScope::All,
+                None,
+            )?;
+        }
+        bump_semantic_generation(connection, graph.id.get())?;
+        Ok(())
+    })?;
+    let after = load_registered_graph(connection, graph_name)?;
+    Ok(SemanticReplaceOutcome::Replaced {
+        previous_generation,
+        generation: after.schema_generation.unwrap_or(after.generation),
+    })
+}
+
+fn semantic_catalog_present(connection: &Arc<Connection>) -> Result<bool, SemanticCatalogError> {
+    Ok(!query_rows(
+        connection,
+        &format!(
+            "SELECT name FROM sqlite_schema WHERE type = 'table' AND name = {}",
+            sql_string(SEMANTIC_TYPES_TABLE)
+        ),
+    )?
+    .is_empty())
+}
+
+fn clear_semantic_overlay_rows(
+    connection: &Arc<Connection>,
+    graph_id: u64,
+) -> Result<(), SemanticCatalogError> {
+    for table in [
+        SEMANTIC_FRAGMENT_OWNERSHIP_TABLE,
+        SEMANTIC_FRAGMENT_PROPERTIES_TABLE,
+        SEMANTIC_FRAGMENT_MEMBERS_TABLE,
+        SEMANTIC_FRAGMENTS_TABLE,
+        SEMANTIC_ROLE_TABLE,
+        SEMANTIC_OWNERSHIP_TABLE,
+        SEMANTIC_PROPERTIES_TABLE,
+        SEMANTIC_TYPES_TABLE,
+    ] {
+        if query_rows(
+            connection,
+            &format!(
+                "SELECT name FROM sqlite_schema WHERE type = 'table' AND name = {}",
+                sql_string(table)
+            ),
+        )?
+        .is_empty()
+        {
+            continue;
+        }
+        execute_internal(
+            connection,
+            format!("DELETE FROM {table} WHERE graph_id = {graph_id}"),
+        )?;
+    }
+    Ok(())
 }
 
 /// Add semantic constraints to an already-registered semantic schema.
@@ -1222,7 +1357,7 @@ fn check_owned_columns(
 /// cardinality, target_kind, target_id)`. A role with an empty target list
 /// gets no rows; it is recovered from the physical registration's role list
 /// when loading.
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Default, Eq, PartialEq)]
 struct CatalogRows {
     types: Vec<(String, u64, String, u64)>,
     properties: Vec<(u64, String)>,
@@ -3076,8 +3211,8 @@ mod tests {
         schema: Schema,
     ) -> Result<(), Box<dyn std::error::Error>> {
         use crate::catalog::{
-            register_graph, GraphRegistration, NodeSourceRegistration,
-            RelationshipSourceRegistration, RoleSourceRegistration,
+            GraphRegistration, NodeSourceRegistration, RelationshipSourceRegistration,
+            RoleSourceRegistration, register_graph,
         };
 
         connection.execute(schema.create_tables_sql)?;
@@ -3284,8 +3419,8 @@ mod tests {
         // is named `folio`, not `start`/`end`. `check_owned_columns` must
         // derive its structural set from every single-valued role.
         use crate::catalog::{
-            register_graph, GraphRegistration, NodeSourceRegistration,
-            RelationshipSourceRegistration, RoleSourceRegistration,
+            GraphRegistration, NodeSourceRegistration, RelationshipSourceRegistration,
+            RoleSourceRegistration, register_graph,
         };
 
         let connection = connection();

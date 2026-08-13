@@ -1,19 +1,19 @@
 use std::{
-    collections::{hash_map::DefaultHasher, HashMap, HashSet},
+    collections::{HashMap, HashSet, hash_map::DefaultHasher},
     hash::{Hash, Hasher},
     sync::Arc,
 };
 
 use thiserror::Error;
 use turso_core::{
-    schema::{TURSO_GRAPH_CATALOG_PREFIX, TURSO_GRAPH_GENERATIONS_TABLE_NAME},
     Connection, Numeric, Value,
+    schema::{TURSO_GRAPH_CATALOG_PREFIX, TURSO_GRAPH_GENERATIONS_TABLE_NAME},
 };
 use turso_graph_ir::{self as ir, GraphId, RoleCardinality, SourceTableId};
 
 use crate::{
     statement_cache::StatementCache,
-    transaction::{in_write_transaction, WriteTransactionError},
+    transaction::{WriteTransactionError, in_write_transaction},
 };
 
 const RESERVED_PREFIX: &str = "__turso_";
@@ -233,7 +233,9 @@ pub enum CatalogError {
     EmptyName { kind: &'static str },
     #[error("graph registration requires at least one node source")]
     NoNodeSources,
-    #[error("graph registration inside an open transaction requires a write transaction (BEGIN IMMEDIATE or a prior write)")]
+    #[error(
+        "graph registration inside an open transaction requires a write transaction (BEGIN IMMEDIATE or a prior write)"
+    )]
     RequiresWriteTransaction,
     #[error("{kind} name `{name}` is duplicated")]
     DuplicateName { kind: &'static str, name: String },
@@ -241,26 +243,44 @@ pub enum CatalogError {
     GraphAlreadyExists(String),
     #[error("graph `{0}` is not registered")]
     GraphNotFound(String),
+    #[error(
+        "graph `{graph}` source `{source_name}` is registered with a different shape: {reason}"
+    )]
+    SourceConflict {
+        graph: String,
+        source_name: String,
+        reason: String,
+    },
+    #[error("graph `{graph}` refuses to drop registered source `{source_name}`")]
+    SourceRemoved { graph: String, source_name: String },
     #[error("source table `{0}` does not exist")]
     SourceTableMissing(String),
     #[error("source column `{column}` does not exist on table `{table}`")]
     SourceColumnMissing { table: String, column: String },
-    #[error("identity column `{column}` on table `{table}` is not a primary key or single-column unique index")]
+    #[error(
+        "identity column `{column}` on table `{table}` is not a primary key or single-column unique index"
+    )]
     IdentityNotUnique { table: String, column: String },
     #[error("relationship source `{relationship}` references unknown node source `{node_source}`")]
     UnknownEndpoint {
         relationship: String,
         node_source: String,
     },
-    #[error("polymorphic role registration references unknown role `{role}` on relationship source `{relationship}`")]
+    #[error(
+        "polymorphic role registration references unknown role `{role}` on relationship source `{relationship}`"
+    )]
     UnknownPolymorphicRole { relationship: String, role: String },
     #[error("catalog row contains an invalid {kind} identity: {value}")]
     InvalidIdentity { kind: &'static str, value: i64 },
     #[error("catalog row has an invalid value in `{0}`")]
     InvalidCatalogValue(&'static str),
-    #[error("graph catalog predates native relationship roles ({detail}); this build reads only role-shaped catalogs and there is no migration, so the graph must be created fresh")]
+    #[error(
+        "graph catalog predates native relationship roles ({detail}); this build reads only role-shaped catalogs and there is no migration, so the graph must be created fresh"
+    )]
     IncompatibleGraphLayout { detail: String },
-    #[error("source table `{table}` has a struct/union/custom-typed column `{column}` but this connection does not have --experimental-custom-types enabled")]
+    #[error(
+        "source table `{table}` has a struct/union/custom-typed column `{column}` but this connection does not have --experimental-custom-types enabled"
+    )]
     CustomTypesDisabled { table: String, column: String },
     #[error("catalog operation failed: {0}")]
     Database(#[from] turso_core::LimboError),
@@ -579,6 +599,22 @@ pub fn graph_generation(connection: &Arc<Connection>, name: &str) -> Result<u64,
     Ok(load_registered_graph(connection, name)?.generation)
 }
 
+pub(crate) fn bump_catalog_generation(
+    connection: &Arc<Connection>,
+    graph_id: u64,
+) -> Result<(), CatalogError> {
+    execute_internal(
+        connection,
+        format!(
+            "UPDATE {GENERATIONS_TABLE} \
+             SET generation = generation + 1, \
+                 {SCHEMA_GENERATION_COLUMN} = {SCHEMA_GENERATION_COLUMN} + 1 \
+             WHERE graph_id = {graph_id}"
+        ),
+    )?;
+    Ok(())
+}
+
 /// Reads just the catalog's schema generation for one graph.
 ///
 /// This is the cheap staleness probe a session runs before every statement: a
@@ -712,12 +748,15 @@ fn register_graph_in_transaction(
             "node source id",
         )?;
         let id = source_id(id)?;
-        execute_internal(connection, format!(
-            "INSERT INTO {NODE_SOURCES_TABLE}(source_id, table_name, identity_column) VALUES ({}, {}, {})",
-            id.get(),
-            sql_string(&node.table),
-            sql_string(&node.identity_column)
-        ))?;
+        execute_internal(
+            connection,
+            format!(
+                "INSERT INTO {NODE_SOURCES_TABLE}(source_id, table_name, identity_column) VALUES ({}, {}, {})",
+                id.get(),
+                sql_string(&node.table),
+                sql_string(&node.identity_column)
+            ),
+        )?;
         node_ids.insert(node.name.clone(), id);
     }
 
@@ -739,12 +778,15 @@ fn register_graph_in_transaction(
             ),
             "relationship source id",
         )?;
-        execute_internal(connection, format!(
-            "INSERT INTO {RELATIONSHIP_SOURCES_TABLE}(source_id, table_name, identity_column) VALUES ({}, {}, {})",
-            relationship_id,
-            sql_string(&relationship.table),
-            sql_string(&relationship.identity_column)
-        ))?;
+        execute_internal(
+            connection,
+            format!(
+                "INSERT INTO {RELATIONSHIP_SOURCES_TABLE}(source_id, table_name, identity_column) VALUES ({}, {}, {})",
+                relationship_id,
+                sql_string(&relationship.table),
+                sql_string(&relationship.identity_column)
+            ),
+        )?;
         for (ordinal, role) in relationship.roles.iter().enumerate() {
             let polymorphic = polymorphic_role(polymorphic_roles, relationship, role);
             let names = polymorphic
@@ -767,24 +809,27 @@ fn register_graph_in_transaction(
                 .map(|source| source.get().to_string())
                 .collect::<Vec<_>>()
                 .join(",");
-            execute_internal(connection, format!(
-                "INSERT INTO {RELATIONSHIP_ROLES_TABLE}(source_id, ordinal, name, column_name, node_source_ids, node_source_column, cardinality) \
+            execute_internal(
+                connection,
+                format!(
+                    "INSERT INTO {RELATIONSHIP_ROLES_TABLE}(source_id, ordinal, name, column_name, node_source_ids, node_source_column, cardinality) \
                  VALUES ({}, {}, {}, {}, {}, {}, {})",
-                relationship_id,
-                ordinal + 1,
-                sql_string(&role.name),
-                sql_string(&role.column),
-                sql_string(&node_source_ids),
-                sql_string(
-                    polymorphic
-                        .map(|registration| registration.discriminator_column.as_str())
-                        .unwrap_or(""),
+                    relationship_id,
+                    ordinal + 1,
+                    sql_string(&role.name),
+                    sql_string(&role.column),
+                    sql_string(&node_source_ids),
+                    sql_string(
+                        polymorphic
+                            .map(|registration| registration.discriminator_column.as_str())
+                            .unwrap_or(""),
+                    ),
+                    sql_string(match role.cardinality {
+                        RoleCardinality::One => "one",
+                        RoleCardinality::Many => "many",
+                    })
                 ),
-                sql_string(match role.cardinality {
-                    RoleCardinality::One => "one",
-                    RoleCardinality::Many => "many",
-                })
-            ))?;
+            )?;
             match role.cardinality {
                 RoleCardinality::One => {
                     install_role_index(connection, graph_id, relationship, role, polymorphic)?;
@@ -972,12 +1017,18 @@ fn install_open_property_store(
 }
 
 fn create_catalog(connection: &Arc<Connection>) -> Result<(), CatalogError> {
-    execute_internal(connection, format!(
-        "CREATE TABLE IF NOT EXISTS {GRAPHS_TABLE}(id INTEGER PRIMARY KEY, name TEXT NOT NULL COLLATE NOCASE UNIQUE)"
-    ))?;
-    execute_internal(connection, format!(
-        "CREATE TABLE IF NOT EXISTS {GENERATIONS_TABLE}(graph_id INTEGER PRIMARY KEY, generation INTEGER NOT NULL CHECK(generation >= 0), {SCHEMA_GENERATION_COLUMN} INTEGER NOT NULL DEFAULT 0 CHECK({SCHEMA_GENERATION_COLUMN} >= 0))"
-    ))?;
+    execute_internal(
+        connection,
+        format!(
+            "CREATE TABLE IF NOT EXISTS {GRAPHS_TABLE}(id INTEGER PRIMARY KEY, name TEXT NOT NULL COLLATE NOCASE UNIQUE)"
+        ),
+    )?;
+    execute_internal(
+        connection,
+        format!(
+            "CREATE TABLE IF NOT EXISTS {GENERATIONS_TABLE}(graph_id INTEGER PRIMARY KEY, generation INTEGER NOT NULL CHECK(generation >= 0), {SCHEMA_GENERATION_COLUMN} INTEGER NOT NULL DEFAULT 0 CHECK({SCHEMA_GENERATION_COLUMN} >= 0))"
+        ),
+    )?;
     // Databases registered before the split carry only `generation`. Adding
     // the column here (registration always holds a write transaction) lets
     // them take the fast staleness path from the next open onwards.
@@ -990,18 +1041,30 @@ fn create_catalog(connection: &Arc<Connection>) -> Result<(), CatalogError> {
             ),
         )?;
     }
-    execute_internal(connection, format!(
-        "CREATE TABLE IF NOT EXISTS {SOURCES_TABLE}(id INTEGER PRIMARY KEY, graph_id INTEGER NOT NULL, name TEXT NOT NULL COLLATE NOCASE, kind TEXT NOT NULL CHECK(kind IN ('node', 'relationship')), UNIQUE(graph_id, name))"
-    ))?;
-    execute_internal(connection, format!(
-        "CREATE TABLE IF NOT EXISTS {NODE_SOURCES_TABLE}(source_id INTEGER PRIMARY KEY, table_name TEXT NOT NULL, identity_column TEXT NOT NULL)"
-    ))?;
-    execute_internal(connection, format!(
-        "CREATE TABLE IF NOT EXISTS {RELATIONSHIP_SOURCES_TABLE}(source_id INTEGER PRIMARY KEY, table_name TEXT NOT NULL, identity_column TEXT NOT NULL)"
-    ))?;
-    execute_internal(connection, format!(
-        "CREATE TABLE IF NOT EXISTS {RELATIONSHIP_ROLES_TABLE}(source_id INTEGER NOT NULL, ordinal INTEGER NOT NULL, name TEXT NOT NULL COLLATE NOCASE, column_name TEXT NOT NULL, node_source_ids TEXT NOT NULL, node_source_column TEXT NOT NULL, cardinality TEXT NOT NULL CHECK(cardinality IN ('one', 'many')), PRIMARY KEY(source_id, ordinal))"
-    ))?;
+    execute_internal(
+        connection,
+        format!(
+            "CREATE TABLE IF NOT EXISTS {SOURCES_TABLE}(id INTEGER PRIMARY KEY, graph_id INTEGER NOT NULL, name TEXT NOT NULL COLLATE NOCASE, kind TEXT NOT NULL CHECK(kind IN ('node', 'relationship')), UNIQUE(graph_id, name))"
+        ),
+    )?;
+    execute_internal(
+        connection,
+        format!(
+            "CREATE TABLE IF NOT EXISTS {NODE_SOURCES_TABLE}(source_id INTEGER PRIMARY KEY, table_name TEXT NOT NULL, identity_column TEXT NOT NULL)"
+        ),
+    )?;
+    execute_internal(
+        connection,
+        format!(
+            "CREATE TABLE IF NOT EXISTS {RELATIONSHIP_SOURCES_TABLE}(source_id INTEGER PRIMARY KEY, table_name TEXT NOT NULL, identity_column TEXT NOT NULL)"
+        ),
+    )?;
+    execute_internal(
+        connection,
+        format!(
+            "CREATE TABLE IF NOT EXISTS {RELATIONSHIP_ROLES_TABLE}(source_id INTEGER NOT NULL, ordinal INTEGER NOT NULL, name TEXT NOT NULL COLLATE NOCASE, column_name TEXT NOT NULL, node_source_ids TEXT NOT NULL, node_source_column TEXT NOT NULL, cardinality TEXT NOT NULL CHECK(cardinality IN ('one', 'many')), PRIMARY KEY(source_id, ordinal))"
+        ),
+    )?;
     ensure_merge_keys_table(connection)?;
     Ok(())
 }
@@ -1037,7 +1100,7 @@ fn ensure_catalog_exists(connection: &Arc<Connection>) -> Result<(), CatalogErro
     Ok(())
 }
 
-fn validate_registration_names(
+pub(crate) fn validate_registration_names(
     registration: &GraphRegistration,
     polymorphic_roles: &[PolymorphicRoleRegistration],
 ) -> Result<(), CatalogError> {
@@ -1145,7 +1208,7 @@ fn validate_registration_names(
     Ok(())
 }
 
-fn polymorphic_role<'a>(
+pub(crate) fn polymorphic_role<'a>(
     registrations: &'a [PolymorphicRoleRegistration],
     relationship: &RelationshipSourceRegistration,
     role: &RoleSourceRegistration,
@@ -1182,7 +1245,7 @@ fn validate_name(kind: &'static str, name: &str) -> Result<(), CatalogError> {
     }
 }
 
-fn require_columns(
+pub(crate) fn require_columns(
     connection: &Arc<Connection>,
     table: &str,
     columns: &[&str],
@@ -1221,7 +1284,7 @@ fn require_columns(
 /// `columns` is the table's already-fetched `require_columns` result, which
 /// must include `column`; passing it in avoids a second `PRAGMA table_info`
 /// round trip per source.
-fn require_unique_identity(
+pub(crate) fn require_unique_identity(
     connection: &Arc<Connection>,
     table: &str,
     column: &str,
@@ -1286,7 +1349,7 @@ fn require_unique_identity(
 /// time, so "STRICT column, non-builtin type name" is proof of a
 /// CUSTOM/DOMAIN/STRUCT/UNION column even when the registry isn't loaded
 /// right now. Non-STRICT tables never enforce this, so they're skipped.
-fn require_custom_types_enabled_for_source(
+pub(crate) fn require_custom_types_enabled_for_source(
     connection: &Arc<Connection>,
     table_name: &str,
 ) -> Result<(), CatalogError> {
@@ -1318,7 +1381,7 @@ fn require_custom_types_enabled_for_source(
     Ok(())
 }
 
-fn install_role_index(
+pub(crate) fn install_role_index(
     connection: &Arc<Connection>,
     graph: GraphId,
     source: &RelationshipSourceRegistration,
@@ -1364,7 +1427,7 @@ fn install_role_index(
 
 /// One composite index per unordered pair of single-valued roles. A two-role
 /// relation therefore gets exactly the (start, end) index it has today.
-fn install_role_pair_indexes(
+pub(crate) fn install_role_pair_indexes(
     connection: &Arc<Connection>,
     graph: GraphId,
     source: &RelationshipSourceRegistration,
@@ -1480,7 +1543,7 @@ fn has_covering_btree_index(
 
 /// A `Many` role stores its players in `<table>__<role>(relation_id, node_id)`,
 /// indexed in both directions so a hop is an index probe from either side.
-fn install_spill_table(
+pub(crate) fn install_spill_table(
     connection: &Arc<Connection>,
     graph: GraphId,
     source: &RelationshipSourceRegistration,
@@ -2189,8 +2252,8 @@ mod tests {
     }
 
     #[test]
-    fn a_many_role_spills_to_a_side_table_indexed_both_directions_and_is_excluded_from_pair_indexes(
-    ) {
+    fn a_many_role_spills_to_a_side_table_indexed_both_directions_and_is_excluded_from_pair_indexes()
+     {
         // A Many role has no endpoint column on the relation table itself:
         // its players live in <table>__<role>(relation_id, node_id), indexed
         // from both directions, and it must not appear in any composite pair
@@ -2691,9 +2754,11 @@ mod tests {
         // this is rejected for its name rather than for not existing. Nothing
         // installs a graph trigger any more, but the frontend still drops ones
         // an older build left behind, and that has to stay off limits to users.
-        assert!(connection
-            .execute("DROP TRIGGER __tdb_int_g_forged")
-            .is_err());
+        assert!(
+            connection
+                .execute("DROP TRIGGER __tdb_int_g_forged")
+                .is_err()
+        );
 
         let index_rows = query_rows(
             &connection,
@@ -2701,9 +2766,11 @@ mod tests {
         )
         .expect("query index");
         let index_name = text(&index_rows[0], 0, "index name").expect("index name");
-        assert!(connection
-            .execute(format!("DROP INDEX {}", quote_identifier(index_name)))
-            .is_err());
+        assert!(
+            connection
+                .execute(format!("DROP INDEX {}", quote_identifier(index_name)))
+                .is_err()
+        );
         assert_eq!(
             graph_generation(&connection, "social").expect("generation"),
             0

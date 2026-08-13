@@ -11,6 +11,7 @@ compile_error!("the graph `fts` feature is not supported on wasm targets");
 
 mod binder;
 mod catalog;
+mod catalog_extend;
 mod compiler;
 mod ddl;
 mod dialect;
@@ -34,55 +35,58 @@ mod statement_cache;
 mod transaction;
 
 pub use binder::{
-    bind, bind_mutation, classify_statement, BindError, BoundMutation, BoundQuery, CatalogEntity,
-    GraphCatalogSnapshot, ParameterTypes, PropertyResolution, ResolvedNodeType, ResolvedProperty,
-    StatementKind,
+    BindError, BoundMutation, BoundQuery, CatalogEntity, GraphCatalogSnapshot, ParameterTypes,
+    PropertyResolution, ResolvedNodeType, ResolvedProperty, StatementKind, bind, bind_mutation,
+    classify_statement,
 };
 #[allow(deprecated)]
 pub use catalog::{
-    edge_props_table_name, graph_generation, labels_table_name, load_registered_graph,
-    node_props_table_name, prop_dict_table_name, register_graph, register_graph_with_options,
-    register_graph_with_polymorphic_roles, relationship_type_registry_table_name,
-    relationship_types_table_name, CatalogError, GraphRegisterOptions, GraphRegistration,
+    CatalogError, GRAPH_CATALOG_VERSION, GraphRegisterOptions, GraphRegistration,
     NodeSourceRegistration, PolymorphicRoleRegistration, RegisteredGraph, RegisteredNodeSource,
     RegisteredRelationshipRole, RegisteredRelationshipSource, RelationshipSourceRegistration,
-    RoleSourceRegistration, GRAPH_CATALOG_VERSION,
+    RoleSourceRegistration, edge_props_table_name, graph_generation, labels_table_name,
+    load_registered_graph, node_props_table_name, prop_dict_table_name, register_graph,
+    register_graph_with_options, register_graph_with_polymorphic_roles,
+    relationship_type_registry_table_name, relationship_types_table_name,
 };
-pub use compiler::{graph_frontend_id, GraphCompilationCatalog, GraphCompiler};
-pub use ddl::{execute_graph_ddl, DdlError};
-pub use dialect::{GraphDialect, GRAPH_DIALECT_NAME};
+pub use catalog_extend::extend_graph_registration;
+pub use compiler::{GraphCompilationCatalog, GraphCompiler, graph_frontend_id};
+pub use ddl::{DdlError, execute_graph_ddl};
+pub use dialect::{GRAPH_DIALECT_NAME, GraphDialect};
 #[cfg(feature = "fts")]
 pub use fts::{
     GraphFtsEntityKind, GraphFtsError, GraphFtsIndex, GraphFtsIndexSpec, GraphFtsPropertyWeight,
     GraphFtsTokenizer, MAX_GRAPH_FTS_INDEX_NAME_BYTES, MAX_GRAPH_FTS_PROPERTIES,
 };
-pub use graph_expand::{install_graph_catalog, register_graph_catalog, GRAPH_EXPAND_TABLE_NAME};
+pub use graph_expand::{GRAPH_EXPAND_TABLE_NAME, install_graph_catalog, register_graph_catalog};
 pub use inspection::{
     GraphNodeSourceInspection, GraphPropertyInspection, GraphRelationshipSourceInspection,
     GraphRoleInspection, GraphSchemaInspection, GraphSemanticTypeInspection,
 };
 pub use lowering::{
-    lower_relational, lower_relational_with_options, ExpandLowerOptions, LowerError,
-    NodeTableLayout, RelationalCatalogSnapshot, RelationshipRoleLayout, RelationshipTableLayout,
+    ExpandLowerOptions, LowerError, NodeTableLayout, RelationalCatalogSnapshot,
+    RelationshipRoleLayout, RelationshipTableLayout, lower_relational,
+    lower_relational_with_options,
 };
 pub use property_physical::{
-    dict_value_type_name, parse_dict_value_type, resolve_property_physical, PropertyDictEntry,
-    PropertyDictError, PropertyDictionary, PropertyPhysical, NODE_PROPS_CELL_DDL, PROP_DICT_DDL,
+    NODE_PROPS_CELL_DDL, PROP_DICT_DDL, PropertyDictEntry, PropertyDictError, PropertyDictionary,
+    PropertyPhysical, dict_value_type_name, parse_dict_value_type, resolve_property_physical,
 };
 pub use turso_graph_runtime::{BuildLimits, TraversalLimits};
 // `execute_cypher_mutation` now takes the session's statement cache, which is
 // an internal type, so it is reached through `GraphConnection::execute`.
 pub use mutation::{
-    take_closed_create_fast_path_hit, MutationError, MutationSummary, Parameters,
-    CLOSED_CREATE_FAST_PATH_HITS,
+    CLOSED_CREATE_FAST_PATH_HITS, MutationError, MutationSummary, Parameters,
+    take_closed_create_fast_path_hit,
 };
 pub use schema_catalog::SchemaCatalog;
 pub use semantic::{
-    load_semantic_snapshot, register_semantic_constraints, register_semantic_schema,
-    register_semantic_schema_with_fragments, OwnedProperty, SemanticCatalogError, SemanticFragment,
-    SemanticFragmentInfo, SemanticFragmentMember, SemanticFragmentRegistration, SemanticNodeType,
-    SemanticProperty, SemanticRelationshipType, SemanticRole, SemanticRoleCardinality,
+    OwnedProperty, SemanticCatalogError, SemanticFragment, SemanticFragmentInfo,
+    SemanticFragmentMember, SemanticFragmentRegistration, SemanticNodeType, SemanticProperty,
+    SemanticRelationshipType, SemanticReplaceOutcome, SemanticRole, SemanticRoleCardinality,
     SemanticRoleRegistration, SemanticSchemaRegistration, SemanticSnapshot, SemanticTypeInfo,
+    load_semantic_snapshot, register_semantic_constraints, register_semantic_schema,
+    register_semantic_schema_with_fragments, replace_semantic_overlay,
 };
 pub use semantic_constraints::{
     SemanticConstraintRegistration, SemanticEndpoint, SemanticKeyConstraint,
@@ -90,13 +94,13 @@ pub use semantic_constraints::{
     SemanticRequiredProperty, SemanticScalar, SemanticUniqueProperty, SemanticValuePredicate,
 };
 pub use session::{
-    open_database, open_database_with_io, strip_explain_prefix, Error, GraphConnection,
-    GraphConnection as Connection, GraphHostMode,
+    Error, GraphConnection, GraphConnection as Connection, GraphHostMode, open_database,
+    open_database_with_io, strip_explain_prefix,
 };
 pub use snapshot::{
-    build_traversal_snapshot, build_visible_traversal_snapshot, GraphDiagnostics, NodeCoordinate,
-    PublishOutcome, RelationshipCoordinate, SessionSnapshotStore, SnapshotError, SnapshotMetadata,
-    SnapshotPersistenceMode, SnapshotStatus, SnapshotStore, SourceIdentity, TraversalSnapshot,
+    GraphDiagnostics, NodeCoordinate, PublishOutcome, RelationshipCoordinate, SessionSnapshotStore,
+    SnapshotError, SnapshotMetadata, SnapshotPersistenceMode, SnapshotStatus, SnapshotStore,
+    SourceIdentity, TraversalSnapshot, build_traversal_snapshot, build_visible_traversal_snapshot,
 };
 pub use statement::Statement;
 

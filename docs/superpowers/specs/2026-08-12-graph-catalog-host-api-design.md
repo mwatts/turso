@@ -2,7 +2,7 @@
 
 Date: 2026-08-12
 Branch: `feature/graph-frontend`
-Status: draft for implementation
+Status: implemented on `feature/graph-frontend` (`extend_graph_registration`, `replace_semantic_overlay`)
 Issues: `turso-graph-catalog-host-api-gv7` (epic),
 `turso-extend-graph-registration-7yx`,
 `turso-replace-semantic-overlay-oje`,
